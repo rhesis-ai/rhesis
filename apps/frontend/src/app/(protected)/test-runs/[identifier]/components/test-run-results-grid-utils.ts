@@ -16,6 +16,7 @@ export type TestResultDisplayStatus = {
   hasConflict: boolean;
   automatedPassed?: boolean;
   hasExecutionError: boolean;
+  errorReason?: string;
   reviewData?: {
     reviewer: string;
     comments: string;
@@ -111,6 +112,9 @@ export function getTestResultDisplayStatus(
         isOverruled: false,
         hasConflict: false,
         hasExecutionError: true,
+        errorReason:
+          test.test_output.goal_evaluation?.reason ||
+          'Test execution encountered an error',
       };
     }
 
@@ -172,6 +176,8 @@ export function getTestResultDisplayStatus(
       isOverruled: false,
       hasConflict: false,
       hasExecutionError: true,
+      errorReason:
+        'No metrics to evaluate. Ensure the requirement has metrics configured.',
     };
   }
 
@@ -233,6 +239,47 @@ export function getTestResultDisplayStatus(
     automatedPassed: originalPassed,
     hasExecutionError: false,
   };
+}
+
+function getHttpErrorReason(test: TestResultDetail): string | undefined {
+  const output = test.test_output as Record<string, unknown> | undefined;
+  if (!output) return undefined;
+
+  const isHttpError =
+    output.error_type === 'http_error' ||
+    (output.error &&
+      typeof output.status_code === 'number' &&
+      output.status_code >= 400);
+  if (!isHttpError) return undefined;
+
+  const statusCode =
+    typeof output.status_code === 'number' ? output.status_code : undefined;
+  const errorMsg = typeof output.error === 'string' ? output.error : '';
+  if (statusCode) {
+    return `Endpoint returned HTTP ${statusCode}${errorMsg ? `: ${errorMsg}` : ''}`;
+  }
+  return `Endpoint returned an error${errorMsg ? `: ${errorMsg}` : ''}`;
+}
+
+export function getExecutionErrorTooltip(
+  test: TestResultDetail,
+  status: TestResultDisplayStatus,
+  requirements?: Array<{ id: string; metrics: Array<unknown> }>
+): string {
+  if (!status.hasExecutionError) return '';
+
+  const httpReason = getHttpErrorReason(test);
+  if (httpReason) return httpReason;
+
+  const requirement = test.test?.requirement;
+  if (requirement && requirements) {
+    const reqData = requirements.find(r => r.id === requirement.id);
+    if (reqData && reqData.metrics.length === 0) {
+      return `No metrics to evaluate because the requirement "${requirement.name}" has no metrics configured`;
+    }
+  }
+
+  return status.errorReason || '';
 }
 
 export { truncateText };

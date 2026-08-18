@@ -69,7 +69,7 @@ class TestTrialExecuteHttp:
                 json={
                     "endpoint_id": str(uuid.uuid4()),
                     "test_configuration": {"goal": "test goal"},
-                    "behavior": "b",
+                    "requirement": "b",
                     "topic": "t",
                     "category": "c",
                 },

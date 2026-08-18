@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 
 # Imported as a module, not by name: the route handlers below are called
@@ -17,7 +18,9 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import apply_select
@@ -40,6 +43,7 @@ def create_project(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.PROJECTS)),
 ):
     """Create a new project. The creating user is automatically enrolled as a member."""
     from rhesis.backend.app.services.organization import enroll_user_in_project

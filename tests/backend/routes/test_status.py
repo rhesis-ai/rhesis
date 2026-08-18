@@ -45,11 +45,11 @@ class StatusTestMixin:
     description_field = "description"
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample status data using factory"""
         return StatusDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal status data using factory"""
         return StatusDataFactory.minimal_data()
 
@@ -385,7 +385,7 @@ class TestStatusRoutes(StatusTestMixin, BaseEntityRouteTests):
         )
 
         # Depending on business rules, this might be allowed or not
-        # Adjust assertion based on actual API behavior
+        # Adjust assertion based on actual API requirement
         assert response2.status_code in [
             status.HTTP_200_OK,  # If duplicates are allowed
             status.HTTP_400_BAD_REQUEST,  # If duplicates are rejected

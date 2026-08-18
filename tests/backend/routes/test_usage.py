@@ -43,7 +43,14 @@ class TestUsageEndpoint:
         body = response.json()
 
         for item in body["resources"].values():
-            assert set(item.keys()) == {"used", "limit", "period_start", "period_end", "kind"}
+            assert set(item.keys()) == {
+                "used",
+                "limit",
+                "ceiling",
+                "period_start",
+                "period_end",
+                "kind",
+            }
             assert isinstance(item["used"], int)
             assert item["kind"] in ("flow", "stock")
 

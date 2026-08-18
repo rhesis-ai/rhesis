@@ -32,7 +32,7 @@ class MultiTurnTestConfig(BaseModel):
     restrictions: Optional[str] = Field(
         None,
         max_length=10000,
-        description="What the target MUST NOT do - forbidden behaviors (optional)",
+        description="What the target MUST NOT do - forbidden requirements (optional)",
     )
     scenario: Optional[str] = Field(
         None,

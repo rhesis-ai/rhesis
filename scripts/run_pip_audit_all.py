@@ -64,7 +64,6 @@ SKIP_DIR_NAMES = frozenset(
         "node_modules",
         "__pycache__",
         ".pytest_cache",
-        ".mypy_cache",
         ".ruff_cache",
         ".tox",
         "dist",

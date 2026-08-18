@@ -41,7 +41,7 @@ make format_diff
 
 ### Type Checking
 
-We use `mypy` and `pyright` for type checking:
+We use `pyright` for type checking:
 
 ```bash
 make type-check

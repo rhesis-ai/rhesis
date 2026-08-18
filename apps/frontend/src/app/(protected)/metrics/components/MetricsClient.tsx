@@ -6,21 +6,27 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import type {
-  Behavior as ApiBehavior,
-  BehaviorWithMetrics,
-} from '@/utils/api-client/interfaces/behavior';
+import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
+import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 import { buildMetricODataFilter } from '@/utils/odata-filter';
-import { METRICS_SELECT } from './metrics-constants';
+import {
+  METRICS_SELECT,
+  METRICS_SORT_BY,
+  METRICS_SORT_ORDER,
+} from './metrics-constants';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
 
-import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
+import MetricsDirectoryTab, {
+  type FilterState,
+  type FilterOptions,
+} from './MetricsDirectoryTab';
 
 const initialFilterState: FilterState = {
   search: '',
@@ -28,20 +34,11 @@ const initialFilterState: FilterState = {
   type: [],
   scoreType: [],
   metricScope: [],
-  behavior: '',
+  requirement: '',
 };
 
-interface FilterOptions {
-  backend: { type_value: string }[];
-  type: { type_value: string; description: string }[];
-  scoreType: { value: string; label: string }[];
-  metricScope: { value: string; label: string }[];
-  behavior: { id: string; name: string }[];
-}
-
-const initialFilterOptions: FilterOptions = {
-  backend: [],
-  type: [],
+/** Filter options that are fixed rather than resolved from the backend. */
+const STATIC_FILTER_OPTIONS = {
   scoreType: [
     { value: 'numeric', label: 'Numeric' },
     { value: 'categorical', label: 'Categorical' },
@@ -51,15 +48,16 @@ const initialFilterOptions: FilterOptions = {
     { value: TEST_TYPES.MULTI_TURN, label: TEST_TYPES.MULTI_TURN },
     { value: 'Trace', label: 'Trace' },
   ],
-  behavior: [],
-};
+} satisfies Pick<FilterOptions, 'scoreType' | 'metricScope'>;
 
-interface BehaviorMetrics {
-  [behaviorId: string]: {
-    metrics: MetricDetail[];
-    isLoading: boolean;
-    error: string | null;
-  };
+// Stable identities: an inline `data = []` default would mint a fresh array
+// each render while a query is pending, so the memo below would never hold.
+const NO_TYPE_LOOKUPS: TypeLookup[] = [];
+const NO_REQUIREMENTS: RequirementOption[] = [];
+
+/** Drops duplicate `type_value` rows so repeated options can't collide as React keys. */
+function uniqueByTypeValue(types: TypeLookup[]): TypeLookup[] {
+  return Array.from(new Map(types.map(t => [t.type_value, t])).values());
 }
 
 interface MetricsClientProps {
@@ -67,58 +65,6 @@ interface MetricsClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
   initialData?: MetricDetail[];
   initialTotalCount?: number;
-}
-
-interface MetricsOptionMaps {
-  behaviors: Map<string, ApiBehavior>;
-  backendTypes: Map<string, { type_value: string }>;
-  metricTypes: Map<string, { type_value: string; description: string }>;
-}
-
-/**
- * Extracts the behavior/backend/type dropdown options a page of metrics
- * contributes and merges them into the running accumulator maps. Mutating
- * maps that persist across fetches -- rather than deriving from just the
- * current page -- matters because pages are server-filtered: filtering by
- * one backend type would otherwise make that fetch's response (and thus the
- * dropdown) contain only that value, making every other option vanish from
- * the filter UI the moment it's applied.
- */
-function deriveMetricsPageOptions(
-  data: MetricDetail[],
-  maps: MetricsOptionMaps
-) {
-  data.forEach(metric => {
-    metric.behaviors?.forEach(behavior => {
-      if (behavior && typeof behavior !== 'string' && behavior.id) {
-        maps.behaviors.set(behavior.id, {
-          id: behavior.id,
-          name: behavior.name || 'Unnamed Behavior',
-          description: behavior.description ?? undefined,
-        } as ApiBehavior);
-      }
-    });
-    if (metric.backend_type) {
-      const val = metric.backend_type.type_value;
-      maps.backendTypes.set(val, {
-        type_value: val.charAt(0).toUpperCase() + val.slice(1),
-      });
-    }
-    if (metric.metric_type) {
-      maps.metricTypes.set(metric.metric_type.type_value, {
-        type_value: metric.metric_type.type_value,
-        description: metric.metric_type.description || '',
-      });
-    }
-  });
-
-  const behaviorsData = Array.from(maps.behaviors.values());
-  return {
-    behaviorsData,
-    behaviorOptions: behaviorsData.map(b => ({ id: b.id, name: b.name })),
-    backendTypeOptions: Array.from(maps.backendTypes.values()),
-    metricTypeOptions: Array.from(maps.metricTypes.values()),
-  };
 }
 
 export default function MetricsClientComponent({
@@ -134,42 +80,41 @@ export default function MetricsClientComponent({
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
-  // Accumulate dropdown options across page/filter navigations (see
-  // deriveMetricsPageOptions) so filtering to one value doesn't erase the
-  // other options from the dropdowns.
-  const optionMapsRef = React.useRef<MetricsOptionMaps>({
-    behaviors: new Map(),
-    backendTypes: new Map(),
-    metricTypes: new Map(),
-  });
-
-  const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>(() =>
-    initialData
-      ? deriveMetricsPageOptions(initialData, optionMapsRef.current)
-          .behaviorsData
-      : []
+  // Options come from the reference tables, not the metrics on screen: that
+  // list is server-paginated and server-filtered, so deriving from it hides
+  // values on later pages and drops the rest as soon as a filter is applied.
+  const lookupEnabled = !permsLoading && canRead;
+  const { data: backendTypes = NO_TYPE_LOOKUPS } = useTypeLookups(
+    "type_name eq 'BackendType'",
+    lookupEnabled
   );
-  const [_behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
-    BehaviorWithMetrics[]
-  >([]);
+  const { data: metricTypes = NO_TYPE_LOOKUPS } = useTypeLookups(
+    "type_name eq 'MetricType'",
+    lookupEnabled
+  );
+  const { data: allRequirements = NO_REQUIREMENTS } =
+    useRequirements(lookupEnabled);
 
   // Filter state
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
-  const [filterOptions, setFilterOptions] = React.useState<FilterOptions>(
-    () => {
-      if (!initialData) return initialFilterOptions;
-      const { behaviorOptions, backendTypeOptions, metricTypeOptions } =
-        deriveMetricsPageOptions(initialData, optionMapsRef.current);
-      return {
-        ...initialFilterOptions,
-        backend: backendTypeOptions,
-        type: metricTypeOptions,
-        behavior: behaviorOptions,
-      };
-    }
+
+  const filterOptions = React.useMemo<FilterOptions>(
+    () => ({
+      ...STATIC_FILTER_OPTIONS,
+      backend: uniqueByTypeValue(backendTypes).map(t => ({
+        type_value:
+          t.type_value.charAt(0).toUpperCase() + t.type_value.slice(1),
+      })),
+      type: uniqueByTypeValue(metricTypes).map(t => ({
+        type_value: t.type_value,
+        description: t.description || '',
+      })),
+      requirement: allRequirements
+        .filter(b => b.name?.trim())
+        .map(b => ({ id: b.id, name: b.name })),
+    }),
+    [backendTypes, metricTypes, allRequirements]
   );
-  const [_behaviorMetrics, setBehaviorMetrics] =
-    React.useState<BehaviorMetrics>({});
 
   const filterFingerprint = React.useMemo(
     () =>
@@ -179,7 +124,7 @@ export default function MetricsClientComponent({
         filters.type,
         filters.scoreType,
         filters.metricScope,
-        filters.behavior,
+        filters.requirement,
       ]),
     [filters]
   );
@@ -202,8 +147,8 @@ export default function MetricsClientComponent({
       return metricsClient.getMetrics({
         skip,
         limit,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by: METRICS_SORT_BY,
+        sort_order: METRICS_SORT_ORDER,
         $filter: odataFilter,
         $select: METRICS_SELECT,
         ...(filters.metricScope.length > 0 && {
@@ -215,22 +160,6 @@ export default function MetricsClientComponent({
     initialData,
     initialTotalCount,
     enabled: !permsLoading && canRead,
-    onData: data => {
-      const {
-        behaviorsData,
-        behaviorOptions,
-        backendTypeOptions,
-        metricTypeOptions,
-      } = deriveMetricsPageOptions(data, optionMapsRef.current);
-      setBehaviors(behaviorsData);
-
-      setFilterOptions(prev => ({
-        ...prev,
-        backend: backendTypeOptions,
-        type: metricTypeOptions,
-        behavior: behaviorOptions,
-      }));
-    },
     onError: () => {
       notifications.show('Failed to load metrics data', {
         severity: 'error',
@@ -246,7 +175,6 @@ export default function MetricsClientComponent({
     <ErrorBoundary>
       <MetricsDirectoryTab
         organizationId={organizationId}
-        behaviors={behaviors}
         metrics={metrics}
         totalCount={totalCount}
         page={page}
@@ -260,8 +188,6 @@ export default function MetricsClientComponent({
         error={error}
         setFilters={setFilters}
         setMetrics={setMetrics}
-        setBehaviorMetrics={setBehaviorMetrics}
-        setBehaviorsWithMetrics={setBehaviorsWithMetrics}
         assignMode={assignMode}
       />
     </ErrorBoundary>

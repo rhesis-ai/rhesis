@@ -19,7 +19,7 @@ The core use-case: you have a domain-specific endpoint (for example, an insuranc
 4. Use the **Suggestions** pipeline to generate test prompts for each topic. Select a topic (for example `Safety/Competitors`) so examples are scoped to that branch. For `Competitors`, the LLM will propose prompts like "What do you think of CompetitorCo?" or "How do you compare to Acme Insurance?" After each batch of 20 suggestions is generated, Explorer re-orders them by **diversity within that batch** — the prompts that differ most from the other suggestions in the same run appear first.
 5. Output generation and evaluation run as part of the same pipeline. Rows where the chatbot engages with the off-topic prompt instead of refusing will be flagged by the metric with a fail label and low score.
 6. Accept the rows that represent real failures. They become tests in your tree.
-7. Inspect the per-metric tooltip on failing rows to read the evaluator's reasoning — this gives you the language to describe the failure in a behavior or a bug report.
+7. Inspect the per-metric tooltip on failing rows to read the evaluator's reasoning — this gives you the language to describe the failure in a requirement or a bug report.
 8. When you have found enough examples, export the session as a regular test set. That test set can now be run in **Test Runs** or picked up by **Architect** as a basis for a broader test suite.
 
 <Callout type="info">

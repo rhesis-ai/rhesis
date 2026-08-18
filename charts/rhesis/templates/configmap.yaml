@@ -39,6 +39,14 @@ data:
   NEXT_PUBLIC_QUICK_START: {{ .Values.config.nextPublicQuickStart | quote }}
   NEXT_PUBLIC_SUPPORT_EMAIL: {{ .Values.config.nextPublicSupportEmail | quote }}
   ONBOARDING_VIDEO_URL: {{ .Values.config.onboardingVideoUrl | quote }}
+  ARCHITECT_HELP_ARTICLE_URLS: {{ .Values.config.architectHelpArticleUrls | quote }}
+  # Branding overrides. Not NEXT_PUBLIC_* on purpose: that prefix bakes a value
+  # into the client bundle at build time, which would mean one image per
+  # deployment. The frontend reads these per request instead.
+  BRAND_PRIMARY_COLOR: {{ .Values.config.brandPrimaryColor | quote }}
+  BRAND_SECONDARY_COLOR: {{ .Values.config.brandSecondaryColor | quote }}
+  BRAND_FAVICON_URL: {{ .Values.config.brandFaviconUrl | quote }}
+  BRAND_PRODUCT_NAME: {{ .Values.config.brandProductName | quote }}
 
   # -------------------------------------------------------------------------
   # Backend
@@ -47,6 +55,14 @@ data:
   FRONTEND_URL: {{ .Values.config.frontendUrl | quote }}
   BACKEND_URL: {{ .Values.config.backendUrl | quote }}
   QUICK_START: {{ .Values.config.quickStart | quote }}
+
+  # -------------------------------------------------------------------------
+  # Auth
+  # Disposable-email screening on self-serve sign-up. Config, not a secret, so
+  # blocking a domain is a values change plus a rollout — no image rebuild.
+  # -------------------------------------------------------------------------
+  AUTH_BLOCK_DISPOSABLE_EMAILS: {{ .Values.config.authBlockDisposableEmails | quote }}
+  AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS: {{ .Values.config.authDisposableEmailExtraDomains | quote }}
 
   # -------------------------------------------------------------------------
   # AI model configuration

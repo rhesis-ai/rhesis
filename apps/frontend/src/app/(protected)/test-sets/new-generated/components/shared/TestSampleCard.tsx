@@ -141,7 +141,7 @@ export default function TestSampleCard({
               sx={{ display: 'flex', gap: 0.5, mb: 1.5, alignItems: 'center' }}
             >
               <Chip
-                label={sample.behavior}
+                label={sample.requirement}
                 size="small"
                 color="primary"
                 variant="outlined"
@@ -511,7 +511,7 @@ export default function TestSampleCard({
           onClose={() => setShowConversationModal(false)}
           conversationSummary={sample.conversation}
           testConfiguration={sample.prompt}
-          behavior={sample.behavior}
+          requirement={sample.requirement}
           topic={sample.topic}
           category={sample.category}
           endpointName={endpointName}

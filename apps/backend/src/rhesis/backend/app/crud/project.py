@@ -24,6 +24,9 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 from rhesis.backend.app.utils.query_utils import include
 
+# Relationships serialized by schemas.ProjectDetail -- owner (tags load via the mixin cascade).
+_PROJECT_RELATED_FIELDS = (include(models.Project.owner),)
+
 
 def get_project(
     db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -42,7 +45,14 @@ def get_project(
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
 
-    project = get_item_detail(db, models.Project, project_id, organization_id, user_id)
+    project = get_item_detail(
+        db,
+        models.Project,
+        project_id,
+        organization_id,
+        user_id,
+        related_fields=_PROJECT_RELATED_FIELDS,
+    )
     if project is None or user_id is None:
         return project
 
@@ -95,7 +105,7 @@ def get_projects(
                 )
                 .exists()
             )
-            builder.query = builder.query.filter(exists_subquery)
+            builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
 
         return builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
 
@@ -128,7 +138,7 @@ def count_projects(
                 )
                 .exists()
             )
-            builder.query = builder.query.filter(exists_subquery)
+            builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
         return builder.count()
 
 
@@ -229,7 +239,10 @@ def add_project_member(
 
     with bypass_tenant_filter():
         existing = (
-            db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+            db.query(ProjectMembership)
+            .options(joinedload(ProjectMembership.user))
+            .filter_by(project_id=project_id, user_id=user_id)
+            .first()
         )
     if existing:
         return existing
@@ -238,7 +251,12 @@ def add_project_member(
     db.commit()
 
     with bypass_tenant_filter():
-        return db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+        return (
+            db.query(ProjectMembership)
+            .options(joinedload(ProjectMembership.user))
+            .filter_by(project_id=project_id, user_id=user_id)
+            .first()
+        )
 
 
 def remove_project_member(

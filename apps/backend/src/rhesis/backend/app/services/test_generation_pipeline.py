@@ -12,9 +12,10 @@ import anyio
 import jinja2
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
-from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY, TestSetType
+from rhesis.backend.app.crud import requirement as requirement_crud
+from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
@@ -30,10 +31,9 @@ from rhesis.backend.app.services.generation import (
 from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser, ndjson
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
     get_user_generation_model,
-    resolve_default_hosted_model,
 )
-from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.synthesizers.config_synthesizer import (
     GenerationConfig as SDKGenerationConfig,
 )
@@ -51,7 +51,7 @@ def _resolve_config_llm(db: Session, user: User):
     model_id = gen_settings.model_id
     use_fast_default = False
     if model_id:
-        row = crud.get_model(
+        row = model_crud.get_model(
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
@@ -61,28 +61,19 @@ def _resolve_config_llm(db: Session, user: User):
     if use_fast_default:
         logger.info("User generation model is Polyphemus; using fast default for pipeline config")
         try:
-            resolved = resolve_default_hosted_model(
-                get_model_settings().generation_model, str(user.organization_id)
-            )
-            if isinstance(resolved, str):
-                # Non-hosted default string (e.g. an ops override to a
-                # third-party provider) -- construct it the same way the
-                # pre-existing fallback below does.
-                return get_model(resolved)
-            return resolved
+            # ensure_language_model, not resolve_default_hosted_model: see the
+            # note on the identical branch in test_config_generator.py.
+            return ensure_language_model(get_model_settings().generation_model)
         except ValueError:
             pass
 
-    user_model = get_user_generation_model(db, user)
-    if isinstance(user_model, str):
-        try:
-            return get_model(user_model, model_type="language")
-        except ValueError as e:
-            raise ModelConfigurationError(
-                f"User model initialization failed: {e}",
-                original_error=e,
-            ) from e
-    return user_model
+    try:
+        return ensure_language_model(get_user_generation_model(db, user))
+    except ValueError as e:
+        raise ModelConfigurationError(
+            f"User model initialization failed: {e}",
+            original_error=e,
+        ) from e
 
 
 def _fetch_db_context(
@@ -93,8 +84,10 @@ def _fetch_db_context(
     previous_messages: Optional[list] = None,
 ) -> Dict[str, Any]:
     """Fetch all DB data needed for config prompts (called once upfront)."""
-    behaviors = crud.get_behaviors(db=db, organization_id=organization_id, skip=0, limit=100)
-    behavior_list = [{"name": b.name, "description": b.description or ""} for b in behaviors]
+    requirements = requirement_crud.get_requirements(
+        db=db, organization_id=organization_id, skip=0, limit=100
+    )
+    requirement_list = [{"name": b.name, "description": b.description or ""} for b in requirements]
 
     project_name = None
     project_description = None
@@ -108,7 +101,9 @@ def _fetch_db_context(
     return {
         "prompt": prompt,
         "sample_size": MAX_SAMPLE_SIZE,
-        "behaviors": behavior_list,
+        # Must stay in sync with the `{{ requirements }}` variable in
+        # test_config_generator.jinja2 -- the template can't reference this constant.
+        REQUIREMENT_LIST_KEY: requirement_list,
         "project_name": project_name,
         "project_description": project_description,
         "previous_messages": previous_messages or [],
@@ -133,7 +128,7 @@ async def _stream_config(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Stream config items from a single LLM call.
 
-    The LLM returns a JSON object with ``behaviors``, ``topics``, and
+    The LLM returns a JSON object with ``requirements``, ``topics``, and
     ``categories`` arrays.  ``IncrementalConfigParser`` tracks which key
     each parsed object belongs to so items can be emitted incrementally.
 
@@ -141,7 +136,7 @@ async def _stream_config(
     then ``config_done`` and ``_collected`` (internal) when finished.
     """
     collected: Dict[str, List[TestConfigItem]] = {
-        "behaviors": [],
+        REQUIREMENT_LIST_KEY: [],
         "topics": [],
         "categories": [],
     }
@@ -191,7 +186,7 @@ async def _stream_config(
     yield {
         "type": "_collected",
         "config": TestConfigResponse(
-            behaviors=collected["behaviors"],
+            requirements=collected[REQUIREMENT_LIST_KEY],
             topics=collected["topics"],
             categories=collected["categories"],
         ),
@@ -258,12 +253,12 @@ async def test_generation_pipeline_stream(
         yield ndjson({"type": "done"})
         return
 
-    active_behaviors = [b.name for b in config_response.behaviors if b.active]
+    active_requirements = [b.name for b in config_response.requirements if b.active]
     active_topics = [t.name for t in config_response.topics if t.active]
     active_categories = [c.name for c in config_response.categories if c.active]
 
-    if not active_behaviors:
-        active_behaviors = [b.name for b in config_response.behaviors[:1]]
+    if not active_requirements:
+        active_requirements = [b.name for b in config_response.requirements[:1]]
 
     test_index = 0
     tests_generated = 0
@@ -272,7 +267,7 @@ async def test_generation_pipeline_stream(
         if test_type == "Multi-Turn":
             config_dict = {
                 "generation_prompt": prompt,
-                "behaviors": active_behaviors,
+                REQUIREMENT_LIST_KEY: active_requirements,
                 "categories": active_categories,
                 "topics": active_topics,
             }
@@ -301,7 +296,7 @@ async def test_generation_pipeline_stream(
             )
             sdk_config = SDKGenerationConfig(
                 generation_prompt=generation_prompt,
-                behaviors=active_behaviors,
+                requirements=active_requirements,
                 categories=active_categories,
                 topics=active_topics,
             )
@@ -332,7 +327,7 @@ async def test_generation_pipeline_stream(
             )
             sdk_config = SDKGenerationConfig(
                 generation_prompt=generation_prompt,
-                behaviors=active_behaviors,
+                requirements=active_requirements,
                 categories=active_categories,
                 topics=active_topics,
             )

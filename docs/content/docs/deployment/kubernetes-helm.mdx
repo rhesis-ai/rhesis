@@ -331,6 +331,30 @@ frontend:
     host: your-app-domain.com`}
 </CodeBlock>
 
+## Rebrand the frontend
+
+Set your colours, icon and product name under `config`. They go into the chart's ConfigMap, which
+every deployment already loads — nothing to add to Secret Manager, since none of them is a secret
+(all four end up in the served HTML).
+
+<CodeBlock filename="charts/rhesis/values-customer.yaml" language="yaml">
+{`config:
+  brandPrimaryColor: "#6A1B9A"
+  brandSecondaryColor: "#C2185B"
+  brandFaviconUrl: "https://www.example.com/favicon.png"
+  brandProductName: "Acme"`}
+</CodeBlock>
+
+Quote the colours — an unquoted `#` starts a YAML comment. See
+[Environment Variables](/docs/deployment/environment-variables) for what each one covers and how
+malformed values are handled.
+
+ConfigMap changes don't restart pods on their own:
+
+```bash
+kubectl rollout restart deployment frontend -n rhesis
+```
+
 ## Minimal vs. full deployment
 
 Only 4 of the 6 chart components have public images. Rhesis publishes

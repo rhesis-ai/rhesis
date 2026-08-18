@@ -11,9 +11,9 @@ from rhesis.sdk.agents.architect import (
     ArchitectAgent,
     ArchitectConfig,
     ArchitectPlan,
-    BehaviorSpec,
     MetricSpec,
     ProjectSpec,
+    RequirementSpec,
     TestSetSpec,
 )
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
@@ -84,7 +84,7 @@ __all__ = [
     "ArchitectAgent",
     "ArchitectConfig",
     "ArchitectPlan",
-    "BehaviorSpec",
+    "RequirementSpec",
     "ProjectSpec",
     "TestSetSpec",
     "MetricSpec",

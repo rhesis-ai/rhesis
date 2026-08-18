@@ -54,7 +54,7 @@ export interface UsePaginatedListResult<T> {
 
 /**
  * Owns the client-side half of the server-pagination pattern shared by
- * directory-style pages (metrics, behaviors, ...): page/rowsPerPage state,
+ * directory-style pages (metrics, requirements, ...): page/rowsPerPage state,
  * resetting to page 0 on filter change, clamping the page when the result
  * set shrinks (e.g. after a delete), and re-fetching on page/filter/refresh
  * changes.

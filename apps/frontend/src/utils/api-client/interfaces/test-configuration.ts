@@ -7,7 +7,7 @@ import { Endpoint } from './endpoint';
  * Must match the backend MetricsSource enum in schemas/test_set.py
  */
 export enum MetricsSource {
-  BEHAVIOR = 'behavior',
+  REQUIREMENT = 'requirement',
   TEST_SET = 'test_set',
   EXECUTION_TIME = 'execution_time',
 }
@@ -17,8 +17,8 @@ export enum MetricsSource {
  */
 export function getMetricsSourceLabel(source: MetricsSource | string): string {
   switch (source) {
-    case MetricsSource.BEHAVIOR:
-      return 'Behavior';
+    case MetricsSource.REQUIREMENT:
+      return 'Requirement';
     case MetricsSource.TEST_SET:
       return 'Test Set';
     case MetricsSource.EXECUTION_TIME:

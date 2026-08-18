@@ -14,9 +14,10 @@
     "lint:errors": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint:images": "node ../scripts/check-image-formats.js",
+    "lint:titles": "node ../scripts/check-page-titles.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test --test-reporter=spec lib/__tests__"
+    "test": "node --test --test-reporter=spec lib/__tests__/*.test.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

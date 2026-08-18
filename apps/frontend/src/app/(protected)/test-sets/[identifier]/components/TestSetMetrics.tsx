@@ -243,7 +243,7 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
           />
           <Typography variant="body2" color="text.secondary">
             No test set metrics configured. When executing this test set,
-            metrics configured on each test&apos;s behavior will be used for
+            metrics configured on each test&apos;s requirement will be used for
             evaluation.
           </Typography>
         </Box>
@@ -401,7 +401,7 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
         sx={{ display: 'block', mt: 1.5 }}
       >
         These metrics will be used for evaluation when executing this test set,
-        overriding any behavior-level metric configurations.
+        overriding any requirement-level metric configurations.
       </Typography>
 
       {metricsDialog}

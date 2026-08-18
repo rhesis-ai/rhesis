@@ -31,16 +31,21 @@ config:
   nextPublicAppUrl: "https://dev-app.rhesis.ai"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
+  architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
   # Backend
   rhesisBaseUrl: "https://dev-api.rhesis.ai"
   frontendUrl: "https://dev-app.rhesis.ai"
   backendUrl: "http://backend:8080"
+  # Disposable-email screening: off | log | enforce. Starts at log so the
+  # community list's false-positive rate can be measured before it rejects.
+  authBlockDisposableEmails: "log"
+  authDisposableEmailExtraDomains: ""
 
   # GCP
   vertexAiProject: "playground-437609"
 
   # AI model — Vertex defaults in dev (GEMINI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS in ESO);
-  # avoids requiring RHESIS_API_KEY for rhesis/rhesis-default
+  # avoids requiring RHESIS_API_KEY for rhesis/rhesis
   defaultGenerationModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEvaluationModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultExecutionModel: "vertex_ai/gemini-3.1-flash-lite"
@@ -304,6 +309,11 @@ postgresql:
           secretKeyRef:
             name: rhesis-app-secrets
             key: ANALYTICS_DB_PASS
+      - name: GRAFANA_VIEWER_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: rhesis-app-secrets
+            key: GRAFANA_VIEWER_PASSWORD
     persistence:
       enabled: true
       size: 5Gi
@@ -351,6 +361,33 @@ postgresql:
               GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON TABLES TO "rhesis-user";
             ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public
               GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
+          EOSQL
+        init-grafana-viewer.sh: |
+          #!/bin/bash
+          # Read-only role behind the Grafana Postgres datasource. Mirrors stg/prd CNPG
+          # managed.roles + postInitApplicationSQL grants.
+          # BYPASSRLS is required, not convenience: `usage` is FORCE ROW LEVEL SECURITY and
+          # Grafana never sets app.current_organization, so without it every cross-org
+          # dashboard query returns zero rows. Same reasoning as PRs #2422 and #2437.
+          # Runs as rhesis-admin during first-time PVC init only.
+          set -e
+          psql -v ON_ERROR_STOP=1 -v grafana_viewer_pass="$GRAFANA_VIEWER_PASSWORD" \
+            --username "$POSTGRES_USER" --dbname "postgres" <<'EOSQL'
+            CREATE ROLE "grafana-viewer" LOGIN BYPASSRLS PASSWORD :'grafana_viewer_pass';
+          EOSQL
+          psql -v ON_ERROR_STOP=1 -v postgres_db="$POSTGRES_DB" \
+            --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'EOSQL'
+            GRANT CONNECT ON DATABASE :"postgres_db" TO "grafana-viewer";
+            GRANT USAGE ON SCHEMA public TO "grafana-viewer";
+            GRANT SELECT ON ALL TABLES IN SCHEMA public TO "grafana-viewer";
+            -- No app tables exist yet at initdb, so ALL TABLES above is a no-op and this
+            -- is what actually covers `usage`: Alembic creates it later as rhesis-admin.
+            -- Hence full-schema read rather than a `usage`/`organization` grant: default
+            -- privileges cannot name tables that do not exist yet. Combined with BYPASSRLS
+            -- this role can read any tenant's data, which #2479 tracks as a decision to
+            -- confirm across all three envs rather than diverge on here.
+            ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public
+              GRANT SELECT ON TABLES TO "grafana-viewer";
           EOSQL
     podSecurityContext:
       enabled: true

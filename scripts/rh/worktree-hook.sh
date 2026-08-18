@@ -82,7 +82,8 @@ write_fallback_ports() {
     printf 'RHESIS_PORT_OFFSET=0\nRHESIS_WORKTREE_NAME=%s\n' "$wt_name" >"$dir/.rhesis-ports"
     log "rh worktree hook: no free port block — containers are namespaced as"
     log "  rhesis-wt-${wt_name} but the ports collide with the main checkout."
-    log "  Don't run ./rh dev here; free a block with ./rh worktree <name> --remove."
+    log "  Don't run ./rh dev here. Free a block with ./rh worktree <name> --remove,"
+    log "  then claim it: cd into this worktree and run ./rh worktree --init."
 }
 
 link_shared_dirs() {
@@ -93,6 +94,34 @@ link_shared_dirs() {
         ln -s "$main_checkout/$shared" "$dir/$shared" 2>/dev/null ||
             log "rh worktree hook: could not symlink $shared/"
     done
+}
+
+# A worktree `./rh worktree` provisioned already holds a real port block; only the
+# reuse and salvage paths reach here without one. Offset 0 counts as missing — it
+# is what write_fallback_ports leaves behind when allocation failed.
+needs_provisioning() {
+    local dir="$1" offset
+    [ -f "$dir/.rhesis-ports" ] || return 0
+    offset="$(grep -m1 '^RHESIS_PORT_OFFSET=' "$dir/.rhesis-ports" | cut -d= -f2 | tr -d " \"'\r")"
+    [ -z "$offset" ] || [ "$offset" = "0" ]
+}
+
+# `./rh worktree --init` does the whole job — a real port block, the .env symlinks
+# and the port-shifted dev env files — where write_fallback_ports and
+# link_shared_dirs only keep the containers from colliding with main's. It can
+# still fail (no free block), and a non-zero exit here would kill the session, so
+# those two stay as the backstop: both no-op once --init has done its work.
+provision_worktree() {
+    local dir="$1" name="$2"
+    if needs_provisioning "$dir"; then
+        # Run from inside the worktree: --init resolves its target from $PWD, and
+        # the main checkout's copy of the script always has the flag even when the
+        # worktree's own branch predates it.
+        (cd "$dir" && "$main_checkout/rh" worktree --init >&2) ||
+            log "rh worktree hook: ./rh worktree --init failed, using the minimal fallback"
+    fi
+    write_fallback_ports "$dir" "$name"
+    link_shared_dirs "$dir"
 }
 
 case "$action" in
@@ -121,8 +150,7 @@ create)
             git -C "$main_checkout" worktree prune >/dev/null 2>&1
         if is_registered_worktree "$resolved"; then
             log "rh worktree hook: reusing existing worktree $name"
-            write_fallback_ports "$resolved" "$name"
-            link_shared_dirs "$resolved"
+            provision_worktree "$resolved" "$name"
             printf '%s\n' "$resolved"
             exit 0
         fi
@@ -159,8 +187,7 @@ create)
         exit 1
     fi
 
-    write_fallback_ports "$resolved" "$name"
-    link_shared_dirs "$resolved"
+    provision_worktree "$resolved" "$name"
     printf '%s\n' "$resolved"
     ;;
 

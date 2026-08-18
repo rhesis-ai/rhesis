@@ -32,7 +32,13 @@ from typing import Optional
 import yaml
 
 from rhesis.backend.app.features import FeatureName
-from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource, limits_to_wire
+from rhesis.backend.app.quota import (
+    FREE_TIER_LIMITS,
+    OveragePolicy,
+    QuotaPolicy,
+    QuotaResource,
+    limits_to_wire,
+)
 from rhesis.backend.ee.licensing.entitlements import (
     ENV_TIER_CONFIG,
     LIC_ALL_FEATURES,
@@ -111,7 +117,11 @@ class TierSpec:
     :param limits: metered resource limits keyed by
         :class:`QuotaResource`.  ``None`` values mean unlimited.
     :param retention_days: data retention in days for this tier.
-    :param overage: ``"hard"`` (block) or ``"soft"`` (warn + allow).
+    :param overage: whether reaching a limit blocks immediately or allows
+        the grace band in :attr:`overage_tolerance_percent`.
+    :param overage_tolerance_percent: for :attr:`OveragePolicy.SOFT`, how
+        far past a limit this tier may run before it hard-blocks. Ignored
+        (equivalent to ``0``) for :attr:`OveragePolicy.HARD`.
     """
 
     edition: LicenseEdition
@@ -119,7 +129,16 @@ class TierSpec:
     features: frozenset[FeatureName] = frozenset()
     limits: dict[QuotaResource, int | None] = field(default_factory=dict)
     retention_days: int = 14
-    overage: str = "hard"
+    overage: OveragePolicy = OveragePolicy.HARD
+    overage_tolerance_percent: int = 0
+
+    def to_policy(self) -> QuotaPolicy:
+        """Return the :class:`QuotaPolicy` this tier grants."""
+        return QuotaPolicy(
+            limits=dict(self.limits),
+            overage=self.overage,
+            overage_tolerance_percent=self.overage_tolerance_percent,
+        )
 
     def feature_values(self) -> list[str]:
         """Return granted feature identifiers as sorted wire strings."""
@@ -157,9 +176,10 @@ def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]
     ``/features`` response, so they are rejected here rather than surfacing
     far from their cause.
 
-    :raises ValueError: on an unrecognized key, or a value that is neither
-        ``None`` (unlimited) nor a non-negative ``int``. Deliberately not
-        caught by :func:`_load_tier_config`'s fallback -- a config that
+    :raises ValueError: on an unrecognized key, a value that is neither
+        ``None`` (unlimited) nor a non-negative ``int``, or a ``limits``
+        mapping that doesn't cover every :class:`QuotaResource`. Deliberately
+        not caught by :func:`_load_tier_config`'s fallback -- a config that
         parses as YAML but is semantically wrong is a real bug that must
         surface at startup, not degrade into a silently-unmetered or
         permanently-blocked resource.
@@ -187,10 +207,109 @@ def _parse_limits(raw: dict[str, int | None]) -> dict[QuotaResource, int | None]
             )
 
         result[resource] = value
+
+    # A resource this dict never mentions and a resource explicitly set to
+    # `null` both end up absent from `result` -- and `QuotaPolicy.limits.get()`
+    # reads either as unlimited. The unknown-key check above catches a typo
+    # that adds a key; nothing caught the opposite typo, a key that's simply
+    # missing -- most likely a new QuotaResource member added without every
+    # tier config being updated for it, which would then silently unmeter it
+    # everywhere rather than block, the same failure mode _parse_limits exists
+    # to prevent for typo'd keys.
+    missing = sorted(r.value for r in QuotaResource if r not in result)
+    if missing:
+        raise ValueError(
+            f"Tier config `limits` is missing resource(s): {missing}. Every "
+            f"QuotaResource member must have an explicit entry (use null for "
+            f"unlimited) -- an absent resource is not 'inherits a default', "
+            f"it reads as unlimited to every caller."
+        )
     return result
 
 
-def _fallback_catalog() -> dict[LicenseEdition, TierSpec]:
+def _parse_all_features(raw: object) -> bool:
+    """Validate a raw YAML ``all_features`` value.
+
+    :func:`~rhesis.backend.ee.licensing.verify.verify_token` reads the minted
+    claim back with ``bool(lic.get(LIC_ALL_FEATURES, False))``, and Python's
+    ``bool()`` treats any non-empty string as ``True`` -- including the
+    string ``"false"``. An unvalidated ``all_features: "false"`` in the YAML
+    would therefore mint a token that unlocks every registered EE feature,
+    the opposite of what the config says. Reject anything that isn't a real
+    bool here, at load time, rather than at verify time on every request.
+
+    :raises ValueError: if *raw* is not a ``bool``.
+    """
+    if not isinstance(raw, bool):
+        raise ValueError(
+            f"Invalid all_features in tier config: {raw!r} ({type(raw).__name__}). "
+            f"Expected true or false."
+        )
+    return raw
+
+
+def _parse_overage(raw: object) -> OveragePolicy:
+    """Coerce a raw YAML ``overage`` value to an :class:`OveragePolicy`.
+
+    :raises ValueError: on anything other than ``"hard"`` or ``"soft"``.
+    Deliberately not caught by :func:`_load_tier_config`'s fallback, for the
+    same reason as :func:`_parse_limits`: an overage policy this backend
+    doesn't recognize is a config bug, not a "no data yet" situation, and
+    guessing a default here could turn a paid tier's intended grace period
+    into an unannounced hard block, or vice versa.
+    """
+    try:
+        return OveragePolicy(raw)
+    except ValueError:
+        raise ValueError(
+            f"Invalid overage policy {raw!r} in tier config. "
+            f"Valid values: {[p.value for p in OveragePolicy]}"
+        )
+
+
+def _parse_overage_tolerance(raw: object) -> int:
+    """Validate a raw YAML ``overage_tolerance_percent`` value.
+
+    Same shape as the limit-value checks in :func:`_parse_limits`: ``bool``
+    is rejected explicitly because it passes ``isinstance(v, int)``, and a
+    negative percent would make :meth:`QuotaPolicy.ceiling_for` return a
+    ceiling *below* the limit, blocking a soft tier before it even reaches
+    the number it was promised.
+
+    :raises ValueError: if *raw* is not a non-negative ``int``.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(
+            f"Invalid overage_tolerance_percent in tier config: {raw!r} "
+            f"({type(raw).__name__}). Expected a non-negative integer."
+        )
+    if raw < 0:
+        raise ValueError(
+            f"Invalid overage_tolerance_percent in tier config: {raw!r}. Must be non-negative."
+        )
+    return raw
+
+
+class _FallbackCatalog(dict):
+    """Marks a catalog as the intentional safety-net from :func:`_fallback_catalog`.
+
+    A genuinely broken multi-tier config can also collapse to a bare
+    ``{COMMUNITY: TierSpec(...)}`` -- e.g. every paid entry gets dropped by
+    the per-entry shape checks in :func:`_load_tier_config` while community
+    itself stays valid. That result is indistinguishable from the on-purpose
+    fallback *by shape alone*, and :func:`_assert_catalog_complete` used to
+    tell them apart by comparing key sets, which made the two cases look
+    identical: a paying org silently gets free-tier limits and no error is
+    raised, when the real bug is a malformed config for two other tiers.
+
+    Subclassing ``dict`` rather than returning a separate boolean means the
+    marker survives being passed through anything that treats the catalog as
+    a plain mapping (which is everywhere else in this module), with no
+    signature changes required.
+    """
+
+
+def _fallback_catalog() -> _FallbackCatalog:
     """Safety-net catalog used when the tier config can't be read at all.
 
     Only the community entry is populated, using the same numbers as
@@ -202,18 +321,25 @@ def _fallback_catalog() -> dict[LicenseEdition, TierSpec]:
     and :func:`is_sellable` correctly reports paid tiers as unsellable until
     the config is fixed, rather than minting tokens against stale defaults.
     """
-    return {
-        LicenseEdition.COMMUNITY: TierSpec(
-            edition=LicenseEdition.COMMUNITY,
-            limits=dict(FREE_TIER_LIMITS),
-        )
-    }
+    return _FallbackCatalog(
+        {
+            LicenseEdition.COMMUNITY: TierSpec(
+                edition=LicenseEdition.COMMUNITY,
+                limits=dict(FREE_TIER_LIMITS),
+            )
+        }
+    )
 
 
 def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
     """Load tier specs from YAML, falling back to the bundled file."""
     config_path_str = os.environ.get(ENV_TIER_CONFIG)
-    config_path = Path(config_path_str) if config_path_str else _BUNDLED_CONFIG
+    if config_path_str:
+        config_path = Path(config_path_str)
+        if not config_path.is_absolute():
+            config_path = _BUNDLED_CONFIG.parent / config_path
+    else:
+        config_path = _BUNDLED_CONFIG
 
     try:
         raw = yaml.safe_load(config_path.read_text())
@@ -276,11 +402,18 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
         # defaults apply for the rest. Hardcoding e.g. `retention_days=14`
         # here would duplicate TierSpec's default and silently drift from
         # it if that default ever changes.
-        overrides = {
-            key: spec_raw[key]
-            for key in ("all_features", "retention_days", "overage")
-            if key in spec_raw
+        overrides: dict[str, object] = {
+            key: spec_raw[key] for key in ("retention_days",) if key in spec_raw
         }
+        if "all_features" in spec_raw:
+            overrides["all_features"] = _parse_all_features(spec_raw["all_features"])
+        if "overage" in spec_raw:
+            overrides["overage"] = _parse_overage(spec_raw["overage"])
+        if "overage_tolerance_percent" in spec_raw:
+            overrides["overage_tolerance_percent"] = _parse_overage_tolerance(
+                spec_raw["overage_tolerance_percent"]
+            )
+
         catalog[edition] = TierSpec(
             edition=edition,
             features=features,
@@ -307,12 +440,15 @@ def _assert_catalog_complete(catalog: dict[LicenseEdition, TierSpec]) -> None:
     unlicensed org -- which reads downstream as *unlimited*. Requiring it
     here turns that fail-open into a startup failure.
 
-    Skipped when the catalog is the free-tier fallback, which is by design
-    community-only -- see :func:`_fallback_catalog`.
+    Skipped only for the genuine safety-net fallback -- see
+    :class:`_FallbackCatalog`. Checking ``isinstance`` rather than comparing
+    key sets matters: a real multi-tier config that lost every paid entry to
+    :func:`_load_tier_config`'s per-entry shape checks also collapses to a
+    bare ``{COMMUNITY: ...}``, and that case must still raise.
 
     :raises RuntimeError: naming exactly which editions are missing.
     """
-    if set(catalog) == {LicenseEdition.COMMUNITY}:
+    if isinstance(catalog, _FallbackCatalog):
         return
 
     missing = sorted(e.value for e in CATALOG_EDITIONS - set(catalog))
@@ -353,20 +489,26 @@ def resolve_tier(edition: LicenseEdition) -> TierSpec:
     return EDITION_ENTITLEMENTS[edition]
 
 
-def resolve_limits(edition: Optional[LicenseEdition]) -> dict[QuotaResource, int | None]:
-    """Return limits for *edition*, falling back to community defaults.
+def resolve_policy(edition: Optional[LicenseEdition]) -> QuotaPolicy:
+    """Return the full :class:`QuotaPolicy` for *edition*, falling back to
+    community defaults.
 
     Used for quota lookups, not minting -- unlike :func:`resolve_tier`,
     this intentionally accepts ``None``/``community`` and any edition
     absent from the catalog, since every org (licensed or not) needs a
-    resolvable limits dict.
+    resolvable policy.
     """
     spec = EDITION_ENTITLEMENTS.get(edition) if edition is not None else None
     if spec is None:
         spec = EDITION_ENTITLEMENTS.get(LicenseEdition.COMMUNITY)
     if spec is None:
-        return {}
-    return dict(spec.limits)
+        return QuotaPolicy()
+    return spec.to_policy()
+
+
+def resolve_limits(edition: Optional[LicenseEdition]) -> dict[QuotaResource, int | None]:
+    """Return just the limits for *edition*. See :func:`resolve_policy`."""
+    return resolve_policy(edition).limits
 
 
 def tier_to_lic_claim(
@@ -398,6 +540,7 @@ __all__ = [
     "all_sellable",
     "is_sellable",
     "resolve_limits",
+    "resolve_policy",
     "resolve_tier",
     "tier_to_lic_claim",
 ]

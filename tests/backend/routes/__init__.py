@@ -5,7 +5,7 @@ This module contains comprehensive tests for all API route endpoints,
 organized by entity type for better maintainability.
 
 Test organization:
-- test_behavior.py - All behavior route tests
+- test_requirement.py - All requirement route tests
 - test_prompt.py - All prompt route tests (future)
 - test_metric.py - All metric route tests (future)
 - etc.

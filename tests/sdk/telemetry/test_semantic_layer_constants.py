@@ -1,6 +1,6 @@
 """Tests for semantic layer constants."""
 
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.telemetry.schemas import FORBIDDEN_SPAN_DOMAINS, AIOperationType
 
 

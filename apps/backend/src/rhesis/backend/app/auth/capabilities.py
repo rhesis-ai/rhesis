@@ -73,7 +73,8 @@ class Permission:
       :class:`TestResult`, :class:`TestConfiguration`, :class:`Experiment`
     - Endpoints & connectors (project-scoped): :class:`Endpoint`
     - Metrics & models (project-scoped): :class:`Metric`, :class:`Model`
-    - Collaboration (project-scoped): :class:`Comment`, :class:`Task`
+    - Collaboration (project-scoped): :class:`Comment`, :class:`Task`,
+      :class:`Notification`
     - Files (project/org): :class:`File`
     - Project administration (project-scoped): :class:`Project`,
       :class:`ProjectMember`
@@ -186,6 +187,21 @@ class Permission:
         #: Delete a task the caller created (object-level :own qualifier).
         DELETE_OWN = "task:delete:own"
 
+    class Notification(_PermissionEnum):
+        """The recipient's own in-app notifications (badge counts, mark-as-read).
+
+        Deliberately a single capability, and marking-read rides on it rather
+        than a separate ``:update``. Notifications are per-user state that only
+        the system creates (via ``services.notification.notify``, never a
+        router), and every query is filtered to the caller's own rows. There is
+        no coherent state where a user may see their own badge but not clear
+        it -- a separate ``:update`` would be denied to the built-in Viewer
+        role (``_viewer_permissions`` grants only ``:read``), leaving Viewers
+        with a badge that reappears on every reload, permanently.
+        """
+
+        READ = "notification:read"
+
     # --- Knowledge base (project-scoped) ------------------------------------
 
     class Source(_PermissionEnum):
@@ -194,11 +210,11 @@ class Permission:
         UPDATE = "source:update"
         DELETE = "source:delete"
 
-    class Behavior(_PermissionEnum):
-        READ = "behavior:read"
-        CREATE = "behavior:create"
-        UPDATE = "behavior:update"
-        DELETE = "behavior:delete"
+    class Requirement(_PermissionEnum):
+        READ = "requirement:read"
+        CREATE = "requirement:create"
+        UPDATE = "requirement:update"
+        DELETE = "requirement:delete"
 
     class Tool(_PermissionEnum):
         READ = "tool:read"

@@ -17,7 +17,7 @@ from rhesis.backend.app.schemas.services import GenerationConfig
 
 from .probes.models import GarakProbeInfo
 from .tag_catalog import GarakTagCatalog, get_tag_catalog
-from .taxonomy import GarakTaxonomy, resolve_behavior
+from .taxonomy import GarakTaxonomy, resolve_requirement
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +64,10 @@ class GarakDynamicGenerator:
         topics = self._extract_topics(probe_info.tags)
         generation_prompt = self._build_prompt(probe_info, tag_descriptions)
 
-        behavior = resolve_behavior(probe_info.tags)
+        requirement = resolve_requirement(probe_info.tags)
         return GenerationConfig(
             generation_prompt=generation_prompt,
-            behaviors=[behavior],
+            requirements=[requirement],
             categories=[mapping.category] if mapping.category else None,
             topics=topics if topics else None,
         )

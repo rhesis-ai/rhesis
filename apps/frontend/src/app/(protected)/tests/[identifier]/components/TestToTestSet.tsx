@@ -63,7 +63,7 @@ export default function TestToTestSet({
       const original = await testsClient.getTest(testId);
       const duplicate = await testsClient.createTest({
         prompt_id: original.prompt_id,
-        behavior_id: original.behavior?.id,
+        requirement_id: original.requirement?.id,
         topic_id: original.topic?.id,
         category_id: original.category?.id,
         priority: original.priority,

@@ -262,15 +262,15 @@ export default function AnnotationsGrid({
         valueGetter: (_value, row) => row.user?.name || '—',
       },
       {
-        field: 'behavior_name',
-        headerName: 'Behavior',
+        field: 'requirement_name',
+        headerName: 'Requirement',
         flex: 1,
         minWidth: 140,
         sortable: false,
         valueGetter: (_value, row) =>
-          (row as AnnotationListItem).behavior_name || '',
+          (row as AnnotationListItem).requirement_name || '',
         renderCell: params => {
-          const name = (params.row as AnnotationListItem).behavior_name;
+          const name = (params.row as AnnotationListItem).requirement_name;
           return (
             <Typography
               variant="body2"

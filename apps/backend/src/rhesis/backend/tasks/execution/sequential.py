@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.shared import (
     create_execution_result,
@@ -50,14 +51,11 @@ def execute_tests_sequentially(
 
     # Resolve execution and evaluation models from test_config.attributes
     # overrides or user defaults (same logic as batch prefetch_execution_context).
-    # Read outside the try so the fallback paths below can attribute token usage
-    # even when model resolution itself is what failed.
-    seq_organization_id = str(test_config.organization_id) if test_config.organization_id else ""
     execution_model = None
     evaluation_model = None
     try:
-        from rhesis.backend.app import crud
         from rhesis.backend.app.config.settings import get_model_settings
+        from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.utils.user_model_utils import (
             get_evaluation_model_with_override,
             get_execution_model_with_override,
@@ -69,9 +67,10 @@ def execute_tests_sequentially(
         override_execution_model_id = attrs.get("execution_model_id")
         override_evaluation_model_id = attrs.get("evaluation_model_id")
         seq_user_id = str(test_config.user_id) if test_config.user_id else None
+        seq_org_id = str(test_config.organization_id) if test_config.organization_id else None
 
         if seq_user_id:
-            user = crud.get_user_by_id(session, seq_user_id)
+            user = user_crud.get_user_by_id(session, seq_user_id)
             if user:
                 execution_model = get_execution_model_with_override(
                     session, user, model_id=override_execution_model_id
@@ -80,37 +79,44 @@ def execute_tests_sequentially(
                     session, user, model_id=override_evaluation_model_id
                 )
             else:
-                # Resolve rather than passing the bare default string on: the
-                # string is only turned into a model much later, inside
-                # Penelope / the metric judge, where no org context is left to
-                # attribute its tokens to. See resolve_default_hosted_model.
+                # Resolve rather than passing the bare default string on:
+                # the string is only turned into a model much later, inside
+                # Penelope / the metric judge, and a model built there carries
+                # no provenance stamp. See resolve_default_hosted_model.
                 logger.warning(f"User {seq_user_id} not found, using default models")
                 execution_model = resolve_default_hosted_model(
-                    model_settings.execution_model, seq_organization_id
+                    model_settings.execution_model, session, seq_org_id
                 )
                 evaluation_model = resolve_default_hosted_model(
-                    model_settings.evaluation_model, seq_organization_id
+                    model_settings.evaluation_model, session, seq_org_id
                 )
         else:
             execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, seq_organization_id
+                model_settings.execution_model, session, seq_org_id
             )
             evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, seq_organization_id
+                model_settings.evaluation_model, session, seq_org_id
             )
+    except QuotaExceededError:
+        # Not a resolution failure -- let it propagate as-is. The broad
+        # except below would otherwise retry the identical call against the
+        # same org and quota state, misreport it as "failed to resolve" in
+        # the log, and only raise the same error a second time anyway.
+        raise
     except Exception as e:
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
         model_settings = get_model_settings()
+        fallback_org_id = str(test_config.organization_id) if test_config.organization_id else None
         if execution_model is None:
             execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, seq_organization_id
+                model_settings.execution_model, session, fallback_org_id
             )
         if evaluation_model is None:
             evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, seq_organization_id
+                model_settings.evaluation_model, session, fallback_org_id
             )
 
     # Execute tests one by one

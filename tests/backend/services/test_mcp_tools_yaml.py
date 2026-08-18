@@ -85,11 +85,11 @@ class TestNewMcpToolsPresent:
             "get_metric",
             "create_source",
             "update_metric",
-            "remove_behavior_from_metric",
+            "remove_requirement_from_metric",
             "update_test_set",
             "get_test",
             "update_test",
-            "get_behavior",
+            "get_requirement",
             "get_test_set_last_run",
             "get_test_set_metrics",
             "get_project",
@@ -229,6 +229,17 @@ class TestCreateMetricDocumentsDescriptiveFields:
         for field in self.RICH_FIELDS:
             assert field in description, f"description should name {field}"
 
+    def test_evaluation_steps_documents_the_stored_step_format(self):
+        """Steps are split on '---' for display; a '1. 2. 3.' list renders as one step."""
+        steps = self._cfg()["parameters"]["evaluation_steps"]["description"]
+        assert "Step N:" in steps
+        assert "---" in steps
+
+    def test_evaluation_prompt_does_not_promise_placeholders(self):
+        """Nothing substitutes {{response}} — the judge would see the literal braces."""
+        prompt_doc = self._cfg()["parameters"]["evaluation_prompt"]["description"]
+        assert "do NOT include placeholders" in prompt_doc
+
     def test_descriptive_fields_reach_the_tool_schema(self):
         from rhesis.backend.app.main import app
         from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
@@ -254,11 +265,11 @@ class TestMcpToolsYamlStructure:
         ("get_metric", "GET", "/metrics/{metric_id}"),
         ("create_source", "POST", "/sources/"),
         ("update_metric", "PUT", "/metrics/{metric_id}"),
-        ("remove_behavior_from_metric", "DELETE", "/metrics/{metric_id}/behaviors/{behavior_id}"),
+        ("remove_requirement_from_metric", "DELETE", "/metrics/{metric_id}/requirements/{requirement_id}"),
         ("update_test_set", "PUT", "/test_sets/{test_set_identifier}"),
         ("get_test", "GET", "/tests/{test_id}"),
         ("update_test", "PUT", "/tests/{test_id}"),
-        ("get_behavior", "GET", "/behaviors/{behavior_id}"),
+        ("get_requirement", "GET", "/requirements/{requirement_id}"),
         ("get_test_set_last_run", "GET", "/test_sets/{test_set_identifier}/last-run/{endpoint_id}"),
         ("get_test_set_metrics", "GET", "/test_sets/{test_set_identifier}/metrics"),
         ("get_project", "GET", "/projects/{project_id}"),
@@ -292,12 +303,12 @@ class TestToolParameterDocumentation:
     # widen this set as they get cleaned up rather than relaxing the rule.
     CREATION_TOOLS = {
         "create_project",
-        "create_behavior",
+        "create_requirement",
         "create_metric",
         "generate_metric",
         "improve_metric",
         "create_source",
-        "add_behavior_to_metric",
+        "add_requirement_to_metric",
         "create_test_set_bulk",
         "generate_test_set",
     }
@@ -371,13 +382,13 @@ class TestToolParameterDocumentation:
         generate = by_name["generate_test_set"].inputSchema
         assert "config" in generate["required"]
         assert "name" in generate["required"]
-        assert generate["properties"]["config"]["required"] == ["behaviors"]
+        assert generate["properties"]["config"]["required"] == ["requirements"]
 
         bulk = by_name["create_test_set_bulk"].inputSchema
         assert "test_set_type" in bulk["required"]
         assert "tests" in bulk["required"]
         item_required = bulk["properties"]["tests"]["items"]["required"]
-        assert {"behavior", "category", "topic"} <= set(item_required)
+        assert {"requirement", "category", "topic"} <= set(item_required)
 
     def test_turn_type_fields_expose_their_allowed_values(self):
         """Bare `string` makes the model learn the two values from prose."""

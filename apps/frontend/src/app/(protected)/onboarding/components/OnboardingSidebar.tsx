@@ -1,8 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Typography } from '@mui/material';
+import BrandMark from '@/components/common/BrandMark';
+import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import { ONBOARDING_STEPS } from './onboarding-steps';
 import { onboardingSidebarSx } from './onboarding-styles';
@@ -15,6 +16,9 @@ interface OnboardingSidebarProps {
 export default function OnboardingSidebar({
   activeStep,
 }: OnboardingSidebarProps) {
+  const { branding } = useNavigationItems();
+  const productName = branding?.productName ?? 'Rhesis AI';
+
   return (
     <Box
       sx={{
@@ -35,11 +39,10 @@ export default function OnboardingSidebar({
           <Box
             sx={{ width: 40, height: 40, position: 'relative', flexShrink: 0 }}
           >
-            <Image
-              src="/logos/rhesis-logo-favicon.svg"
-              alt="Rhesis AI"
-              width={40}
-              height={40}
+            <BrandMark
+              src={branding?.iconUrl}
+              size={40}
+              alt={productName}
               priority
             />
           </Box>
@@ -51,7 +54,7 @@ export default function OnboardingSidebar({
               color: 'primary.main',
             }}
           >
-            Rhesis AI
+            {productName}
           </Typography>
         </Box>
 

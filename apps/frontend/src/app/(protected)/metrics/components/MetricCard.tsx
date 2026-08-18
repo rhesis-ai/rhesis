@@ -142,25 +142,25 @@ export default function MetricCard({
   // Prepare chip sections
   const chipSections: ChipSection[] = [];
 
-  // First section: behaviors (if showing usage)
+  // First section: requirements (if showing usage)
   if (showUsage && usedIn && usedIn.length > 0) {
     chipSections.push({
-      label: 'Behaviors',
+      label: 'Requirements',
       chips: [
-        ...usedIn.slice(0, 3).map((behaviorName, index) => ({
-          key: `behavior-${index}`,
-          label: behaviorName,
+        ...usedIn.slice(0, 3).map((requirementName, index) => ({
+          key: `requirement-${index}`,
+          label: requirementName,
         })),
         ...(usedIn.length > 3
           ? [
               {
-                key: 'more-behaviors',
+                key: 'more-requirements',
                 label: `+${usedIn.length - 3} more`,
               },
             ]
           : []),
       ],
-      emptyText: 'No behaviors assigned',
+      emptyText: 'No requirements assigned',
     });
   }
 

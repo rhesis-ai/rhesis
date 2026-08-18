@@ -300,7 +300,7 @@ def db_cleanup(docker_compose_test_env):
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric, behavior, model CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, requirement, model CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:
@@ -323,7 +323,7 @@ def db_cleanup(docker_compose_test_env):
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric, behavior, model CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, requirement, model CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:

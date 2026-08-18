@@ -748,15 +748,15 @@ class TestCapabilities:
 
         app = self._make_app(
             [
-                ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
-                ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
-                ("/behaviors/{id}", {"DELETE"}, {"x-rhesis-resource": "behavior"}),
+                ("/requirements", {"GET"}, {"x-rhesis-resource": "requirement"}),
+                ("/requirements", {"POST"}, {"x-rhesis-resource": "requirement"}),
+                ("/requirements/{id}", {"DELETE"}, {"x-rhesis-resource": "requirement"}),
             ]
         )
         cap_map = build_capability_map(app)
-        assert "behavior:read" in cap_map
-        assert "behavior:create" in cap_map
-        assert "behavior:delete" in cap_map
+        assert "requirement:read" in cap_map
+        assert "requirement:create" in cap_map
+        assert "requirement:delete" in cap_map
 
     def test_build_capability_map_explicit_capability_wins(self):
         from rhesis.backend.app.auth.capabilities import build_capability_map
@@ -785,8 +785,8 @@ class TestCapabilities:
 
         app = self._make_app(
             [
-                ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
-                ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
+                ("/requirements", {"GET"}, {"x-rhesis-resource": "requirement"}),
+                ("/requirements", {"POST"}, {"x-rhesis-resource": "requirement"}),
                 ("/test_sets/{id}", {"DELETE"}, {"x-rhesis-resource": "test_set"}),
             ]
         )
@@ -794,8 +794,8 @@ class TestCapabilities:
         caps = get_all_capabilities()
         assert isinstance(caps, list)
         assert caps == sorted(caps)
-        assert "behavior:read" in caps
-        assert "behavior:create" in caps
+        assert "requirement:read" in caps
+        assert "requirement:create" in caps
         assert "test_set:delete" in caps
 
     def test_get_all_capabilities_before_register_returns_empty(self):
@@ -980,10 +980,10 @@ class TestRealAppCapabilities:
             "test_set:create",
             "test_set:update",
             "test_set:delete",
-            "behavior:read",
-            "behavior:create",
-            "behavior:update",
-            "behavior:delete",
+            "requirement:read",
+            "requirement:create",
+            "requirement:update",
+            "requirement:delete",
             "organization:read",
             "member:read",
         }

@@ -429,7 +429,7 @@ class TestAuthenticationFlow:
         """Test that protected routes require authentication"""
         # Test various protected endpoints
         protected_endpoints = [
-            "/behaviors/",
+            "/requirements/",
             "/categories/",
             "/topics/",
             "/users/",
@@ -1587,3 +1587,129 @@ class TestTermsAcceptance:
         data = response.json()
         settings = data.get("user", data).get("user_settings", {})
         assert not settings.get("terms")
+
+
+# =============================================================================
+# Disposable Email Sign-up Blocking
+# =============================================================================
+
+DISPOSABLE_TEST_DOMAIN = "throwaway-test.example"
+
+
+@pytest.mark.unit
+class TestDisposableEmailSignupBlocking:
+    """Each self-serve sign-up path screens disposable domains; admin invites do not.
+
+    Screening logic itself is covered in tests/backend/auth/test_disposable_email.py;
+    these tests only check that each path is wired to it.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _enforce_on_test_domain(self, monkeypatch):
+        from rhesis.backend.app.auth.disposable_email import get_blocklist
+        from rhesis.backend.app.config.settings import get_auth_settings
+
+        monkeypatch.setenv("AUTH_BLOCK_DISPOSABLE_EMAILS", "enforce")
+        monkeypatch.setenv("AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS", DISPOSABLE_TEST_DOMAIN)
+        get_auth_settings.cache_clear()
+        get_blocklist.cache_clear()
+        yield
+        get_auth_settings.cache_clear()
+        get_blocklist.cache_clear()
+
+    def test_magic_link_signup_is_rejected(self, client: TestClient, test_db):
+        response = client.post(
+            "/auth/magic-link",
+            json={"email": f"spammer@{DISPOSABLE_TEST_DOMAIN}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "disposable" in response.json()["detail"].lower()
+
+    def test_magic_link_existing_user_is_not_blocked(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """Non-goal: existing accounts on a disposable domain keep signing in."""
+        email = f"already-here@{DISPOSABLE_TEST_DOMAIN}"
+        org = create_test_organization(test_db, "Disposable Existing Org")
+        create_test_user(test_db, org.id, email, "Existing Disposable User")
+        test_db.commit()
+
+        response = client.post("/auth/magic-link", json={"email": email})
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_magic_link_legitimate_domain_still_works(self, client: TestClient, test_db):
+        response = client.post("/auth/magic-link", json={"email": _unique_email("legit")})
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_password_registration_is_rejected(self, client: TestClient, test_db):
+        # Skip the MX lookup — the screener runs after it and needs no DNS.
+        with patch(
+            "rhesis.backend.app.utils.validation.validate_and_normalize_email",
+            side_effect=lambda email, check_deliverability=False: email,
+        ):
+            response = client.post(
+                "/auth/register",
+                json={
+                    "email": f"spammer@{DISPOSABLE_TEST_DOMAIN}",
+                    "password": "a-perfectly-fine-passphrase-42",
+                },
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "disposable" in response.json()["detail"].lower()
+
+    def test_oauth_first_login_is_rejected(self, test_db):
+        from rhesis.backend.app.auth.disposable_email import DisposableEmailError
+        from rhesis.backend.app.auth.providers.base import AuthUser
+        from rhesis.backend.app.auth.user_utils import find_or_create_user_from_auth
+
+        auth_user = AuthUser(
+            email=f"spammer@{DISPOSABLE_TEST_DOMAIN}",
+            name="Spam Account",
+            provider_type=AuthProviderType.GOOGLE,
+            external_id="google-oauth-12345",
+        )
+
+        with pytest.raises(DisposableEmailError):
+            find_or_create_user_from_auth(test_db, auth_user)
+
+    def test_oauth_existing_user_is_not_blocked(self, test_db):
+        """The screener sits after the lookup, so a returning user never reaches it."""
+        from rhesis.backend.app.auth.providers.base import AuthUser
+        from rhesis.backend.app.auth.user_utils import find_or_create_user_from_auth
+
+        email = f"oauth-existing@{DISPOSABLE_TEST_DOMAIN}"
+        org = create_test_organization(test_db, "Disposable OAuth Org")
+        create_test_user(test_db, org.id, email, "Existing OAuth User")
+        test_db.commit()
+
+        auth_user = AuthUser(
+            email=email,
+            name="Existing OAuth User",
+            provider_type=AuthProviderType.GOOGLE,
+            external_id="google-oauth-existing",
+        )
+
+        user = find_or_create_user_from_auth(test_db, auth_user)
+
+        assert user.email == email
+
+    def test_admin_invite_is_not_screened(self, authenticated_client: TestClient):
+        """Non-goal: POST /users/ is an operator action and stays unscreened."""
+        with (
+            patch(
+                "rhesis.backend.app.routers.user.validate_and_normalize_email",
+                side_effect=lambda email, check_deliverability=False: email,
+            ),
+            patch("rhesis.backend.app.auth.disposable_email.screen_signup_email") as mock_screen,
+        ):
+            response = authenticated_client.post(
+                "/users/",
+                json={"email": f"invited@{DISPOSABLE_TEST_DOMAIN}", "name": "Invited Colleague"},
+            )
+
+        assert response.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
+        mock_screen.assert_not_called()

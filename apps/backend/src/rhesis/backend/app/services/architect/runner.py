@@ -13,6 +13,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from rhesis.backend.app.constants import ARCHITECT_RESUME_PREFIX
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.architect.attachments import process_attachments
@@ -126,8 +127,8 @@ async def build_agent(
     project_id: Optional[str] = None,
 ) -> tuple[Any, WebSocketEventHandler]:
     """Build the ArchitectAgent with tools and restore saved session state."""
-    from rhesis.backend.app import crud
     from rhesis.backend.app.auth.token_utils import create_service_delegation_token
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.main import app as fastapi_app
     from rhesis.backend.app.mcp_server.local_tools import LocalToolProvider
     from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
@@ -136,7 +137,7 @@ async def build_agent(
     from rhesis.sdk.agents.tools import ExploreEndpointTool
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if not user:
             raise ValueError(f"User {user_id} not found")
         if not user.is_active:
@@ -192,9 +193,9 @@ async def _handle_auto_resume(
 ) -> None:
     """Persist auto-resume system messages and notify streaming start.
 
-    No-ops on ordinary turns; only fires for ``[TASK_COMPLETED]`` messages.
+    No-ops on ordinary turns; only fires for auto-resume messages.
     """
-    if not user_message.startswith("[TASK_COMPLETED]"):
+    if not user_message.startswith(ARCHITECT_RESUME_PREFIX):
         return
 
     from rhesis.backend.app import crud, schemas
@@ -245,7 +246,7 @@ async def persist_state(
     subsequent turns can reuse it for coherent multi-turn tracing.
     """
     from rhesis.backend.app import crud, schemas
-    from rhesis.sdk.telemetry.context import get_root_trace_id
+    from rhesis.telemetry.context import get_root_trace_id
 
     snapshot = agent.dump_state()
     root_trace_id = get_root_trace_id()

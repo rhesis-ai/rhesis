@@ -57,7 +57,10 @@ class TestRouterTransactionManagement:
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
-        # Verify organization onboarding status was updated and committed
+        # Verify organization onboarding status was updated and committed. The
+        # endpoint ran through the HTTP client's own session, not test_db --
+        # expire test_db's cached copy so this re-reads the committed row.
+        test_db.expire_all()
         db_org = (
             test_db.query(models.Organization)
             .filter(models.Organization.id == organization.id)
@@ -93,7 +96,10 @@ class TestRouterTransactionManagement:
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
-        # Verify organization onboarding status was updated and committed
+        # Verify organization onboarding status was updated and committed. The
+        # endpoint ran through the HTTP client's own session, not test_db --
+        # expire test_db's cached copy so this re-reads the committed row.
+        test_db.expire_all()
         db_org = (
             test_db.query(models.Organization)
             .filter(models.Organization.id == organization.id)
@@ -130,7 +136,10 @@ class TestRouterTransactionManagement:
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
-        # Verify organization onboarding status was updated and committed
+        # Verify organization onboarding status was updated and committed. The
+        # endpoint ran through the HTTP client's own session, not test_db --
+        # expire test_db's cached copy so this re-reads the committed row.
+        test_db.expire_all()
         db_org = (
             test_db.query(models.Organization)
             .filter(models.Organization.id == organization.id)
@@ -168,7 +177,10 @@ class TestRouterTransactionManagement:
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
-        # Verify organization onboarding status was updated and committed
+        # Verify organization onboarding status was updated and committed. The
+        # endpoint ran through the HTTP client's own session, not test_db --
+        # expire test_db's cached copy so this re-reads the committed row.
+        test_db.expire_all()
         db_org = (
             test_db.query(models.Organization)
             .filter(models.Organization.id == organization.id)
@@ -294,7 +306,10 @@ class TestRouterTransactionManagement:
         )
         assert response2.status_code == 200
 
-        # Verify both operations succeeded independently
+        # Verify both operations succeeded independently. Both endpoints ran
+        # through the HTTP client's own session, not test_db -- expire
+        # test_db's cached copies so these re-read the committed rows.
+        test_db.expire_all()
         db_org1 = (
             test_db.query(models.Organization)
             .filter(models.Organization.id == organization1.id)
@@ -336,10 +351,13 @@ class TestRouterTransactionManagement:
         # Call the endpoint (no mocking - use real service)
         response = authenticated_client.post(f"/organizations/{organization.id}/load-initial-data")
 
-        # Verify the router-level database changes were committed
+        # Verify the router-level database changes were committed. The
+        # endpoint ran through the HTTP client's own session, not test_db --
+        # expire test_db's cached copy so this re-reads the committed row.
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
+        test_db.expire_all()
         db_org = (
             test_db.query(models.Organization)
             .filter(models.Organization.id == organization.id)

@@ -44,7 +44,7 @@ interface TestResultDrawerProps {
   test: TestResultDetail | null;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -136,7 +136,7 @@ export default function TestResultDrawer({
   test,
   loading = false,
   prompts,
-  behaviors,
+  requirements,
   testRunId,
   onTestResultUpdate,
   currentUserId,
@@ -416,7 +416,7 @@ export default function TestResultDrawer({
           <TabPanel value={activeTab} index={TAB.metrics}>
             <TestDetailMetricsTab
               test={test}
-              behaviors={behaviors}
+              requirements={requirements}
               metricsSource={metricsSource}
             />
           </TabPanel>

@@ -108,7 +108,7 @@ const makeTests = (count: number) =>
 
 const defaultProps = {
   prompts: {},
-  behaviors: [],
+  requirements: [],
   testRunId: u(1),
   onTestResultUpdate: jest.fn(),
   currentUserId: 'user-1',

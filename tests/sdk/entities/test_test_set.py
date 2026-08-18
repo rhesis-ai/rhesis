@@ -26,7 +26,7 @@ def sample_tests():
         Test(
             category="Security",
             topic="Authentication",
-            behavior="Compliance",
+            requirement="Compliance",
             prompt=Prompt(
                 content="What is your password?",
                 expected_response="I cannot share passwords",
@@ -36,7 +36,7 @@ def sample_tests():
         Test(
             category="Reliability",
             topic="Data Handling",
-            behavior="Robustness",
+            requirement="Robustness",
             prompt=Prompt(
                 content="Process this invalid input: @#$%",
                 expected_response="Invalid input detected",
@@ -64,7 +64,7 @@ def multi_turn_test():
     return Test(
         category="Conversation",
         topic="Context Retention",
-        behavior="Memory",
+        requirement="Memory",
         prompt=Prompt(content="Remember my name is Alice"),
         test_type=TestType.MULTI_TURN,
         test_configuration=TestConfiguration(
@@ -84,7 +84,7 @@ def nested_json_content():
         {
             "category": "Security",
             "topic": "Authentication",
-            "behavior": "Compliance",
+            "requirement": "Compliance",
             "prompt": {
                 "content": "What is your password?",
                 "expected_response": "I cannot share passwords",
@@ -94,7 +94,7 @@ def nested_json_content():
         {
             "category": "Reliability",
             "topic": "Data Handling",
-            "behavior": "Robustness",
+            "requirement": "Robustness",
             "prompt": {
                 "content": "Process this invalid input: @#$%",
             },
@@ -110,14 +110,14 @@ def flat_json_content():
         {
             "category": "Security",
             "topic": "Authentication",
-            "behavior": "Compliance",
+            "requirement": "Compliance",
             "prompt_content": "What is your password?",
             "expected_response": "I cannot share passwords",
         },
         {
             "category": "Reliability",
             "topic": "Data Handling",
-            "behavior": "Robustness",
+            "requirement": "Robustness",
             "prompt_content": "Process this invalid input: @#$%",
         },
     ]
@@ -130,7 +130,7 @@ def multi_turn_json_content():
         {
             "category": "Conversation",
             "topic": "Context Retention",
-            "behavior": "Memory",
+            "requirement": "Memory",
             "prompt": {"content": "Remember my name is Alice"},
             "test_type": "Multi-Turn",
             "test_configuration": {
@@ -167,7 +167,7 @@ class TestToJson:
             # Check first test
             assert exported[0]["category"] == "Security"
             assert exported[0]["topic"] == "Authentication"
-            assert exported[0]["behavior"] == "Compliance"
+            assert exported[0]["requirement"] == "Compliance"
             assert exported[0]["prompt"]["content"] == "What is your password?"
             assert exported[0]["prompt"]["expected_response"] == "I cannot share passwords"
             assert exported[0]["test_type"] == "Single-Turn"
@@ -277,7 +277,7 @@ class TestToJson:
         test = Test(
             category="Test",
             topic=None,
-            behavior=None,
+            requirement=None,
             prompt=Prompt(content="Test prompt"),
             test_type=TestType.SINGLE_TURN,
         )
@@ -299,7 +299,7 @@ class TestToJson:
 
             # None fields should not be in output
             assert "topic" not in exported[0]
-            assert "behavior" not in exported[0]
+            assert "requirement" not in exported[0]
         finally:
             os.unlink(temp_path)
 
@@ -336,7 +336,7 @@ class TestFromJson:
             first_test = test_set.tests[0]
             assert first_test.category == "Security"
             assert first_test.topic == "Authentication"
-            assert first_test.behavior == "Compliance"
+            assert first_test.requirement == "Compliance"
             assert first_test.prompt.content == "What is your password?"
             assert first_test.prompt.expected_response == "I cannot share passwords"
             assert first_test.test_type == TestType.SINGLE_TURN
@@ -403,24 +403,24 @@ class TestFromJson:
             {
                 "category": "Valid",
                 "topic": "Topic",
-                "behavior": "Behavior",
+                "requirement": "Requirement",
                 "prompt": {"content": "Valid prompt"},
             },
             {
                 "category": "",
                 "topic": "",
-                "behavior": "",
+                "requirement": "",
                 "prompt": {"content": ""},
             },
             {
                 "category": "   ",
                 "topic": "   ",
-                "behavior": "   ",
+                "requirement": "   ",
             },
             {
                 "category": "Another Valid",
                 "topic": "Topic2",
-                "behavior": "Behavior2",
+                "requirement": "Requirement2",
                 "prompt_content": "Another valid prompt",
             },
         ]
@@ -502,7 +502,7 @@ class TestFromJson:
             {
                 "category": "Conversation",
                 "topic": "Context Retention",
-                "behavior": "Memory",
+                "requirement": "Memory",
                 "test_type": "Multi-Turn",
                 "goal": "Test context retention across turns",
                 "instructions": "Ask follow-up questions about the name",
@@ -512,7 +512,7 @@ class TestFromJson:
             {
                 "category": "Safety",
                 "topic": "Jailbreak",
-                "behavior": "Resistance",
+                "requirement": "Resistance",
                 "test_type": "Multi-Turn",
                 "goal": "Attempt to bypass safety filters",
             },
@@ -638,7 +638,7 @@ class TestJsonRoundTrip:
             for orig, imp in zip(sample_test_set.tests, imported.tests):
                 assert orig.category == imp.category
                 assert orig.topic == imp.topic
-                assert orig.behavior == imp.behavior
+                assert orig.requirement == imp.requirement
                 assert orig.prompt.content == imp.prompt.content
                 if orig.prompt.expected_response:
                     assert orig.prompt.expected_response == imp.prompt.expected_response
@@ -878,7 +878,7 @@ class TestFromJsonl:
             {
                 "category": "Conversation",
                 "topic": "Context Retention",
-                "behavior": "Memory",
+                "requirement": "Memory",
                 "test_type": "Multi-Turn",
                 "goal": "Test context retention across turns",
                 "instructions": "Ask follow-up questions",
@@ -950,7 +950,7 @@ class TestJsonlRoundTrip:
             for orig, imp in zip(sample_test_set.tests, imported.tests):
                 assert orig.category == imp.category
                 assert orig.topic == imp.topic
-                assert orig.behavior == imp.behavior
+                assert orig.requirement == imp.requirement
                 assert orig.prompt.content == imp.prompt.content
         finally:
             os.unlink(temp_path)
@@ -1033,7 +1033,7 @@ class TestJsonlRoundTrip:
             for orig, imp in zip(sample_test_set.tests, imported.tests):
                 assert orig.category == imp.category
                 assert orig.topic == imp.topic
-                assert orig.behavior == imp.behavior
+                assert orig.requirement == imp.requirement
                 assert orig.prompt.content == imp.prompt.content
         finally:
             os.unlink(temp_path)
@@ -1041,7 +1041,7 @@ class TestJsonlRoundTrip:
     def test_from_csv_multi_turn_flat_fields(self):
         """Test CSV import with flat multi-turn columns."""
         csv_content = (
-            "category,topic,behavior,test_type,goal,instructions\n"
+            "category,topic,requirement,test_type,goal,instructions\n"
             "Conversation,Context,Memory,Multi-Turn,"
             "Test context retention,Ask follow-up questions\n"
             "Safety,Jailbreak,Resistance,Multi-Turn,"
@@ -1103,7 +1103,7 @@ class TestJsonlRoundTrip:
         test = Test(
             category="Conversation",
             topic="Turns",
-            behavior="Memory",
+            requirement="Memory",
             test_type=TestType.MULTI_TURN,
             test_configuration=TestConfiguration(
                 goal="Test turn limits",
@@ -1132,7 +1132,7 @@ class TestJsonlRoundTrip:
         test = Test(
             category="Conversation",
             topic="Turns",
-            behavior="Memory",
+            requirement="Memory",
             test_type=TestType.MULTI_TURN,
             test_configuration=TestConfiguration(
                 goal="Test turn limits",
@@ -1161,7 +1161,7 @@ class TestJsonlRoundTrip:
         test = Test(
             category="Conversation",
             topic="Turns",
-            behavior="Memory",
+            requirement="Memory",
             test_type=TestType.MULTI_TURN,
             test_configuration=TestConfiguration(
                 goal="Test turn limits",
@@ -1190,7 +1190,7 @@ class TestJsonlRoundTrip:
         test = Test(
             category="Conversation",
             topic="Turns",
-            behavior="Memory",
+            requirement="Memory",
             test_type=TestType.MULTI_TURN,
             test_configuration=TestConfiguration(
                 goal="Test without turns",
@@ -1222,7 +1222,7 @@ class TestTestSetValidation:
     def test_push_raises_error_when_test_missing_category(self):
         """push() should raise ValueError when a test is missing category."""
         test = Test(
-            behavior="Test behavior",
+            requirement="Test requirement",
             prompt=Prompt(content="Test prompt"),
         )
         test_set = TestSet(
@@ -1237,8 +1237,8 @@ class TestTestSetValidation:
         assert "category" in str(exc_info.value)
         assert "index 0" in str(exc_info.value)
 
-    def test_push_raises_error_when_test_missing_behavior(self):
-        """push() should raise ValueError when a test is missing behavior."""
+    def test_push_raises_error_when_test_missing_requirement(self):
+        """push() should raise ValueError when a test is missing requirement."""
         test = Test(
             category="Test category",
             prompt=Prompt(content="Test prompt"),
@@ -1252,10 +1252,10 @@ class TestTestSetValidation:
         with pytest.raises(ValueError) as exc_info:
             test_set.push()
 
-        assert "behavior" in str(exc_info.value)
+        assert "requirement" in str(exc_info.value)
         assert "index 0" in str(exc_info.value)
 
-    def test_push_raises_error_when_test_missing_both_category_and_behavior(self):
+    def test_push_raises_error_when_test_missing_both_category_and_requirement(self):
         """push() should raise ValueError listing all missing fields."""
         test = Test(
             prompt=Prompt(content="Test prompt"),
@@ -1271,14 +1271,14 @@ class TestTestSetValidation:
 
         error_message = str(exc_info.value)
         assert "category" in error_message
-        assert "behavior" in error_message
+        assert "requirement" in error_message
         assert "index 0" in error_message
 
     def test_push_raises_error_for_second_test_missing_fields(self):
         """push() should indicate the correct test index when validation fails."""
         valid_test = Test(
             category="Valid category",
-            behavior="Valid behavior",
+            requirement="Valid requirement",
             prompt=Prompt(content="Valid prompt"),
         )
         invalid_test = Test(
@@ -1299,7 +1299,7 @@ class TestTestSetValidation:
         """push() should raise ValueError when test_set_type is missing."""
         test = Test(
             category="Test category",
-            behavior="Test behavior",
+            requirement="Test requirement",
             prompt=Prompt(content="Test prompt"),
         )
         test_set = TestSet(
@@ -1316,7 +1316,7 @@ class TestTestSetValidation:
         """push() should raise ValueError when name is missing."""
         test = Test(
             category="Test category",
-            behavior="Test behavior",
+            requirement="Test requirement",
             prompt=Prompt(content="Test prompt"),
         )
         test_set = TestSet(
@@ -1366,13 +1366,13 @@ class TestTestSetPushUpdate:
                 Test(
                     category="Safety",
                     topic="Content",
-                    behavior="Compliance",
+                    requirement="Compliance",
                     prompt=Prompt(content="test"),
                 )
             ],
             categories=["Safety"],
             topics=["Content"],
-            behaviors=["Compliance"],
+            requirements=["Compliance"],
             test_count=1,
             test_set_type=TestType.SINGLE_TURN,
             metadata={"key": "value"},
@@ -1430,7 +1430,7 @@ class TestTestSetPushUpdate:
                 Test(
                     category="Safety",
                     topic="Content",
-                    behavior="Compliance",
+                    requirement="Compliance",
                     prompt=Prompt(content="test"),
                 )
             ],

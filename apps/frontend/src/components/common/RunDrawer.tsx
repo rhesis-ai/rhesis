@@ -79,6 +79,8 @@ import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useResourceUsage } from '@/contexts/UsageContext';
+import { QuotaResource, QUOTA_RESOURCE_LABELS } from '@/constants/quota';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -105,7 +107,7 @@ interface SelectedMetric {
   scope?: string[];
 }
 
-type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
+type MetricMode = 'use_test_set' | 'use_requirement' | 'define_custom';
 type ScoringTarget = 'fresh' | 'reuse';
 
 // ---------------------------------------------------------------------------
@@ -334,7 +336,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   );
 
   // ---- Metrics ----
-  const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
+  const [metricMode, setMetricMode] = useState<MetricMode>('use_requirement');
   const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
 
@@ -358,7 +360,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [tags, setTags] = useState<string[]>([]);
 
   // ---- Preflight ----
-  const [preflightEnabled, setPreflightEnabled] = useState(false);
+  const [preflightEnabled, setPreflightEnabled] = useState(true);
   const [preflightDialogOpen, setPreflightDialogOpen] = useState(false);
   const [preflightCorrelationId, setPreflightCorrelationId] = useState('');
   const [preflightChecks, setPreflightChecks] = useState<
@@ -405,13 +407,14 @@ export default function RunDrawer(props: RunDrawerProps) {
     setScoringTarget('fresh');
     setLastTestRun(null);
     setSelectedMetrics([]);
-    setMetricMode('use_behavior');
+    setMetricMode('use_requirement');
     setSelectedExecutionModelId('');
     setSelectedEvaluationModelId('');
     setSelectedExperiments([]);
     setSelectedTestSet(null);
     setSelectedSearchTestSets([]);
     setTestSetInput('');
+    setPreflightEnabled(true);
     setPreflightDialogOpen(false);
     setPreflightCorrelationId('');
     setPreflightChecks([]);
@@ -550,13 +553,15 @@ export default function RunDrawer(props: RunDrawerProps) {
         setTestSetMetrics(metrics || []);
 
         if (mode === 'executeTestSet') {
-          setMetricMode(metrics?.length > 0 ? 'use_test_set' : 'use_behavior');
+          setMetricMode(
+            metrics?.length > 0 ? 'use_test_set' : 'use_requirement'
+          );
         }
       } catch {
         if (mounted) {
           setTestSetType(null);
           setTestSetMetrics([]);
-          setMetricMode('use_behavior');
+          setMetricMode('use_requirement');
         }
       }
     };
@@ -1004,15 +1009,43 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Form validity
   // -----------------------------------------------------------------------
 
+  // Proactive quota gate: mirrors the backend's require_quota(TEST_EXECUTIONS)
+  // check on the execute endpoints, so the button is disabled before a
+  // request goes out at all rather than only after it comes back 402. Not a
+  // replacement for that check -- usage can change between render and
+  // submit, so the server-side gate is still authoritative; this is purely
+  // about giving the user the answer earlier.
+  //
+  // Compares against `ceiling`, not `limit`: on a soft tier those differ by
+  // the overage tolerance, and gating on `limit` would disable the button
+  // for an org the backend would still happily accept -- erasing exactly the
+  // grace band the tier grants.
+  const executionUsage = useResourceUsage(QuotaResource.TEST_EXECUTIONS);
+  const executionQuotaExhausted =
+    executionUsage !== null &&
+    executionUsage.ceiling !== null &&
+    executionUsage.used >= executionUsage.ceiling;
+
   const canExecute = useMemo(() => {
     const endpointId = resolveEndpointId();
     const testSetIds = resolveTestSetIds();
     if (!endpointId || testSetIds.length === 0) return false;
     if (mode === 'runExperiment' && internalVersionHashes.size === 0)
       return false;
+    if (executionQuotaExhausted) return false;
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedEndpoint, selectedTestSet, internalVersionHashes]);
+  }, [
+    mode,
+    selectedEndpoint,
+    selectedTestSet,
+    internalVersionHashes,
+    executionQuotaExhausted,
+  ]);
+
+  const quotaExhaustedMessage = executionQuotaExhausted
+    ? `You've reached your ${QUOTA_RESOURCE_LABELS[QuotaResource.TEST_EXECUTIONS].toLowerCase()} limit for this period.`
+    : undefined;
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {
@@ -1585,13 +1618,13 @@ export default function RunDrawer(props: RunDrawerProps) {
                 </Box>
               </MenuItem>
             )}
-            <MenuItem value="use_behavior">
+            <MenuItem value="use_requirement">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <PsychologyIcon fontSize="small" />
                 <Box>
-                  <Typography variant="body1">Behavior Metrics</Typography>
+                  <Typography variant="body1">Requirement Metrics</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Use default metrics defined on each test&apos;s behavior
+                    Use default metrics defined on each test&apos;s requirement
                   </Typography>
                 </Box>
               </Box>
@@ -1729,7 +1762,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               {testSetMetrics.length > 0 && (
                 <MenuItem value="use_test_set">Test Set Metrics</MenuItem>
               )}
-              <MenuItem value="use_behavior">Behavior Metrics</MenuItem>
+              <MenuItem value="use_requirement">Requirement Metrics</MenuItem>
               <MenuItem value="define_custom">Custom Metrics</MenuItem>
             </Select>
           </FormControl>
@@ -1896,7 +1929,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       onClose={onClose}
       title={title}
       loading={loading || endpointsLoading || executing}
-      error={error}
+      error={error ?? quotaExhaustedMessage}
       onSave={handleExecute}
       saveDisabled={!canExecute}
       saveButtonText={saveButtonText}

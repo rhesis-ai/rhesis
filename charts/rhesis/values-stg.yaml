@@ -36,10 +36,15 @@ config:
   nextPublicAppUrl: "https://stg-app.rhesis.ai"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
+  architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
   # Backend
   rhesisBaseUrl: "https://stg-api.rhesis.ai"
   frontendUrl: "https://stg-app.rhesis.ai"
   backendUrl: "http://backend:8080"
+  # Disposable-email screening: off | log | enforce. Starts at log so the
+  # community list's false-positive rate can be measured before it rejects.
+  authBlockDisposableEmails: "log"
+  authDisposableEmailExtraDomains: ""
 
   # GCP
   vertexAiProject: "playground-437609"

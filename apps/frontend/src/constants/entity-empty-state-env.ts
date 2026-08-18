@@ -5,7 +5,7 @@ import type {
 } from '@/constants/entity-empty-state-types';
 import { getYouTubeWatchUrl } from '@/utils/onboarding-video';
 
-const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
+export const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
   {
     title: 'Documentation',
     description: 'Comprehensive guides and API references',
@@ -69,12 +69,12 @@ function readEntityEnvSources(key: EntityEmptyStateKey): {
         articleUrls:
           process.env.NEXT_PUBLIC_ENDPOINTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
       };
-    case 'behaviors':
+    case 'requirements':
       return {
         videoUrl:
-          process.env.NEXT_PUBLIC_BEHAVIORS_EMPTY_STATE_VIDEO_URL?.trim(),
+          process.env.NEXT_PUBLIC_REQUIREMENTS_EMPTY_STATE_VIDEO_URL?.trim(),
         articleUrls:
-          process.env.NEXT_PUBLIC_BEHAVIORS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+          process.env.NEXT_PUBLIC_REQUIREMENTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
       };
     case 'metrics':
       return {
@@ -96,7 +96,8 @@ function readEntityEnvSources(key: EntityEmptyStateKey): {
   }
 }
 
-function parseCommaSeparatedUrls(value: string | undefined): string[] {
+/** Trims, drops empties and caps at 4 — one card row is all any empty state shows. */
+export function parseCommaSeparatedUrls(value: string | undefined): string[] {
   if (!value?.trim()) return [];
   return value
     .split(',')

@@ -6,7 +6,7 @@ import projectsFixture from '../fixtures/projects.json';
 import testsFixture from '../fixtures/tests.json';
 import testSetsFixture from '../fixtures/test-sets.json';
 import testRunsFixture from '../fixtures/test-runs.json';
-import behaviorsFixture from '../fixtures/behaviors.json';
+import requirementsFixture from '../fixtures/requirements.json';
 import endpointsFixture from '../fixtures/endpoints.json';
 import tasksFixture from '../fixtures/tasks.json';
 import tokensFixture from '../fixtures/tokens.json';
@@ -101,13 +101,13 @@ test('Test Runs — visual baseline @visual', async ({ page }) => {
   });
 });
 
-test('Behaviors — visual baseline @visual', async ({ page }) => {
+test('Requirements — visual baseline @visual', async ({ page }) => {
   const mock = new MockApiHelper(page);
-  await mock.mockList('/behaviors', behaviorsFixture as any[]);
-  await page.goto('/behaviors');
+  await mock.mockList('/requirements', requirementsFixture as any[]);
+  await page.goto('/requirements');
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveScreenshot('behaviors.png', {
+  await expect(page).toHaveScreenshot('requirements.png', {
     mask: getDynamicMasks(page),
     ...SNAPSHOT_OPTIONS,
   });

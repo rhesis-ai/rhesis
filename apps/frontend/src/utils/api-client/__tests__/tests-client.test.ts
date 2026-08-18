@@ -161,7 +161,7 @@ describe('TestsClient', () => {
       );
 
       await client.getTests({
-        filter: "behavior eq 'safety'",
+        filter: "requirement eq 'safety'",
         skip: 0,
         limit: 25,
       });

@@ -12,7 +12,7 @@ The following are the target fields that the source columns should map to:
 **Common fields (both single-turn and multi-turn):**
 - **category**: The test category (e.g., "Security", "Safety", "Fairness")
 - **topic**: The test topic within a category (e.g., "Authentication", "Data Privacy")
-- **behavior**: The expected behavior being tested (e.g., "Compliance", "Refusal")
+- **requirement**: The expected requirement being tested (e.g., "Compliance", "Refusal")
 - **test_type**: Either "Single-Turn" or "Multi-Turn"
 - **metadata**: Additional metadata as key-value pairs
 
@@ -58,6 +58,6 @@ Row {{ loop.index }}:
 
 ## Important Notes
 
-- Single-turn tests require: category, topic, behavior, prompt_content
-- Multi-turn tests require: category, topic, behavior, goal (and optionally instructions, restrictions, scenario)
+- Single-turn tests require: category, topic, requirement, prompt_content
+- Multi-turn tests require: category, topic, requirement, goal (and optionally instructions, restrictions, scenario)
 - Multi-turn tests do NOT have prompt_content - they are configured via goal and related fields

@@ -13,8 +13,13 @@ Backend tests must run from `apps/backend` — its `pyproject.toml` sets
 `testpaths = ["../../tests/backend"]` and `pythonpath = ["src"]`, so paths/imports only resolve
 from that directory. Never run `uv run pytest tests/backend/...` from the repo root.
 
+A fresh worktree has no `apps/backend/.venv`, and a plain `uv sync` is not enough — `rhesis-sdk`
+sits behind the `all` extra and `rhesis.backend.ee` behind `ee`, so the tests fail with
+`ModuleNotFoundError` on those imports. Sync both extras once per worktree.
+
 ```bash
 cd apps/backend
+uv sync --extra all --extra ee  # once per worktree
 uv run pytest ../../tests/backend/ -v
 # single test class:
 uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateExplorerTestSet -v

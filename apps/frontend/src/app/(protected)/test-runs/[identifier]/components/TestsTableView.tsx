@@ -41,6 +41,7 @@ import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import {
   getEvaluationContent,
+  getExecutionErrorTooltip,
   getFailedMetricNames,
   getGoalContent,
   getTestResultDisplayStatus,
@@ -52,7 +53,7 @@ import { EntityType } from '@/types/entity-type';
 interface TestsTableViewProps {
   tests: TestResultDetail[];
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -78,7 +79,7 @@ interface TestsTableViewProps {
 export default function TestsTableView({
   tests,
   prompts,
-  behaviors,
+  requirements,
   testRunId,
   loading = false,
   onTestResultUpdate,
@@ -341,7 +342,7 @@ export default function TestsTableView({
           getTestResultDisplayStatus(row, isMultiTurn).label,
         renderCell: params => {
           const status = getTestResultDisplayStatus(params.row, isMultiTurn);
-          return (
+          const badge = (
             <GridBadge
               label={status.label}
               sx={{
@@ -358,6 +359,21 @@ export default function TestsTableView({
               }}
             />
           );
+          if (status.hasExecutionError) {
+            const tooltip = getExecutionErrorTooltip(
+              params.row,
+              status,
+              requirements
+            );
+            return (
+              <Tooltip title={tooltip} enterDelay={500}>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  {badge}
+                </Box>
+              </Tooltip>
+            );
+          }
+          return badge;
         },
       },
       {
@@ -660,7 +676,14 @@ export default function TestsTableView({
         },
       },
     ];
-  }, [isMultiTurn, prompts, theme, isConfirmingReview, openTestDrawer]);
+  }, [
+    isMultiTurn,
+    prompts,
+    theme,
+    isConfirmingReview,
+    openTestDrawer,
+    requirements,
+  ]);
 
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>
@@ -696,7 +719,7 @@ export default function TestsTableView({
         test={selectedTest}
         loading={false}
         prompts={prompts}
-        behaviors={behaviors}
+        requirements={requirements}
         testRunId={testRunId}
         onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}

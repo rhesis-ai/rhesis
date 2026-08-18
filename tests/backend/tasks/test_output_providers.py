@@ -353,6 +353,13 @@ class TestMultiTurnOutput:
             "max_turns": 3,
         }
 
+        # An already-resolved BaseLLM-shaped stand-in, not a bare string:
+        # a string here would hit the real ensure_language_model() ->
+        # get_model() construction, which is exactly what this test does
+        # not want to exercise (see test_string_model_is_stamped_before_penelope
+        # for that).
+        fake_model = MagicMock()
+
         # Both imports are lazy (inside get_output); patch at their source modules
         with (
             patch(
@@ -363,7 +370,7 @@ class TestMultiTurnOutput:
                 "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
             ),
         ):
-            provider = MultiTurnOutput(model="gpt-4")
+            provider = MultiTurnOutput(model=fake_model)
             output = await provider.get_output(
                 db=MagicMock(),
                 test=mock_test,
@@ -417,6 +424,57 @@ class TestMultiTurnOutput:
 
         # When model is None, PenelopeAgent() is called with no args
         mock_agent_class.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_string_model_is_stamped_before_penelope_receives_it(self):
+        """Penelope is a separate package: its own string branch
+        (``get_model(model)`` with no provenance) would otherwise be the
+        one place a language model reaches this codebase unstamped even
+        after ``ensure_language_model`` closed every internal call site.
+
+        ``resolve_default_hosted_model`` can still hand back a bare
+        provider string (its own construction-failure fallback), and that
+        string is exactly what a test config's ``execution_model`` can be,
+        so ``MultiTurnOutput`` must resolve and stamp it itself before
+        Penelope ever sees it.
+        """
+        mock_penelope_result = MagicMock()
+        mock_penelope_result.model_dump.return_value = {
+            CONVERSATION_SUMMARY_KEY: [],
+            "metrics": {},
+        }
+        mock_agent_class = MagicMock()
+        mock_agent_instance = MagicMock()
+        mock_agent_instance.execute_test.return_value = mock_penelope_result
+        mock_agent_class.return_value = mock_agent_instance
+
+        mock_test = MagicMock()
+        mock_test.test_configuration = {"goal": "Test goal"}
+
+        stamped_model = MagicMock()
+        stamped_model.usage_metered = True
+
+        with (
+            patch(
+                "rhesis.backend.app.utils.user_model_utils.ensure_language_model",
+                return_value=stamped_model,
+            ) as mock_ensure,
+            patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
+            patch(
+                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
+            ),
+        ):
+            provider = MultiTurnOutput(model="vertex_ai/gemini-2.5-flash")
+            await provider.get_output(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                user_id="user-1",
+            )
+
+        mock_ensure.assert_called_once_with("vertex_ai/gemini-2.5-flash")
+        mock_agent_class.assert_called_once_with(model=stamped_model)
 
 
 # ============================================================================

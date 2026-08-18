@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
@@ -9,12 +10,18 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers.utils import create_test_set
+from rhesis.sdk.synthesizers.utils import create_test_set, stamp_multi_turn
+
+logger = logging.getLogger(__name__)
+
+# A batch failing this many times in a row (bad/error LLM response) gives up
+# on that batch rather than retrying forever.
+_MAX_BATCH_RETRIES = 3
 
 
 class GenerationConfig(BaseModel):
     generation_prompt: str
-    behaviors: Optional[list[str]] = None
+    requirements: Optional[list[str]] = None
     categories: Optional[list[str]] = None
     topics: Optional[list[str]] = None
     additional_context: Optional[str] = None
@@ -22,7 +29,7 @@ class GenerationConfig(BaseModel):
 
 class Test(BaseModel):
     test_configuration: TestConfiguration
-    behavior: str
+    requirement: str
     category: str
     topic: str
     # Note: test_type is NOT included in the schema sent to the LLM
@@ -42,7 +49,7 @@ class FlatTest(BaseModel):
     test_configuration_scenario: str
     test_configuration_min_turns: int = Field(ge=1, le=50)
     test_configuration_max_turns: int = Field(ge=1, le=50)
-    behavior: str
+    requirement: str
     category: str
     topic: str
 
@@ -64,6 +71,7 @@ class MultiTurnSynthesizer:
         self.config = config
         self.batch_size = batch_size
         self.harmful = harmful
+        self.last_error: Optional[str] = None
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
@@ -93,13 +101,20 @@ class MultiTurnSynthesizer:
             config["max_turns"] = int(max_turns)
         return {
             "test_configuration": config,
-            "behavior": flat["behavior"],
+            "requirement": flat["requirement"],
             "category": flat["category"],
             "topic": flat["topic"],
         }
 
     def _generate_batch(self) -> List[dict]:
-        """Generate a single batch of tests."""
+        """Generate a single batch of tests.
+
+        Returns an empty list (rather than raising) when the model's
+        response doesn't contain usable tests, so a single flaky call --
+        e.g. Polyphemus responding with ``{"error": ...}`` while still
+        scaling up from zero -- can be retried by the caller instead of
+        crashing the whole generation run with a raw ``KeyError``.
+        """
         prompt_template = self.load_prompt_template(self.prompt_template_file)
         template_context = {
             "num_tests": self.batch_size,
@@ -110,6 +125,21 @@ class MultiTurnSynthesizer:
 
         # Use flat schema for LLM (easier to generate), then repack to nested
         response = self.model.generate(prompt, schema=FlatTests)
+
+        if isinstance(response, dict) and "error" in response:
+            self.last_error = str(response["error"])
+            logger.error("[MultiTurnSynthesizer] LLM returned error: %s", self.last_error)
+            return []
+
+        if not isinstance(response, dict) or "tests" not in response:
+            self.last_error = f"Unexpected response type: {type(response).__name__}"
+            logger.error(
+                "[MultiTurnSynthesizer] Unexpected response type=%s: %s",
+                type(response).__name__,
+                str(response)[:500],
+            )
+            return []
+
         flat_tests = response["tests"]
 
         batch_tests = [
@@ -151,8 +181,25 @@ class MultiTurnSynthesizer:
             self.batch_size = num_tests
 
         all_tests = []
-        for _ in range(num_batches):
-            all_tests.extend(self._generate_batch())
+        for batch_index in range(num_batches):
+            for attempt in range(1, _MAX_BATCH_RETRIES + 1):
+                batch_tests = self._generate_batch()
+                if batch_tests:
+                    break
+                logger.warning(
+                    "[MultiTurnSynthesizer] Batch %d/%d attempt %d/%d produced no "
+                    "tests (%s), retrying",
+                    batch_index + 1,
+                    num_batches,
+                    attempt,
+                    _MAX_BATCH_RETRIES,
+                    self.last_error,
+                )
+            all_tests.extend(batch_tests)
+
+        if not all_tests:
+            reason = f": {self.last_error}" if self.last_error else ""
+            raise ValueError(f"Failed to generate any valid test cases{reason}")
 
         test_set = create_test_set(
             tests=all_tests,
@@ -164,9 +211,4 @@ class MultiTurnSynthesizer:
             generation_prompt=self.config.generation_prompt,
         )
 
-        test_set.test_set_type = TestType.MULTI_TURN
-
-        if test_set.name:
-            test_set.name = f"{test_set.name} (Multi-Turn)"
-
-        return test_set
+        return stamp_multi_turn(test_set)

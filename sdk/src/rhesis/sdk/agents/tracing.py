@@ -11,7 +11,7 @@ from typing import Any, Optional
 from opentelemetry import context, trace
 
 from rhesis.sdk.agents.events import AgentEventHandler
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)

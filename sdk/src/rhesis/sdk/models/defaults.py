@@ -6,14 +6,14 @@ Use _model_name(full_id) to get the name part when calling provider constructors
 """
 
 # Default when get_model() is called with no arguments (language)
-DEFAULT_LANGUAGE_MODEL = "rhesis/rhesis-default"
+DEFAULT_LANGUAGE_MODEL = "rhesis/rhesis"
 
 # Default when requesting an embedding with no arguments
 DEFAULT_EMBEDDING_MODEL = "rhesis/rhesis-embedding"
 
 # Per-provider default language models (full id: provider/name)
 DEFAULT_LANGUAGE_MODELS = {
-    "rhesis": "rhesis/rhesis-default",
+    "rhesis": "rhesis/rhesis",
     "anthropic": "anthropic/claude-4",
     "cohere": "cohere/command-r-plus",
     "gemini": "gemini/gemini-2.0-flash",

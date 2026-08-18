@@ -14,7 +14,7 @@ from rhesis.backend.app.schemas.user import UserReference
 class MetricsSource(str, Enum):
     """Enum for tracking the source of metrics used in a test execution."""
 
-    BEHAVIOR = "behavior"
+    REQUIREMENT = "requirement"
     TEST_SET = "test_set"
     EXECUTION_TIME = "execution_time"
 
@@ -85,7 +85,7 @@ class TestPrompt(BaseModel):
 
 class TestData(BaseModel):
     prompt: Optional[TestPrompt] = None  # Optional for Multi-Turn tests
-    behavior: str
+    requirement: str
     category: str
     topic: str
     # Typed as the enum so the two legal values appear in the OpenAPI schema.
@@ -233,7 +233,7 @@ class ExecutionMetric(BaseModel):
     """Metric specification for execution-time metric override.
 
     When specified at execution time, these metrics completely override
-    test set metrics and behavior metrics.
+    test set metrics and requirement metrics.
     """
 
     id: UUID4

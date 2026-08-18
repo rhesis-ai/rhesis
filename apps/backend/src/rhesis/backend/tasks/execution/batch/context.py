@@ -18,6 +18,7 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig
 
@@ -49,9 +50,14 @@ class ExecutionContext:
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
     # Shared list used when all tests share the same metrics (Priority 1/2).
     metric_configs: List[MetricConfig] = field(default_factory=list)
-    # Per-test metric configs for behavior-mapped metrics (Priority 3) where each
-    # test may have a different behavior with different metrics.
+    # Per-test metric configs for requirement-mapped metrics (Priority 3) where each
+    # test may have a different requirement with different metrics.
     per_test_metric_configs: Dict[str, List[MetricConfig]] = field(default_factory=dict)
+    # Judge models for metrics that configure their own `model_id`, resolved while the
+    # session is open because metric evaluation runs after it closes. A `None` value
+    # records a resolution that was attempted and failed, which is distinct from a
+    # `model_id` being absent here entirely; see `prepare_metrics`.
+    metric_models: Dict[str, Any] = field(default_factory=dict)
     test_data: Dict[str, Any] = field(default_factory=dict)
     input_files: Dict[str, List] = field(default_factory=dict)
     existing_result_ids: Set[str] = field(default_factory=set)
@@ -74,7 +80,7 @@ class ExecutionContext:
     def get_metric_configs_for_test(self, test_id: str) -> List[MetricConfig]:
         """Return metric configs for a specific test.
 
-        Uses per-test configs when available (behavior-mapped metrics),
+        Uses per-test configs when available (requirement-mapped metrics),
         otherwise falls back to the shared list (test_set / execution-time).
         """
         if self.per_test_metric_configs:
@@ -87,6 +93,42 @@ class ExecutionContext:
         return bool(self.metric_configs) or bool(self.per_test_metric_configs)
 
 
+def _resolve_metric_judge_models(
+    session: Session,
+    organization_id: Optional[str],
+    metric_configs: List[MetricConfig],
+    per_test_metric_configs: Dict[str, List[MetricConfig]],
+) -> Dict[str, Any]:
+    """Resolve every distinct per-metric judge `model_id` in the batch, once each.
+
+    Deduped by `model_id` so a model shared by many metrics (or by many tests
+    sharing a requirement) costs one lookup rather than one per metric. Failures are
+    recorded as a `None` value rather than omitted, so the evaluator can tell
+    "tried and failed" from "never attempted" and warn accordingly.
+    """
+    from rhesis.backend.metrics.strategies.local import _resolve_metric_model
+
+    all_configs = list(metric_configs)
+    for configs in per_test_metric_configs.values():
+        all_configs.extend(configs)
+
+    resolved: Dict[str, Any] = {}
+    for config in all_configs:
+        model_id = (config.parameters or {}).get("model_id")
+        if not model_id or model_id in resolved:
+            continue
+        resolved[model_id] = _resolve_metric_model(
+            model_id, session, organization_id, config.name or config.class_name
+        )
+
+    if resolved:
+        failed = [mid for mid, model in resolved.items() if model is None]
+        logger.info(
+            f"Pre-resolved {len(resolved) - len(failed)}/{len(resolved)} per-metric judge models"
+        )
+    return resolved
+
+
 def prefetch_execution_context(
     session: Session,
     test_config: TestConfiguration,
@@ -96,9 +138,9 @@ def prefetch_execution_context(
     trace_id: Optional[str] = None,
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
-    from rhesis.backend.app.models.behavior import Behavior
+    from rhesis.backend.app.models.requirement import Requirement
     from rhesis.backend.app.services.test_set import get_test_set
     from rhesis.backend.app.utils.query_utils import QueryBuilder, include
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
@@ -112,7 +154,7 @@ def prefetch_execution_context(
 
     bind_scope_to_session(session, organization_id, user_id or "", project_id)
 
-    test_set = get_test_set(session, str(test_config.test_set_id))
+    test_set = get_test_set(session, str(test_config.test_set_id), organization_id)
 
     endpoint = session.query(Endpoint).filter(Endpoint.id == test_config.endpoint_id).first()
     if not endpoint:
@@ -146,7 +188,7 @@ def prefetch_execution_context(
         override_evaluation_model_id = attrs.get("evaluation_model_id")
 
         if user_id:
-            user = crud.get_user_by_id(session, user_id)
+            user = user_crud.get_user_by_id(session, user_id)
             if user:
                 execution_model = get_execution_model_with_override(
                     session, user, model_id=override_execution_model_id
@@ -155,24 +197,30 @@ def prefetch_execution_context(
                     session, user, model_id=override_evaluation_model_id
                 )
             else:
-                # Resolve rather than passing the bare default string on: the
-                # string is only turned into a model much later, inside
-                # Penelope / the metric judge, where no org context is left to
-                # attribute its tokens to. See resolve_default_hosted_model.
+                # Resolve rather than passing the bare default string on:
+                # the string is only turned into a model much later, inside
+                # Penelope / the metric judge, and a model built there carries
+                # no provenance stamp. See resolve_default_hosted_model.
                 logger.warning(f"User {user_id} not found, using default models")
                 execution_model = resolve_default_hosted_model(
-                    model_settings.execution_model, organization_id
+                    model_settings.execution_model, session, organization_id
                 )
                 evaluation_model = resolve_default_hosted_model(
-                    model_settings.evaluation_model, organization_id
+                    model_settings.evaluation_model, session, organization_id
                 )
         else:
             execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, organization_id
+                model_settings.execution_model, session, organization_id
             )
             evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, organization_id
+                model_settings.evaluation_model, session, organization_id
             )
+    except QuotaExceededError:
+        # Not a resolution failure -- let it propagate as-is. The broad
+        # except below would otherwise retry the identical call against the
+        # same org and quota state, misreport it as "failed to resolve" in
+        # the log, and only raise the same error a second time anyway.
+        raise
     except Exception as e:
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
@@ -181,14 +229,14 @@ def prefetch_execution_context(
         model_settings = get_model_settings()
         if execution_model is None:
             execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, organization_id
+                model_settings.execution_model, session, organization_id
             )
         if evaluation_model is None:
             evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, organization_id
+                model_settings.evaluation_model, session, organization_id
             )
 
-    # Warm the session identity map with prompt/behavior/behavior.metrics eager-loaded
+    # Warm the session identity map with prompt/requirement/requirement.metrics eager-loaded
     # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics
     # below re-fetch each test by id from this same session -- SQLAlchemy's identity
     # map returns the very same instance per row, so once these relationships are
@@ -200,7 +248,7 @@ def prefetch_execution_context(
             lambda q: q.filter(Test.id.in_(test_ids))
         ).with_related(
             include(Test.prompt),
-            include(Test.behavior, Behavior.metrics),
+            include(Test.requirement, Requirement.metrics),
             # test_type decides which executor each test gets. Eager-load it so it
             # is already populated when the Test objects are expunged below.
             include(Test.test_type),
@@ -231,7 +279,7 @@ def prefetch_execution_context(
     # lazy loads (e.g. backend_type) in metric_model_to_config.
     #
     # Metric resolution follows a 3-level priority (see executors/data.py):
-    #   P1 execution-time, P2 test-set, P3 behavior.
+    #   P1 execution-time, P2 test-set, P3 requirement.
     # P1 and P2 come from shared config (test_configuration.attributes / test_set.metrics)
     # and resolve identically for every test, so a single resolution is correct — but
     # only when one of them actually wins. get_test_metrics() can fall through past a
@@ -279,15 +327,17 @@ def prefetch_execution_context(
             metric_configs = _convert_metrics(models, f"test {sample_test.id}")
         else:
             # P3 (or no metrics at all) — resolution can differ per test since each
-            # test may belong to a different behavior. Cache by behavior_id so tests
-            # sharing a behavior don't each re-query get_behavior_metrics() (N+1).
-            metrics_by_behavior_id: Dict[Any, List] = {sample_test.behavior_id: sample_metrics}
+            # test may belong to a different requirement. Cache by requirement_id so tests
+            # sharing a requirement don't each re-query get_requirement_metrics() (N+1).
+            metrics_by_requirement_id: Dict[Any, List] = {
+                sample_test.requirement_id: sample_metrics
+            }
             for test in tests:
                 tid = str(test.id)
                 if test is sample_test:
                     metrics = sample_metrics
-                elif test.behavior_id in metrics_by_behavior_id:
-                    metrics = metrics_by_behavior_id[test.behavior_id]
+                elif test.requirement_id in metrics_by_requirement_id:
+                    metrics = metrics_by_requirement_id[test.requirement_id]
                 else:
                     metrics = get_test_metrics(
                         test,
@@ -297,11 +347,19 @@ def prefetch_execution_context(
                         test_set=test_set,
                         test_configuration=test_config,
                     )
-                    metrics_by_behavior_id[test.behavior_id] = metrics
+                    metrics_by_requirement_id[test.requirement_id] = metrics
                 models = prepare_metric_configs(metrics, tid)
                 per_test_metric_configs[tid] = _convert_metrics(models, f"test {tid}")
     except Exception as e:
         logger.warning(f"Failed to pre-fetch metrics: {e}")
+
+    # Resolve per-metric judge models now, while the session is still open. Metric
+    # evaluation happens after session.close(), so a `model_id` left unresolved here
+    # cannot be honoured later and the metric would quietly fall back to the default
+    # judge instead of the model the user picked.
+    metric_models = _resolve_metric_judge_models(
+        session, organization_id, metric_configs, per_test_metric_configs
+    )
 
     # Batch check existing results
     existing_result_ids: Set[str] = set()
@@ -374,6 +432,7 @@ def prefetch_execution_context(
         evaluation_model=evaluation_model,
         metric_configs=metric_configs,
         per_test_metric_configs=per_test_metric_configs,
+        metric_models=metric_models,
         test_data=test_data,
         existing_result_ids=existing_result_ids,
         batch_concurrency=batch_concurrency,

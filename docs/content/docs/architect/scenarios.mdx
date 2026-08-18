@@ -26,7 +26,7 @@ The most common entry point. Describe your endpoint and what you care about.
   <ChatUser>Quick is fine.</ChatUser>
   <ChatArchitect>{"Done. The chatbot handles flight search, booking, and cancellations. It refuses travel advice outside its scope. I noticed some uncertainty around partial cancellations — should I include refund edge cases in the test suite?"}</ChatArchitect>
   <ChatUser>Yes, include those.</ChatUser>
-  <ChatArchitect>{"Here's my plan:\n• 3 behaviors: Handles Flight Search, Refuses Off-Topic, Handles Cancellations\n• 2 test sets (30 tests total)\n• 2 metrics: Accuracy, Refusal Correctness\n\nShall I proceed?"}</ChatArchitect>
+  <ChatArchitect>{"Here's my plan:\n• 3 requirements: Handles Flight Search, Refuses Off-Topic, Handles Cancellations\n• 2 test sets (30 tests total)\n• 2 metrics: Accuracy, Refusal Correctness\n\nShall I proceed?"}</ChatArchitect>
   <ChatUser>Go ahead.</ChatUser>
 </ChatExchange>
 
@@ -50,17 +50,17 @@ You can skip the full workflow and ask Architect to do specific things with exis
   <ChatArchitect>Updated Accuracy — threshold is now 0.85.</ChatArchitect>
 </ChatExchange>
 
-**Link a behavior to a metric:**
+**Link a requirement to a metric:**
 
 <ChatExchange>
   <ChatUser>Link Handles Cancellations to the Refusal Correctness metric.</ChatUser>
   <ChatArchitect>Done — Handles Cancellations is now evaluated by Refusal Correctness.</ChatArchitect>
 </ChatExchange>
 
-**Describe a behavior:**
+**Describe a requirement:**
 
 <ChatExchange>
-  <ChatUser>What does the Refuses Off-Topic behavior cover?</ChatUser>
+  <ChatUser>What does the Refuses Off-Topic requirement cover?</ChatUser>
   <ChatArchitect>Refuses Off-Topic checks that the chatbot declines requests outside travel booking — such as weather, restaurant advice, or general knowledge questions.</ChatArchitect>
 </ChatExchange>
 
@@ -97,7 +97,7 @@ Upload a document and let Architect read it before planning. Works well for Open
 
 <ChatExchange>
   <ChatUser>Analyze the last test run.</ChatUser>
-  <ChatArchitect>{"Run 14 — 78% overall.\n\nBy behavior:\n• Handles Flight Search: 90%\n• Refuses Off-Topic: 60% ← below threshold\n• Handles Cancellations: 83%\n\nOff-Topic refusals are failing primarily on Refusal Correctness. The evaluator notes that the chatbot gives partial answers rather than clean refusals on 6 of the 10 failing tests. Tightening the system prompt for out-of-scope topics should address this."}</ChatArchitect>
+  <ChatArchitect>{"Run 14 — 78% overall.\n\nBy requirement:\n• Handles Flight Search: 90%\n• Refuses Off-Topic: 60% ← below threshold\n• Handles Cancellations: 83%\n\nOff-Topic refusals are failing primarily on Refusal Correctness. The evaluator notes that the chatbot gives partial answers rather than clean refusals on 6 of the 10 failing tests. Tightening the system prompt for out-of-scope topics should address this."}</ChatArchitect>
 </ChatExchange>
 
 ## Auto-approve session

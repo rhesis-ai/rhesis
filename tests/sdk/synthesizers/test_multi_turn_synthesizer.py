@@ -74,14 +74,14 @@ def test_generation_config_with_all_fields():
     """Test GenerationConfig accepts all optional fields."""
     config = GenerationConfig(
         generation_prompt="Generate tests",
-        behaviors=["Compliance", "Reliability"],
+        requirements=["Compliance", "Reliability"],
         categories=["Harmful", "Harmless"],
         topics=["healthcare", "finance"],
         additional_context="Extra context here",
     )
 
     assert config.generation_prompt == "Generate tests"
-    assert config.behaviors == ["Compliance", "Reliability"]
+    assert config.requirements == ["Compliance", "Reliability"]
     assert config.categories == ["Harmful", "Harmless"]
     assert config.topics == ["healthcare", "finance"]
     assert config.additional_context == "Extra context here"
@@ -158,7 +158,7 @@ def test_generate_batch_returns_nested_structure():
                 "test_configuration_scenario": "Customer support",
                 "test_configuration_min_turns": 3,
                 "test_configuration_max_turns": 7,
-                "behavior": "Compliance",
+                "requirement": "Compliance",
                 "category": "Harmful",
                 "topic": "data privacy",
             },
@@ -169,7 +169,7 @@ def test_generate_batch_returns_nested_structure():
                 "test_configuration_scenario": "",
                 "test_configuration_min_turns": 5,
                 "test_configuration_max_turns": 12,
-                "behavior": "Reliability",
+                "requirement": "Reliability",
                 "category": "Harmless",
                 "topic": "product info",
             },
@@ -189,7 +189,7 @@ def test_generate_batch_returns_nested_structure():
     assert result[0]["test_configuration"]["scenario"] == "Customer support"
     assert result[0]["test_configuration"]["min_turns"] == 3
     assert result[0]["test_configuration"]["max_turns"] == 7
-    assert result[0]["behavior"] == "Compliance"
+    assert result[0]["requirement"] == "Compliance"
     assert result[0]["category"] == "Harmful"
     assert result[0]["topic"] == "data privacy"
     assert result[0]["test_type"] == "Multi-Turn"
@@ -201,7 +201,7 @@ def test_generate_batch_returns_nested_structure():
     assert result[1]["test_configuration"]["scenario"] == ""
     assert result[1]["test_configuration"]["min_turns"] == 5
     assert result[1]["test_configuration"]["max_turns"] == 12
-    assert result[1]["behavior"] == "Reliability"
+    assert result[1]["requirement"] == "Reliability"
     assert result[1]["category"] == "Harmless"
     assert result[1]["topic"] == "product info"
     assert result[1]["test_type"] == "Multi-Turn"
@@ -220,7 +220,7 @@ def test_generate_batch_sets_multi_turn_type():
                 "test_configuration_scenario": "",
                 "test_configuration_min_turns": 3,
                 "test_configuration_max_turns": 7,
-                "behavior": "Robustness",
+                "requirement": "Robustness",
                 "category": "Harmful",
                 "topic": "security",
             },
@@ -250,7 +250,7 @@ def test_flat_test_to_nested_includes_turn_config():
         "test_configuration_scenario": "Context",
         "test_configuration_min_turns": 4,
         "test_configuration_max_turns": 15,
-        "behavior": "Reliability",
+        "requirement": "Reliability",
         "category": "Harmless",
         "topic": "general",
     }
@@ -272,7 +272,7 @@ def test_flat_test_to_nested_omits_none_turn_config():
         "test_configuration_instructions": "",
         "test_configuration_restrictions": "",
         "test_configuration_scenario": "",
-        "behavior": "Compliance",
+        "requirement": "Compliance",
         "category": "Harmful",
         "topic": "security",
     }
@@ -304,7 +304,7 @@ def test_generate_batch_passes_config_to_template():
 
     config = GenerationConfig(
         generation_prompt="My custom prompt",
-        behaviors=["Compliance"],
+        requirements=["Compliance"],
     )
     synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=5)
     synthesizer._generate_batch()
@@ -331,7 +331,7 @@ def test_generate_single_batch(mock_create_test_set, mock_generate_batch):
                 "restrictions": "",
                 "scenario": "",
             },
-            "behavior": "Compliance",
+            "requirement": "Compliance",
             "category": "Harmful",
             "topic": "topic1",
             "test_type": "Multi-Turn",
@@ -370,7 +370,7 @@ def test_generate_multiple_batches(mock_create_test_set, mock_generate_batch):
                 "restrictions": "",
                 "scenario": "",
             },
-            "behavior": "Reliability",
+            "requirement": "Reliability",
             "category": "Harmless",
             "topic": "topic",
             "test_type": "Multi-Turn",
@@ -391,12 +391,28 @@ def test_generate_multiple_batches(mock_create_test_set, mock_generate_batch):
     assert mock_generate_batch.call_count == 3
 
 
+_SAMPLE_BATCH = [
+    {
+        "test_configuration": {
+            "goal": "Goal 1",
+            "instructions": "",
+            "restrictions": "",
+            "scenario": "",
+        },
+        "requirement": "Compliance",
+        "category": "Harmful",
+        "topic": "topic1",
+        "test_type": "Multi-Turn",
+    },
+]
+
+
 @patch.object(MultiTurnSynthesizer, "_generate_batch")
 @patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set")
 def test_generate_sets_test_set_type(mock_create_test_set, mock_generate_batch):
     """Test that generate() sets test_set_type to MULTI_TURN."""
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.return_value = []
+    mock_generate_batch.return_value = _SAMPLE_BATCH
 
     mock_test_set = Mock()
     mock_test_set.name = "Test Set"
@@ -416,7 +432,7 @@ def test_generate_sets_test_set_type(mock_create_test_set, mock_generate_batch):
 def test_generate_appends_multi_turn_to_name(mock_create_test_set, mock_generate_batch):
     """Test that generate() appends '(Multi-Turn)' to test set name."""
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.return_value = []
+    mock_generate_batch.return_value = _SAMPLE_BATCH
 
     mock_test_set = Mock()
     mock_test_set.name = "My Test Set"
@@ -434,7 +450,7 @@ def test_generate_appends_multi_turn_to_name(mock_create_test_set, mock_generate
 def test_generate_skips_name_suffix_when_empty(mock_create_test_set, mock_generate_batch):
     """Test that generate() does not modify name when it is empty/falsy."""
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.return_value = []
+    mock_generate_batch.return_value = _SAMPLE_BATCH
 
     mock_test_set = Mock()
     mock_test_set.name = ""
@@ -446,3 +462,76 @@ def test_generate_skips_name_suffix_when_empty(mock_create_test_set, mock_genera
 
     # Name should remain empty
     assert mock_test_set.name == ""
+
+
+# --- Error handling: a failed/malformed LLM response must not crash generation ---
+
+
+def test_generate_batch_returns_empty_on_error_response():
+    """A model response shaped like {"error": ...} must not raise KeyError.
+
+    Regression test: Polyphemus (and other providers) return this shape when
+    generation fails -- e.g. mid scale-up-from-zero -- and _generate_batch
+    used to blow up with a bare `KeyError: 'tests'` instead of degrading
+    gracefully.
+    """
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {"error": "Polyphemus did not respond in time."}
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=2)
+
+    result = synthesizer._generate_batch()
+
+    assert result == []
+    assert synthesizer.last_error == "Polyphemus did not respond in time."
+
+
+def test_generate_batch_returns_empty_on_unexpected_response():
+    """A non-dict / dict-without-tests response also degrades to []."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = "not a dict"
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=2)
+
+    result = synthesizer._generate_batch()
+
+    assert result == []
+    assert synthesizer.last_error is not None
+
+
+@patch.object(MultiTurnSynthesizer, "_generate_batch")
+@patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set")
+def test_generate_retries_failed_batch(mock_create_test_set, mock_generate_batch):
+    """A batch that fails once should be retried before giving up."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_generate_batch.side_effect = [[], _SAMPLE_BATCH]
+    mock_test_set = Mock()
+    mock_test_set.name = "Test Set"
+    mock_create_test_set.return_value = mock_test_set
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+    synthesizer.generate(num_tests=5)
+
+    assert mock_generate_batch.call_count == 2
+    assert mock_create_test_set.call_args.kwargs["tests"] == _SAMPLE_BATCH
+
+
+@patch.object(MultiTurnSynthesizer, "_generate_batch")
+def test_generate_raises_with_reason_when_all_batches_fail(mock_generate_batch):
+    """When every attempt fails, generate() raises a ValueError carrying the reason
+    instead of silently returning an empty test set."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_generate_batch.return_value = []
+
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+    synthesizer.last_error = "Polyphemus did not respond in time."
+
+    try:
+        synthesizer.generate(num_tests=5)
+        assert False, "expected ValueError"
+    except ValueError as e:
+        assert "Polyphemus did not respond in time." in str(e)

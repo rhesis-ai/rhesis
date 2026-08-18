@@ -4,14 +4,14 @@ export type InsightsRunFilterMode = 'timeRange' | 'testRuns';
 export interface InsightsFilters {
   endpointId: string;
   /**
-   * `null` = no filter (default, all behaviors visible). `[]` is a real,
-   * distinct state — the user explicitly unchecked every behavior, so
+   * `null` = no filter (default, all requirements visible). `[]` is a real,
+   * distinct state — the user explicitly unchecked every requirement, so
    * nothing should show. A plain `string[]` can't represent "explicitly
    * none" without colliding with "no filter", which is why this is
    * nullable.
    */
-  behaviorIds: string[] | null;
-  /** Same `null`/`[]`/`[...]` convention as `behaviorIds`. */
+  requirementIds: string[] | null;
+  /** Same `null`/`[]`/`[...]` convention as `requirementIds`. */
   statusIds: string[] | null;
   /** Narrows which test runs are in scope; testRunIds further narrows within it. */
   timeRange: InsightsTimeRange;
@@ -33,7 +33,7 @@ export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = 'always';
 
 export const DEFAULT_INSIGHTS_FILTERS: InsightsFilters = {
   endpointId: '',
-  behaviorIds: null,
+  requirementIds: null,
   statusIds: null,
   runFilterMode: 'timeRange',
   timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
@@ -89,7 +89,7 @@ export function normalizeInsightsFilters(
 
   return {
     endpointId: filters.endpointId ?? '',
-    behaviorIds: filters.behaviorIds ?? null,
+    requirementIds: filters.requirementIds ?? null,
     statusIds: filters.statusIds ?? null,
     timeRange,
     testRunIds,

@@ -67,6 +67,7 @@ def _ensure_embeddings_for_entities(
     generator = EmbeddingGenerator(db)
     generated = 0
     skipped_empty = 0
+    skipped_no_provider = 0
     failed = 0
     for entity_id in missing_ids:
         try:
@@ -93,15 +94,19 @@ def _ensure_embeddings_for_entities(
             generated += 1
         elif status == "skipped_empty_text":
             skipped_empty += 1
+        elif status == "skipped_no_provider":
+            skipped_no_provider += 1
         else:
             failed += 1
 
     logger.info(
-        "Embedding backfill for %s: missing=%s generated=%s skipped_empty=%s failed=%s",
+        "Embedding backfill for %s: missing=%s generated=%s skipped_empty=%s "
+        "skipped_no_provider=%s failed=%s",
         entity_type,
         len(missing_ids),
         generated,
         skipped_empty,
+        skipped_no_provider,
         failed,
     )
 
@@ -162,10 +167,10 @@ def _run_embedding_graph(
     persist_graph: Callable[[Any, Any], None],
     parent_name: str,
 ) -> None:
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.services.embedding.graph_builder import build_2d_graph
 
-    user = crud.get_user_by_id(db, user_id)
+    user = user_crud.get_user_by_id(db, user_id)
     if user is None:
         logger.warning("Skipping graph computation: user not found", extra={"user_id": user_id})
         return
@@ -221,12 +226,13 @@ def _run_test_set_embedding_graph(db, *, test_set_id: str, user_id: str) -> None
 
 
 def _run_source_embedding_graph(db, *, source_id: str, user_id: str) -> None:
-    from rhesis.backend.app import crud, models
+    from rhesis.backend.app import models
+    from rhesis.backend.app.crud import source as source_crud
 
     source_uuid = UUID(source_id)
 
     def load_parent(db_session, user):
-        return crud.get_source(
+        return source_crud.get_source(
             db_session,
             source_uuid,
             str(user.organization_id),

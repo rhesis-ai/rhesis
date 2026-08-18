@@ -14,8 +14,9 @@ from typing import Any, Mapping
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.auth.terms import record_terms_acceptance
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
@@ -53,11 +54,11 @@ def initialize_local_environment(db: Session) -> None:
             logger.info("ℹ️  Local organization already exists, skipping initialization.")
 
             # Check if user exists
-            user = crud.get_user_by_email(db, "admin@local.dev")
+            user = user_crud.get_user_by_email(db, "admin@local.dev")
             if user:
                 logger.info("ℹ️  Local user already exists.")
 
-                # Direct ORM construction below never goes through crud.create_user,
+                # Direct ORM construction below never goes through crud.user.create_user,
                 # so the RBAC default-org-role hook never fired for pre-existing
                 # local envs. Seed it now — no-op if RBAC is unavailable or the
                 # row already exists.
@@ -157,7 +158,7 @@ def initialize_local_environment(db: Session) -> None:
         record_terms_acceptance(user)
         db.flush()
 
-        # Direct ORM construction above bypasses crud.create_user, so the RBAC
+        # Direct ORM construction above bypasses crud.user.create_user, so the RBAC
         # default-org-role hook never fires on its own. owner_id is already set
         # on the org, so this resolves the admin to Owner (mirrors
         # routers/organization.py's post-onboarding hook invocation).
@@ -203,7 +204,7 @@ def _ensure_local_admin_org_role(
     """Fire the RBAC default-org-role hook for the Quick Start admin user.
 
     ``initialize_local_environment`` builds the org/user via direct ORM
-    construction rather than ``crud.create_user``/the onboarding endpoint, so
+    construction rather than ``crud.user.create_user``/the onboarding endpoint, so
     the hook that seeds the ``organization_member`` row never runs on its own.
     No-op when RBAC is unavailable or a row already exists (idempotent). The
     EE handler (``assign_default_org_role``) logs the outcome itself, so core

@@ -16,7 +16,7 @@ BULK_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "behavior": {"type": "string"},
+                    "requirement": {"type": "string"},
                     "category": {"type": "string"},
                     "topic": {"type": "string"},
                     "prompt": {
@@ -30,7 +30,7 @@ BULK_SCHEMA = {
                         ]
                     },
                 },
-                "required": ["behavior", "category", "topic"],
+                "required": ["requirement", "category", "topic"],
             },
         },
     },
@@ -39,7 +39,7 @@ BULK_SCHEMA = {
 
 
 def _test_item(**overrides):
-    item = {"behavior": "b", "category": "c", "topic": "t"}
+    item = {"requirement": "b", "category": "c", "topic": "t"}
     item.update(overrides)
     return item
 
@@ -64,7 +64,7 @@ class TestFindMissingArguments:
         args = {
             "name": "n",
             "test_set_type": "Single-Turn",
-            "tests": [_test_item(), {"behavior": "b"}],
+            "tests": [_test_item(), {"requirement": "b"}],
         }
         error = find_missing_arguments(args, BULK_SCHEMA)
         assert error is not None
@@ -93,7 +93,7 @@ class TestFindMissingArguments:
         args = {
             "name": "n",
             "test_set_type": "Single-Turn",
-            "tests": [_test_item() for _ in range(20)] + [{"behavior": "b"}],
+            "tests": [_test_item() for _ in range(20)] + [{"requirement": "b"}],
         }
         assert find_missing_arguments(args, BULK_SCHEMA) is None
 

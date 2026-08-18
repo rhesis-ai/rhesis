@@ -1,5 +1,5 @@
 ---
-title: Test Execution – Rhesis
+title: Test Execution
 description: Execute test sets against your AI endpoints to evaluate model performance, safety, and reliability. Configure execution options and analyse results.
 keywords: [test execution, AI test runner, LLM evaluation, model safety testing, automated AI testing]
 ---
@@ -99,7 +99,7 @@ before starting the test run.
 | Evaluation Model | All runs | An evaluation model is configured and usable |
 | Execution Model | Multi-turn runs | A Penelope execution model is configured and usable |
 | Test Set Has Tests | All runs | Each selected test set contains tests |
-| Behavior-Metric Coverage | All runs | Tests have behavior and metric coverage for scoring |
+| Requirement-Metric Coverage | All runs | Tests have requirement and metric coverage for scoring |
 | Metric Functionality | All runs | Selected metrics can run before the full execution starts |
 | Metric-Endpoint Compatibility | All runs | Metrics that require `context`, `tool_calls`, or expected responses have the data they need from the endpoint mapping and tests |
 
@@ -142,13 +142,13 @@ When executing a test set, you can choose from three metrics sources:
 
 | Source | Description |
 |--------|-------------|
-| **Behavior Metrics** | Use default metrics defined on each test's behavior. This is the standard configuration. |
-| **Test Set Metrics** | Use metrics configured on the test set. Overrides behavior-level defaults. |
+| **Requirement Metrics** | Use default metrics defined on each test's requirement. This is the standard configuration. |
+| **Test Set Metrics** | Use metrics configured on the test set. Overrides requirement-level defaults. |
 | **Custom Metrics** | Define specific metrics for this execution only. Completely overrides other levels. |
 
 Rhesis resolves which metrics to use based on a priority hierarchy. When a test execution starts, the system checks for metrics at each level in order, using the first level that has metrics configured.
 
-The priority order ensures maximum flexibility: you can define sensible defaults at the behavior level, customize them for specific test sets, and still override everything for individual executions when needed.
+The priority order ensures maximum flexibility: you can define sensible defaults at the requirement level, customize them for specific test sets, and still override everything for individual executions when needed.
 
 <div style={{display: 'flex', justifyContent: 'center'}}>
 
@@ -157,7 +157,7 @@ The priority order ensures maximum flexibility: you can define sensible defaults
 graph TB
     P1["&nbsp;&nbsp;&nbsp;1. Execution-time Metrics&nbsp;&nbsp;&nbsp;<br/>Highest Priority"]
     P2["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. Test Set Metrics&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br/>Medium Priority"]
-    P3["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3. Behavior Metrics&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br/>Lowest Priority"]
+    P3["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3. Requirement Metrics&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br/>Lowest Priority"]
 
     P1 --> P2
     P2 --> P3
@@ -170,7 +170,7 @@ graph TB
 </div>
 
 <Callout type="warning">
-  There is no merging between levels. If execution-time metrics are specified, they completely replace test set and behavior metrics.
+  There is no merging between levels. If execution-time metrics are specified, they completely replace test set and requirement metrics.
 </Callout>
 
 ### Defining Custom Metrics
@@ -190,7 +190,7 @@ To use custom metrics for a single execution:
 
 | Level | Use Case |
 |-------|----------|
-| **Behavior Metrics** | Standard testing with default evaluation criteria per behavior type |
+| **Requirement Metrics** | Standard testing with default evaluation criteria per requirement type |
 | **Test Set Metrics** | Specialized test sets like Garak security tests with custom detectors |
 | **Execution-time Metrics** | Quick experiments, A/B testing evaluation criteria, one-off validations |
 

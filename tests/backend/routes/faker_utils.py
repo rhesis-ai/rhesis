@@ -5,7 +5,7 @@ This module provides consistent and realistic test data generation
 using the Faker library for all route tests.
 
 Usage:
-    from tests.backend.routes.faker_utils import generate_behavior_data, generate_topic_data
+    from tests.backend.routes.faker_utils import generate_requirement_data, generate_topic_data
 
 Features:
 - Consistent data generation patterns across all test files
@@ -28,11 +28,11 @@ class TestDataGenerator:
     """Central class for generating test data with Faker"""
 
     @staticmethod
-    def generate_behavior_data(
+    def generate_requirement_data(
         include_optional: bool = True, long_name: bool = False, special_chars: bool = False
     ) -> Dict[str, Any]:
         """
-        Generate realistic behavior test data
+        Generate realistic requirement test data
 
         Args:
             include_optional: Include optional fields
@@ -40,7 +40,7 @@ class TestDataGenerator:
             special_chars: Include special characters for edge testing
 
         Returns:
-            Dict containing behavior data
+            Dict containing requirement data
         """
         if long_name:
             name = fake.text(max_nb_chars=1000).replace("\n", " ")
@@ -60,16 +60,16 @@ class TestDataGenerator:
         return data
 
     @staticmethod
-    def generate_behavior_update_data() -> Dict[str, Any]:
-        """Generate behavior update data"""
+    def generate_requirement_update_data() -> Dict[str, Any]:
+        """Generate requirement update data"""
         return {
             "name": fake.sentence(nb_words=3).rstrip("."),
             "description": fake.paragraph(nb_sentences=2),
         }
 
     @staticmethod
-    def generate_behavior_minimal() -> Dict[str, Any]:
-        """Generate minimal behavior data"""
+    def generate_requirement_minimal() -> Dict[str, Any]:
+        """Generate minimal requirement data"""
         return {"name": fake.word().title() + " " + fake.bs().title()}
 
     @staticmethod
@@ -170,7 +170,7 @@ class TestDataGenerator:
         Generate multiple test data entries for performance testing
 
         Args:
-            entity_type: Type of entity ('behavior' or 'topic')
+            entity_type: Type of entity ('requirement' or 'topic')
             count: Number of entries to generate
 
         Returns:
@@ -179,9 +179,9 @@ class TestDataGenerator:
         data_list = []
 
         for i in range(count):
-            if entity_type == "behavior":
+            if entity_type == "requirement":
                 data = {
-                    "name": f"{fake.word().title()} Test Behavior {i}",
+                    "name": f"{fake.word().title()} Test Requirement {i}",
                     "description": fake.paragraph(nb_sentences=2),
                 }
             elif entity_type == "topic":
@@ -270,9 +270,9 @@ class TestDataGenerator:
         return {"name": fake.word().title() + " Category"}
 
 # Convenience functions for backward compatibility and ease of use
-def generate_behavior_data(**kwargs) -> Dict[str, Any]:
-    """Convenience function for generating behavior data"""
-    return TestDataGenerator.generate_behavior_data(**kwargs)
+def generate_requirement_data(**kwargs) -> Dict[str, Any]:
+    """Convenience function for generating requirement data"""
+    return TestDataGenerator.generate_requirement_data(**kwargs)
 
 
 def generate_topic_data(**kwargs) -> Dict[str, Any]:

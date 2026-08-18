@@ -10,12 +10,16 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.test import (
     bulk_create_tests,
@@ -71,7 +75,7 @@ def create_tests_bulk(
                     "language_code": "en",
                     "expected_response": "Optional expected response"
                 },
-                "behavior": "Behavior name",
+                "requirement": "Requirement name",
                 "category": "Category name",
                 "topic": "Topic name",
                 "test_configuration": {},  # Optional test configuration
@@ -198,7 +202,7 @@ def read_tests(
     select: str | None = Query(
         None,
         alias="$select",
-        description="Comma-separated list of fields to return (e.g. id,prompt,behavior)",
+        description="Comma-separated list of fields to return (e.g. id,prompt,requirement)",
     ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -328,6 +332,7 @@ async def execute_test_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_execution_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
 ):
     """
     Execute a test in-place without worker infrastructure or database persistence.
@@ -340,8 +345,8 @@ async def execute_test_endpoint(
 
     1. **Existing test**: Provide `test_id` to execute an existing test
     2. **Inline test**: Provide complete test definition:
-       - For single-turn: `prompt` + `behavior` + `topic` + `category`
-       - For multi-turn: `test_configuration` (with goal) + `behavior` + `topic` + `category`
+       - For single-turn: `prompt` + `requirement` + `topic` + `category`
+       - For multi-turn: `test_configuration` (with goal) + `requirement` + `topic` + `category`
 
     **Parameters:**
     - `test_id`: Optional UUID of existing test
@@ -349,7 +354,7 @@ async def execute_test_endpoint(
     - `evaluate_metrics`: Whether to evaluate and return test_metrics (default: True)
     - `prompt`: For single-turn tests (if test_id not provided)
     - `test_configuration`: For multi-turn tests (if test_id not provided)
-    - `behavior`, `topic`, `category`: Required if test_id not provided
+    - `requirement`, `topic`, `category`: Required if test_id not provided
     - `test_type`: Optional, auto-detected if not provided
 
     **Returns:**
@@ -380,7 +385,7 @@ async def execute_test_endpoint(
         "language_code": "en",
         "expected_response": "4"
       },
-      "behavior": "Mathematical Reasoning",
+      "requirement": "Mathematical Reasoning",
       "topic": "Arithmetic",
       "category": "Math"
     }
@@ -394,7 +399,7 @@ async def execute_test_endpoint(
         "max_turns": 10,
         "min_turns": 5
       },
-      "behavior": "Task Completion",
+      "requirement": "Task Completion",
       "topic": "Travel",
       "category": "Booking"
     }
@@ -459,4 +464,4 @@ def list_test_files(
 ):
     """List input files attached to a test."""
     organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(db, test_id, "Test", organization_id, user_id)
+    return file_crud.get_files_for_entity(db, test_id, "Test", organization_id, user_id)

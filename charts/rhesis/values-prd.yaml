@@ -40,10 +40,15 @@ config:
   nextPublicAppUrl: "https://app.rhesis.ai"
   nextPublicSupportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
+  architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
   # Backend
   rhesisBaseUrl: "https://api.rhesis.ai"
   frontendUrl: "https://app.rhesis.ai"
   backendUrl: "http://backend:8080"
+  # Disposable-email screening: off | log | enforce. Starts at log so the
+  # community list's false-positive rate can be measured before it rejects.
+  authBlockDisposableEmails: "log"
+  authDisposableEmailExtraDomains: ""
 
   # GCP
   # TODO: migrate to rhesis-prd. Currently shared with dev for Vertex AI quota/billing.

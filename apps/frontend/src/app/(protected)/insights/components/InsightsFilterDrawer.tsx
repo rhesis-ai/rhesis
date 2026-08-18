@@ -19,31 +19,31 @@ import {
   InsightsTimeRange,
   resolveInsightsTimeRange,
 } from '../types';
-import { fetchTestRunsForEndpoint } from '../utils/behavior-insights-utils';
+import { fetchTestRunsForEndpoint } from '../utils/requirement-insights-utils';
 import {
   checkedIdsFromFilter,
   checkedIdsFromOptionalFilter,
   formatInsightsTestRunLabel,
   idsFromCheckedSelection,
   idsFromCheckedSelectionOptional,
-  InsightsBehaviorOption,
+  InsightsRequirementOption,
   InsightsTestRunOption,
   isOptionalFilterActive,
   isRunFilterActive,
 } from '../utils/insights-filter-utils';
-import InsightsBehaviorFilterSection from './InsightsBehaviorFilterSection';
+import InsightsRequirementFilterSection from './InsightsRequirementFilterSection';
 import InsightsStatusFilterSection from './InsightsStatusFilterSection';
 import InsightsTestRunFilterSection from './InsightsTestRunFilterSection';
 import InsightsTimeRangeFilterSection from './InsightsTimeRangeFilterSection';
 
 export type InsightsDrawerFilters = Pick<
   InsightsFilters,
-  'endpointId' | 'behaviorIds' | 'statusIds' | 'timeRange' | 'testRunIds'
+  'endpointId' | 'requirementIds' | 'statusIds' | 'timeRange' | 'testRunIds'
 >;
 
 export const EMPTY_INSIGHTS_DRAWER_FILTERS: InsightsDrawerFilters = {
   endpointId: '',
-  behaviorIds: null,
+  requirementIds: null,
   statusIds: null,
   timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
   testRunIds: [],
@@ -54,7 +54,7 @@ export function hasActiveInsightsDrawerFilters(
 ): boolean {
   return (
     f.endpointId !== '' ||
-    isOptionalFilterActive(f.behaviorIds) ||
+    isOptionalFilterActive(f.requirementIds) ||
     isOptionalFilterActive(f.statusIds) ||
     isRunFilterActive(f)
   );
@@ -64,7 +64,7 @@ export function countActiveInsightsDrawerFilters(
   f: InsightsDrawerFilters
 ): number {
   let count = f.endpointId !== '' ? 1 : 0;
-  if (isOptionalFilterActive(f.behaviorIds)) {
+  if (isOptionalFilterActive(f.requirementIds)) {
     count += 1;
   }
   if (isOptionalFilterActive(f.statusIds)) {
@@ -84,7 +84,7 @@ interface InsightsFilterDrawerProps {
   filters: InsightsDrawerFilters;
   projectEndpoints: Endpoint[];
   endpointsLoading: boolean;
-  behaviorOptions: InsightsBehaviorOption[];
+  requirementOptions: InsightsRequirementOption[];
   onApply: (filters: InsightsDrawerFilters) => void;
 }
 
@@ -94,7 +94,7 @@ export default function InsightsFilterDrawer({
   filters,
   projectEndpoints,
   endpointsLoading,
-  behaviorOptions,
+  requirementOptions,
   onApply,
 }: InsightsFilterDrawerProps) {
   const { status } = useSession();
@@ -113,9 +113,9 @@ export default function InsightsFilterDrawer({
 
   const { data: statuses = [] } = useStatuses(EntityType.TEST_RESULT, open);
 
-  const allBehaviorIds = React.useMemo(
-    () => behaviorOptions.map(option => option.id),
-    [behaviorOptions]
+  const allRequirementIds = React.useMemo(
+    () => requirementOptions.map(option => option.id),
+    [requirementOptions]
   );
 
   const allTestRunIds = React.useMemo(
@@ -128,9 +128,9 @@ export default function InsightsFilterDrawer({
     [statuses]
   );
 
-  const checkedBehaviorIds = React.useMemo(
-    () => checkedIdsFromOptionalFilter(allBehaviorIds, draft.behaviorIds),
-    [allBehaviorIds, draft.behaviorIds]
+  const checkedRequirementIds = React.useMemo(
+    () => checkedIdsFromOptionalFilter(allRequirementIds, draft.requirementIds),
+    [allRequirementIds, draft.requirementIds]
   );
 
   const checkedTestRunIds = React.useMemo(
@@ -198,17 +198,17 @@ export default function InsightsFilterDrawer({
     };
   }, [open, status, draft.endpointId, draft.timeRange, setDraft]);
 
-  const handleCheckedBehaviorIdsChange = React.useCallback(
+  const handleCheckedRequirementIdsChange = React.useCallback(
     (checkedIds: string[]) => {
       setDraft(prev => ({
         ...prev,
-        behaviorIds: idsFromCheckedSelectionOptional(
-          allBehaviorIds,
+        requirementIds: idsFromCheckedSelectionOptional(
+          allRequirementIds,
           checkedIds
         ),
       }));
     },
-    [allBehaviorIds, setDraft]
+    [allRequirementIds, setDraft]
   );
 
   const handleCheckedTestRunIdsChange = React.useCallback(
@@ -294,10 +294,10 @@ export default function InsightsFilterDrawer({
         disabled={!draft.endpointId}
       />
 
-      <InsightsBehaviorFilterSection
-        options={behaviorOptions}
-        checkedIds={checkedBehaviorIds}
-        onCheckedIdsChange={handleCheckedBehaviorIdsChange}
+      <InsightsRequirementFilterSection
+        options={requirementOptions}
+        checkedIds={checkedRequirementIds}
+        onCheckedIdsChange={handleCheckedRequirementIdsChange}
       />
 
       <InsightsStatusFilterSection

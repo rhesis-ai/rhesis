@@ -45,7 +45,7 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -65,7 +65,7 @@ interface MetricSummary {
 
 export default function TestDetailMetricsTab({
   test,
-  behaviors,
+  requirements,
   metricsSource,
   onReviewMetric,
 }: TestDetailMetricsTabProps) {
@@ -102,35 +102,35 @@ export default function TestDetailMetricsTab({
       description?: string;
       passed: boolean;
       fullMetricData: MetricResult;
-      behaviorName: string;
+      requirementName: string;
     }> = [];
 
-    // Check if we have behavior definitions
-    const hasBehaviors = Boolean(behaviors && behaviors.length > 0);
+    // Check if we have requirement definitions
+    const hasRequirements = Boolean(requirements && requirements.length > 0);
 
-    // Determine if we should use behavior-based grouping
-    // Only use behavior grouping when:
-    // 1. metricsSource is 'behavior' (or not set)
-    // 2. We have behaviors defined
+    // Determine if we should use requirement-based grouping
+    // Only use requirement grouping when:
+    // 1. metricsSource is 'requirement' (or not set)
+    // 2. We have requirements defined
     // 3. It's not a multi-turn test
-    const useBehaviorGrouping =
-      (metricsSource === MetricsSource.BEHAVIOR || !metricsSource) &&
-      hasBehaviors &&
+    const useRequirementGrouping =
+      (metricsSource === MetricsSource.REQUIREMENT || !metricsSource) &&
+      hasRequirements &&
       !isMultiTurn;
 
-    if (useBehaviorGrouping) {
-      // Filter to only the behavior belonging to this test result to avoid
-      // duplicating metrics shared across different behaviors in the run.
-      // If this test has no known behavior, don't fall back to the full run-wide
-      // behaviors list either — that would reintroduce the same duplication for
+    if (useRequirementGrouping) {
+      // Filter to only the requirement belonging to this test result to avoid
+      // duplicating metrics shared across different requirements in the run.
+      // If this test has no known requirement, don't fall back to the full run-wide
+      // requirements list either — that would reintroduce the same duplication for
       // this test. The direct-metrics branch below picks up the slack instead.
-      const testBehaviorId = test.test?.behavior?.id;
-      const relevantBehaviors = testBehaviorId
-        ? behaviors.filter(b => b.id === testBehaviorId)
+      const testRequirementId = test.test?.requirement?.id;
+      const relevantRequirements = testRequirementId
+        ? requirements.filter(b => b.id === testRequirementId)
         : [];
 
-      relevantBehaviors.forEach(behavior => {
-        behavior.metrics.forEach(metric => {
+      relevantRequirements.forEach(requirement => {
+        requirement.metrics.forEach(metric => {
           const metricResult = testMetrics[metric.name];
           if (metricResult) {
             allMetrics.push({
@@ -138,7 +138,7 @@ export default function TestDetailMetricsTab({
               description: metric.description,
               passed: metricResult.is_successful,
               fullMetricData: metricResult,
-              behaviorName: behavior.name,
+              requirementName: requirement.name,
             });
           }
         });
@@ -148,26 +148,29 @@ export default function TestDetailMetricsTab({
     // Handle direct metrics:
     // - When metricsSource is test_set or execution_time
     // - When multi-turn tests
-    // - When no behaviors are defined
-    // - When behavior grouping didn't find any metrics
-    if (!useBehaviorGrouping || allMetrics.length === 0) {
+    // - When no requirements are defined
+    // - When requirement grouping didn't find any metrics
+    if (!useRequirementGrouping || allMetrics.length === 0) {
       // Use appropriate category name based on metrics source or test type
       let categoryName: string;
-      if (metricsSource && metricsSource !== MetricsSource.BEHAVIOR) {
+      if (metricsSource && metricsSource !== MetricsSource.REQUIREMENT) {
         // test_set or execution_time
         categoryName = getMetricsSourceLabel(metricsSource);
       } else if (isMultiTurn) {
         categoryName = 'Multi-Turn Test';
-      } else if (metricsSource === MetricsSource.BEHAVIOR && hasBehaviors) {
-        // Fallback for behavior source when behavior metrics didn't match
-        categoryName = 'Behavior Metrics';
+      } else if (
+        metricsSource === MetricsSource.REQUIREMENT &&
+        hasRequirements
+      ) {
+        // Fallback for requirement source when requirement metrics didn't match
+        categoryName = 'Requirement Metrics';
       } else {
         categoryName = 'Metrics'; // Generic fallback
       }
 
       Object.entries(testMetrics).forEach(
         ([metricName, metricResult]: [string, MetricResult]) => {
-          // Skip if already added via behaviors
+          // Skip if already added via requirements
           const alreadyAdded = allMetrics.some(m => m.name === metricName);
           if (
             !alreadyAdded &&
@@ -180,7 +183,7 @@ export default function TestDetailMetricsTab({
               description: metricResult.description || undefined,
               passed: metricResult.is_successful,
               fullMetricData: metricResult,
-              behaviorName: categoryName,
+              requirementName: categoryName,
             });
           }
         }
@@ -188,7 +191,7 @@ export default function TestDetailMetricsTab({
     }
 
     return allMetrics;
-  }, [test, behaviors, metricsSource, isMultiTurn]);
+  }, [test, requirements, metricsSource, isMultiTurn]);
 
   // Filter metrics based on selected status
   const filteredMetrics = useMemo(() => {
@@ -208,24 +211,24 @@ export default function TestDetailMetricsTab({
     return { total, passed, failed, passRate };
   }, [filteredMetrics]);
 
-  // Find best and worst performing behaviors based on filtered metrics
-  const behaviorStats = useMemo(() => {
+  // Find best and worst performing requirements based on filtered metrics
+  const requirementStats = useMemo(() => {
     const stats = new Map<string, { passed: number; total: number }>();
 
-    // Group metrics by behavior name (works for both behavior-based and direct metrics)
-    const behaviorNames = [
-      ...new Set(filteredMetrics.map(m => m.behaviorName)),
+    // Group metrics by requirement name (works for both requirement-based and direct metrics)
+    const requirementNames = [
+      ...new Set(filteredMetrics.map(m => m.requirementName)),
     ];
 
-    behaviorNames.forEach(behaviorName => {
-      const behaviorMetrics = filteredMetrics.filter(
-        m => m.behaviorName === behaviorName
+    requirementNames.forEach(requirementName => {
+      const requirementMetrics = filteredMetrics.filter(
+        m => m.requirementName === requirementName
       );
-      const passed = behaviorMetrics.filter(m => m.passed).length;
-      const total = behaviorMetrics.length;
+      const passed = requirementMetrics.filter(m => m.passed).length;
+      const total = requirementMetrics.length;
 
       if (total > 0) {
-        stats.set(behaviorName, { passed, total });
+        stats.set(requirementName, { passed, total });
       }
     });
 
@@ -240,13 +243,13 @@ export default function TestDetailMetricsTab({
 
     entries.sort((a, b) => b.rate - a.rate);
 
-    // If only one behavior, don't show best/worst distinction
-    const hasMultipleBehaviors = entries.length > 1;
+    // If only one requirement, don't show best/worst distinction
+    const hasMultipleRequirements = entries.length > 1;
 
     return {
       best: entries[0],
-      worst: hasMultipleBehaviors ? entries[entries.length - 1] : undefined,
-      hasMultipleBehaviors,
+      worst: hasMultipleRequirements ? entries[entries.length - 1] : undefined,
+      hasMultipleRequirements,
     };
   }, [filteredMetrics]);
 
@@ -390,7 +393,7 @@ export default function TestDetailMetricsTab({
         <Grid
           size={{
             xs: 12,
-            md: behaviorStats.hasMultipleBehaviors ? 4 : 6,
+            md: requirementStats.hasMultipleRequirements ? 4 : 6,
           }}
         >
           <Card
@@ -415,7 +418,7 @@ export default function TestDetailMetricsTab({
           </Card>
         </Grid>
 
-        {behaviorStats.hasMultipleBehaviors ? (
+        {requirementStats.hasMultipleRequirements ? (
           <>
             <Grid
               size={{
@@ -437,16 +440,17 @@ export default function TestDetailMetricsTab({
                     color="text.secondary"
                     gutterBottom
                   >
-                    {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
-                      ? 'Best Behavior'
+                    {metricsSource === MetricsSource.REQUIREMENT ||
+                    !metricsSource
+                      ? 'Best Requirement'
                       : 'Best Performing'}
                   </Typography>
                   <Typography variant="h6" fontWeight={600} noWrap>
-                    {behaviorStats.best?.name || 'N/A'}
+                    {requirementStats.best?.name || 'N/A'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {behaviorStats.best
-                      ? `${behaviorStats.best.rate.toFixed(0)}% pass rate`
+                    {requirementStats.best
+                      ? `${requirementStats.best.rate.toFixed(0)}% pass rate`
                       : 'No data'}
                   </Typography>
                 </CardContent>
@@ -473,16 +477,17 @@ export default function TestDetailMetricsTab({
                     color="text.secondary"
                     gutterBottom
                   >
-                    {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
-                      ? 'Worst Behavior'
+                    {metricsSource === MetricsSource.REQUIREMENT ||
+                    !metricsSource
+                      ? 'Worst Requirement'
                       : 'Worst Performing'}
                   </Typography>
                   <Typography variant="h6" fontWeight={600} noWrap>
-                    {behaviorStats.worst?.name || 'N/A'}
+                    {requirementStats.worst?.name || 'N/A'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {behaviorStats.worst
-                      ? `${behaviorStats.worst.rate.toFixed(0)}% pass rate`
+                    {requirementStats.worst
+                      ? `${requirementStats.worst.rate.toFixed(0)}% pass rate`
                       : 'No data'}
                   </Typography>
                 </CardContent>
@@ -506,18 +511,18 @@ export default function TestDetailMetricsTab({
             >
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
-                    ? 'Behavior'
+                  {metricsSource === MetricsSource.REQUIREMENT || !metricsSource
+                    ? 'Requirement'
                     : 'Metrics Source'}
                 </Typography>
                 <Typography variant="h6" fontWeight={600} noWrap>
-                  {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
-                    ? behaviorStats.best?.name || 'N/A'
+                  {metricsSource === MetricsSource.REQUIREMENT || !metricsSource
+                    ? requirementStats.best?.name || 'N/A'
                     : getMetricsSourceLabel(metricsSource)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {behaviorStats.best
-                    ? `${behaviorStats.best.rate.toFixed(0)}% pass rate`
+                  {requirementStats.best
+                    ? `${requirementStats.best.rate.toFixed(0)}% pass rate`
                     : 'No data'}
                 </Typography>
               </CardContent>
@@ -901,7 +906,7 @@ export default function TestDetailMetricsTab({
 
                     return (
                       <TableRow
-                        key={`${metric.behaviorName}-${metric.name}`}
+                        key={`${metric.requirementName}-${metric.name}`}
                         sx={{
                           '&:hover': {
                             backgroundColor: theme.palette.action.hover,

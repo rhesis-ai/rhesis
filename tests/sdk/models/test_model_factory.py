@@ -80,7 +80,7 @@ class TestUnifiedGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_llm_class.return_value = mock_instance
 
-        result = get_model("rhesis/rhesis-default")
+        result = get_model("rhesis/rhesis")
 
         assert isinstance(result, BaseLLM)
         mock_llm_class.assert_called_once()

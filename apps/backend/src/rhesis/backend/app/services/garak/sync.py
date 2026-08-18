@@ -26,7 +26,7 @@ from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
 
 from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy, resolve_behavior
+from .taxonomy import GarakTaxonomy, resolve_requirement
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +355,7 @@ class GarakSyncService:
         Add new prompts from a probe to the test set.
 
         Uses bulk_create_tests to ensure proper metadata is set
-        (test_type, status, category, behavior, topic, etc.).
+        (test_type, status, category, requirement, topic, etc.).
         """
         # Get taxonomy mapping for this probe module
         mapping = GarakTaxonomy.get_mapping(probe.module_name)
@@ -386,7 +386,7 @@ class GarakSyncService:
                     content=prompt_content,
                     language_code="en",
                 ),
-                behavior=resolve_behavior(probe.tags),
+                requirement=resolve_requirement(probe.tags),
                 category=mapping.category,
                 topic=mapping.topic,
                 test_type="Single-Turn",

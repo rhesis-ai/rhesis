@@ -2,61 +2,61 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Attributes
 
-Test attribute entities provide structure and classification for tests. Categories, topics, and behaviors help organize test sets and enable filtered evaluation.
+Test attribute entities provide structure and classification for tests. Categories, topics, and requirements help organize test sets and enable filtered evaluation.
 
 These entities use the shared [entity interface](/sdk/entities) for fetching, filtering, updating, and deleting.
 
-## Behavior
+## Requirement
 
-Behaviors define expected actions or responses from LLM applications. Each behavior can have associated metrics for evaluation.
+Requirements define expected actions or responses from LLM applications. Each requirement can have associated metrics for evaluation.
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `id` | `str` | Unique identifier |
-| `name` | `str` | Behavior name (e.g., "Refuses harmful requests") |
+| `name` | `str` | Requirement name (e.g., "Refuses harmful requests") |
 | `description` | `str` | Detailed description |
 
-### Working with Behaviors
+### Working with Requirements
 
-<CodeBlock filename="behaviors.py" language="python">
-{`from rhesis.sdk.entities import Behaviors, Behavior
+<CodeBlock filename="requirements.py" language="python">
+{`from rhesis.sdk.entities import Requirements, Requirement
 
-# List all behaviors
-for behavior in Behaviors.all():
-    print(f"{behavior.name}: {behavior.description}")
+# List all requirements
+for requirement in Requirements.all():
+    print(f"{requirement.name}: {requirement.description}")
 
 # Get by name
-behavior = Behaviors.pull(name="Refuses harmful requests")
+requirement = Requirements.pull(name="Refuses harmful requests")
 
-# Create new behavior
-new_behavior = Behavior(
+# Create new requirement
+new_requirement = Requirement(
     name="Admits uncertainty",
     description="The AI acknowledges when it doesn't know something"
 )
-new_behavior.push()`}
+new_requirement.push()`}
 </CodeBlock>
 
-### Behavior Metrics
+### Requirement Metrics
 
-Behaviors can have associated metrics for automatic evaluation:
+Requirements can have associated metrics for automatic evaluation:
 
-<CodeBlock filename="behavior_metrics.py" language="python">
-{`from rhesis.sdk.entities import Behaviors
+<CodeBlock filename="requirement_metrics.py" language="python">
+{`from rhesis.sdk.entities import Requirements
 
-behavior = Behaviors.pull(name="Refuses harmful requests")
+requirement = Requirements.pull(name="Refuses harmful requests")
 
 # Get associated metrics
-metrics = behavior.get_metrics()
+metrics = requirement.get_metrics()
 for metric in metrics:
     print(f"Metric: {metric['name']}")
 
-# Add a metric to this behavior
-behavior.add_metric(metric_id="metric-123")
+# Add a metric to this requirement
+requirement.add_metric(metric_id="metric-123")
 
 # Remove a metric
-behavior.remove_metric(metric_id="metric-456")`}
+requirement.remove_metric(metric_id="metric-456")`}
 </CodeBlock>
 
 ## Category
@@ -100,7 +100,7 @@ new_category.push()`}
 safety_tests = Tests.all(filter="category eq 'Safety'")
 
 for test in safety_tests:
-    print(f"{test.topic}: {test.behavior}")`}
+    print(f"{test.topic}: {test.requirement}")`}
 </CodeBlock>
 
 ## Topic
@@ -144,12 +144,12 @@ new_topic.push()`}
 privacy_tests = Tests.all(filter="topic eq 'Privacy'")
 
 for test in privacy_tests:
-    print(f"{test.category}: {test.behavior}")`}
+    print(f"{test.category}: {test.requirement}")`}
 </CodeBlock>
 
 ---
 
 <Callout type="default">
   **Next Steps** - Create [Test Sets](/sdk/entities/test-sets) using these attributes
-  - Associate [Metrics](/sdk/metrics) with behaviors for evaluation
+  - Associate [Metrics](/sdk/metrics) with requirements for evaluation
 </Callout>

@@ -158,7 +158,7 @@ def run_queries(
     """Run several named sub-queries in one call and return one envelope per label.
 
     Callers combine the per-label envelopes themselves (e.g. zipping a test_result-grain
-    breakdown with a metric-grain one by a shared dimension like behavior).
+    breakdown with a metric-grain one by a shared dimension like requirement).
     """
     if not queries:
         raise InsightsValidationError("At least one query is required")
@@ -196,7 +196,7 @@ def run_ids(
     """Return distinct IDs matching the same filter universe as GET /insights.
 
     outcome ('pass'/'fail'/'all') uses the entity's registry apply_outcome when set.
-    Dimension filters (behavior_ids, topic_ids, metric_names, …) go through the
+    Dimension filters (requirement_ids, topic_ids, metric_names, …) go through the
     normal registry filters — no name-based special cases.
     """
     if outcome not in VALID_OUTCOMES:

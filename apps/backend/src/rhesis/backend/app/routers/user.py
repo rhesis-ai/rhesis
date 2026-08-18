@@ -6,20 +6,24 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.rbac import authorize
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.dependencies import (
     get_db_session,
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.auth import create_session_token
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.polyphemus import (
@@ -124,6 +128,13 @@ def create_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
+    # Gates both inviting and re-inviting -- each consumes a seat, since
+    # count_org_seats counts every row carrying this organization_id and a
+    # re-invite reassigns one. Safe despite @handle_database_exceptions'
+    # bare `except Exception`: dependencies resolve before the route body
+    # runs, so QuotaExceededError never passes through the decorator and
+    # reaches the global 402 handler in main.py intact.
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.SEATS)),
 ):
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id
@@ -136,7 +147,7 @@ def create_user(
         raise HTTPException(status_code=400, detail=str(e))
 
     # Check for existing user with the same email
-    existing_user = crud.get_user_by_email(db, user.email)
+    existing_user = user_crud.get_user_by_email(db, user.email)
     if existing_user:
         # User already exists - check if they can be re-invited
         if existing_user.organization_id is not None:
@@ -175,7 +186,7 @@ def create_user(
         send_invite = user.send_invite
 
         # Create the user (crud function will automatically exclude send_invite)
-        created_user = crud.create_user(db=db, user=user)
+        created_user = user_crud.create_user(db=db, user=user)
 
     # Note: new users are NOT auto-enrolled in any projects.
     # An admin must explicitly add them via the project Members tab.
@@ -242,7 +253,7 @@ def read_users(
 ):
     """Get all users with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_users(
+    return user_crud.get_users(
         db=db,
         skip=skip,
         limit=limit,
@@ -354,7 +365,7 @@ def read_user(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id_tenant = tenant_context
-    db_user = crud.get_user(
+    db_user = user_crud.get_user(
         db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant
     )
     if db_user is None:
@@ -372,7 +383,7 @@ def delete_user(
     organization_id, user_id_tenant = tenant_context
 
     try:
-        db_user = crud.delete_user(
+        db_user = user_crud.delete_user(
             db, target_user_id=user_id, organization_id=organization_id, user_id=user_id_tenant
         )
         if db_user is None:
@@ -446,7 +457,7 @@ def update_user(
 
     # Get user with organization filtering (SECURITY CRITICAL)
     # During onboarding, organization_id may be None, which is acceptable
-    db_user = crud.get_user(
+    db_user = user_crud.get_user(
         db, user_id=user_id, organization_id=organization_id, tenant_user_id=user_id_tenant
     )
     if db_user is None:
@@ -469,7 +480,7 @@ def update_user(
     # only legitimate case is the org creator attaching to the org they own;
     # everything else (joining someone else's org, reassigning an existing org,
     # doing this on another user's behalf) is rejected. Leaving an org has its
-    # own dedicated endpoint and goes through crud.update_user unaffected since
+    # own dedicated endpoint and goes through user_crud.update_user unaffected since
     # it sets organization_id to None, not a new value.
     requested_org_id = getattr(user, "organization_id", None)
     if requested_org_id is not None and str(requested_org_id) != str(db_user.organization_id):
@@ -486,7 +497,7 @@ def update_user(
             )
 
     # Update the user
-    updated_user = crud.update_user(db, user_id=user_id, user=user)
+    updated_user = user_crud.update_user(db, user_id=user_id, user=user)
 
     # Joining an org for the first time (e.g. the creator attaching to their own
     # org during onboarding) — seed the default RBAC role now, not later. Every

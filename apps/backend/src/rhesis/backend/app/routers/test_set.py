@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
@@ -17,8 +18,10 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.schemas.embedding import (
@@ -101,6 +104,7 @@ def generate_test_set(
     current_user: User = Depends(require_current_user_or_token),
     scoped_project_id: Optional[str] = Depends(get_project_context),
     _validate_model=Depends(validate_generation_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Generate test set using ConfigSynthesizer.
@@ -119,7 +123,7 @@ def generate_test_set(
         Task information including task ID and estimated test count
     """
     try:
-        # config.behaviors and name are enforced by TestSetGenerationRequest,
+        # config.requirements and name are enforced by TestSetGenerationRequest,
         # so they arrive non-empty and already stripped.
         name = request.name
 
@@ -247,7 +251,7 @@ def create_test_set_bulk(
                     "language_code": "en",
                     "expected_response": "Optional expected response text"
                 },
-                "behavior": "Behavior name",
+                "requirement": "Requirement name",
                 "category": "Category name",
                 "topic": "Topic name",
                 "test_configuration": {}  # Optional test configuration,
@@ -269,7 +273,8 @@ def create_test_set_bulk(
     }
 
     Notes:
-    - demographic and dimension fields are accepted but ignored (dimension/demographic tables were removed)
+    - demographic and dimension fields are accepted but ignored (dimension/demographic
+      tables were removed)
     - expected_response is an optional field to specify the expected model response
     """
     try:
@@ -518,13 +523,14 @@ def execute_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_execution_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
 ):
     """Submit a test set for execution against an endpoint.
 
     The request body can include:
     - execution_options: Execution mode (Parallel/Sequential)
     - metrics: Optional list of execution-time metrics that override test set
-               and behavior metrics. Each metric should have id, name, and scope.
+               and requirement metrics. Each metric should have id, name, and scope.
     - reference_test_run_id: Optional UUID of a previous test run whose outputs
                should be reused (re-scoring mode).
     """
@@ -699,10 +705,10 @@ def get_test_set_metrics(
     Get metrics associated with a test set.
 
     When a test set has associated metrics, those metrics override the default
-    behavior-level metrics during test execution.
+    requirement-level metrics during test execution.
 
     If no metrics are associated, the test set will use the metrics defined
-    on each test's behavior during execution.
+    on each test's requirement during execution.
 
     Args:
         test_set_identifier: The test set identifier (UUID, nano_id, or slug)
@@ -715,7 +721,7 @@ def get_test_set_metrics(
     db_test_set = resolve_test_set_or_raise(
         test_set_identifier, db, str(current_user.organization_id)
     )
-    return db_test_set.metrics or []
+    return metric_crud.get_test_set_metrics(db, db_test_set.id, str(current_user.organization_id))
 
 
 @router.post(
@@ -733,7 +739,7 @@ def add_metric_to_test_set(
     Add a metric to a test set.
 
     When a test set has associated metrics, those metrics override the default
-    behavior-level metrics during test execution.
+    requirement-level metrics during test execution.
 
     Args:
         test_set_identifier: The test set identifier (UUID, nano_id, or slug)
@@ -761,8 +767,9 @@ def add_metric_to_test_set(
                 status_code=400, detail="Metric is already associated with this test set"
             )
         db.commit()
-        db.refresh(db_test_set)
-        return db_test_set.metrics or []
+        return metric_crud.get_test_set_metrics(
+            db, db_test_set.id, str(current_user.organization_id)
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -806,8 +813,9 @@ def remove_metric_from_test_set(
                 status_code=400, detail="Metric is not associated with this test set"
             )
         db.commit()
-        db.refresh(db_test_set)
-        return db_test_set.metrics or []
+        return metric_crud.get_test_set_metrics(
+            db, db_test_set.id, str(current_user.organization_id)
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

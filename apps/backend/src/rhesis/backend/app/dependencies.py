@@ -241,9 +241,37 @@ def get_db_session():
         yield db
 
 
+async def bind_usage_attribution(tenant_context: tuple = Depends(get_tenant_context)):
+    """
+    FastAPI dependency that names the org to bill for LLM tokens this request spends.
+
+    ``async def`` on purpose, and it must stay that way. A sync dependency
+    runs in the anyio threadpool, so a ContextVar it sets is invisible to the
+    request's own task -- that is exactly why ``app.scope``'s ContextVar is
+    documented as unusable from request handlers. An async dependency runs in
+    the request task, so both async and sync route handlers see the binding,
+    as does anything they hand to ``asyncio.to_thread``.
+
+    Attached to ``get_tenant_db_session`` rather than to individual routes:
+    any endpoint that touches tenant data goes through it, and attribution
+    that has to be remembered per route is the problem this replaces. A route
+    that spends tokens without it shows up in the logs under
+    ``usage.unattributed`` rather than silently going uncounted.
+    """
+    from rhesis.backend.app.usage_attribution import bind_usage_org, reset_usage_org
+
+    organization_id, _ = tenant_context
+    token = bind_usage_org(organization_id)
+    try:
+        yield
+    finally:
+        reset_usage_org(token)
+
+
 def get_tenant_db_session(
     tenant_context: tuple = Depends(get_tenant_context),
     project_id: Optional[str] = Depends(get_project_context),
+    _usage_attribution: None = Depends(bind_usage_attribution),
 ):
     """
     FastAPI dependency that provides a database session with automatic session variables.
@@ -252,6 +280,9 @@ def get_tenant_db_session(
     ``session.info['_scope']`` so the auto-filter / auto-stamp listeners are
     active for the lifetime of the request.  The ContextVar is NOT bound here;
     Session.info is the authoritative source for all DB-bound work.
+
+    Also pulls in ``bind_usage_attribution`` so LLM calls made anywhere under
+    this request accrue their tokens to the right organization.
 
     Returns:
         Session: The database session with full tenant context set
@@ -354,10 +385,10 @@ def get_db_with_tenant_context(
         yield db, organization_id, user_id
 
 
-# Backward compatibility alias for behavior endpoints
-def get_behavior_context(current_user: User = Depends(require_current_user_or_token)):
+# Backward compatibility alias for requirement endpoints
+def get_requirement_context(current_user: User = Depends(require_current_user_or_token)):
     """
     DEPRECATED: Use get_tenant_context instead.
-    Kept for backward compatibility with behavior endpoints.
+    Kept for backward compatibility with requirement endpoints.
     """
     return get_tenant_context(current_user)

@@ -24,18 +24,18 @@ class ProjectSpec(BaseModel):
     completed: bool = Field(default=False, description="Whether this project has been created")
 
 
-class BehaviorSpec(BaseModel):
-    """Specification for a behavior in the plan."""
+class RequirementSpec(BaseModel):
+    """Specification for a requirement in the plan."""
 
-    name: str = Field(description="Behavior name")
-    description: str = Field(default="", description="What this behavior expects")
+    name: str = Field(description="Requirement name")
+    description: str = Field(default="", description="What this requirement expects")
     reuse_status: ReuseStatus = Field(
         default="new",
-        description="Whether to reuse an existing behavior, or create a new one",
+        description="Whether to reuse an existing requirement, or create a new one",
     )
     existing_id: Optional[str] = Field(
         default=None,
-        description="ID of the existing behavior when reuse_status is 'reuse'",
+        description="ID of the existing requirement when reuse_status is 'reuse'",
     )
     completed: bool = Field(
         default=False, description="Whether this item has been created/resolved"
@@ -53,7 +53,7 @@ class TestSetSpec(BaseModel):
         default="Single-Turn",
         description=(
             'Must be exactly "Single-Turn" or "Multi-Turn". Decide from '
-            "what the user asked for and what the behavior needs: "
+            "what the user asked for and what the requirement needs: "
             "Multi-Turn when the test depends on earlier turns (context "
             "retention, multi-step tasks, tone under pressure, guardrails "
             "under repeated pressure); Single-Turn when a single prompt "
@@ -65,9 +65,9 @@ class TestSetSpec(BaseModel):
         default="",
         description="Prompt for test generation",
     )
-    behaviors: List[str] = Field(
+    requirements: List[str] = Field(
         default_factory=list,
-        description="Behavior names this test set targets",
+        description="Requirement names this test set targets",
     )
     categories: List[str] = Field(
         default_factory=list,
@@ -84,7 +84,13 @@ class MetricSpec(BaseModel):
     """Specification for an evaluation metric."""
 
     name: str = Field(description="Metric name")
-    description: str = Field(description="What this metric evaluates")
+    description: str = Field(
+        description=(
+            "Two to three sentences on what this metric evaluates, on "
+            "what part of the output, and why it matters here. Not a "
+            "restatement of the name."
+        )
+    )
     reuse_status: ReuseStatus = Field(
         default="new",
         description="Whether to reuse, improve, or create this metric",
@@ -95,15 +101,38 @@ class MetricSpec(BaseModel):
     )
     evaluation_prompt: str = Field(
         default="",
-        description="Prompt for LLM-based evaluation",
+        description=(
+            "The criteria the judge applies, as they will be sent to "
+            "create_metric: something a reader could point at in the "
+            "output, one bullet per testable clause, and score bands tied "
+            "to conditions rather than adverbs. No template placeholders."
+        ),
     )
     evaluation_steps: str = Field(
         default="",
-        description="Step-by-step evaluation procedure",
+        description=(
+            "The ordered steps the judge follows, as they will be sent to "
+            "create_metric: 4-7 steps, one observable action each, "
+            "scoring last. Use the platform step format — 'Step N:' on "
+            "its own line, steps joined by a line containing only '---'."
+        ),
     )
     reasoning: str = Field(
         default="",
-        description="Why this metric is needed",
+        description=(
+            "The reasoning instructions for the judge, as they will be "
+            "sent to create_metric: what evidence to quote, which clause "
+            "to tie it to, and how to break a tie between score bands. "
+            "Not a note about why the metric is in the plan."
+        ),
+    )
+    explanation: str = Field(
+        default="",
+        description=(
+            "What a passing versus failing result means for the system "
+            "under test, and what to do about a fail. Two to four "
+            "sentences, sent to create_metric as the result explanation."
+        ),
     )
     threshold: float = Field(
         default=1.0,
@@ -138,16 +167,16 @@ class MetricSpec(BaseModel):
 
 
 class MappingSpec(BaseModel):
-    """Specification for a behavior-to-metric mapping."""
+    """Specification for a requirement-to-metric mapping."""
 
-    behavior: str = Field(description="Behavior name")
+    requirement: str = Field(description="Requirement name")
     metrics: List[str] = Field(
         default_factory=list,
-        description="Metric names that evaluate this behavior",
+        description="Metric names that evaluate this requirement",
     )
     linked_metrics: List[str] = Field(
         default_factory=list,
-        description="Metric names already linked to the behavior (internal progress tracker)",
+        description="Metric names already linked to the requirement (internal progress tracker)",
     )
     completed: bool = Field(
         default=False,
@@ -159,7 +188,7 @@ class ArchitectPlan(BaseModel):
     """Complete test suite plan produced by the ArchitectAgent.
 
     Contains all specifications needed to create test sets,
-    metrics, and behavior-metric mappings, optionally grouped
+    metrics, and requirement-metric mappings, optionally grouped
     under a project.
     """
 
@@ -167,9 +196,9 @@ class ArchitectPlan(BaseModel):
         default=None,
         description="Project specification (omit if no project is needed)",
     )
-    behaviors: List[BehaviorSpec] = Field(
+    requirements: List[RequirementSpec] = Field(
         default_factory=list,
-        description="Behavior specifications with reuse status",
+        description="Requirement specifications with reuse status",
     )
     test_sets: List[TestSetSpec] = Field(
         default_factory=list,
@@ -179,29 +208,29 @@ class ArchitectPlan(BaseModel):
         default_factory=list,
         description="Metric specifications",
     )
-    behavior_metric_mappings: List[MappingSpec] = Field(
+    requirement_metric_mappings: List[MappingSpec] = Field(
         default_factory=list,
-        description="Behavior-to-metric mappings to create",
+        description="Requirement-to-metric mappings to create",
     )
 
-    @field_validator("behavior_metric_mappings", mode="before")
+    @field_validator("requirement_metric_mappings", mode="before")
     @classmethod
     def _coerce_mappings(cls, v: Any) -> Any:
         """Accept both legacy dict and new list-of-MappingSpec format."""
         if isinstance(v, dict):
-            return [{"behavior": beh, "metrics": mnames} for beh, mnames in v.items()]
+            return [{"requirement": beh, "metrics": mnames} for beh, mnames in v.items()]
         return v
 
     @model_validator(mode="after")
     def _validate_metric_scope_coverage(self) -> "ArchitectPlan":
-        """Ensure every test-set behavior has a compatible linked metric."""
+        """Ensure every test-set requirement has a compatible linked metric."""
         if not self.test_sets:
             return self
 
-        behavior_to_metrics: Dict[str, List[str]] = {}
-        for mapping in self.behavior_metric_mappings:
-            key = mapping.behavior.lower()
-            behavior_to_metrics.setdefault(key, []).extend(mapping.metrics)
+        requirement_to_metrics: Dict[str, List[str]] = {}
+        for mapping in self.requirement_metric_mappings:
+            key = mapping.requirement.lower()
+            requirement_to_metrics.setdefault(key, []).extend(mapping.metrics)
 
         metric_scopes: Dict[str, List[str]] = {
             metric.name.lower(): list(metric.metric_scope) for metric in self.metrics
@@ -209,15 +238,15 @@ class ArchitectPlan(BaseModel):
 
         errors: List[str] = []
         for test_set in self.test_sets:
-            if not test_set.behaviors:
+            if not test_set.requirements:
                 continue
-            for behavior in test_set.behaviors:
-                behavior_key = behavior.lower()
-                linked_metrics = behavior_to_metrics.get(behavior_key, [])
+            for requirement in test_set.requirements:
+                requirement_key = requirement.lower()
+                linked_metrics = requirement_to_metrics.get(requirement_key, [])
                 if not linked_metrics:
                     errors.append(
                         f"Test set '{test_set.name}' ({test_set.test_type}): "
-                        f"behavior '{behavior}' has no behavior_metric_mappings entry"
+                        f"requirement '{requirement}' has no requirement_metric_mappings entry"
                     )
                     continue
 
@@ -232,7 +261,7 @@ class ArchitectPlan(BaseModel):
                     )
                     errors.append(
                         f"Test set '{test_set.name}' ({test_set.test_type}): "
-                        f"behavior '{behavior}' is linked only to metrics whose "
+                        f"requirement '{requirement}' is linked only to metrics whose "
                         f"metric_scope does not include '{test_set.test_type}' "
                         f"— linked: {scope_details}"
                     )
@@ -240,7 +269,7 @@ class ArchitectPlan(BaseModel):
         if errors:
             bullet_list = "\n".join(f"- {err}" for err in errors)
             raise ValueError(
-                "Metric scope coverage failed. Every behavior in a test set "
+                "Metric scope coverage failed. Every requirement in a test set "
                 "must have at least one linked metric whose metric_scope "
                 f"includes that test set's test_type:\n{bullet_list}"
             )
@@ -256,10 +285,10 @@ class ArchitectPlan(BaseModel):
             lines.append(self.project.description)
             lines.append("")
 
-        if self.behaviors:
-            lines.append("## Behaviors")
+        if self.requirements:
+            lines.append("## Requirements")
             lines.append("")
-            for b in self.behaviors:
+            for b in self.requirements:
                 box = "[x]" if b.completed else "[ ]"
                 tag = f" *({b.reuse_status})*" if b.reuse_status != "new" else ""
                 lines.append(f"- {box} **{b.name}**{tag}")
@@ -273,8 +302,8 @@ class ArchitectPlan(BaseModel):
             for ts in self.test_sets:
                 box = "[x]" if ts.completed else "[ ]"
                 lines.append(f"- {box} **{ts.name}** — {ts.num_tests} {ts.test_type} tests")
-                if ts.behaviors:
-                    lines.append(f"  Behaviors: {', '.join(ts.behaviors)}")
+                if ts.requirements:
+                    lines.append(f"  Requirements: {', '.join(ts.requirements)}")
             lines.append("")
 
         if self.metrics:
@@ -285,14 +314,16 @@ class ArchitectPlan(BaseModel):
                 tag = f" *({m.reuse_status})*" if m.reuse_status != "new" else ""
                 scope = ", ".join(m.metric_scope) if m.metric_scope else "unset"
                 lines.append(f"- {box} **{m.name}**{tag} — scope: {scope}")
+                if m.description:
+                    lines.append(f"  {m.description}")
             lines.append("")
 
-        if self.behavior_metric_mappings:
-            lines.append("## Behavior-Metric Mappings")
+        if self.requirement_metric_mappings:
+            lines.append("## Requirement-Metric Mappings")
             lines.append("")
-            for mapping in self.behavior_metric_mappings:
+            for mapping in self.requirement_metric_mappings:
                 box = "[x]" if mapping.completed else "[ ]"
-                lines.append(f"- {box} **{mapping.behavior}** → {', '.join(mapping.metrics)}")
+                lines.append(f"- {box} **{mapping.requirement}** → {', '.join(mapping.metrics)}")
             lines.append("")
 
         return "\n".join(lines)
@@ -320,7 +351,7 @@ def build_save_plan_tool() -> Dict[str, Any]:
 
     pydantic_required = schema.get("required", [])
     required = [k for k in pydantic_required if k != "project"]
-    for key in ("behaviors", "test_sets", "metrics"):
+    for key in ("requirements", "test_sets", "metrics"):
         if key not in required and key in properties:
             required.append(key)
 

@@ -6,7 +6,7 @@ Fixtures are organized into logical packages for better maintainability.
 
 Structure:
 - entities/: Individual business entity fixtures organized by domain
-  - categories.py, topics.py, behaviors.py, endpoints.py, metrics.py
+  - categories.py, topics.py, requirements.py, endpoints.py, metrics.py
 - relationships/: Complex fixtures with entity relationships
   - hierarchies.py, associations.py
 - utilities/: Common test utilities and helpers
@@ -29,7 +29,7 @@ from .utilities import *
 __all__ = [
     # === FACTORY FIXTURES (Primary System) ===
     # Entity factory fixtures
-    "behavior_factory",
+    "requirement_factory",
     "topic_factory",
     "category_factory",
     "metric_factory",
@@ -38,9 +38,9 @@ __all__ = [
     "project_factory",
     "prompt_factory",
     # Data fixtures
-    "behavior_data",
-    "minimal_behavior_data",
-    "behavior_update_data",
+    "requirement_data",
+    "minimal_requirement_data",
+    "requirement_update_data",
     "topic_data",
     "minimal_topic_data",
     "topic_update_data",
@@ -54,22 +54,22 @@ __all__ = [
     "minimal_prompt_data",
     "prompt_update_data",
     # Edge case fixtures
-    "long_name_behavior_data",
-    "special_chars_behavior_data",
-    "unicode_behavior_data",
-    "sql_injection_behavior_data",
-    "empty_behavior_data",
+    "long_name_requirement_data",
+    "special_chars_requirement_data",
+    "unicode_requirement_data",
+    "sql_injection_requirement_data",
+    "empty_requirement_data",
     # Batch fixtures
-    "behavior_batch_data",
-    "small_behavior_batch",
+    "requirement_batch_data",
+    "small_requirement_batch",
     # Composite fixtures (with automatic cleanup)
-    "behavior_with_metrics",
+    "requirement_with_metrics",
     "topic_hierarchy",
     # Performance fixtures
     "large_entity_batch",
     # Parameterized fixtures
-    "varied_behavior_data",
-    "edge_case_behavior_data",
+    "varied_requirement_data",
+    "edge_case_requirement_data",
     # === USER FIXTURES (Enhanced System) ===
     # Mock user fixtures (unit tests)
     "mock_user_data",
@@ -95,7 +95,7 @@ __all__ = [
     "parent_category",
     "sample_topic",
     "parent_topic",
-    "sample_behavior",
+    "sample_requirement",
     "sample_metric",
     "sample_endpoint",
     "sample_endpoints",

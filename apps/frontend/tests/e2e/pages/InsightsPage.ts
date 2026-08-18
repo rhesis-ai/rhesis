@@ -47,7 +47,7 @@ export class InsightsPage extends BasePage {
       exact: true,
     });
 
-    // The behavior search box appears while insights are still loading, so wait
+    // The requirement search box appears while insights are still loading, so wait
     // for a terminal signal instead of treating search alone as "settled".
     await expect(
       noEndpoints.or(noTestResults).or(passRateMetric).or(loadingResults)
@@ -69,7 +69,9 @@ export class InsightsPage extends BasePage {
       return;
     }
 
-    await expect(this.page.getByPlaceholder(/search behaviors/i)).toBeVisible();
+    await expect(
+      this.page.getByPlaceholder(/search requirements/i)
+    ).toBeVisible();
     await expect(filterButton).toBeVisible();
     await expect(passRateMetric.first()).toBeVisible({ timeout: 15_000 });
   }

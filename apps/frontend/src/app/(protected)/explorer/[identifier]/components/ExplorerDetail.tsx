@@ -2924,7 +2924,7 @@ export default function ExplorerDetail({
   return (
     <PageLayout
       title={testSetName}
-      description="Interactive explorer session — discover behaviors, generate tests, and export to test sets."
+      description="Interactive explorer session — discover requirements, generate tests, and export to test sets."
       breadcrumbs={[
         { label: 'Explorer', href: '/explorer' },
         { label: testSetName },

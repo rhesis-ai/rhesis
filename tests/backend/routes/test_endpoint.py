@@ -111,11 +111,11 @@ class TestEndpointStandardRoutes(EndpointTestMixin, BaseEntityRouteTests):
         """Auto-inject db_project into the test instance for use by helper methods"""
         self._db_project = db_project
 
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Override to inject project_id from autouse fixture"""
         return super().get_sample_data(getattr(self, "_db_project", None))
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Override to inject project_id from autouse fixture"""
         return super().get_minimal_data(getattr(self, "_db_project", None))
 

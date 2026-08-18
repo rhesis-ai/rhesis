@@ -6,3 +6,5 @@ resources:
   - grafana-ingress.yaml
   - prometheus-datasource.yaml
   - loki-datasource.yaml
+  # Picks its Postgres datasource by template variable, so one copy works in every env.
+  - usage-dashboard.yaml

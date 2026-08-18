@@ -13,14 +13,14 @@ import InsightsFilterDrawer, {
   hasActiveInsightsDrawerFilters,
   type InsightsDrawerFilters,
 } from './InsightsFilterDrawer';
-import { InsightsBehaviorOption } from '../utils/insights-filter-utils';
+import { InsightsRequirementOption } from '../utils/insights-filter-utils';
 
 interface TestResultsFiltersProps {
   filters: InsightsFilters;
   onFiltersChange: (filters: InsightsFilters) => void;
   projectEndpoints: Endpoint[];
   endpointsLoading: boolean;
-  behaviorOptions: InsightsBehaviorOption[];
+  requirementOptions: InsightsRequirementOption[];
   searchQuery: string;
   onSearchChange: (value: string) => void;
   showExpandToggle?: boolean;
@@ -28,7 +28,7 @@ interface TestResultsFiltersProps {
   onToggleAll?: () => void;
   /**
    * `compact` keeps endpoint/test-run controls (filter drawer) but hides
-   * behavior search — used on the no-test-results empty state.
+   * requirement search — used on the no-test-results empty state.
    */
   variant?: 'full' | 'compact';
 }
@@ -38,7 +38,7 @@ export default function TestResultsFilters({
   onFiltersChange,
   projectEndpoints,
   endpointsLoading,
-  behaviorOptions,
+  requirementOptions,
   searchQuery,
   onSearchChange,
   showExpandToggle = false,
@@ -52,14 +52,14 @@ export default function TestResultsFilters({
   const drawerFilters = useMemo<InsightsDrawerFilters>(
     () => ({
       endpointId: filters.endpointId,
-      behaviorIds: filters.behaviorIds,
+      requirementIds: filters.requirementIds,
       statusIds: filters.statusIds,
       timeRange: filters.timeRange,
       testRunIds: filters.testRunIds,
     }),
     [
       filters.endpointId,
-      filters.behaviorIds,
+      filters.requirementIds,
       filters.statusIds,
       filters.timeRange,
       filters.testRunIds,
@@ -73,7 +73,7 @@ export default function TestResultsFilters({
     onFiltersChange({
       ...filters,
       endpointId: next.endpointId,
-      behaviorIds: next.behaviorIds,
+      requirementIds: next.requirementIds,
       statusIds: next.statusIds,
       timeRange: next.timeRange,
       testRunIds: next.testRunIds,
@@ -91,7 +91,7 @@ export default function TestResultsFilters({
       <GridToolbar
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
-        searchPlaceholder="Search behaviors…"
+        searchPlaceholder="Search requirements…"
         showSearch={!isCompact}
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveFilters}
@@ -132,7 +132,7 @@ export default function TestResultsFilters({
         filters={drawerFilters}
         projectEndpoints={projectEndpoints}
         endpointsLoading={endpointsLoading}
-        behaviorOptions={behaviorOptions}
+        requirementOptions={requirementOptions}
         onApply={handleDrawerApply}
       />
     </>

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 TARGET_FIELDS = [
     "category",
     "topic",
-    "behavior",
+    "requirement",
     "prompt_content",
     "expected_response",
     "language_code",
@@ -49,11 +49,11 @@ _ALIASES: Dict[str, List[str]] = {
         "topic_name",
         "subject",
     ],
-    "behavior": [
-        "behavior",
+    "requirement": [
+        "requirement",
         "behaviour",
-        "test_behavior",
-        "behavior_name",
+        "test_requirement",
+        "requirement_name",
     ],
     "prompt_content": [
         "prompt_content",
@@ -205,10 +205,10 @@ def auto_map_columns(
                 matched_targets.add("language_code")
 
     # Calculate confidence based on core fields matched
-    # For single-turn: category, topic, behavior, prompt_content
-    # For multi-turn: category, topic, behavior, goal
-    single_turn_core = {"category", "topic", "behavior", "prompt_content"}
-    multi_turn_core = {"category", "topic", "behavior", "goal"}
+    # For single-turn: category, topic, requirement, prompt_content
+    # For multi-turn: category, topic, requirement, goal
+    single_turn_core = {"category", "topic", "requirement", "prompt_content"}
+    multi_turn_core = {"category", "topic", "requirement", "goal"}
 
     single_turn_matched = single_turn_core & matched_targets
     multi_turn_matched = multi_turn_core & matched_targets
@@ -238,7 +238,7 @@ class ImportMappingOutput(BaseModel):
     mapping: Dict[str, str] = Field(
         description=(
             "Map from source column name to target field name. "
-            "Target fields: category, topic, behavior, "
+            "Target fields: category, topic, requirement, "
             "prompt_content, expected_response, language_code, "
             "test_type, test_configuration, goal, instructions, "
             "restrictions, scenario, min_turns, max_turns, metadata"
@@ -269,14 +269,12 @@ def is_llm_available(
         return False
     try:
         from rhesis.backend.app.utils.user_model_utils import (
+            ensure_language_model,
             get_user_generation_model,
         )
-        from rhesis.sdk.models.factory import get_model
 
-        model_or_provider = get_user_generation_model(db, user)
-        if isinstance(model_or_provider, str):
-            # Verify the default provider can actually be instantiated
-            get_model(model_or_provider)
+        # Verify the default provider can actually be instantiated.
+        ensure_language_model(get_user_generation_model(db, user))
         return True
     except Exception:
         return False
@@ -300,15 +298,11 @@ def llm_map_columns(
 
     try:
         from rhesis.backend.app.utils.user_model_utils import (
+            ensure_language_model,
             get_user_generation_model,
         )
-        from rhesis.sdk.models.factory import get_model
 
-        model_or_provider = get_user_generation_model(db, user)
-        if isinstance(model_or_provider, str):
-            model = get_model(model_or_provider)
-        else:
-            model = model_or_provider
+        model = ensure_language_model(get_user_generation_model(db, user))
 
         template_path = os.path.join(os.path.dirname(__file__), "mapping_prompt.jinja")
         with open(template_path, "r") as f:

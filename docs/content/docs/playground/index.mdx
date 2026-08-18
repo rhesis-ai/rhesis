@@ -2,13 +2,11 @@
 
 Interact with any endpoint — send messages, attach files, view traces, and capture test cases, no code required.
 
-<div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
-  <img
-    src="/screenshots/rhesis-ai-playground.png"
-    alt="Playground"
-    className="screenshot"
-  />
-</div>
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-playground.webp"
+  darkSrc="/screenshots/rhesis-ai-playground-dark.webp"
+  alt="Playground — a conversation with an endpoint, showing the project, endpoint and environment in the chat header"
+/>
 
 ## Getting Started
 
@@ -29,6 +27,12 @@ The Playground supports a split-screen mode where you can run two conversations 
 - Evaluating prompt changes before committing them
 - Checking how two endpoints handle the same inputs
 
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-playground-split.webp"
+  darkSrc="/screenshots/rhesis-ai-playground-split-dark.webp"
+  alt="Playground in split-screen mode — the same question put to two chats side by side"
+/>
+
 Each side operates independently — you can send different messages or share the same input to see how responses diverge.
 
 ## Viewing Traces
@@ -44,4 +48,4 @@ Any conversation can be saved as a test directly from the Playground:
 - Click the **lab icon** on the conversation window to create a test from the current conversation.
 - Click the **plus icon** to open a new chat window and start a fresh conversation.
 
-You'll be prompted to assign a category, topic, behavior, and optional expected output before saving. Tests capture the full message context, including any attached files, so they can be replayed exactly during test execution.
+You'll be prompted to assign a category, topic, requirement, and optional expected output before saving. Tests capture the full message context, including any attached files, so they can be replayed exactly during test execution.

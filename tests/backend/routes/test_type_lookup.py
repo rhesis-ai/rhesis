@@ -45,11 +45,11 @@ class TypeLookupTestMixin:
     description_field = "description"
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample type lookup data using factory"""
         return TypeLookupDataFactory.sample_data()
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal type lookup data using factory"""
         return TypeLookupDataFactory.minimal_data()
 

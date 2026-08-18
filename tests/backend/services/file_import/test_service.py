@@ -122,7 +122,7 @@ class TestNormalizeRow:
         row = {
             "category": "Safety",
             "topic": "Content",
-            "behavior": "Refusal",
+            "requirement": "Refusal",
             "test_type": "Multi-Turn",
             "test_configuration": '{"goal": "Test goal", "instructions": "Do X"}',
         }
@@ -142,7 +142,7 @@ class TestRowsToTestData:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "test"},
             }
         ]
@@ -154,11 +154,11 @@ class TestRowsToTestData:
     def test_skips_empty_rows(self):
         rows = [
             {},
-            {"category": "", "topic": "", "behavior": ""},
+            {"category": "", "topic": "", "requirement": ""},
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": "valid"},
             },
         ]
@@ -170,7 +170,7 @@ class TestRowsToTestData:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt": {"content": {"content": "actual text"}},
             }
         ]
@@ -185,14 +185,14 @@ class TestRowsToTestData:
         assert len(result) == 1
         assert result[0]["category"] == "Uncategorized"
         assert result[0]["topic"] == "General"
-        assert result[0]["behavior"] == "Default"
+        assert result[0]["requirement"] == "Default"
 
     def test_test_configuration_json_string_parsed(self):
         rows = [
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "test_type": "Multi-Turn",
                 "test_configuration": '{"goal": "Probe the model", "instructions": "Ask"}',
             }
@@ -209,7 +209,7 @@ class TestRowsToTestData:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "test_type": "Multi-Turn",
                 "goal": "Test goal",
                 "min_turns": 3,
@@ -228,7 +228,7 @@ class TestRowsToTestData:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "test_type": "Multi-Turn",
                 "goal": "Test goal",
                 "min_turns": "2",
@@ -246,7 +246,7 @@ class TestRowsToTestData:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "test_type": "Multi-Turn",
                 "goal": "Test goal",
                 "min_turns": "",
@@ -269,7 +269,7 @@ class TestImportServiceAnalyze:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt_content": "test",
             }
         ]
@@ -284,7 +284,7 @@ class TestImportServiceAnalyze:
         assert "suggested_mapping" in result
 
     def test_analyze_csv(self):
-        csv_content = "category,topic,behavior,prompt_content\nSafety,Content,Refusal,test\n"
+        csv_content = "category,topic,requirement,prompt_content\nSafety,Content,Refusal,test\n"
         result = ImportService.analyze(
             file_bytes=csv_content.encode("utf-8"),
             filename="tests.csv",
@@ -325,7 +325,7 @@ class TestImportServiceParse:
                 "Question": "test prompt",
                 "Cat": "Safety",
                 "Subject": "Content",
-                "Behavior": "Refusal",
+                "Requirement": "Refusal",
             }
         ]
         file_bytes = json.dumps(data).encode("utf-8")
@@ -341,7 +341,7 @@ class TestImportServiceParse:
             "Question": "prompt_content",
             "Cat": "category",
             "Subject": "topic",
-            "Behavior": "behavior",
+            "Requirement": "requirement",
         }
         result = ImportService.parse(import_id, mapping)
         assert result["total_rows"] == 1
@@ -354,7 +354,7 @@ class TestImportServiceParse:
             "Question": "prompt_content",
             "Cat": "category",
             "Subject": "topic",
-            "Behavior": "behavior",
+            "Requirement": "requirement",
         }
         ImportService.parse(import_id, mapping, test_type="Multi-Turn")
         # All rows should default to Multi-Turn
@@ -369,7 +369,7 @@ class TestImportServiceParse:
             "Question": "prompt_content",
             "Cat": "category",
             "Subject": "topic",
-            "Behavior": "behavior",
+            "Requirement": "requirement",
         }
         ImportService.parse(import_id, mapping)
         session = ImportSessionStore.get_session(import_id)
@@ -496,7 +496,7 @@ class TestServiceDiskPersistence:
             {
                 "category": "Safety",
                 "topic": "Content",
-                "behavior": "Refusal",
+                "requirement": "Refusal",
                 "prompt_content": "test",
             }
         ]
@@ -525,7 +525,7 @@ class TestServiceDiskPersistence:
                 "Question": "test prompt",
                 "Cat": "Safety",
                 "Subject": "Content",
-                "Behavior": "Refusal",
+                "Requirement": "Refusal",
             }
         ]
         file_bytes = json.dumps(data).encode("utf-8")
@@ -535,7 +535,7 @@ class TestServiceDiskPersistence:
             "Question": "prompt_content",
             "Cat": "category",
             "Subject": "topic",
-            "Behavior": "behavior",
+            "Requirement": "requirement",
         }
         ImportService.parse(import_id, mapping)
 
@@ -554,7 +554,7 @@ class TestServiceDiskPersistence:
                 "Question": "test prompt",
                 "Cat": "Safety",
                 "Subject": "Content",
-                "Behavior": "Refusal",
+                "Requirement": "Refusal",
             }
         ]
         file_bytes = json.dumps(data).encode("utf-8")
@@ -568,7 +568,7 @@ class TestServiceDiskPersistence:
             "Question": "prompt_content",
             "Cat": "category",
             "Subject": "topic",
-            "Behavior": "behavior",
+            "Requirement": "requirement",
         }
         parse_result = ImportService.parse(import_id, mapping)
         assert parse_result["total_rows"] == 1

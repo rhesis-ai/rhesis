@@ -5,28 +5,31 @@ When you have formulated the plan, you MUST call **save_plan** before presenting
 
 Top-level structure (all three array fields are required, even if empty):
 - `project`: `{name, description}` — optional. Omit entirely when no project is needed (ad-hoc tests, single test set for an existing endpoint). Do NOT pass `null` or an empty object.
-- `behaviors`: array (required, may be empty)
+- `requirements`: array (required, may be empty)
 - `test_sets`: array (required, may be empty)
 - `metrics`: array (required, may be empty)
-- `behavior_metric_mappings`: array (**required** when behaviors and metrics are present — always populate this, even when all entities are reused)
+- `requirement_metric_mappings`: array (**required** when requirements and metrics are present — always populate this, even when all entities are reused)
 
-`behaviors[]` items:
+`requirements[]` items:
 - `name`: string (required) — Title Case, e.g. "Refuses Harmful Requests"
-- `description`: string (optional, defaults to "") — what this behavior expects
+- `description`: string (optional, defaults to "") — what this requirement expects
 - `reuse_status`: string (optional, defaults to `"new"`) — must be exactly one of `"reuse"`, `"improve"`, `"new"`. Lower-case only. No other values.
 - `existing_id`: string (optional, defaults to `null`) — required when `reuse_status` is `"reuse"`
 
 `metrics[]` items:
 - `name`: string (required) — Title Case, e.g. "Response Accuracy"
 - `description`: string (required) — what this metric evaluates
-- `reuse_status`: string (optional, defaults to `"new"`) — same allowed values as behaviors
+- `reuse_status`: string (optional, defaults to `"new"`) — same allowed values as requirements
 - `existing_id`: string (optional) — required when `reuse_status` is `"reuse"` or `"improve"`
 - `metric_scope`: array of strings (required) — each entry must be exactly `"Single-Turn"` or `"Multi-Turn"`. At least one entry. Must match the test sets that will evaluate this metric (see "Metric scope").
-- `evaluation_prompt`: string (optional) — for new metrics
-- `evaluation_steps`: string (optional)
-- `reasoning`: string (optional)
+- `evaluation_prompt`: string (optional, expected for new metrics) — the criteria the judge applies, as you will send them to `create_metric`: a criterion naming something a reader could point at in the output, one bullet per testable clause, score bands tied to conditions. No placeholders.
+- `evaluation_steps`: string (optional, expected for new metrics) — 4-7 ordered steps, one action each, scoring last. Format: `Step N:` on its own line, steps joined by a line containing only `---`.
+- `reasoning`: string (optional, expected for new metrics) — the judge's reasoning instructions: what evidence to quote, which clause to tie it to, how to break a tie. Not a note about why the metric is in the plan.
+- `explanation`: string (optional, expected for new metrics) — what a pass and a fail mean for the system under test, and what to do about a fail.
 - `threshold`: number (optional, defaults to 1.0)
 - `threshold_operator`: string (optional, defaults to `">="`)
+
+For every metric with `reuse_status: "new"`, write these fields out in full — this is the wording the user approves and the wording you send to `create_metric` afterwards. A one-sentence placeholder here means a threadbare metric later. See `metric-authoring.md` for the depth expected.
 
 `test_sets[]` items:
 - `name`: string (required)
@@ -35,15 +38,15 @@ Top-level structure (all three array fields are required, even if empty):
 - `num_tests`: integer (optional, defaults to 15) — must be a number, NOT a string like `"15"`
 - `test_type`: string (optional, defaults to `"Single-Turn"`) — must be exactly `"Single-Turn"` or `"Multi-Turn"`. No other values, no lower-case variants. Set it explicitly to `"Multi-Turn"` when the user asked for Multi-Turn tests: this records the intent, and you must pass the same value to `generate_test_set` (or `create_test_set_bulk`) when you create the set. Nothing forwards it for you.
 - `generation_prompt`: string (optional)
-- `behaviors`: array of strings (optional) — behavior names this test set targets
+- `requirements`: array of strings (optional) — requirement names this test set targets
 - `categories`: array of strings (optional)
 - `topics`: array of strings (optional)
 
-`behavior_metric_mappings[]` items:
-- `behavior`: string (required) — must match a `behaviors[].name` exactly (case-insensitive)
-- `metrics`: array of strings (optional but expected) — each entry must match a `metrics[].name` exactly. Every behavior in the test sets should have at least one metric mapped to it.
+`requirement_metric_mappings[]` items:
+- `requirement`: string (required) — must match a `requirements[].name` exactly (case-insensitive)
+- `metrics`: array of strings (optional but expected) — each entry must match a `metrics[].name` exactly. Every requirement in the test sets should have at least one metric mapped to it.
 
-**Metric scope coverage (validated by save_plan):** For each test set, every behavior listed in `test_sets[].behaviors` must have at least one mapped metric whose `metric_scope` includes that test set's `test_type`. If a Multi-Turn test set targets a behavior, link a metric with `"Multi-Turn"` in `metric_scope` — not Single-Turn-only metrics.
+**Metric scope coverage (validated by save_plan):** For each test set, every requirement listed in `test_sets[].requirements` must have at least one mapped metric whose `metric_scope` includes that test set's `test_type`. If a Multi-Turn test set targets a requirement, link a metric with `"Multi-Turn"` in `metric_scope` — not Single-Turn-only metrics.
 
 Common validation pitfalls that will be rejected:
 - `reuse_status: "Reuse"` or `"existing"` → must be `"reuse"`, `"improve"`, or `"new"` (lower-case)
@@ -57,7 +60,7 @@ When save_plan fails the error response lists each invalid field with its reason
 
 When the user iterates on the plan, call save_plan again with the **complete updated plan**, not just the changed parts — save_plan replaces the previous plan in full. Preserve fields you want to keep.
 
-Do NOT try to control the per-item `completed` checkboxes. They are runtime-only fields managed by the platform: any value you send is stripped before validation, and the runtime fills them in from what it has actually observed this session (entities you created, behavior-metric links you made). If you call save_plan after already creating some entities, the matching plan items will come back marked completed automatically — you do not need to re-run anything to "fix" the plan, and you should not loop on save_plan trying to.
+Do NOT try to control the per-item `completed` checkboxes. They are runtime-only fields managed by the platform: any value you send is stripped before validation, and the runtime fills them in from what it has actually observed this session (entities you created, requirement-metric links you made). If you call save_plan after already creating some entities, the matching plan items will come back marked completed automatically — you do not need to re-run anything to "fix" the plan, and you should not loop on save_plan trying to.
 
 After save_plan succeeds, finish your turn and present the plan to the user. Wait for the user to tell you to proceed (e.g. "yes", "go ahead", "looks good") before calling any creating tool. The platform will surface an Accept/Change prompt automatically the first time you call a tool that requires confirmation, so you do not need to manage that UI yourself.
 

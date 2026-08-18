@@ -22,7 +22,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.crud_utils import validate_same_project
 from rhesis.backend.app.utils.query_utils import QueryBuilder, has_project_id
-from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory
+from tests.backend.routes.fixtures.data_factories import RequirementDataFactory
 
 
 @pytest.fixture
@@ -62,8 +62,8 @@ class TestHasProjectId:
     """Unit tests for the has_project_id() helper."""
 
     def test_returns_true_for_model_with_project_id(self):
-        """Behavior has project_id (ProjectMixin); should return True."""
-        assert has_project_id(models.Behavior) is True
+        """Requirement has project_id (ProjectMixin); should return True."""
+        assert has_project_id(models.Requirement) is True
 
     def test_returns_true_for_test_model(self):
         """Test model has project_id (ProjectMixin); should return True."""
@@ -91,10 +91,10 @@ class TestQueryBuilderProjectFilter:
     def test_noop_when_project_id_is_none(self, test_db: Session, test_org_id):
         """Calling with_project_filter(None) should not restrict results."""
         b1 = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_project_filter(None)
             .all()
@@ -115,12 +115,12 @@ class TestQueryBuilderProjectFilter:
 
     def test_includes_matching_project_rows(self, test_db: Session, test_org_id, test_project):
         """Rows with project_id == the given id are included."""
-        data = BehaviorDataFactory.sample_data()
+        data = RequirementDataFactory.sample_data()
         data["project_id"] = test_project.id
-        b = crud_utils.create_item(test_db, models.Behavior, data, organization_id=test_org_id)
+        b = crud_utils.create_item(test_db, models.Requirement, data, organization_id=test_org_id)
 
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_project_filter(str(test_project.id))
             .all()
@@ -129,13 +129,13 @@ class TestQueryBuilderProjectFilter:
 
     def test_includes_null_project_rows(self, test_db: Session, test_org_id, test_project):
         """Org-wide rows (project_id IS NULL) pass through the project filter."""
-        data = BehaviorDataFactory.sample_data()
+        data = RequirementDataFactory.sample_data()
         # No project_id set → NULL (org-wide)
-        b = crud_utils.create_item(test_db, models.Behavior, data, organization_id=test_org_id)
+        b = crud_utils.create_item(test_db, models.Requirement, data, organization_id=test_org_id)
         assert b.project_id is None
 
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_project_filter(str(test_project.id))
             .all()
@@ -146,14 +146,14 @@ class TestQueryBuilderProjectFilter:
         self, test_db: Session, test_org_id, test_project, test_project2
     ):
         """Rows stamped with a different non-NULL project_id are excluded."""
-        data = BehaviorDataFactory.sample_data()
+        data = RequirementDataFactory.sample_data()
         data["project_id"] = test_project2.id
         b_other = crud_utils.create_item(
-            test_db, models.Behavior, data, organization_id=test_org_id
+            test_db, models.Requirement, data, organization_id=test_org_id
         )
 
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_project_filter(str(test_project.id))
             .all()
@@ -162,12 +162,12 @@ class TestQueryBuilderProjectFilter:
 
     def test_chaining_with_other_filters(self, test_db: Session, test_org_id, test_project):
         """with_project_filter chains cleanly with org filter and pagination."""
-        data = BehaviorDataFactory.sample_data()
+        data = RequirementDataFactory.sample_data()
         data["project_id"] = test_project.id
-        crud_utils.create_item(test_db, models.Behavior, data, organization_id=test_org_id)
+        crud_utils.create_item(test_db, models.Requirement, data, organization_id=test_org_id)
 
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_project_filter(str(test_project.id))
             .with_pagination(skip=0, limit=10)

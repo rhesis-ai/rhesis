@@ -7,9 +7,15 @@ from .architect import (
     ArchitectSessionUpdate,
 )
 from .base import Base
-from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorDetail, BehaviorUpdate
+from .requirement import (
+    Requirement,
+    RequirementBase,
+    RequirementCreate,
+    RequirementDetail,
+    RequirementUpdate,
+)
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
-from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
+from .chunk import Chunk, ChunkBase, ChunkCreate
 from .comment import Comment, CommentBase, CommentCreate, CommentDetail, CommentUpdate
 from .embedding import (
     Embedding,
@@ -43,6 +49,12 @@ from .metric import (
     ScoreType,
 )
 from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
+from .notification import (
+    NotificationMarkReadRequest,
+    NotificationRead,
+    NotificationSectionSummary,
+    NotificationSummaryResponse,
+)
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .parameters import (
     ENVIRONMENT_NAME_MAX_LENGTH,
@@ -169,11 +181,11 @@ __all__ = [
     "TagBase",
     "TagCreate",
     "TagUpdate",
-    "Behavior",
-    "BehaviorBase",
-    "BehaviorCreate",
-    "BehaviorDetail",
-    "BehaviorUpdate",
+    "Requirement",
+    "RequirementBase",
+    "RequirementCreate",
+    "RequirementDetail",
+    "RequirementUpdate",
     "Category",
     "CategoryBase",
     "CategoryCreate",
@@ -187,7 +199,6 @@ __all__ = [
     "Chunk",
     "ChunkBase",
     "ChunkCreate",
-    "ChunkUpdate",
     "FileCreate",
     "FileEntityType",
     "FileResponse",
@@ -204,6 +215,10 @@ __all__ = [
     "ModelDetail",
     "ModelRead",
     "ModelUpdate",
+    "NotificationMarkReadRequest",
+    "NotificationRead",
+    "NotificationSectionSummary",
+    "NotificationSummaryResponse",
     "PromptTemplate",
     "PromptTemplateBase",
     "PromptTemplateCreate",

@@ -22,7 +22,7 @@ def _parse_arguments(v: Any) -> Dict[str, Any]:
     """
     if isinstance(v, str):
         try:
-            parsed = json.loads(v)
+            parsed = json.loads(v, strict=False)
         except json.JSONDecodeError:
             logger.error(
                 "Tool arguments were not valid JSON; dispatching with no "

@@ -12,7 +12,7 @@ class EntityType(Enum):
     METRIC = "Metric"
     MODEL = "Model"
     PROMPT = "Prompt"
-    BEHAVIOR = "Behavior"
+    REQUIREMENT = "Requirement"
     CATEGORY = "Category"
     TOPIC = "Topic"
     TASK = "Task"
@@ -20,6 +20,7 @@ class EntityType(Enum):
     SOURCE = "Source"
     CHUNK = "Chunk"
     TRACE = "Trace"
+    ARCHITECT_SESSION = "ArchitectSession"
 
     @classmethod
     def get_value(cls, entity_type):
@@ -27,6 +28,14 @@ class EntityType(Enum):
         if isinstance(entity_type, cls):
             return entity_type.value
         return entity_type
+
+
+#: Prefix on the synthetic user message the architect monitor sends when it
+#: auto-resumes a session after the background tasks it was awaiting finish.
+#: Shared because three places key off it: the monitor builds the message, the
+#: runner routes it to the auto-resume handler, and the notification catalog
+#: uses it to tell a plan-concluding turn from an ordinary interactive one.
+ARCHITECT_RESUME_PREFIX = "[TASK_COMPLETED]"
 
 
 # TestType Enum - DB-level test classification aligned with initial_data.json type_lookup
@@ -108,11 +117,20 @@ class MetricType:
     CUSTOM_PROMPT = "custom-prompt"
 
 
-# Marker behavior name stored in test_set.attributes["metadata"]["behaviors"] for Explorer
+# Marker requirement name stored in test_set.attributes["metadata"]["requirements"] for Explorer
 # test sets. "Explorer" is the settled vocabulary (see explorer-roadmap.md 2.1) -- the value
 # itself is legacy ("Adaptive Testing", the module's old name) and must not change: it is
 # already persisted in existing test_set rows and matched via JSONB containment.
-EXPLORER_BEHAVIOR_NAME = "Adaptive Testing"
+EXPLORER_REQUIREMENT_NAME = "Adaptive Testing"
+
+
+# Requirement resource identifiers -- single source of truth for the router
+# prefix/tags/resource-name and the JSON/dict key used by the test-generation
+# streaming contract and the metric-seed JSON's "requirements" array.
+REQUIREMENT_ROUTE_PREFIX = "/requirements"
+REQUIREMENT_RESOURCE_NAME = "requirement"
+REQUIREMENT_TAG = "requirements"
+REQUIREMENT_LIST_KEY = "requirements"
 
 
 # Error messages

@@ -32,15 +32,15 @@ from typing import Any, Literal
 
 from dotenv import load_dotenv
 from opentelemetry import trace
-from rhesis.telemetry.schemas import AIOperationType
-
-from rhesis.sdk import RhesisClient, observe
-from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.attributes import (
+from rhesis.telemetry.attributes import (
     AIAttributes,
     create_llm_attributes,
     create_tool_attributes,
 )
+from rhesis.telemetry.schemas import AIOperationType
+
+from rhesis.sdk import RhesisClient, observe
+from rhesis.sdk.telemetry import auto_instrument
 
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():

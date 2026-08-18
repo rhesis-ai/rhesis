@@ -102,6 +102,12 @@ QUICK_START=true
 # Server (start.sh reads PORT from here)
 PORT=${DEV_BACKEND_PORT}
 
+# The backend's CORS allowlist is derived from this single value
+# (config/settings.py::cors_origins). Unset, it defaults to localhost:3000,
+# which only matches a worktree running on the base port block -- every other
+# worktree gets its browser requests rejected as a disallowed origin.
+FRONTEND_URL=http://localhost:${DEV_FRONTEND_PORT}
+
 # Database
 DB_HOST=localhost
 DB_NAME=rhesis-db
@@ -126,8 +132,11 @@ JWT_SECRET_KEY=${jwt_secret}
 # Session
 SESSION_SECRET_KEY=${session_secret}
 
-# Rhesis API Key (get one at https://app.rhesis.ai)
-RHESIS_API_KEY=your_api_key
+# Rhesis API Key (get one at https://app.rhesis.ai). Left commented on purpose:
+# get_platform_api_key() treats any non-empty value as a real key, so an active
+# placeholder makes Rhesis-hosted models 401 instead of falling through to the
+# DEFAULT_*_MODEL provider. Uncomment and set a real key to use hosted models.
+#RHESIS_API_KEY=your_api_key
 EOF
 }
 
@@ -152,6 +161,13 @@ PORT=${DEV_FRONTEND_PORT}
 
 NEXTAUTH_SECRET=${nextauth_secret}
 NEXT_TELEMETRY_DISABLED=1
+
+# Docs cards shown on the Architect welcome screen while a project has no
+# endpoint. Read at request time by /api/architect-help; in the cloud it comes
+# from the Helm chart's ConfigMap (charts/rhesis/values.yaml config.architectHelpArticleUrls)
+# instead. Hosts must be allowlisted in
+# apps/frontend/src/app/api/og-metadata/og-metadata-utils.ts.
+ARCHITECT_HELP_ARTICLE_URLS=https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts
 EOF
 }
 

@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud import tag as tag_crud
 from tests.backend.routes.fixtures.data_factories import TagDataFactory
 
 
@@ -23,7 +24,7 @@ class TestTagOrganizationSecurity:
         import inspect
 
         # Verify that get_tag accepts organization_id parameter (tags may be organization-scoped)
-        signature = inspect.signature(crud.get_tag)
+        signature = inspect.signature(tag_crud.get_tag)
         assert "organization_id" in signature.parameters, (
             "get_tag should accept organization_id for tag scoping"
         )
@@ -48,32 +49,32 @@ class TestTagOrganizationSecurity:
         # Create a tag in org1 using the data factory
         tag_data = TagDataFactory.sample_data()
         tag_data["name"] = f"Security Test Tag {unique_id}"
-        tag = crud.create_tag(
+        tag = tag_crud.create_tag(
             test_db, tag_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org1 should be able to access the tag
-        result_org1 = crud.get_tag(test_db, tag.id, organization_id=str(org1.id))
+        result_org1 = tag_crud.get_tag(test_db, tag.id, organization_id=str(org1.id))
         assert result_org1 is not None
         assert result_org1.id == tag.id
         assert str(result_org1.organization_id) == str(org1.id)
 
         # User from org2 should NOT be able to access the tag
-        result_org2 = crud.get_tag(test_db, tag.id, organization_id=str(org2.id))
+        result_org2 = tag_crud.get_tag(test_db, tag.id, organization_id=str(org2.id))
         assert result_org2 is None
 
         # Test without organization filtering (should fail due to security requirements)
         with pytest.raises(
             ValueError, match="organization_id is required for Tag but was not provided"
         ):
-            crud.get_tag(test_db, tag.id)
+            tag_crud.get_tag(test_db, tag.id)
 
     def test_create_tag_organization_scoping(self, test_db: Session):
         """🔒 SECURITY: Test that create_tag properly scopes tags to organizations"""
         import inspect
 
         # Verify that create_tag accepts organization_id parameter
-        signature = inspect.signature(crud.create_tag)
+        signature = inspect.signature(tag_crud.create_tag)
         assert "organization_id" in signature.parameters, (
             "create_tag should accept organization_id for tag scoping"
         )
@@ -90,7 +91,7 @@ class TestTagOrganizationSecurity:
         tag_data = TagDataFactory.sample_data()
         tag_data["name"] = f"Security Test Tag {unique_id}"
 
-        result = crud.create_tag(
+        result = tag_crud.create_tag(
             test_db, tag_data, organization_id=str(org.id), user_id=str(user.id)
         )
 
@@ -105,7 +106,7 @@ class TestTagOrganizationSecurity:
         import inspect
 
         # Verify that delete_tag accepts organization_id parameter
-        signature = inspect.signature(crud.delete_tag)
+        signature = inspect.signature(tag_crud.delete_tag)
         assert "organization_id" in signature.parameters, (
             "delete_tag should accept organization_id for tag scoping"
         )
@@ -130,12 +131,12 @@ class TestTagOrganizationSecurity:
         # Create a tag in org1 using data factory
         tag_data = TagDataFactory.sample_data()
         tag_data["name"] = f"Tag to Delete {unique_id}"
-        tag = crud.create_tag(
+        tag = tag_crud.create_tag(
             test_db, tag_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org1 should be able to delete the tag
-        result_org1 = crud.delete_tag(
+        result_org1 = tag_crud.delete_tag(
             test_db, tag.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None  # Tag was found and deleted
@@ -143,12 +144,12 @@ class TestTagOrganizationSecurity:
         # Create another tag in org1 for the next test using data factory
         tag_data2 = TagDataFactory.sample_data()
         tag_data2["name"] = f"Tag to Delete 2 {unique_id}"
-        tag2 = crud.create_tag(
+        tag2 = tag_crud.create_tag(
             test_db, tag_data2, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org2 should NOT be able to delete the tag from org1
-        result_org2 = crud.delete_tag(
+        result_org2 = tag_crud.delete_tag(
             test_db, tag2.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None  # Tag was not found/deleted due to organization filtering
@@ -487,22 +488,22 @@ class TestServiceSecurityValidation:
         """🔒 SECURITY: Ensure all service-related functions accept organization filtering"""
         import inspect
 
-        # List of service-related CRUD functions that should accept organization_id
+        # List of (module, function name) pairs that should accept organization_id
         service_functions = [
-            "get_tag",
-            "create_tag",
-            "delete_tag",
-            "get_test_set",
-            "create_test_set",
-            "delete_test_set",
-            "update_test_set",
-            "get_test_sets",
+            (tag_crud, "get_tag"),
+            (tag_crud, "create_tag"),
+            (tag_crud, "delete_tag"),
+            (crud, "get_test_set"),
+            (crud, "create_test_set"),
+            (crud, "delete_test_set"),
+            (crud, "update_test_set"),
+            (crud, "get_test_sets"),
             # Note: get_test_set_by_name function doesn't exist in crud.py
         ]
 
-        for func_name in service_functions:
-            if hasattr(crud, func_name):
-                func = getattr(crud, func_name)
+        for module, func_name in service_functions:
+            if hasattr(module, func_name):
+                func = getattr(module, func_name)
                 signature = inspect.signature(func)
                 assert "organization_id" in signature.parameters, (
                     f"{func_name} should accept organization_id parameter"
@@ -533,32 +534,32 @@ class TestServiceSecurityValidation:
         # Create tag in org1
         tag_data1 = TagDataFactory.sample_data()
         tag_data1["name"] = tag_name
-        tag_org1 = crud.create_tag(
+        tag_org1 = tag_crud.create_tag(
             test_db, tag_data1, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # Create tag in org2 with same name
         tag_data2 = TagDataFactory.sample_data()
         tag_data2["name"] = tag_name
-        tag_org2 = crud.create_tag(
+        tag_org2 = tag_crud.create_tag(
             test_db, tag_data2, organization_id=str(org2.id), user_id=str(user2.id)
         )
 
         # When querying with org1 filter, should only return org1 tag
-        result_org1 = crud.get_tag(test_db, tag_org1.id, organization_id=str(org1.id))
+        result_org1 = tag_crud.get_tag(test_db, tag_org1.id, organization_id=str(org1.id))
         assert result_org1 is not None
         assert result_org1.organization_id == org1.id
         assert result_org1.name == tag_name
 
         # When querying with org2 filter, should only return org2 tag
-        result_org2 = crud.get_tag(test_db, tag_org2.id, organization_id=str(org2.id))
+        result_org2 = tag_crud.get_tag(test_db, tag_org2.id, organization_id=str(org2.id))
         assert result_org2 is not None
         assert result_org2.organization_id == org2.id
         assert result_org2.name == tag_name
 
         # Cross-tenant access should be blocked
-        result_cross1 = crud.get_tag(test_db, tag_org1.id, organization_id=str(org2.id))
+        result_cross1 = tag_crud.get_tag(test_db, tag_org1.id, organization_id=str(org2.id))
         assert result_cross1 is None
 
-        result_cross2 = crud.get_tag(test_db, tag_org2.id, organization_id=str(org1.id))
+        result_cross2 = tag_crud.get_tag(test_db, tag_org2.id, organization_id=str(org1.id))
         assert result_cross2 is None

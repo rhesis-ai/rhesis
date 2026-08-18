@@ -44,6 +44,13 @@ import { useSession } from 'next-auth/react';
 import RunDrawer from '@/components/common/RunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+// Renamed on import: distinct from the toast system's useNotifications above --
+// this one tracks the persistent "a background job finished" badge/highlight.
+import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
+import {
+  HIGHLIGHTED_ROW_CLASS,
+  NotificationSection,
+} from '@/constants/notifications';
 import { formatDate } from '@/utils/date';
 import TestSetFilterDrawer, {
   type TestSetFilters,
@@ -172,6 +179,8 @@ export default function TestSetsGrid({
   const router = useRouter();
   const { status } = useSession();
   const notifications = useNotifications();
+  const { highlightedIds, clearHighlight } = useJobNotifications();
+  const testSetHighlights = highlightedIds(NotificationSection.TEST_SETS);
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
   const queryClient = useQueryClient();
@@ -281,6 +290,13 @@ export default function TestSetsGrid({
       });
     },
     enabled: isAuthenticated(status),
+    // Always refetch when the list is opened. A test set row exists from the
+    // moment generation is *submitted* (the flow then redirects to its detail
+    // page), so under the app-wide 5-minute staleTime, coming back to this
+    // list served cache that predated the new row -- it only showed up after a
+    // hard reload. keepPreviousData in useGridQuery means the current rows stay
+    // put while the refetch runs, so this costs no loading flash.
+    staleTime: 0,
   });
   const testSets = testSetsData?.data ?? [];
   const totalCount = testSetsData?.pagination.totalCount ?? 0;
@@ -289,9 +305,10 @@ export default function TestSetsGrid({
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
+      clearHighlight(NotificationSection.TEST_SETS, String(params.id));
       router.push(`/test-sets/${params.id}`);
     },
-    [router]
+    [router, clearHighlight]
   );
 
   const handleSelectionChange = useCallback(
@@ -388,7 +405,7 @@ export default function TestSetsGrid({
         id: testSet.id,
         name: testSet.name,
         testSetType: testSet.test_set_type?.type_value || '',
-        behaviors: testSet.attributes?.metadata?.behaviors || [],
+        requirements: testSet.attributes?.metadata?.requirements || [],
         categories: testSet.attributes?.metadata?.categories || [],
         totalTests: testSet.attributes?.metadata?.total_tests || 0,
         creator: testSet.user,
@@ -417,13 +434,13 @@ export default function TestSetsGrid({
         filterable: true,
       },
       {
-        field: 'behaviors',
-        headerName: 'Behaviors',
+        field: 'requirements',
+        headerName: 'Requirements',
         width: 160,
         minWidth: 100,
         resizable: true,
         renderCell: params => (
-          <ChipContainer items={params.row.behaviors || []} />
+          <ChipContainer items={params.row.requirements || []} />
         ),
       },
       {
@@ -687,6 +704,11 @@ export default function TestSetsGrid({
             getRowId={row => row.id}
             showToolbar={true}
             onRowClick={handleRowClick}
+            getRowClassName={params =>
+              testSetHighlights.includes(String(params.id))
+                ? HIGHLIGHTED_ROW_CLASS
+                : ''
+            }
             getRowUrl={row => `/test-sets/${row.id}`}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}

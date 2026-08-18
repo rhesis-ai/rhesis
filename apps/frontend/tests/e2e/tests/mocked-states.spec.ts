@@ -6,7 +6,7 @@ import projectsFixture from '../fixtures/projects.json';
 import testsFixture from '../fixtures/tests.json';
 import testSetsFixture from '../fixtures/test-sets.json';
 import testRunsFixture from '../fixtures/test-runs.json';
-import behaviorsFixture from '../fixtures/behaviors.json';
+import requirementsFixture from '../fixtures/requirements.json';
 import endpointsFixture from '../fixtures/endpoints.json';
 import tasksFixture from '../fixtures/tasks.json';
 import tokensFixture from '../fixtures/tokens.json';
@@ -144,31 +144,31 @@ test.describe('Test Runs — mocked states @mocked', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Behaviors
+// Requirements
 // ---------------------------------------------------------------------------
-test.describe('Behaviors — mocked states @mocked', () => {
-  test('empty state shows no-behaviors message', async ({ page }) => {
+test.describe('Requirements — mocked states @mocked', () => {
+  test('empty state shows no-requirements message', async ({ page }) => {
     const mock = new MockApiHelper(page);
     await mock.mockLayoutPrerequisites();
-    await mock.mockList('/behaviors', []);
-    await page.goto('/behaviors');
+    await mock.mockList('/requirements', []);
+    await page.goto('/requirements');
     await page.waitForLoadState('networkidle');
 
     // See the Projects empty-state comment above for why this needs more
     // than the default 5s expect timeout in this dev environment.
-    await expect(page.getByText(/no behavior yet/i)).toBeVisible({
+    await expect(page.getByText(/no requirement yet/i)).toBeVisible({
       timeout: 15_000,
     });
   });
 
-  test('populated state shows behavior cards', async ({ page }) => {
+  test('populated state shows requirement cards', async ({ page }) => {
     const mock = new MockApiHelper(page);
     await mock.mockLayoutPrerequisites();
-    await mock.mockList('/behaviors', behaviorsFixture as any[]);
-    await page.goto('/behaviors');
+    await mock.mockList('/requirements', requirementsFixture as any[]);
+    await page.goto('/requirements');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(behaviorsFixture[0].name)).toBeVisible({
+    await expect(page.getByText(requirementsFixture[0].name)).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -176,8 +176,8 @@ test.describe('Behaviors — mocked states @mocked', () => {
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
     await mock.mockLayoutPrerequisites();
-    await mock.mockError('/behaviors', 500);
-    await page.goto('/behaviors');
+    await mock.mockError('/requirements', 500);
+    await page.goto('/requirements');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('body')).not.toContainText('Application error');

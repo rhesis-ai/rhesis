@@ -490,7 +490,7 @@ def export_regular_test_set_from_explorer(
     """Create a new regular test set by copying tests from an explorer test set.
 
     Skips topic-marker rows and tests without prompt content. Does not copy
-    explorer-only test set metadata (behaviors, adaptive_settings). Preserves
+    explorer-only test set metadata (requirements, adaptive_settings). Preserves
     each real test's topic via ``topic_id`` (and prompt / metadata fields
     compatible with regular test sets).
 

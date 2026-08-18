@@ -1,5 +1,5 @@
 """
-Service for sending task assignment email notifications.
+Service for sending task assignment notifications (email and in-app).
 """
 
 import logging
@@ -8,7 +8,10 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.crud import get_status, get_type_lookup, get_user
+from rhesis.backend.app.crud import get_status, get_type_lookup
+from rhesis.backend.app.crud import user as user_crud
+from rhesis.backend.app.models.enums import NotificationEventType
+from rhesis.backend.app.services.notification import RenderedNotification, notify
 from rhesis.backend.notifications import EmailTemplate, email_service
 
 logger = logging.getLogger(__name__)
@@ -30,7 +33,7 @@ def send_task_assignment_notification(
     """
     try:
         # Get assignee details
-        assignee = get_user(db, task.assignee_id) if task.assignee_id else None
+        assignee = user_crud.get_user(db, task.assignee_id) if task.assignee_id else None
 
         if not assignee or not assignee.email:
             logger.warning(
@@ -39,7 +42,7 @@ def send_task_assignment_notification(
             return False
 
         # Get creator details
-        creator = get_user(db, task.user_id) if task.user_id else None
+        creator = user_crud.get_user(db, task.user_id) if task.user_id else None
 
         # Get status details
         status = get_status(db, task.status_id) if task.status_id else None
@@ -103,6 +106,34 @@ def send_task_assignment_notification(
     except Exception as e:
         logger.error(f"Error sending task assignment email for task {task.id}: {str(e)}")
         return False
+
+
+def send_task_assignment_in_app_notification(db: Session, task: models.Task) -> None:
+    """In-app counterpart to send_task_assignment_notification.
+
+    Badges the assignee's Tasks nav item and highlights the row -- no email
+    involved, and no self-assignment special-case (the email path above
+    doesn't skip self-assignment either, so this stays consistent with it).
+    """
+    if not task.assignee_id:
+        return
+
+    creator = user_crud.get_user(db, task.user_id) if task.user_id else None
+    creator_name = (creator.name or creator.given_name) if creator else None
+
+    rendered = RenderedNotification(
+        title=f'"{task.title}" was assigned to you',
+        body=f"Assigned by {creator_name}" if creator_name else None,
+        entity_id=str(task.id),
+    )
+    notify(
+        db,
+        event_type=NotificationEventType.Task.ASSIGNED,
+        rendered=rendered,
+        user_id=str(task.assignee_id),
+        organization_id=str(task.organization_id) if task.organization_id else None,
+        project_id=str(task.project_id) if task.project_id else None,
+    )
 
 
 def _get_entity_name(

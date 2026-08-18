@@ -20,7 +20,7 @@ class Synthesizer(TestSetSynthesizer):
     def __init__(
         self,
         prompt: str,
-        behaviors: Optional[List[str]] = None,
+        requirements: Optional[List[str]] = None,
         categories: Optional[List[str]] = None,
         topics: Optional[List[str]] = None,
         sources: Optional[List[SourceSpecification]] = None,
@@ -33,7 +33,7 @@ class Synthesizer(TestSetSynthesizer):
         Initialize the synthesizer.
         Args:
             prompt: The generation prompt to use
-            behaviors: List of behaviors to test
+            requirements: List of requirements to test
             categories: List of categories to test
             topics: List of topics to test
             sources: List of source specifications to use
@@ -51,7 +51,7 @@ class Synthesizer(TestSetSynthesizer):
             harmful=harmful,
         )
         self.prompt = prompt
-        self.behaviors = behaviors
+        self.requirements = requirements
         self.categories = categories
         self.topics = topics
 
@@ -59,7 +59,7 @@ class Synthesizer(TestSetSynthesizer):
         """
         Prepare template context for _generate_batch() call.
 
-        Combines instance state (self.prompt, behaviors, categories, topics)
+        Combines instance state (self.prompt, requirements, categories, topics)
         with runtime parameters.
 
         Args:
@@ -70,7 +70,7 @@ class Synthesizer(TestSetSynthesizer):
         """
         return {
             "generation_prompt": self.prompt,
-            "behaviors": self.behaviors,
+            "requirements": self.requirements,
             "categories": self.categories,
             "topics": self.topics,
             **generate_kwargs,

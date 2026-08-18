@@ -9,6 +9,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ async def create_jira_ticket_from_task(
     Raises:
         ValueError: If task/tool not found, misconfigured, or the API call fails.
     """
-    task = crud.get_task(db, task_id, organization_id, user_id)
+    task = task_crud.get_task(db, task_id, organization_id, user_id)
     if not task:
         raise ValueError(f"Task '{task_id}' not found")
 
@@ -185,7 +186,7 @@ async def create_jira_ticket_from_task(
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    crud.update_task(
+    task_crud.update_task(
         db=db,
         task_id=task_id,
         task=schemas.TaskUpdate(task_metadata=task.task_metadata),

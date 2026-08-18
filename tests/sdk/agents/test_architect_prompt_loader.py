@@ -83,7 +83,7 @@ class TestPhaseIncludeNames:
 
     def test_planning_prd_has_prd_workflow_and_bracketfeld(self):
         names = phase_include_names(AgentMode.PLANNING, WorkflowPath.PRD)
-        assert "requirements-workflow.md" in names
+        assert "spec-workflow.md" in names
         assert "use-case-bracketfeld.md" in names
         assert "phases/reuse.md" in names
         assert "telemachus-save-plan.j2" in names
@@ -93,6 +93,14 @@ class TestPhaseIncludeNames:
         names = phase_include_names(AgentMode.CREATING, WorkflowPath.PRD)
         assert "phases/creation.md" in names
         assert "telemachus-creation-order.j2" not in names
+
+    def test_metric_authoring_loaded_when_metrics_are_written(self):
+        # Metric field depth is only actionable while planning or creating them.
+        for mode in (AgentMode.PLANNING, AgentMode.CREATING):
+            assert "metric-authoring.md" in phase_include_names(mode, WorkflowPath.EXPLORE)
+        assert "metric-authoring.md" not in phase_include_names(
+            AgentMode.EXECUTING, WorkflowPath.EXPLORE
+        )
 
     def test_executing_has_analysis(self):
         names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.EXPLORE)
@@ -130,6 +138,19 @@ class TestRenderPhaseKnowledge:
         env = build_architect_jinja_env(_TEMPLATES_DIR)
         assert render_phase_knowledge(env, AgentMode.DISCOVERY, WorkflowPath.UNSET) == ""
 
+    def test_creating_phase_carries_the_metric_step_format(self):
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.CREATING, WorkflowPath.EXPLORE)
+        assert "Step 1:" in text
+        assert "evaluation_steps" in text
+
+    def test_discovery_flags_a_project_with_no_endpoint(self):
+        # Discovery is where the endpoint gets resolved, so the "none at all"
+        # case has to be handled here too — not only in the system prompt.
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.DISCOVERY, WorkflowPath.EXPLORE)
+        assert "no** endpoint at all" in text
+        assert "connecting-application" in text
 
 @pytest.mark.unit
 class TestBundledSkillReferences:
@@ -157,7 +178,7 @@ class TestBundledSkillReferences:
 
         env = build_architect_jinja_env(templates_dir)
         text = env.get_template("system_prompt.j2").render()
-        assert "Behavior" in text
+        assert "Requirement" in text
         assert "OData" in text
         assert "confirm" in text.lower()
 
@@ -201,14 +222,14 @@ def _has_detail_page(segment: str) -> bool:
 class TestEntityLinkGuidanceMatchesFrontend:
     """Keep link guidance honest about which entities have detail pages.
 
-    Both templates previously told the agent that behaviors and metrics had
+    Both templates previously told the agent that requirements and metrics had
     no detail pages. Both do, so the agent was suppressing links a user
     could have followed — and the two files disagreed with each other.
     """
 
     TEMPLATES = ("telemachus-guidelines.j2", "streaming_response.j2")
     # Entities the prompts tell the agent to link.
-    LINKED = ("test-sets", "tests", "endpoints", "projects", "test-runs", "behaviors", "metrics")
+    LINKED = ("test-sets", "tests", "endpoints", "projects", "test-runs", "requirements", "metrics")
 
     @pytest.mark.parametrize("segment", LINKED)
     def test_linked_entities_really_have_detail_pages(self, segment):
@@ -221,18 +242,18 @@ class TestEntityLinkGuidanceMatchesFrontend:
         assert not _has_detail_page("test-results")
 
     @pytest.mark.parametrize("template", TEMPLATES)
-    def test_templates_do_not_deny_behavior_or_metric_pages(self, template):
+    def test_templates_do_not_deny_requirement_or_metric_pages(self, template):
         text = (_TEMPLATES_DIR / template).read_text()
         for stale in (
-            "Behaviors, metrics and test results do NOT have detail pages",
-            "Behaviors and test results do NOT have detail pages",
+            "Requirements, metrics and test results do NOT have detail pages",
+            "Requirements and test results do NOT have detail pages",
         ):
             assert stale not in text, f"{template} still carries stale claim: {stale!r}"
 
     @pytest.mark.parametrize("template", TEMPLATES)
-    def test_templates_document_behavior_and_metric_links(self, template):
+    def test_templates_document_requirement_and_metric_links(self, template):
         text = (_TEMPLATES_DIR / template).read_text()
-        assert "/behaviors/" in text, f"{template} never shows a behavior link"
+        assert "/requirements/" in text, f"{template} never shows a requirement link"
         assert "/metrics/" in text, f"{template} never shows a metric link"
 
     @pytest.mark.parametrize("template", TEMPLATES)

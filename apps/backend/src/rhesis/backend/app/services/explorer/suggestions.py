@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
 from rhesis.backend.app.services.explorer.evaluation import (
     EVAL_MAX_CONCURRENCY,
@@ -28,6 +29,7 @@ from rhesis.backend.app.services.streaming_utils import (
     IncrementalJsonArrayParser,
 )
 from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
+from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
 
 logger = logging.getLogger(__name__)
 
@@ -55,32 +57,31 @@ def _suggestions_response_model(num_suggestions: int) -> type[BaseModel]:
     )
 
 
-def _get_generation_model(db: Session, user_id: str):
+def _get_generation_model(db: Session, user_id: str, organization_id: str):
     """Get the user's configured generation model for suggestion generation."""
     from rhesis.backend.app.config.settings import get_model_settings
+    from rhesis.backend.app.quota.enforcement import QuotaExceededError
     from rhesis.backend.app.utils.user_model_utils import (
         get_user_generation_model,
+        resolve_default_hosted_model,
     )
 
     try:
-        user = crud.get_user_by_id(db, user_id)
+        user = user_crud.get_user_by_id(db, user_id)
         if user:
             return get_user_generation_model(db, user)
+    except QuotaExceededError:
+        # Not a lookup failure -- let it propagate. The broad except below
+        # would otherwise log it as "error fetching" and fall through to a
+        # second, identical quota check a few lines down.
+        raise
     except Exception as e:
         logger.warning(f"Error fetching user generation model: {e}")
 
-    from rhesis.sdk.models.factory import get_model
-
-    return get_model(get_model_settings().generation_model)
-
-
-def _resolve_llm_model(model_or_provider: Any):
-    """Ensure we have an SDK BaseLLM instance (not a string id)."""
-    from rhesis.sdk.models.factory import get_model
-
-    if isinstance(model_or_provider, str):
-        return get_model(model_or_provider, model_type="language")
-    return model_or_provider
+    # resolve_default_hosted_model, not a bare get_model(): this is the
+    # system default, which runs on our credentials. May return a string on
+    # construction failure; the caller unwraps that via ensure_language_model.
+    return resolve_default_hosted_model(get_model_settings().generation_model, db, organization_id)
 
 
 def _build_suggestion_prompt(
@@ -180,7 +181,9 @@ def _prepare_suggestion_context(
         examples, topic or "", num_suggestions, user_feedback=feedback_text
     )
 
-    model = _resolve_llm_model(_get_generation_model(db, user_id))
+    from rhesis.backend.app.utils.user_model_utils import ensure_language_model
+
+    model = ensure_language_model(_get_generation_model(db, user_id, organization_id))
     response_model = _suggestions_response_model(num_suggestions)
 
     return {
@@ -332,19 +335,29 @@ async def generate_suggestions(
             sort_by_diversity,
         )
 
-        embedder = resolve_embedder(db, user_id)
-        texts = [(item.get("input") or "").strip() for item in suggestions]
+        # Embeddings only drive diversity ordering here, so a deployment with no
+        # embedding provider still gets its suggestions -- just unsorted and
+        # without vectors. Before, this resolve raised straight out of the
+        # function and took the whole suggestion request with it.
+        try:
+            embedder = resolve_embedder(db, user_id)
+        except EmbeddingProviderNotConfigured as e:
+            logger.warning("Suggestions generated without embeddings: %s", e)
+            embedder = None
 
-        vectors = await a_generate_embedding_vectors_batch(
-            texts,
-            db,
-            user_id,
-            embedder=embedder,
-        )
-        for item, vec in zip(suggestions, vectors):
-            item["embedding"] = vec
+        if embedder is not None:
+            texts = [(item.get("input") or "").strip() for item in suggestions]
 
-        suggestions = sort_by_diversity(suggestions)
+            vectors = await a_generate_embedding_vectors_batch(
+                texts,
+                db,
+                user_id,
+                embedder=embedder,
+            )
+            for item, vec in zip(suggestions, vectors):
+                item["embedding"] = vec
+
+            suggestions = sort_by_diversity(suggestions)
 
     logger.info(
         f"Generated {len(suggestions)} suggestions for "
@@ -430,7 +443,14 @@ async def suggestion_pipeline_stream(
             resolve_embedder,
         )
 
-        embedder = resolve_embedder(db, user_id)
+        # Degrade to a no-embedding stream rather than failing it: this resolve
+        # sits outside _embed_one's own try/except, so an unconfigured provider
+        # used to abort the entire suggestion stream, not just the vectors.
+        try:
+            embedder = resolve_embedder(db, user_id)
+        except EmbeddingProviderNotConfigured as e:
+            logger.warning("Suggestion stream running without embeddings: %s", e)
+            generate_embeddings = False
 
     # ── Shared state ──
     suggestions: List[Dict[str, Any]] = []

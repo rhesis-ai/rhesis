@@ -69,7 +69,7 @@ def filter_configs_by_scope(
     depressing the pass rate.
 
     Logging follows filter_metrics_by_scope's convention: an explicitly-wrong
-    scope is routine (most behaviors mix Single-Turn and Multi-Turn metrics) and
+    scope is routine (most requirements mix Single-Turn and Multi-Turn metrics) and
     logs at debug; no declared scope at all is worth surfacing at warning, since
     the metric table's CHECK constraint makes that structurally impossible for a
     real DB row — seeing it means a non-DB caller handed in an unscoped config.
@@ -138,6 +138,26 @@ def _build_conversation_history(
     from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
     return ConversationHistory.from_messages(messages)
+
+
+def _collect_conversation_context(conversation_summary: List[Dict[str, Any]]) -> List[str]:
+    """Flatten every turn's per-turn context (e.g. RAG chunks) into one list.
+
+    context_required metrics (LLM08, ASI06, ASI08) need this at the top level of
+    MetricEvaluator.evaluate(), separately from the per-turn context already
+    rendered inline by ConversationHistory.format_conversation() for judges that
+    read the formatted transcript directly.
+    """
+    context: List[str] = []
+    for turn in conversation_summary:
+        turn_context = turn.get(TURN_CONTEXT_KEY)
+        if not turn_context:
+            continue
+        if isinstance(turn_context, list):
+            context.extend(str(c) for c in turn_context)
+        else:
+            context.append(str(turn_context))
+    return context
 
 
 def evaluate_single_turn_metrics(
@@ -247,7 +267,7 @@ def evaluate_multi_turn_metrics(
     test_config = test.test_configuration or {}
     goal = test_config.get("goal", "")
 
-    # Resolve metrics (execution-time > test set > behavior)
+    # Resolve metrics (execution-time > test set > requirement)
     metrics = get_test_metrics(
         test,
         db,
@@ -293,7 +313,7 @@ def evaluate_multi_turn_metrics(
             input_text=goal,
             output_text=conversation_text.strip(),
             expected_output="",
-            context=[],
+            context=_collect_conversation_context(conversation_summary),
             metrics=metric_configs,
             conversation_history=conversation_history,
         )

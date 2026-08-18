@@ -4,19 +4,23 @@ import uuid
 from fastapi import Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings, get_telemetry_settings
+from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
-from rhesis.backend.app.services.task_notification import send_task_assignment_notification
+from rhesis.backend.app.services.task_notification import (
+    send_task_assignment_in_app_notification,
+    send_task_assignment_notification,
+)
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.telemetry import (
     set_telemetry_enabled,
@@ -54,7 +58,7 @@ def create_task(
         # Validate organization-level constraints
         validate_task_organization_constraints(db, task, current_user)
 
-        created_task = crud.create_task(
+        created_task = task_crud.create_task(
             db=db,
             task=task,
             organization_id=str(current_user.organization_id),
@@ -65,6 +69,7 @@ def create_task(
         if created_task.assignee_id:
             frontend_url = get_frontend_settings().url
             send_task_assignment_notification(db=db, task=created_task, frontend_url=frontend_url)
+            send_task_assignment_in_app_notification(db=db, task=created_task)
 
         # Track feature usage
         track_feature_usage(
@@ -105,7 +110,7 @@ def list_tasks(
     """List tasks with filtering, sorting, and comment counts"""
     try:
         organization_id, user_id = tenant_context
-        return crud.get_tasks(
+        return task_crud.get_tasks(
             db=db,
             skip=skip,
             limit=limit,
@@ -128,7 +133,9 @@ def get_task(
 ):
     """Get a single task by ID"""
     organization_id, user_id = tenant_context
-    task = crud.get_task(db=db, task_id=task_id, organization_id=organization_id, user_id=user_id)
+    task = task_crud.get_task(
+        db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
+    )
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -157,7 +164,7 @@ def get_tasks_by_entity(
         # Create a filter expression for entity_type and entity_id
         filter_expr = f"entity_type eq '{entity_type}' and entity_id eq {entity_id}"
 
-        return crud.get_tasks(
+        return task_crud.get_tasks(
             db=db,
             skip=skip,
             limit=limit,
@@ -194,7 +201,7 @@ def update_task(
         user_id = str(current_user.id)
 
         # Get the current task to check for assignee changes
-        current_task = crud.get_task(
+        current_task = task_crud.get_task(
             db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
         )
         if current_task is None:
@@ -230,7 +237,7 @@ def update_task(
             task.assignee_id is not None and task.assignee_id != current_task.assignee_id
         )
 
-        updated_task = crud.update_task(
+        updated_task = task_crud.update_task(
             db=db, task_id=task_id, task=task, organization_id=organization_id, user_id=user_id
         )
         if updated_task is None:
@@ -240,6 +247,7 @@ def update_task(
         if assignee_changed and updated_task.assignee_id:
             frontend_url = get_frontend_settings().url
             send_task_assignment_notification(db=db, task=updated_task, frontend_url=frontend_url)
+            send_task_assignment_in_app_notification(db=db, task=updated_task)
 
         # Track feature usage
         track_feature_usage(
@@ -276,7 +284,7 @@ def delete_task(
         organization_id = str(current_user.organization_id)
         user_id = str(current_user.id)
 
-        task_obj = crud.get_task(
+        task_obj = task_crud.get_task(
             db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
         )
         if task_obj is None:
@@ -291,7 +299,7 @@ def delete_task(
         ):
             raise HTTPException(status_code=403, detail="Not authorized to delete this task")
 
-        success = crud.delete_task(
+        success = task_crud.delete_task(
             db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
         )
         if not success:

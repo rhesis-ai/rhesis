@@ -157,11 +157,26 @@ async def run_batch(
         is_multi_turn_test(ctx.test_data.get(tid, {}).get("test")) for tid in test_ids
     )
     if has_multi_turn:
+        from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
+        from rhesis.backend.app.utils.user_model_utils import ensure_language_model
         from rhesis.penelope import PenelopeAgent
 
+        # Penelope is a separate package and cannot stamp usage provenance
+        # itself, so both branches have to be handled from this side:
+        #   - a model we resolved: ensure_language_model stamps it before it
+        #     crosses, since ctx.execution_model can still be a bare provider
+        #     string (resolve_default_hosted_model's construction fallback)
+        #     and PenelopeAgent's own string branch is an unstamped get_model.
+        #   - Penelope's own default: stamp the instance it built. It runs on
+        #     this deployment's credentials, exactly like any other default.
+        # Together these mean no model reaches an LLM call unstamped, which
+        # is what lets accrue_model_tokens treat "unstamped" as a plain bug.
         penelope_agent = (
-            PenelopeAgent(model=ctx.execution_model) if ctx.execution_model else PenelopeAgent()
+            PenelopeAgent(model=ensure_language_model(ctx.execution_model))
+            if ctx.execution_model
+            else PenelopeAgent()
         )
+        stamp_usage_provenance(penelope_agent.model, metered=True)
 
         # Fetch credentials / tokens once before the concurrent fan-out so
         # all coroutines hit a warm cache rather than racing to fetch in parallel.
@@ -175,6 +190,9 @@ async def run_batch(
         evaluator = MetricEvaluator(
             model=ctx.evaluation_model,
             connector_metric_sender=ctx.connector_metric_sender,
+            # No `db` here on purpose: the session closed before this point. Judge
+            # models for per-metric `model_id` overrides were resolved in prefetch.
+            metric_models=ctx.metric_models,
         )
 
     # Snapshot test data before the main pass so recovery rounds can restore it

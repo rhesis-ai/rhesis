@@ -2,7 +2,6 @@
 # Import remaining models
 from .architect import ArchitectMessage, ArchitectSession
 from .base import Base
-from .behavior import Behavior
 from .category import Category
 from .chunk import Chunk
 from .comment import Comment
@@ -11,9 +10,10 @@ from .endpoint import Endpoint
 from .experiment import Experiment
 from .file import File
 from .guid import GUID
-from .metric import Metric, behavior_metric_association
+from .metric import Metric, behavior_metric_association, requirement_metric_association
 from .mixins import ProjectMixin, TagsMixin
 from .model import Model
+from .notification import Notification
 from .organization import Organization
 
 # Import models with dependencies
@@ -22,6 +22,7 @@ from .project_membership import ProjectMembership
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
 from .refresh_token import RefreshToken
+from .requirement import Requirement
 from .source import Source
 
 # Import stats view models
@@ -45,12 +46,16 @@ from .type_lookup import TypeLookup
 from .usage import Usage
 from .user import User
 
+# Frozen migration b857edcac3c0 references models.Behavior by name.
+Behavior = Requirement
+
 # This line ensures all models are registered with Base
 __all__ = [
     "Base",
     "ArchitectSession",
     "ArchitectMessage",
     "Behavior",
+    "Requirement",
     "TestSet",
     "Category",
     "Chunk",
@@ -62,6 +67,7 @@ __all__ = [
     "GUID",
     "Metric",
     "Model",
+    "Notification",
     "PromptTemplate",
     "Prompt",
     "TestConfiguration",
@@ -89,6 +95,7 @@ __all__ = [
     "Tool",
     "Trace",
     "behavior_metric_association",
+    "requirement_metric_association",
     "test_test_set_association",
     "test_set_metric_association",
     "TestRunStatsView",

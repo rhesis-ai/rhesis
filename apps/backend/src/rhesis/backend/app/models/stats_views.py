@@ -39,9 +39,10 @@ class TestRunStatsView(Base):
 
 class MetricStatsView(Base):
     """Backs v_metric_stats -- one row per (test_result, metric_name), created by
-    alembic migration d3f8a91c5b02. effective_success/automated_success mirror
-    effective_metric_success()/automated_metric_success() in services/stats/common.py,
-    computed in SQL instead of a Python loop over the test_metrics JSONB column.
+    alembic migration d3f8a91c5b02 (fixed by d52329dc7e4e). effective_success is
+    each metric's own recorded verdict (automated, or corrected by a review that
+    targeted that specific metric); automated_success is the pre-review value,
+    mirroring automated_metric_success() in services/stats/common.py.
     """
 
     __tablename__ = "v_metric_stats"
@@ -51,7 +52,7 @@ class MetricStatsView(Base):
     organization_id = Column(GUID())
     test_run_id = Column(GUID())
     test_id = Column(GUID())
-    behavior_id = Column(GUID())
+    requirement_id = Column(GUID())
     created_at = Column(DateTime(timezone=True))
     year = Column(Integer)
     month = Column(Integer)
@@ -80,7 +81,7 @@ class TestStatsView(Base):
 
     test_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
-    behavior_id = Column(GUID())
+    requirement_id = Column(GUID())
     category_id = Column(GUID())
     topic_id = Column(GUID())
     test_type_id = Column(GUID())
@@ -90,7 +91,7 @@ class TestStatsView(Base):
     prompt_id = Column(GUID())
     priority = Column(Integer)
     test_status_id = Column(GUID())
-    behavior_name = Column(String)
+    requirement_name = Column(String)
     category_name = Column(String)
     topic_name = Column(String)
     created_at = Column(DateTime(timezone=True))
@@ -123,7 +124,7 @@ class TestResultStatsView(Base):
     status_name = Column(String)
     result = Column(String)
     test_status_id = Column(GUID())
-    behavior_id = Column(GUID())
+    requirement_id = Column(GUID())
     category_id = Column(GUID())
     topic_id = Column(GUID())
     test_user_id = Column(GUID())
@@ -132,7 +133,7 @@ class TestResultStatsView(Base):
     prompt_id = Column(GUID())
     priority = Column(Integer)
     test_type_id = Column(GUID())
-    behavior_name = Column(String)
+    requirement_name = Column(String)
     category_name = Column(String)
     topic_name = Column(String)
     run_id = Column(GUID())

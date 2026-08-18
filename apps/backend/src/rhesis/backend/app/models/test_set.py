@@ -105,7 +105,7 @@ class TestSet(
         "Test", secondary=test_test_set_association, back_populates="test_sets", viewonly=True
     )
 
-    # Metrics relationship - test set metrics override behavior metrics when present
+    # Metrics relationship - test set metrics override requirement metrics when present
     metrics = relationship(
         "Metric", secondary=test_set_metric_association, back_populates="test_sets"
     )
@@ -137,7 +137,7 @@ class TestSet(
         return self._get_related_items(Topic, "topics")
 
     @hybrid_property
-    def behaviors(self):
-        from .behavior import Behavior
+    def requirements(self):
+        from .requirement import Requirement
 
-        return self._get_related_items(Behavior, "behaviors")
+        return self._get_related_items(Requirement, "requirements")

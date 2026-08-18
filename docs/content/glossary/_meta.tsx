@@ -21,7 +21,7 @@ export default {
   "metric": {
     display: "hidden",
   },
-  "behavior": {
+  "requirement": {
     display: "hidden",
   },
   "test-set": {

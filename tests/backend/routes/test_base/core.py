@@ -23,9 +23,9 @@ class BaseEntityTests(ABC):
     """Abstract base class for all entity route tests"""
 
     # Must be overridden by subclasses
-    entity_name: str = ""  # e.g., "behavior", "topic"
-    entity_plural: str = ""  # e.g., "behaviors", "topics"
-    endpoints = None  # e.g., APIEndpoints.BEHAVIORS
+    entity_name: str = ""  # e.g., "requirement", "topic"
+    entity_plural: str = ""  # e.g., "requirements", "topics"
+    endpoints = None  # e.g., APIEndpoints.REQUIREMENTS
     data_generator = None  # e.g., TestDataGenerator method (LEGACY)
 
     # Optional overrides
@@ -55,13 +55,18 @@ class BaseEntityTests(ABC):
             cls._perform_auto_detection()
 
     @abstractmethod
-    def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample data for entity creation"""
+    def get_sample_data(self, client: Optional[TestClient] = None) -> Dict[str, Any]:
+        """Return sample data for entity creation.
+
+        client: passed through when available so an entity whose create
+        payload needs a real FK looked up via the API (e.g. Model/Source's
+        provider_type_id/source_type_id) can fetch one. Most entities ignore it.
+        """
         pass
 
     @abstractmethod
-    def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal data for entity creation"""
+    def get_minimal_data(self, client: Optional[TestClient] = None) -> Dict[str, Any]:
+        """Return minimal data for entity creation. See get_sample_data re: client."""
         pass
 
     @abstractmethod
@@ -144,7 +149,7 @@ class BaseEntityTests(ABC):
     def create_entity(self, client: TestClient, data: Dict[str, Any] = None) -> Dict[str, Any]:
         """Helper to create an entity and return response data"""
         if data is None:
-            data = self.get_sample_data()
+            data = self.get_sample_data(client=client)
         response = client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_200_OK
         return response.json()
@@ -153,7 +158,7 @@ class BaseEntityTests(ABC):
         """Helper to create multiple entities for testing"""
         entities = []
         for i in range(count):
-            data = self.get_sample_data()
+            data = self.get_sample_data(client=client)
             data[self.name_field] = f"{fake.word().title()} Test {self.entity_name.title()} {i}"
             entity = self.create_entity(client, data)
             entities.append(entity)

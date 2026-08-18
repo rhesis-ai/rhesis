@@ -6,7 +6,7 @@ semantic conventions, with span names like ``"chat gpt-4"`` /
 the ``gen_ai.*`` namespace.
 
 The Rhesis backend, by contrast, expects span names from the ``ai.*`` /
-``function.*`` namespaces (see :mod:`rhesis.sdk.telemetry.attributes`). The
+``function.*`` namespaces (see :mod:`rhesis.telemetry.attributes`). The
 framework-neutral parts of that bridge (GenAI constants, attribute/event
 translation, message-event synthesis) live in
 :mod:`rhesis.sdk.telemetry.integrations.genai` and are re-exported here so
@@ -20,8 +20,6 @@ That makes them trivial to unit test.
 from __future__ import annotations
 
 from typing import Any, Mapping
-
-from rhesis.sdk.telemetry.attributes import AIAttributes
 
 # Framework-neutral GenAI pieces, re-exported under their historical names so
 # the translator and tests keep working unchanged. New MAF-specific helpers
@@ -70,6 +68,7 @@ from rhesis.sdk.telemetry.integrations.genai import (  # noqa: F401
 from rhesis.sdk.telemetry.integrations.genai import (
     coerce_message_list as _coerce_message_list,
 )
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.schemas import AIOperationType
 
 INSTRUMENTATION_SCOPE_PREFIX = "agent_framework"
@@ -89,7 +88,7 @@ WORKFLOW_RUN_SPAN_NAME = "workflow.run"
 HANDOFF_TOOL_PREFIX = "handoff_to_"
 
 # Operation -> Rhesis span name. The validator in
-# :mod:`rhesis.sdk.telemetry.attributes` accepts ``ai.<domain>(.<action>)?`` and
+# :mod:`rhesis.telemetry.attributes` accepts ``ai.<domain>(.<action>)?`` and
 # anything starting with ``function.``, so we are careful to land here.
 _OPERATION_TO_SPAN_NAME: Mapping[str, str] = {
     OP_CHAT: AIOperationType.LLM_INVOKE,
@@ -128,7 +127,7 @@ def translate_span_name(original_name: str, attributes: Mapping[str, Any]) -> st
 
     If neither path matches, we sanitize ``original_name`` into the
     ``function.maf.*`` namespace so it always satisfies
-    :func:`rhesis.sdk.telemetry.attributes.validate_span_name`. This protects
+    :func:`rhesis.telemetry.attributes.validate_span_name`. This protects
     the integration against MAF adding new operations under us.
 
     Args:

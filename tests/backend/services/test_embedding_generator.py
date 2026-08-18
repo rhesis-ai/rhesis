@@ -64,7 +64,7 @@ def test_entity(
     db_status,
 ):
     """Create a test entity that implements to_searchable_text."""
-    from rhesis.backend.app.models import Behavior, Category, Prompt, Test, TypeLookup, Topic
+    from rhesis.backend.app.models import Requirement, Category, Prompt, Test, TypeLookup, Topic
     from rhesis.backend.app.constants import TestType
 
     # Create TypeLookup entries
@@ -92,17 +92,17 @@ def test_entity(
     test_db.flush()
     test_db.refresh(topic)
 
-    # Create Behavior
-    behavior = Behavior(
-        name="Test Behavior",
-        description="A test behavior",
+    # Create Requirement
+    requirement = Requirement(
+        name="Test Requirement",
+        description="A test requirement",
         organization_id=test_org_id,
         user_id=authenticated_user_id,
         status_id=db_status.id,
     )
-    test_db.add(behavior)
+    test_db.add(requirement)
     test_db.flush()
-    test_db.refresh(behavior)
+    test_db.refresh(requirement)
 
     # Create Category
     category = Category(
@@ -133,7 +133,7 @@ def test_entity(
         prompt_id=prompt.id,
         test_type_id=single_turn_type.id,
         topic_id=topic.id,
-        behavior_id=behavior.id,
+        requirement_id=requirement.id,
         category_id=category.id,
         status_id=db_status.id,
         organization_id=test_org_id,
@@ -454,7 +454,7 @@ class TestEmbeddingGenerator:
             )
 
     @patch("rhesis.backend.app.services.embedding.generator.get_user_embedding_model")
-    def test_recursive_native_provider_fails_before_any_network_call(
+    def test_recursive_native_provider_skips_before_any_network_call(
         self,
         mock_get_user_embedding_model,
         test_db,
@@ -464,9 +464,10 @@ class TestEmbeddingGenerator:
         authenticated_user_id,
     ):
         """DEFAULT_EMBEDDING_MODEL misconfigured back to the Rhesis native
-        provider must fail in-process, not via a doomed HTTP round-trip to
-        generate_embedding_endpoint whose eventual error only a status code
-        would distinguish as permanent-vs-transient.
+        provider must skip in-process, not via a doomed HTTP round-trip to
+        generate_embedding_endpoint. Embeddings are optional enrichment, so an
+        unconfigured provider is a skip, not a task failure -- unlike a
+        provider that is configured but broken (see the two tests above).
         """
         from rhesis.sdk.models.providers.native import RhesisEmbedder
 
@@ -477,15 +478,15 @@ class TestEmbeddingGenerator:
 
         generator = EmbeddingGenerator(test_db)
 
-        with pytest.raises(ModelConfigurationError, match="recursively"):
-            generator.generate(
-                entity_id=str(test_entity.id),
-                entity_type="Test",
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                model_id=str(embedding_model.id),
-            )
+        result = generator.generate(
+            entity_id=str(test_entity.id),
+            entity_type="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            model_id=str(embedding_model.id),
+        )
 
+        assert result == {"status": "skipped_no_provider", "embedding_id": None}
         fake_native_embedder.generate.assert_not_called()
 
     @patch("rhesis.backend.app.services.embedding.generator.get_model")

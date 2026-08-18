@@ -78,7 +78,7 @@ The component uses the following color scheme to match the Rhesis brand:
 **Terminal Output:**
 
 - Separators (dashes): `#6B7280` (muted gray with opacity)
-- Labels (Prompt:, Behavior:, etc.): `#60A5FA` (blue, semi-bold)
+- Labels (Prompt:, Requirement:, etc.): `#60A5FA` (blue, semi-bold)
 - Values: `#E5E7EB` (light gray)
 
 All styles are defined in `styles/globals.css` under the `.rhesis-codeblock` namespace.

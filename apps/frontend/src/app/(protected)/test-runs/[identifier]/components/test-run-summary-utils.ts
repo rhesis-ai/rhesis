@@ -27,13 +27,13 @@ export function getReviewBand(passRate: number): ReviewBandInfo {
   return { band: 'review', label: 'Needs Review', colorKey: 'error' };
 }
 
-export interface BehaviorStat {
+export interface RequirementStat {
   name: string;
   total: number;
   passed: number;
   failed: number;
   passRate: number;
-  /** True when a human review changed a test outcome in this behavior */
+  /** True when a human review changed a test outcome in this requirement */
   hasHumanCorrection?: boolean;
   humanCorrectionCount?: number;
   humanCorrectionTooltip?: string;
@@ -66,22 +66,15 @@ export interface ReviewSummary {
   subtitle: string;
 }
 
-export function getEffectiveMetricSuccess(
-  test: TestResultDetail,
-  metric: { is_successful: boolean; override?: { original_value: boolean } }
-): boolean {
-  if (metric.override) {
-    return metric.is_successful;
-  }
-
-  const overall = getEffectiveTestResultStatus(test);
-  if (overall === 'Pass' && !metric.is_successful) {
-    return true;
-  }
-  if (overall === 'Fail' && metric.is_successful) {
-    return false;
-  }
-
+export function getEffectiveMetricSuccess(metric: {
+  is_successful: boolean;
+  override?: { original_value: boolean };
+}): boolean {
+  // is_successful already reflects a review that targeted this specific metric
+  // (see _apply_metric_override on the backend). A whole-test review judges the
+  // response as a whole, not this metric's own correctness, so it's deliberately
+  // excluded here -- otherwise one corrected/failing metric would drag every
+  // other metric on the same test into its own pass/fail count.
   return metric.is_successful;
 }
 
@@ -384,13 +377,13 @@ export function hasMetricTargetedReview(
   return iterMetricTargetReviews(result, metricName).length > 0;
 }
 
-export function getResultBehaviorName(
+export function getResultRequirementName(
   result: TestResultDetail
 ): string | undefined {
   return (
-    result.test?.behavior?.name ||
-    (result.test as { behavior?: { name?: string } } | undefined)?.behavior
-      ?.name
+    result.test?.requirement?.name ||
+    (result.test as { requirement?: { name?: string } } | undefined)
+      ?.requirement?.name
   );
 }
 
@@ -412,32 +405,35 @@ export function testHasHumanCorrection(result: TestResultDetail): boolean {
   });
 }
 
-export function countBehaviorHumanCorrections(
-  behaviorName: string,
+export function countRequirementHumanCorrections(
+  requirementName: string,
   testResults: TestResultDetail[]
 ): number {
   return testResults.filter(
     result =>
-      getResultBehaviorName(result) === behaviorName &&
+      getResultRequirementName(result) === requirementName &&
       testHasHumanCorrection(result)
   ).length;
 }
 
-export function buildBehaviorCorrectionTooltip(
-  behaviorName: string,
+export function buildRequirementCorrectionTooltip(
+  requirementName: string,
   testResults: TestResultDetail[]
 ): string {
-  const testCount = countBehaviorHumanCorrections(behaviorName, testResults);
+  const testCount = countRequirementHumanCorrections(
+    requirementName,
+    testResults
+  );
   if (testCount === 0) return '';
   return `${testCount} test${testCount === 1 ? '' : 's'} corrected by human review`;
 }
 
-/** True when any test in this behavior had a test-level review correction. */
-export function behaviorHasHumanCorrection(
-  behaviorName: string,
+/** True when any test in this requirement had a test-level review correction. */
+export function requirementHasHumanCorrection(
+  requirementName: string,
   testResults: TestResultDetail[]
 ): boolean {
-  return countBehaviorHumanCorrections(behaviorName, testResults) > 0;
+  return countRequirementHumanCorrections(requirementName, testResults) > 0;
 }
 
 /** True when reviewed passed/failed counts differ from automated counts. */
@@ -598,13 +594,13 @@ export function computeReviewSummary(
   };
 }
 
-export function aggregateBehaviorStats(
+export function aggregateRequirementStats(
   testResults: TestResultDetail[]
-): BehaviorStat[] {
+): RequirementStat[] {
   const map = new Map<string, { passed: number; total: number }>();
 
   for (const result of testResults) {
-    const name = getResultBehaviorName(result);
+    const name = getResultRequirementName(result);
     if (!name) continue;
     const entry = map.get(name) ?? { passed: 0, total: 0 };
     entry.total += 1;
@@ -613,7 +609,7 @@ export function aggregateBehaviorStats(
   }
 
   return Array.from(map.entries()).map(([name, { passed, total }]) => {
-    const humanCorrectionCount = countBehaviorHumanCorrections(
+    const humanCorrectionCount = countRequirementHumanCorrections(
       name,
       testResults
     );
@@ -625,7 +621,10 @@ export function aggregateBehaviorStats(
       passRate: total > 0 ? (passed / total) * 100 : 0,
       hasHumanCorrection: humanCorrectionCount > 0,
       humanCorrectionCount,
-      humanCorrectionTooltip: buildBehaviorCorrectionTooltip(name, testResults),
+      humanCorrectionTooltip: buildRequirementCorrectionTooltip(
+        name,
+        testResults
+      ),
     };
   });
 }
@@ -657,7 +656,7 @@ export function aggregateMetricStats(
         m.override?.original_value !== undefined
           ? m.override.original_value
           : m.is_successful;
-      const effective = getEffectiveMetricSuccess(result, m);
+      const effective = getEffectiveMetricSuccess(m);
       if (automated) entry.automatedPassed += 1;
       if (effective) entry.passed += 1;
       const hasMetricOverride =

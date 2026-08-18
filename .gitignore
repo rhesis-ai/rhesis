@@ -127,6 +127,7 @@ celery_worker.log
 
 # Environments
 .env
+tier_config_dev.yaml
 .venv
 env/
 venv/
@@ -143,11 +144,6 @@ venv.bak/
 
 # mkdocs documentation
 /site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
 # Pyre type checker
 .pyre/

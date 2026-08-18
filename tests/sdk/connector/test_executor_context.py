@@ -2,10 +2,10 @@
 
 import pytest
 from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.telemetry.context import get_test_execution_context
 
 from rhesis.sdk.connector.executor import TestExecutor
 from rhesis.sdk.context import EndpointContext
-from rhesis.sdk.telemetry.context import get_test_execution_context
 
 
 @pytest.fixture

@@ -41,7 +41,7 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Behavior } from '@/utils/api-client/interfaces/behavior';
+import { Requirement } from '@/utils/api-client/interfaces/requirement';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Category } from '@/utils/api-client/interfaces/category';
 import {
@@ -69,7 +69,7 @@ interface SingleTurnTestCase {
   prompt: string;
   category: string;
   topic: string;
-  behavior: string;
+  requirement: string;
   expectedOutput: string;
 }
 
@@ -84,7 +84,7 @@ interface MultiTurnTestCase {
   maxTurns: number;
   category: string;
   topic: string;
-  behavior: string;
+  requirement: string;
 }
 
 type TestCase = SingleTurnTestCase | MultiTurnTestCase;
@@ -118,7 +118,7 @@ export default function ManualTestWriter() {
             prompt: '',
             category: '',
             topic: '',
-            behavior: '',
+            requirement: '',
             expectedOutput: '',
           }
         : {
@@ -132,7 +132,7 @@ export default function ManualTestWriter() {
             maxTurns: 10,
             category: '',
             topic: '',
-            behavior: '',
+            requirement: '',
           };
     setTestCases([initialCase]);
     setPendingFilesMap({});
@@ -147,7 +147,7 @@ export default function ManualTestWriter() {
             prompt: '',
             category: '',
             topic: '',
-            behavior: '',
+            requirement: '',
             expectedOutput: '',
           }
         : {
@@ -161,13 +161,13 @@ export default function ManualTestWriter() {
             maxTurns: 10,
             category: '',
             topic: '',
-            behavior: '',
+            requirement: '',
           };
     return [initialTestCase];
   });
 
   // API data
-  const [behaviors, setBehaviors] = useState<Behavior[]>([]);
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,14 +210,14 @@ export default function ManualTestWriter() {
         setLoading(true);
         const apiFactory = new ApiClientFactory();
 
-        // Fetch behaviors
-        const behaviorsClient = apiFactory.getBehaviorClient();
-        const behaviorsData = await behaviorsClient.getBehaviors({
+        // Fetch requirements
+        const requirementsClient = apiFactory.getRequirementClient();
+        const requirementsData = await requirementsClient.getRequirements({
           sort_by: 'name',
           sort_order: 'asc',
         });
-        setBehaviors(
-          behaviorsData.filter(b => b.id && b.name && b.name.trim() !== '')
+        setRequirements(
+          requirementsData.filter(b => b.id && b.name && b.name.trim() !== '')
         );
 
         // Fetch topics with entity_type filter
@@ -258,7 +258,7 @@ export default function ManualTestWriter() {
             prompt: '',
             category: '',
             topic: '',
-            behavior: '',
+            requirement: '',
             expectedOutput: '',
           }
         : {
@@ -272,7 +272,7 @@ export default function ManualTestWriter() {
             maxTurns: 10,
             category: '',
             topic: '',
-            behavior: '',
+            requirement: '',
           };
     setTestCases([...testCases, newTestCase]);
   };
@@ -306,7 +306,7 @@ export default function ManualTestWriter() {
           tc.prompt.trim() ||
           tc.category.trim() ||
           tc.topic.trim() ||
-          tc.behavior.trim() ||
+          tc.requirement.trim() ||
           tc.expectedOutput.trim()
         );
       } else {
@@ -314,7 +314,7 @@ export default function ManualTestWriter() {
           tc.goal.trim() ||
           tc.category.trim() ||
           tc.topic.trim() ||
-          tc.behavior.trim() ||
+          tc.requirement.trim() ||
           tc.instructions.trim() ||
           tc.restrictions.trim() ||
           tc.scenario.trim()
@@ -337,14 +337,14 @@ export default function ManualTestWriter() {
           !tc.prompt.trim() ||
           !tc.category.trim() ||
           !tc.topic.trim() ||
-          !tc.behavior.trim()
+          !tc.requirement.trim()
         );
       } else {
         return (
           !tc.goal.trim() ||
           !tc.category.trim() ||
           !tc.topic.trim() ||
-          !tc.behavior.trim()
+          !tc.requirement.trim()
         );
       }
     });
@@ -352,8 +352,8 @@ export default function ManualTestWriter() {
     if (hasIncompleteRows) {
       const requiredFields =
         testType === 'Single-Turn'
-          ? 'Prompt, Category, Topic, Behavior'
-          : 'Goal, Category, Topic, Behavior';
+          ? 'Prompt, Category, Topic, Requirement'
+          : 'Goal, Category, Topic, Requirement';
       notifications.show(
         `Please fill in all required fields (${requiredFields}) for each test case`,
         { severity: 'error' }
@@ -381,7 +381,7 @@ export default function ManualTestWriter() {
             tc.prompt.trim() ||
             tc.category.trim() ||
             tc.topic.trim() ||
-            tc.behavior.trim() ||
+            tc.requirement.trim() ||
             tc.expectedOutput.trim()
           );
         } else {
@@ -389,7 +389,7 @@ export default function ManualTestWriter() {
             tc.goal.trim() ||
             tc.category.trim() ||
             tc.topic.trim() ||
-            tc.behavior.trim() ||
+            tc.requirement.trim() ||
             tc.instructions.trim() ||
             tc.restrictions.trim() ||
             tc.scenario.trim()
@@ -510,7 +510,7 @@ export default function ManualTestWriter() {
       };
       return {
         prompt,
-        behavior: tc.behavior,
+        requirement: tc.requirement,
         category: tc.category,
         topic: tc.topic,
       };
@@ -524,7 +524,7 @@ export default function ManualTestWriter() {
       max_turns: tc.maxTurns,
     };
     return {
-      behavior: tc.behavior,
+      requirement: tc.requirement,
       category: tc.category,
       topic: tc.topic,
       test_configuration: config as unknown as Record<string, unknown>,
@@ -539,7 +539,7 @@ export default function ManualTestWriter() {
           content: tc.prompt,
           expected_response: tc.expectedOutput || undefined,
         },
-        behavior: tc.behavior,
+        requirement: tc.requirement,
         category: tc.category,
         topic: tc.topic,
       };
@@ -553,7 +553,7 @@ export default function ManualTestWriter() {
       max_turns: tc.maxTurns,
     };
     return {
-      behavior: tc.behavior,
+      requirement: tc.requirement,
       category: tc.category,
       topic: tc.topic,
       test_configuration: config as unknown as Record<string, unknown>,
@@ -611,7 +611,7 @@ export default function ManualTestWriter() {
   };
 
   // Get unique option lists
-  const behaviorOptions = behaviors.map(b => b.name);
+  const requirementOptions = requirements.map(b => b.name);
   const topicOptions = topics.map(t => t.name);
   const categoryOptions = categories.map(c => c.name);
 
@@ -763,7 +763,9 @@ export default function ManualTestWriter() {
                         </TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>Behavior *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>
+                          Requirement *
+                        </TableCell>
                         <TableCell sx={{ minWidth: 300 }}>
                           Expected Output
                         </TableCell>
@@ -783,7 +785,9 @@ export default function ManualTestWriter() {
                         </TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
                         <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>Behavior *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>
+                          Requirement *
+                        </TableCell>
                       </>
                     )}
                     <TableCell sx={theme => ({ width: theme.spacing(7.5) })}>
@@ -898,19 +902,19 @@ export default function ManualTestWriter() {
                           <TableCell sx={{ p: 1 }}>
                             <Autocomplete
                               freeSolo
-                              options={behaviorOptions}
-                              value={testCase.behavior}
+                              options={requirementOptions}
+                              value={testCase.requirement}
                               onChange={(_, newValue) => {
                                 updateTestCase(
                                   testCase.id,
-                                  'behavior',
+                                  'requirement',
                                   newValue || ''
                                 );
                               }}
                               onInputChange={(_, newInputValue) => {
                                 updateTestCase(
                                   testCase.id,
-                                  'behavior',
+                                  'requirement',
                                   newInputValue
                                 );
                               }}
@@ -948,7 +952,7 @@ export default function ManualTestWriter() {
                                   e.target.value
                                 )
                               }
-                              placeholder="Describe expected output or behavior..."
+                              placeholder="Describe expected output or requirement..."
                               size="small"
                               disabled={loading}
                             />
@@ -1165,19 +1169,19 @@ export default function ManualTestWriter() {
                           <TableCell sx={{ p: 1 }}>
                             <Autocomplete
                               freeSolo
-                              options={behaviorOptions}
-                              value={testCase.behavior}
+                              options={requirementOptions}
+                              value={testCase.requirement}
                               onChange={(_, newValue) => {
                                 updateTestCase(
                                   testCase.id,
-                                  'behavior',
+                                  'requirement',
                                   newValue || ''
                                 );
                               }}
                               onInputChange={(_, newInputValue) => {
                                 updateTestCase(
                                   testCase.id,
-                                  'behavior',
+                                  'requirement',
                                   newInputValue
                                 );
                               }}

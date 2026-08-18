@@ -1,7 +1,7 @@
 """Default org-role assignment on user↔org association (EE handler).
 
 Registered with core's :func:`~rhesis.backend.app.auth.org_membership_hook`
-registry at EE bootstrap.  Core calls the hook from ``crud.create_user`` and the
+registry at EE bootstrap.  Core calls the hook from ``crud.user.create_user`` and the
 onboarding / re-invite paths; this handler writes the ``organization_member``
 row that the :class:`~rhesis.backend.ee.rbac.provider.PermissionAuthorizationProvider`
 needs so the user is not denied everywhere once RBAC is enabled for their org.

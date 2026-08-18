@@ -41,7 +41,7 @@ from rhesis.backend.app.scope import (
 )
 from rhesis.backend.app.utils import crud_utils
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     ProjectDataFactory,
 )
 
@@ -106,20 +106,20 @@ class TestAutoFilterNoOp:
 
     def test_unbound_scope_does_not_filter(self, test_db: Session, test_org_id):
         """When scope is unbound, queries are not additionally filtered by the listener."""
-        behavior = crud_utils.create_item(
+        requirement = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
 
         # No scope bound - listener is a no-op; explicit filter still works.
         results = (
-            test_db.query(models.Behavior)
-            .filter(models.Behavior.organization_id == test_org_id)
+            test_db.query(models.Requirement)
+            .filter(models.Requirement.organization_id == test_org_id)
             .all()
         )
-        assert any(b.id == behavior.id for b in results)
+        assert any(b.id == requirement.id for b in results)
 
 
 @pytest.mark.unit
@@ -129,59 +129,59 @@ class TestAutoFilterWhenBound:
 
     def test_bound_scope_filters_by_org(self, test_db: Session, test_org_id, bound_scope):
         """When scope is bound, only records from that org are returned."""
-        behavior = crud_utils.create_item(
+        requirement = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
 
-        # Bind scope to test org - should return the behavior
+        # Bind scope to test org - should return the requirement
         with bound_scope(organization_id=test_org_id):
-            results = test_db.query(models.Behavior).all()
+            results = test_db.query(models.Requirement).all()
 
-        assert any(b.id == behavior.id for b in results)
+        assert any(b.id == requirement.id for b in results)
 
     def test_bound_scope_is_idempotent_with_explicit_filter(
         self, test_db: Session, test_org_id, bound_scope
     ):
         """Listener + explicit filter for same org_id compose cleanly (no double-filter error)."""
-        behavior = crud_utils.create_item(
+        requirement = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
 
         with bound_scope(organization_id=test_org_id):
             results = (
-                test_db.query(models.Behavior)
-                .filter(models.Behavior.organization_id == test_org_id)
+                test_db.query(models.Requirement)
+                .filter(models.Requirement.organization_id == test_org_id)
                 .all()
             )
 
-        assert any(b.id == behavior.id for b in results)
+        assert any(b.id == requirement.id for b in results)
 
     def test_bound_scope_excludes_other_records_via_direct_query(
         self, test_db: Session, test_org_id, test_org2_id, bound_scope
     ):
         """When scope is bound to org1, records from org2 do not appear."""
-        # Create one behavior per org
+        # Create one requirement per org
         b1 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
         b2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org2_id,
         )
 
         with bound_scope(organization_id=test_org_id):
-            results = test_db.query(models.Behavior).all()
+            results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert b1.id in ids
@@ -199,20 +199,20 @@ class TestBypassFiltering:
         """bypass_tenant_filter() allows cross-org records to appear."""
         b1 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
         b2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org2_id,
         )
 
         with bound_scope(organization_id=test_org_id):
             with bypass_tenant_filter():
-                results = test_db.query(models.Behavior).all()
+                results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert b1.id in ids
@@ -224,13 +224,13 @@ class TestBypassFiltering:
         """query._bypass_scope = True suppresses the legacy before_compile listener."""
         b2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org2_id,
         )
 
         with bound_scope(organization_id=test_org_id):
-            q = test_db.query(models.Behavior)
+            q = test_db.query(models.Requirement)
             q._bypass_scope = True
             results = q.all()
 
@@ -244,56 +244,56 @@ class TestAutoStamp:
 
     def test_auto_stamp_fills_org_id(self, test_db: Session, test_org_id, bound_scope):
         """When scope is bound and organization_id is absent, auto-stamp fills it."""
-        data = BehaviorDataFactory.sample_data()
-        new_behavior = models.Behavior(**data)
+        data = RequirementDataFactory.sample_data()
+        new_requirement = models.Requirement(**data)
         # organization_id is intentionally left as None - rely on auto-stamp
 
         with bound_scope(organization_id=test_org_id):
-            test_db.add(new_behavior)
+            test_db.add(new_requirement)
             test_db.flush()  # triggers before_insert
 
-        assert str(new_behavior.organization_id) == test_org_id
+        assert str(new_requirement.organization_id) == test_org_id
         test_db.rollback()
 
     def test_auto_stamp_does_not_overwrite_explicit_value(
         self, test_db: Session, test_org_id, test_org2_id, bound_scope
     ):
         """Auto-stamp does not replace an already-set organization_id."""
-        data = BehaviorDataFactory.sample_data()
-        new_behavior = models.Behavior(**data)
-        new_behavior.organization_id = test_org2_id  # explicit override
+        data = RequirementDataFactory.sample_data()
+        new_requirement = models.Requirement(**data)
+        new_requirement.organization_id = test_org2_id  # explicit override
 
         with bound_scope(organization_id=test_org_id):
-            test_db.add(new_behavior)
+            test_db.add(new_requirement)
             test_db.flush()
 
-        assert str(new_behavior.organization_id) == test_org2_id
+        assert str(new_requirement.organization_id) == test_org2_id
         test_db.rollback()
 
     def test_auto_stamp_fires_under_bypass(self, test_db: Session, test_org_id, bound_scope):
         """bypass_tenant_filter() does not suppress auto-stamp."""
-        data = BehaviorDataFactory.sample_data()
-        new_behavior = models.Behavior(**data)
+        data = RequirementDataFactory.sample_data()
+        new_requirement = models.Requirement(**data)
 
         with bound_scope(organization_id=test_org_id):
             with bypass_tenant_filter():
-                test_db.add(new_behavior)
+                test_db.add(new_requirement)
                 test_db.flush()
 
-        assert str(new_behavior.organization_id) == test_org_id
+        assert str(new_requirement.organization_id) == test_org_id
         test_db.rollback()
 
     def test_auto_stamp_noop_when_unbound(self, test_db: Session):
         """When scope is unbound, auto-stamp leaves organization_id as None."""
-        data = BehaviorDataFactory.sample_data()
-        new_behavior = models.Behavior(**data)
+        data = RequirementDataFactory.sample_data()
+        new_requirement = models.Requirement(**data)
         # organization_id not set; scope is unbound (isolate_request_scope fixture)
 
-        test_db.add(new_behavior)
+        test_db.add(new_requirement)
         try:
             test_db.flush()
             # If flush succeeds (no NOT NULL constraint), org_id stays None
-            assert new_behavior.organization_id is None
+            assert new_requirement.organization_id is None
         except Exception:
             pass  # FK/NOT NULL constraint fires - that's expected; the point is stamp didn't run
         finally:
@@ -322,22 +322,22 @@ class TestProjectFailClosed:
 
         org_level = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        scoped_data = BehaviorDataFactory.sample_data()
+        scoped_data = RequirementDataFactory.sample_data()
         scoped_data["project_id"] = project_id
         project_scoped = crud_utils.create_item(
             test_db,
-            models.Behavior,
+            models.Requirement,
             scoped_data,
             organization_id=test_org_id,
         )
 
         # org bound, NO project -> fail-closed to NULL-project rows only.
         with bound_scope(organization_id=test_org_id):
-            results = test_db.query(models.Behavior).all()
+            results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert org_level.id in ids
@@ -352,23 +352,23 @@ class TestProjectFailClosed:
 
         org_level = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        data_a = BehaviorDataFactory.sample_data()
+        data_a = RequirementDataFactory.sample_data()
         data_a["project_id"] = project_a
         in_a = crud_utils.create_item(
-            test_db, models.Behavior, data_a, organization_id=test_org_id
+            test_db, models.Requirement, data_a, organization_id=test_org_id
         )
-        data_b = BehaviorDataFactory.sample_data()
+        data_b = RequirementDataFactory.sample_data()
         data_b["project_id"] = project_b
         in_b = crud_utils.create_item(
-            test_db, models.Behavior, data_b, organization_id=test_org_id
+            test_db, models.Requirement, data_b, organization_id=test_org_id
         )
 
         with bound_scope(organization_id=test_org_id, project_id=project_a):
-            results = test_db.query(models.Behavior).all()
+            results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert org_level.id in ids
@@ -438,8 +438,8 @@ class TestKillSwitch:
         """
         crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org2_id,
         )
 
@@ -448,9 +448,9 @@ class TestKillSwitch:
                 # Kill switch is active: auto_filter returns early so no scope
                 # predicate is appended, meaning rows from other orgs may appear.
                 # The key assertion is the query completes without error.
-                results = test_db.query(models.Behavior).all()
+                results = test_db.query(models.Requirement).all()
 
-        # The other-org behavior may appear because the filter was suppressed.
+        # The other-org requirement may appear because the filter was suppressed.
         assert isinstance(results, list)
 
 
@@ -468,18 +468,18 @@ class TestBulkInsertGap:
         self, test_db: Session, test_org_id, bound_scope
     ):
         """Session.bulk_insert_mappings bypasses before_flush; auto-stamp does not fire."""
-        data = BehaviorDataFactory.sample_data()
+        data = RequirementDataFactory.sample_data()
         data["id"] = uuid.uuid4()
         # Deliberately omit organization_id from the payload
 
         with bound_scope(organization_id=test_org_id):
             try:
-                test_db.bulk_insert_mappings(models.Behavior, [data])
+                test_db.bulk_insert_mappings(models.Requirement, [data])
                 test_db.flush()
                 # If flush succeeded, auto-stamp did NOT fire
                 # (organization_id still None in the bulk mapping payload)
                 result = (
-                    test_db.query(models.Behavior).filter(models.Behavior.id == data["id"]).first()
+                    test_db.query(models.Requirement).filter(models.Requirement.id == data["id"]).first()
                 )
                 assert result is None or result.organization_id is None
             except Exception:
@@ -521,21 +521,21 @@ class TestSessionInfoScope:
         """Auto-filter applies the org predicate from Session.info while ContextVar is unbound."""
         b1 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
         b2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org2_id,
         )
 
         # ContextVar is unbound (isolate_request_scope); scope lives only on the session.
         assert current_scope().organization_id is None
         with self._session_scope(test_db, organization_id=test_org_id):
-            results = test_db.query(models.Behavior).all()
+            results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert b1.id in ids
@@ -543,15 +543,15 @@ class TestSessionInfoScope:
 
     def test_auto_stamp_uses_session_info_without_contextvar(self, test_db: Session, test_org_id):
         """Auto-stamp fills organization_id from Session.info while ContextVar is unbound."""
-        new_behavior = models.Behavior(**BehaviorDataFactory.sample_data())
+        new_requirement = models.Requirement(**RequirementDataFactory.sample_data())
         # organization_id intentionally left None - must be filled from session.info
 
         assert current_scope().organization_id is None
         with self._session_scope(test_db, organization_id=test_org_id):
-            test_db.add(new_behavior)
+            test_db.add(new_requirement)
             test_db.flush()
 
-        assert str(new_behavior.organization_id) == test_org_id
+        assert str(new_requirement.organization_id) == test_org_id
         test_db.rollback()
 
     def test_session_info_takes_precedence_over_contextvar(
@@ -560,21 +560,21 @@ class TestSessionInfoScope:
         """When both are set, Session.info wins over the ContextVar."""
         b1 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
         b2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=test_org2_id,
         )
 
         # ContextVar bound to org2, but Session.info bound to org1 - org1 must win.
         with bound_scope(organization_id=test_org2_id):
             with self._session_scope(test_db, organization_id=test_org_id):
-                results = test_db.query(models.Behavior).all()
+                results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert b1.id in ids

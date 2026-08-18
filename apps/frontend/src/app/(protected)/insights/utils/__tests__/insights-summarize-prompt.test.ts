@@ -61,11 +61,11 @@ describe('buildInsightsSummarizeSessionTitle', () => {
 });
 
 describe('buildInsightsSummarizePrompt', () => {
-  it('includes RUN_ANALYZE / Insights signals and visible behaviors', () => {
+  it('includes RUN_ANALYZE / Insights signals and visible requirements', () => {
     const prompt = buildInsightsSummarizePrompt({
       endpointName: 'Chatbot',
       filters: filters({ timeRange: '7d' }),
-      visibleBehaviorNames: ['Safety', 'Tone'],
+      visibleRequirementNames: ['Safety', 'Tone'],
       testRunIds: ['run-1', 'run-2'],
       truncated: false,
       totalMatched: 2,
@@ -75,7 +75,7 @@ describe('buildInsightsSummarizePrompt', () => {
     expect(prompt).toContain('test results');
     expect(prompt).toContain('Insights handoff');
     expect(prompt).toContain('Endpoint: Chatbot');
-    expect(prompt).toContain('Behaviors in scope: Safety, Tone');
+    expect(prompt).toContain('Requirements in scope: Safety, Tone');
     expect(prompt).toContain('run-1, run-2');
     expect(prompt).not.toContain('Note:');
   });
@@ -84,7 +84,7 @@ describe('buildInsightsSummarizePrompt', () => {
     const prompt = buildInsightsSummarizePrompt({
       endpointName: 'API',
       filters: filters({ runFilterMode: 'timeRange', timeRange: '3m' }),
-      visibleBehaviorNames: [],
+      visibleRequirementNames: [],
       testRunIds: ['a'],
       truncated: true,
       totalMatched: 80,
@@ -100,7 +100,7 @@ describe('buildInsightsSummarizePrompt', () => {
         runFilterMode: 'testRuns',
         testRunIds: Array.from({ length: 60 }, (_, i) => `id-${i}`),
       }),
-      visibleBehaviorNames: [],
+      visibleRequirementNames: [],
       testRunIds: ['id-0'],
       truncated: true,
       totalMatched: 60,

@@ -17,7 +17,7 @@ export interface MultiTurnTestConfig {
   instructions?: string;
 
   /**
-   * What the target MUST NOT do - forbidden behaviors (optional)
+   * What the target MUST NOT do - forbidden requirements (optional)
    */
   restrictions?: string;
 

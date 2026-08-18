@@ -37,14 +37,14 @@ class TestTaskExecution:
 
     @pytest.fixture
     def test_with_prompt(
-        self, test_db, test_org_id, authenticated_user_id, test_prompt, test_behavior_with_metrics
+        self, test_db, test_org_id, authenticated_user_id, test_prompt, test_requirement_with_metrics
     ):
-        """Create a test with prompt and behavior."""
+        """Create a test with prompt and requirement."""
         from rhesis.backend.app import models
 
         test = models.Test(
             prompt_id=test_prompt.id,
-            behavior_id=test_behavior_with_metrics.id,
+            requirement_id=test_requirement_with_metrics.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -74,7 +74,7 @@ class TestTaskExecution:
             get_test_and_prompt(db=test_db, test_id=str(uuid4()), organization_id=test_org_id)
 
     def test_get_test_and_prompt_no_prompt(
-        self, test_db, test_org_id, authenticated_user_id, test_behavior_with_metrics
+        self, test_db, test_org_id, authenticated_user_id, test_requirement_with_metrics
     ):
         """Test get_test_and_prompt when test has no prompt."""
         from rhesis.backend.app import models
@@ -82,7 +82,7 @@ class TestTaskExecution:
         # Create test without prompt
         test = models.Test(
             prompt_id=None,
-            behavior_id=test_behavior_with_metrics.id,
+            requirement_id=test_requirement_with_metrics.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -94,24 +94,24 @@ class TestTaskExecution:
             get_test_and_prompt(db=test_db, test_id=str(test.id), organization_id=test_org_id)
 
     def test_get_test_metrics(self, test_db, test_with_prompt):
-        """Test retrieving metrics from test's behavior."""
+        """Test retrieving metrics from test's requirement."""
         metrics = get_test_metrics(test_with_prompt, test_db)
 
         assert isinstance(metrics, list)
         assert len(metrics) > 0
-        # Should have at least the metrics from the behavior
+        # Should have at least the metrics from the requirement
         assert len(metrics) >= 2  # numeric and categorical from fixture
 
-    def test_get_test_metrics_no_behavior(
+    def test_get_test_metrics_no_requirement(
         self, test_db, test_org_id, authenticated_user_id, test_prompt
     ):
-        """Test get_test_metrics when test has no behavior."""
+        """Test get_test_metrics when test has no requirement."""
         from rhesis.backend.app import models
 
-        # Create test without behavior
+        # Create test without requirement
         test = models.Test(
             prompt_id=test_prompt.id,
-            behavior_id=None,
+            requirement_id=None,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -121,29 +121,29 @@ class TestTaskExecution:
 
         metrics = get_test_metrics(test, test_db)
 
-        # Should return empty list when no behavior (no defaults in SDK)
+        # Should return empty list when no requirement (no defaults in SDK)
         assert isinstance(metrics, list)
         assert len(metrics) == 0  # No default metrics anymore
 
-    def test_get_test_metrics_behavior_without_metrics(
+    def test_get_test_metrics_requirement_without_metrics(
         self, test_db, test_org_id, authenticated_user_id, test_prompt
     ):
-        """Test get_test_metrics when behavior has no metrics."""
+        """Test get_test_metrics when requirement has no metrics."""
         from rhesis.backend.app import models
 
-        # Create behavior without metrics
-        behavior = models.Behavior(
-            name="Behavior without metrics",
+        # Create requirement without metrics
+        requirement = models.Requirement(
+            name="Requirement without metrics",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
-        # Create test with this behavior
+        # Create test with this requirement
         test = models.Test(
             prompt_id=test_prompt.id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -160,7 +160,7 @@ class TestTaskExecution:
     def test_get_test_metrics_execution_time_override(
         self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
     ):
-        """Test execution-time metrics override behavior metrics."""
+        """Test execution-time metrics override requirement metrics."""
 
         from rhesis.backend.app import models
         from rhesis.backend.app.models.test_configuration import TestConfiguration
@@ -239,7 +239,7 @@ class TestTaskExecution:
             test_configuration=test_config,
         )
 
-        # Should return only execution-time metric, overriding behavior metrics
+        # Should return only execution-time metric, overriding requirement metrics
         assert isinstance(metrics, list)
         assert len(metrics) == 1
         assert metrics[0].name == "Execution Metric"
@@ -366,10 +366,10 @@ class TestTaskExecution:
         assert len(metrics) == 1
         assert metrics[0].name == "Execution Override Metric"
 
-    def test_get_test_metrics_test_set_overrides_behavior(
+    def test_get_test_metrics_test_set_overrides_requirement(
         self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
     ):
-        """Test that test set metrics override behavior metrics (existing behavior)."""
+        """Test that test set metrics override requirement metrics (existing requirement)."""
         from rhesis.backend.app import models
         from rhesis.backend.app.crud.metric import (
             add_metric_to_test_set,
@@ -417,7 +417,7 @@ class TestTaskExecution:
         test_db.refresh(test_set)
 
         # Get metrics with test_set (no test_configuration)
-        # Test set should override behavior metrics
+        # Test set should override requirement metrics
         metrics = get_test_metrics(
             test_with_prompt,
             test_db,
@@ -426,7 +426,7 @@ class TestTaskExecution:
             test_set=test_set,
         )
 
-        # Should return only test set metric, overriding behavior metrics
+        # Should return only test set metric, overriding requirement metrics
         assert isinstance(metrics, list)
         assert len(metrics) == 1
         assert metrics[0].name == "Test Set Override Metric"
@@ -700,16 +700,16 @@ class TestTaskExecution:
     ):
         """Test that invalid metrics are filtered out."""
         from rhesis.backend.app import models
-        from rhesis.backend.app.crud.metric import add_behavior_to_metric
+        from rhesis.backend.app.crud.metric import add_requirement_to_metric
         from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
-        # Create behavior with some invalid metrics
-        behavior = models.Behavior(
-            name="Behavior with invalid metrics",
+        # Create requirement with some invalid metrics
+        requirement = models.Requirement(
+            name="Requirement with invalid metrics",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         # Create valid metric
@@ -758,19 +758,19 @@ class TestTaskExecution:
         test_db.add(invalid_metric)
         test_db.flush()
 
-        # Associate metrics with behavior using CRUD function to handle required fields
+        # Associate metrics with requirement using CRUD function to handle required fields
 
-        add_behavior_to_metric(
-            test_db, valid_metric.id, behavior.id, authenticated_user_id, test_org_id
+        add_requirement_to_metric(
+            test_db, valid_metric.id, requirement.id, authenticated_user_id, test_org_id
         )
-        add_behavior_to_metric(
-            test_db, invalid_metric.id, behavior.id, authenticated_user_id, test_org_id
+        add_requirement_to_metric(
+            test_db, invalid_metric.id, requirement.id, authenticated_user_id, test_org_id
         )
 
         # Create test
         test = models.Test(
             prompt_id=test_prompt.id,
-            behavior_id=behavior.id,
+            requirement_id=requirement.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )

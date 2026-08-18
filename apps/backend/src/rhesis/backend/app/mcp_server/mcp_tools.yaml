@@ -110,11 +110,11 @@ tools:
       must be used verbatim. The "tests" array is REQUIRED and must
       contain at least one test object. Do NOT send server-managed
       fields (id, user_id, organization_id, created_at, updated_at).
-      PRECONDITION: when a saved plan is in effect, every behavior,
-      metric, and behavior→metric mapping in the plan must be marked
+      PRECONDITION: when a saved plan is in effect, every requirement,
+      metric, and requirement→metric mapping in the plan must be marked
       completed before this tool can run. Calling it earlier is
       rejected with "Cannot generate test sets yet…" — finish the
-      prerequisite steps (behaviors, metrics, mapping links) first.
+      prerequisite steps (requirements, metrics, mapping links) first.
     parameters:
       name:
         description: "Test set name (required, string)"
@@ -149,9 +149,9 @@ tools:
           restrictions (what the target MUST NOT do), scenario (context
           and persona) and max_turns (integer, e.g. 10).
 
-          2. behavior, category and topic are plain-text names, not
+          2. requirement, category and topic are plain-text names, not
           UUIDs — the server resolves or creates them automatically. Use
-          list_behaviors, list_categories and list_topics to reuse
+          list_requirements, list_categories and list_topics to reuse
           existing values rather than inventing near-duplicates.
       metadata:
         description: >
@@ -175,12 +175,12 @@ tools:
       list_sources or create_source in the sources parameter.
       Supports both Single-Turn and Multi-Turn test generation via the
       test_type parameter.
-      PRECONDITION: when a saved plan is in effect, every behavior,
-      metric, and behavior→metric mapping in the plan must be marked
+      PRECONDITION: when a saved plan is in effect, every requirement,
+      metric, and requirement→metric mapping in the plan must be marked
       completed before this tool can run (see "Plan progress" in the
       iteration prompt — all categories must read N/N). Calling it
       earlier is rejected with "Cannot generate test sets yet…" —
-      finish the prerequisite steps (behaviors, metrics, mapping
+      finish the prerequisite steps (requirements, metrics, mapping
       links) first.
     parameters:
       config:
@@ -189,7 +189,7 @@ tools:
           generation_prompt (e.g. "Generate tests that verify the travel
           agent provides accurate destination info, handles ambiguous
           queries, and refuses off-topic requests") — the synthesizer
-          uses it to craft the test prompts. behaviors takes behavior
+          uses it to craft the test prompts. requirements takes requirement
           names, e.g. ["Provides Accurate Information", "Refuses
           Off-Topic Requests"]; categories and topics take names too,
           e.g. ["Functional", "Safety"] and ["Travel advisory",
@@ -239,7 +239,8 @@ tools:
       Endpoint → TestRun. PREREQUISITES: test_set_identifier from
       list_test_sets or get_job_status; endpoint_id from list_endpoints
       or get_endpoint. CHAIN: after response use get_test_run for
-      totals, then get_test_result_stats(mode=all) and
+      totals, then get_insights(entity=test_result,
+      test_run_ids=[<test_run_id>], measures=[count,passed,failed,pass_rate]) and
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
       manually. Response includes test_run_id and task_id.
@@ -255,7 +256,7 @@ tools:
     path: /test_sets/{test_set_identifier}/tests
     page_size: 20
     default_query:
-      $select: "id,prompt,behavior,category,topic"
+      $select: "id,prompt,requirement,category,topic"
     description: >
       List tests that belong to one test set. ENTITY: Test (scoped to
       TestSet). PREREQUISITES: test_set_identifier from list_test_sets
@@ -275,9 +276,9 @@ tools:
       List metrics associated with a test set. ENTITY: TestSet → Metric.
       PREREQUISITES: test_set_identifier from list_test_sets or
       get_test_set. CHAIN: call before execute_test_set to see which
-      metrics will run (set-level overrides vs behavior defaults). Empty
-      list means behavior-linked metrics apply per test. Complement with
-      get_metric_behaviors on individual metrics.
+      metrics will run (set-level overrides vs requirement defaults). Empty
+      list means requirement-linked metrics apply per test. Complement with
+      get_metric_requirements on individual metrics.
     parameters:
       test_set_identifier:
         description: "REQUIRED. Test set UUID, nano_id, or slug."
@@ -292,7 +293,7 @@ tools:
       test_set_identifier and endpoint_id from list_test_sets and
       list_endpoints. CHAIN: use when offering run comparison ("compare
       with last run") or before re-scoring. Returns 404 if no completed
-      run exists yet. Pass test_run_id to get_test_result_stats for
+      run exists yet. Pass test_run_ids to get_insights for
       side-by-side analysis.
     parameters:
       test_set_identifier:
@@ -306,11 +307,11 @@ tools:
     method: GET
     path: /tests/
     default_query:
-      $select: "id,prompt,behavior,category,topic,test_set"
+      $select: "id,prompt,requirement,category,topic,test_set"
     page_size: 20
     description: >
       List tests in the organization. Each test defines a prompt,
-      expected response behavior, and optional metadata. By default
+      expected response requirement, and optional metadata. By default
       only core fields are returned. Add fields to $select if needed.
       Prefer list_test_set_tests when scoped to one test set.
 
@@ -348,8 +349,8 @@ tools:
         description: >
           Optional. Prompt object with content, language_code, and optional
           expected_response. Omit unchanged fields at the test level.
-      behavior:
-        description: "Behavior name string. Omit to keep unchanged."
+      requirement:
+        description: "Requirement name string. Omit to keep unchanged."
       category:
         description: "Category name string. Omit to keep unchanged."
       topic:
@@ -388,13 +389,13 @@ tools:
     method: GET
     path: /test_results/
     default_query:
-      $select: "id,status,prompt,behavior,metric_scores"
+      $select: "id,status,prompt,requirement,metric_scores"
     page_size: 20
     description: >
       List test results. Each result contains the prompt sent, the
       response received, status (Passed/Failed), and evaluation scores.
       Filter by test run: $filter=test_run_id eq '<uuid>'. By default
-      only lightweight fields are returned (id, status, prompt, behavior,
+      only lightweight fields are returned (id, status, prompt, requirement,
       metric_scores). To include the full response text, add 'response'
       to $select explicitly. Key fields: status (Passed/Failed),
       prompt (the input), metric_scores (array of score objects with
@@ -423,55 +424,55 @@ tools:
       identify which specific results to drill into. Focus on the 2-3 most
       informative failures rather than fetching every failing result.
 
-  # ── Behaviors ─────────────────────────────────────────────
-  - name: list_behaviors
-    label: Looking up behaviors
+  # ── Requirements ─────────────────────────────────────────────
+  - name: list_requirements
+    label: Looking up requirements
     method: GET
-    path: /behaviors/
+    path: /requirements/
     page_size: 20
     description: >
-      List available behaviors. Behaviors define what an endpoint should
+      List available requirements. Requirements define what an endpoint should
       do (e.g., "answer questions accurately", "refuse harmful requests").
       Use $select to request only the fields you need. CHAIN: resolve
-      by name here, then get_behavior for full detail including linked
+      by name here, then get_requirement for full detail including linked
       metrics.
 
-  - name: get_behavior
-    label: Retrieving behavior
+  - name: get_requirement
+    label: Retrieving requirement
     method: GET
-    path: /behaviors/{behavior_id}
+    path: /requirements/{requirement_id}
     description: >
-      Get one behavior with linked metrics. ENTITY: Behavior ↔ Metric.
-      PREREQUISITES: behavior_id from list_behaviors. CHAIN: verify
-      behavior→metric links from the behavior side; complement
-      get_metric_behaviors (metric-centric view). Use during planning
+      Get one requirement with linked metrics. ENTITY: Requirement ↔ Metric.
+      PREREQUISITES: requirement_id from list_requirements. CHAIN: verify
+      requirement→metric links from the requirement side; complement
+      get_metric_requirements (metric-centric view). Use during planning
       to confirm reuse candidates include the right metrics.
     parameters:
-      behavior_id:
-        description: "REQUIRED. UUID of the behavior."
+      requirement_id:
+        description: "REQUIRED. UUID of the requirement."
 
-  - name: create_behavior
-    label: Creating behavior
+  - name: create_requirement
+    label: Creating requirement
     method: POST
-    path: /behaviors/
+    path: /requirements/
     requires_confirmation: true
     description: >
-      Create a behavior with a name AND description upfront. Use this
+      Create a requirement with a name AND description upfront. Use this
       BEFORE create_test_set_bulk so that when test objects reference
-      the behavior by name, the server finds the pre-created behavior
+      the requirement by name, the server finds the pre-created requirement
       (with its description) instead of auto-creating a description-less
       one. Do NOT send server-managed fields (id, user_id, organization_id,
       created_at, updated_at).
-      Behavior names are unique per organization. Creating one that
-      already exists fails with "Behavior with this name already exists".
-      Call list_behaviors first and reuse the existing id — do NOT retry
+      Requirement names are unique per organization. Creating one that
+      already exists fails with "Requirement with this name already exists".
+      Call list_requirements first and reuse the existing id — do NOT retry
       with a suffixed name like "Refuses Harmful Requests 2", which
       creates a near-duplicate nobody wants.
     parameters:
       name:
-        description: "REQUIRED. Behavior name (string, e.g. 'Refuses harmful requests')."
+        description: "REQUIRED. Requirement name (string, e.g. 'Refuses harmful requests')."
       description:
-        description: "REQUIRED. Explain what this behavior means and how it should be evaluated."
+        description: "REQUIRED. Explain what this requirement means and how it should be evaluated."
       project_id:
         description: >
           Omit. The project scope is taken from the request, not from
@@ -498,23 +499,23 @@ tools:
       (e.g., "healthcare", "finance", "general knowledge"). Use $select
       to request only the fields you need.
 
-  - name: update_behavior
-    label: Updating behavior
+  - name: update_requirement
+    label: Updating requirement
     method: PUT
-    path: /behaviors/{behavior_id}
+    path: /requirements/{requirement_id}
     requires_confirmation: true
     description: >
-      Update an existing behavior's fields. Use this to add a description
-      to a behavior that was auto-created by create_test_set_bulk (which
-      only sets the name). A behavior with a clear description is more
+      Update an existing requirement's fields. Use this to add a description
+      to a requirement that was auto-created by create_test_set_bulk (which
+      only sets the name). A requirement with a clear description is more
       useful for test planning and metric evaluation.
     parameters:
-      behavior_id:
-        description: "REQUIRED. UUID of the behavior to update."
+      requirement_id:
+        description: "REQUIRED. UUID of the requirement to update."
       name:
-        description: "Behavior name (string). Omit to keep unchanged."
+        description: "Requirement name (string). Omit to keep unchanged."
       description:
-        description: "Behavior description (string). Explain what this behavior means and how it should be evaluated."
+        description: "Requirement description (string). Explain what this requirement means and how it should be evaluated."
 
   - name: list_metrics
     label: Checking existing metrics
@@ -528,7 +529,7 @@ tools:
       PREREQUISITES: none. CHAIN: resolve by name here, then get_metric
       for full evaluation_prompt before update_metric or improve_metric.
       By default excludes evaluation_prompt — use get_metric for the
-      full prompt. Link to behaviors via add_behavior_to_metric.
+      full prompt. Link to requirements via add_requirement_to_metric.
 
   - name: get_metric
     label: Retrieving metric
@@ -538,8 +539,8 @@ tools:
       Get one metric with full fields including evaluation_prompt.
       ENTITY: Metric. PREREQUISITES: metric_id from list_metrics.
       CHAIN: read before update_metric (precise edits) or improve_metric
-      (natural-language refactors). Use get_metric_behaviors to see
-      linked behaviors. NEVER: add evaluation_prompt to list_metrics
+      (natural-language refactors). Use get_metric_requirements to see
+      linked requirements. NEVER: add evaluation_prompt to list_metrics
       $select on every call — use this tool instead.
     parameters:
       metric_id:
@@ -563,8 +564,15 @@ tools:
       is a poor metric — reviewers cannot tell what it measures, and the
       judge LLM has less to work with, so scores get less consistent.
       Sending only name + evaluation_prompt + score_type produces a
-      threadbare metric and is a bug, not a shortcut. Fill every field you
-      have grounds to fill.
+      threadbare metric and is a bug, not a shortcut.
+
+      Depth matters as much as presence. One generic sentence per field is
+      the same failure as an empty field: it passes validation and still
+      leaves the judge guessing. Aim for description 2-3 sentences,
+      evaluation_prompt 6-15 lines (criterion, one bullet per testable
+      clause, score bands defined by observable conditions),
+      evaluation_steps 4-7 ordered steps, reasoning 3-5 sentences,
+      explanation 2-4 sentences. Be specific to this metric — no filler.
 
       FIELDS REQUIRED BY score_type — the schema cannot express this, so
       read it here. When score_type is "numeric" you MUST also send
@@ -588,28 +596,36 @@ tools:
           this field.
       description:
         description: >
-          REQUIRED IN PRACTICE. One or two sentences on what this metric
-          measures and why it matters, written for a human scanning a list
-          of metrics. Do not restate the name.
+          REQUIRED IN PRACTICE. Two to three sentences for a human scanning
+          a list of metrics: what is measured, on what part of the output,
+          and why it matters for this system. Do not restate the name.
       evaluation_steps:
         description: >
-          REQUIRED IN PRACTICE. Numbered step-by-step instructions the
-          judge LLM should follow to reach a score (e.g. "1. Identify each
-          factual claim. 2. Check it against the provided context.
-          3. Count unsupported claims. 4. Map the count to the scale.").
-          Concrete steps make scoring far more repeatable than criteria
-          prose alone.
+          REQUIRED IN PRACTICE. 4-7 ordered steps the judge LLM follows to
+          reach a score. One observable action per step (locate the
+          evidence, check it against the criterion, then map to the score
+          — scoring is always the last step); do not restate the criteria.
+
+          FORMAT: "Step N:" on its own line, the step text below it, steps
+          separated by a line containing only "---". For example:
+          "Step 1:\nIdentify each factual claim in the response.\n---\nStep
+          2:\nCheck each claim against the provided context.\n---\nStep
+          3:\nCount the unsupported claims.\n---\nStep 4:\nMap that count
+          onto the score scale." A plain "1. ... 2. ..." list is stored as
+          a single step and renders as one block in the UI.
       reasoning:
         description: >
-          REQUIRED IN PRACTICE. Instructions for how the judge should
-          explain its verdict — what evidence to cite and how to justify
-          the score it gives. Surfaced in the UI as "Reasoning
+          REQUIRED IN PRACTICE. 3-5 sentences telling the judge how to
+          justify its verdict: which span of the response to quote, which
+          criterion clause to tie it to, what to do when the evidence is
+          missing, and how to break a tie between two score bands instead
+          of drifting to the middle. Surfaced in the UI as "Reasoning
           Instructions".
       explanation:
         description: >
-          REQUIRED IN PRACTICE. What a passing versus failing result
-          actually means for the system under test, so someone reading a
-          result knows what to do about it. Surfaced in the UI as "Result
+          REQUIRED IN PRACTICE. Two to four sentences on what a passing
+          versus failing result means for the system under test, and what
+          the reader should do about a fail. Surfaced in the UI as "Result
           Explanation".
       metric_type:
         description: >
@@ -627,9 +643,22 @@ tools:
           required; see the conditional rules in this tool's description.
       evaluation_prompt:
         description: >
-          REQUIRED. The prompt template used to evaluate endpoint
-          responses. May reference {{prompt}}, {{response}}, and
-          {{expected_response}} placeholders (string).
+          REQUIRED. The evaluation criteria the judge applies (string).
+          Write it in three parts. First, name something a reader could
+          point at in the output, in the vocabulary of the system under
+          test ("every claim about coverage limits appears in the retrieved
+          policy document", not "the response is helpful"). Then one bullet
+          per testable clause, each able to fail on its own. Then score
+          bands tied to conditions rather than adverbs ("score 1 when a
+          claim contradicts the document", not "score 1 if bad"). Finish
+          with what the metric does not cover, so it does not quietly score
+          what another metric owns.
+
+          Criteria text ONLY — do NOT include placeholders like {{prompt}}
+          or {{response}}. Nothing substitutes them, so the judge would see
+          the literal braces. The engine injects the input, response,
+          context, metadata and tool calls (Single-Turn) or the full
+          transcript and conversation goal (Multi-Turn) before your text.
       metric_scope:
         description: >
           REQUIRED, and rejected if missing or empty. Non-empty list, each
@@ -741,8 +770,8 @@ tools:
       metric_id from list_metrics; call get_metric first to read current
       values. CHAIN: for precise field edits (threshold, evaluation_prompt).
       Use improve_metric for natural-language refactors. Does NOT change
-      behavior links — use add_behavior_to_metric or
-      remove_behavior_from_metric for those. Send ONLY fields to change.
+      requirement links — use add_requirement_to_metric or
+      remove_requirement_from_metric for those. Send ONLY fields to change.
       Do NOT send server-managed fields (id, user_id, organization_id,
       created_at, updated_at, owner_id, assignee_id, status_id, model_id,
       backend_type_id, metric_type_id).
@@ -762,51 +791,51 @@ tools:
       threshold_operator:
         description: 'Comparison operator: "=", "<", ">", "<=", ">=", "!=". Omit to keep.'
 
-  - name: add_behavior_to_metric
-    label: Linking behavior to metric
+  - name: add_requirement_to_metric
+    label: Linking requirement to metric
     method: POST
-    path: /metrics/{metric_id}/behaviors/{behavior_id}
+    path: /metrics/{metric_id}/requirements/{requirement_id}
     requires_confirmation: true
     description: >
-      Link a behavior to a metric (Behavior ↔ Metric relation).
-      ENTITY: Behavior + Metric. PREREQUISITES: both must exist; all
+      Link a requirement to a metric (Requirement ↔ Metric relation).
+      ENTITY: Requirement + Metric. PREREQUISITES: both must exist; all
       planned mappings must complete before generate_test_set. CHAIN:
-      call after create_metric; verify with get_metric_behaviors; undo
-      with remove_behavior_from_metric. Idempotent — repeat calls are
+      call after create_metric; verify with get_metric_requirements; undo
+      with remove_requirement_from_metric. Idempotent — repeat calls are
       no-ops.
     parameters:
       metric_id:
         description: "REQUIRED. UUID of the metric."
-      behavior_id:
-        description: "REQUIRED. UUID of the behavior to associate."
+      requirement_id:
+        description: "REQUIRED. UUID of the requirement to associate."
 
-  - name: remove_behavior_from_metric
-    label: Unlinking behavior from metric
+  - name: remove_requirement_from_metric
+    label: Unlinking requirement from metric
     method: DELETE
-    path: /metrics/{metric_id}/behaviors/{behavior_id}
+    path: /metrics/{metric_id}/requirements/{requirement_id}
     requires_confirmation: true
     description: >
-      Remove a behavior-to-metric link. ENTITY: Behavior ↔ Metric.
-      PREREQUISITES: metric_id and behavior_id; confirm link exists
-      via get_metric_behaviors. CHAIN: inverse of add_behavior_to_metric.
-      Removing links may block generate_test_set if behaviors in the
+      Remove a requirement-to-metric link. ENTITY: Requirement ↔ Metric.
+      PREREQUISITES: metric_id and requirement_id; confirm link exists
+      via get_metric_requirements. CHAIN: inverse of add_requirement_to_metric.
+      Removing links may block generate_test_set if requirements in the
       plan no longer have metrics.
     parameters:
       metric_id:
         description: "REQUIRED. UUID of the metric."
-      behavior_id:
-        description: "REQUIRED. UUID of the behavior to unlink."
+      requirement_id:
+        description: "REQUIRED. UUID of the requirement to unlink."
 
-  - name: get_metric_behaviors
-    label: Checking metric behaviors
+  - name: get_metric_requirements
+    label: Checking metric requirements
     method: GET
-    path: /metrics/{metric_id}/behaviors/
+    path: /metrics/{metric_id}/requirements/
     page_size: 20
     description: >
-      List all behaviors currently linked to a metric. Use this to
-      verify which behaviors a metric evaluates or to check whether a
-      specific behavior is already associated before calling
-      add_behavior_to_metric.
+      List all requirements currently linked to a metric. Use this to
+      verify which requirements a metric evaluates or to check whether a
+      specific requirement is already associated before calling
+      add_requirement_to_metric.
     parameters:
       metric_id:
         description: "REQUIRED. UUID of the metric."
@@ -1016,82 +1045,88 @@ tools:
           The strategy uses them to build on earlier results.
 
   # ── Statistics & Comparison ──────────────────────────────
-  - name: get_test_result_stats
-    label: Analyzing test results
+  - name: get_insights
+    label: Analyzing test results and runs
     method: GET
-    path: /test_results/stats
-    default_query:
-      mode: test_runs
+    path: /insights/
     description: >
-      Get aggregated statistics for test results. Use this for single-run
-      analysis (which behaviors/metrics failed?) and multi-run comparison
-      (did results improve?). The mode parameter controls what is returned:
+      Generic aggregation query over test results, metrics, test runs, or
+      tests. Always pass entity and measures; group_by is optional (omit
+      for one overall total).
 
-      - **all**: Complete stats for a single run — behavior pass rates,
-        metric pass rates, overall totals, and timeline. Use with a single
-        test_run_id immediately after execution for a full analysis in one
-        call. This is the most efficient option for post-run analysis.
-      - **behavior**: Pass rates grouped by behavior. Use with test_run_id
-        to see which behaviors passed/failed in a specific run.
-      - **metrics**: Pass rates grouped by metric name. Use with test_run_id
-        to see which metrics are the problem areas.
-      - **test_runs**: Per-run pass/fail summary with pass rates. Best for
-        comparing two or more runs side by side. Pass multiple test_run_ids.
-      - **summary**: Lightweight overall pass/fail totals only.
+      entity="test_result" -- one row per test execution. Use for
+      single-run analysis (which requirements/metrics failed?) and multi-run
+      comparison (did results improve?).
+        group_by: requirement, requirement_id, category, category_id, topic,
+        topic_id, test_run, status, year, month.
+        measures: count, passed, failed, pass_rate.
 
-      For single-run analysis: use mode=all with test_run_id.
-      For multi-run comparison: use mode=test_runs with test_run_ids.
-      Filter by behavior_ids or test_set_ids for targeted analysis.
+      entity="metric" -- one row per (test_result, metric_name); use for
+      per-metric breakdowns (Answer Fluency, Contextual Recall, etc.).
+        group_by: metric_name, requirement_id, year, month.
+        measures: count, passed, failed, pass_rate, automated_passed,
+        automated_failed, human_review_count.
+
+      entity="test_run" -- one row per run. Use for operational overview
+      (how many runs by status, which test sets are run most often, who
+      runs tests, run volume over time), NOT for comparing pass/fail
+      outcomes between runs (use entity=test_result for that).
+        group_by: status, test_set, executor, year, month.
+        measures: count, passed, failed, pass_rate.
+
+      entity="test" -- one row per test, including tests that have never
+      run. Use for test-inventory questions (how many tests never ran?).
+        group_by: requirement, requirement_id, category, category_id, topic,
+        topic_id, is_unrun, year, month.
+        measures: count, unrun_count, run_count, passed, failed, pass_rate.
+
+      Examples:
+      - Which requirements failed in a run: entity=test_result,
+        group_by=[requirement], measures=[count,passed,failed,pass_rate],
+        test_run_ids=[<id>]
+      - Compare runs side by side: entity=test_result, group_by=[test_run],
+        measures=[count,passed,failed,pass_rate], test_run_ids=[<id1>,<id2>]
+      - Which metrics are the problem areas: entity=metric,
+        group_by=[metric_name], measures=[count,passed,failed,pass_rate],
+        test_run_ids=[<id>]
+      - Runs by status: entity=test_run, group_by=[status], measures=[count]
+      - Most-run test sets: entity=test_run, group_by=[test_set],
+        measures=[count]
+      - Tests that never ran: entity=test, measures=[count,unrun_count]
+      - Lightweight overall total: entity=test_result, group_by=[],
+        measures=[count,passed,failed,pass_rate]
+
+      Filter by test_run_ids, requirement_ids, category_ids, topic_ids,
+      test_set_ids, endpoint_ids, or tags to narrow the analysis.
     parameters:
-      mode:
+      entity:
         description: >
-          Stats mode: "test_runs" (per-run comparison), "behavior"
-          (by behavior), "metrics" (by metric), "summary" (totals),
-          "all" (everything). Default: "test_runs".
+          "test_result", "metric", "test_run", or "test". See description
+          for the group_by/measures each supports.
+      group_by:
+        description: >
+          Dimensions to group by (array). See description for the valid
+          list per entity. Omit for a single overall row.
+      measures:
+        description: >
+          Measures to compute (array). See description for the valid list
+          per entity.
       test_run_ids:
         description: >
           Filter to specific test runs (array of UUIDs). Pass two or
           more run IDs to compare them side by side.
-      test_run_id:
-        description: >
-          Filter to a single test run (UUID). Use test_run_ids for
-          multi-run comparison.
       test_set_ids:
         description: "Filter by test set UUIDs (array)."
-      behavior_ids:
-        description: "Filter by behavior UUIDs (array)."
-      start_date:
-        description: "Start date in ISO format (e.g. 2026-01-01)."
-      end_date:
-        description: "End date in ISO format."
-
-  - name: get_test_run_stats
-    label: Analyzing test runs
-    method: GET
-    path: /test_runs/stats
-    default_query:
-      mode: summary
-    description: >
-      Get run-level analytics: how many runs by status, which test sets
-      are run most often, who runs tests, and run volume over time.
-      Use this for operational overview, NOT for comparing pass/fail
-      outcomes between runs (use get_test_result_stats for that).
-
-      Modes: "summary" (totals), "status" (status distribution),
-      "results" (result distribution), "test_sets" (most run test sets),
-      "executors" (top executors), "timeline" (monthly trends),
-      "all" (everything).
-    parameters:
-      mode:
-        description: >
-          Stats mode: "summary", "status", "results", "test_sets",
-          "executors", "timeline", "all". Default: "summary".
-      test_run_ids:
-        description: "Filter to specific test runs (array of UUIDs)."
+      requirement_ids:
+        description: "Filter by requirement UUIDs (array)."
+      category_ids:
+        description: "Filter by category UUIDs (array)."
+      topic_ids:
+        description: "Filter by topic UUIDs (array)."
+      tags:
+        description: "Filter by tag names (array)."
       endpoint_ids:
         description: "Filter by endpoint UUIDs (array)."
-      test_set_ids:
-        description: "Filter by test set UUIDs (array)."
       months:
         description: "Months of history to include (default: 6)."
       start_date:
@@ -1127,7 +1162,7 @@ tools:
 
       Key response fields: comments (the human's actual words),
       status.name (Pass/Fail), resolved, target.type (what was reviewed —
-      test_result, trace, metric, or turn), plus behavior_name and the
+      test_result, trace, metric, or turn), plus requirement_name and the
       test_run_id/test_result_id/trace_id deep-link ids. Annotations on a
       test-execution trace carry the run and result ids too, so you can
       walk from a trace review back to the run — they are null only for
@@ -1137,7 +1172,7 @@ tools:
       URL path, not trace_id (a 32-char hex string). Only trace_db_id
       resolves to a trace page.
 
-      CHAIN: after get_test_result_stats shows failures, call this with the
+      CHAIN: after get_insights shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them — then
       use get_test_result on the ids it returns to read the full exchange.
       NEVER: assume no annotations exist because a run looks clean; a human
@@ -1146,7 +1181,7 @@ tools:
       search:
         description: >
           Free-text search across comments, annotator name, target
-          reference, rating, and behavior name.
+          reference, rating, and requirement name.
       resolved:
         description: >
           true for resolved reviews, false for still-open ones. Omit for
@@ -1231,7 +1266,7 @@ tools:
     path: /tags/
     page_size: 50
     description: >
-      List organization tags. Use before assigning tags to behaviors or
+      List organization tags. Use before assigning tags to requirements or
       metrics so you reuse existing names (safety, compliance, functional,
       domain, etc.) instead of inventing duplicates.
     default_query:
@@ -1243,19 +1278,19 @@ tools:
     path: /tags/{entity_type}/{entity_id}
     requires_confirmation: true
     description: >
-      Assign a tag to a behavior or metric. Creates the tag if it does not
+      Assign a tag to a requirement or metric. Creates the tag if it does not
       exist. POST body is JSON: {"name": "safety"} — only `name` is required
       in the body; `entity_type` and `entity_id` are path parameters. Call
-      after create_behavior or create_metric to group entities by theme
+      after create_requirement or create_metric to group entities by theme
       (safety, compliance, functional, domain, transparency).
-      ENTITY: Tag ↔ Behavior/Metric.
+      ENTITY: Tag ↔ Requirement/Metric.
     parameters:
       entity_type:
         description: >
-          REQUIRED path parameter. Must be exactly "Behavior" or "Metric"
+          REQUIRED path parameter. Must be exactly "Requirement" or "Metric"
           (case-sensitive Enum values).
       entity_id:
-        description: "REQUIRED path parameter. UUID of the behavior or metric."
+        description: "REQUIRED path parameter. UUID of the requirement or metric."
       name:
         description: >
           REQUIRED JSON body field (not a query param). Tag name string,

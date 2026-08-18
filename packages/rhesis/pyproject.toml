@@ -63,6 +63,7 @@ pattern = '''version\s*=\s*["'](?P<version>[^"']+)["']'''
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhesis"]
+include = ["src/rhesis/py.typed"]
 
 [tool.uv]
 exclude-newer = "1 week"
@@ -88,4 +89,3 @@ constraint-dependencies = [
     "uv>=0.11.15",
     "pillow>=12.3.0",
 ]
-

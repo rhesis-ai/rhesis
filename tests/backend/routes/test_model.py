@@ -24,7 +24,7 @@ from fastapi import status
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import ModelDataFactory
+from .fixtures.data_factories import ModelDataFactory, find_or_create_type_lookup_id
 
 # Initialize Faker
 fake = Faker()
@@ -39,13 +39,28 @@ class ModelTestMixin:
     endpoints = APIEndpoints.MODELS
 
     # Factory-based data methods
-    def get_sample_data(self) -> Dict[str, Any]:
-        """Return sample model data using factory"""
-        return ModelDataFactory.sample_data()
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
+        """Return sample model data using factory.
 
-    def get_minimal_data(self) -> Dict[str, Any]:
-        """Return minimal model data using factory"""
-        return ModelDataFactory.minimal_data()
+        provider_type_id is left NULL without client -- Model.provider_type_id
+        has no string-to-lookup shortcut like Metric's, so a real FK needs an
+        API call to look one up.
+        """
+        data = ModelDataFactory.sample_data()
+        if client is not None:
+            data["provider_type_id"] = find_or_create_type_lookup_id(
+                client, "ProviderType", "openai"
+            )
+        return data
+
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
+        """Return minimal model data using factory. See get_sample_data re: client."""
+        data = ModelDataFactory.minimal_data()
+        if client is not None:
+            data["provider_type_id"] = find_or_create_type_lookup_id(
+                client, "ProviderType", "openai"
+            )
+        return data
 
     def get_update_data(self) -> Dict[str, Any]:
         """Return model update data using factory"""

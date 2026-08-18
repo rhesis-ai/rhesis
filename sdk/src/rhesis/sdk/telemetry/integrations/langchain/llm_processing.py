@@ -11,8 +11,8 @@ from typing import Any, Dict, List
 
 from opentelemetry import trace
 
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.sdk.telemetry.utils import extract_token_usage
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.token_extraction import extract_token_usage
 
 from .extractors import MAX_CONTENT_LENGTH, extract_model_name, extract_provider
 

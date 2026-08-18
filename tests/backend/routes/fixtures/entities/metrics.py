@@ -22,7 +22,7 @@ def sample_metric(authenticated_client: TestClient) -> Dict[str, Any]:
     """
     Create a sample metric for testing
 
-    This fixture creates a metric that can be used in behavior-metric
+    This fixture creates a metric that can be used in requirement-metric
     relationship tests or any other tests that need a valid metric.
 
     Returns:

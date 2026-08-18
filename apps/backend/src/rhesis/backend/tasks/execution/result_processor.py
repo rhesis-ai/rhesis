@@ -416,10 +416,17 @@ def update_test_run_status(
         execution_time: The calculated execution time
         logger_func: Logging function for debug messages
     """
+    from rhesis.backend.app.models.status import Status
     from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
-    # Log current status before update
-    current_status_name = test_run.status.name if test_run.status else "None"
+    # Log current status before update. An explicit, single-column query rather
+    # than test_run.status: test_run is handed in already-fetched by callers
+    # that don't all eager-load it, and this is only for a log line.
+    current_status_name = (
+        db.query(Status.name).filter(Status.id == test_run.status_id).scalar()
+        if test_run.status_id
+        else None
+    ) or "None"
     logger_func(
         "info", f"Current test run status: {current_status_name}, updating to: {overall_status}"
     )

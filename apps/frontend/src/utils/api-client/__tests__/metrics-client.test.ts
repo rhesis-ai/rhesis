@@ -1,9 +1,10 @@
 import { MetricsClient } from '../metrics-client';
+import { API_ENDPOINTS } from '../config';
 import { UUID } from 'crypto';
 
 const BASE_URL = 'http://localhost/api/backend';
 const METRIC_ID = 'm1m1m1m1-0000-0000-0000-000000000001' as UUID;
-const BEHAVIOR_ID = 'b1b1b1b1-0000-0000-0000-000000000001' as UUID;
+const REQUIREMENT_ID = 'b1b1b1b1-0000-0000-0000-000000000001' as UUID;
 
 function makeFetch(
   body: unknown,
@@ -79,19 +80,23 @@ describe('MetricsClient', () => {
     expect(opts.method).toBe('POST');
   });
 
-  it('adds behavior to metric with POST', async () => {
+  it('adds requirement to metric with POST', async () => {
     fetchMock.mockResolvedValue(makeFetch(null, 204));
-    await client.addBehaviorToMetric(METRIC_ID, BEHAVIOR_ID);
+    await client.addRequirementToMetric(METRIC_ID, REQUIREMENT_ID);
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/metrics/${METRIC_ID}/behaviors/${BEHAVIOR_ID}`);
+    expect(url).toContain(
+      `/metrics/${METRIC_ID}${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`
+    );
     expect(opts.method).toBe('POST');
   });
 
-  it('removes behavior from metric with DELETE', async () => {
+  it('removes requirement from metric with DELETE', async () => {
     fetchMock.mockResolvedValue(makeFetch(null, 204));
-    await client.removeBehaviorFromMetric(METRIC_ID, BEHAVIOR_ID);
+    await client.removeRequirementFromMetric(METRIC_ID, REQUIREMENT_ID);
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/metrics/${METRIC_ID}/behaviors/${BEHAVIOR_ID}`);
+    expect(url).toContain(
+      `/metrics/${METRIC_ID}${API_ENDPOINTS.requirements}/${REQUIREMENT_ID}`
+    );
     expect(opts.method).toBe('DELETE');
   });
 });

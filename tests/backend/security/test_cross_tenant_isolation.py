@@ -10,7 +10,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
@@ -98,12 +99,12 @@ class TestCrudTaskSecurity:
         test_db.commit()
 
         # User from org1 should be able to access the task
-        result_org1 = crud.get_task(test_db, task.id, organization_id=str(org1.id))
+        result_org1 = task_crud.get_task(test_db, task.id, organization_id=str(org1.id))
         assert result_org1 is not None
         assert result_org1.id == task.id
 
         # User from org2 should NOT be able to access the task
-        result_org2 = crud.get_task(test_db, task.id, organization_id=str(org2.id))
+        result_org2 = task_crud.get_task(test_db, task.id, organization_id=str(org2.id))
         assert result_org2 is None
 
 

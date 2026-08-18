@@ -31,7 +31,7 @@ class CategoryTestMixin:
     entity_plural = "categories"
     endpoints = APIEndpoints.CATEGORIES
 
-    def get_sample_data(self) -> Dict[str, Any]:
+    def get_sample_data(self, client=None) -> Dict[str, Any]:
         """Return sample category data for testing using faker utilities"""
         data = generate_category_data()
 
@@ -43,7 +43,7 @@ class CategoryTestMixin:
 
         return data
 
-    def get_minimal_data(self) -> Dict[str, Any]:
+    def get_minimal_data(self, client=None) -> Dict[str, Any]:
         """Return minimal category data for creation using faker utilities"""
         return TestDataGenerator.generate_category_minimal()
 
@@ -101,7 +101,7 @@ class TestCategorySpecificEdgeCases(CategoryTestMixin, BaseEntityTests):
         created_category = self.create_entity(authenticated_client)
 
         # Test filtering by entity type (this tests the query parameter handling)
-        response = authenticated_client.get(f"{self.endpoints.list}?entity_type=behavior")
+        response = authenticated_client.get(f"{self.endpoints.list}?entity_type=requirement")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()

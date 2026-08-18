@@ -12,7 +12,9 @@ from uuid import UUID as UUIDType
 import numpy as np
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.embedding import get_embedding_by_hash, mark_embeddings_stale
 from rhesis.backend.app.crud.explorer import (
     get_default_embedding_model,
@@ -26,7 +28,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
@@ -125,7 +127,7 @@ def resolve_embedder(db: Session, user_id: str):
     result to :func:`generate_embedding_vector`, :func:`a_generate_embedding_vector`,
     or :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
     """
-    user = crud.get_user_by_id(db, user_id)
+    user = user_crud.get_user_by_id(db, user_id)
     if not user:
         raise ValueError(f"User not found: {user_id}")
 
@@ -145,10 +147,10 @@ def resolve_embedder(db: Session, user_id: str):
     from rhesis.sdk.models.providers.native import RhesisEmbedder
 
     if isinstance(embedder, RhesisEmbedder):
-        raise ModelConfigurationError(
+        raise EmbeddingProviderNotConfigured(
             "Embedding model resolved to the Rhesis native provider, which would call "
             "the embedding endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an "
-            "actual provider (e.g. vertex_ai/text-embedding-005)."
+            "actual provider (e.g. vertex_ai/text-embedding-005) to enable embeddings."
         )
 
     return embedder
@@ -201,7 +203,7 @@ async def a_generate_embedding_vector(
 ) -> List[float]:
     """Async embed plain text using the user's configured embedding model or platform default.
 
-    Same behavior as :func:`generate_embedding_vector` but uses the embedder's async API.
+    Same requirement as :func:`generate_embedding_vector` but uses the embedder's async API.
 
     Parameters
     ----------
@@ -328,7 +330,7 @@ def create_test_embedding(
             f"(user_id={user.id}, model_id={model_id})"
         )
 
-    model = crud.get_model(db, UUIDType(model_id), organization_id, user_id)
+    model = model_crud.get_model(db, UUIDType(model_id), organization_id, user_id)
     if not model:
         logger.warning(
             "Skipping explorer test embedding persistence: model not found "

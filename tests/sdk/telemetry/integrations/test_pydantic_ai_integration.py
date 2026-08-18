@@ -21,12 +21,12 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace import StatusCode
 from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.test import TestModel
-
-from rhesis.sdk.telemetry.attributes import AIAttributes, validate_span_name
-from rhesis.sdk.telemetry.context import (
+from rhesis.telemetry.attributes import AIAttributes, validate_span_name
+from rhesis.telemetry.context import (
     is_llm_observation_active,
     set_llm_observation_active,
 )
+
 from rhesis.sdk.telemetry.integrations.pydantic_ai import (
     PINNED_INSTRUMENTATION_VERSION,
     PydanticAIIntegration,

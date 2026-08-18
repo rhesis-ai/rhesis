@@ -5,14 +5,14 @@ Read phase guidance injected each turn (below the user message). Do **not** answ
 ### Shared skeleton
 
 ```text
-resolve by name → list_behaviors + list_metrics once → plan → user approval → create in order → optional execute → analyze
+resolve by name → list_requirements + list_metrics once → plan → user approval → create in order → optional execute → analyze
 ```
 
 ### Context detection (before showing menu)
 
 | Signal | Path |
 |---|---|
-| PRD paste, numbered FRs, requirements doc | Requirements → test foundation |
+| PRD paste, numbered FRs, spec doc | Spec → test foundation |
 | Endpoint + test/explore | Exploration |
 | Compare runs, analyze last run | Run / analyze |
 | Otherwise | Four-path menu |
@@ -24,10 +24,10 @@ What would you like to do?
 
 1. Quick exploration — fast scan of an endpoint's domain and boundaries
 2. Comprehensive exploration — full capability and boundary analysis
-3. Build test foundation from requirements — behaviors, metrics, and test sets
+3. Build test foundation from a spec — requirements, metrics, and test sets
 4. Run or analyze existing tests — execute a test set or review/compare past runs
 ```
 
-Skip the menu when intent is clear. Requirements and run/analyze skip exploration unless the user asks later.
+Skip the menu when intent is clear. Spec and run/analyze skip exploration unless the user asks later.
 
 **Write gate:** No `create_*` / `generate_*` until the user approves the plan.

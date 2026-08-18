@@ -10,19 +10,14 @@ from rhesis.sdk.entities.endpoint import Endpoint, Endpoints
 
 from .base_collection import BaseCollection
 from .base_entity import BaseEntity
-from .behavior import Behavior, Behaviors
 from .category import Categories, Category
 from .experiment import Experiment, Experiments
 from .file import File
+from .insights import Insights
 from .model import Model, Models
 from .project import Project, Projects
 from .prompt import Prompt, Prompts
-from .stats import (
-    TestResultStats,
-    TestResultStatsMode,
-    TestRunStats,
-    TestRunStatsMode,
-)
+from .requirement import Requirement, Requirements
 from .status import Status, Statuses
 from .test import Test, Tests
 from .test_result import TestResult, TestResults
@@ -38,8 +33,9 @@ __all__ = [
     "Experiment",
     "Experiments",
     "File",
-    "Behavior",
-    "Behaviors",
+    "Insights",
+    "Requirement",
+    "Requirements",
     "Category",
     "Categories",
     "Model",
@@ -54,10 +50,6 @@ __all__ = [
     "Tests",
     "TestResult",
     "TestResults",
-    "TestResultStats",
-    "TestResultStatsMode",
-    "TestRunStats",
-    "TestRunStatsMode",
     "RunStatus",
     "TestRun",
     "TestRuns",

@@ -15,10 +15,11 @@ Usage in migrations:
         session.close()
 """
 
+import functools
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -27,9 +28,66 @@ from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
+    get_or_create_requirement,
     get_or_create_status,
     get_or_create_type_lookup,
 )
+
+
+@functools.lru_cache(maxsize=1)
+def _load_initial_data() -> Dict[str, Any]:
+    """Load the full initial_data.json payload.
+
+    Cached because a single migration run can call this (indirectly, via
+    ``load_metrics_from_initial_data`` / ``load_requirements_from_initial_data``)
+    several times, and the file is not small.
+    """
+    # Get the path to initial_data.json relative to this file
+    current_dir = Path(__file__).parent
+    initial_data_path = current_dir.parent.parent / "app" / "services" / "initial_data.json"
+
+    with open(initial_data_path, "r") as f:
+        return json.load(f)
+
+
+def _list_organizations_with_owner(
+    session: Session, verbose: bool = False
+) -> List[Tuple[str, str]]:
+    """
+    List active organizations paired with an effective owner user id.
+
+    Uses raw SQL rather than the ORM so migrations that run before newer
+    Organization columns (e.g. sso_config, slug) exist do not fail with
+    UndefinedColumn on ORM loads. Falls back to ``user_id`` when ``owner_id``
+    is unset, and skips organizations that have neither.
+
+    Args:
+        session: SQLAlchemy database session (or Connection)
+        verbose: If True, print a warning for each organization skipped for
+            lacking both owner_id and user_id.
+
+    Returns:
+        List of (organization_id, user_id) string tuples, one per organization
+        with a resolvable owner. Organizations without either are omitted.
+    """
+    org_rows = session.execute(
+        text("SELECT id, owner_id, user_id FROM organization WHERE deleted_at IS NULL")
+    ).fetchall()
+
+    organizations = []
+    for org_id, owner_id, user_id_raw in org_rows:
+        # Use owner_id or fall back to user_id
+        user_id = owner_id or user_id_raw
+
+        # Skip if no valid user_id
+        if not user_id:
+            if verbose:
+                print(f"  ⚠ Skipping org {org_id}: No owner or user")
+            continue
+
+        organizations.append((str(org_id), str(user_id)))
+
+    return organizations
 
 
 def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
@@ -39,14 +97,22 @@ def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
     Returns:
         List of metric definitions from initial_data.json
     """
-    # Get the path to initial_data.json relative to this file
-    current_dir = Path(__file__).parent
-    initial_data_path = current_dir.parent.parent / "app" / "services" / "initial_data.json"
+    return _load_initial_data().get("metric", [])
 
-    with open(initial_data_path, "r") as f:
-        data = json.load(f)
 
-    return data.get("metric", [])
+def load_requirements_from_initial_data() -> List[Dict[str, Any]]:
+    """
+    Load requirements from initial_data.json file.
+
+    Checks the "requirement" key first, falling back to "behavior" — the
+    top-level key in initial_data.json itself is renamed in a later PR, and
+    this must keep working against either.
+
+    Returns:
+        List of requirement definitions from initial_data.json
+    """
+    data = _load_initial_data()
+    return data.get("requirement") or data.get("behavior", [])
 
 
 def sync_metrics_to_organizations(
@@ -113,30 +179,13 @@ def sync_metrics_to_organizations(
         if verbose:
             print(f"   Found {len(all_metrics)} metric definitions")
 
-        # List orgs with raw SQL so migrations run before newer Organization columns
-        # (e.g. sso_config, slug) exist do not fail with UndefinedColumn on ORM loads.
-        org_rows = session.execute(
-            text("SELECT id, owner_id, user_id FROM organization WHERE deleted_at IS NULL")
-        ).fetchall()
+        org_rows = _list_organizations_with_owner(session, verbose=verbose)
 
         if verbose:
             print(f"   Found {len(org_rows)} organization(s)\n")
 
-        for org_row in org_rows:
-            org_id = org_row[0]
-            organization_id = str(org_id)
-            owner_id, user_id_raw = org_row[1], org_row[2]
-            # Use owner_id or fall back to user_id
-            user_id = owner_id or user_id_raw
-
-            # Skip if no valid user_id
-            if not user_id:
-                if verbose:
-                    print(f"  ⚠ Skipping org {organization_id}: No owner or user")
-                continue
-
-            # Convert to string after validation
-            user_id = str(user_id)
+        for organization_id, user_id in org_rows:
+            org_id = uuid.UUID(organization_id)
 
             # Get existing metrics for this organization
             existing_metrics = (
@@ -225,26 +274,37 @@ def sync_metrics_to_organizations(
                         commit=False,
                     )
 
-                    # Process behavior associations
-                    behavior_names = metric_item.get("behaviors", [])
-                    for behavior_name in behavior_names:
-                        behavior = (
-                            session.query(models.Behavior)
+                    # Process requirement associations. Literal keys, not app.constants'
+                    # REQUIREMENT_LIST_KEY: this module is imported by frozen migrations
+                    # (e.g. c2d3e4f5a6b7) that hardcode "behaviors" in their own
+                    # metric_definitions and can never be edited, so a rename of that
+                    # constant's value must not change what this lookup reads. Checked
+                    # in rename-then-frozen order so a post-rename initial_data.json
+                    # (using the new key) still matches.
+                    requirement_names = metric_item.get("requirements") or metric_item.get(
+                        "behaviors", []
+                    )
+                    for requirement_name in requirement_names:
+                        requirement = (
+                            session.query(models.Requirement)
                             .filter(
-                                models.Behavior.name == behavior_name,
-                                models.Behavior.organization_id == org_id,
+                                models.Requirement.name == requirement_name,
+                                models.Requirement.organization_id == org_id,
                             )
                             .first()
                         )
-                        if behavior:
+                        if requirement:
                             # Check if association already exists
-                            from rhesis.backend.app.models.metric import behavior_metric_association
+                            from rhesis.backend.app.models.metric import (
+                                requirement_metric_association,
+                            )
 
                             existing = session.execute(
-                                behavior_metric_association.select().where(
-                                    behavior_metric_association.c.behavior_id == behavior.id,
-                                    behavior_metric_association.c.metric_id == metric.id,
-                                    behavior_metric_association.c.organization_id
+                                requirement_metric_association.select().where(
+                                    requirement_metric_association.c.requirement_id
+                                    == requirement.id,
+                                    requirement_metric_association.c.metric_id == metric.id,
+                                    requirement_metric_association.c.organization_id
                                     == uuid.UUID(organization_id),
                                 )
                             ).first()
@@ -252,8 +312,8 @@ def sync_metrics_to_organizations(
                             # Create association with explicit organization_id and user_id
                             if not existing:
                                 session.execute(
-                                    behavior_metric_association.insert().values(
-                                        behavior_id=behavior.id,
+                                    requirement_metric_association.insert().values(
+                                        requirement_id=requirement.id,
                                         metric_id=metric.id,
                                         organization_id=uuid.UUID(organization_id),
                                         user_id=uuid.UUID(user_id),
@@ -342,3 +402,208 @@ def remove_metrics_from_organizations(
         if verbose:
             print(f"\n❌ Metric removal failed: {e}\n")
         raise
+
+
+def sync_requirements_to_organizations(
+    session: Session,
+    requirement_names: List[str] | None = None,
+    verbose: bool = True,
+    commit: bool = False,
+) -> Dict[str, int]:
+    """
+    Sync requirements to all existing organizations.
+
+    Loads requirement definitions from initial_data.json.
+
+    This function is fully idempotent - it will only create requirements that don't
+    already exist in each organization (matched by name via
+    ``get_or_create_requirement``). It's safe to run multiple times.
+
+    Args:
+        session: SQLAlchemy database session
+        requirement_names: Optional list of requirement names to sync. If None, syncs all
+            requirements.
+        verbose: If True, print progress messages
+        commit: If True, commit the session after syncing. If False, caller is responsible.
+
+    Returns:
+        Dictionary with stats: {
+            'total_created': int,
+            'total_skipped': int,
+            'total_errors': int,
+            'organizations_processed': int
+        }
+    """
+    stats = {
+        "total_created": 0,
+        "total_skipped": 0,
+        "total_errors": 0,
+        "organizations_processed": 0,
+    }
+
+    try:
+        if verbose:
+            print("\n📖 Loading requirements from initial_data.json...")
+
+        all_requirements = load_requirements_from_initial_data()
+
+        if requirement_names is not None:
+            requirement_names_set = set(requirement_names)
+            all_requirements = [r for r in all_requirements if r["name"] in requirement_names_set]
+            if verbose:
+                print(f"   Filtered to {len(all_requirements)} requirements by name")
+
+        if verbose:
+            print(f"   Found {len(all_requirements)} requirement definitions")
+
+        org_rows = _list_organizations_with_owner(session, verbose=verbose)
+
+        if verbose:
+            print(f"   Found {len(org_rows)} organization(s)\n")
+
+        for organization_id, user_id in org_rows:
+            org_id = uuid.UUID(organization_id)
+
+            # Get existing requirements for this organization
+            existing_requirements = (
+                session.query(models.Requirement)
+                .filter(models.Requirement.organization_id == org_id)
+                .all()
+            )
+            existing_requirement_names = {r.name for r in existing_requirements}
+
+            org_created = 0
+            org_skipped = 0
+            org_errors = 0
+
+            for requirement_item in all_requirements:
+                requirement_name = requirement_item["name"]
+
+                # Skip if requirement already exists (idempotent)
+                if requirement_name in existing_requirement_names:
+                    org_skipped += 1
+                    continue
+
+                try:
+                    get_or_create_requirement(
+                        db=session,
+                        name=requirement_item["name"],
+                        description=requirement_item.get("description"),
+                        status=requirement_item.get("status"),
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        commit=False,
+                    )
+                    org_created += 1
+
+                except Exception as e:
+                    if verbose:
+                        print(
+                            f"  ✗ Error creating requirement '{requirement_name}' "
+                            f"for org {organization_id}: {e}"
+                        )
+                    org_errors += 1
+                    continue
+
+            stats["total_created"] += org_created
+            stats["total_skipped"] += org_skipped
+            stats["total_errors"] += org_errors
+            stats["organizations_processed"] += 1
+
+            if verbose and org_created > 0:
+                print(f"  ✓ Org {organization_id}: created {org_created}, skipped {org_skipped}")
+
+        if commit:
+            session.commit()
+
+        if verbose:
+            print("\n✅ Requirement sync complete!")
+            print(f"   Created: {stats['total_created']} requirements")
+            print(f"   Skipped (already exist): {stats['total_skipped']} requirements")
+            if stats["total_errors"] > 0:
+                print(f"   Errors: {stats['total_errors']} requirements")
+            print()
+
+    except Exception as e:
+        if verbose:
+            print(f"\n❌ Requirement sync failed: {e}\n")
+        raise
+
+    return stats
+
+
+def remove_requirements_from_organizations(
+    session: Session, requirement_names: List[str], verbose: bool = True, commit: bool = False
+) -> int:
+    """
+    Remove specific requirements from all organizations.
+
+    Useful for downgrade migrations. Callers should generally remove any metrics
+    associated with these requirements first (e.g. via ``remove_metrics_from_organizations``)
+    since deleting a requirement does not cascade to metrics, and requirements still
+    referenced by prompts/tests will fail to delete due to foreign key constraints.
+
+    Args:
+        session: SQLAlchemy database session
+        requirement_names: List of requirement names to remove
+        verbose: If True, print progress messages
+        commit: If True, commit the session after removal. If False, caller is responsible.
+
+    Returns:
+        Number of requirements deleted
+    """
+    try:
+        if verbose:
+            print(f"\n🗑 Removing requirements: {', '.join(requirement_names)}...")
+
+        # Find requirements to delete
+        requirements_to_delete = (
+            session.query(models.Requirement)
+            .filter(models.Requirement.name.in_(requirement_names))
+            .all()
+        )
+
+        deleted_count = len(requirements_to_delete)
+
+        # Delete each requirement individually
+        for requirement in requirements_to_delete:
+            session.delete(requirement)
+
+        if commit:
+            session.commit()
+
+        if verbose:
+            print(f"   Removed {deleted_count} requirement(s)\n")
+
+        return deleted_count
+
+    except Exception as e:
+        if verbose:
+            print(f"\n❌ Requirement removal failed: {e}\n")
+        raise
+
+
+# Frozen migration 38ed899b9f41 imports these three names directly from this
+# module -- and calls the two below with the old `behavior_names=` keyword,
+# so a plain `= sync_requirements_to_organizations` alias isn't enough; the
+# wrapper has to keep accepting that keyword.
+load_behaviors_from_initial_data = load_requirements_from_initial_data
+
+
+def sync_behaviors_to_organizations(
+    session: Session,
+    behavior_names: List[str] | None = None,
+    verbose: bool = True,
+    commit: bool = False,
+) -> Dict[str, int]:
+    return sync_requirements_to_organizations(
+        session=session, requirement_names=behavior_names, verbose=verbose, commit=commit
+    )
+
+
+def remove_behaviors_from_organizations(
+    session: Session, behavior_names: List[str], verbose: bool = True, commit: bool = False
+) -> int:
+    return remove_requirements_from_organizations(
+        session=session, requirement_names=behavior_names, verbose=verbose, commit=commit
+    )

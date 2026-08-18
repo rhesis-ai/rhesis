@@ -105,11 +105,11 @@ class TestBuildGenerationConfig:
 
         assert "unknown:tag:xyz" not in config.generation_prompt
 
-    def test_behaviors_and_categories_populated_from_taxonomy(self):
+    def test_requirements_and_categories_populated_from_taxonomy(self):
         generator = GarakDynamicGenerator(catalog=_mock_catalog())
         config = generator.build_generation_config(make_probe(module_name="fitd"))
 
-        assert config.behaviors is None or all(isinstance(b, str) for b in config.behaviors)
+        assert config.requirements is None or all(isinstance(b, str) for b in config.requirements)
         assert config.categories is None or all(isinstance(c, str) for c in config.categories)
 
     def test_quality_tags_produce_topics(self):

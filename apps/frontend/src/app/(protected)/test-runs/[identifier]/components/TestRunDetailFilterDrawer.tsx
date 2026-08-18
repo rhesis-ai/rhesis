@@ -6,21 +6,27 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
 import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
+import type { MetricOutcomeFilter } from './TestRunFilterBar';
 
 export type TestRunDetailDrawerFilters = {
   overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
   commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range';
   taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range';
-  selectedMetrics: string[];
-  selectedBehaviors: string[];
+  metricFilters: Record<string, MetricOutcomeFilter>;
+  selectedRequirements: string[];
 };
 
 export const EMPTY_TEST_RUN_DETAIL_DRAWER_FILTERS: TestRunDetailDrawerFilters =
@@ -28,23 +34,23 @@ export const EMPTY_TEST_RUN_DETAIL_DRAWER_FILTERS: TestRunDetailDrawerFilters =
     overruleFilter: 'all',
     commentFilter: 'all',
     taskFilter: 'all',
-    selectedMetrics: [],
-    selectedBehaviors: [],
+    metricFilters: {},
+    selectedRequirements: [],
   };
 
 export function extractDetailDrawerFilters(filter: {
   overruleFilter: TestRunDetailDrawerFilters['overruleFilter'];
   commentFilter: TestRunDetailDrawerFilters['commentFilter'];
   taskFilter: TestRunDetailDrawerFilters['taskFilter'];
-  selectedMetrics: string[];
-  selectedBehaviors: string[];
+  metricFilters: Record<string, MetricOutcomeFilter>;
+  selectedRequirements: string[];
 }): TestRunDetailDrawerFilters {
   return {
     overruleFilter: filter.overruleFilter,
     commentFilter: filter.commentFilter,
     taskFilter: filter.taskFilter,
-    selectedMetrics: filter.selectedMetrics,
-    selectedBehaviors: filter.selectedBehaviors,
+    metricFilters: filter.metricFilters,
+    selectedRequirements: filter.selectedRequirements,
   };
 }
 
@@ -55,8 +61,8 @@ export function hasActiveTestRunDetailDrawerFilters(
     filters.overruleFilter !== 'all' ||
     filters.commentFilter !== 'all' ||
     filters.taskFilter !== 'all' ||
-    filters.selectedMetrics.length > 0 ||
-    filters.selectedBehaviors.length > 0
+    Object.keys(filters.metricFilters).length > 0 ||
+    filters.selectedRequirements.length > 0
   );
 }
 
@@ -67,8 +73,8 @@ export function countActiveTestRunDetailDrawerFilters(
     (filters.overruleFilter !== 'all' ? 1 : 0) +
     (filters.commentFilter !== 'all' ? 1 : 0) +
     (filters.taskFilter !== 'all' ? 1 : 0) +
-    filters.selectedMetrics.length +
-    filters.selectedBehaviors.length
+    Object.keys(filters.metricFilters).length +
+    filters.selectedRequirements.length
   );
 }
 
@@ -89,6 +95,31 @@ const TASK_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'with_tasks', label: 'With' },
   { value: 'without_tasks', label: 'Without' },
+] as const;
+
+// Icon-only pills for per-metric rows (labels would be too wide next to a
+// metric name) -- MetricLegend below spells out what each icon means once.
+const METRIC_OUTCOME_OPTIONS = [
+  {
+    value: 'all',
+    label: 'All',
+    icon: <RadioButtonUncheckedIcon fontSize="small" />,
+  },
+  {
+    value: 'evaluated',
+    label: 'Evaluated',
+    icon: <VisibilityOutlinedIcon fontSize="small" />,
+  },
+  {
+    value: 'passed',
+    label: 'Passed',
+    icon: <CheckCircleOutlineIcon fontSize="small" />,
+  },
+  {
+    value: 'failed',
+    label: 'Failed',
+    icon: <BlockOutlinedIcon fontSize="small" />,
+  },
 ] as const;
 
 interface CompactSegmentedPillsProps {
@@ -136,7 +167,10 @@ function CompactSegmentedPills({
                   ? '0 999px 999px 0'
                   : 0,
               bgcolor: isSelected ? 'primary.main' : 'transparent',
-              color: isSelected ? '#fff' : 'primary.main',
+              color: theme =>
+                isSelected
+                  ? theme.palette.primary.contrastText
+                  : theme.palette.primary.main,
               whiteSpace: 'nowrap',
               '&:hover': {
                 bgcolor: isSelected
@@ -193,11 +227,121 @@ function ActivityFilterRow({
   );
 }
 
+/** One-time key explaining the icon-only pills used on each metric row below. */
+function MetricOutcomeLegend() {
+  return (
+    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 0.5 }}>
+      {METRIC_OUTCOME_OPTIONS.map(({ value, label, icon }) => (
+        <Box
+          key={value}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            color: theme => theme.palette.greyscale.body,
+          }}
+        >
+          {icon}
+          <Typography sx={{ fontSize: 12 }}>{label}</Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+interface MetricOutcomeRowProps {
+  label: string;
+  activeValue: string;
+  onChange: (value: string) => void;
+}
+
+/** Metric name plus an icon-only segmented pill (All/Evaluated/Passed/Failed)
+ * -- icons keep this compact next to a long metric name; MetricOutcomeLegend
+ * spells out what each one means once, at the top of the section. */
+function MetricOutcomeRow({
+  label,
+  activeValue,
+  onChange,
+}: MetricOutcomeRowProps) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 1.5,
+      }}
+    >
+      <Typography
+        title={label}
+        sx={{
+          fontSize: 14,
+          color: theme => theme.palette.greyscale.body,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        {METRIC_OUTCOME_OPTIONS.map(
+          ({ value, label: optionLabel, icon }, idx, arr) => {
+            const isSelected = activeValue === value;
+            const isFirst = idx === 0;
+            const isLast = idx === arr.length - 1;
+            return (
+              <Tooltip key={value} title={optionLabel}>
+                <Box
+                  component="button"
+                  type="button"
+                  aria-label={optionLabel}
+                  onClick={() => onChange(value)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 28,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: 'primary.main',
+                    borderLeft: isFirst ? '1px solid' : 'none',
+                    borderRight: isLast ? '1px solid' : 'none',
+                    borderRadius: isFirst
+                      ? '999px 0 0 999px'
+                      : isLast
+                        ? '0 999px 999px 0'
+                        : 0,
+                    bgcolor: isSelected ? 'primary.main' : 'transparent',
+                    color: theme =>
+                      isSelected
+                        ? theme.palette.primary.contrastText
+                        : theme.palette.primary.main,
+                    '&:hover': {
+                      bgcolor: isSelected
+                        ? 'primary.dark'
+                        : theme => `${theme.palette.primary.main}0f`,
+                    },
+                  }}
+                >
+                  {icon}
+                </Box>
+              </Tooltip>
+            );
+          }
+        )}
+      </Box>
+    </Box>
+  );
+}
+
 interface TestRunDetailFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestRunDetailDrawerFilters;
-  availableBehaviors: Array<{ id: string; name: string }>;
+  availableRequirements: Array<{ id: string; name: string }>;
   availableMetrics: Array<{ name: string; description?: string }>;
   onApply: (filters: TestRunDetailDrawerFilters) => void;
 }
@@ -206,7 +350,7 @@ export default function TestRunDetailFilterDrawer({
   open,
   onClose,
   filters,
-  availableBehaviors,
+  availableRequirements,
   availableMetrics,
   onApply,
 }: TestRunDetailFilterDrawerProps) {
@@ -218,21 +362,24 @@ export default function TestRunDetailFilterDrawer({
     onClose
   );
 
-  const toggleMetric = (metricName: string) => {
-    setDraft(prev => ({
-      ...prev,
-      selectedMetrics: prev.selectedMetrics.includes(metricName)
-        ? prev.selectedMetrics.filter(name => name !== metricName)
-        : [...prev.selectedMetrics, metricName],
-    }));
+  const setMetricOutcome = (metricName: string, value: string) => {
+    setDraft(prev => {
+      const metricFilters = { ...prev.metricFilters };
+      if (value === 'all') {
+        delete metricFilters[metricName];
+      } else {
+        metricFilters[metricName] = value as MetricOutcomeFilter;
+      }
+      return { ...prev, metricFilters };
+    });
   };
 
-  const toggleBehavior = (behaviorId: string) => {
+  const toggleRequirement = (requirementId: string) => {
     setDraft(prev => ({
       ...prev,
-      selectedBehaviors: prev.selectedBehaviors.includes(behaviorId)
-        ? prev.selectedBehaviors.filter(id => id !== behaviorId)
-        : [...prev.selectedBehaviors, behaviorId],
+      selectedRequirements: prev.selectedRequirements.includes(requirementId)
+        ? prev.selectedRequirements.filter(id => id !== requirementId)
+        : [...prev.selectedRequirements, requirementId],
     }));
   };
 
@@ -293,43 +440,40 @@ export default function TestRunDetailFilterDrawer({
       </FilterSection>
 
       {availableMetrics.length > 0 && (
-        <FilterSection title="Metrics">
-          <FormGroup>
+        <FilterSection title="Metrics Evaluated">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <MetricOutcomeLegend />
             {availableMetrics.map(metric => (
-              <FormControlLabel
+              <MetricOutcomeRow
                 key={metric.name}
-                control={
-                  <Checkbox
-                    checked={draft.selectedMetrics.includes(metric.name)}
-                    onChange={() => toggleMetric(metric.name)}
-                    size="small"
-                  />
-                }
-                label={
-                  <Typography sx={{ fontSize: 14 }}>{metric.name}</Typography>
-                }
-                sx={{ ml: 0, mb: 0.5 }}
+                label={metric.name}
+                activeValue={draft.metricFilters[metric.name] ?? 'all'}
+                onChange={value => setMetricOutcome(metric.name, value)}
               />
             ))}
-          </FormGroup>
+          </Box>
         </FilterSection>
       )}
 
-      {availableBehaviors.length > 0 && (
-        <FilterSection title="Behaviors">
+      {availableRequirements.length > 0 && (
+        <FilterSection title="Requirements">
           <FormGroup>
-            {availableBehaviors.map(behavior => (
+            {availableRequirements.map(requirement => (
               <FormControlLabel
-                key={behavior.id}
+                key={requirement.id}
                 control={
                   <Checkbox
-                    checked={draft.selectedBehaviors.includes(behavior.id)}
-                    onChange={() => toggleBehavior(behavior.id)}
+                    checked={draft.selectedRequirements.includes(
+                      requirement.id
+                    )}
+                    onChange={() => toggleRequirement(requirement.id)}
                     size="small"
                   />
                 }
                 label={
-                  <Typography sx={{ fontSize: 14 }}>{behavior.name}</Typography>
+                  <Typography sx={{ fontSize: 14 }}>
+                    {requirement.name}
+                  </Typography>
                 }
                 sx={{ ml: 0, mb: 0.5 }}
               />

@@ -79,13 +79,13 @@ export function renderLlmsTxt() {
     '- [Agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing, confusions, plan tables'
   )
   lines.push(
-    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/behavior.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)'
+    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/requirement.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)'
   )
   lines.push(
     '- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)'
   )
   lines.push(
-    '- [Requirements workflow](https://docs.rhesis.ai/docs/agent-skill/requirements.md): requirements → test foundation'
+    '- [Spec workflow](https://docs.rhesis.ai/docs/agent-skill/spec.md): spec → test foundation'
   )
   lines.push(
     '- [Architect workflow](https://docs.rhesis.ai/docs/architect/workflow.md): native UI agent phases'
@@ -94,7 +94,7 @@ export function renderLlmsTxt() {
     '- [Agent skill install](https://docs.rhesis.ai/docs/agent-skill/platform.md): MCP + `npx skills add`'
   )
   lines.push(
-    '- Golden requirements example (repo only): https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md'
+    '- Golden spec example (repo only): https://github.com/rhesis-ai/rhesis/blob/main/skills/rhesis/references/use-case-bracketfeld.md'
   )
   lines.push('')
 

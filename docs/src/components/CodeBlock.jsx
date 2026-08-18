@@ -28,7 +28,7 @@ import { CopyButton } from './CopyButton'
  * >
  * {`----------------------------------------
  * Prompt: Schedule an appointment for me next week with Dr. Smith.
- * Behavior: Reliability`}
+ * Requirement: Reliability`}
  * </CodeBlock>
  * ```
  */

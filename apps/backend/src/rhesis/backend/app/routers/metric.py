@@ -242,16 +242,18 @@ def read_metrics(
     # $filter.  When metric_scope is also active, override the header with an
     # accurate count that includes the JSONB filter.
     if metric_scope:
-        from rhesis.backend.app.utils.query_utils import QueryBuilder
+        from rhesis.backend.app.utils.crud_utils import count_items
 
-        cb = (
-            QueryBuilder(db, models.Metric)
-            .with_organization_filter(organization_id)
-            .with_visibility_filter(user_id)
-            .with_odata_filter(filter)
+        response.headers["X-Total-Count"] = str(
+            count_items(
+                db,
+                models.Metric,
+                filter,
+                organization_id,
+                user_id,
+                extra_filter=metric_crud._metric_scope_filter(metric_scope),
+            )
         )
-        metric_crud._apply_metric_scope_filter(cb, metric_scope)
-        response.headers["X-Total-Count"] = str(cb.count())
 
     if select:
         serialized = jsonable_encoder(results)
@@ -327,15 +329,15 @@ def delete_metric(
     )
 
 
-@router.post("/{metric_id}/behaviors/{behavior_id}")
-def add_behavior_to_metric(
+@router.post("/{metric_id}/requirements/{requirement_id}")
+def add_requirement_to_metric(
     metric_id: UUID,
-    behavior_id: UUID,
+    requirement_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Add a behavior to a metric"""
+    """Add a requirement to a metric"""
     organization_id, user_id = tenant_context
     # Check if the metric exists
     db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
@@ -343,44 +345,47 @@ def add_behavior_to_metric(
         raise HTTPException(status_code=404, detail="Metric not found")
 
     try:
-        added = metric_crud.add_behavior_to_metric(
+        added = metric_crud.add_requirement_to_metric(
             db=db,
             metric_id=metric_id,
-            behavior_id=behavior_id,
+            requirement_id=requirement_id,
             user_id=current_user.id,
             organization_id=organization_id,
         )
         if added:
-            return {"status": "success", "message": "Behavior added to metric"}
-        return {"status": "success", "message": "Behavior was already associated with metric"}
+            return {"status": "success", "message": "Requirement added to metric"}
+        return {"status": "success", "message": "Requirement was already associated with metric"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.delete("/{metric_id}/behaviors/{behavior_id}")
-def remove_behavior_from_metric(
+@router.delete("/{metric_id}/requirements/{requirement_id}")
+def remove_requirement_from_metric(
     metric_id: UUID,
-    behavior_id: UUID,
+    requirement_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Remove a behavior from a metric"""
+    """Remove a requirement from a metric"""
     organization_id, user_id = tenant_context
     try:
-        removed = metric_crud.remove_behavior_from_metric(
-            db=db, metric_id=metric_id, behavior_id=behavior_id, organization_id=organization_id
+        removed = metric_crud.remove_requirement_from_metric(
+            db=db,
+            metric_id=metric_id,
+            requirement_id=requirement_id,
+            organization_id=organization_id,
         )
         if removed:
-            return {"status": "success", "message": "Behavior removed from metric"}
-        raise HTTPException(status_code=404, detail="Behavior was not associated with metric")
+            return {"status": "success", "message": "Requirement removed from metric"}
+        raise HTTPException(status_code=404, detail="Requirement was not associated with metric")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{metric_id}/behaviors/", response_model=List[schemas.BehaviorDetail])
-@with_count_header(model=models.Behavior)
-def read_metric_behaviors(
+@router.get("/{metric_id}/requirements/", response_model=List[schemas.RequirementDetail])
+@with_count_header(model=models.Requirement)
+def read_metric_requirements(
     response: Response,
     metric_id: UUID,
     skip: int = 0,
@@ -394,10 +399,10 @@ def read_metric_behaviors(
     organization_id: str = None,  # For with_count_header decorator
     user_id: str = None,  # For with_count_header decorator
 ):
-    """Get all behaviors associated with a metric"""
+    """Get all requirements associated with a metric"""
     try:
         organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        behaviors = metric_crud.get_metric_behaviors(
+        requirements = metric_crud.get_metric_requirements(
             db,
             metric_id=metric_id,
             organization_id=organization_id,  # SECURITY: Pass organization_id for filtering
@@ -407,6 +412,6 @@ def read_metric_behaviors(
             sort_order=sort_order,
             filter=filter,
         )
-        return behaviors
+        return requirements
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

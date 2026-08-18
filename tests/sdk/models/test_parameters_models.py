@@ -7,7 +7,7 @@ to the backend's authoritative copy. If the two drift the cached
 between SDK and server, so the parity assertion is the early-warning
 system.
 
-The behavior tests cover the small surface of new code in the SDK
+The requirement tests cover the small surface of new code in the SDK
 (`ResolvedParameters`, the runtime convenience wrapper) that has no
 direct backend counterpart — the rest of the file is a copy of the
 backend's models, so the parity assertion plus the backend's own tests

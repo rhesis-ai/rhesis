@@ -8,7 +8,7 @@ Targets against `api.rhesis.ai` and `app.rhesis.ai`:
   rate limiter (100/hour, 1000/day per IP).
 - **Authenticated** (runs only if `AUTH_TOKEN` is set): the highest-traffic
   read-only routes — `GET /test_runs/`, `/test_sets/`, `/test_results/stats`,
-  `/projects/`, `/test_runs/stats`, `/test_sets/stats`, `/behaviors/`,
+  `/projects/`, `/test_runs/stats`, `/test_sets/stats`, `/requirements/`,
   `/test_results/`. All GET-only; nothing that creates, mutates, or deletes
   data.
 

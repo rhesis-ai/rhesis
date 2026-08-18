@@ -29,7 +29,7 @@ interface ComparePageClientProps {
     experiment_name?: string;
   }>;
   prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
+  requirements: Array<{
     id: string;
     name: string;
     description?: string;
@@ -46,7 +46,7 @@ export default function ComparePageClient({
   currentTestResults,
   availableTestRuns,
   prompts,
-  behaviors,
+  requirements,
   initialBaselineId,
   testSetType,
   project,
@@ -150,7 +150,7 @@ export default function ComparePageClient({
       onClose={handleClose}
       onLoadBaseline={handleLoadBaseline}
       prompts={prompts}
-      behaviors={behaviors}
+      requirements={requirements}
       testSetType={testSetType}
       project={project}
       projectName={projectName}

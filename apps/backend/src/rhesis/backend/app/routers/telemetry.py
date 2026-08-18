@@ -9,13 +9,14 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
+from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.crud.telemetry import (
     create_trace_spans,
     get_trace_by_db_id,
@@ -720,7 +721,7 @@ def list_span_files(
 ):
     """List files attached to a trace span."""
     organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(
+    return file_crud.get_files_for_entity(
         db, span_db_id, EntityType.TRACE.value, organization_id, user_id
     )
 

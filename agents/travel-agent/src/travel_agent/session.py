@@ -9,7 +9,7 @@ from typing import Any
 
 from agent_framework import Message, Workflow
 
-from rhesis.sdk.telemetry.context import get_conversation_id, set_conversation_id
+from rhesis.telemetry.context import get_conversation_id, set_conversation_id
 from travel_agent.workflow import invoke_travel_workflow_async
 
 

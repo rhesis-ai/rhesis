@@ -14,7 +14,7 @@ export class PromptsClient extends BaseApiClient {
       sort_by?: string;
       sort_order?: string;
       topic_id?: string;
-      behavior_id?: string;
+      requirement_id?: string;
       category_id?: string;
       filter?: string;
     } = {}
@@ -28,8 +28,8 @@ export class PromptsClient extends BaseApiClient {
     if (options.sort_order)
       queryParams.append('sort_order', options.sort_order);
     if (options.topic_id) queryParams.append('topic_id', options.topic_id);
-    if (options.behavior_id)
-      queryParams.append('behavior_id', options.behavior_id);
+    if (options.requirement_id)
+      queryParams.append('requirement_id', options.requirement_id);
     if (options.category_id)
       queryParams.append('category_id', options.category_id);
     if (options.filter) queryParams.append('$filter', options.filter);

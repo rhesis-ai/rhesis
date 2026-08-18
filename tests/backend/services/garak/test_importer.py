@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.garak.importer import GarakImporter, ProbeSelection
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
-from rhesis.backend.app.services.garak.taxonomy import FALLBACK_BEHAVIOR, GarakMapping
+from rhesis.backend.app.services.garak.taxonomy import FALLBACK_REQUIREMENT, GarakMapping
 
 fake = Faker()
 
@@ -112,8 +112,8 @@ class TestGarakImporterMetadataBuilding:
 
         assert len(tests_data) == 2
         assert tests_data[0].prompt.content == "Prompt 1"
-        # probe.tags=["jailbreak"] has no quality:* tag, so resolve_behavior falls back
-        assert tests_data[0].behavior == FALLBACK_BEHAVIOR
+        # probe.tags=["jailbreak"] has no quality:* tag, so resolve_requirement falls back
+        assert tests_data[0].requirement == FALLBACK_REQUIREMENT
         assert tests_data[0].category == "Harmful"
         assert tests_data[0].topic == "Jailbreak"
         assert tests_data[0].test_type == "Single-Turn"
@@ -381,72 +381,72 @@ class TestGarakImporterMetricCreation:
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestGarakImporterTagBehaviors:
-    """Tests for _tag_garak_behaviors idempotency."""
+class TestGarakImporterTagRequirements:
+    """Tests for _tag_garak_requirements idempotency."""
 
-    def _make_test_set(self, behavior_id):
+    def _make_test_set(self, requirement_id):
         mock_test = MagicMock()
-        mock_test.behavior_id = behavior_id
+        mock_test.requirement_id = requirement_id
         mock_test_set = MagicMock()
         mock_test_set.tests = [mock_test]
         return mock_test_set
 
-    def test_tags_behavior(self, test_db: Session, test_org_id, authenticated_user_id):
-        """Test _tag_garak_behaviors creates a single garak TaggedItem for a behavior."""
-        from rhesis.backend.app.models.behavior import Behavior
+    def test_tags_requirement(self, test_db: Session, test_org_id, authenticated_user_id):
+        """Test _tag_garak_requirements creates a single garak TaggedItem for a requirement."""
+        from rhesis.backend.app.models.requirement import Requirement
         from rhesis.backend.app.models.tag import TaggedItem
 
-        behavior = Behavior(
-            name="Garak (Test Behavior)",
+        requirement = Requirement(
+            name="Garak (Test Requirement)",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         importer = GarakImporter(test_db)
-        importer._tag_garak_behaviors(
-            self._make_test_set(behavior.id), test_org_id, authenticated_user_id
+        importer._tag_garak_requirements(
+            self._make_test_set(requirement.id), test_org_id, authenticated_user_id
         )
 
         tagged = (
             test_db.query(TaggedItem)
-            .filter_by(entity_id=behavior.id, entity_type="Behavior", organization_id=test_org_id)
+            .filter_by(entity_id=requirement.id, entity_type="Requirement", organization_id=test_org_id)
             .all()
         )
         assert len(tagged) == 1
 
-    def test_tagging_same_behavior_across_calls_is_idempotent(
+    def test_tagging_same_requirement_across_calls_is_idempotent(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        """Regression test: multiple probes resolving to the same Garak (...) behavior
+        """Regression test: multiple probes resolving to the same Garak (...) requirement
         within one import call must not violate the uq_tagged_item_assignment unique
         constraint (tag_id, entity_id, entity_type, organization_id)."""
-        from rhesis.backend.app.models.behavior import Behavior
+        from rhesis.backend.app.models.requirement import Requirement
         from rhesis.backend.app.models.tag import TaggedItem
 
-        behavior = Behavior(
-            name="Garak (Shared Behavior)",
+        requirement = Requirement(
+            name="Garak (Shared Requirement)",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
 
         importer = GarakImporter(test_db)
 
-        # Simulate two different probes/test sets resolving to the same behavior
+        # Simulate two different probes/test sets resolving to the same requirement
         # within the same import call (same session, no commit in between).
-        importer._tag_garak_behaviors(
-            self._make_test_set(behavior.id), test_org_id, authenticated_user_id
+        importer._tag_garak_requirements(
+            self._make_test_set(requirement.id), test_org_id, authenticated_user_id
         )
-        importer._tag_garak_behaviors(
-            self._make_test_set(behavior.id), test_org_id, authenticated_user_id
+        importer._tag_garak_requirements(
+            self._make_test_set(requirement.id), test_org_id, authenticated_user_id
         )
 
         tagged = (
             test_db.query(TaggedItem)
-            .filter_by(entity_id=behavior.id, entity_type="Behavior", organization_id=test_org_id)
+            .filter_by(entity_id=requirement.id, entity_type="Requirement", organization_id=test_org_id)
             .all()
         )
         assert len(tagged) == 1

@@ -27,7 +27,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.utils.crud_utils import create_item, delete_item, update_item
+from rhesis.backend.app.utils.crud_utils import (
+    create_item,
+    delete_item,
+    get_item_detail,
+    get_items_detail,
+    update_item,
+)
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
@@ -69,37 +75,33 @@ def get_test_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestRun]:
     """Get test_run with relationships eagerly loaded (including nested chains)."""
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.TestRun)
-        .with_deleted()
-        .with_related(*_TEST_RUN_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_custom_filter(_defer_endpoint_last_token)
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(test_run_id)
+    return get_item_detail(
+        db,
+        models.TestRun,
+        test_run_id,
+        organization_id,
+        user_id,
+        related_fields=_TEST_RUN_RELATED_FIELDS,
+        extra_filter=_defer_endpoint_last_token,
     )
 
-    return _check_and_raise_if_deleted(item, models.TestRun, test_run_id)
 
-
-def get_test_runs(
+def _test_run_experiment_filter(
     db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    filter: str | None = None,
-    experiment_id: str | None = None,
-    parameter_version: str | None = None,
-    has_experiment: bool | None = None,
-    has_reviews: bool | None = None,
-    organization_id: str = None,
-    user_id: str = None,
-) -> List[models.TestRun]:
-    def experiment_filter(q):
+    experiment_id: str | None,
+    parameter_version: str | None,
+    has_experiment: bool | None,
+    has_reviews: bool | None,
+    organization_id: str | None,
+):
+    """Build the experiment/parameter/review row-selection filter for get_test_runs.
+
+    A row-selection filter (like ``with_odata_filter``), not a loader option --
+    must run on the phase-1 id query so the right page of ids is picked in the
+    first place; see get_items_detail's ``extra_filter`` vs ``hydrate_filter``.
+    """
+
+    def _filter(q):
         if experiment_id:
             q = q.filter(models.TestRun.experiment_id == experiment_id)
         if parameter_version:
@@ -132,38 +134,58 @@ def get_test_runs(
             q = q.filter(reviewed_result_exists if has_reviews else ~reviewed_result_exists)
         return q
 
-    return (
-        QueryBuilder(db, models.TestRun)
-        .with_related(*_TEST_RUN_RELATED_FIELDS)
-        .with_default_derived_field_loads()
-        .with_custom_filter(_defer_endpoint_last_token)
-        .with_custom_filter(experiment_filter)
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .with_odata_filter(filter)
-        .with_pagination(skip, limit)
-        .with_sorting(sort_by, sort_order)
-        .all()
+    return _filter
+
+
+def get_test_runs(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    experiment_id: str | None = None,
+    parameter_version: str | None = None,
+    has_experiment: bool | None = None,
+    has_reviews: bool | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.TestRun]:
+    return get_items_detail(
+        db,
+        models.TestRun,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        related_fields=_TEST_RUN_RELATED_FIELDS,
+        organization_id=organization_id,
+        user_id=user_id,
+        extra_filter=_test_run_experiment_filter(
+            db, experiment_id, parameter_version, has_experiment, has_reviews, organization_id
+        ),
+        hydrate_filter=_defer_endpoint_last_token,
     )
 
 
-def get_test_run_behaviors(
+def get_test_run_requirements(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
-) -> List[models.Behavior]:
-    """Get behaviors that have test results for a specific test run with organization filtering"""
+) -> List[models.Requirement]:
+    """Get requirements that have test results for a specific test run with organization filtering"""
     # Verify the test run exists (UUID lookup is safe)
     test_run = get_test_run(db, test_run_id, organization_id=organization_id)
     if not test_run:
         raise ValueError(f"Test run with id {test_run_id} not found")
 
-    # Get unique behavior IDs from tests that have results in this test run
+    # Get unique requirement IDs from tests that have results in this test run
     # SECURITY: Add organization filtering
-    behavior_ids_query = (
-        db.query(models.Test.behavior_id)
+    requirement_ids_query = (
+        db.query(models.Test.requirement_id)
         .join(models.TestResult, models.Test.id == models.TestResult.test_id)
         .filter(
             models.TestResult.test_run_id == test_run_id,
-            models.Test.behavior_id.isnot(None),  # Only tests that have a behavior
+            models.Test.requirement_id.isnot(None),  # Only tests that have a requirement
         )
     )
 
@@ -171,22 +193,23 @@ def get_test_run_behaviors(
     if organization_id:
         from uuid import UUID
 
-        behavior_ids_query = behavior_ids_query.filter(
+        requirement_ids_query = requirement_ids_query.filter(
             models.Test.organization_id == UUID(organization_id)
         )
 
-    behavior_ids_query = behavior_ids_query.distinct()
+    requirement_ids_query = requirement_ids_query.distinct()
 
-    behavior_ids = [row[0] for row in behavior_ids_query.all()]
+    requirement_ids = [row[0] for row in requirement_ids_query.all()]
 
-    if not behavior_ids:
+    if not requirement_ids:
         return []
 
-    # Get the actual behavior objects with proper filtering
+    # Get the actual requirement objects with proper filtering
     return (
-        QueryBuilder(db, models.Behavior)
+        QueryBuilder(db, models.Requirement)
+        .with_related(include(models.Requirement.user))
         .with_visibility_filter()
-        .with_custom_filter(lambda q: q.filter(models.Behavior.id.in_(behavior_ids)))
+        .with_custom_filter(lambda q: q.filter(models.Requirement.id.in_(requirement_ids)))
         .with_sorting("name", "asc")
         .all()
     )

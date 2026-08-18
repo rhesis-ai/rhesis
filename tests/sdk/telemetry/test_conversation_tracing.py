@@ -14,15 +14,15 @@ from unittest.mock import MagicMock, patch
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanContext, SpanKind, Status, StatusCode, TraceFlags
-
 from rhesis.telemetry.constants import ConversationContext as ConvCtx
-from rhesis.sdk.telemetry.context import (
+from rhesis.telemetry.context import (
     get_conversation_id,
     get_conversation_trace_id,
     set_conversation_id,
     set_conversation_trace_id,
 )
 from rhesis.telemetry.exporter import RhesisOTLPExporter
+
 from rhesis.sdk.telemetry.tracer import Tracer
 
 # ---------------------------------------------------------------------------

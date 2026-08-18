@@ -13,15 +13,17 @@ import logging
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
+from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.tasks.base import EmailEnabledTask, email_notification
+from rhesis.backend.tasks.base import EmailEnabledTask, email_notification, in_app_notification
 
 logger = logging.getLogger(__name__)
 
 
+@in_app_notification(NotificationEventType.TestSet.GARAK_IMPORT_COMPLETED)
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
     subject_template="Garak Import Complete: {task_name} - {status}",
@@ -89,6 +91,7 @@ def import_garak_probes_task(
     return result
 
 
+@in_app_notification(NotificationEventType.TestSet.GARAK_SYNC_COMPLETED)
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
     subject_template="Garak Sync Complete: {task_name} - {status}",

@@ -66,7 +66,7 @@ def _set_session_variables(
     This path records a plain params dict under ``_TENANT_VARS_KEY`` and does
     NOT store a RequestScope, so the ORM auto-filter / auto-stamp listeners stay
     inactive for callers using it directly (the documented side-channel
-    behavior). The request/task path uses ``get_db_with_tenant_variables`` /
+    requirement). The request/task path uses ``get_db_with_tenant_variables`` /
     ``_apply_scope_variables`` instead, which stores a single RequestScope.
 
     Args:

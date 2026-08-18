@@ -11,11 +11,11 @@ from rhesis.backend.app.services.file_import.mapping import (
 
 class TestAutoMapColumns:
     def test_exact_match(self):
-        headers = ["category", "topic", "behavior", "prompt_content"]
+        headers = ["category", "topic", "requirement", "prompt_content"]
         result = auto_map_columns(headers)
         assert result["mapping"]["category"] == "category"
         assert result["mapping"]["topic"] == "topic"
-        assert result["mapping"]["behavior"] == "behavior"
+        assert result["mapping"]["requirement"] == "requirement"
         assert result["mapping"]["prompt_content"] == "prompt_content"
 
     def test_alias_match(self):
@@ -50,7 +50,7 @@ class TestAutoMapColumns:
         headers = [
             "category",
             "topic",
-            "behavior",
+            "requirement",
             "prompt_content",
         ]
         result = auto_map_columns(headers)
@@ -77,15 +77,15 @@ class TestAutoMapColumns:
         headers = ["category"]
         result = auto_map_columns(headers)
         assert "topic" in result["unmatched_targets"]
-        assert "behavior" in result["unmatched_targets"]
+        assert "requirement" in result["unmatched_targets"]
 
     def test_min_turns_exact_match(self):
-        headers = ["category", "topic", "behavior", "goal", "min_turns"]
+        headers = ["category", "topic", "requirement", "goal", "min_turns"]
         result = auto_map_columns(headers)
         assert result["mapping"].get("min_turns") == "min_turns"
 
     def test_max_turns_exact_match(self):
-        headers = ["category", "topic", "behavior", "goal", "max_turns"]
+        headers = ["category", "topic", "requirement", "goal", "max_turns"]
         result = auto_map_columns(headers)
         assert result["mapping"].get("max_turns") == "max_turns"
 

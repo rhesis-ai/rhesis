@@ -43,6 +43,7 @@ from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
     log_validation_error,
 )
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
@@ -326,6 +327,12 @@ async def lifespan(app: FastAPI):
 
     apply_web_context_overrides()
 
+    # Register the process-wide token-usage sink before anything can build a
+    # model, so no LLM call in this process goes unaccounted.
+    from rhesis.backend.app.utils.usage_tracking import install_usage_sink
+
+    install_usage_sink()
+
     # Set anyio threadpool size for async-to-thread offloading.
     # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
     try:
@@ -419,16 +426,44 @@ async def lifespan(app: FastAPI):
     # This ensures the first user request doesn't have to wait for probe enumeration
     import asyncio
 
-    # Skip the pre-warm entirely under the test suite. It's a production-only
-    # optimization, but the test suite creates a fresh TestClient (hence a
-    # fresh app lifespan) per test, so every one of the ~hundreds of route
-    # tests would launch its own full-corpus enumeration. Those run in
-    # non-cancellable worker threads (anyio.to_thread) that outlive the test,
-    # and until the first one warms the shared Redis cache they all race on a
-    # cold cache — a CPU-bound pile-up that snowballs across pytest-xdist
-    # workers and hangs the run. Tests that need probe data mock the service
-    # or use the (bounded, integration-marked) live-garak tests instead.
-    if os.environ.get("RHESIS_SKIP_GARAK_WARM_CACHE", "").lower() in ("1", "true", "yes"):
+    def _log_warm_task_exception(label: str):
+        """Build a done-callback that logs (without re-raising) a failed pre-warm task.
+
+        Shared by the Garak and OWASP background pre-warms below. Background
+        asyncio tasks swallow exceptions unless something inspects
+        `.result()`; this callback does that and logs instead, since a
+        fire-and-forget cache pre-warm failing must never crash the app or
+        propagate to the lifespan handler.
+        """
+
+        def _callback(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except asyncio.CancelledError:
+                pass  # Expected during shutdown
+            except Exception as e:
+                logger.error(f"{label} pre-warming task failed: {e}", exc_info=True)
+
+        return _callback
+
+    # Skip all warm-cache background work under the test suite. It's a
+    # production-only optimization, but the test suite creates a fresh
+    # TestClient (hence a fresh app lifespan) per test, so every one of the
+    # ~hundreds of route tests would otherwise launch its own full-corpus
+    # Garak enumeration (non-cancellable anyio.to_thread workers racing on a
+    # cold shared Redis cache -- a CPU-bound pile-up that snowballs across
+    # pytest-xdist workers and hangs the run) and, separately, its own OWASP
+    # report PDF download + pdfminer parse (which can take up to a minute and
+    # would otherwise repeat on every test's fresh lifespan). Tests that need
+    # this data mock the service or use the (bounded, integration-marked)
+    # live tests instead.
+    _skip_warm_cache = os.environ.get("RHESIS_SKIP_GARAK_WARM_CACHE", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    if _skip_warm_cache:
         logger.info("Garak cache pre-warming skipped (RHESIS_SKIP_GARAK_WARM_CACHE set)")
     else:
 
@@ -446,22 +481,37 @@ async def lifespan(app: FastAPI):
         # Launch as background task - store reference to prevent GC before completion
         # (per Python asyncio docs, tasks without references may be garbage collected)
         garak_cache_task = asyncio.create_task(warm_garak_cache())
-
-        # Add exception handler to log errors (task runs in background, errors would be silent)
-        def _log_task_exception(t: asyncio.Task) -> None:
-            try:
-                t.result()
-            except asyncio.CancelledError:
-                pass  # Expected during shutdown
-            except Exception as e:
-                logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
-
-        garak_cache_task.add_done_callback(_log_task_exception)
+        garak_cache_task.add_done_callback(_log_warm_task_exception("Garak cache"))
 
     if getattr(app.state, "mcp_server", None) is None:
         from rhesis.backend.app.mcp_server import setup_mcp_server
 
         setup_mcp_server(app)
+
+    # Pre-warm OWASP report section cache in background (non-blocking)
+    # This ensures the first user request doesn't have to wait for the report
+    # PDF to be downloaded and parsed (can take up to a minute). Guarded by
+    # the same env var as the Garak pre-warm above -- see that block's
+    # comment for why the test suite must not pay for this at startup.
+    if _skip_warm_cache:
+        logger.info("OWASP cache pre-warming skipped (RHESIS_SKIP_GARAK_WARM_CACHE set)")
+    else:
+
+        async def warm_owasp_cache():
+            """Background task to pre-warm the OWASP report section cache."""
+            try:
+                from rhesis.backend.app.services.owasp import (
+                    OWASP_FRAMEWORKS,
+                    list_category_summaries,
+                )
+
+                for framework in OWASP_FRAMEWORKS:
+                    await asyncio.to_thread(list_category_summaries, framework)
+            except Exception as e:
+                logger.warning(f"OWASP cache pre-warming failed (non-fatal): {e}")
+
+        owasp_cache_task = asyncio.create_task(warm_owasp_cache())
+        owasp_cache_task.add_done_callback(_log_warm_task_exception("OWASP cache"))
 
     # Start MCP session manager (Mount doesn't propagate lifespan).
     # StreamableHTTPSessionManager.run() can only be called once per
@@ -594,6 +644,32 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
     }
 
     return JSONResponse(status_code=404, content=response_content)
+
+
+# Global exception handler for quota-exceeded errors
+@app.exception_handler(QuotaExceededError)
+async def quota_exceeded_exception_handler(request: Request, exc: QuotaExceededError):
+    """Handle quota-exceeded errors with HTTP 402 Payment Required.
+
+    402, not 401/403/429: 401 and 403 clear the frontend session, which a
+    quota cap should not do, and 429 means rate limiting, not "you've used
+    up what your plan allows."
+
+    Raised from two places that share this one shape: the ``require_quota``
+    route dependency (``auth/quota_gates.py``), and the hosted-model token
+    gate (``utils/user_model_utils.py``), which can also fire deep inside a
+    request with no dependency involved -- Starlette's exception-handling
+    middleware catches both the same way, since it wraps the whole request,
+    not just route dependencies.
+
+    Does NOT catch every raise site, though: a route wrapped by a decorator
+    that swallows bare ``Exception`` before it reaches this middleware (e.g.
+    ``@handle_database_exceptions``) never gets here. ``routers/user.py``'s
+    ``create_user`` is one such case and builds this same response body
+    itself via :func:`~rhesis.backend.app.quota.enforcement.quota_exceeded_response_body`
+    rather than relying on this handler.
+    """
+    return JSONResponse(status_code=402, content=quota_exceeded_response_body(exc.verdict))
 
 
 # Global exception handler for request validation errors (422)

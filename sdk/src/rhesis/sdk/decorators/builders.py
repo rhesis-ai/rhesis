@@ -96,7 +96,7 @@ def create_observer(
             if hasattr(self, method_name):
                 raise ValueError(f"Method '{method_name}' already exists on this observer")
 
-            from rhesis.sdk.telemetry.attributes import validate_span_name
+            from rhesis.telemetry.attributes import validate_span_name
 
             if not validate_span_name(span_name):
                 raise ValueError(
@@ -111,7 +111,7 @@ def create_observer(
                 attributes = {**self._base_attributes, **default_attributes, **extra_attributes}
 
                 if operation_type:
-                    from rhesis.sdk.telemetry.attributes import AIAttributes
+                    from rhesis.telemetry.attributes import AIAttributes
 
                     attributes[AIAttributes.OPERATION_TYPE] = operation_type
 
@@ -120,12 +120,12 @@ def create_observer(
             # Add helpful docstring
             custom_method.__doc__ = f"""
             Convenience decorator for {method_name} operations.
-            
+
             Automatically sets:
             - span_name: "{span_name}"
             {f'- ai.operation.type: "{operation_type}"' if operation_type else ""}
             {f"- Default attributes: {default_attributes}" if default_attributes else ""}
-            
+
             Example:
                 @{self._name}_observer.{method_name}()
                 def my_function():

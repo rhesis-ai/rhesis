@@ -18,7 +18,7 @@ export const EntityType = {
   TEST_RESULT: 'TestResult',
   PROMPT: 'Prompt',
   PROMPT_TEMPLATE: 'PromptTemplate',
-  BEHAVIOR: 'Behavior',
+  REQUIREMENT: 'Requirement',
   CATEGORY: 'Category',
   ENDPOINT: 'Endpoint',
   PROJECT: 'Project',

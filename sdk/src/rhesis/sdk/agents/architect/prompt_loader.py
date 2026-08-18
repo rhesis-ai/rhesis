@@ -82,7 +82,7 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                 ]
             )
         elif wp == WorkflowPath.PRD:
-            includes.append("requirements-workflow.md")
+            includes.append("spec-workflow.md")
         elif wp == WorkflowPath.RUN_ANALYZE:
             includes.extend(
                 [
@@ -102,21 +102,23 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
                 "phases/planning.md",
                 "phases/reuse.md",
                 "metric-scope.md",
+                "metric-authoring.md",
                 "telemachus-save-plan.j2",
             ]
         )
         if wp == WorkflowPath.PRD:
-            includes.extend(["requirements-workflow.md", "use-case-bracketfeld.md"])
+            includes.extend(["spec-workflow.md", "use-case-bracketfeld.md"])
 
     elif m == AgentMode.CREATING:
         includes.extend(
             [
                 "phases/creation.md",
                 "metric-scope.md",
+                "metric-authoring.md",
             ]
         )
         if wp == WorkflowPath.PRD:
-            includes.append("requirements-workflow.md")
+            includes.append("spec-workflow.md")
 
     elif m == AgentMode.EXECUTING:
         includes.extend(

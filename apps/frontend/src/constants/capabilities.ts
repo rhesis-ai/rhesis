@@ -118,11 +118,11 @@ export const Capability = {
     UPDATE: 'source:update',
     DELETE: 'source:delete',
   },
-  Behavior: {
-    READ: 'behavior:read',
-    CREATE: 'behavior:create',
-    UPDATE: 'behavior:update',
-    DELETE: 'behavior:delete',
+  Requirement: {
+    READ: 'requirement:read',
+    CREATE: 'requirement:create',
+    UPDATE: 'requirement:update',
+    DELETE: 'requirement:delete',
   },
   Tool: {
     READ: 'tool:read',
@@ -160,6 +160,10 @@ export const Capability = {
   Garak: {
     READ: 'garak:read',
     CREATE: 'garak:create',
+  },
+  Owasp: {
+    READ: 'owasp:read',
+    CREATE: 'owasp:create',
   },
   Metric: {
     READ: 'metric:read',
@@ -301,11 +305,11 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'source:create': 'Upload knowledge sources',
   'source:update': 'Edit knowledge sources',
   'source:delete': 'Delete knowledge sources',
-  // Behaviors
-  'behavior:read': 'View behaviors',
-  'behavior:create': 'Create behaviors',
-  'behavior:update': 'Edit behaviors',
-  'behavior:delete': 'Delete behaviors',
+  // Requirements
+  'requirement:read': 'View requirements',
+  'requirement:create': 'Create requirements',
+  'requirement:update': 'Edit requirements',
+  'requirement:delete': 'Delete requirements',
   // Tools
   'tool:read': 'View tool connections',
   'tool:create': 'Add tool connections',
@@ -336,6 +340,9 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   // Garak
   'garak:read': 'View Garak probes',
   'garak:create': 'Import Garak probes',
+  // OWASP
+  'owasp:read': 'View OWASP categories',
+  'owasp:create': 'Generate OWASP test sets',
   // Metrics
   'metric:read': 'View metrics',
   'metric:create': 'Create metrics',

@@ -376,7 +376,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
     }
     await promptInput.fill('e2e manual test — save flow');
 
-    // handleSave() requires prompt, category, topic, and behavior for single-turn rows.
+    // handleSave() requires prompt, category, topic, and requirement for single-turn rows.
     const classifiers = page
       .locator('table')
       .first()
@@ -384,13 +384,13 @@ test.describe('Tests — manual creation wizard @crud', () => {
     if ((await classifiers.count()) < 3) {
       test.skip(
         true,
-        'Category/topic/behavior fields not found — skipping save flow'
+        'Category/topic/requirement fields not found — skipping save flow'
       );
       return;
     }
     await classifiers.nth(0).fill('e2e-category');
     await classifiers.nth(1).fill('e2e-topic');
-    await classifiers.nth(2).fill('e2e-behavior');
+    await classifiers.nth(2).fill('e2e-requirement');
 
     // Click Save
     const saveBtn = page.getByRole('button', { name: /^save$/i }).first();

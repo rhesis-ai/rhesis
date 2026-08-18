@@ -131,6 +131,7 @@ class BaseEntity(BaseModel):
         if missing:
             raise ValueError(f"Required fields for push: {', '.join(missing)}")
 
+    @handle_http_errors
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
         self._validate_push_requirements()

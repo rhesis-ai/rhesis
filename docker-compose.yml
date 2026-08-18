@@ -14,6 +14,8 @@ x-common-storage: &common-storage
 x-common-auth: &common-auth
   AUTH_EMAIL_PASSWORD_ENABLED: ${AUTH_EMAIL_PASSWORD_ENABLED:-}
   AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-}
+  AUTH_BLOCK_DISPOSABLE_EMAILS: ${AUTH_BLOCK_DISPOSABLE_EMAILS:-}
+  AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS: ${AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS:-}
   # Google OAuth (optional)
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -59,6 +61,11 @@ x-telemetry-config: &telemetry-config
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required, no safe default}
   NEXT_TELEMETRY_DISABLED: 1
+  # Optional branding overrides, read at request time — see .env.example
+  BRAND_PRIMARY_COLOR: ${BRAND_PRIMARY_COLOR:-}
+  BRAND_SECONDARY_COLOR: ${BRAND_SECONDARY_COLOR:-}
+  BRAND_FAVICON_URL: ${BRAND_FAVICON_URL:-}
+  BRAND_PRODUCT_NAME: ${BRAND_PRODUCT_NAME:-}
 
 
 services:

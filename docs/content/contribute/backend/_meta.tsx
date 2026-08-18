@@ -39,9 +39,6 @@ export default {
   "test-reviews": {
     title: "Test Reviews",
   },
-  "test-result-stats": {
-    title: "Test Result Statistics",
-  },
   "test-result-status": {
     title: "Test Result Status",
   },

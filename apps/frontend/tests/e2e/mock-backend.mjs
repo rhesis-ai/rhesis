@@ -29,7 +29,7 @@ const fixtures = {
   endpointDetail: loadJson('endpoint-detail.json'),
   knowledgeDetail: loadJson('knowledge-detail.json'),
   sources: loadJson('sources.json'),
-  behaviors: loadJson('behaviors.json'),
+  requirements: loadJson('requirements.json'),
   tasks: loadJson('tasks.json'),
   tokens: loadJson('tokens.json'),
 };
@@ -69,7 +69,7 @@ const listByResource = {
   test_results: fixtures.testResults,
   endpoints: fixtures.endpoints,
   sources: fixtures.sources,
-  behaviors: fixtures.behaviors,
+  requirements: fixtures.requirements,
   tasks: fixtures.tasks,
   tokens: fixtures.tokens,
 };

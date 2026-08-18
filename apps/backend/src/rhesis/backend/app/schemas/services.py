@@ -26,7 +26,7 @@ class GenerationConfig(BaseModel):
     # Required, not optional: both generation routes already reject an empty list
     # with a 400. Declaring it here puts the requirement in the OpenAPI schema,
     # which is what MCP clients and the Architect agent read.
-    behaviors: List[str] = Field(..., min_length=1)  # Behaviors to test
+    requirements: List[str] = Field(..., min_length=1)  # Requirements to test
     categories: Optional[List[str]] = None  # Test categories
     topics: Optional[List[str]] = None  # Topics to cover
     additional_context: Optional[str] = None  # Additional context (JSON string)
@@ -141,7 +141,7 @@ class TestMetadata(BaseModel):
 
 class Test(BaseModel):
     prompt: TestPrompt
-    behavior: str
+    requirement: str
     category: str
     topic: str
     metadata: TestMetadata
@@ -191,7 +191,7 @@ class TestConfigItem(BaseModel):
 
 
 class TestConfigResponse(BaseModel):
-    behaviors: List[TestConfigItem]
+    requirements: List[TestConfigItem]
     topics: List[TestConfigItem]
     categories: List[TestConfigItem]
 
@@ -228,8 +228,8 @@ class TestConfigRequest(BaseModel):
     previous_messages: Optional[List[IterationMessage]] = None
 
 
-class BehaviorsResponse(BaseModel):
-    behaviors: List[TestConfigItem]
+class RequirementsResponse(BaseModel):
+    requirements: List[TestConfigItem]
 
 
 class TopicsResponse(BaseModel):
@@ -244,7 +244,7 @@ class GenerateMultiTurnTestsRequest(BaseModel):
     """Request for generating multi-turn test cases."""
 
     generation_prompt: str
-    behavior: Optional[list[str]] = None
+    requirement: Optional[list[str]] = None
     category: Optional[list[str]] = None
     topic: Optional[list[str]] = None
     num_tests: int = Field(default=5, ge=1, le=200)
@@ -264,7 +264,7 @@ class MultiTurnTest(BaseModel):
     """Multi-turn test case with structured configuration."""
 
     test_configuration: MultiTurnTestConfiguration
-    behavior: str
+    requirement: str
     category: str
     topic: str
     test_type: str

@@ -19,6 +19,7 @@ from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.app.utils.response_extractor import is_http_error_response
 from rhesis.penelope.targets.base import Target, TargetResponse
 
@@ -45,7 +46,9 @@ def run_async(coro: Coroutine[Any, Any, T]) -> T:
         from concurrent.futures import ThreadPoolExecutor
 
         with ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result()
+            # with_usage_attribution: a plain submit() drops contextvars, so
+            # Penelope's LLM calls would emit usage with no org bound.
+            return pool.submit(with_usage_attribution(asyncio.run), coro).result()
     except RuntimeError:
         return asyncio.run(coro)
 

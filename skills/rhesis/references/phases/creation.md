@@ -6,17 +6,17 @@ Execute the approved plan exactly — no extra entities.
 
 1. Reuse lookup — resolve IDs via `list_*` + `$filter` if needed
 2. `create_project` — only if planned
-3. `create_behavior` — **(new)** only; name + description
-4. Resolve all behavior IDs
-5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`. Do NOT use `generate_metric`
-6. `add_behavior_to_metric` — all mappings before generation
-7. `assign_tag` — if planned (PRD path); `entity_type` `Behavior` or `Metric`
-8. `generate_test_set` — per set; `config.behaviors`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
+3. `create_requirement` — **(new)** only; name + description
+4. Resolve all requirement IDs
+5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`, plus `description`, `evaluation_steps`, `reasoning`, `explanation` written to the depth in `metric-authoring.md`. Do NOT use `generate_metric`
+6. `add_requirement_to_metric` — all mappings before generation
+7. `assign_tag` — if planned (PRD path); `entity_type` `Requirement` or `Metric`
+8. `generate_test_set` — per set; `config.requirements`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
 9. **Wait for generation** — call `await_task` with the `task_id`(s) from the responses. Do NOT poll `get_job_status` manually; the system resumes when all tasks finish.
 10. `get_test_set` + `list_test_set_tests` spot-check generated prompts
 11. Summarize by name (never IDs); offer execution: "Would you like me to run these against [endpoint name]?"
 
-**Critical:** test sets are generated LAST, only after every behavior, metric, and behavior→metric link is in place. Calling `generate_test_set` before that point is rejected with "Cannot generate test sets yet…". Wait until the "Plan progress" line shows N/N for behaviors, metrics, and mappings.
+**Critical:** test sets are generated LAST, only after every requirement, metric, and requirement→metric link is in place. Calling `generate_test_set` before that point is rejected with "Cannot generate test sets yet…". Wait until the "Plan progress" line shows N/N for requirements, metrics, and mappings.
 
 ## Multi-Turn test sets
 
@@ -29,15 +29,24 @@ Multi-Turn and Single-Turn test sets produce structurally different tests. Getti
 
 Title Case, 2–5 words. No snake_case or `check_` prefixes.
 
+## Metric depth
+
+Send the full metric, not the minimum the API accepts. `description`, `evaluation_steps`,
+`reasoning`, and `explanation` go on every `create_metric` call, written out — one sentence each is
+a threadbare metric, not a shortcut. `evaluation_steps` uses the `Step N:` / `---` format. See
+`metric-authoring.md` for the field-by-field requirements, worked examples, and anti-patterns.
+
 ## Field constraints
 
 - `metric_type`: `"custom-prompt"`; `backend_type`: `"custom"`
 - `score_type`: `"numeric"` or `"categorical"` only
 - `metric_scope`: non-empty; entries `"Single-Turn"` and/or `"Multi-Turn"`
+- `evaluation_steps`: steps joined by a line containing only `---`, each prefixed `Step N:` on its
+  own line — a plain `1. … 2. …` list stores as a single step
 - `threshold_operator`: `=`, `<`, `>`, `<=`, `>=`, `!=`
 - `test_type`: `"Single-Turn"` or `"Multi-Turn"`
 - `priority`: integer, not string
-- `config.behaviors`: non-empty list of behavior **names**
+- `config.requirements`: non-empty list of requirement **names**
 
 ## Never send
 

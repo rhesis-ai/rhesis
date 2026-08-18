@@ -151,7 +151,7 @@ def _ensure_ee_features_registered():
     the rest of the suite: every later test then sees RBAC as unregistered,
     ``PermissionAuthorizationProvider._rbac_available()`` returns False, and
     every RBAC permission check silently falls back to the community
-    provider, denying broadly (explorer, behavior, endpoint, etc.).
+    provider, denying broadly (explorer, requirement, endpoint, etc.).
 
     Cheap: dict inserts plus ``app.include_router`` on a mock. The enricher
     list is reset first so re-running ``bootstrap`` does not leave stale

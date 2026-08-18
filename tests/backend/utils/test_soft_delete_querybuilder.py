@@ -19,7 +19,7 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 # Use existing data factories
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     CategoryDataFactory,
     TopicDataFactory,
 )
@@ -32,46 +32,46 @@ class TestQueryBuilderSoftDelete:
 
     def test_default_query_excludes_deleted(self, test_db: Session, test_org_id):
         """Test that default QueryBuilder queries exclude soft-deleted records."""
-        # Create active and deleted behaviors
-        active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create active and deleted requirements
+        active_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        deleted_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        deleted_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
         # Query without any soft delete method
-        results = QueryBuilder(test_db, models.Behavior).with_organization_filter(test_org_id).all()
+        results = QueryBuilder(test_db, models.Requirement).with_organization_filter(test_org_id).all()
 
         result_ids = [b.id for b in results]
 
         # Should include active, not deleted
-        assert active_behavior.id in result_ids
-        assert deleted_behavior.id not in result_ids
+        assert active_requirement.id in result_ids
+        assert deleted_requirement.id not in result_ids
 
     def test_with_deleted_includes_all_records(self, test_db: Session, test_org_id):
         """Test that with_deleted() includes both active and soft-deleted records."""
-        # Create active and deleted behaviors
-        active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create active and deleted requirements
+        active_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        deleted_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        deleted_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
         # Query with with_deleted()
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_deleted()
             .all()
@@ -80,27 +80,27 @@ class TestQueryBuilderSoftDelete:
         result_ids = [b.id for b in results]
 
         # Should include both active and deleted
-        assert active_behavior.id in result_ids
-        assert deleted_behavior.id in result_ids
+        assert active_requirement.id in result_ids
+        assert deleted_requirement.id in result_ids
 
     def test_only_deleted_returns_only_deleted_records(self, test_db: Session, test_org_id):
         """Test that only_deleted() returns only soft-deleted records."""
-        # Create active and deleted behaviors
-        active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create active and deleted requirements
+        active_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        deleted_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        deleted_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
         # Query with only_deleted()
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .only_deleted()
             .all()
@@ -109,40 +109,40 @@ class TestQueryBuilderSoftDelete:
         result_ids = [b.id for b in results]
 
         # Should only include deleted, not active
-        assert active_behavior.id not in result_ids
-        assert deleted_behavior.id in result_ids
+        assert active_requirement.id not in result_ids
+        assert deleted_requirement.id in result_ids
 
         # Verify all results have deleted_at set
-        for behavior in results:
-            assert behavior.deleted_at is not None
+        for requirement in results:
+            assert requirement.deleted_at is not None
 
     def test_with_deleted_chains_with_filters(self, test_db: Session, test_org_id):
         """Test that with_deleted() chains properly with other filters."""
-        # Create behaviors with specific names
-        active_behavior = crud_utils.create_item(
+        # Create requirements with specific names
+        active_requirement = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            {**BehaviorDataFactory.sample_data(), "name": "Active Behavior Test"},
+            models.Requirement,
+            {**RequirementDataFactory.sample_data(), "name": "Active Requirement Test"},
             organization_id=test_org_id,
         )
 
-        deleted_behavior = crud_utils.create_item(
+        deleted_requirement = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            {**BehaviorDataFactory.sample_data(), "name": "Deleted Behavior Test"},
+            models.Requirement,
+            {**RequirementDataFactory.sample_data(), "name": "Deleted Requirement Test"},
             organization_id=test_org_id,
         )
 
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
         # Query with multiple filters including with_deleted()
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_deleted()
-            .with_custom_filter(lambda q: q.filter(models.Behavior.name.like("%Test%")))
+            .with_custom_filter(lambda q: q.filter(models.Requirement.name.like("%Test%")))
             .all()
         )
 
@@ -150,28 +150,28 @@ class TestQueryBuilderSoftDelete:
 
         # Should include both because both match the filter
         assert len(result_ids) >= 2
-        assert active_behavior.id in result_ids
-        assert deleted_behavior.id in result_ids
+        assert active_requirement.id in result_ids
+        assert deleted_requirement.id in result_ids
 
     def test_only_deleted_chains_with_pagination(self, test_db: Session, test_org_id):
         """Test that only_deleted() chains with pagination methods."""
-        # Create and delete multiple behaviors
-        deleted_behaviors = []
+        # Create and delete multiple requirements
+        deleted_requirements = []
         for i in range(5):
-            behavior = crud_utils.create_item(
+            requirement = crud_utils.create_item(
                 test_db,
-                models.Behavior,
-                BehaviorDataFactory.sample_data(),
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
                 organization_id=test_org_id,
             )
             crud_utils.delete_item(
-                test_db, models.Behavior, behavior.id, organization_id=test_org_id
+                test_db, models.Requirement, requirement.id, organization_id=test_org_id
             )
-            deleted_behaviors.append(behavior)
+            deleted_requirements.append(requirement)
 
         # Query with pagination
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .only_deleted()
             .with_pagination(skip=1, limit=2)
@@ -182,49 +182,49 @@ class TestQueryBuilderSoftDelete:
         assert len(results) <= 2
 
         # All should be deleted
-        for behavior in results:
-            assert behavior.deleted_at is not None
+        for requirement in results:
+            assert requirement.deleted_at is not None
 
     def test_only_deleted_chains_with_sorting(self, test_db: Session, test_org_id):
         """Test that only_deleted() chains with sorting methods."""
-        # Create and delete multiple behaviors with unique names for identification
+        # Create and delete multiple requirements with unique names for identification
         import time
 
-        deleted_behaviors = []
-        base_name = f"test_sorting_behavior_{int(time.time())}"
+        deleted_requirements = []
+        base_name = f"test_sorting_requirement_{int(time.time())}"
 
         for i in range(3):
-            behavior_data = BehaviorDataFactory.sample_data()
-            behavior_data["name"] = f"{base_name}_{i}"
+            requirement_data = RequirementDataFactory.sample_data()
+            requirement_data["name"] = f"{base_name}_{i}"
 
-            behavior = crud_utils.create_item(
+            requirement = crud_utils.create_item(
                 test_db,
-                models.Behavior,
-                behavior_data,
+                models.Requirement,
+                requirement_data,
                 organization_id=test_org_id,
             )
             crud_utils.delete_item(
-                test_db, models.Behavior, behavior.id, organization_id=test_org_id
+                test_db, models.Requirement, requirement.id, organization_id=test_org_id
             )
-            deleted_behaviors.append(behavior)
+            deleted_requirements.append(requirement)
             time.sleep(0.02)  # Slightly larger delay to ensure different timestamps
 
-        # Query with sorting by deleted_at descending, filtering to only our test behaviors
+        # Query with sorting by deleted_at descending, filtering to only our test requirements
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .only_deleted()
-            .with_custom_filter(lambda q: q.filter(models.Behavior.name.like(f"{base_name}_%")))
+            .with_custom_filter(lambda q: q.filter(models.Requirement.name.like(f"{base_name}_%")))
             .with_sorting("deleted_at", "desc")
             .all()
         )
 
-        # Should have exactly our 3 deleted behaviors
+        # Should have exactly our 3 deleted requirements
         result_ids = [b.id for b in results]
         assert len(results) == 3
-        assert all(b.id in result_ids for b in deleted_behaviors)
+        assert all(b.id in result_ids for b in deleted_requirements)
 
-        # Verify sorting (most recently deleted first) - only check our created behaviors
+        # Verify sorting (most recently deleted first) - only check our created requirements
         if len(results) >= 2:
             for i in range(len(results) - 1):
                 time1 = (
@@ -241,33 +241,33 @@ class TestQueryBuilderSoftDelete:
 
     def test_filter_by_id_respects_soft_delete(self, test_db: Session, test_org_id):
         """Test that filter_by_id respects soft delete filtering."""
-        # Create and delete a behavior
-        behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create and delete a requirement
+        requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
-        behavior_id = behavior.id
+        requirement_id = requirement.id
 
-        crud_utils.delete_item(test_db, models.Behavior, behavior_id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement_id, organization_id=test_org_id)
 
         # Query by ID without with_deleted() should return None
         result = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
-            .filter_by_id(behavior_id)
+            .filter_by_id(requirement_id)
         )
 
         assert result is None
 
         # Query by ID with with_deleted() should find it
         result_with_deleted = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_deleted()
-            .filter_by_id(behavior_id)
+            .filter_by_id(requirement_id)
         )
 
         assert result_with_deleted is not None
-        assert result_with_deleted.id == behavior_id
+        assert result_with_deleted.id == requirement_id
 
     def test_count_respects_soft_delete_filtering(self, test_db: Session, test_org_id):
         """Test that count operations respect soft delete filtering."""
@@ -362,51 +362,51 @@ class TestQueryBuilderWithEventListener:
 
     def test_context_manager_overrides_event_listener(self, test_db: Session, test_org_id):
         """Test that without_soft_delete_filter context manager overrides event listener."""
-        # Create and delete a behavior
-        behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create and delete a requirement
+        requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        crud_utils.delete_item(test_db, models.Behavior, behavior.id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement.id, organization_id=test_org_id)
 
         # Within context, even regular queries should see deleted records
         with without_soft_delete_filter():
             results = (
-                test_db.query(models.Behavior)
-                .filter(models.Behavior.organization_id == test_org_id)
+                test_db.query(models.Requirement)
+                .filter(models.Requirement.organization_id == test_org_id)
                 .all()
             )
 
             result_ids = [b.id for b in results]
-            assert behavior.id in result_ids
+            assert requirement.id in result_ids
 
     def test_multiple_entities_in_query_all_filtered(self, test_db: Session, test_org_id):
         """Test that queries with multiple entities filter soft-deleted records."""
-        # Create multiple behaviors
-        active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create multiple requirements
+        active_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        deleted_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        deleted_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        # Delete one behavior
+        # Delete one requirement
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
         # Direct query should filter out deleted records
         results = (
-            test_db.query(models.Behavior)
-            .filter(models.Behavior.organization_id == test_org_id)
+            test_db.query(models.Requirement)
+            .filter(models.Requirement.organization_id == test_org_id)
             .all()
         )
 
         result_ids = [b.id for b in results]
-        # Should only include active behavior
-        assert active_behavior.id in result_ids
-        assert deleted_behavior.id not in result_ids
+        # Should only include active requirement
+        assert active_requirement.id in result_ids
+        assert deleted_requirement.id not in result_ids
 
 
 @pytest.mark.unit
@@ -442,23 +442,23 @@ class TestQueryBuilderEdgeCases:
 
     def test_chain_with_deleted_and_only_deleted(self, test_db: Session, test_org_id):
         """Test that chaining with_deleted and only_deleted uses the last one."""
-        # Create active and deleted behaviors
-        active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create active and deleted requirements
+        active_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        deleted_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        deleted_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
         # Chain with_deleted() then only_deleted()
         # Last call should take precedence
         results = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_deleted()
             .only_deleted()
@@ -468,36 +468,36 @@ class TestQueryBuilderEdgeCases:
         result_ids = [b.id for b in results]
 
         # Should only show deleted (last method wins)
-        assert active_behavior.id not in result_ids
-        assert deleted_behavior.id in result_ids
+        assert active_requirement.id not in result_ids
+        assert deleted_requirement.id in result_ids
 
     def test_first_with_soft_delete_filtering(self, test_db: Session, test_org_id):
         """Test that first() method respects soft delete filtering."""
-        # Create multiple behaviors and delete one
-        behaviors = []
+        # Create multiple requirements and delete one
+        requirements = []
         for i in range(3):
-            behavior = crud_utils.create_item(
+            requirement = crud_utils.create_item(
                 test_db,
-                models.Behavior,
-                {**BehaviorDataFactory.sample_data(), "name": f"Behavior {i}"},
+                models.Requirement,
+                {**RequirementDataFactory.sample_data(), "name": f"Requirement {i}"},
                 organization_id=test_org_id,
             )
-            behaviors.append(behavior)
+            requirements.append(requirement)
 
         # Delete the first one
         crud_utils.delete_item(
-            test_db, models.Behavior, behaviors[0].id, organization_id=test_org_id
+            test_db, models.Requirement, requirements[0].id, organization_id=test_org_id
         )
 
         # first() should skip the deleted one
         first_result = (
-            QueryBuilder(test_db, models.Behavior)
+            QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
             .with_sorting("name", "asc")
             .first()
         )
 
-        # Should not be the deleted behavior
+        # Should not be the deleted requirement
         if first_result:
-            assert first_result.id != behaviors[0].id
+            assert first_result.id != requirements[0].id
             assert first_result.deleted_at is None

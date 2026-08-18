@@ -5,7 +5,7 @@ Key guarantees tested:
 - Resource channel subscription calls authorize() via PDP when a DB session is provided.
 - A caller with no org membership is denied for resource channels (deny-first).
 - Org member is allowed for resource channels in community tier (org-scoped read).
-- Legacy path (db=None) preserves the old allow-any-authenticated behavior.
+- Legacy path (db=None) preserves the old allow-any-authenticated requirement.
 - User-scoped channels still enforce own-user check.
 - Org-scoped channels still enforce own-org check.
 

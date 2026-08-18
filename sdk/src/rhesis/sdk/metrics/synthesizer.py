@@ -24,38 +24,51 @@ class GeneratedMetric(BaseModel):
             '(e.g. "Factual Accuracy", "Response Completeness")'
         )
     )
-    description: str = Field(description="One-sentence explanation of what the metric measures")
+    description: str = Field(
+        description=(
+            "Two to three sentences on what the metric measures, on what "
+            "part of the output, and why it matters for this system. "
+            "Written for a human scanning a list of metrics; never a "
+            "restatement of the name."
+        )
+    )
     evaluation_prompt: str = Field(
         description=(
-            "Evaluation criteria text only — no template placeholders. "
-            "The evaluation engine injects runtime context automatically. "
-            "For single-turn metrics, focus on response-level criteria "
-            "(accuracy, relevance, safety). For multi-turn metrics, focus "
-            "on conversation-level criteria (goal achievement, turn "
-            "progression, coherence across turns)."
+            "Evaluation criteria text only — no template placeholders, "
+            "nothing substitutes them. Roughly 6-15 lines: name something "
+            "a reader could point at in the output, then one bullet per "
+            "testable clause, then score bands tied to conditions rather "
+            "than adverbs. The evaluation engine injects runtime context "
+            "automatically. For single-turn metrics, focus on "
+            "response-level criteria (accuracy, relevance, safety). For "
+            "multi-turn metrics, focus on conversation-level criteria "
+            "(goal achievement, turn progression, coherence across turns)."
         )
     )
     evaluation_steps: str = Field(
         description=(
-            "Numbered step-by-step instructions the judge LLM follows to "
-            'reach a score (e.g. "1. Identify each factual claim. '
-            "2. Check it against the provided context. 3. Count "
-            'unsupported claims. 4. Map the count to the scale."). '
-            "Concrete steps make scoring far more repeatable than "
-            "criteria prose alone."
+            "4-7 ordered steps the judge follows to reach a score, one "
+            "observable action each, scoring last. Format: 'Step N:' on "
+            "its own line, the step text below it, steps joined by a line "
+            'containing only "---" (e.g. "Step 1:\\nIdentify each factual '
+            "claim.\\n---\\nStep 2:\\nCheck each claim against the "
+            'provided context."). A plain "1. ... 2. ..." list is stored '
+            "as a single step."
         )
     )
     reasoning: str = Field(
         description=(
-            "Instructions for how the judge should explain its verdict — "
-            "what evidence to cite and how to justify the score it gives."
+            "Three to five sentences on how the judge should justify its "
+            "verdict: which span of the output to quote, which criterion "
+            "clause to tie it to, what to do when the evidence is "
+            "missing, and how to break a tie between two score bands."
         )
     )
     explanation: str = Field(
         description=(
-            "What a passing versus failing result means for the system "
-            "under test, so whoever reads a result knows what to do "
-            "about it."
+            "Two to four sentences on what a passing versus failing "
+            "result means for the system under test, and what the reader "
+            "should do about a fail."
         )
     )
     score_type: str = Field(description='Must be exactly "numeric" or "categorical"')

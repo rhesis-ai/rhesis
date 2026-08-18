@@ -94,21 +94,21 @@ List projects. Projects group related test sets and test runs.
 ---
 
 ### `list_test_sets`
-List test sets in the organization. Test sets group related tests sharing a behavior, category, or theme.
+List test sets in the organization. Test sets group related tests sharing a requirement, category, or theme.
 
 **Key parameters:** `$select=name,id,description`, `$filter`
 
 ---
 
 ### `list_tests`
-List individual tests. Each test defines a prompt and expected behavior.
+List individual tests. Each test defines a prompt and expected requirement.
 
-**Default fields returned:** `id`, `prompt`, `behavior`, `category`, `topic`, `test_set`
+**Default fields returned:** `id`, `prompt`, `requirement`, `category`, `topic`, `test_set`
 
 ---
 
-### `list_behaviors`
-List available behaviors. Behaviors define what an endpoint should do.
+### `list_requirements`
+List available requirements. Requirements define what an endpoint should do.
 
 **Key parameters:** `$select=name,id,description`, `$filter=contains(tolower(name), 'safety')`
 
@@ -153,7 +153,7 @@ List test runs. Each run tracks one execution of a test set.
 ### `list_test_results`
 List test results. Each result contains the prompt sent, the response, status, and evaluation scores.
 
-**Default fields returned:** `id`, `status`, `prompt`, `behavior`, `metric_scores` (excludes `response` by default)
+**Default fields returned:** `id`, `status`, `prompt`, `requirement`, `metric_scores` (excludes `response` by default)
 
 **Always filter by run:** `$filter=test_run_id eq '<uuid>'`
 
@@ -190,10 +190,10 @@ Use the result IDs from `list_test_results` (filtered to failures) to identify w
 
 ---
 
-### `get_metric_behaviors`
-List all behaviors currently linked to a metric.
+### `get_metric_requirements`
+List all requirements currently linked to a metric.
 
-Use to verify behavior associations before calling `add_behavior_to_metric`.
+Use to verify requirement associations before calling `add_requirement_to_metric`.
 
 **Key parameters:** `metric_id` (path parameter, required)
 
@@ -226,26 +226,26 @@ Create a new project.
 
 ---
 
-### `create_behavior`
-Create a behavior with a name and description.
+### `create_requirement`
+Create a requirement with a name and description.
 
-Call this **before** `create_test_set_bulk` so that when test objects reference the behavior by name, the server finds the pre-created behavior (with its description) rather than auto-creating a stub with no description.
+Call this **before** `create_test_set_bulk` so that when test objects reference the requirement by name, the server finds the pre-created requirement (with its description) rather than auto-creating a stub with no description.
 
 **Key parameters:**
 - `name` (required) — Title Case, e.g. `"Refuses Harmful Requests"`
-- `description` (required) — explain what the behavior means and how it should be evaluated
+- `description` (required) — explain what the requirement means and how it should be evaluated
 
-**Common mistakes:** Behavior names are unique per organization, so creating one that already exists fails with "Behavior with this name already exists". Resolve it with `list_behaviors` and reuse its id. Never retry with a suffixed name like `"Refuses Harmful Requests 2"`.
+**Common mistakes:** Requirement names are unique per organization, so creating one that already exists fails with "Requirement with this name already exists". Resolve it with `list_requirements` and reuse its id. Never retry with a suffixed name like `"Refuses Harmful Requests 2"`.
 
 ---
 
-### `update_behavior`
-Update an existing behavior's fields.
+### `update_requirement`
+Update an existing requirement's fields.
 
-Useful for adding a description to a behavior that was auto-created without one.
+Useful for adding a description to a requirement that was auto-created without one.
 
 **Key parameters:**
-- `behavior_id` (required, path parameter)
+- `requirement_id` (required, path parameter)
 - `name` — optional, omit to keep unchanged
 - `description`
 
@@ -261,8 +261,9 @@ Prefer `generate_metric` when you know what to measure but don't want to fill ev
 - `metric_type` (required) — must be `"custom-prompt"` for user-defined metrics
 - `backend_type` (required) — must be `"custom"`
 - `score_type` (required) — must be exactly `"numeric"` or `"categorical"`
-- `evaluation_prompt` (required) — the prompt template used to score responses; may use `{{prompt}}`, `{{response}}`, `{{expected_response}}`
+- `evaluation_prompt` (required) — the evaluation criteria the judge applies. Criteria text only: placeholders like `{{response}}` are **not** substituted, and the engine already injects the input, response, context, and transcript
 - `metric_scope` (required) — list of strings, each must be `"Single-Turn"` or `"Multi-Turn"`
+- `description`, `evaluation_steps`, `reasoning`, `explanation` — optional to the API, expected in practice. Send all four, written out; see `metric-authoring.md` for the depth and for the `Step N:` / `---` format `evaluation_steps` must use
 
 **Fields required by `score_type`.** These are enforced by the server but cannot be expressed in the JSON schema, so they are easy to miss:
 
@@ -302,14 +303,14 @@ The LLM reads the current metric fields and applies the requested changes. The m
 
 ---
 
-### `add_behavior_to_metric`
-Link a behavior to a metric so the metric is used to evaluate that behavior during test runs.
+### `add_requirement_to_metric`
+Link a requirement to a metric so the metric is used to evaluate that requirement during test runs.
 
 Both entities must already exist. Idempotent — calling it again for the same pair is a no-op.
 
 **Key parameters:**
 - `metric_id` (required, path parameter)
-- `behavior_id` (required, path parameter)
+- `requirement_id` (required, path parameter)
 
 ---
 
@@ -322,7 +323,7 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
 - `name` (required) — test set name
 - `config` (required object):
   - `generation_prompt` (required) — detailed description of what to test and how; be specific
-  - `behaviors` (required, non-empty list of strings) — behavior names the tests target
+  - `requirements` (required, non-empty list of strings) — requirement names the tests target
   - `categories` (optional list of strings)
   - `topics` (optional list of strings)
 - `num_tests` — integer, default 5, typical range 3–20
@@ -331,7 +332,7 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
 
 `project_id` is resolved from the request scope — omit it.
 
-**Common mistakes:** Omitting `config.behaviors` (rejected with "At least one behavior must be specified"), omitting `name`, omitting `test_type` for a Multi-Turn test set. If this call fails, fix the argument it names and call it again — do **not** fall back to `create_test_set_bulk`, which stores only the prompts you write by hand and produces a far smaller test set than the user asked for.
+**Common mistakes:** Omitting `config.requirements` (rejected with "At least one requirement must be specified"), omitting `name`, omitting `test_type` for a Multi-Turn test set. If this call fails, fix the argument it names and call it again — do **not** fall back to `create_test_set_bulk`, which stores only the prompts you write by hand and produces a far smaller test set than the user asked for.
 
 ---
 
@@ -345,8 +346,8 @@ Use this **only** when importing specific user-provided test prompts that must b
 - `description`
 - `test_set_type` (required) — `"Single-Turn"` or `"Multi-Turn"`
 - `tests` (required, non-empty array) — item shape depends on the test type:
-  - Single-Turn: `{"prompt": {"content": "...", "language_code": "en"}, "behavior": "name", "category": "name", "topic": "name"}`
-  - Multi-Turn: `{"test_type": "Multi-Turn", "test_configuration": {"goal": "...", "instructions": "...", "restrictions": "...", "scenario": "...", "max_turns": 10}, "behavior": "name", "category": "name", "topic": "name"}`
+  - Single-Turn: `{"prompt": {"content": "...", "language_code": "en"}, "requirement": "name", "category": "name", "topic": "name"}`
+  - Multi-Turn: `{"test_type": "Multi-Turn", "test_configuration": {"goal": "...", "instructions": "...", "restrictions": "...", "scenario": "...", "max_turns": 10}, "requirement": "name", "category": "name", "topic": "name"}`
 - `priority` — integer (1, 2, 3), not a string
 
 Only `goal` is required inside `test_configuration`. A test uses either `prompt` or `test_configuration`, never both.
@@ -389,8 +390,8 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 Aggregated statistics for test results. Use for single-run analysis and multi-run comparison.
 
 **Mode parameter:**
-- `all` — complete stats for a single run: behavior pass rates, metric pass rates, overall totals, and timeline. **Use this with a single `test_run_id` immediately after execution — most efficient option for post-run analysis.**
-- `behavior` — pass rates grouped by behavior; use with `test_run_id`
+- `all` — complete stats for a single run: requirement pass rates, metric pass rates, overall totals, and timeline. **Use this with a single `test_run_id` immediately after execution — most efficient option for post-run analysis.**
+- `requirement` — pass rates grouped by requirement; use with `test_run_id`
 - `metrics` — pass rates grouped by metric name; use with `test_run_id`
 - `test_runs` — per-run pass/fail summary; pass multiple `test_run_ids` to compare runs side by side
 - `summary` — lightweight overall totals only
@@ -402,7 +403,7 @@ Aggregated statistics for test results. Use for single-run analysis and multi-ru
 - `mode`
 - `test_run_ids` — array of UUIDs for multi-run comparison
 - `test_run_id` — single UUID
-- `behavior_ids`, `test_set_ids` — optional filters
+- `requirement_ids`, `test_set_ids` — optional filters
 - `start_date`, `end_date` — ISO format
 
 ---
@@ -452,7 +453,7 @@ List tests inside a single test set.
 
 **CHAIN:** prefer over org-wide `list_tests` when you have the test set ID.
 
-**Default `$select`:** `id,prompt,behavior,category,topic`
+**Default `$select`:** `id,prompt,requirement,category,topic`
 
 **Key parameters:** `test_set_identifier` (required)
 
@@ -486,7 +487,7 @@ Update test set metadata only (name, description). Does not regenerate tests.
 ---
 
 ### `update_metric`
-Direct field edits on a metric. Does not change behavior links.
+Direct field edits on a metric. Does not change requirement links.
 
 **CHAIN:** `get_metric` first. For NL refactors use `improve_metric` instead.
 
@@ -494,12 +495,12 @@ Direct field edits on a metric. Does not change behavior links.
 
 ---
 
-### `remove_behavior_from_metric`
-Unlink a behavior from a metric. Inverse of `add_behavior_to_metric`.
+### `remove_requirement_from_metric`
+Unlink a requirement from a metric. Inverse of `add_requirement_to_metric`.
 
-**CHAIN:** confirm link via `get_metric_behaviors` first.
+**CHAIN:** confirm link via `get_metric_requirements` first.
 
-**Key parameters:** `metric_id`, `behavior_id` (required)
+**Key parameters:** `metric_id`, `requirement_id` (required)
 
 ---
 
@@ -539,12 +540,12 @@ Get one project by ID.
 
 ---
 
-### `get_behavior`
-Get one behavior including linked metrics.
+### `get_requirement`
+Get one requirement including linked metrics.
 
-**CHAIN:** complement `get_metric_behaviors` — behavior-centric view of metric links.
+**CHAIN:** complement `get_metric_requirements` — requirement-centric view of metric links.
 
-**Key parameters:** `behavior_id` (required)
+**Key parameters:** `requirement_id` (required)
 
 ---
 
@@ -569,7 +570,7 @@ Fix an individual test prompt without regenerating the whole set.
 ### `get_test_set_metrics`
 List metrics attached to a test set (execution overrides).
 
-**CHAIN:** pre-flight before `execute_test_set`. Empty list → behavior metrics apply.
+**CHAIN:** pre-flight before `execute_test_set`. Empty list → requirement metrics apply.
 
 **Key parameters:** `test_set_identifier` (required)
 
@@ -594,16 +595,16 @@ List organization tags. Reuse existing names before assigning.
 ---
 
 ### `assign_tag`
-Assign a tag to a behavior or metric. Creates the tag if missing.
+Assign a tag to a requirement or metric. Creates the tag if missing.
 
-**Request shape:** `POST /tags/{entity_type}/{entity_id}` with JSON body `{"name": "safety"}`. Path params are case-sensitive: `"Behavior"` or `"Metric"`.
+**Request shape:** `POST /tags/{entity_type}/{entity_id}` with JSON body `{"name": "safety"}`. Path params are case-sensitive: `"Requirement"` or `"Metric"`.
 
 **Key parameters:**
-- `entity_type` (path, required) — `"Behavior"` or `"Metric"` (case-sensitive)
+- `entity_type` (path, required) — `"Requirement"` or `"Metric"` (case-sensitive)
 - `entity_id` (path, required) — UUID
 - `name` (JSON body, required) — tag name string
 
-**CHAIN:** `create_behavior` / `create_metric` → `assign_tag`
+**CHAIN:** `create_requirement` / `create_metric` → `assign_tag`
 
 ---
 ## Playbooks

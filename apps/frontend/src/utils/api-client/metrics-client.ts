@@ -24,7 +24,7 @@ export class MetricsClient extends BaseApiClient {
   ): Promise<PaginatedResponse<MetricDetail>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
 
-    // The metrics endpoint now includes all relationships (behaviors, metric_type, backend_type)
+    // The metrics endpoint now includes all relationships (requirements, metric_type, backend_type)
     // using get_items_detail with joinedloads
     return this.fetchPaginated<MetricDetail>(
       API_ENDPOINTS.metrics,
@@ -82,35 +82,38 @@ export class MetricsClient extends BaseApiClient {
     });
   }
 
-  async addBehaviorToMetric(metricId: UUID, behaviorId: UUID): Promise<void> {
+  async addRequirementToMetric(
+    metricId: UUID,
+    requirementId: UUID
+  ): Promise<void> {
     return this.fetch<void>(
-      `${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`,
+      `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.requirements}/${requirementId}`,
       {
         method: 'POST',
       }
     );
   }
 
-  async removeBehaviorFromMetric(
+  async removeRequirementFromMetric(
     metricId: UUID,
-    behaviorId: UUID
+    requirementId: UUID
   ): Promise<void> {
     return this.fetch<void>(
-      `${API_ENDPOINTS.metrics}/${metricId}/behaviors/${behaviorId}`,
+      `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.requirements}/${requirementId}`,
       {
         method: 'DELETE',
       }
     );
   }
 
-  async getMetricBehaviors(
+  async getMetricRequirements(
     metricId: UUID,
     params?: PaginationParams
   ): Promise<PaginatedResponse<MetricDetail>> {
     const paginationParams = { ...DEFAULT_PAGINATION, ...params };
 
     return this.fetchPaginated<MetricDetail>(
-      `${API_ENDPOINTS.metrics}/${metricId}/behaviors`,
+      `${API_ENDPOINTS.metrics}/${metricId}${API_ENDPOINTS.requirements}`,
       paginationParams,
       {
         cache: 'no-store',

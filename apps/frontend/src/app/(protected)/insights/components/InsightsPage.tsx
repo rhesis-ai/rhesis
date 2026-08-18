@@ -10,7 +10,7 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { PageLayout } from '@/components/layout/PageLayout';
 import TestResultsFilters from './TestResultsFilters';
-import BehaviorInsightsView from './BehaviorInsightsView';
+import RequirementInsightsView from './RequirementInsightsView';
 import InsightsFailedTestsFab from './InsightsFailedTestsFab';
 import InsightsSummarizeFab from './InsightsSummarizeFab';
 import { FabGroup } from '@/components/common/Fab';
@@ -22,10 +22,10 @@ import {
 } from '../types';
 import {
   resolveEndpointId,
-  chunkBehaviorColumns,
-  isBehaviorRowExpandable,
-} from '../utils/behavior-insights-utils';
-import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
+  chunkRequirementColumns,
+  isRequirementRowExpandable,
+} from '../utils/requirement-insights-utils';
+import { useRequirementInsightsData } from '../hooks/useRequirementInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
 
@@ -69,11 +69,11 @@ export default function InsightsPage() {
   const {
     summary,
     columns,
-    behaviorOptions,
+    requirementOptions,
     loading: insightsLoading,
     error,
     noRuns,
-  } = useBehaviorInsightsData(filters, !permsLoading && canRead);
+  } = useRequirementInsightsData(filters, !permsLoading && canRead);
 
   const filteredColumns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -82,14 +82,14 @@ export default function InsightsPage() {
   }, [columns, searchQuery]);
 
   const columnRows = useMemo(
-    () => chunkBehaviorColumns(filteredColumns),
+    () => chunkRequirementColumns(filteredColumns),
     [filteredColumns]
   );
 
   const expandableRowIndices = useMemo(
     () =>
       columnRows.flatMap((row, index) =>
-        isBehaviorRowExpandable(row) ? [index] : []
+        isRequirementRowExpandable(row) ? [index] : []
       ),
     [columnRows]
   );
@@ -101,7 +101,7 @@ export default function InsightsPage() {
     filters.runFilterMode,
     filters.timeRange,
     filters.testRunIds,
-    filters.behaviorIds,
+    filters.requirementIds,
     filters.statusIds,
     expandableRowIndices,
   ]);
@@ -170,7 +170,7 @@ export default function InsightsPage() {
     [projectEndpoints, filters.endpointId]
   );
 
-  const visibleBehaviorNames = useMemo(
+  const visibleRequirementNames = useMemo(
     () => filteredColumns.map(column => column.name),
     [filteredColumns]
   );
@@ -192,7 +192,7 @@ export default function InsightsPage() {
     onFiltersChange: handleFiltersChange,
     projectEndpoints,
     endpointsLoading,
-    behaviorOptions,
+    requirementOptions,
     searchQuery,
     onSearchChange: setSearchQuery,
   } as const;
@@ -203,14 +203,14 @@ export default function InsightsPage() {
   return (
     <PageLayout
       title="Insights"
-      description="View pass rates by behavior, metric, and topic. Filter by time range or pick specific test runs in the filter drawer."
+      description="View pass rates by requirement, metric, and topic. Filter by time range or pick specific test runs in the filter drawer."
       breadcrumbs={[]}
       actions={
         <FabGroup>
           <InsightsSummarizeFab
             filters={filters}
             endpointName={selectedEndpointName}
-            visibleBehaviorNames={visibleBehaviorNames}
+            visibleRequirementNames={visibleRequirementNames}
             loading={fabLoading}
             disabled={projectEndpoints.length === 0}
           />
@@ -271,7 +271,7 @@ export default function InsightsPage() {
               onToggleAll={handleToggleAll}
             />
 
-            <BehaviorInsightsView
+            <RequirementInsightsView
               filters={filters}
               insights={{
                 summary,

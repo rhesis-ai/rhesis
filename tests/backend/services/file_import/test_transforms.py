@@ -117,10 +117,10 @@ class TestNormalizeRow:
 
 class TestDetectTestTypeMismatch:
     def _multi_turn_row(self):
-        return {"goal": "Probe the model", "category": "Safety", "topic": "T", "behavior": "B"}
+        return {"goal": "Probe the model", "category": "Safety", "topic": "T", "requirement": "B"}
 
     def _single_turn_row(self):
-        return {"prompt_content": "Hello", "category": "Safety", "topic": "T", "behavior": "B"}
+        return {"prompt_content": "Hello", "category": "Safety", "topic": "T", "requirement": "B"}
 
     def test_no_mismatch_single_turn(self):
         rows = [self._single_turn_row()] * 5

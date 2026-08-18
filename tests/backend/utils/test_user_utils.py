@@ -70,7 +70,7 @@ class TestGetCurrentUser:
     @pytest.mark.asyncio
     async def test_get_current_user_without_organization(self, test_db: Session):
         """Test get_current_user with user having no organization - should return None"""
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import user as user_crud
 
         # Create a user WITHOUT an organization (unique email for each run)
         user_data = UserCreate(
@@ -83,7 +83,7 @@ class TestGetCurrentUser:
             organization_id=None,  # No organization
             last_login_at=datetime.now(timezone.utc),
         )
-        user = crud.create_user(test_db, user_data)
+        user = user_crud.create_user(test_db, user_data)
         test_db.commit()
 
         # Get user ID before the session closes

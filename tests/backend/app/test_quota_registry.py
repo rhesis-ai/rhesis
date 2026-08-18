@@ -7,6 +7,7 @@ import pytest
 from rhesis.backend.app.quota import (
     FREE_TIER_LIMITS,
     DefaultQuotaProvider,
+    QuotaPolicy,
     QuotaProvider,
     QuotaRegistry,
     QuotaResource,
@@ -29,13 +30,18 @@ def clean_registry():
 
 
 class _FixedProvider:
-    """Provider returning a fixed limits dict, regardless of org."""
+    """Provider returning a fixed limits dict, regardless of org.
+
+    Wraps the limits in a ``QuotaPolicy`` since ``QuotaProvider`` now exposes
+    only ``get_policy()`` -- see the protocol's docstring on why the earlier
+    two-method shape was collapsed into one.
+    """
 
     def __init__(self, limits: dict[QuotaResource, int | None]):
         self._limits = limits
 
-    def get_limits(self, org=None) -> dict[QuotaResource, int | None]:
-        return dict(self._limits)
+    def get_policy(self, org=None) -> QuotaPolicy:
+        return QuotaPolicy(limits=dict(self._limits))
 
 
 class TestDefaultQuotaProvider:
@@ -99,4 +105,4 @@ class TestReset:
 class TestQuotaProviderProtocol:
     def test_default_provider_satisfies_protocol(self):
         provider: QuotaProvider = DefaultQuotaProvider()
-        assert provider.get_limits() == FREE_TIER_LIMITS
+        assert provider.get_policy().limits == FREE_TIER_LIMITS

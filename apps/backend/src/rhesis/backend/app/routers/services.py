@@ -147,7 +147,7 @@ async def generate_content_endpoint(
     case `current_user` here is the real org to bill, and the normal
     accrual wired by `get_generation_model_with_override` covers it with no
     extra work needed. It's also reached indirectly, via `RhesisLLM` acting
-    as a relay: a self-hosted deployment's own "Rhesis Default" model
+    as a relay: a self-hosted deployment's own "Rhesis" model
     delegating out to this platform instance, or (for SaaS-direct
     customers) this same deployment calling itself in a loopback. For that
     second case, whoever originated the call already resolved the
@@ -165,12 +165,15 @@ async def generate_content_endpoint(
     the header, which is fine -- their accrual already happened here.
     """
     try:
+        from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
         from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
         from rhesis.sdk.models.factory import get_model
 
         model = get_generation_model_with_override(db, current_user)
         if isinstance(model, str):
-            model = get_model(model, model_type="language")
+            # Resolution degraded to the bare DEFAULT_*_MODEL string, which
+            # is still a system default running on our credentials.
+            model = stamp_usage_provenance(get_model(model, model_type="language"), metered=True)
 
         captured_usage: dict = {}
         has_on_usage = hasattr(model, "on_usage")
@@ -277,12 +280,12 @@ async def generate_tests_endpoint(
         GenerateTestsResponse: The generated test cases
     """
     try:
-        # config.behaviors is enforced by GenerationConfig, so it arrives non-empty.
+        # config.requirements is enforced by GenerationConfig, so it arrives non-empty.
 
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
         if model_id_str:
-            from rhesis.backend.app import crud as model_crud
+            from rhesis.backend.app.crud import model as model_crud
 
             model_obj = model_crud.get_model(
                 db=db,
@@ -330,7 +333,7 @@ async def generate_multiturn_tests_endpoint(
     Args:
         request: The request containing the generation prompt and optional parameters
             - generation_prompt: Description of what to test
-            - behavior: Optional behavior type (e.g., "Compliance", "Reliability")
+            - requirement: Optional requirement type (e.g., "Compliance", "Reliability")
             - category: Optional category (e.g., "Harmful", "Harmless")
             - topic: Optional specific topic
             - num_tests: Number of tests to generate (default: 5)
@@ -345,7 +348,7 @@ async def generate_multiturn_tests_endpoint(
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
         if model_id_str:
-            from rhesis.backend.app import crud as model_crud
+            from rhesis.backend.app.crud import model as model_crud
 
             model_obj = model_crud.get_model(
                 db=db,
@@ -361,7 +364,7 @@ async def generate_multiturn_tests_endpoint(
         # Prepare config dict from request
         config = {
             "generation_prompt": request.generation_prompt,
-            "behavior": request.behavior,
+            "requirement": request.requirement,
             "category": request.category,
             "topic": request.topic,
         }
@@ -422,9 +425,9 @@ async def generate_test_config(
     Generate test configuration JSON based on user description.
 
     This endpoint:
-    1. Fetches all behaviors from the database (filtered by organization)
+    1. Fetches all requirements from the database (filtered by organization)
     2. Optionally fetches project details if project_id is provided
-    3. Sends the behaviors and project context to the LLM and asks it to select
+    3. Sends the requirements and project context to the LLM and asks it to select
        relevant ones based on the prompt
     4. LLM generates topics and test categories
 
@@ -436,7 +439,7 @@ async def generate_test_config(
         current_user: Current authenticated user (injected)
 
     Returns:
-        TestConfigResponse: JSON containing LLM-selected behaviors (from database), and
+        TestConfigResponse: JSON containing LLM-selected requirements (from database), and
             LLM-generated topics and test categories, each with name and description fields
     """
     try:

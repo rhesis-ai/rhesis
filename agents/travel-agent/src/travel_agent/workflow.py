@@ -143,7 +143,10 @@ async def invoke_travel_workflow_async(
                 continue
 
             if event_type == "request_info":
-                captured = capture_final_text(data, fallback=segment_texts(assistant_segments))
+                captured = capture_final_text(
+                    data,
+                    fallback=segment_texts(assistant_segments, author=COORDINATOR_NAME),
+                )
                 if captured:
                     final_text = captured
                 continue

@@ -15,6 +15,11 @@ const withNextra = nextra({
 export default withNextra({
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../..'),
+  // next/og loads a resvg wasm blob at runtime that the tracer misses, so the
+  // OG route renders in dev and 500s in the container without this.
+  outputFileTracingIncludes: {
+    '/api/og': ['./node_modules/next/dist/compiled/@vercel/og/**'],
+  },
   async redirects() {
     const permanent = true
     return [
@@ -36,12 +41,15 @@ export default withNextra({
         permanent,
       },
       { source: '/concepts', destination: '/docs/concepts', permanent },
+      { source: '/sdk/statistics', destination: '/sdk/insights', permanent },
       { source: '/product-tour', destination: '/docs/tour', permanent },
       { source: '/docs/product-tour', destination: '/docs/tour', permanent },
       { source: '/frameworks', destination: '/docs/metrics', permanent },
       { source: '/docs/frameworks', destination: '/docs/metrics', permanent },
       { source: '/docs/mcp', destination: '/docs/tools', permanent },
       { source: '/docs/mcp/:path*', destination: '/docs/tools/:path*', permanent },
+      { source: '/docs/behaviors', destination: '/docs/requirements', permanent },
+      { source: '/glossary/behavior', destination: '/glossary/requirement', permanent },
       { source: '/docs/test-execution', destination: '/docs/test-runs/execution', permanent },
       // Avoid clash with public/static assets under /integrations/* — only the bare path is a doc URL
       { source: '/integrations', destination: '/docs/integrations', permanent },
@@ -147,6 +155,11 @@ export default withNextra({
       {
         source: '/development/:path*',
         destination: '/contribute/:path*',
+        permanent,
+      },
+      {
+        source: '/docs/agent-skill/requirements',
+        destination: '/docs/agent-skill/spec',
         permanent,
       },
     ]

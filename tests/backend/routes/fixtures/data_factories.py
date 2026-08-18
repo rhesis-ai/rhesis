@@ -6,13 +6,13 @@ It replaces the mixed approach of faker_utils.py with a unified factory system.
 
 Usage:
     # Standard data
-    data = BehaviorDataFactory.sample_data()
+    data = RequirementDataFactory.sample_data()
 
     # Edge cases
-    data = BehaviorDataFactory.edge_case_data("long_name")
+    data = RequirementDataFactory.edge_case_data("long_name")
 
     # Custom variations
-    data = BehaviorDataFactory.sample_data(name_length=50, include_description=False)
+    data = RequirementDataFactory.sample_data(name_length=50, include_description=False)
 """
 
 import string
@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from faker import Faker
 
-from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.constants import EntityType, MetricBackendType, MetricType
 from rhesis.backend.app.schemas.telemetry import (
     SpanKind,
     StatusCode,
@@ -32,6 +32,31 @@ from rhesis.backend.app.schemas.telemetry import (
 # Initialize Faker with consistent seed for reproducible tests
 fake = Faker()
 Faker.seed(12345)
+
+
+def find_or_create_type_lookup_id(client, type_name: str, type_value: str) -> str:
+    """Look up a type_lookup row's id via the API, creating it if missing.
+
+    For factories whose target API only accepts a raw *_id UUID FK (no
+    string-to-lookup shortcut like Metric's crud/metric.py has) -- e.g.
+    Model.provider_type_id, Source.source_type_id -- so a test payload can
+    reference a real row instead of leaving the FK NULL. type_name/type_value
+    pairs used here (e.g. "ProviderType"/"openai") are already seeded into
+    every test org by initial_data.json, so this is normally just a lookup.
+    """
+    # sort_order=asc: these rows are seeded once at org bootstrap (initial_data.json),
+    # so they're among the oldest -- robust regardless of how many type_lookups
+    # accumulate later in the same test, unlike relying on the default desc order.
+    existing = client.get(
+        "/type_lookups/", params={"limit": 100, "sort_order": "asc"}
+    ).json()
+    for row in existing:
+        if row["type_name"] == type_name and row["type_value"] == type_value:
+            return row["id"]
+    created = client.post(
+        "/type_lookups/", json={"type_name": type_name, "type_value": type_value}
+    )
+    return created.json()["id"]
 
 
 class BaseDataFactory(ABC):
@@ -87,12 +112,12 @@ class BaseDataFactory(ABC):
 
 
 @dataclass
-class BehaviorDataFactory(BaseDataFactory):
-    """Factory for generating behavior test data"""
+class RequirementDataFactory(BaseDataFactory):
+    """Factory for generating requirement test data"""
 
     @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
-        """Generate minimal behavior data (only required fields)"""
+        """Generate minimal requirement data (only required fields)"""
         return {"name": fake.catch_phrase()}
 
     @classmethod
@@ -100,14 +125,14 @@ class BehaviorDataFactory(BaseDataFactory):
         cls, name_length: Optional[int] = None, include_description: bool = True
     ) -> Dict[str, Any]:
         """
-        Generate sample behavior data
+        Generate sample requirement data
 
         Args:
             name_length: Override name length (default: random phrase)
             include_description: Whether to include description field
 
         Returns:
-            Dict containing behavior data
+            Dict containing requirement data
         """
         if name_length:
             name = fake.text(max_nb_chars=name_length).replace("\n", " ").strip()
@@ -123,7 +148,7 @@ class BehaviorDataFactory(BaseDataFactory):
 
     @classmethod
     def update_data(cls) -> Dict[str, Any]:
-        """Generate behavior update data"""
+        """Generate requirement update data"""
         return {
             "name": fake.sentence(nb_words=3).rstrip("."),
             "description": fake.paragraph(nb_sentences=2),
@@ -131,7 +156,7 @@ class BehaviorDataFactory(BaseDataFactory):
 
     @classmethod
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
-        """Generate behavior edge case data"""
+        """Generate requirement edge case data"""
         if case_type == "long_name":
             return {
                 "name": fake.text(max_nb_chars=1000).replace("\n", " "),
@@ -150,23 +175,23 @@ class BehaviorDataFactory(BaseDataFactory):
         elif case_type == "only_spaces":
             return {"name": "   ", "description": "     "}
         elif case_type == "sql_injection":
-            return {"name": "'; DROP TABLE behaviors; --", "description": "1' OR '1'='1"}
+            return {"name": "'; DROP TABLE requirements; --", "description": "1' OR '1'='1"}
 
         return super().edge_case_data(case_type)
 
     @classmethod
     def batch_data(cls, count: int, variation: bool = True) -> List[Dict[str, Any]]:
         """
-        Generate batch of behavior data
+        Generate batch of requirement data
 
         Args:
-            count: Number of behavior records to generate
+            count: Number of requirement records to generate
             variation: Whether to vary the data or use similar patterns
 
         Returns:
-            List of behavior data dictionaries
+            List of requirement data dictionaries
         """
-        behaviors = []
+        requirements = []
         for i in range(count):
             if variation:
                 # Create varied data
@@ -176,12 +201,12 @@ class BehaviorDataFactory(BaseDataFactory):
             else:
                 # Create similar data with incremental names
                 data = {
-                    "name": f"Test Behavior {i + 1}",
-                    "description": f"Description for test behavior {i + 1}",
+                    "name": f"Test Requirement {i + 1}",
+                    "description": f"Description for test requirement {i + 1}",
                 }
-            behaviors.append(data)
+            requirements.append(data)
 
-        return behaviors
+        return requirements
 
 
 @dataclass
@@ -319,10 +344,56 @@ class MetricDataFactory(BaseDataFactory):
         # Required on create and NOT NULL in the table: a metric with no scope is
         # never evaluated by any execution path.
         data.setdefault("metric_scope", ["Single-Turn"])
+        # Real metrics always have these set (crud/metric.py resolves the string to a
+        # type_lookup row); leaving them unset here made every test metric's
+        # metric_type_id/backend_type_id NULL, masking N+1s that only fire when populated.
+        data.setdefault("metric_type", MetricType.CUSTOM_PROMPT)
+        data.setdefault("backend_type", MetricBackendType.RHESIS)
         return data
 
     # Kept as an alias: the old name described only part of what it now does.
     _add_score_type_fields = _add_required_fields
+
+    @classmethod
+    def orm_data(
+        cls, db, organization_id, user_id, **overrides: Any
+    ) -> Dict[str, Any]:
+        """sample_data(), with metric_type/backend_type resolved to real
+        metric_type_id/backend_type_id via type_lookup rows, and organization_id/
+        user_id set to match -- ready to pass straight into models.Metric(**data).
+
+        For tests that build models.Metric(**data) directly instead of going through
+        the API: the ORM constructor sets the metric_type/backend_type *relationship*
+        attributes verbatim, so the plain string values from sample_data() (meant for
+        crud/metric.py's string-to-type_lookup conversion) fail on flush.
+        """
+        import uuid
+
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        data = cls.sample_data()
+        data.update(overrides)
+        metric_type = data.pop("metric_type", None)
+        backend_type = data.pop("backend_type", None)
+        if metric_type:
+            data["metric_type_id"] = get_or_create_type_lookup(
+                db,
+                type_name="MetricType",
+                type_value=metric_type,
+                organization_id=organization_id,
+                user_id=user_id,
+            ).id
+        if backend_type:
+            data["backend_type_id"] = get_or_create_type_lookup(
+                db,
+                type_name="BackendType",
+                type_value=backend_type,
+                organization_id=organization_id,
+                user_id=user_id,
+            ).id
+        data["organization_id"] = uuid.UUID(str(organization_id))
+        data["user_id"] = uuid.UUID(str(user_id))
+        return data
 
     @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
@@ -616,7 +687,7 @@ class ProjectDataFactory(BaseDataFactory):
     @classmethod
     def sample_data(cls, include_description: bool = True) -> Dict[str, Any]:
         """
-        Generate sample project data (following working behavior pattern)
+        Generate sample project data (following working requirement pattern)
 
         Args:
             include_description: Whether to include description field
@@ -941,7 +1012,7 @@ class FileDataFactory(BaseDataFactory):
 
 # Factory registry for dynamic access - moved after all factory definitions
 FACTORY_REGISTRY = {
-    "behavior": BehaviorDataFactory,
+    "requirement": RequirementDataFactory,
     "topic": TopicDataFactory,
     "category": CategoryDataFactory,
     "metric": MetricDataFactory,
@@ -959,7 +1030,7 @@ def get_factory(entity_type: str) -> BaseDataFactory:
     Get data factory for entity type
 
     Args:
-        entity_type: Type of entity ('behavior', 'topic', etc.)
+        entity_type: Type of entity ('requirement', 'topic', etc.)
 
     Returns:
         Data factory class for the entity
@@ -978,7 +1049,7 @@ def generate_test_data(entity_type: str, data_type: str = "sample", **kwargs) ->
     Generate test data for any entity type
 
     Args:
-        entity_type: Type of entity ('behavior', 'topic', etc.)
+        entity_type: Type of entity ('requirement', 'topic', etc.)
         data_type: Type of data ('minimal', 'sample', 'update', 'edge_case')
         **kwargs: Additional arguments passed to factory method
 
@@ -1589,7 +1660,7 @@ class CommentDataFactory(BaseDataFactory):
                     EntityType.METRIC.value,
                     EntityType.MODEL.value,
                     EntityType.PROMPT.value,
-                    EntityType.BEHAVIOR.value,
+                    EntityType.REQUIREMENT.value,
                     EntityType.CATEGORY.value,
                 ]
             ),
@@ -1701,7 +1772,7 @@ class CommentDataFactory(BaseDataFactory):
                 # Create varied data
                 data = cls.sample_data(
                     entity_type=fake.random_element(
-                        elements=["Test", "TestSet", "TestRun", "Behavior", "Metric"]
+                        elements=["Test", "TestSet", "TestRun", "Requirement", "Metric"]
                     )
                 )
             else:
@@ -1732,7 +1803,7 @@ class TestDataFactory(BaseDataFactory):
     def sample_data(
         cls,
         include_prompt: bool = True,
-        include_behavior: bool = True,
+        include_requirement: bool = True,
         include_category: bool = True,
         include_status: bool = True,
     ) -> Dict[str, Any]:
@@ -1741,7 +1812,7 @@ class TestDataFactory(BaseDataFactory):
 
         Args:
             include_prompt: Whether to include prompt_id reference
-            include_behavior: Whether to include behavior_id reference
+            include_requirement: Whether to include requirement_id reference
             include_category: Whether to include category_id reference
             include_status: Whether to include status_id reference
 
@@ -1754,8 +1825,8 @@ class TestDataFactory(BaseDataFactory):
         if include_prompt:
             data["prompt_id"] = None  # Will be set by fixtures
 
-        if include_behavior:
-            data["behavior_id"] = None  # Will be set by fixtures
+        if include_requirement:
+            data["requirement_id"] = None  # Will be set by fixtures
 
         if include_category:
             data["category_id"] = None  # Will be set by fixtures
@@ -2092,7 +2163,7 @@ FACTORY_REGISTRY.update(
 # Export main classes and functions
 __all__ = [
     "BaseDataFactory",
-    "BehaviorDataFactory",
+    "RequirementDataFactory",
     "TopicDataFactory",
     "CategoryDataFactory",
     "CommentDataFactory",

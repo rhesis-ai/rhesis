@@ -87,7 +87,7 @@ class TestRowsToTestDataTurnConfig:
         return {
             "category": "Safety",
             "topic": "Content",
-            "behavior": "Refusal",
+            "requirement": "Refusal",
             "test_type": "Multi-Turn",
             "goal": "Test goal",
             **extra,

@@ -240,6 +240,18 @@ class StorageService:
         prefix = self.get_attachment_prefix(organization_id, entity_type, entity_id, file_id)
         return f"{prefix}/thumb-{size}.webp"
 
+    @staticmethod
+    def get_owasp_content_path(cache_key: str) -> str:
+        """owasp/{cache_key}.json — shared (not org-scoped) cache of parsed OWASP sections.
+
+        Unlike the other path builders on this class, deliberately not
+        org-scoped: OWASP report content is shared static reference data, not
+        per-tenant data. ``cache_key`` is a versioned key (schema version +
+        framework + report-URL hash, see ``services/owasp.py``), not a bare
+        framework id, so a report URL change naturally lands at a new path.
+        """
+        return f"owasp/{cache_key}.json"
+
     # ------------------------------------------------------------------
     # Streaming primitives
     # ------------------------------------------------------------------
@@ -318,6 +330,18 @@ class StorageService:
             raise
 
         return dest_path, sha256.hexdigest()
+
+    def get_object_bytes(self, dest_path: str) -> Optional[bytes]:
+        """Synchronously read ``dest_path`` and return its bytes, or ``None`` if missing."""
+        full_path = self._full_path(dest_path)
+        try:
+            with self.fs.open(full_path, "rb") as f:
+                return f.read()
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            logger.warning(f"Error reading object bytes for {dest_path}: {e}")
+            return None
 
     async def get_object_stream(self, path: str) -> AsyncIterator[bytes]:
         """Yield chunks from storage asynchronously."""

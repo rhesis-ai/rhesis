@@ -312,7 +312,7 @@ class TestTypeSerializerPrepareInputs:
         executor = TestExecutor()
         serializer = TypeSerializer()
 
-        def func(message: str, model: str | None = "rhesis/rhesis-default"):
+        def func(message: str, model: str | None = "rhesis/rhesis"):
             pass
 
         inputs = {"message": "hello", "model": None}

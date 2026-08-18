@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
+    REQUIREMENT_LIST_KEY,
     ERROR_BULK_CREATE_FAILED,
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
     """Get test set by ID with organization filtering for security"""
-    builder = (
+    return (
         QueryBuilder(db, TestSet)
         .with_custom_filter(lambda q: q.filter(TestSet.id == test_set_id))
         .with_related(
@@ -46,23 +47,15 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
             include(TestSet.prompts, Prompt.category),
             include(TestSet.prompts, Prompt.attack_category),
             include(TestSet.prompts, Prompt.topic),
-            include(TestSet.prompts, Prompt.behavior),
+            include(TestSet.prompts, Prompt.requirement),
             # Temporarily disabled due to entity_type column issue
             # include(TestSet.prompts, Prompt.source),
             include(TestSet.prompts, Prompt.status),
             include(TestSet.prompts, Prompt.user),
         )
+        .with_organization_filter(organization_id)
+        .first()
     )
-
-    # Apply organization filtering if provided
-    if organization_id:
-        from uuid import UUID as UUIDType
-
-        builder = builder.with_custom_filter(
-            lambda q: q.filter(TestSet.organization_id == UUIDType(organization_id))
-        )
-
-    return builder.first()
 
 
 def create_pending_test_set(
@@ -143,7 +136,7 @@ def create_pending_test_set(
             "metadata": {
                 "total_tests": 0,
                 "categories": [],
-                "behaviors": [],
+                REQUIREMENT_LIST_KEY: [],
                 "topics": [],
                 "license_type": defaults["test_set"]["license_type"],
                 "generation": {
@@ -186,7 +179,7 @@ def generate_test_set_attributes(
         Dict containing the complete attributes structure
     """
     # Eager-load per-test relationships in one query instead of lazily fetching
-    # topic/behavior/category/prompt for each test in test_set.tests (N+1).
+    # topic/requirement/category/prompt for each test in test_set.tests (N+1).
     # Filtered by test_sets.any(...) rather than test_set.tests -- the caller's
     # test_set isn't guaranteed to have that many-to-many relationship loaded.
     tests = (
@@ -194,7 +187,7 @@ def generate_test_set_attributes(
         .with_custom_filter(lambda q: q.filter(models.Test.test_sets.any(id=test_set.id)))
         .with_related(
             include(models.Test.topic),
-            include(models.Test.behavior),
+            include(models.Test.requirement),
             include(models.Test.category),
             include(models.Test.prompt),
         )
@@ -203,12 +196,12 @@ def generate_test_set_attributes(
 
     # Get all unique IDs and names for each dimension (skip tests with None values)
     topics = list(set(str(test.topic_id) for test in tests if test.topic_id))
-    behaviors = list(set(str(test.behavior_id) for test in tests if test.behavior_id))
+    requirements = list(set(str(test.requirement_id) for test in tests if test.requirement_id))
     categories = list(set(str(test.category_id) for test in tests if test.category_id))
 
     # Get all unique names for metadata (skip tests with None relationships)
     topic_names = list(set(test.topic.name for test in tests if test.topic))
-    behavior_names = list(set(test.behavior.name for test in tests if test.behavior))
+    requirement_names = list(set(test.requirement.name for test in tests if test.requirement))
     category_names = list(set(test.category.name for test in tests if test.category))
 
     # Get a random prompt's content for the sample (now through tests)
@@ -238,7 +231,7 @@ def generate_test_set_attributes(
     metadata = {
         "sample": sample,
         "topics": topic_names,
-        "behaviors": behavior_names,
+        REQUIREMENT_LIST_KEY: requirement_names,
         "categories": category_names,
         "license_type": license_type.type_value,
         "total_prompts": total_prompts,
@@ -250,7 +243,7 @@ def generate_test_set_attributes(
 
     return {
         "topics": topics,
-        "behaviors": behaviors,
+        REQUIREMENT_LIST_KEY: requirements,
         "categories": categories,
         "metadata": metadata,
     }
@@ -706,7 +699,7 @@ def execute_test_set_on_endpoint(
         test_configuration_attributes: Optional attributes for test configuration
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
-        metrics: Optional list of execution-time metrics to override test set/behavior metrics.
+        metrics: Optional list of execution-time metrics to override test set/requirement metrics.
                  Each metric should have: id, name, and optionally scope.
         reference_test_run_id: Optional UUID of a previous test run whose outputs
                  should be reused instead of calling the endpoint (re-scoring).
@@ -766,7 +759,7 @@ def execute_test_set_on_endpoint(
     # Determine metrics source based on the hierarchy:
     # 1. Execution-time metrics (if provided) -> "execution_time"
     # 2. Test set metrics (if test set has metrics) -> "test_set"
-    # 3. Behavior metrics (fallback) -> "behavior"
+    # 3. Requirement metrics (fallback) -> "requirement"
     from rhesis.backend.app.schemas.test_set import MetricsSource
 
     if metrics and len(metrics) > 0:
@@ -784,8 +777,8 @@ def execute_test_set_on_endpoint(
             metrics_source = MetricsSource.TEST_SET.value
             logger.debug(f"Metrics source: test_set ({test_set_metrics_count} metrics on test set)")
         else:
-            metrics_source = MetricsSource.BEHAVIOR.value
-            logger.debug("Metrics source: behavior (fallback to test behaviors)")
+            metrics_source = MetricsSource.REQUIREMENT.value
+            logger.debug("Metrics source: requirement (fallback to test requirements)")
 
     parameters_ref: Dict[str, Any] | None = None
     has_version = bool(experiment_version and str(experiment_version).strip())
@@ -944,9 +937,9 @@ def _create_test_configuration(
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
         metrics: Optional list of execution-time metrics. When provided,
-                 these override test set and behavior metrics.
+                 these override test set and requirement metrics.
         metrics_source: Source of metrics used for this execution.
-                       One of: "behavior", "test_set", "execution_time"
+                       One of: "requirement", "test_set", "execution_time"
         reference_test_run_id: Optional UUID of a previous test run whose
                  outputs should be reused (re-scoring).
 

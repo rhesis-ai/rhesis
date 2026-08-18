@@ -17,7 +17,7 @@ Functions tested from app/crud.py:
 - create_tag / remove_tag
 - delete_tokens_by_user
 - delete_test
-- add_behavior_to_metric / remove_behavior_from_metric
+- add_requirement_to_metric / remove_requirement_from_metric
 - add_emoji_reaction / remove_emoji_reaction
 
 Run with: python -m pytest tests/backend/crud/test_transaction_management.py -v
@@ -32,6 +32,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import tag as tag_crud
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.comment import add_emoji_reaction, remove_emoji_reaction
 from tests.backend.routes.fixtures.data_factories import (
     CommentDataFactory,
@@ -98,7 +100,7 @@ class TestCRUDTransactionManagement:
         update_data = schemas.UserUpdate(name=new_name)
 
         # Update user
-        result = crud.update_user(test_db, user_id, update_data)
+        result = user_crud.update_user(test_db, user_id, update_data)
 
         # Verify user was updated and persisted
         assert result is not None
@@ -122,7 +124,7 @@ class TestCRUDTransactionManagement:
         user_create = schemas.UserCreate(**user_data)
 
         # Create user
-        result = crud.create_user(test_db, user_create)
+        result = user_crud.create_user(test_db, user_create)
 
         # Verify user was created and persisted
         assert result is not None
@@ -146,21 +148,21 @@ class TestCRUDTransactionManagement:
 
         # Create a test entity to tag
         entity_id = uuid.uuid4()
-        entity_type = EntityType.BEHAVIOR
+        entity_type = EntityType.REQUIREMENT
 
-        # Create a test behavior entity first
-        behavior = models.Behavior(
-            name="Test Behavior",
-            description="Test behavior for tagging",
+        # Create a test requirement entity first
+        requirement = models.Requirement(
+            name="Test Requirement",
+            description="Test requirement for tagging",
             organization_id=uuid.UUID(test_org_id),
             user_id=uuid.UUID(authenticated_user_id),
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
-        entity_id = behavior.id
+        entity_id = requirement.id
 
         # Assign tag
-        result = crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
+        result = tag_crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
 
         # Verify tag was created and persisted
         assert result is not None
@@ -190,20 +192,20 @@ class TestCRUDTransactionManagement:
         tag_data["user_id"] = authenticated_user_id
         tag_create = schemas.TagCreate(**tag_data)
 
-        # Create a test behavior entity first
-        behavior = models.Behavior(
-            name="Test Behavior",
-            description="Test behavior for tagging",
+        # Create a test requirement entity first
+        requirement = models.Requirement(
+            name="Test Requirement",
+            description="Test requirement for tagging",
             organization_id=uuid.UUID(test_org_id),
             user_id=uuid.UUID(authenticated_user_id),
         )
-        test_db.add(behavior)
+        test_db.add(requirement)
         test_db.flush()
-        entity_id = behavior.id
-        entity_type = EntityType.BEHAVIOR
+        entity_id = requirement.id
+        entity_type = EntityType.REQUIREMENT
 
         # Assign tag
-        created_tag = crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
+        created_tag = tag_crud.assign_tag(test_db, tag_create, entity_id, entity_type, test_org_id)
         tag_id = created_tag.id
 
         # Verify tagged item exists
@@ -215,7 +217,7 @@ class TestCRUDTransactionManagement:
         assert initial_tagged_items == 1
 
         # Remove tag
-        result = crud.remove_tag(test_db, tag_id, entity_id, entity_type, test_org_id)
+        result = tag_crud.remove_tag(test_db, tag_id, entity_id, entity_type, test_org_id)
 
         # Verify tag was removed (committed)
         assert result is True

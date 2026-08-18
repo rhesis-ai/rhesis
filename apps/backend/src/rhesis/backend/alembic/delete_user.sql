@@ -76,8 +76,8 @@
         DELETE FROM prompt_template
         WHERE organization_id = ANY(org_ids);
 
-        -- Step 19: Delete behaviors
-        DELETE FROM behavior
+        -- Step 19: Delete requirements
+        DELETE FROM requirement
         WHERE organization_id = ANY(org_ids);
 
         -- Step 20: Delete categories

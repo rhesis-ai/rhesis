@@ -165,6 +165,25 @@ marketing site's `@theme` block (`website/src/styles/tailwind.css`). Rules:
   derives `primary-50` … `primary-800` from those HSL values, and the active sidebar link is
   `bg-primary-100` + `text-primary-800`. Change the prop; do not override the generated `x:` classes.
 
+### Social preview images
+
+Every page's `og:image` is generated per page by `src/app/api/og/route.jsx` — title, description
+and section come from the page's own MDX, resolved through `lib/og-page.js`. Nothing to do when
+adding a page. Three rules:
+
+- **Changing the card design means bumping `OG_VERSION`** in `lib/og-theme.js`. Crawlers cache
+  social images by URL; without a new `v=`, LinkedIn and Slack keep serving the old picture.
+  Editing a page's own title or description needs nothing — `h=` in the URL is a hash of the card
+  text, so it changes on its own.
+- **Card colours are literal hex in `lib/og-theme.js`, copied from `tokens.css`.** satori never
+  sees a stylesheet, so `var(--rh-*)` resolves to nothing. This is the one place hex is expected —
+  change both files together.
+- **Fonts are TTF subsets in `public/fonts/og/`**, not the woff2 the site uses: satori cannot
+  decode woff2. Regenerate with `docs/scripts/generate-og-fonts.py` after a font change.
+
+A page that needs a hand-made image sets `ogImage: /path.png` in frontmatter (PNG or JPEG — social
+crawlers do not render webp reliably).
+
 ### Files and structure
 
 - Kebab-case file names (`test-result-status.mdx`); organize by feature/topic, not file type.

@@ -441,7 +441,7 @@ export class TestSetsClient extends BaseApiClient {
   /**
    * Get metrics associated with a test set.
    * When a test set has associated metrics, those metrics override the default
-   * behavior-level metrics during test execution.
+   * requirement-level metrics during test execution.
    *
    * @param testSetId - The test set identifier
    * @returns List of metrics associated with the test set (empty array if none)
@@ -458,7 +458,7 @@ export class TestSetsClient extends BaseApiClient {
   /**
    * Add a metric to a test set.
    * When a test set has associated metrics, those metrics override the default
-   * behavior-level metrics during test execution.
+   * requirement-level metrics during test execution.
    *
    * @param testSetId - The test set identifier
    * @param metricId - The metric ID to add

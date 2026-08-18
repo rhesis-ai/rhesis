@@ -1,6 +1,6 @@
 """Tests for telemetry semantic convention helpers."""
 
-from rhesis.sdk.telemetry.attributes import (
+from rhesis.telemetry.attributes import (
     AIAttributes,
     AIEvents,
     create_llm_attributes,

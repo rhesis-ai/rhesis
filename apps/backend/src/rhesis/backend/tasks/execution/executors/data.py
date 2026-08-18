@@ -6,9 +6,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.tasks.execution.metrics_utils import get_behavior_metrics
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.tasks.execution.metrics_utils import get_requirement_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +37,16 @@ def get_test_and_prompt(
     from rhesis.backend.app.constants import TestType
     from rhesis.backend.tasks.execution.modes import get_test_type
 
-    # Get the test
-    test = crud.get_test(db, UUID(test_id), organization_id=organization_id)
+    # Get the test. Reads test.prompt below for single-turn tests -- eager-load it explicitly.
+    test = (
+        QueryBuilder(db, Test)
+        .with_related(include(Test.prompt))
+        .with_organization_filter(organization_id)
+        .with_custom_filter(lambda q: q.filter(Test.id == UUID(test_id)))
+        .first()
+    )
     if not test:
-        # Fallback query with organization filter
-        test_query = db.query(Test).filter(Test.id == UUID(test_id))
-        if organization_id:
-            test_query = test_query.filter(Test.organization_id == UUID(organization_id))
-        test = test_query.first()
-
-        if not test:
-            raise ValueError(f"Test with ID {test_id} not found")
+        raise ValueError(f"Test with ID {test_id} not found")
 
     # Determine test type
     test_type = get_test_type(test)
@@ -78,7 +77,7 @@ def get_test_and_prompt(
         return test, prompt.content, prompt.expected_response or ""
 
 
-MetricSource = Literal["execution_time", "test_set", "behavior", "none"]
+MetricSource = Literal["execution_time", "test_set", "requirement", "none"]
 
 
 @overload
@@ -122,12 +121,12 @@ def get_test_metrics(
     1. Execution-time metrics from test_configuration.attributes["metrics"]
        (highest priority - completely overrides other levels)
     2. Test set metrics - if test_set has associated metrics
-    3. Behavior metrics - fallback to metrics defined on the test's behavior
+    3. Requirement metrics - fallback to metrics defined on the test's requirement
 
     This hierarchy allows:
     - Execution-time metrics for quick validation with specific metrics
     - Garak-imported test sets to use their detector metrics
-    - Default behavior-level metrics as fallback
+    - Default requirement-level metrics as fallback
 
     Note that a configured priority level (e.g. execution-time metrics present in
     test_configuration.attributes) can still fall through to a lower priority if it
@@ -144,7 +143,7 @@ def get_test_metrics(
         test_set: Optional TestSet model instance for metric override
         test_configuration: Optional TestConfiguration for execution-time metric override
         return_source: If True, return (metrics, source) where source is one of
-            "execution_time", "test_set", "behavior", or "none".
+            "execution_time", "test_set", "requirement", or "none".
 
     Returns:
         List of valid Metric models, or (metrics, source) if return_source is True.
@@ -154,7 +153,7 @@ def get_test_metrics(
     metrics = []
 
     # CRITICAL: Set RLS session variables before accessing relationships
-    # Without this, the behavior.metrics query will fail or return empty due to RLS policies.
+    # Without this, the requirement.metrics query will fail or return empty due to RLS policies.
     # Carry the project (from the test, falling back to the test configuration) so the
     # project-scoped metric queries stay visible under fail-closed RLS.
     from rhesis.backend.app.database import bind_scope_to_session
@@ -190,13 +189,13 @@ def get_test_metrics(
                     if metrics:
                         logger.debug(
                             f"Using {len(metrics)} execution-time metrics for test {test.id} "
-                            f"(overriding test set and behavior metrics)"
+                            f"(overriding test set and requirement metrics)"
                         )
                         return (metrics, "execution_time") if return_source else metrics
                 except Exception as e:
                     logger.warning(f"Failed to load execution-time metrics for test {test.id}: {e}")
 
-    # Priority 2: Test set metrics override behavior metrics
+    # Priority 2: Test set metrics override requirement metrics
     # Queried by ID rather than via test_set.metrics -- callers don't guarantee
     # that many-to-many relationship is eager-loaded on the passed-in test_set.
     if test_set:
@@ -206,7 +205,7 @@ def get_test_metrics(
             if metrics:
                 logger.debug(
                     f"Using {len(metrics)} test set metrics for test {test.id} "
-                    f"(overriding behavior metrics)"
+                    f"(overriding requirement metrics)"
                 )
                 invalid_count = len(ts_metrics) - len(metrics)
                 if invalid_count > 0:
@@ -216,16 +215,16 @@ def get_test_metrics(
                     )
                 return (metrics, "test_set") if return_source else metrics
 
-    # Priority 3: Fall back to behavior metrics
-    # Queried by ID rather than via test.behavior.metrics for the same reason.
-    if test.behavior_id:
-        behavior_metrics = get_behavior_metrics(db, test.behavior_id)
-        if behavior_metrics:
-            metrics = behavior_metrics
+    # Priority 3: Fall back to requirement metrics
+    # Queried by ID rather than via test.requirement.metrics for the same reason.
+    if test.requirement_id:
+        requirement_metrics = get_requirement_metrics(db, test.requirement_id)
+        if requirement_metrics:
+            metrics = requirement_metrics
 
     # Return empty list if no valid metrics found (no defaults in SDK)
     if not metrics:
         logger.warning(f"No valid metrics found for test {test.id}, returning empty list")
         return ([], "none") if return_source else []
 
-    return (metrics, "behavior") if return_source else metrics
+    return (metrics, "requirement") if return_source else metrics

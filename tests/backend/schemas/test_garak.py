@@ -74,7 +74,7 @@ class TestGarakProbeModuleResponse:
             default_detector="garak.detectors.mitigation.MitigationBypass",
             rhesis_category="Harmful",
             rhesis_topic="Jailbreak",
-            rhesis_behavior="Robustness",
+            rhesis_requirement="Robustness",
             probes=[probe],
         )
 
@@ -119,7 +119,7 @@ class TestGarakProbeDetailResponse:
             rhesis_mapping={
                 "category": "Harmful",
                 "topic": "Jailbreak",
-                "behavior": "Robustness",
+                "requirement": "Robustness",
             },
             probes=[{"class_name": "Dan_11_0"}],
         )

@@ -9,8 +9,8 @@ Test Structure:
 - test_tag_crud.py: Tag assignment and removal operations
 - test_token_crud.py: Token management operations
 - test_test_crud.py: Test entity operations
-- test_metric_crud.py: Metric operations and behavior associations
-- test_behavior_metric_crud.py: Cross-domain behavior-metric operations
+- test_metric_crud.py: Metric operations and requirement associations
+- test_requirement_metric_crud.py: Cross-domain requirement-metric operations
 
 Run all CRUD tests with: python -m pytest tests/backend/crud/ -v
 """

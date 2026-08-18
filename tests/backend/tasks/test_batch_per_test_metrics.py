@@ -2,10 +2,10 @@
 Tests for per-test metric resolution in batch execution.
 
 Covers the fix for the bug where batch execution resolved metrics from only
-tests[0] and applied them to all tests, ignoring per-test behavior metrics.
+tests[0] and applied them to all tests, ignoring per-test requirement metrics.
 
 Scenarios:
-- Behavior-mapped metrics (Priority 3) are resolved per-test
+- Requirement-mapped metrics (Priority 3) are resolved per-test
 - Test-set metrics (Priority 2) remain shared across all tests
 - Execution-time metrics (Priority 1) remain shared across all tests
 - ExecutionContext.get_metric_configs_for_test returns correct configs
@@ -131,22 +131,22 @@ class TestPrefetchMetricResolution:
     """Tests that prefetch_execution_context resolves metrics correctly
     based on the active priority level."""
 
-    def _make_test(self, test_id, behavior_name, metric_name, metric_class):
-        """Create a mock Test with a behavior and one metric."""
+    def _make_test(self, test_id, requirement_name, metric_name, metric_class):
+        """Create a mock Test with a requirement and one metric."""
         metric = MagicMock()
         metric.name = metric_name
         metric.class_name = metric_class
         metric.id = uuid4()
         metric.metric_scope = ["Single-Turn"]
 
-        behavior = MagicMock()
-        behavior.name = behavior_name
-        behavior.metrics = [metric]
+        requirement = MagicMock()
+        requirement.name = requirement_name
+        requirement.metrics = [metric]
 
         test = MagicMock()
         test.id = uuid4() if test_id is None else test_id
-        test.behavior = behavior
-        test.behavior_id = uuid4()
+        test.requirement = requirement
+        test.requirement_id = uuid4()
         test.project_id = None
         test.prompt = MagicMock()
         test.prompt.content = "test prompt"
@@ -160,15 +160,15 @@ class TestPrefetchMetricResolution:
     @patch(
         "rhesis.backend.tasks.execution.executors.data.get_test_metrics"
     )
-    def test_behavior_metrics_resolved_per_test(
+    def test_requirement_metrics_resolved_per_test(
         self, mock_get_metrics, mock_to_config
     ):
-        """When using behavior metrics (P3), each test gets its own configs."""
+        """When using requirement metrics (P3), each test gets its own configs."""
         test_1, metric_1 = self._make_test(
-            "t1", "Behavior A", "Metric A", "JudgeA"
+            "t1", "Requirement A", "Metric A", "JudgeA"
         )
         test_2, metric_2 = self._make_test(
-            "t2", "Behavior B", "Metric B", "JudgeB"
+            "t2", "Requirement B", "Metric B", "JudgeB"
         )
 
         # get_test_metrics returns different metrics per test; the sample-test
@@ -178,7 +178,7 @@ class TestPrefetchMetricResolution:
                 str(test.id)
             ]
             if kwargs.get("return_source"):
-                return metrics, "behavior"
+                return metrics, "requirement"
             return metrics
 
         mock_get_metrics.side_effect = side_effect
@@ -267,8 +267,8 @@ class TestPrefetchMetricResolution:
     )
     def test_test_set_metrics_shared(self, mock_get_metrics, mock_to_config):
         """When using test_set metrics (P2), all tests share the same configs."""
-        test_1, _ = self._make_test("t1", "Behavior A", "Metric A", "JudgeA")
-        test_2, _ = self._make_test("t2", "Behavior B", "Metric B", "JudgeB")
+        test_1, _ = self._make_test("t1", "Requirement A", "Metric A", "JudgeA")
+        test_2, _ = self._make_test("t2", "Requirement B", "Metric B", "JudgeB")
 
         shared_metric = MagicMock()
         shared_metric.name = "Shared Metric"
@@ -360,21 +360,21 @@ class TestPrefetchFallthroughToPerTest:
     resolution, not be treated as shared just because
     test_configuration.attributes['metrics'] is merely present."""
 
-    def _make_test(self, test_id, behavior_name, metric_name, metric_class):
+    def _make_test(self, test_id, requirement_name, metric_name, metric_class):
         metric = MagicMock()
         metric.name = metric_name
         metric.class_name = metric_class
         metric.id = uuid4()
         metric.metric_scope = ["Single-Turn"]
 
-        behavior = MagicMock()
-        behavior.name = behavior_name
-        behavior.metrics = [metric]
+        requirement = MagicMock()
+        requirement.name = requirement_name
+        requirement.metrics = [metric]
 
         test = MagicMock()
         test.id = uuid4() if test_id is None else test_id
-        test.behavior = behavior
-        test.behavior_id = uuid4()
+        test.requirement = requirement
+        test.requirement_id = uuid4()
         test.project_id = None
         test.prompt = MagicMock()
         test.prompt.content = "test prompt"
@@ -389,18 +389,18 @@ class TestPrefetchFallthroughToPerTest:
     def test_configured_but_invalid_execution_time_metrics_falls_back_per_test(
         self, mock_get_metrics, mock_to_config
     ):
-        test_1, metric_1 = self._make_test("t1", "Behavior A", "Metric A", "JudgeA")
-        test_2, metric_2 = self._make_test("t2", "Behavior B", "Metric B", "JudgeB")
+        test_1, metric_1 = self._make_test("t1", "Requirement A", "Metric A", "JudgeA")
+        test_2, metric_2 = self._make_test("t2", "Requirement B", "Metric B", "JudgeB")
 
         # get_test_metrics reports that P1 (execution_time) was configured but
-        # resolved to nothing valid, so it fell through to P3 (behavior) —
+        # resolved to nothing valid, so it fell through to P3 (requirement) —
         # which differs per test.
         def side_effect(test, *args, **kwargs):
             metrics = {str(test_1.id): [metric_1], str(test_2.id): [metric_2]}[
                 str(test.id)
             ]
             if kwargs.get("return_source"):
-                return metrics, "behavior"
+                return metrics, "requirement"
             return metrics
 
         mock_get_metrics.side_effect = side_effect

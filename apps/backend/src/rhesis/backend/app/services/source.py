@@ -7,6 +7,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.services.chunking import auto_chunk_source
 from rhesis.backend.app.services.handlers import get_source_handler
 
@@ -49,7 +50,7 @@ def update_source(
     payload = source.model_dump(exclude_unset=True)
     content_in_request = "content" in payload
 
-    updated = crud.update_source(
+    updated = source_crud.update_source(
         db=db,
         source_id=source_id,
         source=source,
@@ -138,7 +139,7 @@ async def refresh_source_content(
     )
 
     # Save to database
-    created_source = crud.create_source(
+    created_source = source_crud.create_source(
         db=db, source=source_data, organization_id=organization_id, user_id=user_id
     )
 
@@ -166,7 +167,7 @@ def validate_source_for_extraction(
         ValueError: If source validation fails
     """
     # Get the source record
-    db_source = crud.get_source(
+    db_source = source_crud.get_source(
         db, source_id=source_id, organization_id=organization_id, user_id=user_id
     )
     if db_source is None:
@@ -227,7 +228,7 @@ async def extract_source_content(
 
     # Update the source with extracted content
     update_data = schemas.SourceUpdate(content=content)
-    updated_source = crud.update_source(
+    updated_source = source_crud.update_source(
         db,
         source_id=source_id,
         source=update_data,

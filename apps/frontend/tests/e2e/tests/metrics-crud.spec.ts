@@ -6,7 +6,7 @@ import { MetricsPage } from '../pages/MetricsPage';
  *
  * Covers: A4.3 (open New Metric dialog), A4.4 (navigate to creation form),
  * A4.5 (fill and submit metric form), A4.6 (edit metric from detail page),
- * A4.7 (assign metric to behavior from metric list card).
+ * A4.7 (assign metric to requirement from metric list card).
  *
  * All tests run against the real backend in Quick Start mode.
  */
@@ -306,7 +306,7 @@ test.describe('Metrics — CRUD @crud', () => {
     );
   });
 
-  test('can assign a metric to a behavior from the metric card', async ({
+  test('can assign a metric to a requirement from the metric card', async ({
     page,
   }) => {
     const metricsPage = new MetricsPage(page);
@@ -321,53 +321,53 @@ test.describe('Metrics — CRUD @crud', () => {
       return;
     }
 
-    // Look for the "Add to behavior" / AddIcon button on a card
+    // Look for the "Add to requirement" / AddIcon button on a card
     const firstCard = page.locator('.MuiCard-root').first();
     await firstCard.hover();
 
     // The icon button with AddIcon has tooltip text. Try aria-label or title.
-    const addToBehaviorBtn = firstCard
-      .getByRole('button', { name: /add|assign.*behavior/i })
+    const addToRequirementBtn = firstCard
+      .getByRole('button', { name: /add|assign.*requirement/i })
       .first();
-    const hasBtn = await addToBehaviorBtn
+    const hasBtn = await addToRequirementBtn
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (!hasBtn) {
       test.skip(
         true,
-        'Add-to-behavior button not found on metric card — metric may be locked or no assign icon visible'
+        'Add-to-requirement button not found on metric card — metric may be locked or no assign icon visible'
       );
       return;
     }
 
-    await addToBehaviorBtn.click();
+    await addToRequirementBtn.click();
 
-    // The SelectBehaviorsDialog should open
+    // The SelectRequirementsDialog should open
     const dialog = page.getByRole('dialog');
     const dialogVisible = await dialog
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!dialogVisible) {
-      test.skip(true, 'SelectBehaviors dialog did not open — skipping');
+      test.skip(true, 'SelectRequirements dialog did not open — skipping');
       return;
     }
 
-    // There should be behaviors listed in the dialog
-    const behaviorOption = dialog
+    // There should be requirements listed in the dialog
+    const requirementOption = dialog
       .locator('[role="checkbox"], input[type="checkbox"]')
       .first();
-    const hasBehavior = await behaviorOption
+    const hasRequirement = await requirementOption
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
-    if (!hasBehavior) {
-      // Close and skip — no behaviors available
+    if (!hasRequirement) {
+      // Close and skip — no requirements available
       await page.keyboard.press('Escape');
-      test.skip(true, 'No behaviors available in dialog — skipping assign');
+      test.skip(true, 'No requirements available in dialog — skipping assign');
       return;
     }
 
-    // Select the first behavior
-    await behaviorOption.click();
+    // Select the first requirement
+    await requirementOption.click();
 
     // Confirm — look for Save/Confirm/Done button
     const confirmBtn = dialog

@@ -1,0 +1,67 @@
+[project]
+name = "reg-advisor"
+version = "0.1.0"
+description = "Reg-Advisor: a Google ADK multi-agent demo for EU/US health product regulation"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Engineering Team", email = "engineering@rhesis.ai" },
+]
+keywords = [
+    "llm",
+    "ai",
+    "agents",
+    "multi-agent",
+    "regulatory",
+    "health",
+    "adk",
+]
+dependencies = [
+    "google-adk>=2.6,<3",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.2",
+]
+
+[project.license]
+text = "MIT"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.11.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reg_advisor"]
+
+# The knowledge base lives at the project root but has to travel with the package: an installed
+# wheel that cannot find its YAML has no answers at all. `knowledge.py` looks in the project
+# root first (editable installs and a git checkout), then here.
+[tool.hatch.build.targets.wheel.force-include]
+"knowledge" = "reg_advisor/_knowledge"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["I", "E", "F"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["reg_advisor"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"

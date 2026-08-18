@@ -16,7 +16,7 @@ class TestChunkingServiceChunkSource:
         mock_db = MagicMock()
         source_id = uuid.uuid4()
         with patch(
-            "rhesis.backend.app.services.chunking.crud.get_source_with_content",
+            "rhesis.backend.app.services.chunking.source_crud.get_source_with_content",
             return_value=None,
         ):
             service = ChunkingService(mock_db, IdentityChunker())
@@ -32,7 +32,7 @@ class TestChunkingServiceChunkSource:
         mock_source.content = content
         mock_source.id = uuid.uuid4()
         with patch(
-            "rhesis.backend.app.services.chunking.crud.get_source_with_content",
+            "rhesis.backend.app.services.chunking.source_crud.get_source_with_content",
             return_value=mock_source,
         ):
             service = ChunkingService(mock_db, IdentityChunker())
@@ -47,7 +47,7 @@ class TestChunkingServiceChunkSource:
         mock_source.description = None
         mock_source.source_metadata = {}
         with patch(
-            "rhesis.backend.app.services.chunking.crud.get_source_with_content",
+            "rhesis.backend.app.services.chunking.source_crud.get_source_with_content",
             return_value=mock_source,
         ), patch(
             "rhesis.backend.app.services.chunking.SDKChunkingService"
@@ -80,13 +80,13 @@ class TestChunkingServiceChunkSource:
         mock_status.id = uuid.uuid4()
 
         with patch(
-            "rhesis.backend.app.services.chunking.crud.get_source_with_content",
+            "rhesis.backend.app.services.chunking.source_crud.get_source_with_content",
             return_value=mock_source,
         ), patch(
             "rhesis.backend.app.services.chunking.get_or_create_status",
             return_value=mock_status,
         ), patch(
-            "rhesis.backend.app.services.chunking.crud.create_chunk",
+            "rhesis.backend.app.services.chunking.source_crud.create_chunk",
             side_effect=fake_create_chunk,
         ):
             strategy = IdentityChunker()

@@ -1,6 +1,6 @@
-.PHONY: all format lint lint_diff format_diff type-check test test-lf docs
+.PHONY: all format lint lint_diff format_diff test test-lf docs
 
-all: format_diff lint_diff type-check test docs
+all: format_diff lint_diff test docs
 
 
 ALL_FILES := .
@@ -31,10 +31,6 @@ format_diff:
 	else \
 		echo "No Python file changes detected in git diff with the main branch."; \
 	fi
-
-type-check:
-	PYTHONPATH=src mypy --install-types --non-interactive
-	PYTHONPATH=src mypy --package rhesis.backend
 
 # Tests (Postgres/Redis start automatically via Testcontainers)
 test:

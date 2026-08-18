@@ -114,7 +114,7 @@ export const PlatformStructureMap = () => {
                 <InfoCard
                   icon={QuizOutlined}
                   title="Test"
-                  description="One prompt or conversation goal, tagged with a behavior."
+                  description="One prompt or conversation goal, tagged with a requirement."
                   link="/docs/tests-generation"
                 />
                 <InfoCard
@@ -130,14 +130,14 @@ export const PlatformStructureMap = () => {
               <div style={cardGridStyle}>
                 <InfoCard
                   icon={RuleOutlined}
-                  title="Behavior"
+                  title="Requirement"
                   description="What good looks like. Defaults: Reliability, Robustness, Compliance."
-                  link="/docs/behaviors"
+                  link="/docs/requirements"
                 />
                 <InfoCard
                   icon={AnalyticsOutlined}
                   title="Metric"
-                  description="Judge assigned to behaviors. Pass/fail, score, and reasoning."
+                  description="Judge assigned to requirements. Pass/fail, score, and reasoning."
                   link="/docs/metrics"
                 />
               </div>
@@ -196,7 +196,7 @@ export const PlatformStructureMap = () => {
             <InfoCard
               icon={BarChartOutlined}
               title="Results overview"
-              description="Dashboard across runs: trends, pass rates by behavior."
+              description="Dashboard across runs: trends, pass rates by requirement."
               link="/docs/results-overview"
             />
           </div>

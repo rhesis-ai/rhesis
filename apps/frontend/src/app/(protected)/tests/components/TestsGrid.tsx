@@ -359,19 +359,19 @@ export default function TestsTable({
         renderCell: renderTestContentCell,
       },
       {
-        field: 'behavior.name',
-        headerName: 'Behavior',
+        field: 'requirement.name',
+        headerName: 'Requirement',
         width: 140,
         minWidth: 100,
         resizable: true,
         filterable: true,
         valueGetter: (_value: unknown, row: TestDetail) =>
-          row.behavior?.name || '',
+          row.requirement?.name || '',
         renderCell: (params: GridRenderCellParams<TestDetail>) => {
-          const behaviorName = params.row.behavior?.name;
-          if (!behaviorName) return null;
+          const requirementName = params.row.requirement?.name;
+          if (!requirementName) return null;
 
-          return <GridBadge label={behaviorName} />;
+          return <GridBadge label={requirementName} />;
         },
       },
       {

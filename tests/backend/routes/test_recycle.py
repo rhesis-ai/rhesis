@@ -19,7 +19,7 @@ from rhesis.backend.app.utils import crud_utils
 
 # Use existing data factories and fixtures
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     CategoryDataFactory,
     TopicDataFactory,
 )
@@ -69,7 +69,7 @@ class TestRecycleModelsEndpoint:
         model_names = [m["name"] for m in data["models"]]
 
         # Should include common entities
-        assert "behavior" in model_names
+        assert "requirement" in model_names
         assert "category" in model_names
         assert "topic" in model_names
         assert "test" in model_names
@@ -85,7 +85,7 @@ class TestRecycleGetDeletedEndpoint:
         self, authenticated_client: TestClient, test_db, test_org_id
     ):
         """Test that getting deleted records is accessible to all authenticated users."""
-        response = authenticated_client.get("/recycle/behavior")
+        response = authenticated_client.get("/recycle/requirement")
         # Should succeed (200) or return empty list, not 403
         assert response.status_code == status.HTTP_200_OK
 
@@ -101,35 +101,35 @@ class TestRecycleGetDeletedEndpoint:
     ):
         """Test that endpoint returns only soft-deleted records."""
 
-        # Create active and deleted behaviors
-        active_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create active and deleted requirements
+        active_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
-        deleted_behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        deleted_requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
 
         crud_utils.delete_item(
-            test_db, models.Behavior, deleted_behavior.id, organization_id=test_org_id
+            test_db, models.Requirement, deleted_requirement.id, organization_id=test_org_id
         )
 
-        # Get deleted behaviors
-        response = authenticated_client.get("/recycle/behavior")
+        # Get deleted requirements
+        response = authenticated_client.get("/recycle/requirement")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
         assert "model" in data
-        assert data["model"] == "behavior"
+        assert data["model"] == "requirement"
         assert "items" in data
         assert "count" in data
 
         item_ids = [item["id"] for item in data["items"]]
 
         # Should include deleted, not active
-        assert str(deleted_behavior.id) in item_ids
-        assert str(active_behavior.id) not in item_ids
+        assert str(deleted_requirement.id) in item_ids
+        assert str(active_requirement.id) not in item_ids
 
     def test_get_deleted_with_pagination(
         self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
@@ -163,33 +163,33 @@ class TestRecycleGetDeletedEndpoint:
         """Test organization filtering for deleted records (automatic based on user context)."""
 
         # Create deleted items in different organizations
-        behavior1 = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        requirement1 = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
-        crud_utils.delete_item(test_db, models.Behavior, behavior1.id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement1.id, organization_id=test_org_id)
 
-        behavior2 = crud_utils.create_item(
+        requirement2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=secondary_org_id,
         )
         crud_utils.delete_item(
-            test_db, models.Behavior, behavior2.id, organization_id=secondary_org_id
+            test_db, models.Requirement, requirement2.id, organization_id=secondary_org_id
         )
 
-        # Get deleted behaviors — should only return items from the authenticated user's org context
-        response = authenticated_client.get("/recycle/behavior")
+        # Get deleted requirements — should only return items from the authenticated user's org context
+        response = authenticated_client.get("/recycle/requirement")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
         item_ids = [item["id"] for item in data["items"]]
 
-        # Should only include behavior1 (from test_org_id), not behavior2 (from secondary_org_id)
+        # Should only include requirement1 (from test_org_id), not requirement2 (from secondary_org_id)
         # This demonstrates proper organization isolation
-        assert str(behavior1.id) in item_ids
-        assert str(behavior2.id) not in item_ids
+        assert str(requirement1.id) in item_ids
+        assert str(requirement2.id) not in item_ids
 
 
 @pytest.mark.integration
@@ -202,14 +202,14 @@ class TestRecycleRestoreEndpoint:
     ):
         """Test that restoring is accessible to all authenticated users."""
 
-        # Create and delete a behavior
-        behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create and delete a requirement
+        requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
-        crud_utils.delete_item(test_db, models.Behavior, behavior.id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement.id, organization_id=test_org_id)
 
         # Non-superuser can now restore (with org filtering for security)
-        response = authenticated_client.post(f"/recycle/behavior/{behavior.id}/restore")
+        response = authenticated_client.post(f"/recycle/requirement/{requirement.id}/restore")
         assert response.status_code == status.HTTP_200_OK
 
     def test_restore_invalid_model_name(self, owner_client: TestClient, test_db):
@@ -247,7 +247,11 @@ class TestRecycleRestoreEndpoint:
         assert "item" in data
         assert data["item"]["id"] == str(category_id)
 
-        # Verify it's actually restored
+        # Verify it's actually restored. The restore ran through the HTTP
+        # client's own session, not test_db -- expire test_db's cached copy
+        # (created earlier by create_item/delete_item) so this re-reads
+        # the restored row instead of the stale pre-restore one.
+        test_db.expire_all()
         restored = crud_utils.get_item(
             test_db, models.Category, category_id, organization_id=test_org_id
         )
@@ -263,7 +267,7 @@ class TestRecycleRestoreEndpoint:
 
         fake_id = uuid.uuid4()
 
-        response = authenticated_client.post(f"/recycle/behavior/{fake_id}/restore")
+        response = authenticated_client.post(f"/recycle/requirement/{fake_id}/restore")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -294,28 +298,28 @@ class TestRecyclePermanentDeleteEndpoint:
     ):
         """Test that permanent deletion is accessible to all authenticated users."""
 
-        # Create and delete a behavior
-        behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create and delete a requirement
+        requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
-        crud_utils.delete_item(test_db, models.Behavior, behavior.id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement.id, organization_id=test_org_id)
 
         # Regular user can now permanently delete (superuser requirement removed)
-        response = authenticated_client.delete(f"/recycle/behavior/{behavior.id}?confirm=true")
+        response = authenticated_client.delete(f"/recycle/requirement/{requirement.id}?confirm=true")
         assert response.status_code == status.HTTP_200_OK
 
     def test_permanent_delete_requires_confirmation(
         self, owner_client: TestClient, test_db, test_org_id
     ):
         """Test that permanent deletion requires confirm=true."""
-        # Create and delete a behavior
-        behavior = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        # Create and delete a requirement
+        requirement = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
-        crud_utils.delete_item(test_db, models.Behavior, behavior.id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement.id, organization_id=test_org_id)
 
         # Try without confirmation
-        response = owner_client.delete(f"/recycle/behavior/{behavior.id}")
+        response = owner_client.delete(f"/recycle/requirement/{requirement.id}")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "confirm" in response.json()["detail"].lower()
@@ -354,7 +358,7 @@ class TestRecyclePermanentDeleteEndpoint:
 
         fake_id = uuid.uuid4()
 
-        response = owner_client.delete(f"/recycle/behavior/{fake_id}?confirm=true")
+        response = owner_client.delete(f"/recycle/requirement/{fake_id}?confirm=true")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -377,14 +381,14 @@ class TestRecycleStatsEndpoint:
         """Test that stats endpoint returns deletion counts."""
         # Create and delete some items
         for _ in range(3):
-            behavior = crud_utils.create_item(
+            requirement = crud_utils.create_item(
                 test_db,
-                models.Behavior,
-                BehaviorDataFactory.sample_data(),
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
                 organization_id=test_org_id,
             )
             crud_utils.delete_item(
-                test_db, models.Behavior, behavior.id, organization_id=test_org_id
+                test_db, models.Requirement, requirement.id, organization_id=test_org_id
             )
 
         response = owner_client.get("/recycle/stats/counts")
@@ -396,9 +400,9 @@ class TestRecycleStatsEndpoint:
         assert "counts" in data
         assert isinstance(data["counts"], dict)
 
-        # Should have behavior in counts
-        if "behavior" in data["counts"]:
-            assert data["counts"]["behavior"]["count"] >= 3
+        # Should have requirement in counts
+        if "requirement" in data["counts"]:
+            assert data["counts"]["requirement"]["count"] >= 3
 
 
 @pytest.mark.integration
@@ -410,14 +414,14 @@ class TestRecycleBulkRestoreEndpoint:
         self, authenticated_client: TestClient, test_db, test_org_id
     ):
         """Test that bulk restore is accessible to all authenticated users."""
-        response = authenticated_client.post("/recycle/bulk-restore/behavior", json=[])
+        response = authenticated_client.post("/recycle/bulk-restore/requirement", json=[])
         # Should return 400 for empty list, not 403
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "No item IDs provided" in response.json()["detail"]
 
     def test_bulk_restore_requires_item_ids(self, owner_client: TestClient, test_db):
         """Test that bulk restore requires item IDs."""
-        response = owner_client.post("/recycle/bulk-restore/behavior", json=[])
+        response = owner_client.post("/recycle/bulk-restore/requirement", json=[])
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "No item IDs" in response.json()["detail"]
@@ -462,7 +466,7 @@ class TestRecycleBulkRestoreEndpoint:
         # Try to restore 101 items (over the limit)
         item_ids = [str(uuid.uuid4()) for _ in range(101)]
 
-        response = owner_client.post("/recycle/bulk-restore/behavior", json=item_ids)
+        response = owner_client.post("/recycle/bulk-restore/requirement", json=item_ids)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "100" in response.json()["detail"]
@@ -502,12 +506,12 @@ class TestRecycleEmptyBinEndpoint:
         """Test that emptying bin is accessible to all authenticated users."""
 
         # Regular user can now empty bin (superuser requirement removed)
-        response = authenticated_client.delete("/recycle/empty/behavior?confirm=true")
+        response = authenticated_client.delete("/recycle/empty/requirement?confirm=true")
         assert response.status_code == status.HTTP_200_OK
 
     def test_empty_bin_requires_confirmation(self, owner_client: TestClient, test_db):
         """Test that emptying bin requires confirm=true."""
-        response = owner_client.delete("/recycle/empty/behavior")
+        response = owner_client.delete("/recycle/empty/requirement")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "confirm" in response.json()["detail"].lower()
@@ -563,26 +567,26 @@ class TestRecycleEmptyBinEndpoint:
         """Test emptying bin with organization filter."""
 
         # Create and delete items in different organizations
-        behavior1 = crud_utils.create_item(
-            test_db, models.Behavior, BehaviorDataFactory.sample_data(), organization_id=test_org_id
+        requirement1 = crud_utils.create_item(
+            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
-        crud_utils.delete_item(test_db, models.Behavior, behavior1.id, organization_id=test_org_id)
+        crud_utils.delete_item(test_db, models.Requirement, requirement1.id, organization_id=test_org_id)
 
-        behavior2 = crud_utils.create_item(
+        requirement2 = crud_utils.create_item(
             test_db,
-            models.Behavior,
-            BehaviorDataFactory.sample_data(),
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
             organization_id=secondary_org_id,
         )
         crud_utils.delete_item(
-            test_db, models.Behavior, behavior2.id, organization_id=secondary_org_id
+            test_db, models.Requirement, requirement2.id, organization_id=secondary_org_id
         )
 
         # Empty bin — should only affect items in the authenticated user's org
-        response = authenticated_client.delete("/recycle/empty/behavior?confirm=true")
+        response = authenticated_client.delete("/recycle/empty/requirement?confirm=true")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        # Should have deleted behavior1 (from test_org_id) but not behavior2 (from secondary_org_id)
+        # Should have deleted requirement1 (from test_org_id) but not requirement2 (from secondary_org_id)
         assert data["permanently_deleted"] >= 1

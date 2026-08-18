@@ -1,5 +1,5 @@
 """
-Tests for soft-delete cascade behavior with File records.
+Tests for soft-delete cascade requirement with File records.
 
 Verifies that File records are properly cascaded when their parent
 Test or TestResult entities are soft-deleted and restored.

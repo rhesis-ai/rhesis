@@ -47,13 +47,13 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402
     InMemorySpanExporter,
 )
+from rhesis.telemetry.attributes import AIAttributes, validate_span_name  # noqa: E402
 from rhesis.telemetry.constants import ConversationContext  # noqa: E402
-
-from rhesis.sdk.telemetry.attributes import AIAttributes, validate_span_name  # noqa: E402
-from rhesis.sdk.telemetry.context import (  # noqa: E402
+from rhesis.telemetry.context import (  # noqa: E402
     is_llm_observation_active,
     set_llm_observation_active,
 )
+
 from rhesis.sdk.telemetry.integrations.agent_framework import (  # noqa: E402
     MAFIntegration,
     MAFLLMDedupSpanProcessor,

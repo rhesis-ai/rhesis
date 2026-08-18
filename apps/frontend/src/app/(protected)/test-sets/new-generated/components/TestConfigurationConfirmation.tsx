@@ -181,18 +181,18 @@ export default function TestConfigurationConfirmation({
                 />
               </Box>
 
-              {/* Behavior Chips */}
-              {configChips.behavior.some(chip => chip.active) && (
+              {/* Requirement Chips */}
+              {configChips.requirement.some(chip => chip.active) && (
                 <Box sx={{ mb: 3 }}>
                   <Typography
                     variant="subtitle2"
                     color="text.secondary"
                     gutterBottom
                   >
-                    Behaviors
+                    Requirements
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {configChips.behavior
+                    {configChips.requirement
                       .filter(chip => chip.active)
                       .map(chip => (
                         <Chip

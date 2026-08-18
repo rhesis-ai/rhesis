@@ -103,10 +103,10 @@ def enrich_files_with_extraction(
     resolved_model = None
     if db and user_id:
         try:
-            from rhesis.backend.app import crud
+            from rhesis.backend.app.crud import user as user_crud
             from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 
-            user = crud.get_user_by_id(db, user_id)
+            user = user_crud.get_user_by_id(db, user_id)
             if user:
                 resolved_model = resolve_model_for_extraction(get_user_generation_model(db, user))
         except Exception as exc:

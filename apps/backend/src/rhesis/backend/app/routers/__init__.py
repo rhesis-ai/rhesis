@@ -2,7 +2,7 @@
 from .annotations import router as annotations_router
 from .architect import router as architect_router
 from .auth import router as auth_router
-from .behavior import router as behavior_router
+from .requirement import router as requirement_router
 from .capabilities import router as capabilities_router
 from .category import router as category_router
 from .comment import router as comment_router
@@ -23,7 +23,9 @@ from .insights import router as insights_router
 from .job import router as task_router
 from .metric import router as metric_router
 from .model import router as model_router
+from .notification import router as notification_router
 from .organization import router as organization_router
+from .owasp import router as owasp_router
 from .parameters import (
     project_experiments_router as project_experiments_router,
 )
@@ -67,7 +69,7 @@ __all__ = [
     "prompt",
     "prompt_template",
     "category",
-    "behavior",
+    "requirement",
     "comment",
     "connector",
     "test_set",
@@ -93,6 +95,7 @@ __all__ = [
     "task",
     "task_management",
     "garak",
+    "owasp",
     "capabilities",
     "features",
     "file",
@@ -112,7 +115,7 @@ routers = sorted(
         prompt_router,
         prompt_template_router,
         category_router,
-        behavior_router,
+        requirement_router,
         comment_router,
         connector_router,
         telemetry_router,
@@ -140,12 +143,14 @@ routers = sorted(
         type_lookup_router,
         metric_router,
         model_router,
+        notification_router,
         task_router,
         task_management_router,
         tools_router,
         recycle_router,
         resolve_router,
         garak_router,
+        owasp_router,
         features_router,
         feedback_router,
         file_router,

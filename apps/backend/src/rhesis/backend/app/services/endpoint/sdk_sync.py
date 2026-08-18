@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.enums import (
     EndpointConfigSource,
     EndpointConnectionType,
@@ -53,7 +54,7 @@ async def sync_sdk_endpoints(
     logger.info(f"Functions to sync: {len(functions_data)}")
 
     # Get user for language model access
-    user = crud.get_user_by_id(db, user_id)
+    user = user_crud.get_user_by_id(db, user_id)
     if not user:
         logger.error(f"User {user_id} not found for mapping generation")
         return {"created": 0, "updated": 0, "marked_inactive": 0, "errors": ["User not found"]}
@@ -86,13 +87,18 @@ async def sync_sdk_endpoints(
 
     # Get all existing SDK endpoints for this project/environment
     # Use QueryBuilder which properly handles soft delete filtering
-    query_builder = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
-    query_builder.query = query_builder.query.filter(
-        models.Endpoint.project_id == project_id,
-        models.Endpoint.environment == environment,
-        models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
+    existing_endpoints = (
+        QueryBuilder(db, models.Endpoint)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.filter(
+                models.Endpoint.project_id == project_id,
+                models.Endpoint.environment == environment,
+                models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
+            )
+        )
+        .all()
     )
-    existing_endpoints = query_builder.all()
 
     # Map existing endpoints by function name
     existing_by_function = {}

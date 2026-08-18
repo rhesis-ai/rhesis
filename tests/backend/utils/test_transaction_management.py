@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.utils import crud_utils
 from tests.backend.routes.fixtures.data_factories import (
-    BehaviorDataFactory,
+    RequirementDataFactory,
     CategoryDataFactory,
     TopicDataFactory,
 )
@@ -50,25 +50,25 @@ class TestCRUDUtilsTransactionManagement:
             "Transaction User",
         )
 
-        # Create behavior data
-        behavior_data = BehaviorDataFactory.sample_data()
-        behavior_data["organization_id"] = organization.id
-        behavior_data["user_id"] = user.id
+        # Create requirement data
+        requirement_data = RequirementDataFactory.sample_data()
+        requirement_data["organization_id"] = organization.id
+        requirement_data["user_id"] = user.id
 
         # Create item using the utility function
         result = crud_utils._create_db_item_with_transaction(
-            test_db, models.Behavior, behavior_data, commit=True
+            test_db, models.Requirement, requirement_data, commit=True
         )
 
         # Verify item was created and persisted
         assert result is not None
-        assert result.name == behavior_data["name"]
+        assert result.name == requirement_data["name"]
         assert result.id is not None
 
         # Verify it's actually in the database (committed)
-        db_behavior = test_db.query(models.Behavior).filter(models.Behavior.id == result.id).first()
-        assert db_behavior is not None
-        assert db_behavior.name == behavior_data["name"]
+        db_requirement = test_db.query(models.Requirement).filter(models.Requirement.id == result.id).first()
+        assert db_requirement is not None
+        assert db_requirement.name == requirement_data["name"]
 
     def test_create_db_item_with_commit_false_still_persists(self, test_db: Session):
         """Test that _create_db_item_with_transaction still persists data when commit=False (session context manager handles commit)"""
@@ -117,22 +117,22 @@ class TestCRUDUtilsTransactionManagement:
             "Transaction User",
         )
 
-        # First create a behavior to update
-        behavior_data = BehaviorDataFactory.sample_data()
-        behavior_data["organization_id"] = organization.id
-        behavior_data["user_id"] = user.id
+        # First create a requirement to update
+        requirement_data = RequirementDataFactory.sample_data()
+        requirement_data["organization_id"] = organization.id
+        requirement_data["user_id"] = user.id
 
-        behavior = crud_utils._create_db_item_with_transaction(
-            test_db, models.Behavior, behavior_data
+        requirement = crud_utils._create_db_item_with_transaction(
+            test_db, models.Requirement, requirement_data
         )
-        original_name = behavior.name
+        original_name = requirement.name
 
-        # Update the behavior
-        new_name = "Updated Behavior Name"
+        # Update the requirement
+        new_name = "Updated Requirement Name"
         update_data = {"name": new_name}
 
         result = crud_utils.update_item(
-            test_db, models.Behavior, behavior.id, update_data, organization.id, user.id
+            test_db, models.Requirement, requirement.id, update_data, organization.id, user.id
         )
 
         # Verify item was updated and persisted
@@ -141,12 +141,12 @@ class TestCRUDUtilsTransactionManagement:
         assert result.name != original_name
 
         # Verify it's actually updated in the database (committed)
-        db_behavior = (
-            test_db.query(models.Behavior).filter(models.Behavior.id == behavior.id).first()
+        db_requirement = (
+            test_db.query(models.Requirement).filter(models.Requirement.id == requirement.id).first()
         )
-        assert db_behavior is not None
-        assert db_behavior.name == new_name
-        assert db_behavior.name != original_name
+        assert db_requirement is not None
+        assert db_requirement.name == new_name
+        assert db_requirement.name != original_name
 
     def test_delete_item_commits_on_success(self, test_db: Session):
         """Test that delete_item commits automatically on success"""
@@ -205,24 +205,24 @@ class TestCRUDUtilsTransactionManagement:
             "Transaction User",
         )
 
-        # Create behavior data
-        behavior_data = BehaviorDataFactory.sample_data()
+        # Create requirement data
+        requirement_data = RequirementDataFactory.sample_data()
 
         # Create item using the main create_item function
         result = crud_utils.create_item(
-            test_db, models.Behavior, behavior_data, organization.id, user.id
+            test_db, models.Requirement, requirement_data, organization.id, user.id
         )
 
         # Verify item was created and persisted
         assert result is not None
-        assert result.name == behavior_data["name"]
+        assert result.name == requirement_data["name"]
         assert result.organization_id == organization.id
         assert result.user_id == user.id
 
         # Verify it's actually in the database (committed)
-        db_behavior = test_db.query(models.Behavior).filter(models.Behavior.id == result.id).first()
-        assert db_behavior is not None
-        assert db_behavior.name == behavior_data["name"]
+        db_requirement = test_db.query(models.Requirement).filter(models.Requirement.id == result.id).first()
+        assert db_requirement is not None
+        assert db_requirement.name == requirement_data["name"]
 
     def test_get_or_create_entity_commits_on_create(self, test_db: Session):
         """Test that get_or_create_entity commits automatically when creating new entity"""
@@ -312,42 +312,42 @@ class TestCRUDUtilsTransactionManagement:
             "Transaction User",
         )
 
-        # Create multiple behaviors
-        behavior_data1 = BehaviorDataFactory.sample_data()
-        behavior_data1["name"] = "Behavior 1"
+        # Create multiple requirements
+        requirement_data1 = RequirementDataFactory.sample_data()
+        requirement_data1["name"] = "Requirement 1"
 
-        behavior_data2 = BehaviorDataFactory.sample_data()
-        behavior_data2["name"] = "Behavior 2"
+        requirement_data2 = RequirementDataFactory.sample_data()
+        requirement_data2["name"] = "Requirement 2"
 
-        # Create first behavior
+        # Create first requirement
         result1 = crud_utils.create_item(
-            test_db, models.Behavior, behavior_data1, organization.id, user.id
+            test_db, models.Requirement, requirement_data1, organization.id, user.id
         )
 
-        # Create second behavior
+        # Create second requirement
         result2 = crud_utils.create_item(
-            test_db, models.Behavior, behavior_data2, organization.id, user.id
+            test_db, models.Requirement, requirement_data2, organization.id, user.id
         )
 
-        # Verify both behaviors exist independently
+        # Verify both requirements exist independently
         assert result1 is not None
         assert result2 is not None
         assert result1.id != result2.id
-        assert result1.name == "Behavior 1"
-        assert result2.name == "Behavior 2"
+        assert result1.name == "Requirement 1"
+        assert result2.name == "Requirement 2"
 
         # Verify both are persisted in database
-        db_behavior1 = (
-            test_db.query(models.Behavior).filter(models.Behavior.id == result1.id).first()
+        db_requirement1 = (
+            test_db.query(models.Requirement).filter(models.Requirement.id == result1.id).first()
         )
-        db_behavior2 = (
-            test_db.query(models.Behavior).filter(models.Behavior.id == result2.id).first()
+        db_requirement2 = (
+            test_db.query(models.Requirement).filter(models.Requirement.id == result2.id).first()
         )
 
-        assert db_behavior1 is not None
-        assert db_behavior2 is not None
-        assert db_behavior1.name == "Behavior 1"
-        assert db_behavior2.name == "Behavior 2"
+        assert db_requirement1 is not None
+        assert db_requirement2 is not None
+        assert db_requirement1.name == "Requirement 1"
+        assert db_requirement2.name == "Requirement 2"
 
     def test_update_item_with_invalid_id_returns_none(self, test_db: Session):
         """Test that update_item returns None for non-existent item without causing transaction issues"""
@@ -367,17 +367,17 @@ class TestCRUDUtilsTransactionManagement:
         update_data = {"name": "Updated Name"}
 
         result = crud_utils.update_item(
-            test_db, models.Behavior, non_existent_id, update_data, organization.id, user.id
+            test_db, models.Requirement, non_existent_id, update_data, organization.id, user.id
         )
 
         # Verify None is returned and no transaction issues
         assert result is None
 
         # Verify no phantom records were created
-        phantom_behavior = (
-            test_db.query(models.Behavior).filter(models.Behavior.id == non_existent_id).first()
+        phantom_requirement = (
+            test_db.query(models.Requirement).filter(models.Requirement.id == non_existent_id).first()
         )
-        assert phantom_behavior is None
+        assert phantom_requirement is None
 
     def test_delete_item_with_invalid_id_returns_none(self, test_db: Session):
         """Test that delete_item returns None for non-existent item without causing transaction issues"""

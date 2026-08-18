@@ -55,8 +55,18 @@ export type NavigationItem =
   | NavigationActionItem;
 
 export interface BrandingProps {
+  /** Organisation name, falling back to `productName` before it resolves. */
   title: string;
   logo: ReactNode;
+  /**
+   * Brand mark shown in the sidebar — `BRAND_FAVICON_URL` when a deployment
+   * sets one, otherwise the shipped Rhesis icon. Threaded through here rather
+   * than read from `window.__ENV__` so the server and client render the same
+   * `src` and hydration stays quiet.
+   */
+  iconUrl?: string;
+  /** `BRAND_PRODUCT_NAME`, for alt text and labels. */
+  productName?: string;
   homeUrl?: string;
 }
 

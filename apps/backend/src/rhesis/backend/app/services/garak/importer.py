@@ -16,14 +16,14 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import MetricBackendType
+from rhesis.backend.app.constants import EntityType, MetricBackendType
 from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.test_set import TestSet, test_set_metric_association
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 
 from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy, resolve_behavior
+from .taxonomy import GarakTaxonomy, resolve_requirement
 
 logger = logging.getLogger(__name__)
 
@@ -152,9 +152,9 @@ class GarakImporter:
                 **garak_metadata,
             }
 
-            # Tag Garak-created behaviors so they are distinguishable from
-            # hand-authored behaviors in the UI and queries.
-            self._tag_garak_behaviors(test_set, organization_id, user_id)
+            # Tag Garak-created requirements so they are distinguishable from
+            # hand-authored requirements in the UI and queries.
+            self._tag_garak_requirements(test_set, organization_id, user_id)
 
             # Associate metric with test set
             detector = probe_info.detector or mapping.default_detector
@@ -211,9 +211,9 @@ class GarakImporter:
         Build test data list for bulk creation.
 
         Each prompt from the Garak probe becomes a test with proper
-        category, behavior, topic, and metadata.
+        category, requirement, topic, and metadata.
         """
-        behavior = resolve_behavior(probe.tags)
+        requirement = resolve_requirement(probe.tags)
         tests_data = []
 
         for idx, prompt_content in enumerate(probe.prompts):
@@ -244,7 +244,7 @@ class GarakImporter:
                     content=prompt_content,
                     language_code="en",
                 ),
-                behavior=behavior,
+                requirement=requirement,
                 category=mapping.category,
                 topic=mapping.topic,
                 test_type="Single-Turn",
@@ -422,18 +422,18 @@ class GarakImporter:
                 )
             )
 
-    def _tag_garak_behaviors(
+    def _tag_garak_requirements(
         self,
         test_set: TestSet,
         organization_id: str,
         user_id: str,
     ) -> None:
-        """Ensure every ``Garak (...)`` behavior in the test set carries a ``garak`` tag.
+        """Ensure every ``Garak (...)`` requirement in the test set carries a ``garak`` tag.
 
-        Behaviors are shared across probes/test sets (e.g. many probes resolve to the
-        same ``Garak (...)`` behavior), so this can run multiple times against the same
-        behavior within one import call. We check for an existing ``TaggedItem`` by its
-        unique-constraint keys (not the possibly-stale ``behavior.tags`` relationship)
+        Requirements are shared across probes/test sets (e.g. many probes resolve to the
+        same ``Garak (...)`` requirement), so this can run multiple times against the same
+        requirement within one import call. We check for an existing ``TaggedItem`` by its
+        unique-constraint keys (not the possibly-stale ``requirement.tags`` relationship)
         and flush immediately after inserting, so a later iteration in the same session
         sees it and skips re-inserting -- avoiding a ``uq_tagged_item_assignment``
         violation.
@@ -446,18 +446,21 @@ class GarakImporter:
             self.db.add(tag)
             self.db.flush()
 
-        seen_behavior_ids: set = set()
+        seen_requirement_ids: set = set()
         for test in test_set.tests:
-            if not test.behavior_id or test.behavior_id in seen_behavior_ids:
+            if not test.requirement_id or test.requirement_id in seen_requirement_ids:
                 continue
-            seen_behavior_ids.add(test.behavior_id)
+            seen_requirement_ids.add(test.requirement_id)
 
             already_tagged = (
                 self.db.query(TaggedItem)
                 .filter_by(
                     tag_id=tag.id,
-                    entity_id=test.behavior_id,
-                    entity_type="Behavior",
+                    entity_id=test.requirement_id,
+                    # TaggedItem.entity_type is a plain String column with no
+                    # normalization at this call site -- use .value explicitly, a
+                    # bare enum would write "EntityType.REQUIREMENT" into the column.
+                    entity_type=EntityType.REQUIREMENT.value,
                     organization_id=organization_id,
                 )
                 .first()
@@ -467,8 +470,8 @@ class GarakImporter:
 
             tagged_item = TaggedItem(
                 tag_id=tag.id,
-                entity_id=test.behavior_id,
-                entity_type="Behavior",
+                entity_id=test.requirement_id,
+                entity_type=EntityType.REQUIREMENT.value,
                 organization_id=organization_id,
                 user_id=user_id,
             )

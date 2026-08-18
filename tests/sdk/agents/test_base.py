@@ -390,10 +390,10 @@ class TestFormatTools:
                         "items": {
                             "type": "object",
                             "properties": {
-                                "behavior": {"type": "string"},
+                                "requirement": {"type": "string"},
                                 "category": {"type": "string"},
                             },
-                            "required": ["behavior", "category"],
+                            "required": ["requirement", "category"],
                         },
                     }
                 },
@@ -402,7 +402,7 @@ class TestFormatTools:
         )
         assert "tests: array[object] (required)" in out
         assert "Each item:" in out
-        assert "behavior: string (required)" in out
+        assert "requirement: string (required)" in out
         assert "category: string (required)" in out
 
     def test_nested_object_properties_are_expanded(self, agent):

@@ -44,8 +44,8 @@ interface PlanSpec {
   reuse_status?: string;
   num_tests?: number;
   test_type?: string;
-  behaviors?: string[];
-  behavior?: string;
+  requirements?: string[];
+  requirement?: string;
   metrics?: string[];
 }
 
@@ -55,10 +55,10 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
   if (project?.name) {
     lines.push(`# ${project.name}`, '', project.description || '', '');
   }
-  const behaviors = (data.behaviors || []) as PlanSpec[];
-  if (behaviors.length) {
-    lines.push('## Behaviors', '');
-    for (const b of behaviors) {
+  const requirements = (data.requirements || []) as PlanSpec[];
+  if (requirements.length) {
+    lines.push('## Requirements', '');
+    for (const b of requirements) {
       const box = b.completed ? '[x]' : '[ ]';
       const tag =
         b.reuse_status && b.reuse_status !== 'new'
@@ -77,8 +77,8 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
       lines.push(
         `- ${box} **${ts.name}** — ${ts.num_tests ?? 15} ${ts.test_type ?? 'Single-Turn'} tests`
       );
-      if (ts.behaviors?.length)
-        lines.push(`  Behaviors: ${ts.behaviors.join(', ')}`);
+      if (ts.requirements?.length)
+        lines.push(`  Requirements: ${ts.requirements.join(', ')}`);
     }
     lines.push('');
   }
@@ -95,17 +95,17 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
     }
     lines.push('');
   }
-  const mappings = data.behavior_metric_mappings as
+  const mappings = data.requirement_metric_mappings as
     | PlanSpec[]
     | Record<string, string[]>
     | undefined;
   if (mappings) {
-    lines.push('## Behavior-Metric Mappings', '');
+    lines.push('## Requirement-Metric Mappings', '');
     if (Array.isArray(mappings)) {
       for (const mapping of mappings) {
         const box = mapping.completed ? '[x]' : '[ ]';
         lines.push(
-          `- ${box} **${mapping.behavior}** → ${(mapping.metrics || []).join(', ')}`
+          `- ${box} **${mapping.requirement}** → ${(mapping.metrics || []).join(', ')}`
         );
       }
     } else {

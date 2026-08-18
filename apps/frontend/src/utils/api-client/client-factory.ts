@@ -12,7 +12,7 @@ import { TestRunsClient } from './test-runs-client';
 import { TestConfigurationsClient } from './test-configurations-client';
 import { PromptsClient } from './prompts-client';
 import { StatusClient } from './status-client';
-import { BehaviorClient } from './behavior-client';
+import { RequirementClient } from './requirement-client';
 import { TopicClient } from './topic-client';
 import { CategoryClient } from './category-client';
 import { TypeLookupClient } from './type-lookup-client';
@@ -28,6 +28,7 @@ import { RecycleClient } from './recycle-client';
 import { ToolsClient } from './tools-client';
 import { TelemetryClient } from './telemetry-client';
 import { GarakClient } from './garak-client';
+import { OwaspClient } from './owasp-client';
 import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
 import { FeaturesClient } from './features-client';
@@ -37,6 +38,7 @@ import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
 import { ResolveClient } from './resolve-client';
 import { InsightsClient } from './insights-client';
+import { NotificationsClient } from './notifications-client';
 
 export class ApiClientFactory {
   private sessionToken?: string;
@@ -53,9 +55,11 @@ export class ApiClientFactory {
   private toolsClient: ToolsClient | null = null;
   private telemetryClient: TelemetryClient | null = null;
   private garakClient: GarakClient | null = null;
+  private owaspClient: OwaspClient | null = null;
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
   private featuresClient: FeaturesClient | null = null;
+  private notificationsClient: NotificationsClient | null = null;
   private usageClient: UsageClient | null = null;
   private permissionsClient: PermissionsClient | null = null;
   private architectClient: ArchitectClient | null = null;
@@ -147,8 +151,8 @@ export class ApiClientFactory {
     return new StatusClient(this.sessionToken, undefined, this.projectId);
   }
 
-  getBehaviorClient(): BehaviorClient {
-    return new BehaviorClient(this.sessionToken, undefined, this.projectId);
+  getRequirementClient(): RequirementClient {
+    return new RequirementClient(this.sessionToken, undefined, this.projectId);
   }
 
   getInsightsClient(): InsightsClient {
@@ -292,6 +296,17 @@ export class ApiClientFactory {
     return this.garakClient;
   }
 
+  getOwaspClient(): OwaspClient {
+    if (!this.owaspClient) {
+      this.owaspClient = new OwaspClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.owaspClient;
+  }
+
   getImportClient(): ImportClient {
     if (!this.importClient) {
       this.importClient = new ImportClient(
@@ -323,6 +338,17 @@ export class ApiClientFactory {
       );
     }
     return this.featuresClient;
+  }
+
+  getNotificationsClient(): NotificationsClient {
+    if (!this.notificationsClient) {
+      this.notificationsClient = new NotificationsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.notificationsClient;
   }
 
   getUsageClient(): UsageClient {

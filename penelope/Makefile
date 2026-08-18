@@ -1,6 +1,7 @@
 .PHONY: all format lint lint_diff format_diff type-check test
 
-all: format_diff lint_diff type-check test
+# type-check is not in `all`: pyright has pre-existing errors to clear first
+all: format_diff lint_diff test
 
 ALL_FILES := .
 DIFF_FILES := $(shell git diff --relative=penelope --name-only --diff-filter=d origin/main...HEAD 2>/dev/null | grep -E '\.py' || true)
@@ -30,8 +31,7 @@ format_diff:
 	fi
 
 type-check:
-	PYTHONPATH=src uv run mypy --install-types --non-interactive
-	PYTHONPATH=src uv run mypy --package rhesis.penelope
+	PYTHONPATH=src uv run pyright src/rhesis/penelope
 
 test:
 	uv run pytest

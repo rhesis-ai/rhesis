@@ -97,24 +97,10 @@ class RegistrationHandler:
                     logger.info(f"sync_sdk_metrics returned: {metric_stats}")
                     stats["metric_sync"] = metric_stats
 
-                # Start endpoint validation only for project-bound registrations.
-                if has_project_binding:
-                    logger.info("Starting endpoint validation for registered endpoints...")
-
-                    # Use lazy import to avoid circular import
-                    from rhesis.backend.app.services.connector.mapping import (
-                        get_endpoint_validation_service,
-                    )
-
-                    endpoint_validation_service = get_endpoint_validation_service()
-
-                    await endpoint_validation_service.start_validation(
-                        project_id=project_id,
-                        environment=environment,
-                        functions_data=functions_data,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
+                # No live validation call here: the backend closes idle SDK
+                # sockets after WS_IDLE_TIMEOUT (300s), so the SDK reconnects and
+                # re-registers on a loop. Invoking the agent from this path meant a
+                # real, traced turn every 5 minutes per connected agent.
 
                 # Check if any errors occurred during endpoint sync
                 errors = stats.get("errors", [])

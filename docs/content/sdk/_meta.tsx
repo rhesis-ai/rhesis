@@ -7,7 +7,7 @@ const meta: MetaRecord = {
   entities: "Entities",
   parameters: "Parameters & Experiments",
   execution: "Test Execution",
-  statistics: "Statistics",
+  insights: "Insights",
   models: "Models",
   synthesizers: "Synthesizers",
   metrics: "Metrics",

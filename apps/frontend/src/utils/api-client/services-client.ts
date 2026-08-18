@@ -22,7 +22,7 @@ interface TestMetadata {
 
 interface _Test {
   prompt: TestPrompt;
-  behavior: string;
+  requirement: string;
   category: string;
   topic: string;
   metadata: TestMetadata;
@@ -39,7 +39,7 @@ interface ChipState {
   label: string;
   description: string;
   active: boolean;
-  category: 'behavior' | 'topic' | 'category' | 'scenario';
+  category: 'requirement' | 'topic' | 'category' | 'scenario';
 }
 
 interface IterationMessage {
@@ -61,7 +61,7 @@ interface TestConfigItem {
 }
 
 interface GenerateTestConfigResponse {
-  behaviors: TestConfigItem[];
+  requirements: TestConfigItem[];
   topics: TestConfigItem[];
   categories: TestConfigItem[];
   scenarios: TestConfigItem[];
@@ -77,14 +77,14 @@ interface MultiTurnPrompt {
 
 interface MultiTurnTest {
   prompt: MultiTurnPrompt;
-  behavior: string;
+  requirement: string;
   category: string;
   topic: string;
 }
 
 interface GenerateMultiTurnTestsRequest {
   generation_prompt: string;
-  behavior?: string[];
+  requirement?: string[];
   category?: string[];
   topic?: string[];
   num_tests?: number;

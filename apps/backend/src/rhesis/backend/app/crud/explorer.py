@@ -120,7 +120,7 @@ def get_test_sets_by_ids(
 ) -> List[models.TestSet]:
     """Load the given test sets, scoped to the organization.
 
-    Used by the bulk-delete path to inspect each candidate's behavior before deleting;
+    Used by the bulk-delete path to inspect each candidate's requirement before deleting;
     ids that don't resolve simply come back missing from the result.
 
     Parameters
@@ -681,7 +681,7 @@ def get_test_for_embedding(
     Returns
     -------
     models.Test or None
-        The test with prompt, topic, behavior, category and test type loaded.
+        The test with prompt, topic, requirement, category and test type loaded.
     """
     return (
         QueryBuilder(db, models.Test)
@@ -693,7 +693,7 @@ def get_test_for_embedding(
         .with_related(
             include(models.Test.prompt),
             include(models.Test.topic),
-            include(models.Test.behavior),
+            include(models.Test.requirement),
             include(models.Test.category),
             include(models.Test.test_type),
         )
@@ -762,7 +762,7 @@ def upsert_test_embedding(
 def get_default_embedding_model(db: Session, organization_id: str) -> Optional[models.Model]:
     """Fallback row for ``embedding.model_id`` when user settings omit an embedding model.
 
-    Tries the organization's model named "Rhesis Default Embedding" first, then any
+    Tries the organization's model named "Rhesis Embedding" first, then any
     protected embedding model from the ``rhesis`` provider.
 
     Parameters
@@ -783,8 +783,9 @@ def get_default_embedding_model(db: Session, organization_id: str) -> Optional[m
         db.query(models.Model)
         .filter(
             models.Model.organization_id == org_uuid,
-            models.Model.name == "Rhesis Default Embedding",
+            models.Model.name == "Rhesis Embedding",
             models.Model.model_type == ModelType.EMBEDDING.value,
+            models.Model.is_protected.is_(True),
         )
         .first()
     )

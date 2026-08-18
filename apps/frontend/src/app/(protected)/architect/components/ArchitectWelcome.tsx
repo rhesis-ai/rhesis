@@ -15,6 +15,8 @@ import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useProjectNeedsEndpoint } from '@/hooks/useProjectNeedsEndpoint';
+import ArchitectHelpSection from './ArchitectHelpSection';
 
 const SUGGESTED_PROMPTS = [
   {
@@ -40,6 +42,8 @@ interface ArchitectWelcomeProps {
 
 export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
   const canCreate = useCan(Capability.Architect.CREATE);
+  const { pending: endpointCheckPending, needsEndpoint } =
+    useProjectNeedsEndpoint();
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,105 +75,131 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
       sx={{
         flex: 1,
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        overflowY: 'auto',
         p: 4,
       }}
     >
+      {/* The input keeps its own vertical centre whether or not the help
+          articles sit below it: `flexGrow` claims the leftover space, and the
+          `minHeight` reserves most of the viewport for it once the articles
+          are there — so they start near the bottom edge and scroll into view. */}
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: 3,
           width: '100%',
-          maxWidth: theme => theme.spacing(85),
+          flexGrow: 1,
+          flexShrink: 0,
+          minHeight: needsEndpoint ? '70vh' : 0,
         }}
       >
-        <Typography
-          variant="h4"
-          color="text.secondary"
-          sx={{
-            fontWeight: theme => theme.typography.fontWeightLight,
-            textAlign: 'center',
-          }}
-        >
-          What would you like to test?
-        </Typography>
-
-        <TextField
-          inputRef={inputRef}
-          fullWidth
-          multiline
-          maxRows={6}
-          placeholder={
-            canCreate
-              ? 'Describe what you want to test...'
-              : 'View-only access — you cannot start new Architect sessions'
-          }
-          value={inputValue}
-          onChange={e => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={inputDisabled}
-          autoFocus={canCreate}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: theme => theme.spacing(3.5),
-              py: 1,
-              pl: 2,
-              pr: 1,
-              bgcolor: 'action.hover',
-              '& fieldset': { borderColor: 'divider' },
-            },
-          }}
-          slotProps={{
-            input: {
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={handleSubmit}
-                    disabled={!inputValue.trim() || inputDisabled}
-                    sx={{
-                      bgcolor: 'primary.main',
-                      color: 'primary.contrastText',
-                      width: theme => theme.spacing(4.5),
-                      height: theme => theme.spacing(4.5),
-                      '&:hover': { bgcolor: 'primary.dark' },
-                      '&:disabled': {
-                        bgcolor: 'action.disabledBackground',
-                        color: 'action.disabled',
-                      },
-                    }}
-                  >
-                    <SendIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-
         <Box
           sx={{
             display: 'flex',
-            flexWrap: 'wrap',
-            gap: 1,
-            justifyContent: 'center',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 3,
+            width: '100%',
+            maxWidth: theme => theme.spacing(85),
           }}
         >
-          {SUGGESTED_PROMPTS.map(({ label, prompt, icon: Icon }) => (
-            <Chip
-              key={label}
-              icon={<Icon fontSize="small" />}
-              label={label}
-              variant="outlined"
-              onClick={() => handleSuggestedPrompt(prompt)}
-              disabled={inputDisabled}
-              sx={{ cursor: 'pointer' }}
-            />
-          ))}
+          <Typography
+            variant="h4"
+            color="text.secondary"
+            sx={{
+              fontWeight: theme => theme.typography.fontWeightBold,
+              textAlign: 'center',
+            }}
+          >
+            What would you like to test?
+          </Typography>
+
+          <TextField
+            inputRef={inputRef}
+            fullWidth
+            multiline
+            maxRows={6}
+            placeholder={
+              canCreate
+                ? 'Describe what you want to test...'
+                : 'View-only access — you cannot start new Architect sessions'
+            }
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={inputDisabled}
+            autoFocus={canCreate}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: theme => theme.spacing(3.5),
+                py: 1,
+                pl: 2,
+                pr: 1,
+                bgcolor: 'action.hover',
+                '& fieldset': { borderColor: 'divider' },
+              },
+            }}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={handleSubmit}
+                      disabled={!inputValue.trim() || inputDisabled}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        width: theme => theme.spacing(4.5),
+                        height: theme => theme.spacing(4.5),
+                        '&:hover': { bgcolor: 'primary.dark' },
+                        '&:disabled': {
+                          bgcolor: 'action.disabledBackground',
+                          color: 'action.disabled',
+                        },
+                      }}
+                    >
+                      <SendIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          {/* No endpoint means no prompt can actually run, so the suggestions
+              are dead ends — the getting-started cards below replace them.
+              Waiting out `pending` keeps the two from swapping visibly. */}
+          {!endpointCheckPending && !needsEndpoint && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1,
+                justifyContent: 'center',
+              }}
+            >
+              {SUGGESTED_PROMPTS.map(({ label, prompt, icon: Icon }) => (
+                <Chip
+                  key={label}
+                  icon={<Icon fontSize="small" />}
+                  label={label}
+                  variant="outlined"
+                  onClick={() => handleSuggestedPrompt(prompt)}
+                  disabled={inputDisabled}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Box>
+          )}
         </Box>
       </Box>
+
+      <ArchitectHelpSection />
     </Box>
   );
 }
