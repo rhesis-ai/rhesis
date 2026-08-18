@@ -137,6 +137,7 @@ def _new_metric_fields(metric_item: Dict[str, Any]) -> Dict[str, Any]:
         "reasoning": metric_item.get("reasoning"),
         "evaluation_examples": metric_item.get("evaluation_examples"),
         "context_required": metric_item.get("context_required", False),
+        "metric_scope": metric_item.get("metric_scope"),
     }
 
 
@@ -170,6 +171,15 @@ def upgrade() -> None:
             # shouldn't happen, but don't touch a row we have nothing to apply.
             skipped_unmatched += 1
             continue
+
+        # metric_scope: update unconditionally -- it's additive (adding "Multi-Turn"
+        # doesn't remove anything) and not a field users customise through the UI.
+        new_scope = new_fields.get("metric_scope")
+        if new_scope and isinstance(row.metric_scope, list):
+            existing = set(row.metric_scope)
+            extra = [s for s in new_scope if s not in existing]
+            if extra:
+                row.metric_scope = row.metric_scope + extra
 
         current_hash = _field_hash(
             row.evaluation_prompt,
