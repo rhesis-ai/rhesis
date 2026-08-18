@@ -88,7 +88,7 @@ Note: `ai.agent.*` spans are valid — see [Agent Operations](#agent-operations)
 Use `AIAttributes` for span attributes:
 
 <CodeBlock filename="app.py" language="python">
-{`from rhesis.sdk.telemetry.attributes import AIAttributes
+{`from rhesis.telemetry.attributes import AIAttributes
 
 span.set_attribute(AIAttributes.MODEL_PROVIDER, "openai")
 span.set_attribute(AIAttributes.MODEL_NAME, "gpt-4")
@@ -164,7 +164,7 @@ span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
 Use `AIEvents` for span events:
 
 <CodeBlock filename="app.py" language="python">
-{`from rhesis.sdk.telemetry.attributes import AIEvents, AIAttributes
+{`from rhesis.telemetry.attributes import AIEvents, AIAttributes
 
 with tracer.start_as_current_span("ai.llm.invoke") as span:
     # Prompt event

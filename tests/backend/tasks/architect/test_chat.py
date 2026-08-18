@@ -133,7 +133,7 @@ async def test_persist_state_stamps_root_trace_id_on_agent_state():
 
     with (
         patch(
-            "rhesis.sdk.telemetry.context.get_root_trace_id",
+            "rhesis.telemetry.context.get_root_trace_id",
             return_value="deadbeef" * 4,
         ),
         patch(
@@ -176,7 +176,7 @@ async def test_persist_state_omits_trace_id_when_tracing_disabled():
     )
 
     with (
-        patch("rhesis.sdk.telemetry.context.get_root_trace_id", return_value=None),
+        patch("rhesis.telemetry.context.get_root_trace_id", return_value=None),
         patch(
             "rhesis.backend.app.services.architect.runner.get_db_with_tenant_variables"
         ) as mock_db_ctx,
@@ -207,7 +207,7 @@ async def test_conversation_context_sets_and_clears_contextvars():
     """The async context manager must bind all three SDK ContextVars
     on entry and clear them on exit so they cannot leak into the next
     Celery task that reuses the same asyncio worker."""
-    from rhesis.sdk.telemetry.context import (
+    from rhesis.telemetry.context import (
         get_conversation_id,
         get_conversation_mapped_input,
         get_conversation_trace_id,
@@ -237,7 +237,7 @@ async def test_conversation_context_sets_and_clears_contextvars():
 async def test_conversation_context_clears_on_exception():
     """Exceptions inside the block must not leak ContextVars to later
     tasks running on the same worker."""
-    from rhesis.sdk.telemetry.context import (
+    from rhesis.telemetry.context import (
         get_conversation_id,
         get_conversation_trace_id,
     )
@@ -259,7 +259,7 @@ async def test_conversation_context_skips_unset_values():
     """First-turn callers pass ``conversation_trace_id=None`` so the
     SDK tracer generates a fresh trace; only non-empty values are
     bound so we don't accidentally clobber an outer scope's state."""
-    from rhesis.sdk.telemetry.context import (
+    from rhesis.telemetry.context import (
         get_conversation_id,
         get_conversation_trace_id,
     )

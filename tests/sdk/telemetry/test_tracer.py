@@ -3,8 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from rhesis.telemetry.attributes import AIAttributes
 
-from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.tracer import Tracer
 
 

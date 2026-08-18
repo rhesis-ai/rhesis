@@ -168,8 +168,8 @@ class ObserveDecorator:
                 return openai.chat.completions.create(...)
         """
         # Import here to avoid circular imports
-        from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.context import set_llm_observation_active
+        from rhesis.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.context import set_llm_observation_active
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -243,7 +243,7 @@ class ObserveDecorator:
             async def run(query: str) -> str:
                 ...
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -278,7 +278,7 @@ class ObserveDecorator:
             def get_weather(city: str) -> dict:
                 return requests.get(f"api/{city}").json()
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -314,7 +314,7 @@ class ObserveDecorator:
             def search_docs(query: str) -> list:
                 return vector_db.search(query, k=5)
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -352,7 +352,7 @@ class ObserveDecorator:
             def embed_texts(texts: List[str]) -> List[List[float]]:
                 return embedding_model.encode(texts)
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -390,7 +390,7 @@ class ObserveDecorator:
             def rerank_documents(query: str, docs: List[str]) -> List[str]:
                 return reranker.rerank(query, docs, top_n=10)
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -428,7 +428,7 @@ class ObserveDecorator:
             def evaluate_relevance(query: str, response: str) -> float:
                 return evaluator.score_relevance(query, response)
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -465,7 +465,7 @@ class ObserveDecorator:
             def check_content_safety(text: str) -> bool:
                 return safety_checker.is_safe(text)
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -502,7 +502,7 @@ class ObserveDecorator:
             def preprocess_text(text: str) -> str:
                 return clean_and_normalize(text)
         """
-        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.attributes import AIAttributes
         from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {

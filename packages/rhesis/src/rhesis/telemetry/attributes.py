@@ -5,6 +5,19 @@ from typing import Any, Dict
 # Import semantic layer constants from schemas (single source of truth)
 from rhesis.telemetry.schemas import FORBIDDEN_SPAN_DOMAINS
 
+# Declared, not inferred: the backwards-compatible shim at rhesis.sdk.telemetry.attributes has to
+# forward this exact set, and a test asserts it does. Inferring the surface from the module
+# namespace cannot tell MAX_CONTENT_LENGTH from the FORBIDDEN_SPAN_DOMAINS import above, so a new
+# constant here could skip the shim unnoticed.
+__all__ = [
+    "MAX_CONTENT_LENGTH",
+    "AIAttributes",
+    "AIEvents",
+    "create_llm_attributes",
+    "create_tool_attributes",
+    "validate_span_name",
+]
+
 # Max characters of prompt/completion content recorded on a span event.
 # Framework-agnostic: shared by all integrations.
 MAX_CONTENT_LENGTH = 8000

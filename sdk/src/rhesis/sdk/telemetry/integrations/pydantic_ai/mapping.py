@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.integrations.genai import (  # noqa: F401
     GEN_AI_AGENT_NAME,
     GEN_AI_OPERATION_NAME,
@@ -38,6 +37,7 @@ from rhesis.sdk.telemetry.integrations.genai import (  # noqa: F401
 from rhesis.sdk.telemetry.integrations.genai import (
     translate_attributes as _translate_genai_attributes,
 )
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.schemas import AIOperationType
 
 # Pydantic AI's instrumentation scope (InstrumentationSettings tracer name).
@@ -81,7 +81,7 @@ def translate_span_name(original_name: str, attributes: Mapping[str, Any]) -> st
     falls back to scanning the original span name (fuzzy). If neither path
     matches, the name is sanitized into the ``function.pydantic_ai.*``
     namespace so it always satisfies
-    :func:`rhesis.sdk.telemetry.attributes.validate_span_name`. This protects
+    :func:`rhesis.telemetry.attributes.validate_span_name`. This protects
     the integration against Pydantic AI adding new operations under us.
     """
     operation = attributes.get(GEN_AI_OPERATION_NAME)

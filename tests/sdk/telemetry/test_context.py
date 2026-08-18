@@ -1,8 +1,7 @@
 """Tests for test execution context variables."""
 
 import pytest
-
-from rhesis.sdk.telemetry.context import (
+from rhesis.telemetry.context import (
     get_test_execution_context,
     set_test_execution_context,
 )

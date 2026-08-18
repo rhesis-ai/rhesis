@@ -166,7 +166,7 @@ class TestTraceIdPropagation:
     @pytest.mark.asyncio
     async def test_trace_id_from_context_var_async(self, executor):
         """Test trace_id retrieval from context var for async functions."""
-        from rhesis.sdk.telemetry.context import get_root_trace_id, set_root_trace_id
+        from rhesis.telemetry.context import get_root_trace_id, set_root_trace_id
 
         test_trace_id = "abc123def456789012345678901234ab"
 

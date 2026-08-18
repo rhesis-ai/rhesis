@@ -30,7 +30,7 @@ from typing import Any, Iterable, Mapping, Optional, Sequence
 from opentelemetry.sdk.trace import Event, ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from rhesis.sdk.telemetry.attributes import AIAttributes
+from rhesis.telemetry.attributes import AIAttributes
 
 logger = logging.getLogger(__name__)
 

@@ -246,7 +246,7 @@ async def persist_state(
     subsequent turns can reuse it for coherent multi-turn tracing.
     """
     from rhesis.backend.app import crud, schemas
-    from rhesis.sdk.telemetry.context import get_root_trace_id
+    from rhesis.telemetry.context import get_root_trace_id
 
     snapshot = agent.dump_state()
     root_trace_id = get_root_trace_id()

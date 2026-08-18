@@ -28,8 +28,8 @@ from rhesis.sdk.agents.schemas import (
 )
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.sdk.telemetry.context import is_tracing_disabled
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.context import is_tracing_disabled
 from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)

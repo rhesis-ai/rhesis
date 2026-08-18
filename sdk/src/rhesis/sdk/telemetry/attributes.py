@@ -5,8 +5,9 @@ These moved to ``rhesis.telemetry.attributes`` so that framework integrations ca
 lightweight ``rhesis[telemetry]`` package instead of the full SDK. Nothing here imports anything
 heavier than stdlib, so there was no reason for it to sit behind torch and deepeval.
 
-New code should import from ``rhesis.telemetry.attributes``. This module stays for the ~64 existing
-import sites.
+Import from ``rhesis.telemetry.attributes``. Every site in this repository does; this module stays
+only for consumers outside it — released ``rhesis-haystack`` versions and user code written against
+the old path — and is not the path to add new imports to.
 """
 
 from rhesis.telemetry.attributes import (
