@@ -49,8 +49,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import { useNotifications } from '@/components/common/NotificationContext';
 // Renamed on import: distinct from the toast system's useNotifications above --
-// this one tracks the persistent "a background job finished" badge/highlight.
-import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
+// this one tracks the persistent unread badge and row highlight.
+import { useNotifications as useNotificationBadges } from '@/contexts/NotificationsContext';
 import {
   HIGHLIGHTED_ROW_CLASS,
   NotificationSection,
@@ -188,7 +188,7 @@ function TestRunsGrid({
   const queryClient = useQueryClient();
   const router = useRouter();
   const notifications = useNotifications();
-  const { highlightedIds, clearHighlight } = useJobNotifications();
+  const { highlightedIds, clearHighlight } = useNotificationBadges();
   const testRunHighlights = highlightedIds(NotificationSection.TEST_RUNS);
 
   // ── Search + status filter ─────────────────────────────────────────────────
