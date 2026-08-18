@@ -41,6 +41,7 @@ import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import {
   getEvaluationContent,
+  getExecutionErrorTooltip,
   getFailedMetricNames,
   getGoalContent,
   getTestResultDisplayStatus,
@@ -341,7 +342,7 @@ export default function TestsTableView({
           getTestResultDisplayStatus(row, isMultiTurn).label,
         renderCell: params => {
           const status = getTestResultDisplayStatus(params.row, isMultiTurn);
-          return (
+          const badge = (
             <GridBadge
               label={status.label}
               sx={{
@@ -358,6 +359,21 @@ export default function TestsTableView({
               }}
             />
           );
+          if (status.hasExecutionError) {
+            const tooltip = getExecutionErrorTooltip(
+              params.row,
+              status,
+              requirements
+            );
+            return (
+              <Tooltip title={tooltip} enterDelay={500}>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  {badge}
+                </Box>
+              </Tooltip>
+            );
+          }
+          return badge;
         },
       },
       {
@@ -660,7 +676,14 @@ export default function TestsTableView({
         },
       },
     ];
-  }, [isMultiTurn, prompts, theme, isConfirmingReview, openTestDrawer]);
+  }, [
+    isMultiTurn,
+    prompts,
+    theme,
+    isConfirmingReview,
+    openTestDrawer,
+    requirements,
+  ]);
 
   return (
     <Box sx={{ width: '100%', minWidth: 0 }}>

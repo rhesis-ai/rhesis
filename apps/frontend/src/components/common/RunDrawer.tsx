@@ -360,7 +360,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [tags, setTags] = useState<string[]>([]);
 
   // ---- Preflight ----
-  const [preflightEnabled, setPreflightEnabled] = useState(false);
+  const [preflightEnabled, setPreflightEnabled] = useState(true);
   const [preflightDialogOpen, setPreflightDialogOpen] = useState(false);
   const [preflightCorrelationId, setPreflightCorrelationId] = useState('');
   const [preflightChecks, setPreflightChecks] = useState<
@@ -414,6 +414,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     setSelectedTestSet(null);
     setSelectedSearchTestSets([]);
     setTestSetInput('');
+    setPreflightEnabled(true);
     setPreflightDialogOpen(false);
     setPreflightCorrelationId('');
     setPreflightChecks([]);
