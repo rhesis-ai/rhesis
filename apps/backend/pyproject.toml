@@ -71,6 +71,7 @@ dependencies = [
     "google-cloud-storage>=3.8.0",
     "pydantic-settings>=2.14.2",
     "sendgrid>=6.12.5",
+    "disposable-email-domains>=0.0.237",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,9 @@
+# Disposable email domains observed on Rhesis that the upstream community list
+# (the disposable-email-domains package) does not cover yet.
+#
+# One domain per line, lowercase, no leading dot. Subdomains are matched
+# automatically, so list the registrable domain only. Blank lines and lines
+# starting with # are ignored.
+#
+# Prefer upstreaming to https://github.com/disposable-email-domains/disposable-email-domains
+# and removing the entry here once the next release picks it up.

@@ -92,6 +92,11 @@ config:
   frontendUrl: ""
   backendUrl: ""
   quickStart: "false"
+  # Disposable-email screening on self-serve sign-up: off | log | enforce.
+  # Admin invites are never screened. Extra domains are comma-separated and
+  # merged on top of the community blocklist.
+  authBlockDisposableEmails: "log"
+  authDisposableEmailExtraDomains: ""
 
   # AI model configuration
   azureOpenAiDeploymentName: "gpt-4o"

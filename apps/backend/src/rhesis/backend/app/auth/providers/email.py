@@ -210,6 +210,7 @@ class EmailProvider(AuthProvider):
             )
 
         # Import here to avoid circular imports
+        from rhesis.backend.app.auth.disposable_email import screen_signup_email
         from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.schemas import UserCreate
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
@@ -220,6 +221,7 @@ class EmailProvider(AuthProvider):
             normalized_email = await anyio.to_thread.run_sync(
                 validate_and_normalize_email, email, True
             )
+            screen_signup_email(normalized_email, source="password_register")
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

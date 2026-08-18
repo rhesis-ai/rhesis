@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-08-06T15:18:41.564609Z"
+exclude-newer = "2026-08-10T16:49:50.130617Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -1532,6 +1532,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload-time = "2023-08-31T06:12:00.316Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload-time = "2023-08-31T06:11:58.822Z" },
+]
+
+[[package]]
+name = "disposable-email-domains"
+version = "0.0.237"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/ce/7eff1757ecca42a2bd13611a4e7788b5817a5c6c87cad368a138cd9d354d/disposable_email_domains-0.0.237.tar.gz", hash = "sha256:80a055f2b20260510169b9f966a0d06f2a05d73a214b7e15f1545e0fccf87a58", size = 100114, upload-time = "2026-08-02T13:37:17.675Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/12/6e21324dfd8750cb475114c48e42a876af7746a3f8818cabf35b1cd115a9/disposable_email_domains-0.0.237-py3-none-any.whl", hash = "sha256:d1bde8c216d117e001da3aa0d3f22dce2bbd7044e44e8dfbebc1aca33e0779a7", size = 51491, upload-time = "2026-08-02T13:37:16.166Z" },
 ]
 
 [[package]]
@@ -6747,6 +6756,7 @@ dependencies = [
     { name = "celery", extra = ["redis"] },
     { name = "chardet" },
     { name = "cryptography" },
+    { name = "disposable-email-domains" },
     { name = "email-validator" },
     { name = "faker" },
     { name = "fastapi" },
@@ -6850,6 +6860,7 @@ requires-dist = [
     { name = "celery", extras = ["redis"], specifier = "==5.5.2" },
     { name = "chardet" },
     { name = "cryptography", specifier = ">=48.0.1" },
+    { name = "disposable-email-domains", specifier = ">=0.0.237" },
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "faker" },
     { name = "fastapi", specifier = "<0.137" },

@@ -36,6 +36,10 @@ config:
   rhesisBaseUrl: "https://dev-api.rhesis.ai"
   frontendUrl: "https://dev-app.rhesis.ai"
   backendUrl: "http://backend:8080"
+  # Disposable-email screening: off | log | enforce. Starts at log so the
+  # community list's false-positive rate can be measured before it rejects.
+  authBlockDisposableEmails: "log"
+  authDisposableEmailExtraDomains: ""
 
   # GCP
   vertexAiProject: "playground-437609"
