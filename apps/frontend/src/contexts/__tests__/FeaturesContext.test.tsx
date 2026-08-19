@@ -294,7 +294,9 @@ describe('useRhesisKeyEnabled', () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent('false')
+      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent(
+        'false'
+      )
     );
   });
 
@@ -308,7 +310,9 @@ describe('useRhesisKeyEnabled', () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent('false')
+      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent(
+        'false'
+      )
     );
   });
 });
