@@ -245,32 +245,26 @@ async def test_model_connection(
         f"provider={provider}, model_name={model_name}, type={model_type}"
     )
 
-    try:
-        # Use ModelConnectionService which makes an actual test call
-        result = await ModelConnectionService.test_connection(
-            provider=provider,
-            model_name=model_name,
-            api_key=api_key,
-            endpoint=db_model.endpoint,
-            model_type=model_type,
-        )
+    # No try/except: test_connection reports every failure through its own
+    # result object, so the handler here only ever caught its own bugs -- and
+    # answered them with a 200 whose message was our exception text.
+    result = await ModelConnectionService.test_connection(
+        provider=provider,
+        model_name=model_name,
+        api_key=api_key,
+        endpoint=db_model.endpoint,
+        model_type=model_type,
+    )
 
-        status = "success" if result.success else "error"
-        logger.info(f"[MODEL_TEST] Test result: status={status}, message={result.message}")
+    status = "success" if result.success else "error"
+    # Status only: the message can quote the provider's reply, and with it the
+    # user's own API key.
+    logger.info(f"[MODEL_TEST] Test result: status={status}")
 
-        return {
-            "status": status,
-            "message": result.message,
-        }
-
-    except Exception as e:
-        # Catch any unexpected errors
-        error_msg = str(e) if str(e) else "Failed to test model connection"
-        logger.error(f"[MODEL_TEST] Exception: {error_msg}", exc_info=True)
-        return {
-            "status": "error",
-            "message": error_msg,
-        }
+    return {
+        "status": status,
+        "message": result.message,
+    }
 
 
 @router.get("/provider/{provider_name}", response_model=List[str])

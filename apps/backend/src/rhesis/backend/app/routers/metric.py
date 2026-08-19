@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -15,6 +17,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -113,15 +116,32 @@ def generate_metric(
             user_id=user_id,
         )
         return result
-    except Exception as e:
-        logger.error(
-            f"Error generating metric from prompt: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        # The decorator above turns a duplicate name into "Metric with this name
+        # already exists"; catching it here would replace that with nothing.
+        raise
+    except ValidationError as e:
+        # The generated fields did not fit MetricCreate. That is our prompt or
+        # our schema, not the caller's request, so it gets a 500 and a traceback.
+        raise internal_error(e, context="generating metric") from e
+    except (ValueError, RuntimeError) as e:
+        # Either the configured generation model could not be built (ValueError
+        # from the SDK factory) or the model itself answered with an error
+        # (RuntimeError from the synthesizer) -- both are the caller's to act on,
+        # so the status stays 400 where the detail reaches them.
+        raise internal_error(
+            e,
+            context="generating metric",
             status_code=400,
-            detail="Failed to generate metric",
+            public_detail=(
+                "Failed to generate metric: the generation model could not be "
+                "used. Check the model configured for your organization."
+            ),
         ) from e
+    except Exception as e:
+        raise internal_error(e, context="generating metric") from e
 
 
 @router.post("/{metric_id}/improve", response_model=schemas.Metric)
@@ -191,15 +211,25 @@ def improve_metric(
             user_id=user_id,
         )
         return result
-    except Exception as e:
-        logger.error(
-            f"Error improving metric {metric_id}: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        raise
+    except ValidationError as e:
+        raise internal_error(e, context=f"improving metric {metric_id}") from e
+    except (ValueError, RuntimeError) as e:
+        # See generate_metric above for why these two are the caller's fault.
+        raise internal_error(
+            e,
+            context=f"improving metric {metric_id}",
             status_code=400,
-            detail="Failed to improve metric",
+            public_detail=(
+                "Failed to improve metric: the generation model could not be "
+                "used. Check the model configured for your organization."
+            ),
         ) from e
+    except Exception as e:
+        raise internal_error(e, context=f"improving metric {metric_id}") from e
 
 
 @router.get("/", response_model=list[schemas.MetricDetail])

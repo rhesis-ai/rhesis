@@ -8,6 +8,7 @@ import requests
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
 
@@ -101,8 +102,8 @@ class AuthenticationManager:
 
             return endpoint.last_token
         except Exception as e:
-            logger.error(f"Failed to get client credentials token: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to get client credentials token",
-            )
+            logger.warning("Failed to get client credentials token: %s", type(e).__name__)
+            raise UpstreamHTTPException(
+                status_code=502,
+                detail="Failed to get an access token from the configured token URL.",
+            ) from e

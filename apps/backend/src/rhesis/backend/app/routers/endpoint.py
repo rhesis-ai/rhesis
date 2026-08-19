@@ -150,30 +150,28 @@ async def test_endpoint(
     Returns:
         The response from the endpoint, either mapped or raw depending on endpoint configuration
     """
-    try:
-        # Safely get connection_type string value
-        connection_type_str = (
-            test_config.connection_type.value
-            if hasattr(test_config.connection_type, "value")
-            else str(test_config.connection_type)
-        )
-        logger.info(
-            f"API test request for endpoint: {test_config.url} "
-            f"({connection_type_str}, {test_config.method})"
-        )
+    # No try/except: the service already logs what it handles at the level it
+    # belongs, and re-logging a 400 "Only REST endpoints are supported" as an
+    # ERROR here said nothing the response didn't.
+    connection_type_str = (
+        test_config.connection_type.value
+        if hasattr(test_config.connection_type, "value")
+        else str(test_config.connection_type)
+    )
+    logger.info(
+        f"API test request for endpoint: {test_config.url} "
+        f"({connection_type_str}, {test_config.method})"
+    )
 
-        organization_id, user_id = tenant_context
-        result = await endpoint_service.test_endpoint(
-            db,
-            test_config,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
-        )
-        logger.info(f"API test successful for endpoint: {test_config.url}")
-        return result
-    except HTTPException as e:
-        logger.error(f"API test HTTPException for endpoint {test_config.url}: {e.detail}")
-        raise e
+    organization_id, user_id = tenant_context
+    result = await endpoint_service.test_endpoint(
+        db,
+        test_config,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+    )
+    logger.info(f"API test successful for endpoint: {test_config.url}")
+    return result
 
 
 @router.post("/auto-configure", response_model=AutoConfigureResult)
@@ -364,11 +362,9 @@ async def invoke_endpoint(
         )
         logger.info(f"API invoke successful for endpoint {endpoint_id}")
         return result
-    except HTTPException as e:
-        logger.error(f"API invoke HTTPException for endpoint {endpoint_id}: {e.detail}")
-        raise e
     except EndpointInvocationError as e:
-        logger.error(f"API invoke error for endpoint {endpoint_id}: {e}")
+        # Not logged here: `internal_error` logs our failures with a stack, and
+        # the global handler logs an UpstreamHTTPException once as a warning.
         status_code = e.status_code or 500
         # EndpointService wraps *our* failures in this same type as
         # error_type="internal_error" (services/endpoint/service.py), so the
