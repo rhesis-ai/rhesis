@@ -612,6 +612,10 @@ def get_last_completed_test_run(
     Returns:
         Dict with id, status, created_at, test_count, pass_rate;
         or None if no completed run exists.
+
+    Raises:
+        ItemDeletedException: If test_set_identifier resolves to a
+            soft-deleted test set (via crud.resolve_test_set).
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.models.status import Status

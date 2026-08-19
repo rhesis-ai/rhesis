@@ -422,6 +422,8 @@ def import_explorer_test_set_from_source(
     ------
     ValueError
         If the source set is missing, or already configured for Explorer.
+    ItemDeletedException
+        If source_test_set_identifier resolves to a soft-deleted test set.
     """
     db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
     if db_source is None:
@@ -514,6 +516,8 @@ def export_regular_test_set_from_explorer(
     ------
     ValueError
         If the source set is missing, or is not configured for Explorer.
+    ItemDeletedException
+        If source_test_set_identifier resolves to a soft-deleted test set.
     """
     db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
     if db_source is None:
