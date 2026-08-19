@@ -7,7 +7,7 @@ import {
   UserSettings,
   UserSettingsUpdate,
 } from './interfaces/user';
-import { joinUrl } from '@/utils/url';
+import { PaginatedResponse } from './interfaces/pagination';
 
 export class UsersClient extends BaseApiClient {
   async getUsers(
@@ -17,37 +17,16 @@ export class UsersClient extends BaseApiClient {
       /** OData filter expression (sent as `$filter` query param). */
       $filter?: string;
     } = {}
-  ): Promise<{ data: User[]; total: number }> {
-    const queryParams = new URLSearchParams();
-    if (options.skip !== undefined)
-      queryParams.append('skip', options.skip.toString());
-    if (options.limit !== undefined)
-      queryParams.append('limit', options.limit.toString());
-    if (options.$filter) queryParams.append('$filter', options.$filter);
-
-    const queryString = queryParams.toString();
-    const url = queryString
-      ? `${API_ENDPOINTS.users}/?${queryString}`
-      : `${API_ENDPOINTS.users}/`;
-
-    // Make the request manually to access headers
-    const path = API_ENDPOINTS[url as keyof typeof API_ENDPOINTS] || url;
-    const fullUrl = joinUrl(this.baseUrl, path);
-
-    const response = await fetch(fullUrl, {
-      headers: this.getHeaders(),
-      credentials: 'include',
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = (await response.json()) as User[];
-    const total = this.extractTotalCount(response);
-
-    return { data, total };
+  ): Promise<PaginatedResponse<User>> {
+    return this.fetchPaginated<User>(
+      API_ENDPOINTS.users,
+      {
+        skip: options.skip ?? 0,
+        limit: options.limit ?? 10,
+        $filter: options.$filter,
+      },
+      { cache: 'no-store' }
+    );
   }
 
   async getUser(id: string): Promise<User> {

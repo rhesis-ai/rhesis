@@ -113,7 +113,7 @@ export default function TeamMembersGrid({
         });
 
         setUsers(response.data || []);
-        const total = response.total || 0;
+        const total = response.pagination.totalCount || 0;
         setTotalCount(total);
         onTotalCountChange?.(total);
       } catch (_error) {

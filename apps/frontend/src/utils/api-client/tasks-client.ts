@@ -6,6 +6,7 @@ import {
   TaskUpdate,
   TasksQueryParams,
 } from './interfaces/task';
+import { PaginatedResponse } from './interfaces/pagination';
 
 export class TasksClient extends BaseApiClient {
   constructor(sessionToken?: string, retryConfig = {}, projectId?: string) {
@@ -14,34 +15,14 @@ export class TasksClient extends BaseApiClient {
 
   async getTasks(
     params: TasksQueryParams = {}
-  ): Promise<{ data: Task[]; totalCount: number }> {
-    const queryParams = new URLSearchParams();
-
-    if (params.skip !== undefined)
-      queryParams.append('skip', params.skip.toString());
-    if (params.limit !== undefined)
-      queryParams.append('limit', params.limit.toString());
-    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
-    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
-    if (params.$filter) queryParams.append('$filter', params.$filter);
-
-    const path = `${API_ENDPOINTS.tasks}/?${queryParams.toString()}`;
-    const url = this.baseUrl + path;
-    const headers = this.getHeaders();
-
-    const response = await fetch(url, {
-      headers,
-      credentials: 'include',
+  ): Promise<PaginatedResponse<Task>> {
+    return this.fetchPaginated<Task>(API_ENDPOINTS.tasks, {
+      skip: params.skip ?? 0,
+      limit: params.limit ?? 10,
+      sort_by: params.sort_by,
+      sort_order: params.sort_order as 'asc' | 'desc' | undefined,
+      $filter: params.$filter,
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} - ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0');
-
-    return { data, totalCount };
   }
 
   async getTask(taskId: string): Promise<Task> {
@@ -78,33 +59,16 @@ export class TasksClient extends BaseApiClient {
     entityType: string,
     entityId: string,
     params: TasksQueryParams = {}
-  ): Promise<{ data: Task[]; totalCount: number }> {
-    const queryParams = new URLSearchParams();
-
-    if (params.skip !== undefined)
-      queryParams.append('skip', params.skip.toString());
-    if (params.limit !== undefined)
-      queryParams.append('limit', params.limit.toString());
-    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
-    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
-
-    const path = `${API_ENDPOINTS.tasks}/${entityType}/${entityId}?${queryParams.toString()}`;
-    const url = this.baseUrl + path;
-    const headers = this.getHeaders();
-
-    const response = await fetch(url, {
-      headers,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} - ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0');
-
-    return { data, totalCount };
+  ): Promise<PaginatedResponse<Task>> {
+    return this.fetchPaginated<Task>(
+      `${API_ENDPOINTS.tasks}/${entityType}/${entityId}`,
+      {
+        skip: params.skip ?? 0,
+        limit: params.limit ?? 10,
+        sort_by: params.sort_by,
+        sort_order: params.sort_order as 'asc' | 'desc' | undefined,
+      }
+    );
   }
 
   async getTasksByCommentId(
@@ -113,13 +77,6 @@ export class TasksClient extends BaseApiClient {
   ): Promise<Task[]> {
     // Since OData filtering on JSON fields is not supported by the backend,
     // we'll fetch all tasks and filter on the frontend as a temporary solution
-    const queryParams = new URLSearchParams();
-
-    // Set a reasonable limit to avoid fetching too many tasks
-    queryParams.append('limit', '100');
-    if (params.sort_by) queryParams.append('sort_by', params.sort_by);
-    if (params.sort_order) queryParams.append('sort_order', params.sort_order);
-
     const { data: allTasks } = await this.getTasks({
       limit: 100,
       sort_by: params.sort_by,

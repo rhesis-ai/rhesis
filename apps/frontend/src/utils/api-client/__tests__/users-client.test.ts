@@ -42,7 +42,7 @@ describe('UsersClient', () => {
       expect.any(Object)
     );
     expect(result.data).toHaveLength(1);
-    expect(result.total).toBe(3);
+    expect(result.pagination.totalCount).toBe(3);
   });
 
   it('includes skip and limit in URL when provided', async () => {
