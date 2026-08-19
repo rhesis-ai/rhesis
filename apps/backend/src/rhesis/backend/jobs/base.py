@@ -475,36 +475,45 @@ class BaseJob(Task):
         "I recorded this for the user", not "I logged this for me". Also
         writes a DEBUG line via the dispatcher, so stdout keeps the full
         narrative regardless.
+
+        A narration call is not allowed to fail the job it is narrating, so
+        the whole body is wrapped -- unlike ``_emit_lifecycle_event``, which
+        leaves that to each of its two callers, ``emit()`` is called directly
+        from many task bodies and cannot rely on every call site remembering
+        to guard it.
         """
-        from datetime import datetime, timezone
+        try:
+            from datetime import datetime, timezone
 
-        from rhesis.backend.events import emit as emit_event
-        from rhesis.backend.events.correlation import resolve_ids
-        from rhesis.backend.events.types import ActivityLogged
-        from rhesis.backend.jobs.tracking import job_type_for
+            from rhesis.backend.events import emit as emit_event
+            from rhesis.backend.events.correlation import resolve_ids
+            from rhesis.backend.events.types import ActivityLogged
+            from rhesis.backend.jobs.tracking import job_type_for
 
-        celery_task_id = getattr(self.request, "id", None)
-        org_id, user_id, project_id = self.get_tenant_context()
-        if not org_id:
-            self.log_with_context("warning", "emit() called with no tenant context, dropped")
-            return
+            celery_task_id = getattr(self.request, "id", None)
+            org_id, user_id, project_id = self.get_tenant_context()
+            if not org_id:
+                self.log_with_context("warning", "emit() called with no tenant context, dropped")
+                return
 
-        trace_id, span_id = resolve_ids()
-        emit_event(
-            ActivityLogged(
-                occurred_at=datetime.now(timezone.utc),
-                organization_id=org_id,
-                project_id=project_id,
-                user_id=user_id,
-                trace_id=trace_id,
-                span_id=span_id,
-                celery_task_id=celery_task_id,
-                source=job_type_for(getattr(self, "name", "") or ""),
-                level=level,
-                message=message,
-                context=context,
+            trace_id, span_id = resolve_ids()
+            emit_event(
+                ActivityLogged(
+                    occurred_at=datetime.now(timezone.utc),
+                    organization_id=org_id,
+                    project_id=project_id,
+                    user_id=user_id,
+                    trace_id=trace_id,
+                    span_id=span_id,
+                    celery_task_id=celery_task_id,
+                    source=job_type_for(getattr(self, "name", "") or ""),
+                    level=level,
+                    message=message,
+                    context=context,
+                )
             )
-        )
+        except Exception as exc:
+            self.log_with_context("warning", f"emit() failed, message dropped: {exc}")
 
     def _get_execution_time(self) -> Optional[str]:
         """Return formatted task execution duration, if start time is available."""
