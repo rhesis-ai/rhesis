@@ -9,7 +9,7 @@ commit (see ``get_db_with_tenant_variables`` in ``database.py``).
 
 Tuning cases are written as a ``Prompt`` + ``Test`` pair directly, the way
 ``crud/explorer.py::create_explorer_test`` does, rather than through
-``services/test.py::bulk_create_tests``. That service requires a behavior, a
+``services/test.py::bulk_create_tests``. That service requires a requirement, a
 category and a topic and ``get_or_create``s each one, which would file rows like
 "Metric Tuning" into the organization's real taxonomy.
 """

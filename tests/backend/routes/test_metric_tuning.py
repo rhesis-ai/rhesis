@@ -418,11 +418,11 @@ class TestCreateTuningCase:
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """Tuning cases carry no behavior/category/topic, so none get created."""
+        """Tuning cases carry no requirement/category/topic, so none get created."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
         db_test = test_db.query(models.Test).filter(models.Test.id == data["id"]).one()
-        assert db_test.behavior_id is None
+        assert db_test.requirement_id is None
         assert db_test.category_id is None
         assert db_test.topic_id is None
 

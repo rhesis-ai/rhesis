@@ -492,6 +492,8 @@ def get_items_detail(
             deferring ``Endpoint.last_token``. Applying a loader option like
             this to the id-only phase-1 query would be meaningless (or emit
             SQLAlchemy warnings), since that query never loads the relationship.
+            Pair it with the same filter on ``count_items`` or the
+            X-Total-Count header will disagree with the rows returned.
 
     Runs as two queries rather than one: a joinless query picks the page's IDs
     (filter + sort + LIMIT/OFFSET), then a second query eager-loads
