@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
@@ -64,6 +65,34 @@ def get_probe_service() -> GarakProbeService:
     return GarakProbeService()
 
 
+#: Deliberate, secret-free text: names the one thing an operator can act on, so
+#: it is raised as a PublicHTTPException and reaches the caller unmasked.
+_GARAK_UNAVAILABLE = "Garak package is not installed or not available"
+
+
+def _require_garak(probe_service: GarakProbeService) -> None:
+    """Reject the request with a readable 503 when garak is not installed.
+
+    For endpoints that only read a single module: the service swallows the
+    ImportError there and returns nothing, which would otherwise surface as a
+    misleading 404.
+    """
+    if probe_service.garak_version == "not_installed":
+        raise PublicHTTPException(status_code=503, detail=_GARAK_UNAVAILABLE)
+
+
+async def _enumerate_probes(probe_service: GarakProbeService):
+    """Enumerate probe modules (cached), reporting a missing garak as a 503.
+
+    The only call in this router that surfaces the service's
+    RuntimeError for a missing garak package.
+    """
+    try:
+        return await probe_service.enumerate_probe_modules_cached()
+    except RuntimeError as e:
+        raise PublicHTTPException(status_code=503, detail=_GARAK_UNAVAILABLE) from e
+
+
 @router.get("/probes", response_model=GarakProbesListResponse)
 async def list_probe_modules(
     db: Session = Depends(get_tenant_db_session),
@@ -79,59 +108,51 @@ async def list_probe_modules(
     Uses Redis caching to avoid re-enumerating probes on every request.
     The cache is pre-warmed on application startup.
     """
-    try:
-        # Use cached enumeration - checks L1 memory cache, then L2 Redis cache,
-        # and only generates probe data on cache miss
-        modules, probes_by_module = await probe_service.enumerate_probe_modules_cached()
+    # Use cached enumeration - checks L1 memory cache, then L2 Redis cache,
+    # and only generates probe data on cache miss
+    modules, probes_by_module = await _enumerate_probes(probe_service)
 
-        module_responses = []
-        for module in modules:
-            mapping = GarakTaxonomy.get_mapping(module.name)
+    module_responses = []
+    for module in modules:
+        mapping = GarakTaxonomy.get_mapping(module.name)
 
-            # Get probes from cached data
-            probes = probes_by_module.get(module.name, [])
-            probe_responses = [
-                GarakProbeClassResponse(
-                    class_name=p.class_name,
-                    full_name=p.full_name,
-                    module_name=p.module_name,
-                    description=p.description,
-                    prompt_count=p.prompt_count,
-                    tags=p.tags,
-                    detector=p.detector,
-                    is_dynamic=p.is_dynamic,
-                )
-                for p in probes
-            ]
-
-            module_responses.append(
-                GarakProbeModuleResponse(
-                    name=module.name,
-                    description=module.description,
-                    probe_count=module.probe_count,
-                    total_prompt_count=module.total_prompt_count,
-                    tags=module.tags,
-                    default_detector=module.default_detector,
-                    rhesis_category=mapping.category,
-                    rhesis_topic=mapping.topic,
-                    rhesis_requirement=resolve_requirement(module.tags),
-                    has_dynamic_probes=module.has_dynamic_probes,
-                    probes=probe_responses,
-                )
+        # Get probes from cached data
+        probes = probes_by_module.get(module.name, [])
+        probe_responses = [
+            GarakProbeClassResponse(
+                class_name=p.class_name,
+                full_name=p.full_name,
+                module_name=p.module_name,
+                description=p.description,
+                prompt_count=p.prompt_count,
+                tags=p.tags,
+                detector=p.detector,
+                is_dynamic=p.is_dynamic,
             )
+            for p in probes
+        ]
 
-        return GarakProbesListResponse(
-            garak_version=probe_service.garak_version,
-            modules=module_responses,
-            total_modules=len(module_responses),
+        module_responses.append(
+            GarakProbeModuleResponse(
+                name=module.name,
+                description=module.description,
+                probe_count=module.probe_count,
+                total_prompt_count=module.total_prompt_count,
+                tags=module.tags,
+                default_detector=module.default_detector,
+                rhesis_category=mapping.category,
+                rhesis_topic=mapping.topic,
+                rhesis_requirement=resolve_requirement(module.tags),
+                has_dynamic_probes=module.has_dynamic_probes,
+                probes=probe_responses,
+            )
         )
 
-    except RuntimeError as e:
-        logger.error(f"Garak not available: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="Garak package is not installed or not available",
-        ) from e
+    return GarakProbesListResponse(
+        garak_version=probe_service.garak_version,
+        modules=module_responses,
+        total_modules=len(module_responses),
+    )
 
 
 @router.get("/probes/{module_name}", response_model=GarakProbeDetailResponse)
@@ -146,6 +167,8 @@ def get_probe_module_detail(
 
     Returns the probe classes, prompts, and metadata for the module.
     """
+    _require_garak(probe_service)
+
     module_info = probe_service.get_probe_details(module_name)
 
     if not module_info:
@@ -203,7 +226,7 @@ async def preview_import(
     # Preload from the Garak probe cache instead of re-instantiating each
     # selected probe from scratch — turns this into a Redis GET + dict
     # lookups rather than re-running probe extraction.
-    _, probes_by_module = await probe_service.enumerate_probe_modules_cached()
+    _, probes_by_module = await _enumerate_probes(probe_service)
 
     importer = GarakImporter(db)
     importer.preload_probes(probes_by_module)
@@ -294,7 +317,7 @@ async def preview_sync(
 
         # Preload from the Garak probe cache instead of re-instantiating the
         # probe(s) from scratch.
-        _, probes_by_module = await probe_service.enumerate_probe_modules_cached()
+        _, probes_by_module = await _enumerate_probes(probe_service)
 
         sync_service = GarakSyncService(db)
         sync_service.preload_probes(probes_by_module)
@@ -389,68 +412,62 @@ def generate_dynamic_probe(
     module_name = request.module_name
     class_name = request.class_name
 
-    try:
-        probes = probe_service.extract_probes_from_module(module_name, [class_name])
+    _require_garak(probe_service)
 
-        if not probes:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Probe '{module_name}.{class_name}' not found",
-            )
+    probes = probe_service.extract_probes_from_module(module_name, [class_name])
 
-        probe_info = probes[0]
-
-        if not probe_info.is_dynamic:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Probe '{module_name}.{class_name}' is not dynamic — "
-                    "use POST /garak/import to import its static prompts instead."
-                ),
-            )
-
-        generator = GarakDynamicGenerator()
-        config, probe_metadata = generator.build(probe_info)
-
-        # Choose a random test count in [100, 200] if the caller did not specify one
-        num_tests = request.num_tests if request.num_tests is not None else random.randint(100, 200)
-
-        test_set_name = request.name or f"Garak Dynamic: {probe_info.full_name}"
-
-        task_result = task_launcher(
-            generate_and_save_test_set,
-            current_user=current_user,
-            db=db,
-            config=config.model_dump(),
-            num_tests=num_tests,
-            name=test_set_name,
-            metadata=probe_metadata,
+    if not probes:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Probe '{module_name}.{class_name}' not found",
         )
 
-        logger.info(
-            "Garak dynamic generation task launched",
-            extra={
-                "task_id": task_result.id,
-                "probe": probe_info.full_name,
-                "num_tests": num_tests,
-                "user_id": current_user.id,
-                "organization_id": current_user.organization_id,
-            },
-        )
+    probe_info = probes[0]
 
-        return GarakGenerateResponse(
-            task_id=str(task_result.id),
-            probe_full_name=probe_info.full_name,
-            num_tests=num_tests,
-            message=(
-                f"Dynamic test set generation started for '{probe_info.full_name}'. "
-                f"Generating {num_tests} tests using your configured LLM."
+    if not probe_info.is_dynamic:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Probe '{module_name}.{class_name}' is not dynamic — "
+                "use POST /garak/import to import its static prompts instead."
             ),
         )
 
-    except RuntimeError as e:
-        logger.error(f"Garak not available: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="Garak package is not installed or not available",
-        ) from e
+    generator = GarakDynamicGenerator()
+    config, probe_metadata = generator.build(probe_info)
+
+    # Choose a random test count in [100, 200] if the caller did not specify one
+    num_tests = request.num_tests if request.num_tests is not None else random.randint(100, 200)
+
+    test_set_name = request.name or f"Garak Dynamic: {probe_info.full_name}"
+
+    task_result = task_launcher(
+        generate_and_save_test_set,
+        current_user=current_user,
+        db=db,
+        config=config.model_dump(),
+        num_tests=num_tests,
+        name=test_set_name,
+        metadata=probe_metadata,
+    )
+
+    logger.info(
+        "Garak dynamic generation task launched",
+        extra={
+            "task_id": task_result.id,
+            "probe": probe_info.full_name,
+            "num_tests": num_tests,
+            "user_id": current_user.id,
+            "organization_id": current_user.organization_id,
+        },
+    )
+
+    return GarakGenerateResponse(
+        task_id=str(task_result.id),
+        probe_full_name=probe_info.full_name,
+        num_tests=num_tests,
+        message=(
+            f"Dynamic test set generation started for '{probe_info.full_name}'. "
+            f"Generating {num_tests} tests using your configured LLM."
+        ),
+    )

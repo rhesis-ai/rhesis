@@ -9,7 +9,7 @@ set of adversarial prompts for a described system under test.
 import asyncio
 import logging
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -68,6 +68,8 @@ async def get_categories(
                 for s in summaries
             ],
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise internal_error(
             e, context=f"listing OWASP categories for {framework.value}", status_code=502
@@ -91,42 +93,38 @@ async def generate_test_set(
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
     `GET /tasks/{task_id}`.
     """
-    try:
-        task_result = task_launcher(
-            generate_and_save_owasp_test_set,
-            current_user=current_user,
-            db=db,
-            framework=request.framework.value,
-            purpose=request.purpose,
-            categories=request.categories,
-            num_tests=request.num_tests,
-            batch_size=request.batch_size,
-            name=request.name,
-            model_id=request.model_id,
-            test_type=request.test_type.value,
-        )
+    task_result = task_launcher(
+        generate_and_save_owasp_test_set,
+        current_user=current_user,
+        db=db,
+        framework=request.framework.value,
+        purpose=request.purpose,
+        categories=request.categories,
+        num_tests=request.num_tests,
+        batch_size=request.batch_size,
+        name=request.name,
+        model_id=request.model_id,
+        test_type=request.test_type.value,
+    )
 
-        logger.info(
-            "OWASP generation task launched",
-            extra={
-                "task_id": task_result.id,
-                "framework": request.framework.value,
-                "num_tests": request.num_tests,
-                "user_id": current_user.id,
-                "organization_id": current_user.organization_id,
-            },
-        )
+    logger.info(
+        "OWASP generation task launched",
+        extra={
+            "task_id": task_result.id,
+            "framework": request.framework.value,
+            "num_tests": request.num_tests,
+            "user_id": current_user.id,
+            "organization_id": current_user.organization_id,
+        },
+    )
 
-        framework_label = OWASP_FRAMEWORKS[request.framework.value]["requirement"]
-        return OwaspGenerateResponse(
-            task_id=str(task_result.id),
-            framework=request.framework,
-            num_tests=request.num_tests,
-            message=(
-                f"Test set generation started from the {framework_label} report. "
-                f"Generating {request.num_tests} tests using your configured LLM."
-            ),
-        )
-
-    except Exception as e:
-        raise internal_error(e, context="launching OWASP test set generation") from e
+    framework_label = OWASP_FRAMEWORKS[request.framework.value]["requirement"]
+    return OwaspGenerateResponse(
+        task_id=str(task_result.id),
+        framework=request.framework,
+        num_tests=request.num_tests,
+        message=(
+            f"Test set generation started from the {framework_label} report. "
+            f"Generating {request.num_tests} tests using your configured LLM."
+        ),
+    )

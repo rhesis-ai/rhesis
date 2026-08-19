@@ -128,10 +128,16 @@ def create_tests_bulk(
         )
     except Exception as e:
         if "not found" in str(e).lower():
-            # Referenced entity (e.g. test set) is missing. Keep the 404, but the
-            # message is a broad exception's text -- log it instead of returning it.
-            logger.warning("Referenced entity missing while creating tests in bulk", exc_info=True)
-            raise HTTPException(status_code=404, detail="A referenced entity was not found") from e
+            # A caller error, so: no stack in the log, and the message names what
+            # they can act on. The test set id is the only reference they supplied
+            # -- everything else a bulk test refers to is get-or-created.
+            logger.warning("Referenced entity missing while creating tests in bulk: %s", e)
+            missing = (
+                f"Test set {test_data.test_set_id} not found or not accessible"
+                if test_data.test_set_id
+                else "A referenced entity was not found"
+            )
+            raise HTTPException(status_code=404, detail=missing) from e
         raise internal_error(e, context="creating tests in bulk") from e
 
 

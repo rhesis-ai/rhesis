@@ -197,7 +197,9 @@ def generate_test_set(
             metadata = dict(attrs.get("metadata", {}))
             generation = dict(metadata.get("generation", {}))
             generation["status"] = "failed"
-            generation["error"] = str(launch_err)
+            # GET /test_sets/{id} returns this verbatim, so it says no more than the
+            # response does -- a broker error carries the connection string with it.
+            generation["error"] = "Failed to start test set generation."
             metadata["generation"] = generation
             attrs["metadata"] = metadata
             db_test_set.attributes = attrs
@@ -231,6 +233,9 @@ def generate_test_set(
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
+@handle_database_exceptions(
+    entity_name="test set", custom_unique_message="Test set with this name already exists"
+)
 def create_test_set_bulk(
     test_set_data: schemas.TestSetBulkCreate,
     db: Session = Depends(get_tenant_db_session),

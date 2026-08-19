@@ -254,8 +254,15 @@ def execute_test_configuration_endpoint(
                 db=db,
             )
         except Exception as exc:
-            # Mark the queued test run as failed so it doesn't stay stuck
-            update_test_run_status(db, test_run, RunStatus.FAILED.value, error=str(exc))
+            # Mark the queued test run as failed so it doesn't stay stuck. The
+            # stored text is shown in the UI, so it says no more than the response
+            # does -- a broker error carries the connection string with it.
+            update_test_run_status(
+                db,
+                test_run,
+                RunStatus.FAILED.value,
+                error="Failed to submit the test run for execution.",
+            )
             db.commit()
             raise internal_error(exc, context="submitting test configuration task") from exc
 

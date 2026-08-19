@@ -10,7 +10,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
-from rhesis.backend.app.error_handlers import internal_error
+from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.celery.core import app as celery_app
 from rhesis.backend.tasks import task_launcher
@@ -143,7 +143,7 @@ async def health_check(current_user: schemas.User = Depends(require_current_user
         raise internal_error(e, context="Celery health check", status_code=503) from e
 
     if not stats:
-        raise HTTPException(status_code=503, detail="No Celery workers available")
+        raise PublicHTTPException(status_code=503, detail="No Celery workers available")
     return {
         "status": "healthy",
         "workers": len(stats),
