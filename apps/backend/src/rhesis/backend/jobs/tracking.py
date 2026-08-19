@@ -66,6 +66,7 @@ def create_job(
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
     job_metadata: Optional[Dict[str, Any]] = None,
+    trace_id: Optional[str] = None,
 ) -> Optional[UUID]:
     """Record a queued job on the caller's session. Returns its id, or None.
 
@@ -89,6 +90,7 @@ def create_job(
             entity_type=entity_type,
             entity_id=entity_id,
             job_metadata=job_metadata,
+            trace_id=trace_id,
         )
         # Set explicitly rather than relying on auto_stamp: launch_job has
         # already resolved these, and a script-dispatched job may have no

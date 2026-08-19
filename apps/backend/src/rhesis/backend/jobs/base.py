@@ -400,6 +400,112 @@ class BaseJob(Task):
         except Exception as exc:
             logger.warning(f"Job row transition '{transition}' failed: {exc}", exc_info=True)
 
+        # Separate try/except: the activity-log narrative must not be able to
+        # affect the job row transition above, in either direction.
+        try:
+            self._emit_lifecycle_event(transition, error=error)
+        except Exception as exc:
+            logger.warning(f"Lifecycle event '{transition}' failed: {exc}", exc_info=True)
+
+    def _emit_lifecycle_event(self, transition: str, error: Optional[BaseException] = None) -> None:
+        """The activity-log side of a job-row transition. See _advance_job_row."""
+        from datetime import datetime, timezone
+
+        from rhesis.backend.events import emit
+        from rhesis.backend.events.correlation import resolve_ids
+        from rhesis.backend.events.types import (
+            JobCancelled,
+            JobCompleted,
+            JobFailed,
+            JobRetried,
+            JobStarted,
+        )
+        from rhesis.backend.jobs.tracking import job_type_for
+
+        celery_task_id = getattr(self.request, "id", None)
+        if not celery_task_id:
+            return
+
+        org_id, user_id, project_id = self.get_tenant_context()
+        if not org_id:
+            # No tenant to attribute this to -- matches _advance_job_row's
+            # own silent no-op above rather than raising on a required field.
+            return
+
+        # Reads whatever attach_trace_context_for_task attached at
+        # task_prerun -- the request's trace context, already current for
+        # the whole task body by this point.
+        trace_id, span_id = resolve_ids()
+        source = job_type_for(getattr(self, "name", "") or "")
+        common = dict(
+            occurred_at=datetime.now(timezone.utc),
+            organization_id=org_id,
+            project_id=project_id,
+            user_id=user_id,
+            trace_id=trace_id,
+            span_id=span_id,
+            celery_task_id=celery_task_id,
+            source=source,
+        )
+
+        if transition == "running":
+            event = JobStarted(**common)
+        elif transition == "completed":
+            event = JobCompleted(**common)
+        elif transition == "cancelled":
+            event = JobCancelled(**common)
+        elif transition == "failed":
+            event = JobFailed(
+                **common,
+                error_type=type(error).__name__ if error else "Exception",
+                error_message=str(error) if error else "Unknown error",
+            )
+        elif transition == "retrying":
+            event = JobRetried(**common, attempt=getattr(self.request, "retries", 0) + 1)
+        else:
+            return
+
+        emit(event)
+
+    def emit(self, message: str, level: str = "info", *, context: Optional[dict] = None) -> None:
+        """Write a user-facing line to this job's activity log.
+
+        Deliberately not ``log_with_context``: that stays developer logging
+        to stdout. This is what shows up in the Jobs screen's detail view --
+        "I recorded this for the user", not "I logged this for me". Also
+        writes a DEBUG line via the dispatcher, so stdout keeps the full
+        narrative regardless.
+        """
+        from datetime import datetime, timezone
+
+        from rhesis.backend.events import emit as emit_event
+        from rhesis.backend.events.correlation import resolve_ids
+        from rhesis.backend.events.types import ActivityLogged
+        from rhesis.backend.jobs.tracking import job_type_for
+
+        celery_task_id = getattr(self.request, "id", None)
+        org_id, user_id, project_id = self.get_tenant_context()
+        if not org_id:
+            self.log_with_context("warning", "emit() called with no tenant context, dropped")
+            return
+
+        trace_id, span_id = resolve_ids()
+        emit_event(
+            ActivityLogged(
+                occurred_at=datetime.now(timezone.utc),
+                organization_id=org_id,
+                project_id=project_id,
+                user_id=user_id,
+                trace_id=trace_id,
+                span_id=span_id,
+                celery_task_id=celery_task_id,
+                source=job_type_for(getattr(self, "name", "") or ""),
+                level=level,
+                message=message,
+                context=context,
+            )
+        )
+
     def _get_execution_time(self) -> Optional[str]:
         """Return formatted task execution duration, if start time is available."""
         from rhesis.backend.jobs.utils import format_execution_time

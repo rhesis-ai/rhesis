@@ -15,32 +15,9 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from rhesis.backend.app.config.settings import get_telemetry_settings
+from rhesis.backend.events.redaction import redact_metadata
 
 logger = logging.getLogger(__name__)
-
-
-# Sensitive metadata keys to filter out from telemetry
-# This blocklist prevents accidental exposure of credentials and PII
-SENSITIVE_METADATA_KEYS = {
-    "password",
-    "passwd",
-    "pwd",
-    "secret",
-    "token",
-    "api_key",
-    "apikey",
-    "authorization",
-    "auth",
-    "credential",
-    "private_key",
-    "session_token",
-    "access_token",
-    "refresh_token",
-    "bearer",
-    "email",
-    "ssn",
-    "credit_card",
-}
 
 # Context variable to track if telemetry is enabled for current request
 _telemetry_enabled: ContextVar[bool] = ContextVar("telemetry_enabled", default=False)
@@ -100,44 +77,6 @@ def _hash_id(id_str: str) -> str:
     if not id_str:
         return ""
     return hashlib.sha256(id_str.encode()).hexdigest()[:16]
-
-
-def _sanitize_metadata(metadata: dict) -> dict:
-    """
-    Filter out potentially sensitive keys from metadata.
-
-    Implements defense-in-depth by removing any keys that match common patterns
-    for sensitive data to prevent accidental exposure via telemetry.
-
-    This function provides automatic protection against accidental inclusion of:
-    - Credentials (passwords, API keys, tokens)
-    - Personal information (emails, SSN, credit cards)
-    - Authentication data (auth tokens, session tokens, bearer tokens)
-
-    Args:
-        metadata: Dictionary of metadata to sanitize
-
-    Returns:
-        Sanitized dictionary with sensitive keys removed
-
-    Security:
-        - Exact match: Filters keys in SENSITIVE_METADATA_KEYS
-        - Pattern match: Filters any key containing "password", "token", "key", or "secret"
-        - Case insensitive: Catches variations like "Password", "PASSWORD", "password"
-
-    Examples:
-        >>> _sanitize_metadata({"username": "john", "password": "secret"})
-        {"username": "john"}
-
-        >>> _sanitize_metadata({"api_key": "abc123", "user_agent": "Mozilla"})
-        {"user_agent": "Mozilla"}
-    """
-    return {
-        k: v
-        for k, v in metadata.items()
-        if k.lower() not in SENSITIVE_METADATA_KEYS
-        and not any(sensitive in k.lower() for sensitive in ["password", "token", "key", "secret"])
-    }
 
 
 def initialize_telemetry():
@@ -348,7 +287,7 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)
-        sanitized_metadata = _sanitize_metadata(metadata)
+        sanitized_metadata = redact_metadata(metadata)
         for key, value in sanitized_metadata.items():
             span.set_attribute(f"metadata.{key}", str(value))
 
@@ -410,6 +349,6 @@ def track_feature_usage(feature_name: str, action: str, **metadata):
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)
-        sanitized_metadata = _sanitize_metadata(metadata)
+        sanitized_metadata = redact_metadata(metadata)
         for key, value in sanitized_metadata.items():
             span.set_attribute(f"metadata.{key}", str(value))

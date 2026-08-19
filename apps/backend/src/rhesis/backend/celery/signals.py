@@ -162,6 +162,52 @@ def clear_usage_attribution_for_task(task_id=None, **kwargs):
         reset_usage_org(token)
 
 
+# Detach tokens from attach_trace_context_for_task, keyed by task id. Same
+# dict-per-task-id shape as _usage_attribution_tokens, and for the same
+# reason: pool types that interleave tasks in one process need prerun/postrun
+# pairs that cannot cross-talk.
+_trace_context_tokens: dict = {}
+
+
+@task_prerun.connect
+def attach_trace_context_for_task(task_id=None, task=None, **_):
+    """Make the dispatching request's trace context current for this task.
+
+    Mirrors ``bind_usage_attribution_for_task`` above -- a signal rather than
+    ``BaseJob.before_start`` for the same reason: not every task subclasses
+    ``BaseJob``. Reads the raw message headers directly rather than
+    ``task.request.headers``, since ``before_start`` (which copies headers
+    onto the request) has not run yet at ``task_prerun`` time.
+
+    A task with no ``traceparent`` header (e.g. one dispatched outside
+    ``launch_job``) gets nothing attached here; ``events.correlation``'s
+    fallback still gives it valid, if unlinked, ids when something emits.
+    """
+    from rhesis.backend.events.correlation import attach_from_headers
+
+    if not task_id:
+        logger.warning("task_prerun without a task_id; trace context will not attach")
+        return
+
+    headers = getattr(getattr(task, "request", None), "headers", None) or {}
+    token = attach_from_headers(headers)
+    if token is not None:
+        _trace_context_tokens[task_id] = token
+
+
+@task_postrun.connect
+def detach_trace_context_for_task(task_id=None, **kwargs):
+    """Undo ``attach_trace_context_for_task``. Load-bearing for the same
+    reason as ``clear_usage_attribution_for_task``: a binding left in place
+    on a reused worker thread would misattribute the next task's spans and
+    events to this one's trace.
+    """
+    from rhesis.backend.events.correlation import detach
+
+    token = _trace_context_tokens.pop(task_id, None)
+    detach(token)
+
+
 @celeryd_init.connect
 def capture_worker_role(sender=None, conf=None, **kwargs):
     """Derive MAIN/ARCHITECT from the Celery node name (``-n main@host``).
@@ -289,10 +335,10 @@ def handle_task_revoked(sender=None, request=None, **kw):
         # The tenant triple comes off the message headers for the same reason:
         # before_start has not copied them onto the request yet.
         headers = getattr(request, "headers", None) or {}
-        _mark_job_cancelled(task_id, headers)
+        _mark_job_cancelled(task_id, task_name, headers)
 
 
-def _mark_job_cancelled(task_id: str, headers: dict) -> None:
+def _mark_job_cancelled(task_id: str, task_name: str, headers: dict) -> None:
     from rhesis.backend.jobs import tracking
 
     try:
@@ -304,3 +350,40 @@ def _mark_job_cancelled(task_id: str, headers: dict) -> None:
         )
     except Exception as exc:
         logger.warning(f"Could not mark job {task_id} cancelled: {exc}", exc_info=True)
+
+    # Separate try/except, matching BaseJob._advance_job_row: the activity
+    # log narrative must not affect (or be affected by) the job row update
+    # above. No pre-check for whether a job row exists -- unlike JobQueued,
+    # which fires on every dispatch including untracked high-frequency
+    # types, a revoke only ever targets something a user chose to cancel,
+    # so an orphaned entry here would be a rare edge case, not routine noise.
+    try:
+        from datetime import datetime, timezone
+
+        from rhesis.backend.events import emit
+        from rhesis.backend.events.correlation import resolve_ids
+        from rhesis.backend.events.types import JobCancelled
+        from rhesis.backend.jobs.tracking import job_type_for
+
+        org_id = headers.get("organization_id")
+        if not org_id:
+            return
+
+        # One-shot extraction from the message headers, not the ambient
+        # context: task_prerun never ran for a task revoked before it
+        # started, so there is nothing attached to read instead.
+        trace_id, span_id = resolve_ids(headers)
+        emit(
+            JobCancelled(
+                occurred_at=datetime.now(timezone.utc),
+                organization_id=org_id,
+                project_id=headers.get("project_id"),
+                user_id=headers.get("user_id"),
+                trace_id=trace_id,
+                span_id=span_id,
+                celery_task_id=task_id,
+                source=job_type_for(task_name or ""),
+            )
+        )
+    except Exception as exc:
+        logger.warning(f"Could not emit JobCancelled for {task_id}: {exc}", exc_info=True)

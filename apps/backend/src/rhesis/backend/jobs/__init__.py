@@ -158,12 +158,26 @@ def launch_job(
     if celery_task_id is None and db is not None:
         celery_task_id = str(uuid.uuid4())
 
+    # W3C trace context: written into headers so the worker's task_prerun
+    # can extract and attach it, and resolved here so the job row and the
+    # JobQueued event below agree with what was actually propagated. Best
+    # effort like everything else in this function -- a correlation failure
+    # must not become a dispatch failure.
+    trace_id, span_id = None, None
+    try:
+        from rhesis.backend.events.correlation import prepare_dispatch
+
+        trace_id, span_id = prepare_dispatch(headers)
+    except Exception as exc:
+        logger.warning(f"Could not establish trace context for dispatch: {exc}", exc_info=True)
+
+    job_id = None
     if db is not None and celery_task_id:
         # Guarded here as well as inside create_job: the invariant is that
         # recording cannot stop a dispatch, and it should hold at this boundary
         # regardless of how create_job is implemented later.
         try:
-            tracking.create_job(
+            job_id = tracking.create_job(
                 db,
                 celery_task_id=celery_task_id,
                 task_name=getattr(task, "name", "") or "",
@@ -173,9 +187,52 @@ def launch_job(
                 project_id=headers.get("project_id"),
                 entity_type=entity_type,
                 entity_id=entity_id,
+                trace_id=trace_id,
             )
         except Exception as exc:
             logger.warning(f"Could not record job row before dispatch: {exc}", exc_info=True)
+
+    if job_id is not None:
+        # Commits the job row before dispatch, not after -- ActivityLogSink
+        # (and BaseJob.before_start's mark_running, on the worker side) query
+        # it from a separate connection, which cannot see a merely flushed
+        # row. Without this, a fast worker can start before the row is
+        # visible to anything but this session, and the "running" transition
+        # silently no-ops exactly like an untracked job type would.
+        try:
+            db.commit()
+        except Exception as exc:
+            logger.warning(f"Could not commit job row before dispatch: {exc}", exc_info=True)
+
+    if job_id is not None and trace_id is not None:
+        # Only for a tracked job (a real row exists to attach the entry to)
+        # -- an untracked type emitting here would recreate exactly the
+        # per-request noise UNTRACKED_JOB_TYPES exists to avoid.
+        try:
+            from datetime import datetime, timezone
+
+            from rhesis.backend.events import emit
+            from rhesis.backend.events.types import JobQueued
+            from rhesis.backend.jobs.tracking import job_type_for
+
+            task_name = getattr(task, "name", "") or ""
+            emit(
+                JobQueued(
+                    occurred_at=datetime.now(timezone.utc),
+                    organization_id=headers.get("organization_id"),
+                    project_id=headers.get("project_id"),
+                    user_id=headers.get("user_id"),
+                    trace_id=trace_id,
+                    span_id=span_id,
+                    celery_task_id=celery_task_id,
+                    source=job_type_for(task_name),
+                    job_type=job_type_for(task_name),
+                    name=getattr(task, "display_name", None),
+                ),
+                db=db,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not emit JobQueued for {celery_task_id}: {exc}", exc_info=True)
 
     apply_kwargs: Dict[str, Any] = dict(args=args, kwargs=kwargs)
     if headers:
