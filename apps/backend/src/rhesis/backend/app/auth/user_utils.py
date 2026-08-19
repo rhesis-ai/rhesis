@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
+from rhesis.backend.app.auth.oauth_scope import capabilities_for_oauth_scope
 from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
     REQUEST_STATE_API_TOKEN_SCOPES,
@@ -306,16 +307,18 @@ async def get_authenticated_user_with_context(
 
             # ``azp`` marks a token-exchange-issued JWT; UI/SSO JWTs never
             # carry it, so gating on it leaves their AuthKind.SESSION
-            # classification untouched. Storing the ``project`` claim on
-            # request.state is what lets get_project_context treat this
-            # like a project-scoped rh-* token (membership re-checked per
-            # request by assert_project_access). The re-decode is a cheap
+            # classification untouched. Storing the ``project`` and
+            # ``scope`` claims on request.state is what lets
+            # get_project_context and the EE RBAC provider treat this like
+            # a project-scoped, scope-restricted rh-* token (membership and
+            # scope both re-checked per request). The re-decode is a cheap
             # HMAC verify -- get_user_from_jwt discards the payload.
             #
             # Authentication already succeeded above, so this only reads
             # claims for scoping and must not be able to fail the request:
-            # on any decode problem we fall through with no project scope,
-            # which is fail-closed (fewer rows visible, never more).
+            # on any decode problem we fall through with no project/scope
+            # binding, which is fail-closed (fewer rows/permissions visible,
+            # never more).
             try:
                 payload = verify_jwt_token(credentials.credentials, secret_key)
             except Exception:
@@ -326,6 +329,12 @@ async def get_authenticated_user_with_context(
                 project_claim = payload.get("project")
                 if project_claim:
                     setattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, str(project_claim))
+                # None means "full access" (Principal.scopes' own sentinel);
+                # only set request.state when the claim actually narrows it,
+                # so an unset field keeps meaning "inherit owner's access".
+                scope_capabilities = capabilities_for_oauth_scope(payload.get("scope"))
+                if scope_capabilities is not None:
+                    setattr(request.state, REQUEST_STATE_API_TOKEN_SCOPES, scope_capabilities)
 
             request.state.user = jwt_user
             return jwt_user
