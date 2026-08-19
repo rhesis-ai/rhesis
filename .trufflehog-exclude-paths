@@ -1,0 +1,11 @@
+# Paths TruffleHog skips. One regex per line, matched against the file path.
+#
+# uv lockfiles hold nothing but package names, versions, registry URLs and
+# public sha256 checksums — there is no field in them a credential could live
+# in. Checksums are 64 hex characters, so one occasionally matches a token
+# pattern by coincidence: sentry_sdk 2.68.0's sdist hash trips the SentryToken
+# detector, which would otherwise block every commit that re-locks a project.
+#
+# Excluding the paths rather than the detector keeps SentryToken (and every
+# other detector) live everywhere a real credential could actually appear.
+uv\.lock$
