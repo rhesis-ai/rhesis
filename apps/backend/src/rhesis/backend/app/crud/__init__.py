@@ -330,16 +330,9 @@ def get_test_set(
 
     Raises ``ItemDeletedException`` for a soft-deleted test set.
     """
-    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-
-    item = (
-        QueryBuilder(db, models.TestSet)
-        .with_deleted()
-        .with_organization_filter(organization_id)
-        .with_visibility_filter(user_id)
-        .filter_by_id(test_set_id)
+    return get_item_detail(
+        db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id
     )
-    return _check_and_raise_if_deleted(item, models.TestSet, test_set_id, False)
 
 
 # Relationships serialized by TestSetDetailSchema. All many-to-one -- excludes
@@ -478,6 +471,11 @@ def resolve_test_set(
     """
     Resolve a test set from any valid identifier (UUID, nano_id, or slug).
     Returns None if not found or if there's an error parsing the identifier.
+
+    Raises:
+        ItemDeletedException: If the identifier resolves to a soft-deleted
+            test set. Not caught here so callers get the same 410 behavior as
+            a direct ID lookup.
     """
     try:
         # First try UUID

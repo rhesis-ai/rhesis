@@ -42,10 +42,7 @@ from rhesis.backend.app.services.test_set import (
     execute_test_set_on_endpoint,
     update_test_set_attributes,
 )
-from rhesis.backend.app.utils.database_exceptions import (
-    ItemDeletedException,
-    handle_database_exceptions,
-)
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
@@ -448,44 +445,33 @@ def update_test_set(
     response_class=StreamingResponse,
     **capability(Permission.TestSet.EXPORT),
 )
+@handle_database_exceptions(entity_name="test set")
 def download_test_set_prompts(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
 ):
-    try:
-        # Resolve test set
-        organization_id, user_id = tenant_context  # SECURITY: Get tenant context
-        db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
+    # Resolve test set
+    organization_id, user_id = tenant_context  # SECURITY: Get tenant context
+    db_test_set = resolve_test_set_or_raise(test_set_identifier, db, organization_id)
 
-        # Get prompts with organization filtering (SECURITY CRITICAL)
-        prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
+    # Get prompts with organization filtering (SECURITY CRITICAL)
+    prompts = get_prompts_for_test_set(db, db_test_set.id, organization_id)
 
-        # Check if prompts list is empty before trying to create CSV
-        if not prompts:
-            raise HTTPException(
-                status_code=404, detail=f"No prompts found in test set: {test_set_identifier}"
-            )
-
-        csv_data = prompts_to_csv(prompts)
-
-        response = StreamingResponse(iter([csv_data]), media_type="text/csv")
-        response.headers["Content-Disposition"] = (
-            f"attachment; filename=test_set_{test_set_identifier}.csv"
-        )
-        return response
-
-    except HTTPException:
-        raise
-    except ItemDeletedException:
-        # Let the app-level handler turn this into its 410 response
-        raise
-    except Exception as e:
+    # Check if prompts list is empty before trying to create CSV
+    if not prompts:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to download test set prompts for {test_set_identifier}: {str(e)}",
+            status_code=404, detail=f"No prompts found in test set: {test_set_identifier}"
         )
+
+    csv_data = prompts_to_csv(prompts)
+
+    response = StreamingResponse(iter([csv_data]), media_type="text/csv")
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=test_set_{test_set_identifier}.csv"
+    )
+    return response
 
 
 @router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])
