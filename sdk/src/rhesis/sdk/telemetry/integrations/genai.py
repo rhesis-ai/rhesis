@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any, Collection, Iterable, Mapping, Optional, Sequence
 
 from opentelemetry.sdk.trace import Event, ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter
@@ -316,14 +316,22 @@ def join_text_parts(parts: Any) -> str:
     return "".join(chunks)
 
 
-def extract_conversation_input(attributes: Mapping[str, Any]) -> str | None:
+def extract_conversation_input(
+    attributes: Mapping[str, Any],
+    *,
+    chat_operations: Collection[str] = (OP_CHAT,),
+) -> str | None:
     """Return the original user query text from a chat span's input messages.
 
     Reads ``gen_ai.input.messages`` and returns the text of the first
     ``role == "user"`` message. Returns ``None`` for non-chat spans,
     missing/empty content, or when capture is disabled.
+
+    ``chat_operations`` names the ``gen_ai.operation.name`` values that count as
+    a model call. It exists for frameworks that use their own operation name for
+    the same thing (Google ADK reports ``generate_content``).
     """
-    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+    if attributes.get(GEN_AI_OPERATION_NAME) not in chat_operations:
         return None
     messages = coerce_message_list(attributes.get(GEN_AI_INPUT_MESSAGES))
     if not messages:
@@ -337,15 +345,21 @@ def extract_conversation_input(attributes: Mapping[str, Any]) -> str | None:
     return None
 
 
-def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
+def extract_conversation_output(
+    attributes: Mapping[str, Any],
+    *,
+    chat_operations: Collection[str] = (OP_CHAT,),
+) -> str | None:
     """Return the assistant response text from a chat span's output messages.
 
     Reads ``gen_ai.output.messages`` and joins the text parts of every
     ``role == "assistant"`` message. Tool-call-only turns yield an empty
     string and are skipped. Returns ``None`` for non-chat spans or when there
     is no assistant text output.
+
+    See :func:`extract_conversation_input` for ``chat_operations``.
     """
-    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+    if attributes.get(GEN_AI_OPERATION_NAME) not in chat_operations:
         return None
     messages = coerce_message_list(attributes.get(GEN_AI_OUTPUT_MESSAGES))
     if not messages:
@@ -363,6 +377,8 @@ def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
 
 def synthesize_message_events(
     attributes: Mapping[str, Any],
+    *,
+    chat_operations: Collection[str] = (OP_CHAT,),
 ) -> list[tuple[str, dict[str, Any]]]:
     """Build ``ai.prompt`` / ``ai.completion`` events from GenAI message attrs.
 
@@ -373,9 +389,10 @@ def synthesize_message_events(
     not duplicate LLM content onto agent/tool spans.
 
     Returns an empty list when this is not a chat span or no message attributes
-    are present (e.g. content capture disabled).
+    are present (e.g. content capture disabled). See
+    :func:`extract_conversation_input` for ``chat_operations``.
     """
-    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+    if attributes.get(GEN_AI_OPERATION_NAME) not in chat_operations:
         return []
 
     events: list[tuple[str, dict[str, Any]]] = []
@@ -452,14 +469,23 @@ def synthesize_tool_io_events(
 # TranslatedSpan: read-only ReadableSpan view with swapped name/attrs/events
 # ---------------------------------------------------------------------------
 
+# Sentinel for ``TranslatedSpan(new_parent=...)``. A plain ``None`` default
+# would be ambiguous: ``None`` is also a legitimate parent value meaning "this
+# span is a trace root", so we need a third value for "leave the parent alone".
+KEEP_PARENT = object()
+
 
 class TranslatedSpan(ReadableSpan):
     """Read-only view that swaps the original span's name/attributes/events.
 
     OTEL ``ReadableSpan`` exposes its data via properties. By overriding only
-    the three we care about we get a span that quacks like the original (kind,
-    parent, status, timestamps, resource, instrumentation_scope, ...) but that
-    appears in the Rhesis ``ai.*`` namespace to downstream consumers.
+    the four we care about we get a span that quacks like the original (kind,
+    status, timestamps, resource, instrumentation_scope, ...) but that appears
+    in the Rhesis ``ai.*`` namespace to downstream consumers.
+
+    ``new_parent`` is optional and defaults to :data:`KEEP_PARENT`; pass a
+    ``SpanContext`` (or ``None``) only to re-point a span whose real parent the
+    integration dropped.
     """
 
     def __init__(
@@ -468,6 +494,7 @@ class TranslatedSpan(ReadableSpan):
         new_name: str,
         new_attributes: Mapping[str, Any],
         new_events: Sequence[Event],
+        new_parent: Any = KEEP_PARENT,
     ) -> None:
         # Skip ReadableSpan.__init__ on purpose: the parent stores fields in
         # private slots and forces us to copy them all over. Instead, we keep
@@ -477,6 +504,7 @@ class TranslatedSpan(ReadableSpan):
         self._new_name = new_name
         self._new_attributes = dict(new_attributes)
         self._new_events = tuple(new_events)
+        self._new_parent = new_parent
 
     @property
     def name(self) -> str:  # type: ignore[override]
@@ -489,6 +517,14 @@ class TranslatedSpan(ReadableSpan):
     @property
     def events(self):  # type: ignore[override]
         return self._new_events
+
+    @property
+    def parent(self):  # type: ignore[override]
+        # Lets an integration re-point a span whose real parent it dropped, so
+        # the child does not orphan in the exported trace.
+        if self._new_parent is KEEP_PARENT:
+            return self._original.parent
+        return self._new_parent
 
     def __getattr__(self, item: str) -> Any:
         # __getattr__ is only consulted when normal lookup fails, so it never

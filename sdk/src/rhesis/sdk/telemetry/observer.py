@@ -18,8 +18,10 @@ def auto_instrument(*frameworks: str) -> List[str]:
     Args:
         *frameworks: Specific frameworks. Recognized values:
                      ``"langchain"``, ``"langgraph"``, ``"autogen"``,
-                     ``"agent_framework"`` (alias: ``"maf"`` for
-                     Microsoft Agent Framework).
+                     ``"pydantic_ai"``, ``"agent_framework"`` (alias:
+                     ``"maf"``, for Microsoft Agent Framework), and
+                     ``"google_adk"`` (alias: ``"adk"``, for the Google
+                     Agent Development Kit).
                      If empty, auto-detects all installed frameworks.
 
     Returns:
@@ -40,6 +42,9 @@ def auto_instrument(*frameworks: str) -> List[str]:
 
         # Microsoft Agent Framework
         auto_instrument("agent_framework")  # or "maf"
+
+        # Google ADK
+        auto_instrument("google_adk")  # or "adk"
     """
     from rhesis.sdk.telemetry.integrations import get_all_integrations
 
