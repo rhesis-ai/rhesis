@@ -10,6 +10,7 @@ from typing import Any
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from rhesis.telemetry.context import get_conversation_id, set_conversation_id
 
 from reg_advisor.runner import APP_NAME, build_coordinator_agent, run_turn, run_turn_async
 from reg_advisor.state import RegAdvisorState
@@ -142,10 +143,19 @@ def run_chat_turn(
     active_store = store or default_store
     conv_id = conversation_id or str(uuid.uuid4())
 
-    with active_store.conversation_lock(conv_id):
-        state = active_store.get(conv_id)
-        result = run_turn(message, state, runner=runner or build_turn_runner())
-        active_store.set(conv_id, result["state"])
+    # Mark this as a real conversation turn so the Google ADK integration stamps
+    # the run's root span as a Rhesis conversation turn root, keyed by this id so
+    # turns group together. One-shot callers that invoke the runner directly
+    # (e.g. examples/run_scenarios.py) skip this and stay single-turn.
+    previous_conversation_id = get_conversation_id()
+    set_conversation_id(conv_id)
+    try:
+        with active_store.conversation_lock(conv_id):
+            state = active_store.get(conv_id)
+            result = run_turn(message, state, runner=runner or build_turn_runner())
+            active_store.set(conv_id, result["state"])
+    finally:
+        set_conversation_id(previous_conversation_id)
 
     result["conversation_id"] = conv_id
     return result
@@ -162,10 +172,15 @@ async def run_chat_turn_async(
     active_store = store or default_store
     conv_id = conversation_id or str(uuid.uuid4())
 
-    async with active_store.async_conversation_lock(conv_id):
-        state = active_store.get(conv_id)
-        result = await run_turn_async(message, state, runner=runner or build_turn_runner())
-        active_store.set(conv_id, result["state"])
+    previous_conversation_id = get_conversation_id()
+    set_conversation_id(conv_id)
+    try:
+        async with active_store.async_conversation_lock(conv_id):
+            state = active_store.get(conv_id)
+            result = await run_turn_async(message, state, runner=runner or build_turn_runner())
+            active_store.set(conv_id, result["state"])
+    finally:
+        set_conversation_id(previous_conversation_id)
 
     result["conversation_id"] = conv_id
     return result
