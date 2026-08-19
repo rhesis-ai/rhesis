@@ -124,6 +124,10 @@ flowchart TB
 - Per-service timeout and attempt budgets (`SERVICE_BUDGETS`); Overpass gets longer and one attempt, because retrying a slow query spends the budget twice.
 - `ToolFaultMiddleware` is the last-resort net for a tool that crashes or hangs.
 - A failed service is remembered on the brief, so it is not retried on every later turn.
+
+**A service that is down and a search that found nothing are tracked apart**, because they deserve opposite responses. `brief.unavailable` means the service did not answer: the router drops that specialist for the rest of the conversation, since another hop would only fail again. `brief.no_results` means it answered with nothing: `pending_specialists` stops scheduling it, but the router keeps it reachable, so the coordinator can search again once something changes. Anything that could change the answer — a new destination, new coordinates, different exclusions — clears the entry. Conflating the two is a one-way door: an empty result would take a specialist offline for good, and a city Overpass has no tagged attractions for is not a dead Overpass.
+
+A missing precondition is neither, and is recorded nowhere. A tool called before its leg is geocoded just says so, because `pending_specialists` already withholds coordinate-based lookups until `leg.lat` is set. Marking it as an outage used to deadlock the service outright: the router drops the specialist, so the one agent that could have cleared the entry by succeeding was never wired again.
 - A name the geocoder cannot place is recorded in `resolution_attempts` and not retried.
 - `TRAVEL_AGENT_FAULTS=weather:timeout,sights:empty` forces failures for testing.
 

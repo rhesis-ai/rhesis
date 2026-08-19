@@ -16,9 +16,11 @@ from pydantic import Field
 from travel_agent.brief import current_brief
 from travel_agent.state import (
     Sight,
+    clear_no_results,
     clear_unavailable,
     find_leg,
     is_excluded,
+    mark_no_results,
     mark_unavailable,
     primary_leg,
 )
@@ -164,8 +166,9 @@ async def find_sightseeing(
     if leg is None:
         return "No destination is on file yet, so there is nothing to find sights for."
 
+    # Nothing recorded: this is a missing precondition, not an outage. ``pending_specialists``
+    # already withholds coordinate-based lookups until the leg is geocoded.
     if leg.lat is None or leg.lon is None:
-        mark_unavailable(brief, SERVICE, "destination has no map coordinates")
         return (
             f"{leg.label} has no coordinates on file, so landmarks could not be looked up. "
             "Suggest well-known highlights from general knowledge instead, and say "
@@ -182,7 +185,12 @@ async def find_sightseeing(
     sights = _spread([s for s in found if not is_excluded(brief, s.name)], MAX_SIGHTS)
 
     if not sights:
-        mark_unavailable(brief, SERVICE, detail or "no landmarks found")
+        # ``detail`` is only set when a source failed, so an empty one means a source answered
+        # and simply had nothing - or everything it had was excluded.
+        if detail:
+            mark_unavailable(brief, SERVICE, detail)
+        else:
+            mark_no_results(brief, SERVICE, "no landmarks found")
         return (
             f"The landmark search came back empty for {leg.label} ({detail or 'no matches'}). "
             f"Tell the user, then suggest well-known {leg.label} highlights from general "
@@ -190,6 +198,7 @@ async def find_sightseeing(
         )
 
     clear_unavailable(brief, SERVICE)
+    clear_no_results(brief, SERVICE)
     leg.sights = sights
     names = ", ".join(sight.name for sight in sights)
     return f"Found {len(sights)} landmarks near {leg.label}: {names}."

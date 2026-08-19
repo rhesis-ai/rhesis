@@ -13,7 +13,15 @@ from agent_framework import tool
 from pydantic import Field
 
 from travel_agent.brief import current_brief
-from travel_agent.state import Sight, clear_unavailable, find_leg, mark_unavailable, primary_leg
+from travel_agent.state import (
+    Sight,
+    clear_no_results,
+    clear_unavailable,
+    find_leg,
+    mark_no_results,
+    mark_unavailable,
+    primary_leg,
+)
 from travel_agent.tools import base
 
 SERVICE = "transit"
@@ -63,8 +71,9 @@ async def estimate_travel(
     if leg is None:
         return "No destination is on file yet, so there is nothing to estimate travel for."
 
+    # Nothing recorded: this is a missing precondition, not an outage. ``pending_specialists``
+    # already withholds coordinate-based lookups until the leg is geocoded.
     if leg.lat is None or leg.lon is None:
-        mark_unavailable(brief, SERVICE, "destination has no map coordinates")
         return f"{leg.label} has no coordinates on file, so travel times could not be measured."
 
     sights = _located(leg.sights)[:MAX_WAYPOINTS]
@@ -98,13 +107,14 @@ async def estimate_travel(
     summary = _summarise(sights, list(row[1:]))
 
     if not summary:
-        mark_unavailable(brief, SERVICE, "no route found")
+        mark_no_results(brief, SERVICE, "no route found")
         return (
             f"The routing service returned no usable route for {leg.label}. "
             "Give rough guidance instead."
         )
 
     clear_unavailable(brief, SERVICE)
+    clear_no_results(brief, SERVICE)
     leg.transit = summary
     return f"Travel times for {leg.label}: {summary}."
 

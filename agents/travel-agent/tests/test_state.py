@@ -15,6 +15,7 @@ from travel_agent.state import (
     derive_phase,
     exclude_interests,
     find_leg,
+    mark_no_results,
     mark_unavailable,
     missing_slots,
     needs_a_real_city,
@@ -218,3 +219,45 @@ def test_a_placed_destination_does_not_need_narrowing():
     brief.resolution_attempts["Tokyo"] = "ok"
     assert not needs_a_real_city(brief)
     assert derive_phase(brief) is Phase.BUILDING
+
+
+def test_an_empty_search_is_not_scheduled_again():
+    """Without this the coordinator hands off to the same scout on every turn, forever."""
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    assert "sightseeing_scout" in pending_specialists(brief)
+
+    mark_no_results(brief, "sights", "no landmarks found")
+    assert "sightseeing_scout" not in pending_specialists(brief)
+
+
+def test_a_new_destination_retries_an_empty_search():
+    """Different coordinates, different answer - the old empty result says nothing here."""
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    mark_no_results(brief, "sights", "no landmarks found")
+
+    set_destination(brief, "Kyoto")
+    assert brief.no_results == {}
+
+
+def test_changed_exclusions_retry_the_searches_they_affect():
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    mark_no_results(brief, "sights", "no landmarks found")
+    mark_no_results(brief, "dining", "no vegan restaurants")
+    mark_no_results(brief, "weather", "no forecast returned")
+
+    exclude_interests(brief, ["museums"])
+
+    assert "sights" not in brief.no_results
+    assert "dining" not in brief.no_results
+    # Weather does not depend on interests, so its empty result still stands.
+    assert "weather" in brief.no_results
+
+
+def test_an_empty_result_is_rendered_apart_from_an_outage():
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    mark_no_results(brief, "sights", "no landmarks found")
+    mark_unavailable(brief, "weather", "request timed out")
+
+    rendered = render_brief(brief)
+    assert "Searched, found nothing: sights (no landmarks found)" in rendered
+    assert "Unavailable this session: weather (request timed out)" in rendered

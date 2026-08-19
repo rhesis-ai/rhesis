@@ -128,10 +128,17 @@ async def test_weather_failure_is_recorded_and_explained(monkeypatch, failure):
 
 
 async def test_missing_coordinates_degrade_rather_than_crash():
+    """An un-geocoded leg is a missing precondition, not a dead service.
+
+    Recording it as an outage used to deadlock the service: the router drops a specialist
+    whose service is in ``unavailable``, so the one agent that could have cleared the entry
+    by succeeding was never wired again.
+    """
     brief = TripBrief(legs=[TripLeg(city="Kyoto", days=2)])
     with bind_brief(brief):
         message = await invoke(get_weather, city="Kyoto")
-    assert brief.unavailable["weather"] == "destination has no map coordinates"
+    assert "weather" not in brief.unavailable
+    assert "weather" not in brief.no_results
     assert "could not be looked up" in message
 
 
@@ -376,3 +383,71 @@ async def test_a_country_becomes_a_question_not_a_destination(monkeypatch):
     assert brief.resolution_attempts["Japan"] == "country, not a city"
     assert "is a country, not a city" in message
     assert needs_a_real_city(brief)
+
+
+# region empty results versus outages
+
+
+async def test_an_empty_landmark_search_is_not_an_outage(monkeypatch):
+    """A source that answers with nothing is not a source that is down.
+
+    ``brief.unavailable`` makes the router drop the specialist for the rest of the
+    conversation, which is the right response to a dead API and the wrong one to a city
+    Overpass simply has no tagged attractions for.
+    """
+    FakeHTTP({"sights": ok({"elements": []})}).install(monkeypatch)
+    brief = tokyo()
+    with bind_brief(brief):
+        message = await invoke(find_sightseeing, city="Tokyo")
+
+    assert "sights" not in brief.unavailable
+    assert brief.no_results["sights"] == "no landmarks found"
+    assert "came back empty" in message
+
+
+async def test_sights_excluded_to_nothing_is_not_an_outage(monkeypatch):
+    """Everything found was ruled out by the user, which says nothing about the service."""
+    FakeHTTP({"sights": ok(landmarks("Tokyo National Museum"))}).install(monkeypatch)
+    brief = tokyo()
+    brief.excluded_interests = ["museum"]
+    with bind_brief(brief):
+        await invoke(find_sightseeing, city="Tokyo")
+
+    assert "sights" not in brief.unavailable
+    assert "sights" in brief.no_results
+
+
+async def test_no_usable_route_is_not_an_outage(monkeypatch):
+    """OSRM answered; it just could not route between these points."""
+    FakeHTTP({"transit": ok({"durations": [[0]]})}).install(monkeypatch)
+    brief = tokyo(sights=[Sight(name="Senso-ji", lat=35.71, lon=139.79)])
+    with bind_brief(brief):
+        message = await invoke(estimate_travel, city="Tokyo")
+
+    assert "transit" not in brief.unavailable
+    assert brief.no_results["transit"] == "no route found"
+    assert "no usable route" in message
+
+
+async def test_an_empty_restaurant_search_is_not_an_outage(monkeypatch):
+    FakeHTTP({"dining": ok({"elements": []})}).install(monkeypatch)
+    brief = tokyo()
+    with bind_brief(brief):
+        message = await invoke(find_dining, city="Tokyo", cuisine="Ethiopian")
+
+    assert "dining" not in brief.unavailable
+    assert "dining" in brief.no_results
+    assert "genuine zero-result" in message
+
+
+async def test_a_later_success_clears_a_past_empty_result(monkeypatch):
+    brief = tokyo()
+    FakeHTTP({"sights": ok({"elements": []})}).install(monkeypatch)
+    with bind_brief(brief):
+        await invoke(find_sightseeing, city="Tokyo")
+    assert "sights" in brief.no_results
+
+    FakeHTTP({"sights": ok(overpass("Senso-ji"))}).install(monkeypatch)
+    with bind_brief(brief):
+        await invoke(find_sightseeing, city="Tokyo")
+    assert "sights" not in brief.no_results

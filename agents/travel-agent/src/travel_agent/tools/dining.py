@@ -13,7 +13,14 @@ from agent_framework import tool
 from pydantic import Field
 
 from travel_agent.brief import current_brief
-from travel_agent.state import clear_unavailable, find_leg, mark_unavailable, primary_leg
+from travel_agent.state import (
+    clear_no_results,
+    clear_unavailable,
+    find_leg,
+    mark_no_results,
+    mark_unavailable,
+    primary_leg,
+)
 from travel_agent.tools import base
 
 SERVICE = "dining"
@@ -76,8 +83,9 @@ async def find_dining(
     if leg is None:
         return "No destination is on file yet, so there is nothing to search for restaurants near."
 
+    # Nothing recorded: this is a missing precondition, not an outage. ``pending_specialists``
+    # already withholds coordinate-based lookups until the leg is geocoded.
     if leg.lat is None or leg.lon is None:
-        mark_unavailable(brief, SERVICE, "destination has no map coordinates")
         return f"{leg.label} has no coordinates on file, so restaurants could not be looked up."
 
     outcome = await base.http_get_json(
@@ -98,7 +106,9 @@ async def find_dining(
 
     if not names:
         clear_unavailable(brief, SERVICE)
-        # A real empty result, not a failure. The model must say so rather than invent venues.
+        # A real empty result, not a failure: the service is up, so it stays reachable, but the
+        # same search is not scheduled again until the trip changes.
+        mark_no_results(brief, SERVICE, f"no {criteria or 'matching'} restaurants")
         return (
             f"The search found no {criteria or 'matching'} restaurants in {leg.label}. "
             "This is a genuine zero-result, not an error: tell the user plainly that "
@@ -108,6 +118,7 @@ async def find_dining(
         )
 
     clear_unavailable(brief, SERVICE)
+    clear_no_results(brief, SERVICE)
     leg.dining = names
     return f"Found {len(names)} {criteria or ''} places to eat in {leg.label}: {', '.join(names)}."
 

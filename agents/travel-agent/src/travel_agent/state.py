@@ -111,6 +111,10 @@ class TripBrief(BaseModel):
     lodging_note: str | None = None
     # service -> why it is unusable, e.g. {"weather": "request timed out"}.
     unavailable: dict[str, str] = Field(default_factory=dict)
+    # service -> why a completed lookup found nothing, e.g. {"sights": "no landmarks found"}.
+    # Deliberately not ``unavailable``: the service answered, so the router keeps offering the
+    # specialist and a later change to the trip can retry it.
+    no_results: dict[str, str] = Field(default_factory=dict)
     plan_text: str | None = None
     # Set by a terminal tool; when present it *is* the reply and no plan is written.
     pending_reply: str | None = None
@@ -190,6 +194,8 @@ def set_destination(
 
     # A resolved destination settles any pending ambiguity.
     brief.candidates = []
+    # New place, or coordinates for an old one: anything that found nothing deserves a retry.
+    brief.no_results.clear()
     return leg
 
 
@@ -241,6 +247,10 @@ def exclude_interests(brief: TripBrief, unwanted: list[str]) -> None:
         if cleaned.casefold() not in {existing.casefold() for existing in brief.excluded_interests}:
             brief.excluded_interests.append(cleaned)
 
+    # Different exclusions can change what a search returns, so let those two run again.
+    clear_no_results(brief, "sights")
+    clear_no_results(brief, "dining")
+
     excluded = {item.casefold() for item in brief.excluded_interests}
     for leg in brief.legs:
         leg.interests = [i for i in leg.interests if i.casefold() not in excluded]
@@ -255,6 +265,21 @@ def mark_unavailable(brief: TripBrief, service: str, reason: str) -> None:
 def clear_unavailable(brief: TripBrief, service: str) -> None:
     """Forget a past failure after a successful call."""
     brief.unavailable.pop(service, None)
+
+
+def mark_no_results(brief: TripBrief, service: str, reason: str) -> None:
+    """Remember that a lookup completed but found nothing, so it is not re-run unchanged.
+
+    Kept out of ``unavailable`` on purpose. A service that answers with nothing is not down,
+    so the router must keep the specialist reachable; this only stops the same lookup being
+    scheduled again while its inputs are identical.
+    """
+    brief.no_results[service] = reason.strip() or "nothing found"
+
+
+def clear_no_results(brief: TripBrief, service: str) -> None:
+    """Forget a past empty result, so a changed trip searches again."""
+    brief.no_results.pop(service, None)
 
 
 def derive_phase(brief: TripBrief) -> Phase:
@@ -348,7 +373,8 @@ def pending_specialists(brief: TripBrief) -> list[str]:
         return pending
 
     def up(service: str) -> bool:
-        return service not in brief.unavailable
+        """Worth a hop: not known down, and not already searched for nothing."""
+        return service not in brief.unavailable and service not in brief.no_results
 
     # Sights, dining, weather and routing are all coordinate-based. Without a geocoded
     # destination they cannot succeed, so scheduling them would spend a hop to learn that.
@@ -418,6 +444,12 @@ def render_brief(brief: TripBrief) -> str:
             f"- Unavailable this session: {notes}. "
             "Say so plainly once, then carry on planning without it. "
             "Never retry and never invent it."
+        )
+    if brief.no_results:
+        notes = "; ".join(f"{service} ({reason})" for service, reason in brief.no_results.items())
+        lines.append(
+            f"- Searched, found nothing: {notes}. "
+            "Say so plainly once and plan around it. Do not search again unless the trip changes."
         )
     if brief.plan_text:
         lines.append("- A plan has already been given to the user; this turn is a refinement.")
@@ -492,6 +524,7 @@ __all__ = [
     "TripBrief",
     "TripLeg",
     "add_interests",
+    "clear_no_results",
     "clear_unavailable",
     "derive_phase",
     "exclude_interests",
@@ -499,6 +532,7 @@ __all__ = [
     "find_leg",
     "is_blank",
     "is_excluded",
+    "mark_no_results",
     "mark_unavailable",
     "missing_slots",
     "needs_a_real_city",
