@@ -45,11 +45,14 @@ A bare agent works too, and gets an in-memory session service::
 
 import asyncio
 import inspect
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Awaitable, Dict, List, Optional
 from uuid import uuid4
 
 from rhesis.sdk.targets import Target, TargetResponse
+
+logger = logging.getLogger(__name__)
 
 # Default identifiers used when the caller hands over a bare agent instead of a
 # fully configured ``Runner``. ``app_name`` scopes sessions inside the session
@@ -248,10 +251,14 @@ class GoogleADKTarget(Target):
                 metadata=self._build_metadata(message, session_id, events),
             )
         except Exception as e:
+            # The contract is that this never raises, so the traceback would
+            # otherwise be lost entirely; the type goes in the message because
+            # some ADK errors stringify to something uninformative on their own.
+            logger.debug("Google ADK target turn failed", exc_info=True)
             return TargetResponse(
                 success=False,
                 content="",
-                error=f"Google ADK error: {e}",
+                error=f"Google ADK error: {type(e).__name__}: {e}",
             )
 
     def _resolve_runner(self) -> Any:

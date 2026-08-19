@@ -205,12 +205,17 @@ class GoogleADKIntegration(BaseIntegration):
 
         provider = trace.get_tracer_provider()
         if not isinstance(provider, TracerProvider):
+            # An OTEL SDK TracerProvider is what exposes the span processors whose
+            # exporters we wrap; the default global is a no-op proxy with none.
+            # Rhesis installs a plain SDK TracerProvider, so this is satisfied
+            # whenever a RhesisClient exists.
             logger.warning(
-                "Active tracer provider is %s, not a Rhesis TracerProvider; "
-                "Google ADK spans will still be emitted but will not be translated "
-                "and the backend will reject them. Did you forget to create a "
-                "RhesisClient before calling auto_instrument()? Returning False so "
-                "auto_instrument() does not list google_adk as enabled.",
+                "Active tracer provider is %s, not an OpenTelemetry SDK TracerProvider, "
+                "so it exposes no exporter to wrap; Google ADK spans will still be "
+                "emitted but will not be translated and the backend will reject them. "
+                "Did you forget to create a RhesisClient before calling "
+                "auto_instrument()? Returning False so auto_instrument() does not "
+                "list google_adk as enabled.",
                 type(provider).__name__,
             )
             return False

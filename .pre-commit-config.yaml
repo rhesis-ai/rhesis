@@ -14,7 +14,8 @@ repos:
           # Lob excluded for the same reason as in .github/workflows/security.yml: it flags any
           # 40-character test_* function name as a verified key. uv.lock files are excluded via
           # .trufflehog-exclude-paths; see that file for why.
-          entry: bash -c 'trufflehog git file://. --branch HEAD --exclude-detectors=Lob
+          entry: >-
+            bash -c 'trufflehog git file://. --branch HEAD --exclude-detectors=Lob
             --exclude-paths=.trufflehog-exclude-paths'
           language: system
           stages: ["pre-commit", "pre-push"]
