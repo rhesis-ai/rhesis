@@ -9,7 +9,7 @@ practice hold JSONB ``'null'`` (a JSON null value), which NOT NULL does not
 reject. It also rejects an empty array and any non-array value.
 
 Revision ID: 40a5b6b88a52
-Revises: a1927b321511
+Revises: e90c29496562
 Create Date: 2026-08-10
 
 """
@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "40a5b6b88a52"
-down_revision: Union[str, None] = "a1927b321511"
+down_revision: Union[str, None] = "e90c29496562"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
