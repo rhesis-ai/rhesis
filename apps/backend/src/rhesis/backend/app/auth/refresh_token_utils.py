@@ -38,6 +38,7 @@ def create_refresh_token(
     *,
     client_id: str | None = None,
     scope: str | None = None,
+    project_id: str | None = None,
 ) -> str:
     """Create and persist a new refresh token, returning the raw value.
 
@@ -61,6 +62,12 @@ def create_refresh_token(
         preserves the original scope (without this, a ``scope=read``
         token-exchange refresh would silently escalate to full-user
         on its first refresh).
+    project_id:
+        Optional project UUID resolved from the RFC 8693 ``resource``
+        parameter at exchange time. Preserved across rotation for the
+        same reason as ``scope`` -- without it the project claim on
+        the access token would silently disappear on the first
+        refresh.
 
     Returns
     -------
@@ -82,6 +89,7 @@ def create_refresh_token(
         expires_at=expires_at,
         client_id=client_id,
         scope=scope,
+        project_id=project_id,
     )
     db.add(db_token)
     db.flush()  # assign id without committing
@@ -151,16 +159,17 @@ def verify_and_rotate_refresh_token(
     # Revoke the current token (rotation)
     db_token.revoked_at = datetime.now(timezone.utc)
 
-    # Issue a new token in the same family, propagating client_id and
-    # scope so that token-exchange-minted refresh chains keep their
-    # binding across rotation. UI/SSO tokens have both NULL and the
-    # propagation is a no-op.
+    # Issue a new token in the same family, propagating client_id,
+    # scope, and project_id so that token-exchange-minted refresh
+    # chains keep their binding across rotation. UI/SSO tokens have
+    # all three NULL and the propagation is a no-op.
     new_raw_token = create_refresh_token(
         db,
         user_id=str(db_token.user_id),
         family_id=str(db_token.family_id),
         client_id=db_token.client_id,
         scope=db_token.scope,
+        project_id=str(db_token.project_id) if db_token.project_id else None,
     )
 
     return db_token, new_raw_token

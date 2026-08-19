@@ -11,6 +11,7 @@ This module tests authentication utility functions including:
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -404,6 +405,91 @@ class TestGetAuthenticatedUserWithContext:
 
                 assert result == mock_user
                 mock_get_jwt_user.assert_called_once_with("jwt-token", "secret")
+
+    def _token_exchange_jwt(self, *, scope: str) -> str:
+        """A real token-exchange-issued JWT (azp + scope claims), signed with 'secret'."""
+        from types import SimpleNamespace
+
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
+        subject_user = SimpleNamespace(
+            id="user123",
+            organization_id="org456",
+            email="user@example.com",
+            name="Test User",
+            picture=None,
+            is_email_verified=True,
+        )
+        with patch("rhesis.backend.app.auth.token_utils.get_secret_key", return_value="secret"):
+            return create_session_token(subject_user, azp="warehouse-sync", epoch=0, scope=scope)
+
+    def test_jwt_read_scope_sets_read_only_capabilities_on_request_state(self):
+        """The gap peqy flagged: an exchanged token's scope claim must narrow
+        Principal.scopes, not be silently ignored (which left every exchanged
+        token with full access regardless of what scope it requested)."""
+        mock_user = Mock(spec=User)
+        mock_user.id = "user123"
+        mock_user.organization_id = "org456"
+        token = self._token_exchange_jwt(scope="read")
+
+        request = Mock()
+        request.session = {}
+        request.state = SimpleNamespace()
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+        with patch(
+            "rhesis.backend.app.auth.user_utils.get_user_from_jwt",
+            return_value=mock_user,
+        ):
+            with patch(
+                "rhesis.backend.app.auth.user_utils.get_current_user",
+                return_value=None,
+            ):
+                with patch(
+                    "rhesis.backend.app.auth.capabilities.get_all_capabilities",
+                    return_value=["endpoint:read", "endpoint:create", "test_set:read"],
+                ):
+                    result = pytest.run(
+                        get_authenticated_user_with_context(
+                            request, credentials=credentials, secret_key="secret"
+                        )
+                    )
+
+                assert result == mock_user
+                assert request.state.api_token_scopes == frozenset(
+                    {"endpoint:read", "test_set:read"}
+                )
+                assert request.state.auth_kind == "token"
+
+    def test_jwt_full_scope_leaves_scopes_unset(self):
+        """full maps to the same "inherit full access" sentinel as an unscoped
+        rh-* token: request.state.api_token_scopes stays unset, not set-to-everything."""
+        mock_user = Mock(spec=User)
+        mock_user.id = "user123"
+        mock_user.organization_id = "org456"
+        token = self._token_exchange_jwt(scope="full")
+
+        request = Mock()
+        request.session = {}
+        request.state = SimpleNamespace()
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+        with patch(
+            "rhesis.backend.app.auth.user_utils.get_user_from_jwt",
+            return_value=mock_user,
+        ):
+            with patch(
+                "rhesis.backend.app.auth.user_utils.get_current_user",
+                return_value=None,
+            ):
+                result = pytest.run(
+                    get_authenticated_user_with_context(
+                        request, credentials=credentials, secret_key="secret"
+                    )
+                )
+
+        assert result == mock_user
+        assert not hasattr(request.state, "api_token_scopes")
 
     def test_get_authenticated_user_without_context(self):
         """Test authentication with without_context flag"""

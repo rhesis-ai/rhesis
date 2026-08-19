@@ -25,6 +25,11 @@ class RefreshToken(Base):
     ``scope=read`` token never silently escalates to full-user access
     on its first refresh. UI/SSO refresh tokens leave both columns
     NULL and behave exactly as before this column was added.
+
+    ``project_id`` is likewise preserved across rotation for
+    token-exchange tokens minted with an RFC 8693 ``resource``
+    parameter -- without it the project claim on the access token
+    would silently disappear on the first refresh.
     """
 
     __tablename__ = "refresh_token"
@@ -68,6 +73,15 @@ class RefreshToken(Base):
         nullable=True,
         comment=(
             "Space-separated scope string preserved across rotation; set when client_id is set."
+        ),
+    )
+    project_id = Column(
+        GUID(),
+        nullable=True,
+        index=True,
+        comment=(
+            "Project UUID from the RFC 8693 resource parameter, preserved across "
+            "rotation. NULL for UI/SSO refresh tokens and exchanges with no resource."
         ),
     )
 

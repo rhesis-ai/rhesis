@@ -324,17 +324,31 @@ def authenticate_client(
       the refresh path, from the bound user / client row) so this
       function authenticates against the correct row even under
       identifier collision across tenants.
-    """
 
-    row: Optional[AuthClient] = (
-        db.query(AuthClient)
-        .filter(
-            AuthClient.organization_id == organization_id,
-            AuthClient.client_id == client_id,
-            AuthClient.deleted_at.is_(None),
+    Binding org scope for the lookup is not optional. ``auth_client`` is
+    FORCE ROW LEVEL SECURITY with a strict
+    ``organization_id = current_setting('app.current_organization')::uuid``
+    policy and no empty-org passthrough (unlike ``organization``). Both
+    callers reach this function on ``get_db_session``, which binds no
+    tenant GUCs, so querying unscoped casts ``''`` to uuid and raises
+    ``invalid input syntax for type uuid: ""`` for any app role without
+    BYPASSRLS -- which the deployed ``rhesis-user`` is. Scoping here
+    rather than at the call sites means a future third caller cannot
+    reintroduce the failure. Project scope stays empty: ``auth_client``
+    has no ``project_id`` column and is not project-scoped.
+    """
+    from rhesis.backend.app.database import temporary_project_scope
+
+    with temporary_project_scope(db, str(organization_id or ""), "", ""):
+        row: Optional[AuthClient] = (
+            db.query(AuthClient)
+            .filter(
+                AuthClient.organization_id == organization_id,
+                AuthClient.client_id == client_id,
+                AuthClient.deleted_at.is_(None),
+            )
+            .first()
         )
-        .first()
-    )
 
     if row is None:
         # Burn the same CPU we would have burned on a real verify so

@@ -39,12 +39,19 @@ surface area or skips a security check entirely. The order is:
    fail-closed on confirmed replay).
 8. Resolve the user via the same path as the SSO callback (domain
    allowlist, cross-org collision, auto-provision gate, is_active).
-9. Mint the Rhesis JWT with ``azp`` / ``aud`` / ``scope`` / ``jti`` /
-   ``epoch`` claims via the extended ``create_session_token``.
-10. Conditionally mint a refresh token (only when ``offline_access`` is
-    in the resolved scope), persisting ``client_id`` and ``scope`` so
-    the refresh path can preserve them on rotation.
-11. Emit success audit event and return the RFC 8693 payload.
+9. Optional project binding: when the request carries a ``resource``
+   parameter, resolve it to a project in the resolved org, require it
+   to be active and not soft-deleted, and require the resolved user to
+   have a ``ProjectMembership`` row for it. This runs AFTER user
+   resolution because the membership check needs the resolved user,
+   not the subject-token claims. Omitting ``resource`` keeps the
+   pre-existing behaviour (no project scope, org-level rows only).
+10. Mint the Rhesis JWT with ``azp`` / ``aud`` / ``scope`` / ``jti`` /
+    ``epoch`` / ``project`` claims via the extended ``create_session_token``.
+11. Conditionally mint a refresh token (only when ``offline_access`` is
+    in the resolved scope), persisting ``client_id`` / ``scope`` /
+    ``project_id`` so the refresh path can preserve them on rotation.
+12. Emit success audit event and return the RFC 8693 payload.
 
 Error contract
 --------------
@@ -106,6 +113,17 @@ logger = logging.getLogger(__name__)
 #: the ``Organization.slug`` ``String(50)`` column.
 _AUDIENCE_RE = re.compile(r"^rhesis:org:[a-z0-9-]{1,50}$")
 
+#: Strict regex for the optional ``resource`` form parameter, naming
+#: the project the exchanged token should be scoped to. Case-sensitive
+#: and lowercase-only, matching :data:`_AUDIENCE_RE`: one spelling per
+#: value keeps the parameter unambiguous, and every project UUID we
+#: emit is lowercase (Postgres renders uuid lowercase, as does
+#: ``str(uuid.UUID)``), so callers echoing back an id we gave them
+#: always match.
+_RESOURCE_RE = re.compile(
+    r"^urn:rhesis:project:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
+
 #: The single permitted scope separator. Tabs and other Unicode
 #: whitespace are rejected because mixed separators are an easy way
 #: to smuggle a forbidden scope past a naive splitter.
@@ -135,6 +153,9 @@ class TokenExchangeRequest:
     scope: Optional[str]
     client_id: str
     client_secret: str
+    # RFC 8693 resource parameter: the project to scope the exchanged
+    # token to. ``None`` means no project scope (org-level rows only).
+    resource: Optional[str] = None
     # Best-effort context for the audit trail; ``None`` is acceptable.
     source_ip: Optional[str] = None
     user_agent: Optional[str] = None
@@ -234,6 +255,7 @@ async def run_token_exchange(
             subject_token_jti=kwargs.get("jti"),
             email=kwargs.get("email"),
             scope=kwargs.get("scope"),
+            project_id=kwargs.get("project_id"),
             reason_code=reason_code,
             ip=audit_ip,
             user_agent=audit_ua,
@@ -457,6 +479,54 @@ async def run_token_exchange(
             email=user.email,
         )
 
+    # ---- Step 9: optional project binding ---------------------------------
+    # Runs AFTER user resolution because the membership check needs the
+    # resolved user, not the subject-token claims. Omitting ``resource``
+    # keeps the pre-existing behaviour: no project scope, org-level rows
+    # only.
+    resolved_project_id: Optional[str] = None
+    if payload.resource is not None:
+        project_id = _resource_to_project_id(payload.resource)
+        # _check_request_shape already validated the shape; this is
+        # only reachable with a well-formed resource.
+        assert project_id is not None
+
+        project, is_member = _resolve_resource_project(db, org, user, project_id)
+
+        if project is None:
+            _deny(
+                "invalid_target",
+                "resource_project_not_found",
+                org_id=str(org.id),
+                iss=sso_config.issuer_url,
+                jti=subject_jti,
+                email=user.email,
+                project_id=project_id,
+            )
+        assert project is not None
+        if not project.is_active or project.deleted_at is not None:
+            _deny(
+                "invalid_target",
+                "resource_project_inactive",
+                org_id=str(org.id),
+                iss=sso_config.issuer_url,
+                jti=subject_jti,
+                email=user.email,
+                project_id=project_id,
+            )
+        if not is_member:
+            _deny(
+                "invalid_target",
+                "resource_project_not_member",
+                org_id=str(org.id),
+                iss=sso_config.issuer_url,
+                jti=subject_jti,
+                email=user.email,
+                project_id=project_id,
+            )
+
+        resolved_project_id = str(project.id)
+
     # ---- Validate scope against client's allowed_scopes (S7) -------------
     allowed = set(auth_client.allowed_scopes or [])
     if requested_scopes is None:
@@ -479,7 +549,7 @@ async def run_token_exchange(
         resolved_scopes = requested_scopes
     resolved_scope_str = " ".join(resolved_scopes)
 
-    # ---- Step 9: mint Rhesis JWT -----------------------------------------
+    # ---- Step 10: mint Rhesis JWT -----------------------------------------
     # ``offline_access`` is an OIDC convention for "I want a refresh
     # token alongside the access token"; it does not grant authority
     # on the access token itself. Stripping it from the JWT scope
@@ -498,9 +568,10 @@ async def run_token_exchange(
         scope=access_scope_str,
         jti=issued_jti,
         epoch=auth_client.token_epoch,
+        project=resolved_project_id,
     )
 
-    # ---- Step 10: refresh token (only when offline_access requested) -----
+    # ---- Step 11: refresh token (only when offline_access requested) -----
     refresh_token: Optional[str] = None
     refresh_expires_in: Optional[int] = None
     if SCOPE_OFFLINE_ACCESS in resolved_scopes:
@@ -509,11 +580,12 @@ async def run_token_exchange(
             user_id=str(user.id),
             client_id=auth_client.client_id,
             scope=resolved_scope_str,
+            project_id=resolved_project_id,
         )
         db.commit()
         refresh_expires_in = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
 
-    # ---- Step 11: success audit + return ---------------------------------
+    # ---- Step 12: success audit + return ---------------------------------
     token_exchange_audit_log(
         TokenExchangeEvent.SUCCESS,
         org_id=str(org.id),
@@ -522,6 +594,7 @@ async def run_token_exchange(
         subject_token_jti=subject_jti,
         email=user.email,
         scope=resolved_scope_str,
+        project_id=resolved_project_id,
         ip=audit_ip,
         user_agent=audit_ua,
     )
@@ -563,6 +636,8 @@ def _check_request_shape(payload: TokenExchangeRequest) -> None:
         raise TokenExchangeError("invalid_request", "client_credentials_missing")
     if not _AUDIENCE_RE.match(payload.audience or ""):
         raise TokenExchangeError("invalid_request", "audience_malformed")
+    if payload.resource is not None and not _RESOURCE_RE.match(payload.resource):
+        raise TokenExchangeError("invalid_request", "resource_malformed")
 
 
 def _audience_to_slug(audience: str) -> Optional[str]:
@@ -570,6 +645,54 @@ def _audience_to_slug(audience: str) -> Optional[str]:
     if not _AUDIENCE_RE.match(audience or ""):
         return None
     return audience.split(":", 2)[2]
+
+
+def _resource_to_project_id(resource: str) -> Optional[str]:
+    """Strip the ``urn:rhesis:project:`` prefix; return ``None`` on shape violation."""
+    if not _RESOURCE_RE.match(resource or ""):
+        return None
+    return resource.split(":", 3)[3]
+
+
+def _resolve_resource_project(db: Session, org, user, project_id: str):
+    """Look up *project_id* in *org* and whether *user* is a member of it.
+
+    Returns ``(project_or_None, is_member)``. Deliberately makes no policy
+    decision: the orchestrator owns the deny-and-audit calls, where the audit
+    context lives.
+
+    ``project`` and ``project_membership`` are both FORCE ROW LEVEL SECURITY with
+    a strict ``organization_id = current_setting('app.current_organization')::uuid``
+    policy and no empty-org passthrough. The exchange runs on ``get_db_session``,
+    which binds no tenant GUCs, so querying either table unscoped raises
+    ``invalid input syntax for type uuid: ""`` for any app role without BYPASSRLS
+    -- which the deployed ``rhesis-user`` is. Binding org scope for just these two
+    reads is what ``temporary_project_scope`` is for; it restores the caller's
+    scope on exit. Project scope stays empty: we are resolving which project to
+    grant, not operating inside one, and ``project_membership`` is exempt from the
+    project predicate anyway.
+    """
+    from rhesis.backend.app.database import temporary_project_scope
+    from rhesis.backend.app.models.project import Project
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    with temporary_project_scope(db, str(org.id), str(user.id), ""):
+        project = (
+            db.query(Project)
+            .filter(Project.id == project_id, Project.organization_id == org.id)
+            .first()
+        )
+        is_member = project is not None and (
+            db.query(ProjectMembership)
+            .filter(
+                ProjectMembership.project_id == project.id,
+                ProjectMembership.user_id == user.id,
+                ProjectMembership.organization_id == org.id,
+            )
+            .first()
+            is not None
+        )
+    return project, is_member
 
 
 def _split_scope_string(scope: Optional[str]) -> Optional[List[str]]:

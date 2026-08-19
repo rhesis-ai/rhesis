@@ -24,9 +24,17 @@ The exchange audience binds the request to one organization:
 
 The slug after `rhesis:org:` must match the organization's slug.
 
+An exchange can also name the project the resulting token should be scoped to, using the RFC 8693 `resource` parameter:
+
+<CodeBlock filename="resource.txt" language="text">
+{`urn:rhesis:project:<project-uuid>`}
+</CodeBlock>
+
+The requesting user must be a member of that project. Omitting `resource` yields a token that can only see organization-level rows (`project_id IS NULL`); it cannot see anything scoped to a specific project.
+
 ## Create an API Client
 
-Create clients from the organization settings UI or with the API:
+Create clients with the API:
 
 <CodeBlock filename="create_api_client.sh" language="bash">
 {`curl -X POST "https://api.example.com/organizations/<org-id>/auth-clients" \
@@ -71,8 +79,11 @@ curl -X POST "https://api.example.com/auth/token-exchange" \
   --data-urlencode "subject_token=$SUBJECT_TOKEN" \
   --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
   --data-urlencode "audience=rhesis:org:acme" \
+  --data-urlencode "resource=urn:rhesis:project:11111111-2222-3333-4444-555555555555" \
   --data-urlencode "scope=read offline_access"`}
 </CodeBlock>
+
+The resulting access token behaves like a project-scoped `rh-*` API key: every request it authenticates is scoped to that one project, the same way `X-Project-Id` scopes a browser session. There's no per-request override — a service that needs to work across several projects exchanges once per project. Project membership is re-checked on every request, so removing the exchanged user from the project cuts off access immediately, without waiting for the token to expire.
 
 Successful responses follow the OAuth token response shape:
 
@@ -90,6 +101,32 @@ Successful responses follow the OAuth token response shape:
 
 `refresh_token` is present only when the resolved scope includes `offline_access`. Both lifetimes are deployment-configurable (`JWT_ACCESS_TOKEN_EXPIRE_MINUTES` and `JWT_REFRESH_TOKEN_EXPIRE_DAYS`); the values above are the defaults.
 
+## Discover available projects
+
+`resource` needs a project UUID, and project UUIDs are not visible anywhere in the IdP or in the client configuration. To find one, exchange once with no `resource` and use the resulting token to list the projects the subject user belongs to:
+
+<CodeBlock filename="list_projects.sh" language="bash">
+{`SUBJECT_TOKEN="<oidc-access-token-from-your-idp>"
+
+# Step 1: exchange with no resource -- yields an org-scoped token
+ACCESS_TOKEN=$(curl -s -X POST "https://api.example.com/auth/token-exchange" \
+  -u "warehouse-sync:$CLIENT_SECRET" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+  --data-urlencode "subject_token=$SUBJECT_TOKEN" \
+  --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+  --data-urlencode "audience=rhesis:org:acme" \
+  | jq -r .access_token)
+
+# Step 2: list the projects the subject user is a member of
+curl -s "https://api.example.com/projects/" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq '.[] | {id, name}'`}
+</CodeBlock>
+
+`GET /projects/` returns every project the org member is a member of, org-scoped rather than project-scoped, so the token from step 1 works for it without a `resource`. Pick an `id` from the list and pass it as the `resource` in a second exchange to get a project-scoped token.
+
+The Java SDK exposes the same call as `client.projects().list()` -- point `RhesisClientBuilder.apiKey(...)` at the org-scoped token from step 1, list projects, then re-point it at the project-scoped token from the second exchange.
+
 ## Manage clients
 
 | Endpoint | Purpose |
@@ -106,8 +143,8 @@ Rotating a client secret also advances the client's token epoch. Existing client
 
 ## Common errors
 
-- `invalid_request`: the audience is malformed or multi-valued, client credentials are missing, or a required form field is absent.
-- `invalid_target`: the organization slug does not exist, SSO is not configured, or API Clients are not enabled.
+- `invalid_request`: the audience is malformed or multi-valued, the resource is malformed or multi-valued, client credentials are missing, or a required form field is absent.
+- `invalid_target`: the organization slug does not exist, SSO is not configured, API Clients are not enabled, the resource does not resolve to a project in that organization, the project is inactive or deleted, or the requesting user is not a member of that project.
 - `invalid_client`: the supplied client credentials are wrong.
 - `invalid_grant`: the subject token is invalid, expired, replayed, or does not match the configured `azp` and audience.
 - `invalid_scope`: requested scopes are not allowed for the client.

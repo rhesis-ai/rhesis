@@ -19,6 +19,7 @@ from rhesis.backend.ee.sso.token_exchange.exchange import (
     TokenExchangeRequest,
     _audience_to_slug,
     _check_request_shape,
+    _resource_to_project_id,
     _split_scope_string,
     _ttl_until_expiry,
 )
@@ -93,6 +94,33 @@ class TestCheckRequestShape:
             _check_request_shape(_valid_payload(audience=audience))
         assert exc.value.reason_code == "audience_malformed"
 
+    def test_accepts_missing_resource(self) -> None:
+        # resource is optional -- None means "no project scope".
+        _check_request_shape(_valid_payload(resource=None))
+
+    def test_accepts_well_formed_resource(self) -> None:
+        _check_request_shape(
+            _valid_payload(resource="urn:rhesis:project:11111111-2222-3333-4444-555555555555")
+        )
+
+    @pytest.mark.parametrize(
+        "resource",
+        [
+            "",
+            "11111111-2222-3333-4444-555555555555",  # missing prefix
+            "urn:rhesis:project:",  # missing uuid
+            "urn:rhesis:project:not-a-uuid",
+            "urn:rhesis:org:11111111-2222-3333-4444-555555555555",  # wrong entity
+            # Case-sensitive, matching the audience rule: one spelling per value.
+            "URN:RHESIS:PROJECT:11111111-2222-3333-4444-555555555555",
+            "urn:rhesis:project:AAAAAAAA-2222-3333-4444-555555555555",
+        ],
+    )
+    def test_rejects_malformed_resource(self, resource: str) -> None:
+        with pytest.raises(TokenExchangeError) as exc:
+            _check_request_shape(_valid_payload(resource=resource))
+        assert exc.value.reason_code == "resource_malformed"
+
 
 # ---------------------------------------------------------------------------
 # _audience_to_slug
@@ -106,6 +134,23 @@ class TestAudienceToSlug:
     def test_returns_none_on_malformed(self) -> None:
         assert _audience_to_slug("acme") is None
         assert _audience_to_slug("") is None
+
+
+# ---------------------------------------------------------------------------
+# _resource_to_project_id
+# ---------------------------------------------------------------------------
+
+
+class TestResourceToProjectId:
+    def test_strips_prefix(self) -> None:
+        assert (
+            _resource_to_project_id("urn:rhesis:project:11111111-2222-3333-4444-555555555555")
+            == "11111111-2222-3333-4444-555555555555"
+        )
+
+    def test_returns_none_on_malformed(self) -> None:
+        assert _resource_to_project_id("not-a-urn") is None
+        assert _resource_to_project_id("") is None
 
 
 # ---------------------------------------------------------------------------
