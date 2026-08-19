@@ -1,7 +1,8 @@
 """Travel Agent FastAPI application.
 
-A multi-agent Microsoft Agent Framework travel planner used to exercise the
-Rhesis SDK's ``auto_instrument("agent_framework")`` integration end-to-end.
+A multi-agent Microsoft Agent Framework travel planner used to exercise the Rhesis SDK's
+``auto_instrument("agent_framework")`` integration end-to-end. This is the only module
+that imports the Rhesis SDK; everything below it is plain MAF.
 """
 
 from __future__ import annotations
@@ -18,8 +19,16 @@ from pydantic import BaseModel, Field
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
+from travel_agent.client import build_chat_client
+from travel_agent.endpoint_mapping import (
+    ENDPOINT_DESCRIPTION,
+    ENDPOINT_NAME,
+    REQUEST_MAPPING,
+    RESPONSE_MAPPING,
+)
+from travel_agent.router import COORDINATOR_NAME
+from travel_agent.runner import TurnFailedError
 from travel_agent.session import default_store, run_chat_turn
-from travel_agent.workflow import build_travel_workflow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,13 +38,11 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Initialise the Rhesis client so ``@endpoint`` and ``auto_instrument`` have a
-# tracer provider to attach to. We gate construction on the credentials
-# themselves: ``RhesisClient.__init__`` eagerly installs OTEL providers and
-# tries to ship spans, so instantiating it without an API key / project id
-# would attempt outbound exports against ``project_id="unknown"`` with
-# ``Authorization: Bearer None``. Falling back to ``DisabledClient`` before
-# construction is the only way to actually keep telemetry off.
+# Gate on the credentials themselves: ``RhesisClient.__init__`` eagerly installs OTEL
+# providers and tries to ship spans, so constructing it without an API key / project id
+# would export against ``project_id="unknown"`` with ``Authorization: Bearer None``.
+# Falling back to ``DisabledClient`` before construction is the only way to keep
+# telemetry genuinely off.
 if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
     rhesis_client = RhesisClient.from_environment()
 else:
@@ -53,22 +60,15 @@ _startup_validated: bool = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Validate the travel workflow once at startup."""
+    """Validate that a chat client can be built before serving traffic."""
     global _startup_validated
 
-    logger.info("Initialising Travel Agent multi-agent workflow (MAF)...")
-    # Build once at startup purely to validate construction. Each chat turn
-    # builds its own fresh workflow instead of reusing a cached instance: MAF
-    # agents keep per-call history, and the connector runs sync handlers in a
-    # thread pool with a new event loop per turn, so a shared workflow both
-    # leaks state across conversations and breaks with "Queue is bound to a
-    # different event loop".
-    build_travel_workflow()
+    logger.info("Initialising Travel Agent...")
+    # Only the client is checked here. The workflow itself is built per turn, because its
+    # shape depends on the trip brief - there is no single graph to validate up front.
+    build_chat_client()
     _startup_validated = True
-    logger.info(
-        "Travel Agent workflow ready: trip_coordinator + destination_finder + "
-        "sightseeing_scout + logistics_planner"
-    )
+    logger.info("Travel Agent ready: trip_coordinator + 6 research specialists")
 
     yield
 
@@ -78,20 +78,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Travel Agent",
     description=(
-        "A Microsoft Agent Framework multi-agent travel planner for "
-        "exercising the Rhesis SDK's MAF integration end-to-end.\n\n"
+        "A Microsoft Agent Framework multi-agent travel planner for exercising the "
+        "Rhesis SDK's MAF integration end-to-end.\n\n"
         "## Multi-Agent Architecture\n\n"
-        "- **Trip Coordinator**: routes the request and synthesises the final plan.\n"
-        "- **Destination Finder**: uses `get_random_destination` for surprise trips.\n"
-        "- **Sightseeing Scout**: uses `find_sightseeing` when the user did not "
-        "already name sights.\n"
-        "- **Logistics Planner**: uses `estimate_travel` to add relative travel times.\n\n"
+        "- **Trip Coordinator**: talks to the user, keeps the trip brief, routes research.\n"
+        "- **Destination Finder**: picks a surprise destination.\n"
+        "- **Place Resolver**: geocodes the destination and flags ambiguous names (Nominatim).\n"
+        "- **Sightseeing Scout**: finds real landmarks (Wikipedia GeoSearch).\n"
+        "- **Dining Scout**: finds restaurants by cuisine and diet (OpenStreetMap).\n"
+        "- **Conditions Scout**: checks the weather outlook (Open-Meteo).\n"
+        "- **Transit Planner**: measures travel times between sights (OSRM).\n"
+        "- **Lodging Advisor**: sanity-checks the nightly budget.\n\n"
+        "Which specialists exist is decided per turn from the trip brief, so a greeting "
+        "reaches none of them.\n\n"
         "## Example Questions\n\n"
-        "- Plan me a day trip.\n"
-        "- Plan a family-friendly day trip at a random destination with local food.\n"
-        "- Plan a day trip to Barcelona visiting Sagrada Familia and Park Guell.\n"
+        "- Hi\n"
+        "- I'm planning a 3-day trip to Tokyo.\n"
+        "- Surprise me with a destination.\n"
+        "- Show me top sights in Portland for a weekend.\n"
     ),
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -99,10 +105,9 @@ app = FastAPI(
 class ChatRequest(BaseModel):
     """Request payload for the travel-agent endpoint."""
 
-    message: str = Field(..., description="The user's travel-planning request.")
+    message: str = Field(..., description="The user's message.")
     conversation_id: str | None = Field(
-        None,
-        description="Optional conversation id for trace/session grouping.",
+        None, description="Optional conversation id for trace/session grouping."
     )
 
 
@@ -117,19 +122,26 @@ class ToolCall(BaseModel):
 class ChatResponse(BaseModel):
     """Response payload for the travel-agent endpoint."""
 
-    response: str = Field(..., description="The travel agent's final answer.")
+    response: str = Field(..., description="The travel agent's reply.")
     conversation_id: str = Field(..., description="Conversation id for trace/session grouping.")
+    phase: str = Field(..., description="Planning phase after this turn.")
     tools_called: list[ToolCall] = Field(
         default_factory=list,
         description="Domain tools invoked during this turn (handoff tools are excluded).",
     )
     tool_chain: str = Field(default="", description="One-line summary of the tool flow.")
     agents_involved: list[str] = Field(
-        default_factory=list,
-        description="Ordered list of agents that participated in this turn.",
+        default_factory=list, description="Ordered list of agents that participated."
     )
     agent_workflow: str = Field(default="", description="One-line summary of the agent flow.")
-    agent: str = Field(default="trip_coordinator", description="Name of the final agent.")
+    handoffs: list[str] = Field(
+        default_factory=list, description="Handoff targets in the order they were routed to."
+    )
+    degraded_services: list[str] = Field(
+        default_factory=list, description="Services that could not be reached this session."
+    )
+    brief: dict = Field(default_factory=dict, description="Snapshot of the trip brief.")
+    agent: str = Field(default=COORDINATOR_NAME, description="Name of the replying agent.")
 
 
 class ConversationInfo(BaseModel):
@@ -148,14 +160,18 @@ def _chat_response_from_result(result: dict[str, Any]) -> ChatResponse:
         )
         for tc in result.get("tools_called", [])
     ]
+    brief = result["brief"]
     return ChatResponse(
         response=result["response"],
         conversation_id=result["conversation_id"],
+        phase=result["phase"],
         tools_called=tools_called,
         tool_chain=result.get("tool_chain", ""),
         agents_involved=result.get("agents_involved", []),
         agent_workflow=result.get("agent_workflow", ""),
-        agent=result.get("agent", "trip_coordinator"),
+        handoffs=result.get("handoffs", []),
+        degraded_services=result.get("degraded_services", []),
+        brief=brief.model_dump(exclude={"plan_text", "pending_reply"}),
     )
 
 
@@ -175,10 +191,14 @@ async def root():
             "docs": "/docs - API documentation",
         },
         "agents": [
-            "Trip Coordinator - Routes requests and synthesises the final plan",
-            "Destination Finder - get_random_destination",
-            "Sightseeing Scout - find_sightseeing",
-            "Logistics Planner - estimate_travel",
+            "Trip Coordinator - talks to the user and keeps the trip brief",
+            "Destination Finder - surprise destinations",
+            "Place Resolver - Nominatim geocoding and disambiguation",
+            "Sightseeing Scout - Wikipedia GeoSearch landmarks",
+            "Dining Scout - OpenStreetMap restaurants",
+            "Conditions Scout - Open-Meteo weather",
+            "Transit Planner - OSRM travel times",
+            "Lodging Advisor - nightly budget checks",
         ],
     }
 
@@ -186,32 +206,14 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "startup_validated": _startup_validated,
-    }
+    return {"status": "healthy", "startup_validated": _startup_validated}
 
 
 @endpoint(
-    name="travel_agent_chat",
-    description="Chat with the Travel Agent MAF multi-agent system.",
-    request_mapping={
-        "message": "{{ input }}",
-        "conversation_id": "{{ session_id | default(none) }}",
-    },
-    response_mapping={
-        "output": "{{ response }}",
-        "session_id": "{{ conversation_id }}",
-        "tool_calls": "{{ tools_called | tojson }}",
-        "agents_involved": "{{ agents_involved | tojson }}",
-        "agent_workflow": "{{ agent_workflow }}",
-        "tool_chain": "{{ tool_chain }}",
-        "metadata": (
-            "{{ {'agent': agent, 'tools_called': tools_called, "
-            "'tool_chain': tool_chain, 'agents_involved': agents_involved, "
-            "'agent_workflow': agent_workflow} | tojson }}"
-        ),
-    },
+    name=ENDPOINT_NAME,
+    description=ENDPOINT_DESCRIPTION,
+    request_mapping=REQUEST_MAPPING,
+    response_mapping=RESPONSE_MAPPING,
 )
 async def chat_endpoint_traced(
     message: str,
@@ -219,32 +221,21 @@ async def chat_endpoint_traced(
 ) -> ChatResponse:
     """Traced entry point for the MAF travel multi-agent workflow.
 
-    Async so the FastAPI ``/chat`` route can ``await`` it directly from the
-    running event loop while still going through the ``@endpoint`` decorator
-    (which creates the Rhesis endpoint span and applies the request/response
-    mappings used for conversation grouping). A sync helper would have to use
-    ``run_chat_turn_sync``, which cannot run inside an active event loop.
+    Async so the FastAPI ``/chat`` route can ``await`` it directly from the running event
+    loop while still going through the ``@endpoint`` decorator, which creates the Rhesis
+    endpoint span and applies the mappings used for conversation grouping.
     """
-    logger.info("=" * 80)
-    logger.info("TRAVEL AGENT MULTI-AGENT CHAT")
-    logger.info("Message: %s...", message[:100])
-    logger.info("Conversation ID: %s", conversation_id)
-    logger.info("=" * 80)
+    logger.info("Travel Agent turn | conversation=%s | message=%.100s", conversation_id, message)
 
-    result = await run_chat_turn(
-        build_travel_workflow(),
-        message,
-        conversation_id=conversation_id,
-    )
+    result = await run_chat_turn(message, conversation_id=conversation_id)
 
-    logger.info("Travel response generated")
-    logger.info("Agents involved: %s", result.get("agents_involved", []))
     logger.info(
-        "Tools called: %s",
+        "Replied | phase=%s | agents=%s | tools=%s | degraded=%s",
+        result.get("phase"),
+        result.get("agents_involved", []),
         [tc["tool_name"] for tc in result.get("tools_called", [])],
+        result.get("degraded_services", []),
     )
-    logger.info("=" * 80)
-
     return _chat_response_from_result(result)
 
 
@@ -259,12 +250,18 @@ async def chat(request: ChatRequest):
             message=request.message,
             conversation_id=request.conversation_id,
         )
-    except TimeoutError as exc:
-        logger.error("Travel workflow timed out: %s", exc, exc_info=True)
-        raise HTTPException(status_code=504, detail="Travel Agent request timed out")
+    except TurnFailedError as exc:
+        logger.error("Turn produced no reply: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Travel Agent produced no reply") from exc
+    except RuntimeError as exc:
+        # A missing API key is the user's to fix; anything else is ours.
+        if "API_KEY" in str(exc):
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("Error in /chat: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error processing request") from exc
     except Exception as exc:
         logger.error("Error in /chat: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail="Error processing request")
+        raise HTTPException(status_code=500, detail="Error processing request") from exc
 
 
 @app.get("/conversations", response_model=list[ConversationInfo])
@@ -278,23 +275,20 @@ async def list_conversations():
 
 @app.get("/conversations/{conversation_id}")
 async def get_conversation(conversation_id: str):
-    """Return a conversation's user-visible message history."""
+    """Return a conversation's transcript and current trip brief."""
     messages = default_store.get_messages(conversation_id)
     if messages is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    history = [
-        {
-            "role": message.role,
-            "author_name": message.author_name,
-            "content": message.text,
-        }
-        for message in messages
-    ]
+    brief = default_store.get_brief(conversation_id)
     return {
         "conversation_id": conversation_id,
         "message_count": len(messages),
-        "history": history,
+        "brief": brief.model_dump(exclude={"pending_reply"}) if brief else {},
+        "history": [
+            {"role": message.role, "author_name": message.author_name, "content": message.text}
+            for message in messages
+        ],
     }
 
 

@@ -1,13 +1,11 @@
 """Keep a persistent Rhesis connector open so the playground can chat live.
 
-Unlike ``examples/run_traces.py`` (a one-shot batch that fires a few prompts and
-exits), this script opens a *long-lived* WebSocket to the Rhesis backend and
-registers the travel agent as an ``@endpoint``. The Rhesis playground can then
-send queries to it continuously: each turn runs the workflow locally, remembers
-prior turns per ``conversation_id``, and ships traces back to Rhesis.
+Unlike ``run_scenarios.py`` (a batch that replays fixed turns and exits), this opens a
+long-lived WebSocket to the Rhesis backend and registers the travel agent as an
+``@endpoint``. The playground can then send queries continuously: each turn runs locally,
+remembers the trip brief per ``conversation_id``, and ships traces back to Rhesis.
 
-The process blocks until you press Ctrl+C, so the playground always has a live
-endpoint to talk to.
+The process blocks until you press Ctrl+C.
 
 Requires Rhesis credentials (the connector cannot register without them):
 
@@ -29,8 +27,14 @@ from dotenv import load_dotenv
 
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.telemetry import auto_instrument
+from travel_agent.endpoint_mapping import (
+    ENDPOINT_DESCRIPTION,
+    ENDPOINT_NAME,
+    REQUEST_MAPPING,
+    RESPONSE_MAPPING,
+)
+from travel_agent.router import COORDINATOR_NAME
 from travel_agent.session import run_chat_turn_sync
-from travel_agent.workflow import build_travel_workflow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,57 +44,42 @@ logger = logging.getLogger("travel_agent.examples.serve_playground")
 
 
 def _build_chat_endpoint():
-    """Register the travel workflow as a Rhesis ``@endpoint`` and return it.
+    """Register the travel agent as a Rhesis ``@endpoint`` and return it.
 
-    The ``request_mapping`` / ``response_mapping`` mirror the FastAPI app's
-    ``/chat`` route so the playground talks to this connector the same way.
+    The mappings are imported rather than restated: this connector and the FastAPI route
+    used to keep their own copies and had already drifted apart.
     """
 
     @endpoint(
-        name="travel_agent_chat",
-        description="Chat with the Travel Agent MAF multi-agent system.",
-        request_mapping={
-            "message": "{{ input }}",
-            "conversation_id": "{{ session_id | default(none) }}",
-        },
-        response_mapping={
-            "output": "{{ response }}",
-            "session_id": "{{ conversation_id }}",
-            "tool_calls": "{{ tools_called | tojson }}",
-            "agents_involved": "{{ agents_involved | tojson }}",
-            "agent_workflow": "{{ agent_workflow }}",
-            "tool_chain": "{{ tool_chain }}",
-        },
+        name=ENDPOINT_NAME,
+        description=ENDPOINT_DESCRIPTION,
+        request_mapping=REQUEST_MAPPING,
+        response_mapping=RESPONSE_MAPPING,
     )
     def travel_agent_chat(message: str, conversation_id: str | None = None) -> dict:
-        logger.info("=" * 80)
-        logger.info("PLAYGROUND TURN | conversation_id=%s", conversation_id)
-        logger.info("Q: %s", message[:100])
-        logger.info("=" * 80)
+        logger.info("Playground turn | conversation=%s | %.100s", conversation_id, message)
 
-        # Build a fresh workflow per turn. The connector runs this sync handler
-        # in a thread pool and ``run_chat_turn_sync`` opens a new event loop via
-        # ``asyncio.run`` each turn; reusing a cached MAF workflow across those
-        # loops fails with "Queue is bound to a different event loop".
-        result = run_chat_turn_sync(
-            build_travel_workflow(),
-            message,
-            conversation_id=conversation_id,
-        )
+        # The connector runs this sync handler in a thread pool, and
+        # ``run_chat_turn_sync`` opens a fresh event loop per turn. Nothing MAF-shaped is
+        # cached across those loops - the workflow is built inside the turn.
+        result = run_chat_turn_sync(message, conversation_id=conversation_id)
 
-        logger.info("--- Travel plan ---")
-        logger.info(result["response"])
-        logger.info("Agent workflow: %s", result["agent_workflow"])
-        logger.info("Tool chain: %s", result["tool_chain"])
+        logger.info("Reply: %.200s", result["response"])
+        logger.info("Agents: %s | Tools: %s", result["agent_workflow"], result["tool_chain"])
+        if result["degraded_services"]:
+            logger.warning("Degraded services: %s", result["degraded_services"])
 
         return {
             "response": result["response"],
             "conversation_id": result["conversation_id"],
+            "phase": result["phase"],
             "tools_called": result["tools_called"],
             "agents_involved": result["agents_involved"],
             "agent_workflow": result["agent_workflow"],
             "tool_chain": result["tool_chain"],
-            "agent": result.get("agent", "trip_coordinator"),
+            "handoffs": result["handoffs"],
+            "degraded_services": result["degraded_services"],
+            "agent": COORDINATOR_NAME,
         }
 
     return travel_agent_chat
@@ -101,20 +90,20 @@ def main() -> None:
 
     if not (os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID")):
         logger.error(
-            "RHESIS_API_KEY and RHESIS_PROJECT_ID are required to serve the "
-            "playground connector. Set them in your .env and try again. "
-            "(For a one-shot run without the playground, use run_traces.py.)"
+            "RHESIS_API_KEY and RHESIS_PROJECT_ID are required to serve the playground "
+            "connector. Set them in your .env and try again. (For a run without the "
+            "playground, use run_scenarios.py.)"
         )
         sys.exit(1)
 
     client = RhesisClient.from_environment()
-    instrumented = auto_instrument("agent_framework")
-    logger.info("auto_instrument: %s", instrumented)
+    logger.info("auto_instrument: %s", auto_instrument("agent_framework"))
 
     _build_chat_endpoint()
     logger.info(
-        "Travel multi-agent workflow registered as 'travel_agent_chat'. Opening persistent "
-        "connector so the playground can send queries live..."
+        "Travel agent registered as '%s'. Opening persistent connector so the playground "
+        "can send queries live...",
+        ENDPOINT_NAME,
     )
 
     # Blocks on the WebSocket until interrupted (Ctrl+C).

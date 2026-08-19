@@ -1,4 +1,8 @@
-"""In-memory conversation sessions for multi-turn Travel Agent chat."""
+"""Per-conversation state: the trip brief and the user-visible transcript.
+
+In-process and bounded, which is enough for a local demo. A deployment would put this
+behind a database; nothing above this module would change.
+"""
 
 from __future__ import annotations
 
@@ -7,18 +11,19 @@ import uuid
 from threading import Lock
 from typing import Any
 
-from agent_framework import Message, Workflow
-
+from agent_framework import Message
 from rhesis.telemetry.context import get_conversation_id, set_conversation_id
-from travel_agent.workflow import invoke_travel_workflow_async
+
+from travel_agent.runner import run_turn
+from travel_agent.state import TripBrief
 
 
-class ConversationStore:
-    """Thread-safe in-memory store of user-visible MAF message history.
+class StateStore:
+    """Thread-safe store of ``(TripBrief, messages)`` per conversation.
 
-    Bounded so a long-running demo server does not grow memory without limit.
-    Defaults are generous for local development; tighten via constructor args
-    when running unattended.
+    Bounded so a long-running demo server does not grow without limit. Briefs are handed
+    out as deep copies and only written back when a turn succeeds, so a turn that raises
+    part-way through cannot leave half-applied state behind.
     """
 
     def __init__(
@@ -27,93 +32,126 @@ class ConversationStore:
         max_conversations: int = 256,
         max_messages_per_conversation: int = 200,
     ) -> None:
-        self._conversations: dict[str, list[Message]] = {}
+        self._briefs: dict[str, TripBrief] = {}
+        self._messages: dict[str, list[Message]] = {}
         self._lock = Lock()
+        self._async_locks: dict[str, tuple[asyncio.AbstractEventLoop, asyncio.Lock]] = {}
         self._max_conversations = max_conversations
-        self._max_messages_per_conversation = max_messages_per_conversation
+        self._max_messages = max_messages_per_conversation
 
-    def _trim_messages(self, messages: list[Message]) -> list[Message]:
-        if len(messages) <= self._max_messages_per_conversation:
-            return messages
-        return messages[-self._max_messages_per_conversation :]
+    def _evict_oldest_if_needed(self) -> None:
+        while len(self._briefs) >= self._max_conversations:
+            oldest = next(iter(self._briefs))
+            self._briefs.pop(oldest, None)
+            self._messages.pop(oldest, None)
+            self._async_locks.pop(oldest, None)
 
-    def _evict_oldest_conversation_if_needed(self) -> None:
-        while len(self._conversations) >= self._max_conversations:
-            oldest_id = next(iter(self._conversations))
-            del self._conversations[oldest_id]
-
-    def get_history(self, conversation_id: str) -> list[Message]:
+    def snapshot(self, conversation_id: str) -> tuple[TripBrief, list[Message]]:
+        """A private copy of the conversation's brief and history."""
         with self._lock:
-            return list(self._conversations.get(conversation_id, []))
+            brief = self._briefs.get(conversation_id)
+            messages = self._messages.get(conversation_id, [])
+            return (brief.model_copy(deep=True) if brief else TripBrief()), list(messages)
 
-    def set_history(self, conversation_id: str, messages: list[Message]) -> None:
-        trimmed = self._trim_messages(messages)
+    def save(self, conversation_id: str, brief: TripBrief, messages: list[Message]) -> None:
         with self._lock:
-            if conversation_id not in self._conversations:
-                self._evict_oldest_conversation_if_needed()
-            self._conversations[conversation_id] = trimmed
+            if conversation_id not in self._briefs:
+                self._evict_oldest_if_needed()
+            self._briefs[conversation_id] = brief
+            self._messages[conversation_id] = messages[-self._max_messages :]
 
-    def list_conversations(self) -> dict[str, int]:
+    def get_brief(self, conversation_id: str) -> TripBrief | None:
         with self._lock:
-            return {
-                conversation_id: len(messages)
-                for conversation_id, messages in self._conversations.items()
-            }
+            brief = self._briefs.get(conversation_id)
+            return brief.model_copy(deep=True) if brief else None
 
     def get_messages(self, conversation_id: str) -> list[Message] | None:
         with self._lock:
-            stored = self._conversations.get(conversation_id)
+            stored = self._messages.get(conversation_id)
             return list(stored) if stored is not None else None
+
+    def list_conversations(self) -> dict[str, int]:
+        with self._lock:
+            return {conv_id: len(messages) for conv_id, messages in self._messages.items()}
 
     def delete(self, conversation_id: str) -> bool:
         with self._lock:
-            if conversation_id not in self._conversations:
-                return False
-            del self._conversations[conversation_id]
-            return True
+            existed = self._briefs.pop(conversation_id, None) is not None
+            self._messages.pop(conversation_id, None)
+            self._async_locks.pop(conversation_id, None)
+            return existed
+
+    def turn_lock(self, conversation_id: str) -> asyncio.Lock:
+        """Serialise turns within one conversation.
+
+        Keyed by the running event loop as well as the conversation: the Rhesis connector
+        runs each turn on a fresh loop, and an ``asyncio.Lock`` bound to a dead loop raises
+        the moment it is contended. The loop object is held rather than its ``id()``, which
+        a later loop can reuse once the first has been collected.
+
+        This table is bounded here rather than only in ``save``/``delete``: the lock is taken
+        before the turn runs, so a turn that raises leaves a conversation that never reaches
+        ``_briefs`` - and eviction there would never see it.
+        """
+        loop = asyncio.get_running_loop()
+        with self._lock:
+            cached = self._async_locks.get(conversation_id)
+            if cached is None or cached[0] is not loop:
+                self._prune_locks()
+                cached = (loop, asyncio.Lock())
+                self._async_locks[conversation_id] = cached
+            return cached[1]
+
+    def _prune_locks(self) -> None:
+        """Drop locks bound to finished loops, then oldest-first if still at the cap."""
+        for key in [k for k, (loop, _) in self._async_locks.items() if loop.is_closed()]:
+            self._async_locks.pop(key, None)
+        while len(self._async_locks) >= self._max_conversations:
+            self._async_locks.pop(next(iter(self._async_locks)))
 
 
-default_store = ConversationStore()
+default_store = StateStore()
 
 
 async def run_chat_turn(
-    workflow: Workflow,
     message: str,
     *,
     conversation_id: str | None = None,
-    store: ConversationStore | None = None,
+    store: StateStore | None = None,
+    client: Any | None = None,
 ) -> dict[str, Any]:
-    """Run one chat turn: load history, invoke the workflow, persist user-visible turns."""
+    """Run one chat turn: load state, run the turn, persist the result."""
     active_store = store or default_store
     conv_id = conversation_id or str(uuid.uuid4())
-    history = active_store.get_history(conv_id)
 
-    # Mark this as a real conversation turn so the MAF integration stamps the
-    # workflow's root span as a Rhesis conversation turn root (keyed by this id,
-    # so turns sharing the session group together). One-shot callers that invoke
-    # the workflow directly (e.g. run_traces) skip this and stay single-turn.
+    # Mark this as a real conversation turn so the MAF integration stamps the workflow's
+    # root span as a Rhesis conversation turn root, keyed by this id so turns group
+    # together. One-shot callers that skip this stay single-turn.
     previous_conversation_id = get_conversation_id()
     set_conversation_id(conv_id)
     try:
-        result = await invoke_travel_workflow_async(
-            workflow,
-            message,
-            conversation_history=history or None,
-            conversation_id=conv_id,
-        )
+        async with active_store.turn_lock(conv_id):
+            brief, history = active_store.snapshot(conv_id)
+            result = await run_turn(
+                brief,
+                message,
+                conversation_history=history or None,
+                client=client,
+            )
+            active_store.save(conv_id, result["brief"], result["messages"])
     finally:
         set_conversation_id(previous_conversation_id)
-    active_store.set_history(conv_id, result["messages"])
+
     result["conversation_id"] = conv_id
     return result
 
 
 def run_chat_turn_sync(
-    workflow: Workflow,
     message: str,
     *,
     conversation_id: str | None = None,
-    store: ConversationStore | None = None,
+    store: StateStore | None = None,
+    client: Any | None = None,
 ) -> dict[str, Any]:
     """Sync wrapper for callers without a running event loop (e.g. connector handlers)."""
     try:
@@ -121,10 +159,10 @@ def run_chat_turn_sync(
     except RuntimeError:
         return asyncio.run(
             run_chat_turn(
-                workflow,
                 message,
                 conversation_id=conversation_id,
                 store=store,
+                client=client,
             )
         )
     raise RuntimeError(
@@ -133,7 +171,7 @@ def run_chat_turn_sync(
 
 
 __all__ = [
-    "ConversationStore",
+    "StateStore",
     "default_store",
     "run_chat_turn",
     "run_chat_turn_sync",
