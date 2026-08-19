@@ -7,10 +7,12 @@ Targets against `api.rhesis.ai` and `app.rhesis.ai`:
   `@limiter.limit(...)` in `main.py`, so they sit outside the global slowapi
   rate limiter (100/hour, 1000/day per IP).
 - **Authenticated** (runs only if `AUTH_TOKEN` is set): the highest-traffic
-  read-only routes — `GET /test_runs/`, `/test_sets/`, `/test_results/stats`,
-  `/projects/`, `/test_runs/stats`, `/test_sets/stats`, `/requirements/`,
+  read-only routes — `GET /test_runs/`, `/test_sets/`, `/annotations/`,
+  `/projects/`, `/behaviors/`, `/test_sets/stats`, `/categories/`,
   `/test_results/`. All GET-only; nothing that creates, mutates, or deletes
-  data.
+  data. `/annotations/`, `/behaviors/`, and `/categories/` are project-scoped
+  and need `PROJECT_ID` set alongside `AUTH_TOKEN` (see below) — without it
+  they 404/422.
 
 Every scenario carries a safety circuit-breaker (`safetyThresholds` in
 `common.js`): if the error rate or p95 latency crosses the configured limit
@@ -19,23 +21,34 @@ degraded target.
 
 ## Getting a token (do this yourself — don't share your password)
 
-Get a session token by logging in directly against the API, from your own
-terminal. Your password stays on your machine; only the resulting token gets
-used by the script:
+Login no longer returns the token directly — `/auth/login/email` returns a
+single-use `auth_code` (expires in 60s) that must be immediately exchanged
+for the real token via `/auth/exchange-code`. Run both steps together, from
+your own terminal. Your password stays on your machine; only the resulting
+token gets used by the script:
 
 ```bash
-curl -s -X POST https://api.rhesis.ai/auth/login/email \
+CODE=$(curl -s -X POST https://api.rhesis.ai/auth/login/email \
   -H "Content-Type: application/json" \
   -d '{"email":"you@example.com","password":"yourpassword"}' \
-  | jq -r '.session_token'
+  | jq -r '.auth_code')
+
+curl -s -X POST https://api.rhesis.ai/auth/exchange-code \
+  -H "Content-Type: application/json" \
+  -d "{\"code\":\"$CODE\"}"
 ```
 
-(No `jq`? Drop the pipe and copy the `session_token` value out of the raw
-JSON response by hand.)
+That last response has both `session_token` and `refresh_token`. (No `jq`?
+Copy them out of the raw JSON by hand — but do it fast, the `auth_code`
+expires in 60 seconds and can only be used once.)
 
-Copy the printed token — it's a JWT valid for 7 days
-(`JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080`), so it'll outlast even the soak
-run without needing a refresh.
+**The session token itself is short-lived — in practice about 15 minutes**,
+not the 7 days older docs claimed (it's the framework's default
+`JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15`, left unset in prod config). It'll
+expire mid-run for every scenario except `spike.js` (~3m), so also grab
+`refresh_token` and pass it as `REFRESH_TOKEN` — the scripts use it to mint
+a fresh session token every 10 minutes via `/auth/refresh`, no password
+needed.
 
 ## Run
 
@@ -43,7 +56,9 @@ run without needing a refresh.
 brew install k6          # or see https://k6.io/docs/get-started/installation
 cd tests/k6
 
-export AUTH_TOKEN="<paste the session_token here>"   # omit to test public routes only
+export AUTH_TOKEN="<paste the session_token here>"       # omit to test public routes only
+export REFRESH_TOKEN="<paste the refresh_token here>"    # keeps AUTH_TOKEN alive past 15m
+export PROJECT_ID="<your project id>"                    # needed for annotations/behaviors/categories
 
 k6 run load.js
 k6 run stress.js

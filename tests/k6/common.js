@@ -11,7 +11,45 @@ export const FRONTEND_BASE = __ENV.FRONTEND_BASE || 'https://app.rhesis.ai';
 // Obtain by logging in yourself and passing the result as -e AUTH_TOKEN=...
 // (see tests/k6/README.md). Never embed a password in these scripts.
 export const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
-const authHeaders = { headers: AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {} };
+// Some authenticated routes are project-scoped and need this header alongside the token.
+export const PROJECT_ID = __ENV.PROJECT_ID || '';
+
+// The session token lasts ~15 minutes — shorter than every scenario but
+// spike.js. REFRESH_TOKEN (also from /auth/exchange-code) lets each VU mint
+// a fresh session token mid-run without the password ever touching this
+// script. Optional: without it, AUTH_TOKEN is just used as-is for the run.
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 5m margin inside the 15m expiry
+
+let liveToken = AUTH_TOKEN;
+let liveRefreshToken = __ENV.REFRESH_TOKEN || '';
+let tokenMintedAt = -Infinity; // force an immediate refresh on first use
+
+function refreshTokenIfDue() {
+  if (!liveRefreshToken || Date.now() - tokenMintedAt < REFRESH_INTERVAL_MS) return;
+
+  const res = http.post(`${API_BASE}/auth/refresh`, JSON.stringify({ refresh_token: liveRefreshToken }), {
+    headers: { 'Content-Type': 'application/json' },
+    tags: { name: 'auth_refresh' },
+  });
+  const accessToken = res.status === 200 ? res.json('access_token') : null;
+  // Only advance tokenMintedAt on success — on failure, leave it stale so the
+  // very next iteration retries instead of running on an expired token for
+  // the rest of the 10-minute window.
+  if (!accessToken) return;
+
+  liveToken = accessToken;
+  const rotatedRefreshToken = res.json('refresh_token');
+  if (rotatedRefreshToken) liveRefreshToken = rotatedRefreshToken;
+  tokenMintedAt = Date.now();
+}
+
+function authHeaders() {
+  return {
+    headers: liveToken
+      ? { Authorization: `Bearer ${liveToken}`, ...(PROJECT_ID ? { 'X-Project-Id': PROJECT_ID } : {}) }
+      : {},
+  };
+}
 
 // Safety circuit-breaker shared by every scenario: if error rate or p95
 // latency blows past these for delayAbortEval, k6 stops the run itself
@@ -49,11 +87,11 @@ export function hitAll() {
 const AUTH_ENDPOINTS = [
   { name: 'auth_test_runs', path: '/test_runs/?skip=0&limit=50&sort_by=created_at&sort_order=desc' },
   { name: 'auth_test_sets', path: '/test_sets/?skip=0&limit=50' },
-  { name: 'auth_test_results_stats', path: '/test_results/stats' },
+  { name: 'auth_annotations', path: '/annotations/?skip=0&limit=50' },
   { name: 'auth_projects', path: '/projects/?skip=0&limit=10' },
-  { name: 'auth_test_runs_stats', path: '/test_runs/stats' },
+  { name: 'auth_behaviors', path: '/behaviors/?skip=0&limit=20&sort_by=created_at&sort_order=desc' },
   { name: 'auth_test_sets_stats', path: '/test_sets/stats' },
-  { name: 'auth_requirements', path: '/requirements/' },
+  { name: 'auth_categories', path: '/categories/?skip=0&limit=10&sort_by=created_at&sort_order=desc' },
   { name: 'auth_test_results', path: '/test_results/?skip=0&limit=50' },
 ];
 
@@ -73,9 +111,11 @@ export const ENDPOINT_TAGS = [
 export function hitAuthenticated() {
   if (!AUTH_TOKEN) return;
 
+  refreshTokenIfDue();
+
   for (const { name, path } of AUTH_ENDPOINTS) {
     group(name, () => {
-      const res = http.get(`${API_BASE}${path}`, { ...authHeaders, tags: { name } });
+      const res = http.get(`${API_BASE}${path}`, { ...authHeaders(), tags: { name } });
       check(res, { [`${name} status 200`]: (r) => r.status === 200 });
     });
   }
