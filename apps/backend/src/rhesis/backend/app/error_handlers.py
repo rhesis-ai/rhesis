@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
-from rhesis.backend.app.utils.request_context import get_request_id, request_id_of
+from rhesis.backend.app.utils.request_context import request_id_of
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,21 @@ def public_message(status_code: int) -> str:
     return PUBLIC_ERROR_MESSAGES[500]
 
 
-class UpstreamHTTPException(HTTPException):
+class PublicHTTPException(HTTPException):
+    """A 5xx whose detail is written for the caller to read.
+
+    Masking is the default because a detail built from an exception leaks
+    whatever the exception happened to carry. That reasoning does not apply to
+    a fixed string someone wrote on purpose -- "Garak package is not installed",
+    "No Celery workers available" -- which names the one thing the caller can
+    act on and reveals nothing.
+
+    The detail must be a literal, not interpolated from an exception. The moment
+    it carries `str(exc)` this is a leak with a blessing on it.
+    """
+
+
+class UpstreamHTTPException(PublicHTTPException):
     """A failure of the *caller's* system, not ours -- detail is theirs to see.
 
     Endpoint testing and invocation exist to report what is wrong with a user's
@@ -49,7 +63,13 @@ class UpstreamHTTPException(HTTPException):
     """
 
 
-def internal_error(exc: Exception, *, context: str, status_code: int = 500) -> HTTPException:
+def internal_error(
+    exc: Exception,
+    *,
+    context: str,
+    status_code: int = 500,
+    public_detail: str | None = None,
+) -> HTTPException:
     """Log ``exc`` and return an HTTPException that reveals none of it.
 
     Only for cases where the router genuinely adds context a global handler
@@ -59,12 +79,20 @@ def internal_error(exc: Exception, *, context: str, status_code: int = 500) -> H
     The level follows the status: a 4xx is the caller's mistake, so it gets one
     warning line and no stack. If a failure is ours to debug it belongs in the
     5xx branch, which is what puts a traceback in the log.
+
+    ``public_detail`` replaces the generic message with one the caller can act
+    on -- "No generation model is configured", not "The request could not be
+    processed." It must be a literal: interpolating ``exc`` into it defeats the
+    whole point of routing through this function.
     """
     if status_code >= 500:
-        logger.exception("[%s] %s: %s", get_request_id() or "-", context, exc)
+        logger.exception("%s: %s", context, exc)
     else:
-        logger.warning("[%s] %s: %s", get_request_id() or "-", context, exc)
-    http_exc = HTTPException(status_code=status_code, detail=public_message(status_code))
+        logger.warning("%s: %s", context, exc)
+    # A 5xx detail only survives the global handler on a PublicHTTPException, so
+    # asking for one and getting a plain HTTPException would silently mask it.
+    cls = PublicHTTPException if public_detail else HTTPException
+    http_exc = cls(status_code=status_code, detail=public_detail or public_message(status_code))
     # Already in the log with `context` attached; without this the handler below
     # logs the same failure a second time, saying less.
     http_exc.rhesis_logged = True
@@ -84,6 +112,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         request.method,
         request.url.path,
         exc,
+        # RequestIDMiddleware's `finally` has already cleared the ContextVar by
+        # now, so the logging filter cannot recover the id for these records --
+        # the ones an error_id actually points at. Pass it in by hand.
+        extra={"request_id": request_id},
     )
     # Header set here, not by the middleware: an unhandled exception is turned
     # into a response by ServerErrorMiddleware, which sits outside it.
@@ -105,18 +137,20 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         return await default_http_exception_handler(request, exc)
 
     request_id = request_id_of(request)
-    upstream = isinstance(exc, UpstreamHTTPException)
+    deliberate = isinstance(exc, PublicHTTPException)
 
     if not getattr(exc, "rhesis_logged", False):
-        logger.error(
-            "[%s] %s on %s %s: %s",
-            request_id or "-",
+        # A deliberate 5xx is not a fault of ours to debug: an unreachable user
+        # endpoint or a missing optional package is a warning with a readable
+        # reason, not an ERROR with a stack that only points back at the raise.
+        logger.log(
+            logging.WARNING if deliberate else logging.ERROR,
+            "%s on %s %s: %s",
             exc.status_code,
             request.method,
             request.url.path,
             exc.detail,
-            # An upstream failure is not our stack; the detail is the useful part.
-            exc_info=not upstream,
+            exc_info=not deliberate,
         )
 
     # No X-Request-ID here: this response is built inside ExceptionMiddleware,
@@ -124,7 +158,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "detail": exc.detail if upstream else public_message(exc.status_code),
+            "detail": exc.detail if deliberate else public_message(exc.status_code),
             "error_id": request_id,
         },
         headers=getattr(exc, "headers", None),
