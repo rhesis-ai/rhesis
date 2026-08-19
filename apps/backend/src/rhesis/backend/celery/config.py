@@ -1,3 +1,5 @@
+from celery.schedules import crontab
+
 from rhesis.backend.app.config.settings import get_redis_settings
 
 redis_settings = get_redis_settings()
@@ -96,7 +98,19 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.architect.chat",
         "rhesis.backend.jobs.telemetry.evaluate",
         "rhesis.backend.jobs.telemetry.post_ingest",
+        "rhesis.backend.jobs.retention",
     ],
+    # Requires a `celery beat` process actually running against this app --
+    # not deployed anywhere yet (see jobs/retention.py's own docstring for
+    # why the task itself is still a no-op until JOB_RETENTION_ENABLED=true).
+    # Runs at 03:00 UTC, off peak hours for every timezone this platform has
+    # users in today.
+    "beat_schedule": {
+        "job-retention-sweep": {
+            "task": "rhesis.backend.jobs.retention.sweep_expired_jobs",
+            "schedule": crontab(hour=3, minute=0),
+        },
+    },
 }
 
 # Web-context overrides: fail fast instead of blocking HTTP request threads.

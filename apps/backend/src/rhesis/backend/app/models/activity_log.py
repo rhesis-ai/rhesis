@@ -62,4 +62,7 @@ class ActivityLog(Base, OrganizationMixin, ProjectMixin):
         # The eventual general activity query: this project, newest first.
         Index("ix_activity_log_project_created", "project_id", "created_at"),
         Index("ix_activity_log_entity", "entity_type", "entity_id"),
+        # The retention sweep's global "created_at < cutoff" scan, across
+        # every org/project -- the project-led index above cannot serve that.
+        Index("ix_activity_log_created_at", "created_at"),
     )

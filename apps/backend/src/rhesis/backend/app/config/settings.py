@@ -342,6 +342,20 @@ class RhesisSettings(BaseSettings):
     api_key: str | None = Field(default=None, alias="RHESIS_API_KEY")
 
 
+class JobRetentionSettings(BaseSettings):
+    """The retention sweep that hard-deletes old ``job``/``activity_log`` rows.
+
+    Disabled by default: a scheduled hard-delete is a deployment-owner
+    decision, not something that should start running the moment this code
+    ships. An operator opts in with ``JOB_RETENTION_ENABLED=true``.
+    """
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    enabled: bool = Field(default=False, alias="JOB_RETENTION_ENABLED")
+    retention_days: int = Field(default=90, alias="JOB_RETENTION_DAYS", gt=0)
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     return DatabaseSettings()
@@ -400,3 +414,8 @@ def get_rhesis_settings() -> RhesisSettings:
 @lru_cache
 def get_telemetry_settings() -> TelemetrySettings:
     return TelemetrySettings()
+
+
+@lru_cache
+def get_job_retention_settings() -> JobRetentionSettings:
+    return JobRetentionSettings()
