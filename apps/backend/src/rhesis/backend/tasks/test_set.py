@@ -17,7 +17,6 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.user_model_utils import (
     get_generation_model_with_override,
@@ -321,18 +320,11 @@ def _attach_tests_to_existing_test_set(
     test_set_uuid = _uuid.UUID(test_set_id)
     with self.get_db_session() as db:
         with bypass_tenant_filter():
-            try:
-                test_set_query = (
-                    QueryBuilder(db, TestSet).with_deleted().filter_by_id(test_set_uuid)
-                )
-                db_test_set = _check_and_raise_if_deleted(
-                    test_set_query, TestSet, test_set_uuid, False
-                )
-            except ItemDeletedException:
-                # ValueError, not the raw exception: the generic `except Exception`
-                # in the caller retries the task, which would just fail again on a
-                # permanently-deleted row -- ValueError here is treated as terminal.
-                raise ValueError(f"TestSet with id {test_set_id!r} has been deleted")
+            # ItemDeletedException is in BaseTask.dont_autoretry_for, so a
+            # soft-deleted row fails this task immediately instead of retrying
+            # against a row that will never come back.
+            test_set_query = QueryBuilder(db, TestSet).with_deleted().filter_by_id(test_set_uuid)
+            db_test_set = _check_and_raise_if_deleted(test_set_query, TestSet, test_set_uuid, False)
         if db_test_set is None:
             raise ValueError(f"TestSet with id {test_set_id!r} not found in database")
 

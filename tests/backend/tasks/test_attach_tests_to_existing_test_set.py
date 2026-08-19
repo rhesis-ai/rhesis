@@ -5,9 +5,9 @@ handling.
 The pre-created TestSet row is fetched with bypass_tenant_filter() (the row
 was created by the router before this Celery task runs), using the standard
 with_deleted() + _check_and_raise_if_deleted() pattern. A soft-deleted row
-must raise ValueError (not ItemDeletedException) -- the caller's generic
-`except Exception` retries the task on anything else, which would just fail
-again forever on a permanently-deleted row.
+raises ItemDeletedException, same as everywhere else -- it's listed in
+BaseTask.dont_autoretry_for, so Celery treats it as terminal instead of
+retrying forever against a row that will never come back.
 """
 
 from contextlib import contextmanager
@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 
 def _make_sdk_test_set():
@@ -37,7 +38,7 @@ def _make_sdk_test_set():
 
 @pytest.mark.unit
 class TestAttachTestsToExistingTestSetSoftDelete:
-    def test_raises_value_error_for_deleted_test_set(
+    def test_raises_item_deleted_exception_for_deleted_test_set(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         from rhesis.backend.tasks.test_set import _attach_tests_to_existing_test_set
@@ -62,7 +63,7 @@ class TestAttachTestsToExistingTestSetSoftDelete:
         mock_task = MagicMock()
         mock_task.get_db_session = fake_get_db_session
 
-        with pytest.raises(ValueError, match="has been deleted"):
+        with pytest.raises(ItemDeletedException):
             _attach_tests_to_existing_test_set(
                 mock_task,
                 _make_sdk_test_set(),

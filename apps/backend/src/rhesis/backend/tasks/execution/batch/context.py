@@ -143,7 +143,6 @@ def prefetch_execution_context(
     from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.models.requirement import Requirement
     from rhesis.backend.app.services.test_set import get_test_set
-    from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
     from rhesis.backend.app.utils.query_utils import QueryBuilder, include
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
 
@@ -156,18 +155,18 @@ def prefetch_execution_context(
 
     bind_scope_to_session(session, organization_id, user_id or "", project_id)
 
+    # get_test_set/get_endpoint raise ItemDeletedException for a soft-deleted
+    # row; it's in BaseTask.dont_autoretry_for, so this fails the task
+    # immediately instead of retrying against a row that will never come back.
     test_set = get_test_set(session, str(test_config.test_set_id), organization_id)
 
-    try:
-        endpoint = get_endpoint(
-            session,
-            test_config.endpoint_id,
-            organization_id,
-            user_id,
-            project_id=project_id or None,
-        )
-    except ItemDeletedException:
-        raise ValueError(f"Endpoint {test_config.endpoint_id} has been deleted")
+    endpoint = get_endpoint(
+        session,
+        test_config.endpoint_id,
+        organization_id,
+        user_id,
+        project_id=project_id or None,
+    )
     if not endpoint:
         raise ValueError(f"Endpoint {test_config.endpoint_id} not found")
 

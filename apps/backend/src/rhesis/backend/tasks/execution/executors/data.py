@@ -40,6 +40,10 @@ def get_test_and_prompt(
     from rhesis.backend.tasks.execution.modes import get_test_type
 
     # Get the test. Reads test.prompt below for single-turn tests -- eager-load it explicitly.
+    # Raised as ValueError (not ItemDeletedException) so every failure mode of
+    # this function shares one exception type -- callers only catch/re-raise
+    # generically, so this is purely about message clarity ("deleted" vs
+    # "not found"), not Celery retry semantics.
     try:
         test = get_item_detail(
             db,

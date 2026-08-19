@@ -9,6 +9,7 @@ from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import (
     get_db_with_tenant_variables,
 )
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
@@ -96,8 +97,10 @@ class BaseTask(Task):
 
     # Checked by Celery before autoretry_for. A bad model configuration (wrong
     # region, unknown model, missing credentials) returns the same error on
-    # every attempt, so retrying it just multiplies the log noise.
-    dont_autoretry_for = (ModelConfigurationError,)
+    # every attempt, so retrying it just multiplies the log noise. A
+    # soft-deleted row is the same story: whatever it referenced stays deleted
+    # on every retry.
+    dont_autoretry_for = (ModelConfigurationError, ItemDeletedException)
 
     # Maximum number of retries - use centralized constant
     max_retries = DEFAULT_MAX_RETRIES
