@@ -7,7 +7,7 @@ the work it describes.
 """
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.activity_log import ActivityLog
 from rhesis.backend.app.models.job import Job
+from rhesis.backend.events.rendering import render
 from rhesis.backend.events.types import (
     ActivityLogged,
     JobCancelled,
@@ -39,25 +40,6 @@ _HANDLED = (
 )
 
 
-def _render(event: PlatformEvent) -> Tuple[str, str]:
-    """(level, message) for a lifecycle event. ``ActivityLogged`` carries its
-    own and is not rendered here.
-    """
-    if isinstance(event, JobQueued):
-        return "info", "Job queued"
-    if isinstance(event, JobStarted):
-        return "info", "Job started"
-    if isinstance(event, JobCompleted):
-        return "info", "Job completed successfully"
-    if isinstance(event, JobFailed):
-        return "error", f"Job failed: {event.error_type}: {event.error_message}"
-    if isinstance(event, JobRetried):
-        return "warning", f"Retrying (attempt {event.attempt})"
-    if isinstance(event, JobCancelled):
-        return "info", "Job cancelled"
-    raise TypeError(f"ActivityLogSink cannot render {type(event).__name__}")
-
-
 class ActivityLogSink:
     name = "activity_log"
     critical = False
@@ -72,7 +54,7 @@ class ActivityLogSink:
         if isinstance(event, ActivityLogged):
             level, message = event.level, event.message
         else:
-            level, message = _render(event)
+            level, message = render(event)
 
         with get_db_with_tenant_variables(
             str(event.organization_id),

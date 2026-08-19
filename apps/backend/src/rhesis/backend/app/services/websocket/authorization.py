@@ -47,6 +47,7 @@ _RESOURCE_CHANNEL_RULES: dict[str, _ResourceChannelRule] = {
     "test_run": _ResourceChannelRule("test_run:read", "TestRun"),
     "test_set": _ResourceChannelRule("test_set:read", "TestSet"),
     "architect": _ResourceChannelRule("architect:read", "ArchitectSession"),
+    "job": _ResourceChannelRule("job:read", "Job"),
     "project": _ResourceChannelRule("project:read", None, id_is_project=True),
     # preflight:{correlation_id} is an ephemeral operation channel with no
     # persisted row; the server-generated correlation_id is returned only to the

@@ -405,3 +405,101 @@ class TestChannelAuthorizerIntegration:
         )
 
         assert ok is False, "Cross-org project channel subscription must be denied"
+
+
+# ---------------------------------------------------------------------------
+# job: channel rule -- WebSocketSink publishes to "job:{job_id}"; a
+# subscriber must hold job:read for the job's project, same generic
+# mechanism as test_run:/test_set: above.
+# ---------------------------------------------------------------------------
+
+
+class TestJobChannelRule:
+    @pytest.fixture
+    def authorizer(self):
+        return ChannelAuthorizer()
+
+    def test_job_prefix_is_protected(self, authorizer):
+        assert "job:" in authorizer.PROTECTED_RESOURCE_PREFIXES
+
+    @pytest.mark.asyncio
+    async def test_legacy_no_db_allows_any_authenticated_user(self, authorizer):
+        user = _fake_user()
+        job_id = uuid.uuid4()
+        ok, err = await authorizer.authorize(user, f"job:{job_id}")
+        assert ok is True
+
+    @pytest.mark.asyncio
+    async def test_with_db_calls_authorize_with_job_read_capability(self, authorizer):
+        user = _fake_user()
+        job_id = uuid.uuid4()
+        project_id = uuid.uuid4()
+        fake_db = object()
+
+        principal = SimpleNamespace(user_id=user.id, organization_id=user.organization_id)
+        with (
+            patch.object(
+                authorizer, "_resolve_channel_project_id", return_value=(project_id, True)
+            ),
+            patch(
+                "rhesis.backend.app.auth.rbac.authorize",
+                return_value=True,
+            ) as mock_authz,
+        ):
+            ok, err = await authorizer.authorize(
+                user, f"job:{job_id}", db=fake_db, principal=principal
+            )
+
+        assert ok is True
+        call = mock_authz.call_args
+        assert "job:read" in str(call)
+        assert call.kwargs["project_id"] == project_id
+
+    @pytest.mark.asyncio
+    async def test_job_not_found_in_org_denied(self, authorizer):
+        """A job id from another org (or that doesn't exist) is denied,
+        fail-closed, same as test_run:/test_set:."""
+        user = _fake_user()
+        job_id = uuid.uuid4()
+        fake_db = object()
+
+        principal = SimpleNamespace(user_id=user.id, organization_id=user.organization_id)
+        with (
+            patch.object(authorizer, "_resolve_channel_project_id", return_value=(None, False)),
+            patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
+        ):
+            ok, err = await authorizer.authorize(
+                user, f"job:{job_id}", db=fake_db, principal=principal
+            )
+
+        assert ok is False
+        mock_authz.assert_not_called()
+
+    def test_job_model_name_resolves_the_real_job_project_id(self, real_commit_test_db, authorizer):
+        """Proves the "Job" string in _RESOURCE_CHANNEL_RULES actually
+        resolves via ``getattr(models, "Job")`` to the real ORM class, not
+        just that the generic mechanism works for some model."""
+        from rhesis.backend.app.models.job import Job
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
+
+        db = real_commit_test_db
+        org, user_obj, _ = create_test_organization_and_user(
+            db, "Job Channel Org", "jobchannel@ws-test.com", "Job Channel User"
+        )
+        user_obj.organization_id = org.id
+        db.commit()
+
+        job = Job(organization_id=org.id, user_id=user_obj.id, job_type="test.job")
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+
+        user = _fake_user(user_id=user_obj.id, org_id=org.id)
+        from rhesis.backend.app.services.websocket.authorization import _RESOURCE_CHANNEL_RULES
+
+        project_id, resolvable = authorizer._resolve_channel_project_id(
+            user, _RESOURCE_CHANNEL_RULES["job"], str(job.id), db
+        )
+
+        assert resolvable is True
+        assert project_id == job.project_id

@@ -73,6 +73,12 @@ class EventType(str, Enum):
     PREFLIGHT_CHECK_UPDATE = "preflight.check_update"
     PREFLIGHT_COMPLETE = "preflight.complete"
 
+    # Job events (background work tracked in the `job` table). Published by
+    # WebSocketSink onto a "job:{job_id}" channel so the Jobs screen can
+    # replace polling with a live subscription.
+    JOB_STATUS_CHANGED = "job.status_changed"  # job.status transitioned
+    JOB_ACTIVITY_APPENDED = "job.activity_appended"  # a new activity_log row
+
 
 class WebSocketMessage(BaseModel):
     """WebSocket message schema.
