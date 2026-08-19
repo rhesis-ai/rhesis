@@ -43,6 +43,23 @@ except PackageNotFoundError:
     __version__ = "0+unknown"
 
 
+def bootstrap_providers() -> None:
+    """Install the EE license and quota providers.
+
+    Idempotent. Called from :func:`bootstrap` (API process) and from
+    :func:`~rhesis.backend.app.ee_bootstrap.bootstrap_ee_providers`
+    (Celery workers), so every process resolves licensed quota limits
+    rather than falling back to free-tier defaults.
+    """
+    from rhesis.backend.app.features import FeatureRegistry
+    from rhesis.backend.app.quota import QuotaRegistry
+    from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
+    from rhesis.backend.ee.licensing.quota_provider import ConfigQuotaProvider
+
+    FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
+    QuotaRegistry.set_quota_provider(ConfigQuotaProvider())
+
+
 def bootstrap(app: "FastAPI") -> None:
     """Register EE features and routers with the FastAPI *app*.
 
@@ -86,7 +103,6 @@ def bootstrap(app: "FastAPI") -> None:
         mint_for_client_bound_refresh,
     )
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
-    from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
     from rhesis.backend.ee.rbac.router import router as rbac_router
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
@@ -109,16 +125,11 @@ def bootstrap(app: "FastAPI") -> None:
                 "the API Clients audit log relies on it for hashed_email"
             )
 
-    from rhesis.backend.app.quota import QuotaRegistry
-    from rhesis.backend.ee.licensing.quota_provider import ConfigQuotaProvider
+    # ---- License + quota providers ----------------------------------------
+    # Extracted into bootstrap_providers() so Celery workers can install them
+    # without running the full feature/router bootstrap.
+    bootstrap_providers()
 
-    # ---- License provider -----------------------------------------------
-    # Install before feature registration so any is_available() call that
-    # races during bootstrap already sees the correct provider.
-    FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
-
-    # ---- Quota provider -------------------------------------------------
-    QuotaRegistry.set_quota_provider(ConfigQuotaProvider())
 
     # ---- Feature registry -----------------------------------------------
     FeatureRegistry.register(

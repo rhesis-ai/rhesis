@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Protocol, Union
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.models.organization import Organization
 
 
@@ -90,6 +91,11 @@ FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
     QuotaResource.PROJECTS: 1,
     QuotaResource.ENDPOINTS: 1,
 }
+
+# Every resource explicitly set to None (unlimited). Explicit keys rather than
+# an empty dict so the /features wire shape stays stable: callers always see
+# all seven resource names, whether the deployment enforces quotas or not.
+UNLIMITED_LIMITS: dict[QuotaResource, int | None] = {r: None for r in QuotaResource}
 
 
 @dataclass(frozen=True)
@@ -213,6 +219,8 @@ class QuotaRegistry:
     @classmethod
     def get_policy(cls, org: Optional[Organization] = None) -> QuotaPolicy:
         """Return the resolved limits and overage policy for *org*."""
+        if not get_application_settings().usage_quotas_enabled:
+            return QuotaPolicy(limits=dict(UNLIMITED_LIMITS))
         return cls._provider.get_policy(org)
 
     @classmethod
@@ -253,5 +261,6 @@ __all__ = [
     "QuotaRegistry",
     "QuotaResource",
     "QuotaResourceLike",
+    "UNLIMITED_LIMITS",
     "limits_to_wire",
 ]

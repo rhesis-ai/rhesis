@@ -127,6 +127,47 @@ _apply_test_env()
 
 
 @pytest.fixture(autouse=True)
+def _enable_usage_quotas(monkeypatch):
+    """Run the entire test suite with USAGE_QUOTAS_ENABLED=true.
+
+    Without this, QuotaRegistry.get_policy short-circuits to unlimited
+    limits for every org (the self-hosted default), so the existing 1,600+
+    lines of quota tests all pass vacuously. The patch targets the name
+    where quota/__init__.py imports the function.
+
+    Tests that exercise the quotas-off path opt out via the
+    ``quotas_disabled`` fixture (see test_quota_deployment_mode.py).
+    """
+    from types import SimpleNamespace
+
+    from rhesis.backend.app.config.settings import get_application_settings
+
+    real = get_application_settings()
+
+    def _with_quotas_on():
+        ns = SimpleNamespace(**{k: getattr(real, k) for k in real.model_fields})
+        ns.usage_quotas_enabled = True
+        return ns
+
+    monkeypatch.setattr("rhesis.backend.app.quota.get_application_settings", _with_quotas_on)
+    monkeypatch.setattr(
+        "rhesis.backend.app.utils.usage_tracking.get_application_settings", _with_quotas_on
+    )
+
+
+@pytest.fixture
+def quotas_disabled(monkeypatch):
+    """Opt out of the suite-wide quotas-enabled patch for one test."""
+    from rhesis.backend.app.config.settings import get_application_settings
+
+    monkeypatch.setattr("rhesis.backend.app.quota.get_application_settings", get_application_settings)
+    monkeypatch.setattr(
+        "rhesis.backend.app.utils.usage_tracking.get_application_settings",
+        get_application_settings,
+    )
+
+
+@pytest.fixture(autouse=True)
 def isolate_storage_settings_cache():
     """Ensure tests that patch storage env vars do not reuse cached settings."""
     from importlib import import_module

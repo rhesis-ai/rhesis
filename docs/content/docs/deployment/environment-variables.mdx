@@ -201,7 +201,13 @@ Rarely changed; the defaults are correct for most deployments.
 for reference only — a self-hosted deployment does not need any of them.
 </Callout>
 
-**Onboarding and lifecycle emails** — the hosted SendGrid drip campaign and welcome flow.
+**Usage quota enforcement** -- per-organization resource limits (test executions, tracing spans, model tokens, etc.). Self-hosted deployments have no usage limits; the usage page still shows what the instance spent.
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `USAGE_QUOTAS_ENABLED` | Enable per-org usage quota enforcement | `false` |
+
+**Onboarding and lifecycle emails** -- the hosted SendGrid drip campaign and welcome flow.
 
 | Variable | Purpose |
 |---|---|

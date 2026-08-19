@@ -55,6 +55,7 @@ data:
   FRONTEND_URL: {{ .Values.config.frontendUrl | quote }}
   BACKEND_URL: {{ .Values.config.backendUrl | quote }}
   QUICK_START: {{ .Values.config.quickStart | quote }}
+  USAGE_QUOTAS_ENABLED: {{ .Values.config.usageQuotasEnabled | quote }}
 
   # -------------------------------------------------------------------------
   # Auth

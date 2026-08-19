@@ -13,25 +13,13 @@ cannot be forgotten because there is nothing to remember.
 
 Two inputs decide what happens to an emission:
 
-**Who pays** -- ``BaseLLM.usage_metered``, stamped by the model-resolution
-layer (``user_model_utils``, and ``metrics.strategies.local`` for per-metric
-judge overrides). This cannot move to the SDK or to the provider: the same
-provider class is billable or not depending on where its API key came from.
-An org running ``openai`` on its own key pays OpenAI directly and must not
-also pay us; the deployment's default model runs on our credentials and
-must. Same class, opposite answer, decided by how the model was selected.
-
-``None`` -- nobody stamped it -- is treated as a bug, not as a third
-category, and billed. That is safe because an org's own API key can only
-enter through a Model row (``_fetch_and_configure_model``,
-``_resolve_metric_model``) or the connection-test form
-(``model_connection``), and all of those stamp; a model that reached an LLM
-call unstamped is therefore running on this deployment's credentials.
-``tests/backend/app/test_language_model_construction_boundary.py`` keeps it
-that way, and the two Penelope construction sites (``batch/runner.py``,
-``output_providers.py``) stamp across that package boundary since Penelope
-cannot stamp itself. :func:`_warn_unstamped` fires once per provider/model
-so a path that slips through all of that is findable rather than silent.
+**Whether to skip** -- ``BaseLLM.usage_metered``, stamped by the
+model-resolution layer. When ``USAGE_QUOTAS_ENABLED`` is true (Rhesis
+cloud), a ``metered=False`` model is skipped: the org supplied its own API
+key and pays the provider directly. When quotas are off (self-hosted), every
+model accrues regardless of ``usage_metered`` so the usage page shows total
+instance spend. ``None`` (unstamped) always warns via :func:`_warn_unstamped`
+-- it is a construction-boundary defect in either deployment mode.
 
 **Who to bill** -- the ambient organization from
 :mod:`rhesis.backend.app.usage_attribution`, read at emission time rather
@@ -46,6 +34,7 @@ from __future__ import annotations
 import logging
 from typing import Optional, Set, Tuple
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.usage_attribution import current_usage_org
@@ -138,26 +127,10 @@ def accrue_model_tokens(usage: TokenUsage, model: BaseLLM) -> None:
     unlike the Celery call sites, this runs during interactive requests a
     user is waiting on.
     """
-    if model.usage_metered is False:
-        # The org supplied its own API key, so it already pays the provider.
-        return
     if model.usage_metered is None:
-        # Nobody stamped it, which is a bug rather than a category, so bill it
-        # and say so once. Billing (rather than skipping) is safe only because
-        # an org's own key cannot reach an unstamped model: it enters via a
-        # Model row or the connection-test form, and every one of those paths
-        # stamps. The invariant is enforced, not assumed --
-        # tests/backend/app/test_language_model_construction_boundary.py fails
-        # on any new construction site, and its allowlist documents the
-        # exceptions.
-        #
-        # Revisit if Rhesis stops offering hosted models: once every model
-        # carries an org's key, "unstamped" flips from "ours" to "theirs" and
-        # billing on it would charge orgs for their own spend. Skipping would
-        # be the safer default then. Today nothing is enforced against these
-        # numbers (limits are display-only), so the blast radius is a wrong
-        # figure on a dashboard, not a blocked user.
         _warn_unstamped(model)
+    if get_application_settings().usage_quotas_enabled and model.usage_metered is False:
+        return
 
     organization_id = current_usage_org()
     if not organization_id:

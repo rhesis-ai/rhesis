@@ -26,6 +26,7 @@ config:
   environment: "staging"
   logLevel: "INFO"
   jsonLoggerEnabled: true
+  usageQuotasEnabled: true
 
   # Must match kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
   dbName: "rhesis-stg-db"
