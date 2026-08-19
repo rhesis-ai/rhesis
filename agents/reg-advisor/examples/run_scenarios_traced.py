@@ -5,8 +5,8 @@ post-conditions, but every agent activation, model call and tool call is shipped
 to the Rhesis backend as a trace.
 
 Needs a Gemini API key plus ``RHESIS_API_KEY`` and ``RHESIS_PROJECT_ID``. Without
-the Rhesis credentials it still runs -- the scenarios execute exactly as before,
-just untraced. Run from the project root:
+the Rhesis credentials the scenarios still run, untraced. Run from the project
+root:
 
     uv run python examples/run_scenarios_traced.py
 """

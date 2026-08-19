@@ -73,13 +73,19 @@ between the coordinator and its specialists so the Graph View draws a connected 
 Set `RHESIS_API_KEY` and `RHESIS_PROJECT_ID` to turn it on. Without them the app runs exactly as
 before and nothing is shipped.
 
-```bash
-# one-shot: the scripted scenarios, traced end to end
-uv run python examples/run_scenarios_traced.py
+Each entry point has a traced twin, so tracing is never in the way of running the thing
+plainly:
 
-# long-lived: register as a Rhesis endpoint so the playground can chat live
-uv run python examples/serve_playground.py
+```bash
+uv run python chat_terminal/chat.py            # interactive REPL
+uv run python chat_terminal/chat_traced.py     # the same REPL, traced
+
+uv run python examples/run_scenarios.py        # scripted scenarios
+uv run python examples/run_scenarios_traced.py # the same scenarios, traced
 ```
+
+The traced variants exit with a message if the Rhesis credentials are missing, rather than
+running untraced and looking like they worked.
 
 The integration is enabled in exactly one place, `src/reg_advisor/app.py`:
 
@@ -132,8 +138,8 @@ Unit tests only. They use a mocked model and need no API key and no network.
 ```
 src/reg_advisor/     state, knowledge, classifier, safety, tools, agents, runner, session, app
 knowledge/           taxonomy, decision trees, comparisons, sources, gap log (YAML)
-chat_terminal/       interactive REPL
-examples/            scripted scenarios, traced variants, playground connector
+chat_terminal/       interactive REPL, plain and traced
+examples/            scripted scenarios, plain and traced
 docs/                architecture
 tests/               unit tests (mocked model), trace-shape and isolation guards
 ```

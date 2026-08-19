@@ -19,12 +19,6 @@ from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
 
-from reg_advisor.endpoint_mapping import (
-    ENDPOINT_DESCRIPTION,
-    ENDPOINT_NAME,
-    REQUEST_MAPPING,
-    RESPONSE_MAPPING,
-)
 from reg_advisor.knowledge import get_knowledge_base, validate_knowledge_base
 from reg_advisor.session import default_store, get_default_agent, run_chat_turn_async
 from reg_advisor.state import Phase
@@ -152,10 +146,18 @@ async def delete_conversation(conversation_id: str) -> dict[str, Any]:
 
 
 @endpoint(
-    name=ENDPOINT_NAME,
-    description=ENDPOINT_DESCRIPTION,
-    request_mapping=REQUEST_MAPPING,
-    response_mapping=RESPONSE_MAPPING,
+    name="reg_advisor_chat",
+    description="Chat with the Reg-Advisor Google ADK multi-agent system.",
+    request_mapping={
+        "message": "{{ input }}",
+        "conversation_id": "{{ session_id | default(none) }}",
+    },
+    response_mapping={
+        "output": "{{ response }}",
+        "session_id": "{{ conversation_id }}",
+        # phase is an enum, so it is stringified before tojson sees it.
+        "metadata": "{{ {'phase': phase | string, 'turn': turn} | tojson }}",
+    },
 )
 async def chat_endpoint_traced(
     message: str,

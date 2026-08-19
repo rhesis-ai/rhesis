@@ -300,14 +300,15 @@ ADK emits OpenTelemetry spans unconditionally; the integration wraps the exporte
 them into Rhesis's `ai.*` schema. Nothing in this app calls into it, and removing those two lines
 removes tracing entirely.
 
-Two places need to know about tracing beyond `app.py`:
+Only one place beyond `app.py` needs to know about tracing at all: `session.py` marks each turn
+with `set_conversation_id`, which is what makes turns group into a conversation in the Rhesis UI.
+It imports the light `rhesis.telemetry.context` module — a contextvar accessor with no client, no
+HTTP and no provider ownership — not the SDK.
 
-- `endpoint_mapping.py` holds the endpoint name and the request/response field mappings, shared by
-  the FastAPI `/chat` route and `examples/serve_playground.py` so the two cannot drift into two
-  incompatible shapes for one endpoint name.
-- `session.py` marks each turn with `set_conversation_id`, which is what makes turns group into a
-  conversation in the Rhesis UI. It imports the light `rhesis.telemetry.context` module — a
-  contextvar accessor with no client, no HTTP and no provider ownership — not the SDK.
+The two standalone entry points each have a traced twin that owns its own client construction:
+`chat_terminal/chat_traced.py` and `examples/run_scenarios_traced.py`. Both wrap the plain
+version's `main()` rather than duplicating it, so the untraced path stays the one under test and
+neither copy can drift.
 
 ### What the trace looks like
 
