@@ -12,7 +12,14 @@ from travel_agent.router import (
     wants_surprise,
 )
 from travel_agent.safety import classify
-from travel_agent.state import PlaceCandidate, Sight, TripBrief, TripLeg, mark_unavailable
+from travel_agent.state import (
+    PlaceCandidate,
+    Sight,
+    TripBrief,
+    TripLeg,
+    mark_no_results,
+    mark_unavailable,
+)
 
 
 def tokyo(**kwargs) -> TripBrief:
@@ -155,3 +162,45 @@ def test_flagged_message_appends_the_scope_note():
     directive = coordinator_directive(brief, "who won the world cup?", verdict)
     assert "SCOPE NOTE" in directive
     assert "redirect_to_scope" in directive
+
+
+# region empty results keep a specialist reachable
+
+
+def test_a_dead_service_drops_its_specialist():
+    brief = tokyo()
+    mark_unavailable(brief, "sights", "request timed out")
+    assert "sightseeing_scout" not in eligible_targets(brief, "plan my trip")
+
+
+def test_an_empty_result_keeps_its_specialist_reachable():
+    """The service answered, so the coordinator may still choose to search again."""
+    brief = tokyo()
+    mark_no_results(brief, "sights", "no landmarks found")
+    assert "sightseeing_scout" in eligible_targets(brief, "plan my trip")
+
+
+# region the greeting directive
+
+
+@pytest.mark.parametrize("message", ["Paris", "Tokyo", "Berlin please"])
+def test_greeting_directive_never_offers_a_handoff_it_cannot_make(message):
+    """A bare place name matches no travel word, so this turn has no specialists at all.
+
+    The directive used to tell the coordinator to hand off to place_resolver anyway, in the
+    same breath as saying it had none - so it named a tool that was not on the agent.
+    """
+    brief = TripBrief()
+    assert eligible_targets(brief, message) == []
+
+    directive = coordinator_directive(brief, message)
+    assert "record_trip_details" in directive
+    assert "hand off" not in directive
+    assert "ask_user for the trip length" in directive
+
+
+def test_greeting_directive_routes_to_place_resolver_once_it_is_wired():
+    brief = TripBrief()
+    message = "I want to go to Paris"
+    assert "place_resolver" in eligible_targets(brief, message)
+    assert "hand off to place_resolver" in coordinator_directive(brief, message)

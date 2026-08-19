@@ -142,7 +142,15 @@ def coordinator_directive(
         lines.append(
             "No destination on file. If this is a greeting or small talk, call "
             "greet_and_introduce. "
-            "If the user named a place, call record_trip_details then hand off to place_resolver."
+            "If the user named a place, call record_trip_details "
+            + (
+                "then hand off to place_resolver."
+                if "place_resolver" in targets
+                # A bare place name matches no travel word, so this turn has no specialists.
+                # Recording it is enough: the name lands on the brief, which makes the next
+                # turn a planning turn and wires place_resolver then.
+                else "and then ask_user for the trip length. Do not attempt a handoff."
+            )
         )
     elif phase is Phase.RESOLVING:
         options = " or ".join(
