@@ -28,7 +28,12 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.usage import Usage
 from rhesis.backend.app.quota import QuotaRegistry, QuotaResource
 from rhesis.backend.app.scope import bypass_tenant_filter
-from rhesis.backend.app.services.usage import _STOCK_COUNTERS, _current_period
+from rhesis.backend.app.services.usage import (
+    _STOCK_COUNTERS,
+    FLOW_KIND,
+    STOCK_KIND,
+    _current_period,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,13 @@ class QuotaVerdict:
         *allowed*. ``over_limit and allowed`` is exactly the soft-overage
         grace band: past the advertised limit but not yet at the hard
         ceiling. ``over_limit`` is always ``False`` when *limit* is ``None``.
+    :param kind: ``"flow"`` or ``"stock"`` -- same split as
+        :func:`~rhesis.backend.app.services.usage.get_usage_summary`, so a
+        402 body can be classified identically to a `GET /usage` row
+        without the frontend re-deriving the split.
+    :param period_end: ISO date the current billing period ends, so a
+        blocked flow resource can be told when it resets without a second
+        round trip to `GET /usage`.
     """
 
     resource: QuotaResource
@@ -51,6 +63,8 @@ class QuotaVerdict:
     limit: Optional[int]
     allowed: bool
     over_limit: bool
+    kind: str
+    period_end: str
 
 
 class QuotaExceededError(Exception):
@@ -94,6 +108,8 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
         "resource": verdict.resource.value,
         "used": verdict.used,
         "limit": verdict.limit,
+        "kind": verdict.kind,
+        "period_end": verdict.period_end,
         "message": f"You've reached your {resource_display} limit{suffix}.",
     }
 
@@ -147,10 +163,18 @@ def check_quota(
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
     used = _read_usage(db, org_id, resource)
+    kind = STOCK_KIND if resource in _STOCK_COUNTERS else FLOW_KIND
+    _, period_end = _current_period()
 
     if limit is None:
         return QuotaVerdict(
-            resource=resource, used=used, limit=None, allowed=True, over_limit=False
+            resource=resource,
+            used=used,
+            limit=None,
+            allowed=True,
+            over_limit=False,
+            kind=kind,
+            period_end=period_end.isoformat(),
         )
 
     ceiling = policy.ceiling_for(limit)
@@ -160,6 +184,8 @@ def check_quota(
         limit=limit,
         allowed=used < ceiling,
         over_limit=used >= limit,
+        kind=kind,
+        period_end=period_end.isoformat(),
     )
 
 
