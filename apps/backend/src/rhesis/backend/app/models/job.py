@@ -1,5 +1,6 @@
 from sqlalchemy import Column, DateTime, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
@@ -59,10 +60,21 @@ class Job(Base, OrganizationAndUserMixin, ProjectMixin):
 
     job_metadata = Column(JSONB, nullable=True)
 
+    user = relationship("User", foreign_keys="[Job.user_id]", lazy="joined")
+
+    @property
+    def user_display_name(self) -> str | None:
+        return self.user.display_name if self.user else None
+
     __table_args__ = (
         Index("ix_job_celery_task_id", "celery_task_id"),
         Index("ix_job_organization_id", "organization_id"),
         # The Jobs list is "this project's jobs, newest first".
         Index("ix_job_project_created", "project_id", "created_at"),
         Index("ix_job_trace_id", "trace_id"),
+        # The retention sweep's "finished_at < cutoff" scan (jobs/retention.py),
+        # per organization -- the project-led index above cannot serve that,
+        # and the sweep deliberately keys on finished_at, not created_at (a
+        # long-running job is never swept just because it started long ago).
+        Index("ix_job_finished_at", "finished_at"),
     )

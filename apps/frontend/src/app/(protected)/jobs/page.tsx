@@ -28,7 +28,7 @@ export default function JobsPage() {
     <PageLayout
       title="Jobs"
       description="Background work the platform is doing, and what it logged along the way."
-      breadcrumbs={[{ label: 'Jobs' }]}
+      breadcrumbs={[]}
     >
       <JobsGrid />
     </PageLayout>

@@ -236,12 +236,6 @@ export default function JobsGrid() {
         ),
       },
       {
-        field: 'job_type',
-        headerName: 'Type',
-        flex: 1.5,
-        minWidth: 160,
-      },
-      {
         field: 'status',
         headerName: 'Status',
         flex: 1,
@@ -268,6 +262,17 @@ export default function JobsGrid() {
         sortable: false,
         renderCell: (params: GridRenderCellParams<Job>) => (
           <Typography variant="body2">{formatDuration(params.row)}</Typography>
+        ),
+      },
+      {
+        field: 'user_display_name',
+        headerName: 'Started by',
+        flex: 1,
+        minWidth: 120,
+        renderCell: (params: GridRenderCellParams<Job>) => (
+          <Typography variant="body2" color="text.secondary">
+            {params.row.user_display_name ?? '—'}
+          </Typography>
         ),
       },
       {

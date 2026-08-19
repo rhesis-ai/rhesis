@@ -60,6 +60,11 @@ export enum EventType {
   // Preflight check events
   PREFLIGHT_CHECK_UPDATE = 'preflight.check_update',
   PREFLIGHT_COMPLETE = 'preflight.complete',
+
+  // Job events, published on a "job:{job_id}" channel so the Jobs screen can
+  // replace polling with a live subscription.
+  JOB_STATUS_CHANGED = 'job.status_changed',
+  JOB_ACTIVITY_APPENDED = 'job.activity_appended',
 }
 
 /**

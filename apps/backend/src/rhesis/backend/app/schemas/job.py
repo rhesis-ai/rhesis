@@ -41,6 +41,8 @@ class Job(BaseModel):
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
 
+    user_display_name: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
     @computed_field

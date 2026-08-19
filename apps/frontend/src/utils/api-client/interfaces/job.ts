@@ -50,6 +50,9 @@ export interface Job {
 
   job_metadata?: Record<string, unknown>;
 
+  /** Display name of the user who started this job. */
+  user_display_name?: string;
+
   created_at: string;
   updated_at: string;
 

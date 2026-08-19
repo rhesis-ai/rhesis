@@ -23,6 +23,8 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { EventType } from '@/utils/websocket';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { jobKeys } from '@/constants/query-keys';
 import type { Job } from '@/utils/api-client/interfaces/job';
@@ -31,12 +33,10 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import ActivityLogViewer from './components/ActivityLogViewer';
 
 /**
- * How often to re-read a job that is still running.
- *
- * Polling rather than the WebSocket for now: the events layer that would push
- * `job.*` updates is not built yet, and a fixed interval on an open detail view
- * is cheap. The interval stops as soon as the job reports itself terminal, so an
- * idle tab costs nothing.
+ * Fallback poll interval for a running job while the WebSocket is not
+ * connected. WebSocketSink pushes `job.*` events onto "job:{job_id}" the
+ * moment they happen, so this only covers the gap before the socket
+ * connects (or a reconnect) -- it is not the primary update mechanism.
  */
 const LIVE_POLL_MS = 3000;
 
@@ -74,23 +74,94 @@ export default function JobDetailPage() {
 
   const enabled = isAuthenticated(sessionStatus) && canRead && jobId !== '';
 
+  const {
+    isConnected,
+    subscribe,
+    subscribeToChannel,
+    unsubscribeFromChannel,
+  } = useWebSocketContext();
+
+  const channel = `job:${jobId}`;
+
+  // A denied subscription must fall back to polling rather than leave the
+  // view frozen on stale data: the socket is connected, so without this the
+  // "connected means live updates" assumption below would silently hold
+  // while no job event can ever arrive.
+  const [subscriptionFailed, setSubscriptionFailed] = React.useState(false);
+  React.useEffect(() => setSubscriptionFailed(false), [jobId]);
+
+  const liveUpdates = isConnected && !subscriptionFailed;
+
   const { data: job, error: jobError } = useQuery<Job>({
     queryKey: jobKeys.detail(jobId),
     enabled,
     queryFn: () => new ApiClientFactory().getJobsClient().getJob(jobId),
-    // Stop polling once the backend says the job has stopped. is_terminal is
-    // served rather than derived here so this does not need its own list of
-    // which statuses are final.
+    // Stop polling once the backend says the job has stopped, or once live
+    // updates are actually arriving. is_terminal is served rather than
+    // derived here so this does not need its own list of which statuses are
+    // final.
     refetchInterval: query =>
-      query.state.data?.is_terminal ? false : LIVE_POLL_MS,
+      query.state.data?.is_terminal || liveUpdates ? false : LIVE_POLL_MS,
   });
 
   const { data: activity } = useQuery({
     queryKey: jobKeys.activity(jobId),
     enabled,
     queryFn: () => new ApiClientFactory().getJobsClient().getJobActivity(jobId),
-    refetchInterval: job?.is_terminal ? false : LIVE_POLL_MS,
+    refetchInterval: job?.is_terminal || liveUpdates ? false : LIVE_POLL_MS,
   });
+
+  // job.id IS jobId (the route param is the job's own id, see
+  // GET /jobs/detail/{job_id}), but the channel subscription still waits for
+  // the job to load: a project-scoped job needs its project_id in the
+  // subscribe call, or the fail-closed project_isolation RLS policy denies
+  // it (see useWebSocket.ts's ChannelSubscription doc).
+  React.useEffect(() => {
+    if (!job || !isConnected) return;
+
+    subscribeToChannel(channel, job.project_id ?? null);
+    return () => {
+      unsubscribeFromChannel(channel);
+    };
+  }, [job, isConnected, channel, subscribeToChannel, unsubscribeFromChannel]);
+
+  // WebSocketSink pushes these without the full row (see events/sinks/websocket.py),
+  // so a live update just invalidates the cache -- the next fetch is still the
+  // single source of truth for what a job/activity row actually contains.
+  //
+  // Handlers are registered per event type on a connection shared by the whole
+  // app, so each one checks the channel: without it, another job's events
+  // (e.g. mid-navigation, before the old channel's unsubscribe lands) would
+  // refetch this job.
+  React.useEffect(() => {
+    const forThisJob =
+      (handler: () => void) =>
+      (msg: { channel?: string | null }): void => {
+        if (msg.channel === channel) handler();
+      };
+
+    const unsubStatus = subscribe(
+      EventType.JOB_STATUS_CHANGED,
+      forThisJob(() =>
+        queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) })
+      )
+    );
+    const unsubActivity = subscribe(
+      EventType.JOB_ACTIVITY_APPENDED,
+      forThisJob(() =>
+        queryClient.invalidateQueries({ queryKey: jobKeys.activity(jobId) })
+      )
+    );
+    const unsubError = subscribe(
+      EventType.SUBSCRIPTION_ERROR,
+      forThisJob(() => setSubscriptionFailed(true))
+    );
+    return () => {
+      unsubStatus();
+      unsubActivity();
+      unsubError();
+    };
+  }, [jobId, channel, subscribe, queryClient]);
 
   useDocumentTitle(job?.name ? `Job: ${job.name}` : 'Job');
 
@@ -188,6 +259,12 @@ export default function JobDetailPage() {
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}>
               <Field label="Type" value={job.job_type} />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <Field
+                label="Started by"
+                value={job.user_display_name ?? '—'}
+              />
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}>
               <Field label="Queued" value={formatTimestamp(job.queued_at)} />
