@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Union
 from fastapi import HTTPException
 
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
+from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
@@ -45,7 +46,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         """
         endpoint = self.context.endpoint
         if not endpoint.endpoint_metadata:
-            raise HTTPException(
+            raise PublicHTTPException(
                 status_code=500,
                 detail="SDK endpoint missing metadata (function_name, project_id, environment)",
             )
@@ -56,7 +57,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         environment = endpoint.environment
 
         if not all([function_name, project_id, environment]):
-            raise HTTPException(
+            raise PublicHTTPException(
                 status_code=500,
                 detail=(
                     f"SDK endpoint incomplete: function_name={function_name}, "

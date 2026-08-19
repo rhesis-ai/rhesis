@@ -13,6 +13,7 @@ from typing import Any, Dict
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -125,12 +126,18 @@ async def test_endpoint(
         result = await create_invoker(context).invoke()
         logger.debug("Endpoint test invocation completed")
         return result
+    except HTTPException:
+        # What the user ran the test to find out -- a refused connection, a
+        # rejected token, an unparseable body -- is *returned* by invoke() as an
+        # ErrorResponse, not raised (services/invokers/rest_invoker.py). The only
+        # thing raised out of it is a configuration HTTPException carrying its own
+        # status, so wrapping it here would turn a 400 into a 500.
+        raise
     except ValueError as exc:
-        logger.error("ValueError testing endpoint: %s", exc)
-        raise HTTPException(status_code=400, detail=str(exc))
+        logger.warning("Invalid endpoint test configuration: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        logger.error("Exception testing endpoint: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise internal_error(exc, context="testing endpoint") from exc
 
 
 async def test_endpoint_mapping(
@@ -201,9 +208,13 @@ async def test_endpoint_mapping(
         result = await create_invoker(context).invoke()
         logger.debug("Endpoint mapping test completed")
         return result
+    except HTTPException:
+        # Same as test_endpoint above: an invoker reports the user's endpoint by
+        # returning an ErrorResponse, and only raises for configuration problems
+        # that already carry the right status.
+        raise
     except ValueError as exc:
-        logger.error("ValueError testing endpoint mapping: %s", exc)
-        raise HTTPException(status_code=400, detail=str(exc))
+        logger.warning("Invalid endpoint mapping test: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        logger.error("Exception testing endpoint mapping: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise internal_error(exc, context="testing endpoint mapping") from exc

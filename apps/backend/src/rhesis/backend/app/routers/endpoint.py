@@ -16,6 +16,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import UpstreamHTTPException, internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
@@ -149,35 +150,28 @@ async def test_endpoint(
     Returns:
         The response from the endpoint, either mapped or raw depending on endpoint configuration
     """
-    try:
-        # Safely get connection_type string value
-        connection_type_str = (
-            test_config.connection_type.value
-            if hasattr(test_config.connection_type, "value")
-            else str(test_config.connection_type)
-        )
-        logger.info(
-            f"API test request for endpoint: {test_config.url} "
-            f"({connection_type_str}, {test_config.method})"
-        )
+    # No try/except: the service already logs what it handles at the level it
+    # belongs, and re-logging a 400 "Only REST endpoints are supported" as an
+    # ERROR here said nothing the response didn't.
+    connection_type_str = (
+        test_config.connection_type.value
+        if hasattr(test_config.connection_type, "value")
+        else str(test_config.connection_type)
+    )
+    logger.info(
+        f"API test request for endpoint: {test_config.url} "
+        f"({connection_type_str}, {test_config.method})"
+    )
 
-        organization_id, user_id = tenant_context
-        result = await endpoint_service.test_endpoint(
-            db,
-            test_config,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
-        )
-        logger.info(f"API test successful for endpoint: {test_config.url}")
-        return result
-    except HTTPException as e:
-        logger.error(f"API test HTTPException for endpoint {test_config.url}: {e.detail}")
-        raise e
-    except Exception as e:
-        logger.error(
-            f"API test unexpected error for endpoint {test_config.url}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
+    organization_id, user_id = tenant_context
+    result = await endpoint_service.test_endpoint(
+        db,
+        test_config,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+    )
+    logger.info(f"API test successful for endpoint: {test_config.url}")
+    return result
 
 
 @router.post("/auto-configure", response_model=AutoConfigureResult)
@@ -209,13 +203,7 @@ async def auto_configure_endpoint(
         raise HTTPException(
             status_code=422,
             detail=str(e),
-        )
-    except Exception as e:
-        logger.error(
-            f"Auto-configure unexpected error: {str(e)}",
-            exc_info=True,
-        )
-        raise HTTPException(status_code=500, detail=str(e))
+        ) from e
 
 
 @router.get("/schema")
@@ -374,17 +362,18 @@ async def invoke_endpoint(
         )
         logger.info(f"API invoke successful for endpoint {endpoint_id}")
         return result
-    except HTTPException as e:
-        logger.error(f"API invoke HTTPException for endpoint {endpoint_id}: {e.detail}")
-        raise e
     except EndpointInvocationError as e:
-        logger.error(f"API invoke error for endpoint {endpoint_id}: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
-    except Exception as e:
-        logger.error(
-            f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
+        # Not logged here: `internal_error` logs our failures with a stack, and
+        # the global handler logs an UpstreamHTTPException once as a warning.
+        status_code = e.status_code or 500
+        # EndpointService wraps *our* failures in this same type as
+        # error_type="internal_error" (services/endpoint/service.py), so the
+        # discriminator is what separates the user's endpoint from our bug.
+        if e.error_type == "internal_error":
+            raise internal_error(
+                e, context=f"invoking endpoint {endpoint_id}", status_code=status_code
+            ) from e
+        raise UpstreamHTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.post(

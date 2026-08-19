@@ -273,14 +273,16 @@ class TestHandleExecutionError:
         assert "user does not have access" in str(result.detail).lower()
 
     def test_handle_generic_exception(self):
-        """Test generic exceptions are converted to 500."""
+        """Test generic exceptions are converted to a masked 500."""
         error = RuntimeError("Something unexpected happened")
 
         result = handle_execution_error(error, "execute test configuration")
 
         assert result.status_code == 500
-        assert "execute test configuration" in str(result.detail).lower()
-        assert "something unexpected happened" in str(result.detail).lower()
+        # The reason belongs in the log, not the response. See app/error_handlers.py.
+        assert result.detail == "An unexpected error occurred."
+        assert "something unexpected happened" not in str(result.detail).lower()
+        assert getattr(result, "rhesis_logged", False) is True
 
 
 class TestErrorMessageContent:

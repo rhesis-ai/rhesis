@@ -115,11 +115,17 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-        except Exception as e:
-            logger.error(f"Unexpected error testing model connection: {str(e)}", exc_info=True)
+        except Exception:
+            # `message` is handed to the client in a 200 body, where no masking
+            # layer can see it -- so a failure of ours gets a fixed string and
+            # the reason goes to the log instead.
+            logger.exception("Unexpected error testing model connection")
             return ModelConnectionTestResult(
                 success=False,
-                message=f"Unexpected error: {str(e)}",
+                message=(
+                    "The connection test could not be completed due to an "
+                    "internal error. Please try again."
+                ),
                 provider=provider,
                 model_name=model_name,
             )
@@ -178,8 +184,14 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
             except Exception as e:
-                # API call failed - likely authentication or network issue
-                logger.warning(f"Language model generation test failed: {str(e)}")
+                # The provider's own text goes to the user, not to our logs: it
+                # can quote the API key they just typed ("Incorrect API key
+                # provided: sk-...").
+                logger.warning(
+                    "Language model generation test failed for %s: %s",
+                    provider,
+                    type(e).__name__,
+                )
                 return ModelConnectionTestResult(
                     success=False,
                     message=str(e),
@@ -187,13 +199,14 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-        except Exception as e:
-            logger.error(
-                f"Unexpected error testing language model connection: {str(e)}", exc_info=True
-            )
+        except Exception:
+            logger.exception("Unexpected error testing language model connection")
             return ModelConnectionTestResult(
                 success=False,
-                message=f"Unexpected error: {str(e)}",
+                message=(
+                    "The connection test could not be completed due to an "
+                    "internal error. Please try again."
+                ),
                 provider=provider,
                 model_name=model_name,
             )
@@ -255,8 +268,13 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
             except Exception as e:
-                # API call failed - likely authentication or network issue
-                logger.warning(f"Embedding model generation test failed: {str(e)}")
+                # Provider text is for the user only -- see the language-model
+                # branch above.
+                logger.warning(
+                    "Embedding model generation test failed for %s: %s",
+                    provider,
+                    type(e).__name__,
+                )
                 return ModelConnectionTestResult(
                     success=False,
                     message=str(e),
@@ -264,11 +282,14 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-        except Exception as e:
-            logger.error(f"Unexpected error testing embedding connection: {str(e)}", exc_info=True)
+        except Exception:
+            logger.exception("Unexpected error testing embedding connection")
             return ModelConnectionTestResult(
                 success=False,
-                message=f"Unexpected error: {str(e)}",
+                message=(
+                    "The connection test could not be completed due to an "
+                    "internal error. Please try again."
+                ),
                 provider=provider,
                 model_name=model_name,
             )

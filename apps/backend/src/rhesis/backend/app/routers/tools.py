@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import List, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     CreateJiraTicketFromTaskRequest,
@@ -50,6 +52,7 @@ from rhesis.backend.app.services.tool.rest import (
 )
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.sdk.agents.mcp.exceptions import MCPError
 
 logger = logging.getLogger(__name__)
 
@@ -474,10 +477,11 @@ async def extract_tool_item(
     except HTTPException:
         raise
     except (ToolConfigurationError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"Tool extract error: {e}", exc_info=True)
-        raise handle_mcp_exception(e, "extract")
+        # No log here: handle_mcp_exception logs with the MCP category attached
+        # and marks the result, so this failure is recorded exactly once.
+        raise handle_mcp_exception(e, "extract") from e
 
 
 def _ensure_mcp_saved_credential_override(provider: str) -> None:
@@ -563,10 +567,22 @@ async def test_tool_connection(
                 project_id=project_id,
             )
     except (ToolConfigurationError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Tool health check error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except httpx.HTTPError as e:
+        # Wrong host, unreachable instance, timeout -- the user's own service,
+        # and the reason is the entire result of a connection test. Bad
+        # credentials never land here: health_check answers those with 200 and
+        # is_authenticated="No".
+        reason = str(e) or type(e).__name__
+        logger.warning("Tool connection test could not reach the provider: %s", reason)
+        upstream = UpstreamHTTPException(
+            status_code=502, detail=f"Could not reach the provider: {reason}"
+        )
+        upstream.rhesis_logged = True
+        raise upstream from e
+    except MCPError as e:
+        # MCP providers report the same failures through their own exceptions.
+        raise handle_mcp_exception(e, "test connection") from e
 
 
 @router.post("/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
@@ -598,13 +614,10 @@ async def create_jira_ticket_from_task_endpoint(
             user_id=user_id,
         )
     except ToolConfigurationError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
         logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to create Jira ticket: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{tool_id}", status_code=204)

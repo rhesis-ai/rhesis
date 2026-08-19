@@ -150,7 +150,10 @@ class TestConnectorHTTPEndpoints:
 
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
             data = response.json()
+            # A deliberate, secret-free message (PublicHTTPException) reaches the
+            # caller unmasked -- their SDK client dropped the request.
             assert "failed" in data["detail"].lower()
+            assert data["error_id"]
 
     def test_trigger_test_project_not_a_member(self, authenticated_client: TestClient):
         """Test trigger when the user is not a member of the requested project.

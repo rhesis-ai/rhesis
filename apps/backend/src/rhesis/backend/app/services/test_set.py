@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any, Dict, List
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
@@ -370,8 +372,20 @@ def bulk_create_test_set(
         # Transaction commit/rollback is handled by the session context manager
         return test_set
 
+    except ValidationError as e:
+        # The uploaded test set is malformed -- the caller's fault, so it must not
+        # be laundered into a bare Exception. Reported as which fields failed and
+        # why: pydantic's own str() echoes the submitted values back.
+        problems = "; ".join(
+            f"{'.'.join(str(part) for part in err['loc'])}: {err['msg']}" for err in e.errors()
+        )
+        raise ValueError(f"Invalid test set data: {problems}") from e
+    except IntegrityError:
+        # A constraint the caller tripped (duplicate name, bad reference). Left
+        # intact so the router's handle_database_exceptions can map it to a 4xx.
+        raise
     except Exception as e:
-        raise Exception(f"Failed to create test set: {str(e)}")
+        raise Exception(f"Failed to create test set: {str(e)}") from e
 
 
 def create_test_set_associations(
@@ -1075,12 +1089,20 @@ def _submit_test_configuration_for_execution(
             current_user=current_user,
             db=db,
         )
-    except Exception as exc:
+    except Exception:
         # Mark the queued test run as failed so it doesn't stay stuck
         from rhesis.backend.tasks.enums import RunStatus
         from rhesis.backend.tasks.execution.run import update_test_run_status
 
-        update_test_run_status(db, test_run, RunStatus.FAILED.value, error=str(exc))
+        # Same rule as the response: the stored text is shown in the UI, and a
+        # broker error carries the connection string with it. Full text in the log.
+        logger.exception("Failed to submit test configuration %s for execution", test_config_id)
+        update_test_run_status(
+            db,
+            test_run,
+            RunStatus.FAILED.value,
+            error="Failed to submit the test run for execution.",
+        )
         db.commit()
         raise
 

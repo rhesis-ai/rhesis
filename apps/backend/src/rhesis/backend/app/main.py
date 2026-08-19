@@ -19,10 +19,12 @@ initialize_telemetry()
 
 # ruff: noqa: E402 - Imports must come after telemetry initialization
 from fastapi import Depends, FastAPI, Request
+from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -41,12 +43,15 @@ from rhesis.backend.app.config.settings import (
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
+    http_exception_handler,
     log_validation_error,
+    unhandled_exception_handler,
 )
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
+from rhesis.backend.app.utils.request_context import RequestIDMiddleware
 from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import set_logger
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
@@ -676,16 +681,20 @@ async def quota_exceeded_exception_handler(request: Request, exc: QuotaExceededE
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle FastAPI request validation errors with detailed logging."""
-    # Log the detailed validation error for debugging
-    logger.error(
-        f"Request validation error on {request.method} {request.url}: {exc}", exc_info=True
-    )
-
-    # Log detailed validation errors
+    # One warning line per bad field, and no traceback: a 422 is the caller
+    # sending us the wrong shape, not a fault of ours to debug.
     log_validation_error(exc, request)
 
     # Return clean JSON response
     return create_validation_error_response(exc)
+
+
+# Server-side failures: log in full, tell the client nothing but an error_id.
+# Registered for both bases because FastAPI's HTTPException subclasses Starlette's
+# but is looked up by exact class first.
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(FastAPIHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 # Configure CORS
@@ -696,7 +705,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Total-Count", "X-Test-Header"],
+    # X-Request-ID must be exposed or browser JS cannot read the id it needs
+    # to quote back to support.
+    expose_headers=["X-Total-Count", "X-Test-Header", "X-Request-ID"],
 )
 
 # SESSION_SECRET_KEY is a required setting (see AuthSettings), so this fails
@@ -746,6 +757,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 # Outermost middleware -- runs first on every response
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Added last so it ends up outermost: every other middleware's log lines then
+# carry the request id too.
+app.add_middleware(RequestIDMiddleware)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):

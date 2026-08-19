@@ -10,6 +10,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.celery.core import app as celery_app
 from rhesis.backend.tasks import task_launcher
@@ -68,24 +69,18 @@ async def test_email_notifications(
     2. Email notifications are being sent on task completion
     3. The email template and content are correct
     """
-    try:
-        # Use task_launcher to handle context
-        result = task_launcher(
-            email_notification_test, test_message=message, current_user=current_user, db=db
-        )
+    # Use task_launcher to handle context
+    result = task_launcher(
+        email_notification_test, test_message=message, current_user=current_user, db=db
+    )
 
-        return {
-            "task_id": result.id,
-            "message": (
-                "Email notification test task submitted. "
-                "You should receive an email when it completes."
-            ),
-            "user_email": current_user.email if hasattr(current_user, "email") else None,
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to submit email notification test: {str(e)}"
-        )
+    return {
+        "task_id": result.id,
+        "message": (
+            "Email notification test task submitted. You should receive an email when it completes."
+        ),
+        "user_email": current_user.email if hasattr(current_user, "email") else None,
+    }
 
 
 async def create_task(
@@ -111,10 +106,8 @@ async def create_task(
         result = task_launcher(task, current_user=current_user, db=db, **payload)
 
         return {"task_id": result.id}
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Task {task_name} not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=f"Task {task_name} not found") from e
 
 
 @router.get("/{task_id}")
@@ -146,15 +139,16 @@ async def health_check(current_user: schemas.User = Depends(require_current_user
     try:
         inspector = celery_app.control.inspect()
         stats = inspector.stats()
-        if not stats:
-            raise HTTPException(status_code=503, detail="No Celery workers available")
-        return {
-            "status": "healthy",
-            "workers": len(stats),
-            "tasks_registered": len(celery_app.tasks),
-        }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Celery health check failed: {str(e)}")
+        raise internal_error(e, context="Celery health check", status_code=503) from e
+
+    if not stats:
+        raise PublicHTTPException(status_code=503, detail="No Celery workers available")
+    return {
+        "status": "healthy",
+        "workers": len(stats),
+        "tasks_registered": len(celery_app.tasks),
+    }
 
 
 async def get_workers_status(current_user: schemas.User = Depends(require_current_user_or_token)):
@@ -171,4 +165,4 @@ async def get_workers_status(current_user: schemas.User = Depends(require_curren
             "ping": inspector.ping() or {},
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Failed to get worker status: {str(e)}")
+        raise internal_error(e, context="collecting Celery worker status", status_code=503) from e

@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import socket
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
@@ -333,23 +334,32 @@ class EndpointService:
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
 
+        # Nothing is logged here: every caller records the failure once -- the
+        # router through `internal_error` or the global handler, the batch runner
+        # with its own traceback -- and error_type says whose fault it was.
         except EndpointInvocationError:
             raise
+        except HTTPException:
+            # An invoker's configuration error ("Unsupported HTTP method: PATCH")
+            # is the caller's to fix and already carries the right status; the
+            # broad handler below would relabel it as ours and make it a 500.
+            raise
         except ValueError as e:
-            logger.error(f"ValueError invoking endpoint: {e}")
             raise EndpointInvocationError(
                 str(e), transient=False, status_code=400, error_type="validation_error"
-            )
-        except (TimeoutError, ConnectionError, OSError) as e:
-            logger.error(f"Transient error invoking endpoint: {e}", exc_info=True)
+            ) from e
+        except (TimeoutError, ConnectionError, socket.gaierror) as e:
+            # Not OSError as a whole: FileNotFoundError and PermissionError from
+            # the storage and file-extraction code above are also OSErrors, and a
+            # network_error detail is passed through to the client unmasked --
+            # which would answer a storage failure with one of our server paths.
             raise EndpointInvocationError(
                 str(e), transient=True, status_code=502, error_type="network_error"
-            )
+            ) from e
         except Exception as e:
-            logger.error(f"Exception invoking endpoint: {e}", exc_info=True)
             raise EndpointInvocationError(
                 str(e), transient=False, status_code=500, error_type="internal_error"
-            )
+            ) from e
 
     @staticmethod
     def _link_first_turn_trace(

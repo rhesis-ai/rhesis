@@ -17,6 +17,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.organization import (
     execute_initial_test_runs,
@@ -78,12 +79,8 @@ def read_organizations(
             organization_id=organization_id,
             user_id=user_id,
         )
-    except HTTPException:
-        raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve organizations: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{organization_id}", response_model=schemas.Organization)
@@ -104,12 +101,8 @@ def read_organization(
         if db_organization is None:
             raise HTTPException(status_code=404, detail="Organization not found")
         return db_organization
-    except HTTPException:
-        raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve organization: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/{organization_id}", response_model=schemas.Organization)
@@ -225,12 +218,11 @@ def initialize_organization_data(
         # Re-raise HTTP exceptions
         raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.exception("load-initial-data failed for org_id=%s", organization_id)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to initialize organization data: {str(e)}"
-        )
+        raise internal_error(
+            e, context=f"loading initial data for organization {organization_id}"
+        ) from e
 
     # Schedule onboarding emails AFTER successful DB commit
     logger.info("Onboarding complete — scheduling Day 1/2/3 emails for org_id=%s", organization_id)
@@ -293,12 +285,5 @@ def rollback_organization_data(
         # Transaction commit is handled by the session context manager
 
         return {"status": "success", "message": "Initial data rolled back successfully"}
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to rollback organization data: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e)) from e

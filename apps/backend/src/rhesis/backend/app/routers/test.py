@@ -17,6 +17,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
@@ -109,6 +110,10 @@ def create_tests_bulk(
         return schemas.TestBulkCreateResponse(
             success=True, total_tests=len(tests), message=f"Successfully created {len(tests)} tests"
         )
+    except HTTPException:
+        # The empty-request 400 above is raised inside this try; without this
+        # arm the broad handler below turns it into a 500.
+        raise
     except ValueError as e:
         # Handle validation errors
         raise HTTPException(status_code=400, detail=str(e))
@@ -122,15 +127,18 @@ def create_tests_bulk(
             detail="Database integrity error: A record with the same unique values already exists",
         )
     except Exception as e:
-        error_message = str(e)
-        if "not found" in error_message.lower():
-            # Handle cases where referenced entities (e.g., test set) are not found
-            raise HTTPException(status_code=404, detail=error_message)
-        else:
-            # Handle unexpected server errors
-            raise HTTPException(
-                status_code=500, detail=f"An error occurred while creating tests: {error_message}"
+        if "not found" in str(e).lower():
+            # A caller error, so: no stack in the log, and the message names what
+            # they can act on. The test set id is the only reference they supplied
+            # -- everything else a bulk test refers to is get-or-created.
+            logger.warning("Referenced entity missing while creating tests in bulk: %s", e)
+            missing = (
+                f"Test set {test_data.test_set_id} not found or not accessible"
+                if test_data.test_set_id
+                else "A referenced entity was not found"
             )
+            raise HTTPException(status_code=404, detail=missing) from e
+        raise internal_error(e, context="creating tests in bulk") from e
 
 
 @router.delete("/bulk", response_model=schemas.TestBulkDeleteResponse)
@@ -178,16 +186,7 @@ def extract_test_from_conversation_endpoint(
             test_type=request.test_type or "Multi-Turn",
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(
-            f"Error extracting test from conversation: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=(f"Failed to extract test from conversation: {str(e)}"),
-        )
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/", response_model=List[schemas.TestDetail])

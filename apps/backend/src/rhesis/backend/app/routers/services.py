@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
@@ -39,6 +40,10 @@ from rhesis.backend.app.services.tool.mcp import (
     query_mcp,
 )
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
+from rhesis.backend.app.utils.model_errors import (
+    EmbeddingProviderNotConfigured,
+    ModelConfigurationError,
+)
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.models.providers.native import USAGE_HEADER
 
@@ -51,6 +56,38 @@ router = RhesisRouter(
     dependencies=[Depends(require_current_user_or_token)],
     resource="service",
 )
+
+
+#: Attribute names an LLM provider hangs its HTTP status on. No single name
+#: covers them: litellm and the OpenAI SDK use ``status_code``, aiohttp (raised
+#: by RhesisEmbedder) uses ``status``, google-api-core uses ``code`` -- last,
+#: because aiohttp also keeps ``code`` as a deprecated alias.
+_PROVIDER_STATUS_ATTRIBUTES = ("status_code", "status", "code")
+
+
+def _provider_status(error: Exception) -> int | None:
+    """The HTTP status a model provider attached to this failure, if any."""
+    for attribute in _PROVIDER_STATUS_ATTRIBUTES:
+        status = getattr(error, attribute, None)
+        if isinstance(status, int) and 400 <= status < 600:
+            return status
+    return None
+
+
+def _model_call_failure(error: Exception, *, context: str, summary: str) -> HTTPException:
+    """Split a model failure into "the provider said no" and "we broke".
+
+    A provider that answered with an HTTP status said the one thing the caller
+    can act on -- invalid api key, unknown model, context length exceeded, rate
+    limit exceeded -- and none of that text is ours to hide. A failure carrying
+    no provider status is our own bug: a traceback in the log and a masked 500,
+    not a 400 that blames the caller for it.
+    """
+    status = _provider_status(error)
+    if status is None:
+        return internal_error(error, context=context)
+    logger.warning("%s: model provider returned %s: %s", context, status, error)
+    return HTTPException(status_code=400, detail=f"{summary}: {error}")
 
 
 def _handle_generation_error(error: Exception) -> None:
@@ -88,11 +125,10 @@ def get_github_contents(repo_url: str):
         contents = read_repo_contents(repo_url)
         return contents
     except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to get GitHub contents for {repo_url}: {error_msg}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail=f"Failed to retrieve repository contents: {error_msg}"
-        )
+        # GitHub's own answers never reach here: read_repo_contents swallows a
+        # failed download and returns "". What is left is ours -- temp directory,
+        # disk, decoding -- so it is a masked 500, not a 400 blaming the caller.
+        raise internal_error(e, context=f"reading GitHub contents for {repo_url}") from e
 
 
 @router.post("/generate/content")
@@ -208,10 +244,16 @@ async def generate_content_endpoint(
             http_response.headers[USAGE_HEADER] = json.dumps(captured_usage)
 
         return result
+    except HTTPException:
+        raise
+    except ModelConfigurationError as e:
+        # Written for this caller: names their model and what to change in the
+        # Models page.
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to generate content: {error_msg}")
+        raise _model_call_failure(
+            e, context="generating content", summary="Failed to generate content"
+        ) from e
 
 
 @router.post("/generate/embedding")
@@ -228,8 +270,6 @@ def generate_embedding_endpoint(
         db: The database session
         current_user: The current authenticated user
     """
-    from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-
     try:
         from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
         from rhesis.sdk.models.factory import get_model
@@ -239,22 +279,32 @@ def generate_embedding_endpoint(
         if isinstance(embedder, str):
             embedder = get_model(embedder, model_type="embedding")
         if isinstance(embedder, RhesisEmbedder):
-            raise ModelConfigurationError(
+            raise EmbeddingProviderNotConfigured(
                 "Embedding model resolved to the Rhesis native provider, which would call "
                 "this endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an actual "
                 "provider (e.g. vertex_ai/text-embedding-005)."
             )
         embedding = embedder.generate(text=request.text)
         return embedding
+    except HTTPException:
+        raise
+    except EmbeddingProviderNotConfigured as e:
+        # This deployment's DEFAULT_EMBEDDING_MODEL, not a bad request from this
+        # caller — no client-side fix makes it succeed, so it stays a 500. The
+        # setting name belongs in the log, not the response.
+        raise internal_error(
+            e,
+            context="generating embedding",
+            public_detail="No embedding model is configured for this deployment.",
+        ) from e
     except ModelConfigurationError as e:
-        # Deployment misconfiguration (DEFAULT_EMBEDDING_MODEL), not a bad
-        # request from this caller — no client-side fix makes this succeed.
-        logger.error(f"Embedding model misconfigured: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Written for this caller: names their model and what to change in the
+        # Models page.
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to generate embedding: {error_msg}")
+        raise _model_call_failure(
+            e, context="generating embedding", summary="Failed to generate embedding"
+        ) from e
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
@@ -468,21 +518,8 @@ async def generate_test_config(
         logger.warning(f"Invalid request for test config generation: {str(e)}")
         http_exception = handle_execution_error(e, operation="generate test configuration")
         raise http_exception
-    except RuntimeError as e:
-        logger.error(f"Test config generation failed: {str(e)}", exc_info=True)
-        detail = str(e) if e.args else "Failed to generate test configuration"
-        raise HTTPException(status_code=500, detail=detail)
     except Exception as e:
-        logger.error(
-            f"Unexpected error in test config generation: {str(e)}",
-            exc_info=True,
-        )
-        error_detail = (
-            str(e)
-            if str(e)
-            else "An unexpected error occurred during test configuration generation"
-        )
-        raise HTTPException(status_code=500, detail=error_detail)
+        raise internal_error(e, context="generating test configuration") from e
 
 
 @router.post("/mcp/query", response_model=QueryMCPResponse)
@@ -536,7 +573,7 @@ async def query_mcp_server(
         )
         return result
     except Exception as e:
-        raise handle_mcp_exception(e, "query")
+        raise handle_mcp_exception(e, "query") from e
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)
@@ -568,5 +605,4 @@ def get_recent_activities(
         result = service.get_recent_activities(db=db, organization_id=organization_id, limit=limit)
         return RecentActivitiesResponse(**result)
     except Exception as e:
-        logger.error(f"Failed to get recent activities: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve recent activities")
+        raise internal_error(e, context="retrieving recent activities") from e

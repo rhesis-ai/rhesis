@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -138,10 +139,5 @@ def handle_execution_error(error: Exception, operation: str = "execute tests") -
         logger.warning(f"Permission denied for {operation}: {str(error)}")
         return HTTPException(status_code=403, detail=str(error))
 
-    # Unexpected error - include error details for better debugging
-    error_msg = str(error) if str(error) else "An unexpected error occurred"
-    logger.error(f"Failed to {operation}: {error_msg}", exc_info=True)
-    return HTTPException(
-        status_code=500,
-        detail=f"Failed to {operation}: {error_msg}",
-    )
+    # Unexpected: the reason goes to the log with a stack, not to the caller.
+    return internal_error(error, context=f"failed to {operation}")

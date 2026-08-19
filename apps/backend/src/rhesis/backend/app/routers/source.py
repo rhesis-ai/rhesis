@@ -208,9 +208,7 @@ async def upload_source(
             description=description,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to upload source: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{source_id}/extract")
@@ -251,13 +249,11 @@ async def extract_source_content_endpoint(
             user_id=str(user_id),
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Failed to extract content: {str(e)}")
-    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail=f"Failed to extract content: {str(e)}") from e
+    except FileNotFoundError as e:
         raise HTTPException(
             status_code=404, detail="Source file not found. Please check the file path."
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to extract content: {str(e)}")
+        ) from e
 
 
 @router.get("/{source_id}/content", response_model=schemas.SourceWithContent)
@@ -381,10 +377,8 @@ async def get_source_file(
             },
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except FileNotFoundError as e:
         raise HTTPException(
             status_code=404, detail="Source file not found. Please check the file path."
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve source content: {str(e)}")
+        ) from e

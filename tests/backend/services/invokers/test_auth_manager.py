@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import HTTPException
 
+from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.services.invokers.auth.manager import AuthenticationManager
 
 
@@ -163,8 +164,11 @@ class TestAuthenticationManager:
             with pytest.raises(HTTPException) as exc_info:
                 manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
-            assert exc_info.value.status_code == 500
-            assert "Failed to get client credentials token" in str(exc_info.value.detail)
+            # 502 and an UpstreamHTTPException: the caller's own token URL failed,
+            # so the reason reaches them instead of being masked as our error.
+            assert exc_info.value.status_code == 502
+            assert isinstance(exc_info.value, UpstreamHTTPException)
+            assert "configured token URL" in str(exc_info.value.detail)
 
     def test_get_client_credentials_token_http_error(self, mock_db, sample_endpoint_oauth):
         """Test OAuth flow handles HTTP errors."""
@@ -180,7 +184,7 @@ class TestAuthenticationManager:
             with pytest.raises(HTTPException) as exc_info:
                 manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
-            assert exc_info.value.status_code == 500
+            assert exc_info.value.status_code == 502
 
     def test_get_client_credentials_token_updates_endpoint_cache(
         self, mock_db, sample_endpoint_oauth

@@ -4,11 +4,25 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, Response
 
+from rhesis.backend.app.error_handlers import public_message
 from rhesis.backend.app.routers.services import (
     generate_content_endpoint,
     generate_embedding_endpoint,
 )
 from rhesis.backend.app.schemas.services import GenerateContentRequest, GenerateEmbeddingRequest
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+
+
+class ProviderError(Exception):
+    """Stand-in for a litellm/openai provider error.
+
+    Those carry the status the provider answered with on ``status_code``, which
+    is what separates "the provider said no" from a bug of ours.
+    """
+
+    def __init__(self, message: str, status_code: int = 401):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class TestGenerateContentEndpoint:
@@ -47,9 +61,35 @@ class TestGenerateContentEndpoint:
             mock_get_gen.assert_called_once_with(mock_db, mock_user)
 
     @pytest.mark.asyncio
-    async def test_generate_content_endpoint_exception_handling(self):
-        """Test that exceptions are properly handled and converted to HTTPException."""
-        # Arrange
+    async def test_provider_error_keeps_the_providers_reason(self):
+        """A provider that answered with a status told the caller the one thing
+        they can act on -- "invalid api key" -- so it stays a 400 that says so."""
+        mock_request = GenerateContentRequest(
+            prompt="Generate a test function",
+            schema={"type": "object"},
+        )
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+        http_response = Response()
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
+        ) as mock_get_gen:
+            mock_get_gen.side_effect = ProviderError("invalid api key", status_code=401)
+
+            with pytest.raises(HTTPException) as exc_info:
+                await generate_content_endpoint(
+                    mock_request, http_response, db=mock_db, current_user=mock_user
+                )
+
+            assert exc_info.value.status_code == 400
+            assert str(exc_info.value.detail) == "Failed to generate content: invalid api key"
+
+    @pytest.mark.asyncio
+    async def test_internal_failure_is_masked(self):
+        """A failure with no provider status is ours: masked 500, logged with a
+        traceback. This is the exemption's edge -- it must not widen to cover
+        our own bugs."""
         mock_request = GenerateContentRequest(
             prompt="Generate a test function",
             schema={"type": "object"},
@@ -63,15 +103,16 @@ class TestGenerateContentEndpoint:
         ) as mock_get_gen:
             mock_get_gen.side_effect = Exception("Model initialization failed")
 
-            # Act & Assert
             with pytest.raises(HTTPException) as exc_info:
                 await generate_content_endpoint(
                     mock_request, http_response, db=mock_db, current_user=mock_user
                 )
 
-            assert exc_info.value.status_code == 400
-            assert "Failed to generate content:" in str(exc_info.value.detail)
-            assert "Model initialization failed" in str(exc_info.value.detail)
+            assert exc_info.value.status_code == 500
+            assert str(exc_info.value.detail) == public_message(500)
+            assert "Model initialization failed" not in str(exc_info.value.detail)
+            # Logged by internal_error, so the global handler won't repeat it.
+            assert getattr(exc_info.value, "rhesis_logged", False) is True
 
 
 class TestGenerateEmbeddingEndpoint:
@@ -84,8 +125,9 @@ class TestGenerateEmbeddingEndpoint:
     input change fixes the second one.
     """
 
-    def test_plain_provider_error_returns_400(self):
-        """A provider-side failure is still a 400 — the request itself is bad."""
+    def test_plain_provider_error_returns_400_with_the_reason(self):
+        """A provider-side failure is still a 400 — the request itself is bad —
+        and the provider's reason is what makes it actionable."""
         mock_request = GenerateEmbeddingRequest(text="some text")
         mock_db = MagicMock()
         mock_user = MagicMock()
@@ -93,13 +135,57 @@ class TestGenerateEmbeddingEndpoint:
         with patch(
             "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
         ) as mock_get_embedding_model:
-            mock_get_embedding_model.side_effect = Exception("Provider rejected the request")
+            mock_get_embedding_model.side_effect = ProviderError(
+                "context length exceeded", status_code=400
+            )
 
             with pytest.raises(HTTPException) as exc_info:
                 generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
 
             assert exc_info.value.status_code == 400
-            assert "Failed to generate embedding:" in str(exc_info.value.detail)
+            assert (
+                str(exc_info.value.detail)
+                == "Failed to generate embedding: context length exceeded"
+            )
+
+    def test_model_configuration_error_keeps_its_message(self):
+        """A message naming the caller's own model setting is theirs to read."""
+        mock_request = GenerateEmbeddingRequest(text="some text")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
+        ) as mock_get_embedding_model:
+            mock_get_embedding_model.side_effect = ModelConfigurationError(
+                "Your configured embedding model 'e5' requires an API key that is missing."
+            )
+
+            with pytest.raises(HTTPException) as exc_info:
+                generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
+
+            assert exc_info.value.status_code == 400
+            assert "requires an API key" in str(exc_info.value.detail)
+
+    def test_internal_failure_is_masked(self):
+        """No provider status means the failure is ours: masked 500, not a 400
+        blaming the caller. Keeps the 400 exemption from widening."""
+        mock_request = GenerateEmbeddingRequest(text="some text")
+        mock_db = MagicMock()
+        mock_user = MagicMock()
+
+        with patch(
+            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
+        ) as mock_get_embedding_model:
+            mock_get_embedding_model.side_effect = TypeError("embedder object is not callable")
+
+            with pytest.raises(HTTPException) as exc_info:
+                generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
+
+            assert exc_info.value.status_code == 500
+            assert str(exc_info.value.detail) == public_message(500)
+            assert "not callable" not in str(exc_info.value.detail)
+            assert getattr(exc_info.value, "rhesis_logged", False) is True
 
     def test_recursive_native_provider_returns_500_not_400(self):
         """DEFAULT_EMBEDDING_MODEL resolving back to RhesisEmbedder is a server
@@ -122,7 +208,13 @@ class TestGenerateEmbeddingEndpoint:
                 generate_embedding_endpoint(mock_request, db=mock_db, current_user=mock_user)
 
             assert exc_info.value.status_code == 500
-            assert "recursively" in str(exc_info.value.detail)
+            # The caller learns what is wrong; DEFAULT_EMBEDDING_MODEL and the
+            # recursion are for the log.
+            assert (
+                str(exc_info.value.detail)
+                == "No embedding model is configured for this deployment."
+            )
+            assert "recursively" not in str(exc_info.value.detail)
 
         fake_native_embedder.generate.assert_not_called()
 

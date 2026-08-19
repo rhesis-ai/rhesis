@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.owasp import (
@@ -67,12 +68,12 @@ async def get_categories(
                 for s in summaries
             ],
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error listing OWASP categories for {framework.value}: {e}")
-        raise HTTPException(
-            status_code=502,
-            detail=f"Failed to load OWASP report categories: {str(e)}",
-        )
+        raise internal_error(
+            e, context=f"listing OWASP categories for {framework.value}", status_code=502
+        ) from e
 
 
 @router.post("/generate", response_model=OwaspGenerateResponse, status_code=202)
@@ -92,46 +93,38 @@ async def generate_test_set(
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
     `GET /tasks/{task_id}`.
     """
-    try:
-        task_result = task_launcher(
-            generate_and_save_owasp_test_set,
-            current_user=current_user,
-            db=db,
-            framework=request.framework.value,
-            purpose=request.purpose,
-            categories=request.categories,
-            num_tests=request.num_tests,
-            batch_size=request.batch_size,
-            name=request.name,
-            model_id=request.model_id,
-            test_type=request.test_type.value,
-        )
+    task_result = task_launcher(
+        generate_and_save_owasp_test_set,
+        current_user=current_user,
+        db=db,
+        framework=request.framework.value,
+        purpose=request.purpose,
+        categories=request.categories,
+        num_tests=request.num_tests,
+        batch_size=request.batch_size,
+        name=request.name,
+        model_id=request.model_id,
+        test_type=request.test_type.value,
+    )
 
-        logger.info(
-            "OWASP generation task launched",
-            extra={
-                "task_id": task_result.id,
-                "framework": request.framework.value,
-                "num_tests": request.num_tests,
-                "user_id": current_user.id,
-                "organization_id": current_user.organization_id,
-            },
-        )
+    logger.info(
+        "OWASP generation task launched",
+        extra={
+            "task_id": task_result.id,
+            "framework": request.framework.value,
+            "num_tests": request.num_tests,
+            "user_id": current_user.id,
+            "organization_id": current_user.organization_id,
+        },
+    )
 
-        framework_label = OWASP_FRAMEWORKS[request.framework.value]["requirement"]
-        return OwaspGenerateResponse(
-            task_id=str(task_result.id),
-            framework=request.framework,
-            num_tests=request.num_tests,
-            message=(
-                f"Test set generation started from the {framework_label} report. "
-                f"Generating {request.num_tests} tests using your configured LLM."
-            ),
-        )
-
-    except Exception as e:
-        logger.error(f"Error launching OWASP generation: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to launch OWASP test set generation: {str(e)}",
-        )
+    framework_label = OWASP_FRAMEWORKS[request.framework.value]["requirement"]
+    return OwaspGenerateResponse(
+        task_id=str(task_result.id),
+        framework=request.framework,
+        num_tests=request.num_tests,
+        message=(
+            f"Test set generation started from the {framework_label} report. "
+            f"Generating {request.num_tests} tests using your configured LLM."
+        ),
+    )

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.models.user import User
@@ -281,7 +282,9 @@ async def trigger_test(
     )
 
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to send test request to SDK")
+        # Hand-written and free of internals: the caller's own connected SDK
+        # client dropped the request, which is the one thing they can act on.
+        raise PublicHTTPException(status_code=500, detail="Failed to send test request to SDK")
 
     return TriggerTestResponse(
         success=True,

@@ -164,11 +164,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             # Re-raise HTTPExceptions (configuration errors)
             raise
         except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            # Not the endpoint's failure but ours, so the reason stays in the log:
+            # a SQLAlchemy error here stringifies to the statement and its params.
+            logger.exception("Unexpected error invoking REST endpoint: %s", type(e).__name__)
             return self._create_error_response(
                 error_type="unexpected_error",
-                output_message=f"Unexpected error: {str(e)}",
-                message=f"Unexpected error: {str(e)}",
+                output_message="Failed to invoke endpoint due to an internal error.",
+                message="Failed to invoke endpoint due to an internal error.",
                 request_details=self._safe_request_details(locals(), "REST"),
             )
 
