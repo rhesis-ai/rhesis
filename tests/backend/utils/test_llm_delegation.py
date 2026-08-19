@@ -152,14 +152,14 @@ class TestPolyphemusModelConfiguration:
         get_rhesis_settings.cache_clear()
 
     @pytest.fixture(autouse=True)
-    def not_local_mode(self):
+    def rhesis_key_disabled(self):
         """These tests cover SaaS delegation and self-hosted-via-env-var-only
-        requirement, not the per-org platform key (local-mode-only) path -- force
-        ``is_local=False`` so a developer's own ``BACKEND_ENV=local`` .env
-        doesn't change which branch runs."""
+        requirement, not the per-org platform key (ENABLE_RHESIS_KEY-gated) path
+        -- force ``enable_rhesis_key=False`` so a developer's own
+        ``ENABLE_RHESIS_KEY=true`` .env doesn't change which branch runs."""
         with patch(
             "rhesis.backend.app.utils.user_model_utils.get_application_settings",
-            return_value=Mock(is_local=False),
+            return_value=Mock(enable_rhesis_key=False),
         ):
             yield
 

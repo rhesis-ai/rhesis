@@ -143,13 +143,21 @@ class TestFeaturesEndpoint:
     def test_response_shape_is_stable(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         body = response.json()
-        assert set(body.keys()) == {"license", "enabled", "warnings", "limits", "is_local"}
+        assert set(body.keys()) == {
+            "license",
+            "enabled",
+            "warnings",
+            "limits",
+            "is_local",
+            "rhesis_key_enabled",
+        }
         assert set(body["license"].keys()) == {"edition", "licensed"}
         assert isinstance(body["enabled"], list)
         assert all(isinstance(name, str) for name in body["enabled"])
         assert isinstance(body["warnings"], dict)
         assert isinstance(body["limits"], dict)
         assert isinstance(body["is_local"], bool)
+        assert isinstance(body["rhesis_key_enabled"], bool)
 
     def test_license_info_reflects_org(self, client: TestClient, registered_sso, mock_current_user):
         """license_info() must always receive the org object, never None.
