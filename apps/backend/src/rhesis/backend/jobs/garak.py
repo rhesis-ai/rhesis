@@ -67,6 +67,7 @@ def import_garak_probes_task(
     org_id, user_id, _ = self.get_tenant_context()
 
     probe_selections = [ProbeSelection(**p) for p in probes]
+    self.emit(f"Importing {len(probe_selections)} Garak probe(s)")
 
     with self.get_db_session() as db:
         importer = GarakImporter(db)
@@ -79,6 +80,11 @@ def import_garak_probes_task(
         )
         for test_set in result["test_sets"]:
             test_set["test_set_id"] = str(test_set["test_set_id"])
+
+    self.emit(
+        f"Garak import complete: {result['total_test_sets']} test sets, "
+        f"{result['total_tests']} tests"
+    )
 
     # Imported probes are generated tests same as the LLM generation path
     # (both ultimately create rows via bulk_create_test_set/bulk_create_tests),
@@ -125,9 +131,16 @@ def sync_garak_test_set_task(
 
     org_id, user_id, _ = self.get_tenant_context()
 
+    self.emit("Syncing Garak test set")
+
     with self.get_db_session() as db:
         sync_service = GarakSyncService(db)
         result = sync_service.sync_test_set(test_set_id, org_id, user_id)
+
+    self.emit(
+        f"Sync complete: {result.added} added, {result.removed} removed, "
+        f"{result.unchanged} unchanged"
+    )
 
     # Only `added` counts as generated tests -- `removed`/`unchanged` are not
     # new rows, so accruing the whole result would overcount. See

@@ -31,7 +31,7 @@ from rhesis.backend.jobs.utils import (
     base=SilentJob,
     name="rhesis.backend.jobs.execute_test_configuration",
     bind=True,
-    display_name="Test Configuration Execution",
+    display_name="Test Set Execution",
 )
 # with_tenant_context decorator removed - tenant context now passed directly
 def execute_test_configuration(self, test_configuration_id: str, test_run_id: str = None):
@@ -149,6 +149,11 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
             config_attrs = test_config.attributes or {}
             reference_test_run_id = config_attrs.get("reference_test_run_id")
 
+            # total_tests is already on the run (create_test_run counts the
+            # test set up front), so this is known before execution starts.
+            total_tests = (test_run.attributes or {}).get("total_tests", 0)
+            self.emit(f"Starting execution of {total_tests} tests")
+
             # Execute test cases (parallel or sequential)
             result = execute_test_cases(
                 db,
@@ -156,6 +161,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 test_run,
                 reference_test_run_id=reference_test_run_id,
             )
+            self.emit(f"Execution finished: {result.get('total_tests', 0)} tests")
 
             # Accrue TEST_EXECUTIONS for the count actually processed by this
             # run -- result["total_tests"] is computed once at the start of

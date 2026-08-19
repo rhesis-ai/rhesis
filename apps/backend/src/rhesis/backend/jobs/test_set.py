@@ -498,6 +498,7 @@ def generate_and_save_test_set(
     try:
         # Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.emit(f"Generating {num_tests} tests")
         self.log_with_context(
             "info",
             "Creating synthesizer",
@@ -554,6 +555,7 @@ def generate_and_save_test_set(
             requested_tests=num_tests,
             generation_time_seconds=round(gen_elapsed, 1),
         )
+        self.emit(f"Generated {len(test_set.tests)} of {num_tests} tests")
 
         # Note: Source IDs are already embedded in test metadata via SourceSpecification
         # The SDK automatically propagates metadata from SourceSpecification to generated tests
@@ -581,6 +583,8 @@ def generate_and_save_test_set(
                 custom_name=name,
                 extra_metadata=metadata,
             )
+
+        self.emit(f"Saved {len(test_set.tests)} tests to test set")
 
         # Build and return result
         result = _build_task_result(
@@ -723,6 +727,7 @@ def generate_and_save_owasp_test_set(
 
     try:
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.emit(f"Generating {num_tests} tests")
 
         # Imported lazily for the same fork-safety reason as ConfigSynthesizer above.
         from rhesis.sdk.synthesizers import OWASPSynthesizer
@@ -754,6 +759,7 @@ def generate_and_save_owasp_test_set(
             requested_tests=num_tests,
             generation_time_seconds=round(gen_elapsed, 1),
         )
+        self.emit(f"Generated {len(test_set.tests)} of {num_tests} tests")
 
         self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
 
@@ -770,6 +776,7 @@ def generate_and_save_owasp_test_set(
                 "owasp_report_url": report_url,
             },
         )
+        self.emit(f"Saved {len(test_set.tests)} tests to test set")
 
         # From here on, the test set is already saved. A failure below must
         # not reach the `except Exception` at the bottom of this function --

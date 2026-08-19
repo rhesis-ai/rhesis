@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 UNTRACKED_JOB_TYPES = frozenset(
     {
         "usage.accrue_usage",
+        "embedding.generate_embedding",
         "telemetry.enrich.enrich_trace_async",
         "telemetry.evaluate.evaluate_turn_trace_metrics",
         "telemetry.evaluate.evaluate_conversation_trace_metrics",

@@ -70,12 +70,18 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
             # Set completion time now for consistent use throughout
             completion_time = datetime.now(timezone.utc)
 
+            self.emit(f"Processing results for {len(results) if results else 0} tests")
+
             # Process test run results using the dedicated processor
             processor = TestRunProcessor(self.log_with_context)
             summary_data = processor.process_test_run_results(
                 db, test_run, test_run_id, completion_time
             )
 
+            self.emit(
+                f"Results persisted: {summary_data.get('tests_passed', 0)} passed, "
+                f"{summary_data.get('tests_failed', 0)} failed"
+            )
             self.log_with_context("info", f"Test run update completed for: {test_run_id}")
 
             return summary_data
