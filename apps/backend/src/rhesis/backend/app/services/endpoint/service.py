@@ -393,21 +393,13 @@ class EndpointService:
         project_id: str = None,
     ) -> Endpoint:
         """Fetch an endpoint by ID, applying organization and project security filtering."""
-        from uuid import UUID
+        from rhesis.backend.app.crud import get_endpoint
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
-        from sqlalchemy import or_
-
-        query = db.query(Endpoint).filter(Endpoint.id == endpoint_id)
-        if organization_id:
-            query = query.filter(Endpoint.organization_id == UUID(organization_id))
-        if project_id:
-            query = query.filter(
-                or_(
-                    Endpoint.project_id == UUID(project_id),
-                    Endpoint.project_id.is_(None),
-                )
-            )
-        endpoint = query.first()
+        try:
+            endpoint = get_endpoint(db, endpoint_id, organization_id, None, project_id=project_id)
+        except ItemDeletedException:
+            raise HTTPException(status_code=410, detail="Endpoint has been deleted")
         if not endpoint:
             raise HTTPException(status_code=404, detail="Endpoint not found or not accessible")
         return endpoint

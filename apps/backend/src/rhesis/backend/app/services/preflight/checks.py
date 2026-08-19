@@ -16,6 +16,7 @@ from rhesis.backend.app.models.test_set import TestSet, test_test_set_associatio
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
+from rhesis.backend.app.utils.crud_utils import get_item_detail
 
 from .constants import (
     CHECK_REQUIREMENT_METRIC_COVERAGE,
@@ -488,7 +489,9 @@ async def check_metric_compatibility(
             metric_ids = [m.id for m in selected_metrics]
             metrics = db.query(Metric).filter(Metric.id.in_(metric_ids)).all()
         elif metric_mode == "use_test_set":
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            test_set = get_item_detail(
+                db, TestSet, test_set_id, organization_id=str(endpoint.organization_id)
+            )
             if test_set:
                 metrics = list(test_set.metrics)
         else:
@@ -635,7 +638,9 @@ async def check_metric_functionality(
             metric_ids = [m.id for m in selected_metrics]
             metrics = db.query(Metric).filter(Metric.id.in_(metric_ids)).all()
         elif metric_mode == "use_test_set":
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            test_set = get_item_detail(
+                db, TestSet, test_set_id, organization_id=str(user.organization_id)
+            )
             if test_set:
                 metrics = list(test_set.metrics)
         else:
@@ -711,6 +716,7 @@ async def check_requirement_metric_coverage(
     db: Session,
     test_set_id: UUID,
     metric_mode: str,
+    organization_id: str,
     selected_metrics: Optional[list] = None,
     correlation_id: Optional[str] = None,
     publish: bool = True,
@@ -751,7 +757,7 @@ async def check_requirement_metric_coverage(
                     ", ".join(names) if names else None,
                 )
         elif metric_mode == "use_test_set":
-            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            test_set = get_item_detail(db, TestSet, test_set_id, organization_id=organization_id)
             if not test_set:
                 result = _make_result(
                     check_id,

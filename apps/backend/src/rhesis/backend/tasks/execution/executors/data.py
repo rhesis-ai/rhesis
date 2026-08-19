@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.query_utils import include
 from rhesis.backend.tasks.execution.metrics_utils import get_requirement_metrics
 
 logger = logging.getLogger(__name__)
@@ -35,16 +35,25 @@ def get_test_and_prompt(
     """
     # Import here to avoid circular dependency
     from rhesis.backend.app.constants import TestType
+    from rhesis.backend.app.utils.crud_utils import get_item_detail
+    from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
     from rhesis.backend.tasks.execution.modes import get_test_type
 
     # Get the test. Reads test.prompt below for single-turn tests -- eager-load it explicitly.
-    test = (
-        QueryBuilder(db, Test)
-        .with_related(include(Test.prompt))
-        .with_organization_filter(organization_id)
-        .with_custom_filter(lambda q: q.filter(Test.id == UUID(test_id)))
-        .first()
-    )
+    # Raised as ValueError (not ItemDeletedException) so every failure mode of
+    # this function shares one exception type -- callers only catch/re-raise
+    # generically, so this is purely about message clarity ("deleted" vs
+    # "not found"), not Celery retry semantics.
+    try:
+        test = get_item_detail(
+            db,
+            Test,
+            UUID(test_id),
+            organization_id=organization_id,
+            related_fields=(include(Test.prompt),),
+        )
+    except ItemDeletedException:
+        raise ValueError(f"Test with ID {test_id} has been deleted")
     if not test:
         raise ValueError(f"Test with ID {test_id} not found")
 

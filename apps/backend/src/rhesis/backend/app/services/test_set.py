@@ -35,9 +35,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
-    """Get test set by ID with organization filtering for security"""
-    return (
+    """Get test set by ID with organization filtering for security.
+
+    Raises ItemDeletedException for a soft-deleted test set.
+    """
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
         QueryBuilder(db, TestSet)
+        .with_deleted()
         .with_custom_filter(lambda q: q.filter(TestSet.id == test_set_id))
         .with_related(
             # TestSet.prompts is one-to-many -- include() picks selectinload for
@@ -56,6 +62,7 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
         .with_organization_filter(organization_id)
         .first()
     )
+    return _check_and_raise_if_deleted(item, TestSet, test_set_id, False)
 
 
 def create_pending_test_set(
@@ -552,6 +559,7 @@ def update_test_set_attributes(
     from uuid import UUID
 
     from rhesis.backend.app.crud import get_test_set
+    from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
     # Validate UUID
     try:
@@ -559,10 +567,13 @@ def update_test_set_attributes(
     except ValueError:
         raise ValueError(ERROR_INVALID_UUID.format(entity="test set", id=test_set_id))
 
-    test_set = get_test_set(db, test_set_uuid, organization_id, user_id)
+    try:
+        test_set = get_test_set(db, test_set_uuid, organization_id, user_id)
+    except ItemDeletedException:
+        test_set = None
 
     if not test_set:
-        # Test set may have been soft-deleted; nothing to update.
+        # Test set may not exist or may have been soft-deleted; nothing to update.
         return
 
     # Explorer test sets manage their own attributes; skip regeneration.
@@ -601,6 +612,10 @@ def get_last_completed_test_run(
     Returns:
         Dict with id, status, created_at, test_count, pass_rate;
         or None if no completed run exists.
+
+    Raises:
+        ItemDeletedException: If test_set_identifier resolves to a
+            soft-deleted test set (via crud.resolve_test_set).
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.models.status import Status

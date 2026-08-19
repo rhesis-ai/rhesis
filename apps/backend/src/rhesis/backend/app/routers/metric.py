@@ -272,19 +272,6 @@ def read_metric(
     organization_id, user_id = tenant_context
     db_metric = metric_crud.get_metric(db, metric_id, organization_id, user_id)
     if db_metric is None:
-        # get_metric's query silently excludes soft-deleted rows (like most
-        # plain getters); check separately here so a deleted metric still gets
-        # its own 410, matching the other standard entity routes' contract.
-        from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
-        from rhesis.backend.app.utils.query_utils import QueryBuilder
-
-        deleted_check = (
-            QueryBuilder(db, models.Metric)
-            .with_deleted()
-            .with_organization_filter(organization_id)
-            .filter_by_id(metric_id)
-        )
-        _check_and_raise_if_deleted(deleted_check, models.Metric, metric_id, False)
         raise HTTPException(status_code=404, detail="Metric not found")
     return db_metric
 

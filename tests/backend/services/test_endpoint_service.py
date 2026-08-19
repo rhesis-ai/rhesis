@@ -43,13 +43,15 @@ class TestEndpointService:
         """Test successful endpoint retrieval"""
         service = EndpointService()
 
-        result = service._get_endpoint(test_db, str(db_endpoint_minimal.id))
+        result = service._get_endpoint(
+            test_db, str(db_endpoint_minimal.id), str(db_endpoint_minimal.organization_id)
+        )
 
         assert result is not None
         assert result.id == db_endpoint_minimal.id
         assert result.name == db_endpoint_minimal.name
 
-    def test_get_endpoint_not_found(self, test_db: Session):
+    def test_get_endpoint_not_found(self, test_db: Session, test_org_id: str):
         """Test endpoint retrieval when endpoint doesn't exist"""
         import uuid
 
@@ -59,10 +61,31 @@ class TestEndpointService:
         nonexistent_id = str(uuid.uuid4())
 
         with pytest.raises(HTTPException) as exc_info:
-            service._get_endpoint(test_db, nonexistent_id)
+            service._get_endpoint(test_db, nonexistent_id, test_org_id)
 
         assert exc_info.value.status_code == 404
         assert "Endpoint not found" in str(exc_info.value.detail)
+
+    def test_get_endpoint_deleted_returns_410(
+        self, test_db: Session, db_endpoint_minimal: Endpoint
+    ):
+        """A soft-deleted endpoint must surface as 410, not a bare 404."""
+        from rhesis.backend.app import crud
+
+        organization_id = str(db_endpoint_minimal.organization_id)
+        crud.delete_endpoint(
+            test_db,
+            db_endpoint_minimal.id,
+            organization_id=organization_id,
+            user_id=str(db_endpoint_minimal.user_id),
+        )
+
+        service = EndpointService()
+
+        with pytest.raises(HTTPException) as exc_info:
+            service._get_endpoint(test_db, str(db_endpoint_minimal.id), organization_id)
+
+        assert exc_info.value.status_code == 410
 
     @pytest.mark.asyncio
     async def test_invoke_endpoint_success(self, test_db: Session, db_endpoint_minimal: Endpoint):
@@ -78,17 +101,26 @@ class TestEndpointService:
         with patch(
             "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ) as mock_create:
-            result = await service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), input_data)
+            result = await service.invoke_endpoint(
+                test_db,
+                str(db_endpoint_minimal.id),
+                input_data,
+                organization_id=str(db_endpoint_minimal.organization_id),
+            )
 
             assert result == {"response": "success"}
             # Verify invoker was called
             mock_invoker.invoke.assert_called_once()
-            
+
             # Verify the context was created with the right parameters
             mock_create.assert_called_once()
             context = mock_create.call_args[0][0]
             assert context.db == test_db
-            assert context.input_data == input_data
+            # organization_id is injected server-side into the enriched input
+            assert context.input_data == {
+                **input_data,
+                "organization_id": str(db_endpoint_minimal.organization_id),
+            }
             assert context.endpoint.id == db_endpoint_minimal.id
 
     @pytest.mark.asyncio
@@ -105,7 +137,12 @@ class TestEndpointService:
             "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
             with pytest.raises(EndpointInvocationError) as exc_info:
-                await service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
+                await service.invoke_endpoint(
+                    test_db,
+                    str(db_endpoint_minimal.id),
+                    {},
+                    organization_id=str(db_endpoint_minimal.organization_id),
+                )
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.transient is False
@@ -125,7 +162,12 @@ class TestEndpointService:
             "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
             with pytest.raises(EndpointInvocationError) as exc_info:
-                await service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
+                await service.invoke_endpoint(
+                    test_db,
+                    str(db_endpoint_minimal.id),
+                    {},
+                    organization_id=str(db_endpoint_minimal.organization_id),
+                )
 
             assert exc_info.value.status_code == 500
             assert exc_info.value.transient is False
@@ -271,16 +313,18 @@ class TestEndpointServiceIntegration:
         mock_invoker = Mock()
         mock_invoker.invoke = AsyncMock(return_value={"status": "success", "data": "response"})
 
-        # Mock database
+        # Mock database -- _get_endpoint is mocked directly rather than the DB
+        # query chain, since it now delegates to crud.get_endpoint internally.
         mock_db = Mock(spec=Session)
-        mock_query = Mock()
-        mock_query.filter.return_value.first.return_value = mock_endpoint
-        mock_db.query.return_value = mock_query
 
         input_data = {"message": "test input"}
 
-        with patch(
-            "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
+        with (
+            patch.object(service, "_get_endpoint", return_value=mock_endpoint),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.create_invoker",
+                return_value=mock_invoker,
+            ),
         ):
             result = await service.invoke_endpoint(mock_db, "endpoint123", input_data)
 
@@ -294,22 +338,25 @@ class TestEndpointServiceIntegration:
         mock_db = Mock(spec=Session)
 
         # Test endpoint not found
-        mock_query = Mock()
-        mock_query.filter.return_value.first.return_value = None
-        mock_db.query.return_value = mock_query
+        with patch.object(
+            service,
+            "_get_endpoint",
+            side_effect=HTTPException(status_code=404, detail="Endpoint not found"),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await service.invoke_endpoint(mock_db, "nonexistent", {})
 
-        with pytest.raises(HTTPException) as exc_info:
-            await service.invoke_endpoint(mock_db, "nonexistent", {})
-
-        assert exc_info.value.status_code == 404
+            assert exc_info.value.status_code == 404
 
         # Test invoker creation failure
         mock_endpoint = Mock(spec=Endpoint)
-        mock_query.filter.return_value.first.return_value = mock_endpoint
 
-        with patch(
-            "rhesis.backend.app.services.endpoint.service.create_invoker",
-            side_effect=ValueError("Invalid connection type"),
+        with (
+            patch.object(service, "_get_endpoint", return_value=mock_endpoint),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.create_invoker",
+                side_effect=ValueError("Invalid connection type"),
+            ),
         ):
             with pytest.raises(EndpointInvocationError) as exc_info:
                 await service.invoke_endpoint(mock_db, "endpoint123", {})
@@ -985,7 +1032,9 @@ class TestInvokeEndpointFileRouting:
 
         extracted_text = "Extracted text from doc"
         enriched = [{"filename": "doc.pdf", "data": "x", "extracted_text": extracted_text}]
-        injected_input = f"Tell me about this\n\n[Attached file(s):]\n\n--- doc.pdf ---\n{extracted_text}"
+        injected_input = (
+            f"Tell me about this\n\n[Attached file(s):]\n\n--- doc.pdf ---\n{extracted_text}"
+        )
 
         fake_store = MagicMock()
         fake_store.exists.return_value = False

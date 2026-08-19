@@ -48,7 +48,9 @@ class TestCompositeKey:
 
     def test_shared_check_ignores_test_set_id(self):
         ts_id = str(uuid4())
-        assert _make_composite_key(CHECK_ENDPOINT_CONNECTIVITY, ts_id) == CHECK_ENDPOINT_CONNECTIVITY
+        assert (
+            _make_composite_key(CHECK_ENDPOINT_CONNECTIVITY, ts_id) == CHECK_ENDPOINT_CONNECTIVITY
+        )
 
     def test_per_test_set_check_with_id(self):
         ts_id = str(uuid4())
@@ -189,9 +191,7 @@ class TestCheckTestSetNotEmpty:
 
 
 class TestCheckEvaluationModel:
-    MODEL_UTIL = (
-        "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
-    )
+    MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
 
     @pytest.mark.asyncio
     async def test_model_passes(self):
@@ -300,9 +300,7 @@ class TestCheckEndpointConnectivity:
 
 
 class TestValidateMetricsLoadable:
-    MODEL_UTIL = (
-        "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
-    )
+    MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
     VALIDATE_CONFIGS = "rhesis.backend.metrics.metric_config.validate_metric_configs"
     PREPARE_METRICS = "rhesis.backend.metrics.strategies.local.prepare_metrics"
 
@@ -408,8 +406,9 @@ class TestInferEndpointCapabilities:
 
 
 class TestCheckMetricEndpointIssues:
-    def _make_metric(self, name, class_name=None, context_required=False,
-                     ground_truth_required=False):
+    def _make_metric(
+        self, name, class_name=None, context_required=False, ground_truth_required=False
+    ):
         m = MagicMock()
         m.name = name
         m.class_name = class_name
@@ -510,8 +509,7 @@ class TestCheckMetricCompatibility:
 
         # missing ground truth count
         missing_count_query = MagicMock()
-        missing_count_query.join.return_value.join.return_value.filter.return_value\
-            .filter.return_value.count.return_value = missing_ground_truth
+        missing_count_query.join.return_value.join.return_value.filter.return_value.filter.return_value.count.return_value = missing_ground_truth
 
         return db
 
@@ -533,6 +531,29 @@ class TestCheckMetricCompatibility:
         assert result.status == PreflightCheckStatus.SKIPPED
 
     @pytest.mark.asyncio
+    async def test_deleted_test_set_reports_failed_not_crash(self):
+        """A soft-deleted test set must surface as a FAILED check result, not
+        raise ItemDeletedException uncaught (use_test_set mode fetches the
+        test set directly)."""
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+
+        db = MagicMock()
+        endpoint = MagicMock()
+        ts_id = uuid4()
+
+        with patch(
+            "rhesis.backend.app.services.preflight.checks.get_item_detail",
+            side_effect=ItemDeletedException("TestSet", str(ts_id)),
+        ):
+            result = await check_metric_compatibility(
+                db, endpoint, ts_id, "use_test_set", publish=False
+            )
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "deleted" in result.detail.lower()
+
+    @pytest.mark.asyncio
     async def test_passed_when_all_compatible(self):
         from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
 
@@ -551,8 +572,7 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom",
-            selected_metrics=[metric], publish=False
+            db, endpoint, ts_id, "define_custom", selected_metrics=[metric], publish=False
         )
 
         assert result.status == PreflightCheckStatus.PASSED
@@ -577,8 +597,7 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom",
-            selected_metrics=[metric], publish=False
+            db, endpoint, ts_id, "define_custom", selected_metrics=[metric], publish=False
         )
 
         assert result.status == PreflightCheckStatus.WARNING
@@ -601,16 +620,14 @@ class TestCheckMetricCompatibility:
         # total_tests count (filter().count())
         db.query.return_value.filter.return_value.count.return_value = 10
         # missing ground truth count (join().join().filter().filter().count())
-        db.query.return_value.join.return_value.join.return_value\
-            .filter.return_value.filter.return_value.count.return_value = 3
+        db.query.return_value.join.return_value.join.return_value.filter.return_value.filter.return_value.count.return_value = 3
 
         endpoint = MagicMock()
         endpoint.response_mapping = {}
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom",
-            selected_metrics=[metric], publish=False
+            db, endpoint, ts_id, "define_custom", selected_metrics=[metric], publish=False
         )
 
         assert result.status == PreflightCheckStatus.WARNING
@@ -637,8 +654,13 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom",
-            selected_metrics=[metric], is_multi_turn=True, publish=False
+            db,
+            endpoint,
+            ts_id,
+            "define_custom",
+            selected_metrics=[metric],
+            is_multi_turn=True,
+            publish=False,
         )
 
         # No ground-truth warning should appear since the query is skipped
@@ -657,8 +679,7 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom",
-            selected_metrics=[MagicMock()], publish=False
+            db, endpoint, ts_id, "define_custom", selected_metrics=[MagicMock()], publish=False
         )
 
         assert result.status == PreflightCheckStatus.FAILED
@@ -678,28 +699,26 @@ class TestRunPreflightChecksMulti:
         ts_id = uuid4()
 
         endpoint = MagicMock()
-        db.query.return_value.filter.return_value.first.return_value = endpoint
 
         async def mock_check(*args, **kwargs):
-            return _make_result(args[0] if isinstance(args[0], str) else "check",
-                                PreflightCheckStatus.PASSED)
+            return _make_result(
+                args[0] if isinstance(args[0], str) else "check", PreflightCheckStatus.PASSED
+            )
 
         with (
             patch(
-                "rhesis.backend.app.services.preflight.orchestrator"
-                ".check_evaluation_model",
-                new_callable=AsyncMock,
-                return_value=_make_result(
-                    CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED
-                ),
+                "rhesis.backend.app.services.preflight.orchestrator.get_item_detail",
+                return_value=endpoint,
             ),
             patch(
-                "rhesis.backend.app.services.preflight.orchestrator"
-                ".check_test_set_not_empty",
+                "rhesis.backend.app.services.preflight.orchestrator.check_evaluation_model",
                 new_callable=AsyncMock,
-                return_value=_make_result(
-                    CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED
-                ),
+                return_value=_make_result(CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator.check_test_set_not_empty",
+                new_callable=AsyncMock,
+                return_value=_make_result(CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED),
             ),
             patch(
                 "rhesis.backend.app.services.preflight.orchestrator"
@@ -710,20 +729,14 @@ class TestRunPreflightChecksMulti:
                 ),
             ),
             patch(
-                "rhesis.backend.app.services.preflight.orchestrator"
-                ".check_metric_compatibility",
+                "rhesis.backend.app.services.preflight.orchestrator.check_metric_compatibility",
                 new_callable=AsyncMock,
-                return_value=_make_result(
-                    CHECK_METRIC_COMPATIBILITY, PreflightCheckStatus.PASSED
-                ),
+                return_value=_make_result(CHECK_METRIC_COMPATIBILITY, PreflightCheckStatus.PASSED),
             ),
             patch(
-                "rhesis.backend.app.services.preflight.orchestrator"
-                ".check_metric_functionality",
+                "rhesis.backend.app.services.preflight.orchestrator.check_metric_functionality",
                 new_callable=AsyncMock,
-                return_value=_make_result(
-                    CHECK_METRIC_FUNCTIONALITY, PreflightCheckStatus.PASSED
-                ),
+                return_value=_make_result(CHECK_METRIC_FUNCTIONALITY, PreflightCheckStatus.PASSED),
             ),
         ):
             results = await run_preflight_checks_multi(
@@ -737,3 +750,55 @@ class TestRunPreflightChecksMulti:
 
         statuses = {r.check_id: r.status for r in results}
         assert statuses[CHECK_ENDPOINT_CONNECTIVITY] == PreflightCheckStatus.SKIPPED
+
+    @pytest.mark.asyncio
+    async def test_deleted_endpoint_reports_failed_not_crash(self):
+        """A soft-deleted endpoint must surface as a FAILED connectivity check
+        with a distinct message, not raise ItemDeletedException uncaught."""
+        from rhesis.backend.app.services.preflight.orchestrator import (
+            run_preflight_checks_multi,
+        )
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+        ts_id = uuid4()
+
+        with (
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator.get_item_detail",
+                side_effect=ItemDeletedException("Endpoint", "some-id"),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator.check_evaluation_model",
+                new_callable=AsyncMock,
+                return_value=_make_result(CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator.check_test_set_not_empty",
+                new_callable=AsyncMock,
+                return_value=_make_result(CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator"
+                ".check_requirement_metric_coverage",
+                new_callable=AsyncMock,
+                return_value=_make_result(
+                    CHECK_REQUIREMENT_METRIC_COVERAGE, PreflightCheckStatus.PASSED
+                ),
+            ),
+        ):
+            results = await run_preflight_checks_multi(
+                db=db,
+                user=user,
+                test_sets=[(ts_id, "Test Set", False)],
+                endpoint_id=uuid4(),
+                scoring_target="fresh",
+                publish=False,
+            )
+
+        statuses = {r.check_id: r.status for r in results}
+        details = {r.check_id: (r.message or "") for r in results}
+        assert statuses[CHECK_ENDPOINT_CONNECTIVITY] == PreflightCheckStatus.FAILED
+        assert "deleted" in details[CHECK_ENDPOINT_CONNECTIVITY].lower()

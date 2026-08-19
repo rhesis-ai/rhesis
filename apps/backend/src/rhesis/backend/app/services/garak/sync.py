@@ -24,6 +24,8 @@ from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
+from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 from .probes import GarakProbeInfo, GarakProbeService
 from .taxonomy import GarakTaxonomy, resolve_requirement
@@ -60,6 +62,28 @@ class GarakSyncService:
         """
         self._probes_by_module = probes_by_module
 
+    def _get_test_set_or_raise(
+        self, test_set_id: str, organization_id: str, user_id: str = None
+    ) -> TestSet:
+        """Fetch the TestSet for a sync operation.
+
+        Raises:
+            ValueError: If the test set has been soft-deleted or doesn't exist.
+        """
+        try:
+            test_set = get_item_detail(
+                self.db,
+                TestSet,
+                UUID(test_set_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+        except ItemDeletedException:
+            raise ValueError(f"Test set {test_set_id} has been deleted")
+        if not test_set:
+            raise ValueError(f"Test set not found: {test_set_id}")
+        return test_set
+
     def sync_test_set(
         self,
         test_set_id: str,
@@ -84,21 +108,8 @@ class GarakSyncService:
         Raises:
             ValueError: If test set not found or not a Garak-imported test set
         """
-        test_set_uuid = UUID(test_set_id)
-        org_uuid = UUID(organization_id)
-
         # Get the test set
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == test_set_uuid,
-                TestSet.organization_id == org_uuid,
-            )
-            .first()
-        )
-
-        if not test_set:
-            raise ValueError(f"Test set not found: {test_set_id}")
+        test_set = self._get_test_set_or_raise(test_set_id, organization_id, user_id)
 
         # Verify it's a Garak-imported test set
         if not test_set.attributes or test_set.attributes.get("source") != "garak":
@@ -215,17 +226,7 @@ class GarakSyncService:
                 or has no Garak probe information (same conditions/messages as
                 ``sync_test_set``).
         """
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == UUID(test_set_id),
-                TestSet.organization_id == UUID(organization_id),
-            )
-            .first()
-        )
-
-        if not test_set:
-            raise ValueError(f"Test set not found: {test_set_id}")
+        test_set = self._get_test_set_or_raise(test_set_id, organization_id)
 
         if not test_set.attributes or test_set.attributes.get("source") != "garak":
             raise ValueError(f"Test set {test_set_id} is not a Garak-imported test set")
@@ -454,16 +455,9 @@ class GarakSyncService:
         Returns:
             True if the test set is a Garak-imported test set
         """
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == UUID(test_set_id),
-                TestSet.organization_id == UUID(organization_id),
-            )
-            .first()
-        )
-
-        if not test_set:
+        try:
+            test_set = self._get_test_set_or_raise(test_set_id, organization_id)
+        except ValueError:
             return False
 
         return test_set.attributes is not None and test_set.attributes.get("source") == "garak"
@@ -483,19 +477,12 @@ class GarakSyncService:
         Returns:
             Dictionary with preview information or None if not syncable
         """
-        test_set_uuid = UUID(test_set_id)
-        org_uuid = UUID(organization_id)
+        try:
+            test_set = self._get_test_set_or_raise(test_set_id, organization_id)
+        except ValueError:
+            return None
 
-        test_set = (
-            self.db.query(TestSet)
-            .filter(
-                TestSet.id == test_set_uuid,
-                TestSet.organization_id == org_uuid,
-            )
-            .first()
-        )
-
-        if not test_set or not test_set.attributes:
+        if not test_set.attributes:
             return None
 
         if test_set.attributes.get("source") != "garak":

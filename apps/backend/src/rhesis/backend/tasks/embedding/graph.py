@@ -169,13 +169,18 @@ def _run_embedding_graph(
 ) -> None:
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.services.embedding.graph_builder import build_2d_graph
+    from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
     user = user_crud.get_user_by_id(db, user_id)
     if user is None:
         logger.warning("Skipping graph computation: user not found", extra={"user_id": user_id})
         return
 
-    parent = load_parent(db, user)
+    try:
+        parent = load_parent(db, user)
+    except ItemDeletedException:
+        parent = None
+
     if parent is None:
         logger.warning(f"Skipping graph computation: {parent_name} not found")
         return

@@ -428,6 +428,34 @@ class TestTestSetAssociationsInTestService:
         assert "not found" in result["message"]
         assert result["metadata"]["new_associations"] == 0
 
+    def test_create_test_set_associations_test_set_deleted(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        """A soft-deleted test set must not crash with ItemDeletedException."""
+        from rhesis.backend.app import crud
+
+        test_set_data = create_test_set_data()
+        test_set = models.TestSet(
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        crud.delete_test_set(
+            test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+
+        result = test_service.create_test_set_associations(
+            db=test_db,
+            test_set_id=str(test_set.id),
+            test_ids=[str(uuid.uuid4())],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["success"] is False
+        assert "deleted" in result["message"]
+
     def test_remove_test_set_associations_success(
         self,
         test_db: Session,
@@ -537,6 +565,34 @@ class TestTestSetAssociationsInTestService:
             assert result["success"] is False
             assert result["removed_associations"] == 0
             assert "not found" in result["message"]
+
+    def test_remove_test_set_associations_test_set_deleted(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        """A soft-deleted test set must not crash with ItemDeletedException."""
+        from rhesis.backend.app import crud
+
+        test_set_data = create_test_set_data()
+        test_set = models.TestSet(
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        crud.delete_test_set(
+            test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+
+        result = test_service.remove_test_set_associations(
+            db=test_db,
+            test_set_id=str(test_set.id),
+            test_ids=[str(uuid.uuid4())],
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["success"] is False
+        assert "deleted" in result["message"]
 
     def test_remove_test_set_associations_no_existing_associations(
         self, test_db: Session, authenticated_user_id, test_org_id

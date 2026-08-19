@@ -130,20 +130,13 @@ def get_trace_by_db_id(
     trace_db_id: str,
     organization_id: str,
 ) -> Optional[models.Trace]:
-    """Get a single trace span row by its database UUID."""
-    from uuid import UUID
+    """Get a single trace span row by its database UUID.
 
-    return (
-        db.query(models.Trace)
-        .filter(
-            and_(
-                models.Trace.id == UUID(trace_db_id),
-                models.Trace.organization_id == UUID(organization_id),
-                models.Trace.deleted_at.is_(None),
-            )
-        )
-        .first()
-    )
+    Raises ``ItemDeletedException`` for a soft-deleted trace.
+    """
+    from rhesis.backend.app.utils.crud_utils import get_item_detail
+
+    return get_item_detail(db, models.Trace, UUID(trace_db_id), organization_id=organization_id)
 
 
 def get_trace_by_id(
@@ -235,34 +228,6 @@ def get_trace_id_for_conversation(
     )
 
     return result[0] if result else None
-
-
-def get_span_by_id(
-    db: Session,
-    span_id: str,
-    project_id: str,
-) -> Optional[models.Trace]:
-    """
-    Get a single span by span ID.
-
-    Args:
-        db: Database session
-        span_id: OpenTelemetry span ID
-        project_id: Project ID for access control
-
-    Returns:
-        Trace model or None if not found
-    """
-    return (
-        db.query(models.Trace)
-        .filter(
-            and_(
-                models.Trace.span_id == span_id,
-                models.Trace.project_id == project_id,
-            )
-        )
-        .first()
-    )
 
 
 def _escape_like_pattern(term: str) -> str:

@@ -16,10 +16,12 @@ from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
+    get_item_detail,
     get_or_create_entity,
     get_or_create_status,
     get_or_create_type_lookup,
 )
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
     get_user_generation_model,
@@ -183,18 +185,19 @@ def load_defaults():
 
 
 def _validate_test_set(
-    db: Session, test_set_id: str, organization_id: str = None
+    db: Session, test_set_id: str, organization_id: str = None, user_id: str = None
 ) -> tuple[models.TestSet | None, Dict[str, Any] | None]:
     """Validate test set exists and return it or error response."""
-    query = db.query(models.TestSet).filter(models.TestSet.id == test_set_id)
-
-    # Apply organization filter if provided (SECURITY CRITICAL)
-    if organization_id:
-        from uuid import UUID
-
-        query = query.filter(models.TestSet.organization_id == UUID(organization_id))
-
-    test_set = query.first()
+    try:
+        test_set = get_item_detail(
+            db, models.TestSet, test_set_id, organization_id=organization_id, user_id=user_id
+        )
+    except ItemDeletedException:
+        return None, {
+            "success": False,
+            "total_tests": 0,
+            "message": f"Test set with ID {test_set_id} has been deleted",
+        }
     if not test_set:
         return None, {
             "success": False,
@@ -309,7 +312,7 @@ def bulk_create_test_set_associations(
     Handles validation of test IDs and existing associations.
     """
     # First validate the test set exists AND belongs to organization (SECURITY CRITICAL)
-    test_set, error_response = _validate_test_set(db, test_set_id, organization_id)
+    test_set, error_response = _validate_test_set(db, test_set_id, organization_id, user_id)
     if error_response:
         return error_response
 
@@ -921,24 +924,14 @@ def create_test_set_associations(
         - message: Detailed message about the operation result
         - metadata: Dictionary containing detailed information about the operation
     """
-    from rhesis.backend.app.models import TestSet
-
     # Transaction management is handled by the session context manager
 
     try:
         # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
-        from uuid import UUID
-
-        test_set = (
-            db.query(TestSet)
-            .filter(TestSet.id == test_set_id, TestSet.organization_id == UUID(organization_id))
-            .first()
-        )
-        if not test_set:
+        _, error_response = _validate_test_set(db, test_set_id, organization_id, user_id)
+        if error_response:
             return {
-                "success": False,
-                "total_tests": 0,
-                "message": f"Test set with ID {test_set_id} not found or not accessible",
+                **error_response,
                 "metadata": {
                     "new_associations": 0,
                     "existing_associations": 0,
@@ -1020,26 +1013,13 @@ def remove_test_set_associations(
         - removed_associations: Number of associations removed
         - message: Detailed message about the operation result
     """
-    from rhesis.backend.app.models import TestSet
-
     # Transaction management is handled by the session context manager
 
     try:
         # Verify test set exists AND belongs to organization (SECURITY CRITICAL)
-        from uuid import UUID
-
-        test_set = (
-            db.query(TestSet)
-            .filter(TestSet.id == test_set_id, TestSet.organization_id == UUID(organization_id))
-            .first()
-        )
-        if not test_set:
-            return {
-                "success": False,
-                "total_tests": 0,
-                "removed_associations": 0,
-                "message": f"Test set with ID {test_set_id} not found or not accessible",
-            }
+        _, error_response = _validate_test_set(db, test_set_id, organization_id, user_id)
+        if error_response:
+            return {**error_response, "removed_associations": 0}
 
         # Check if any of the provided test IDs are actually associated with the test set
         existing_associations = db.execute(

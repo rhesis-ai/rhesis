@@ -177,6 +177,38 @@ class TestMetricRequirementRelationships(MetricTestMixin, BaseEntityTests):
         assert "not found" in response.json()["detail"].lower()
 
 
+@pytest.mark.integration
+class TestMetricSoftDeleteContract(MetricTestMixin, BaseEntityTests):
+    """A soft-deleted metric must surface 410 GONE everywhere, including through
+    @handle_database_exceptions-wrapped routes -- not just the plain GET."""
+
+    def test_update_deleted_metric_returns_410(self, metric_factory):
+        metric = metric_factory.create(self.get_sample_data())
+        metric_id = metric["id"]
+
+        delete_response = metric_factory.client.delete(self.endpoints.remove(metric_id))
+        assert delete_response.status_code == status.HTTP_200_OK
+
+        response = metric_factory.client.put(
+            self.endpoints.put(metric_id), json=self.get_update_data()
+        )
+
+        assert response.status_code == status.HTTP_410_GONE
+
+    def test_improve_deleted_metric_returns_410(self, metric_factory):
+        metric = metric_factory.create(self.get_sample_data())
+        metric_id = metric["id"]
+
+        delete_response = metric_factory.client.delete(self.endpoints.remove(metric_id))
+        assert delete_response.status_code == status.HTTP_200_OK
+
+        response = metric_factory.client.post(
+            self.endpoints.improve(metric_id), json={"prompt": "make it stricter"}
+        )
+
+        assert response.status_code == status.HTTP_410_GONE
+
+
 # === METRIC-SPECIFIC VALIDATION TESTS ===
 
 

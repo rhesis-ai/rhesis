@@ -11,9 +11,8 @@ is_protected, icon -- and rejects deletion outright, while tags, status, owner a
 stay editable so users can still organize it. Both raise ``ValueError`` with "protected" in
 the message; the router turns that into a 403.
 
-``get_model`` re-applies the organization filter by hand on top of the ambient scope filter,
-because a leaked model row hands out a stored provider API key. The other functions go
-through ``crud_utils``, which applies it for them.
+``get_model`` intentionally doesn't follow this repo's usual soft-delete contract -- see
+its own docstring.
 
 The block that moved here also held ``test_model_connection``, a stub that never did
 anything but return ``True`` -- the real check was never written. It had no callers (the
@@ -33,7 +32,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_items_detail,
     update_item,
 )
-from rhesis.backend.app.utils.query_utils import include
+from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 # Relationships serialized by schemas.ModelDetail -- provider_type, status.
 # owner/assignee: unused, excluded. Public (no leading underscore) since
@@ -47,20 +46,17 @@ MODEL_DETAIL_RELATED_FIELDS = (
 def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Model]:
-    """Get a specific model by ID with its related objects and organization filtering"""
-    query = (
-        db.query(models.Model)
-        .options(include(models.Model.provider_type))
-        .filter(models.Model.id == model_id)
+    """Get a specific model by ID with its related objects and organization filtering.
+
+    Doesn't call ``get_item_detail`` directly: callers here need a soft-deleted model
+    to return ``None``, not raise ``ItemDeletedException``, so they can fall back.
+    """
+    return (
+        QueryBuilder(db, models.Model)
+        .with_related(include(models.Model.provider_type))
+        .with_organization_filter(organization_id)
+        .filter_by_id(model_id)
     )
-
-    # Apply organization filtering (SECURITY CRITICAL)
-    if organization_id:
-        from uuid import UUID as UUIDType
-
-        query = query.filter(models.Model.organization_id == UUIDType(organization_id))
-
-    return query.first()
 
 
 def get_models(

@@ -138,6 +138,7 @@ def prefetch_execution_context(
     trace_id: Optional[str] = None,
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
+    from rhesis.backend.app.crud import get_endpoint
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.models.requirement import Requirement
@@ -154,9 +155,18 @@ def prefetch_execution_context(
 
     bind_scope_to_session(session, organization_id, user_id or "", project_id)
 
+    # get_test_set/get_endpoint raise ItemDeletedException for a soft-deleted
+    # row; it's in BaseTask.dont_autoretry_for, so this fails the task
+    # immediately instead of retrying against a row that will never come back.
     test_set = get_test_set(session, str(test_config.test_set_id), organization_id)
 
-    endpoint = session.query(Endpoint).filter(Endpoint.id == test_config.endpoint_id).first()
+    endpoint = get_endpoint(
+        session,
+        test_config.endpoint_id,
+        organization_id,
+        user_id,
+        project_id=project_id or None,
+    )
     if not endpoint:
         raise ValueError(f"Endpoint {test_config.endpoint_id} not found")
 

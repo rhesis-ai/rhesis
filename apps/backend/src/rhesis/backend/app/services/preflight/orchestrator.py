@@ -12,6 +12,8 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSocketMessage
+from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 from .checks import (
     check_requirement_metric_coverage,
@@ -93,7 +95,14 @@ async def run_preflight_checks_multi(
         {str(ts_id): ts_name for ts_id, ts_name, _ in test_sets} if multi else {}
     )
 
-    endpoint = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
+    try:
+        endpoint = get_item_detail(
+            db, Endpoint, endpoint_id, organization_id=str(user.organization_id)
+        )
+        endpoint_status = "not found"
+    except ItemDeletedException:
+        endpoint = None
+        endpoint_status = "has been deleted"
     any_multi_turn = any(mt for _, _, mt in test_sets)
 
     # --- Shared checks ---
@@ -111,7 +120,7 @@ async def run_preflight_checks_multi(
             r = _make_result(
                 CHECK_ENDPOINT_CONNECTIVITY,
                 PreflightCheckStatus.FAILED,
-                "Endpoint not found",
+                f"Endpoint {endpoint_status}",
             )
             _apply_test_set_fields(r)
             results.append(r)
@@ -121,7 +130,7 @@ async def run_preflight_checks_multi(
             r = _make_result(
                 CHECK_ENDPOINT_CONNECTIVITY,
                 PreflightCheckStatus.FAILED,
-                "Endpoint not found",
+                f"Endpoint {endpoint_status}",
                 "The endpoint is required even when reusing outputs.",
             )
         else:
@@ -176,6 +185,7 @@ async def run_preflight_checks_multi(
                     db,
                     ts_id,
                     metric_mode,
+                    str(user.organization_id),
                     selected_metrics,
                     correlation_id,
                     publish,

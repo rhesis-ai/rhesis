@@ -678,3 +678,34 @@ class TestGetTestSetsExcludesExplorer:
         ids = {ts.id for ts in results}
         assert regular.id in ids
         assert explorer.id not in ids
+
+
+class TestGetTestSetSoftDeleteContract:
+    """services.test_set.get_test_set must raise ItemDeletedException for a
+    soft-deleted row, like every other entity's single-item fetch -- not
+    silently collapse it into "not found" like get_item does for None."""
+
+    def test_raises_for_deleted_test_set(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+
+        test_set = models.TestSet(
+            name="Soft Delete Services Test Set",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_set)
+        test_db.commit()
+        test_db.refresh(test_set)
+
+        crud.delete_test_set(
+            test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+
+        with pytest.raises(ItemDeletedException):
+            test_set_service.get_test_set(test_db, test_set.id, str(test_org_id))
+
+    def test_returns_none_for_nonexistent(self, test_db: Session, test_org_id):
+        result = test_set_service.get_test_set(test_db, uuid.uuid4(), str(test_org_id))
+        assert result is None
