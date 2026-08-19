@@ -32,6 +32,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from rhesis.backend.alembic.utils.idempotency import column_exists, index_exists
+
 revision: str = "a4b5c6d7e8f9"
 down_revision: Union[str, None] = "3f5954f6c374"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -41,26 +43,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    project_id_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name='refresh_token' AND column_name='project_id'"
-        )
-    ).fetchone()
-    if not project_id_exists:
+    if not column_exists(conn, "refresh_token", "project_id"):
         op.add_column(
             "refresh_token",
             sa.Column("project_id", sa.dialects.postgresql.UUID(as_uuid=True), nullable=True),
         )
 
-    index_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM pg_indexes "
-            "WHERE tablename='refresh_token' "
-            "AND indexname='ix_refresh_token_project_id'"
-        )
-    ).fetchone()
-    if not index_exists:
+    if not index_exists(conn, "ix_refresh_token_project_id"):
         op.create_index(
             "ix_refresh_token_project_id",
             "refresh_token",
