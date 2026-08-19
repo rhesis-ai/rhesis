@@ -543,7 +543,7 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         with patch(
-            "rhesis.backend.app.services.preflight.checks._check_and_raise_if_deleted",
+            "rhesis.backend.app.services.preflight.checks.get_item_detail",
             side_effect=ItemDeletedException("TestSet", str(ts_id)),
         ):
             result = await check_metric_compatibility(

@@ -185,6 +185,7 @@ async def run_preflight_checks_multi(
                     db,
                     ts_id,
                     metric_mode,
+                    str(user.organization_id),
                     selected_metrics,
                     correlation_id,
                     publish,
