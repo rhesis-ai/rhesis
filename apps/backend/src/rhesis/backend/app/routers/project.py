@@ -70,6 +70,20 @@ def create_project(
     db.commit()
     db.refresh(new_project)
 
+    from rhesis.backend.app.services.usage import count_org_projects
+    from rhesis.backend.app.services.usage_notifications import (
+        check_and_notify_threshold_crossing,
+    )
+
+    new_count = count_org_projects(db, organization_id)
+    check_and_notify_threshold_crossing(
+        db,
+        _quota_gate,
+        QuotaResource.PROJECTS,
+        previous_used=new_count - 1,
+        new_used=new_count,
+    )
+
     return new_project
 
 

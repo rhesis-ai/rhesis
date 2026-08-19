@@ -90,12 +90,28 @@ def create_endpoint(
         if active_status:
             endpoint.status_id = active_status.id
 
-    return crud.create_endpoint(
+    new_endpoint = crud.create_endpoint(
         db=db,
         endpoint=endpoint,
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    from rhesis.backend.app.services.usage import count_org_endpoints
+    from rhesis.backend.app.services.usage_notifications import (
+        check_and_notify_threshold_crossing,
+    )
+
+    new_count = count_org_endpoints(db, organization_id)
+    check_and_notify_threshold_crossing(
+        db,
+        _quota_gate,
+        QuotaResource.ENDPOINTS,
+        previous_used=new_count - 1,
+        new_used=new_count,
+    )
+
+    return new_endpoint
 
 
 @router.get("/", response_model=list[schemas.EndpointDetail])

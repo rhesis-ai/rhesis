@@ -235,6 +235,20 @@ def create_user(
             logger.error(f"Error sending invitation email to {created_user.email}: {str(e)}")
             # Don't fail user creation if email sending fails
 
+    from rhesis.backend.app.services.usage import count_org_seats
+    from rhesis.backend.app.services.usage_notifications import (
+        check_and_notify_threshold_crossing,
+    )
+
+    new_count = count_org_seats(db, str(current_user.organization_id))
+    check_and_notify_threshold_crossing(
+        db,
+        _quota_gate,
+        QuotaResource.SEATS,
+        previous_used=new_count - 1,
+        new_used=new_count,
+    )
+
     return created_user
 
 
