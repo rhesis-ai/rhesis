@@ -173,11 +173,21 @@ def record_trip_details(
         )
 
     tier = budget_level.strip().casefold().replace("-", "_").replace(" ", "_")
-    if tier in BUDGET_LABELS:
+    changed_budget = tier in BUDGET_LABELS and tier != brief.budget_level
+    if changed_budget:
         brief.budget_level = tier  # type: ignore[assignment]
+        # The note is derived from the tier, so a new tier makes it stale. Clearing it is what
+        # puts lodging_advisor back on ``pending_specialists`` instead of leaving the re-run to
+        # the coordinator's judgement.
+        brief.lodging_note = None
 
     # A rejected itinerary is stale the moment preferences change.
-    if not is_blank(dislikes) or not is_blank(destination):
+    if (
+        changed_budget
+        or not is_blank(dislikes)
+        or not is_blank(destination)
+        or not is_blank(interests)
+    ):
         brief.plan_text = None
 
     return render_brief(brief)

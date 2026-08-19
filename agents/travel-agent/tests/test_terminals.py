@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from travel_agent.brief import bind_brief, current_brief
-from travel_agent.state import Sight, TripBrief, TripLeg
+from travel_agent.state import Sight, TripBrief, TripLeg, pending_specialists
 from travel_agent.terminals import (
     GREETING,
     TERMINAL_TOOLS,
@@ -119,3 +119,46 @@ def test_assume_defaults_is_a_no_op_when_nothing_is_missing():
     trip.budget_level = "budget"
     with bind_brief(trip):
         assert "Nothing left to assume" in invoke(assume_defaults)
+
+
+def test_a_changed_budget_makes_the_lodging_note_stale():
+    """The note is derived from the tier, so a new tier has to re-run lodging_advisor.
+
+    Leaving it in place made a refinement turn depend on the coordinator noticing, which is
+    exactly the kind of judgement a small model does not reliably make.
+    """
+    trip = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    trip.budget_level = "budget"
+    trip.lodging_note = "Around 60 EUR a night."
+    trip.plan_text = "your plan"
+
+    with bind_brief(trip):
+        invoke(record_trip_details, budget_level="luxury")
+
+    assert trip.budget_level == "luxury"
+    assert trip.lodging_note is None
+    assert trip.plan_text is None
+    assert "lodging_advisor" in pending_specialists(trip)
+
+
+def test_restating_the_same_budget_changes_nothing():
+    trip = TripBrief(legs=[TripLeg(city="Tokyo", days=3)])
+    trip.budget_level = "budget"
+    trip.lodging_note = "Around 60 EUR a night."
+    trip.plan_text = "your plan"
+
+    with bind_brief(trip):
+        invoke(record_trip_details, budget_level="budget")
+
+    assert trip.lodging_note == "Around 60 EUR a night."
+    assert trip.plan_text == "your plan"
+
+
+def test_new_interests_make_an_existing_plan_stale():
+    trip = TripBrief(legs=[TripLeg(city="Tokyo", days=3)])
+    trip.plan_text = "your plan"
+
+    with bind_brief(trip):
+        invoke(record_trip_details, interests="street food")
+
+    assert trip.plan_text is None
