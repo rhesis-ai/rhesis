@@ -64,7 +64,12 @@ Handoffs are detected automatically in two ways:
 
 ### More Frameworks
 
-LangGraph and Microsoft Agent Framework both produce native `ai.agent.invoke` and `ai.agent.handoff` spans. For MAF, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/docs/tracing/agent-framework). LangChain is supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection there requires LangGraph node naming conventions or `transfer_to_*` tool names. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
+LangGraph, Microsoft Agent Framework and Google ADK all produce native `ai.agent.invoke` and `ai.agent.handoff` spans.
+
+- For **MAF**, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/docs/tracing/agent-framework).
+- For **Google ADK**, both of its multi-agent mechanisms produce edges: a `transfer_to_agent` call becomes the handoff span directly, and an `AgentTool` delegation gets a synthesized one alongside its tool span - see [Google ADK](/docs/tracing/google-adk#multi-agent-handoffs).
+
+LangChain is supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection there requires LangGraph node naming conventions or `transfer_to_*` tool names. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
 
 ## Manual Decoration
 

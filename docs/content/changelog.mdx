@@ -10,6 +10,17 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 
 ## [Unreleased]
 
+### Added
+
+**Google ADK integration**
+
+- **Auto-instrumentation**: `auto_instrument("google_adk")` translates the spans Google ADK already
+  emits into Rhesis traces -- agents, model calls with prompts and token counts, tools with their
+  I/O, and agent-to-agent handoffs for both of ADK's multi-agent mechanisms. Multi-turn ADK sessions
+  group in the Conversation tab automatically. See [Google ADK](/docs/tracing/google-adk).
+- **Penelope target**: `GoogleADKTarget` for multi-turn conversation simulation against any ADK
+  runner or agent.
+
 ## [0.10.0] - 2026-07-09
 
 ### Platform Release

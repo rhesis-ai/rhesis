@@ -1,0 +1,264 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Google ADK
+
+Zero-config tracing for [Google ADK](https://google.github.io/adk-docs/) (Agent Development Kit) applications.
+
+Google ADK already emits OpenTelemetry spans for agents, model calls, tools and workflows. Rhesis turns those spans into first-class traces with a single call: translate ADK's spans into the Rhesis [semantic conventions](/docs/tracing/semantic-conventions), pull prompts and completions out of ADK's own attributes, and synthesize agent handoff spans for the Graph View. Your agent code does not change.
+
+<Mermaid chart={`flowchart LR
+    AI["auto_instrument('google_adk')"] --> ADK["Google ADK"]
+    ADK --> SPANS["ADK spans (gcp.vertex.agent)"]
+    SPANS --> TR["Rhesis translator"]
+    TR --> T["ai.* / function.* traces"]`} />
+
+## Installation
+
+Install the SDK with the `google-adk` extra:
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install "rhesis-sdk[google-adk]"`}
+</CodeBlock>
+
+## Quick Start
+
+Create the `RhesisClient` first (it installs the OpenTelemetry tracer provider and Rhesis exporter), then call `auto_instrument`. After that, use ADK exactly as you normally would.
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+from google.adk.agents import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+
+# 1. Initialize Rhesis (sets up tracing). Required before auto_instrument().
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+# 2. Enable Google ADK auto-instrumentation
+auto_instrument("google_adk")  # alias: auto_instrument("adk")
+
+# 3. Use ADK normally - every agent, model and tool call is traced
+def get_weather(city: str) -> dict:
+    """Get the weather for a city."""
+    return {"temp": 20, "city": city}
+
+agent = Agent(
+    name="travel_assistant",
+    model="gemini-3-flash",
+    instruction="You are a helpful travel assistant.",
+    tools=[get_weather],
+)
+
+session_service = InMemorySessionService()
+await session_service.create_session(
+    app_name="travel", user_id="user-1", session_id="session-1"
+)
+runner = Runner(agent=agent, app_name="travel", session_service=session_service)
+
+async for event in runner.run_async(
+    user_id="user-1",
+    session_id="session-1",
+    new_message=types.Content(
+        role="user", parts=[types.Part(text="What is the weather in Lisbon?")]
+    ),
+):
+    print(event)`}
+</CodeBlock>
+
+<Callout type="info">
+  **Order matters.** `auto_instrument()` must run **after** `RhesisClient` is created. ADK emits spans as soon as any tracer provider exists, so with no Rhesis provider active there is nothing to translate: the call returns an empty list and logs a warning rather than letting untranslated spans reach the backend, where they would be rejected.
+</Callout>
+
+`auto_instrument()` with no arguments auto-detects every installed framework (including ADK). Pass `"google_adk"` (or `"adk"`) to enable it explicitly. The call returns the list of frameworks that were instrumented:
+
+<CodeBlock filename="app.py" language="python">
+{`enabled = auto_instrument("google_adk")
+assert "google_adk" in enabled  # ["google_adk"]`}
+</CodeBlock>
+
+## What Gets Traced
+
+Once enabled, ADK operations are captured automatically and mapped onto the Rhesis schema:
+
+- **Agents** - each agent activation becomes an `ai.agent.invoke` span carrying `ai.agent.name`
+- **Model calls** - each model call becomes one `ai.llm.invoke` span with model, provider, token counts (including cached and reasoning tokens), finish reason, and `ai.prompt` / `ai.completion` events carrying the real text
+- **Tools** - tool executions become `ai.tool.invoke` spans with `ai.tool.input` / `ai.tool.output` events
+- **Handoffs** - agent-to-agent delegation becomes `ai.agent.handoff` spans, for **both** ADK multi-agent mechanisms
+- **Conversations** - the run root carries the turn's input and output, so multi-turn sessions group in the Conversation tab with no manual span code
+- **Workflows and nodes** - `Workflow` / node orchestration and the run root become `function.google_adk.*` spans
+
+### Operation Mapping
+
+| ADK span | Rhesis span name |
+|---|---|
+| `invoke_agent {name}` | `ai.agent.invoke` |
+| `call_llm` | `ai.llm.invoke` |
+| `execute_tool {tool}` | `ai.tool.invoke` |
+| `execute_tool transfer_to_agent` | `ai.agent.handoff` |
+| `invocation` (schema v1 run root) | `function.google_adk.invocation` |
+| `invoke_workflow {name}` | `function.google_adk.workflow.{name}` |
+| `invoke_node {name}` | `function.google_adk.node.{name}` |
+| `generate_content {model}` | dropped as a duplicate — see below |
+
+Spans that don't match a known name fall back to `function.google_adk.<name>` so they always pass backend validation, with the original name preserved on the `gen_ai.original_span_name` attribute. ADK's workflow spans cannot use an `ai.*` name because the Rhesis validator reserves `workflow` as a forbidden `ai.*` domain.
+
+### Two spans per model call
+
+ADK wraps every model call in a `call_llm` span and then opens `generate_content {model}` inside it. Both describe the same call, so only one may become `ai.llm.invoke` — otherwise every model call would appear twice with double-counted tokens.
+
+Rhesis keeps `call_llm` (the only one carrying prompts and completions with default settings, and the one with the fuller token breakdown) and drops the inner duplicate. Because ADK parents the `execute_tool` spans on that inner span, the tool spans are re-pointed at `call_llm` so nothing orphans:
+
+<Mermaid chart={`flowchart TD
+    A["ai.agent.invoke\\n(travel_assistant)"]
+    L["ai.llm.invoke\\nai.prompt / ai.completion"]
+    T["ai.tool.invoke\\n(get_weather)"]
+    A --> L --> T`} />
+
+## Multi-Agent Handoffs
+
+ADK has two ways for one agent to hand work to another, and they produce structurally different traces. Rhesis draws `ai.agent.handoff` edges for both, so the [Graph View](/docs/tracing/multi-agent#trace-visualization) is connected either way.
+
+**`sub_agents` + `transfer_to_agent`** — the model calls ADK's built-in `transfer_to_agent` tool and control moves across. The target agent's own span is a *sibling* of the caller's, so the transfer tool span is the only place the edge is observable; Rhesis translates that span itself into `ai.agent.handoff` rather than adding a tool row for it.
+
+**`AgentTool`** — a whole agent registered as a tool. Rhesis keeps the `ai.tool.invoke` span (an `AgentTool` call genuinely is a tool call) and **synthesizes** an extra `ai.agent.handoff` span alongside it.
+
+<Mermaid chart={`flowchart TD
+    subgraph Trace["Trace: customer support"]
+        R["ai.agent.invoke\\n(support_router)"]
+        H1["ai.agent.handoff\\n(router -> billing_agent)"]
+        B["ai.agent.invoke\\n(billing_agent)"]
+        TB["ai.tool.invoke\\n(check_refund_policy)"]
+        H2["ai.agent.handoff\\n(router -> shipping_agent)"]
+        S["ai.agent.invoke\\n(shipping_agent)"]
+        TS["ai.tool.invoke\\n(check_shipping_status)"]
+    end
+
+    R --> H1 --> B --> TB
+    R --> H2 --> S --> TS`} />
+
+Each handoff span carries `ai.agent.handoff.from` and `ai.agent.handoff.to`. See the [Multi-Agent Tracing](/docs/tracing/multi-agent) page for the full span reference.
+
+<Callout type="info">
+  The deprecated `SequentialAgent` / `LoopAgent` / `ParallelAgent` classes also produce handoff edges, from the orchestrator to each step, because their step spans nest under the orchestrator's own agent span. The newer `Workflow` API nests its steps under `invoke_workflow` instead, so its structure shows as span nesting rather than as edges.
+</Callout>
+
+## Conversation Grouping
+
+To group turns into a conversation, set a conversation id around each turn. The integration stamps the run root as a Rhesis conversation turn root keyed by that id:
+
+<CodeBlock filename="session.py" language="python">
+{`from rhesis.telemetry.context import get_conversation_id, set_conversation_id
+
+previous = get_conversation_id()
+set_conversation_id(conversation_id)
+try:
+    async for event in runner.run_async(...):
+        ...
+finally:
+    set_conversation_id(previous)`}
+</CodeBlock>
+
+With no conversation id set, the integration falls back to the **ADK session id**, so an app that reuses one session across turns gets grouping for free. An app that creates a fresh session per turn should set the id explicitly.
+
+## Telemetry Schema Versions
+
+ADK supports two telemetry formats, selected with `ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN` (`1` or `2`; the default is `2` on Vertex Agent Engine and `1` elsewhere). Both are supported, and Rhesis does not force either — the only difference is which span is the run root (`invocation` in v1, `invoke_workflow {entrypoint}` in v2) and the integration decides that structurally rather than by name.
+
+## Content Capture and Privacy
+
+By default, the integration captures message content (prompts, completions, tool arguments and results) so traces show what each agent actually sent and received. It reads this from ADK's own span attributes, which record it out of the box.
+
+To omit message content — for example in production or regulated environments — set `RHESIS_DISABLE_CONTENT_CAPTURE` before initializing:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_DISABLE_CONTENT_CAPTURE=1`}
+</CodeBlock>
+
+Accepted truthy values: `1`, `true`, `yes`, `on` (case-insensitive). When disabled, spans are still exported with structural metadata (model, provider, token counts, agent names, operation types), but no prompt, completion, or tool input/output payloads are recorded.
+
+The integration switches off all three of ADK's overlapping content knobs, including `ADK_TELEMETRY_IGNORE_RUN_CONFIG` — without that one a per-request `RunConfig.telemetry` would outrank the environment and put prompts back on the spans. It never touches `OTEL_SEMCONV_STABILITY_OPT_IN`, which is a global OpenTelemetry switch that would change the behaviour of unrelated instrumentation in the same process.
+
+## Span Verbosity
+
+To keep traces readable, the integration drops ADK infrastructure spans that carry no agent, model or tool payload: `send_data`, `create_cache`, `handle_context_caching`, `compact_events`, and `execute_tool (merged)` (a duplicate summary ADK emits after parallel tool calls, whose payload is placeholder text).
+
+To keep every span, set:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_GOOGLE_ADK_VERBOSE_SPANS=1`}
+</CodeBlock>
+
+They then appear under `function.google_adk.*`, never claiming an `ai.*` semantic.
+
+## Combining with Decorators
+
+Auto-instrumentation composes with `@endpoint` and `@observe`. Wrap your entry point with `@endpoint` so Rhesis can run tests against it; ADK spans created inside are nested under the endpoint span, which then owns the turn-root semantics:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.telemetry import auto_instrument
+
+client = RhesisClient(api_key="your-api-key", project_id="your-project-id")
+auto_instrument("google_adk")
+
+@endpoint()
+async def chat(input: str, conversation_id: str = None) -> dict:
+    # ADK agent/model/tool/handoff spans are nested under this endpoint span
+    reply = await run_turn(input, conversation_id=conversation_id)
+    return {"output": reply, "conversation_id": conversation_id}`}
+</CodeBlock>
+
+<Callout type="warning">
+  Use `Runner.run_async`, not `Runner.run`. The synchronous `run` executes the agent on a fresh thread with fresh context variables, so its spans start a **new trace** instead of nesting under the enclosing endpoint span, and the conversation id set via `rhesis.telemetry.context` is invisible to them.
+</Callout>
+
+<Callout type="warning">
+  Do not call `google.adk.telemetry.setup.maybe_set_otel_providers()`. It installs its own tracer, logger and meter providers, replacing the ones Rhesis configured, and spans will no longer reach Rhesis.
+</Callout>
+
+## Troubleshooting
+
+**`auto_instrument("google_adk")` returns an empty list.** Either `google-adk` is not installed, or no Rhesis tracer provider is active. Create `RhesisClient` before calling `auto_instrument`, and check the log — the integration says which of the two it was.
+
+**Spans are missing from the trace.** ADK spans nest under whichever span is active when the run starts. If you are using the synchronous `Runner.run`, switch to `run_async` (see the warning above).
+
+**No prompts or completions.** Check whether `RHESIS_DISABLE_CONTENT_CAPTURE` is set, or whether the app sets `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` itself.
+
+**`google-adk[otel-gcp]` is installed.** That extra brings `opentelemetry-instrumentation-google-genai`, which makes ADK hand the model span to a different instrumentation scope. Traces stay complete (`call_llm` is still ADK's own and still becomes `ai.llm.invoke`), but that library's spans are not translated. The extra is not needed for Rhesis tracing.
+
+## Worked Example: Reg-Advisor
+
+The repository ships a runnable multi-agent ADK demo — a regulatory coordinator that delegates to three specialists via `AgentTool` — wired to produce agent, LLM, tool and handoff traces in Rhesis. See [`agents/reg-advisor`](https://github.com/rhesis-ai/rhesis/tree/main/agents/reg-advisor) and its [architecture notes](https://github.com/rhesis-ai/rhesis/blob/main/agents/reg-advisor/docs/architecture.md).
+
+## Testing ADK Agents
+
+Beyond tracing, Rhesis can run autonomous multi-turn conversation tests against an ADK agent with the `GoogleADKTarget` — see [Conversation Simulation](/docs/tests/conversation-simulation).
+
+## Disabling
+
+Turn instrumentation off (restores the original exporter and any environment variable the integration set) with:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import disable_auto_instrument
+
+disable_auto_instrument()`}
+</CodeBlock>
+
+<Callout type="info">
+  ADK itself has no instrumentation switch, so it keeps emitting spans after `disable()`. Those spans then pass through untranslated — the same state as never having enabled the integration.
+</Callout>
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) - zero-config tracing for every supported framework
+  - [Multi-Agent Tracing](/docs/tracing/multi-agent) - agent and handoff spans
+  - [Conversation Tracing](/docs/tracing/conversation-tracing) - grouping turns into conversations
+  - [Setup](/docs/tracing/setup) - initial configuration
+</Callout>

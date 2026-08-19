@@ -17,7 +17,7 @@ Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEva
 
 Your application emits OpenTelemetry spans through the Rhesis SDK. How you attach them depends on the framework:
 
-- **LangChain**, **LangGraph**, **Microsoft Agent Framework**, and **Pydantic AI** auto-instrument with a single `auto_instrument()` call.
+- **LangChain**, **LangGraph**, **Microsoft Agent Framework**, **Pydantic AI**, and **Google ADK** auto-instrument with a single `auto_instrument()` call.
 - Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, …) use the `@observe.*` decorators on the functions, tools, or agents you want to capture.
 - Any OpenTelemetry-compatible exporter can target the Rhesis ingestion endpoint directly.
 

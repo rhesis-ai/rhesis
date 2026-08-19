@@ -8,6 +8,7 @@ const meta: MetaRecord = {
   "semantic-conventions": "Semantic Conventions",
   "auto-instrumentation": "Auto-Instrumentation",
   "agent-framework": "Microsoft Agent Framework",
+  "google-adk": "Google ADK",
   "multi-agent": "Multi-Agent Tracing",
   "conversation-tracing": "Conversation Tracing",
 };

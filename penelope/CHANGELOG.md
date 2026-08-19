@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GoogleADKTarget`** for testing Google ADK agents. Accepts either a configured `Runner` or a
+  bare agent (wrapped in a `Runner` with an in-memory session service on first use), and uses
+  Penelope's `conversation_id` directly as the ADK session id so multi-turn context lives where ADK
+  already keeps it. Sessions are looked up before being created, so a caller-supplied id works and
+  a persistent session service resumes a conversation started in another process. ADK's `run_async`
+  is an async generator rather than a coroutine, so the target consumes the event stream and picks
+  the reply from it (final-response event, then last complete event, then streamed partials).
+  Install with the new `google-adk` extra.
 - **Global tool execution limit** to prevent infinite loops. By default, limits total tool executions to `max_iterations × 5` (e.g., 10 turns × 5 = 50 executions).
 - **Environment variable support** for configuring the execution multiplier via `PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER`.
 - **Progress warnings** at 60% and 80% of execution limits to help developers tune limits before hitting hard stops.
@@ -63,5 +71,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tiktoken>=0.9.0` - Token counting
 
 [0.1.0]: https://github.com/rhesis-ai/rhesis/releases/tag/penelope-v0.1.0
-
-

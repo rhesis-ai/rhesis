@@ -147,6 +147,24 @@ Demonstrates:
 
 **Use Case**: When you're using LangChain and want automatic tracing without code changes.
 
+### 9. Google ADK Multi-Agent
+
+**File**: `google_adk_example.py`
+
+Demonstrates:
+- Auto-instrumentation with `auto_instrument("google_adk")`
+- A router agent with two `sub_agents`, reached via ADK's `transfer_to_agent` tool
+- Agent, model and tool spans with prompts, completions and token counts
+- Connected `ai.agent.handoff` edges in the Graph View
+- Two turns grouped into one conversation via `set_conversation_id`
+- **Gemini via `GOOGLE_API_KEY`** (set `GOOGLE_ADK_MODEL` to change the model)
+
+**Use Case**: Trace a Google ADK multi-agent application with no code changes.
+
+```bash
+uv run --extra google-adk google_adk_example.py
+```
+
 ## Prerequisites
 
 This project uses `uv` for package management. Install it first:
@@ -216,7 +234,7 @@ export GOOGLE_API_KEY="your-gemini-api-key"
 export OPENAI_API_KEY="your-openai-api-key"
 ```
 
-**Important**: 
+**Important**:
 - All examples require `RHESIS_API_KEY` and `RHESIS_PROJECT_ID` to send traces
 - Make sure your **backend is running** (default: `http://localhost:8080`)
 - The LangChain example also requires `GOOGLE_API_KEY` for Gemini access
@@ -259,6 +277,9 @@ uv run --extra llamaindex llamaindex_example.py
 
 # LangChain example (auto-instrumentation)
 uv run --extra langchain langchain_example.py
+
+# Google ADK example (auto-instrumentation)
+uv run --extra google-adk google_adk_example.py
 
 # CrewAI multi-agent example
 uv run --extra crewai crewai_example.py
@@ -524,4 +545,3 @@ For questions or issues:
 1. Check the documentation links above
 2. Review the examples in this folder
 3. Enable debug logging to see trace export details
-

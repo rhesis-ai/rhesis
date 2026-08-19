@@ -40,6 +40,9 @@ llamaindex = [
 crewai = [
     "crewai[google-genai]>=0.108.0",
 ]
+google-adk = [
+    "google-adk>=2.6,<3",
+]
 
 [tool.uv]
 exclude-newer = "1 week"

@@ -45,9 +45,11 @@ Penelope can drive several kinds of systems under test:
 from rhesis.penelope import (
     PenelopeAgent,
     EndpointTarget,
+    GoogleADKTarget,
     LangChainTarget,
     LangGraphTarget,
     MAFTarget,
+    PydanticAITarget,
 )
 
 penelope = PenelopeAgent()
@@ -55,11 +57,19 @@ penelope = PenelopeAgent()
 # MAF (Microsoft Agent Framework) agent (async run() is bridged automatically)
 target = MAFTarget(maf_agent, target_id="maf-bot")
 
+# Google ADK: pass a Runner, or a bare agent to have one built for you.
+# The conversation_id is used directly as the ADK session id.
+target = GoogleADKTarget(adk_runner, target_id="adk-bot")
+
 result = penelope.execute_test(
     target=target,
     goal="Verify the assistant keeps context across 3 turns",
 )
 ```
+
+Install the matching extra for the framework you are testing, e.g.
+`uv sync --extra google-adk`. The target modules never import their framework at
+module load, so `rhesis.penelope` imports fine with none of them installed.
 
 ### Infinite Loop Prevention
 
