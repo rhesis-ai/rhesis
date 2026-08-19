@@ -27,7 +27,10 @@ export interface BaseDrawerProps {
   onSave?: () => void;
   /** Disable the save button (button remains visible) */
   saveDisabled?: boolean;
-  error?: string;
+  /** A plain string renders as the usual red error line. Pass a node (e.g.
+   * `<QuotaNotice>`) for a gate that isn't a failure -- `approaching` and
+   * `pastIncluded` zones aren't errors and shouldn't render in error red. */
+  error?: React.ReactNode;
   saveButtonText?: string;
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
@@ -153,11 +156,14 @@ export default function BaseDrawer({
       {/* Bottom toolbar — only rendered when there is something to show */}
       {hasFooter && (
         <Box sx={{ flexShrink: 0 }}>
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
-              {error}
-            </Typography>
-          )}
+          {error &&
+            (typeof error === 'string' ? (
+              <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
+                {error}
+              </Typography>
+            ) : (
+              <Box sx={{ mb: 1.5 }}>{error}</Box>
+            ))}
           <Box
             sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
           >

@@ -79,8 +79,16 @@ import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useResourceUsage } from '@/contexts/UsageContext';
-import { QuotaResource, QUOTA_RESOURCE_LABELS } from '@/constants/quota';
+import { useResourceUsage, useUsage } from '@/contexts/UsageContext';
+import { QuotaResource } from '@/constants/quota';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import {
+  isCommunityEdition,
+  isKnownQuotaResource,
+  parseQuotaError,
+} from '@/utils/quota';
+import { QuotaNotice } from '@/components/common/QuotaNotice';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -282,7 +290,19 @@ export default function RunDrawer(props: RunDrawerProps) {
   // ---- Core state ----
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<React.ReactNode>();
+
+  // Whether this reader can be offered the upgrade action in a quota
+  // notice: someone who can manage the org (Organization.UPDATE -- the
+  // same owner/admin gate as the Org Settings page), on a community-edition
+  // org. `usage:read` itself is granted to every member, not just admins,
+  // so it can't answer "can this person upgrade" -- everyone can now read
+  // the numbers; only Organization.UPDATE holders get pointed at the
+  // upgrade link. A member always gets pointed at an admin instead.
+  const canManageOrg = useCan(Capability.Organization.UPDATE);
+  const { edition: orgEdition } = useUsage();
+  const canUpgrade =
+    canManageOrg && orgEdition !== null && isCommunityEdition(orgEdition);
 
   // ---- Project / Endpoint ----
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -991,7 +1011,22 @@ export default function RunDrawer(props: RunDrawerProps) {
       onSuccess?.();
       onClose();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to execute'));
+      const quotaError = parseQuotaError(err);
+      setError(
+        quotaError && isKnownQuotaResource(quotaError.resource) ? (
+          <QuotaNotice
+            resource={quotaError.resource}
+            kind={quotaError.kind}
+            used={quotaError.used}
+            limit={quotaError.limit ?? 0}
+            zone="blocked"
+            periodEnd={quotaError.periodEnd}
+            canUpgrade={canUpgrade}
+          />
+        ) : (
+          getApiErrorMessage(err, 'Failed to execute')
+        )
+      );
     } finally {
       setExecuting(false);
     }
@@ -1043,9 +1078,18 @@ export default function RunDrawer(props: RunDrawerProps) {
     executionQuotaExhausted,
   ]);
 
-  const quotaExhaustedMessage = executionQuotaExhausted
-    ? `You've reached your ${QUOTA_RESOURCE_LABELS[QuotaResource.TEST_EXECUTIONS].toLowerCase()} limit for this period.`
-    : undefined;
+  const quotaExhaustedMessage =
+    executionQuotaExhausted && executionUsage ? (
+      <QuotaNotice
+        resource={QuotaResource.TEST_EXECUTIONS}
+        kind={executionUsage.kind}
+        used={executionUsage.used}
+        limit={executionUsage.limit ?? 0}
+        zone="blocked"
+        periodEnd={executionUsage.period_end}
+        canUpgrade={canUpgrade}
+      />
+    ) : undefined;
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {
