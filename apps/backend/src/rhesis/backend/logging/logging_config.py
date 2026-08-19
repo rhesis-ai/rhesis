@@ -22,17 +22,126 @@ LOG_FORMAT = "%(asctime)s - %(role_prefix)s%(request_prefix)s%(name)s - %(leveln
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
 
 
+#: Value characters. Stops where a value ends in prose, JSON or a dict repr;
+#: excluding brackets and backslashes also stops an inserted ``[REDACTED]`` from
+#: being matched again by a later pattern.
+_VALUE = r"[^\s\"',;)}\[\]\\]+"
+
+#: Optional quote around the separator, so a logged header dict repr still
+#: matches: ``{'Authorization': 'Bearer ...'}``.
+_SEP = r"[\"']?\s*[:=]\s*[\"']?\s*"
+
+#: A few words may sit between the keyword and the separator. OpenAI's and
+#: Anthropic's auth-error bodies read "Incorrect API key provided: sk-...", and
+#: those bodies reach our logs verbatim through the endpoint invoker.
+_FILLER = r"(?:\s+\w+){0,3}?"
+
+#: Words that follow a secret keyword in ordinary diagnostics. Redacting these
+#: hides the very thing the line was written to say.
+_NON_SECRET_VALUES = frozenset(
+    {
+        "blank",
+        "configured",
+        "empty",
+        "expired",
+        "false",
+        "found",
+        "invalid",
+        "missing",
+        "nil",
+        "no",
+        "none",
+        "not",
+        "null",
+        "present",
+        "provided",
+        "redacted",
+        "required",
+        "set",
+        "true",
+        "unknown",
+        "unset",
+    }
+)
+
+
+def _looks_like_secret(value: str) -> bool:
+    """Whether a keyword's captured value is credential-shaped rather than prose."""
+    parts = [part for part in re.split(r"[-_]", value) if part]
+    if parts and all(part.lower() in _NON_SECRET_VALUES for part in parts):
+        return False
+    # A plain lowercase word is prose; credentials carry digits, case or separators.
+    if value.isalpha() and value.islower():
+        return False
+    return len(value) >= 12 or any(char.isdigit() for char in value)
+
+
+def _redact_if_secret(match: re.Match) -> str:
+    """Replacement for keyword patterns: group 1 is the prefix, group 2 the value."""
+    if _looks_like_secret(match.group(2)):
+        return f"{match.group(1)}[REDACTED]"
+    return match.group(0)
+
+
 _SENSITIVE_PATTERNS = [
+    # Shape-based first: these need no keyword beside them, which is the only way
+    # to catch a key quoted inside an upstream error body or a traceback frame.
     (
-        re.compile(r"(authorization:\s*Bearer\s+)[\w\-\.]+", re.IGNORECASE),
+        re.compile(r"\beyJ[\w\-\.]+\.eyJ[\w\-\.]+\.[\w\-\.]+", re.IGNORECASE),
+        r"[REDACTED_JWT]",
+    ),
+    (
+        re.compile(r"\bsk-[A-Za-z0-9_\-]{16,}", re.IGNORECASE),
+        r"[REDACTED]",
+    ),
+    (
+        re.compile(r"\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{16,}", re.IGNORECASE),
+        r"[REDACTED]",
+    ),
+    (
+        re.compile(r"\bxox[abprs]-[A-Za-z0-9\-]{10,}", re.IGNORECASE),
+        r"[REDACTED]",
+    ),
+    (
+        re.compile(r"\bAIza[0-9A-Za-z_\-]{30,}", re.IGNORECASE),
+        r"[REDACTED]",
+    ),
+    (
+        re.compile(r"(rh-[\w]{40,})", re.IGNORECASE),
+        r"rh-[REDACTED]",
+    ),
+    (
+        re.compile(r"(AKIA[\w]{16})", re.IGNORECASE),
+        r"AKIA[REDACTED]",
+    ),
+    # Any scheme's userinfo password. Enumerating schemes missed both of ours:
+    # SQLAlchemy writes "postgresql+psycopg2://" and the Celery broker "redis://".
+    (
+        re.compile(r"\b([a-z][a-z0-9+.\-]*://[^:/\s@]*:)([^@\s/]+)(@)", re.IGNORECASE),
+        r"\1[REDACTED]\3",
+    ),
+    # Header name touching its value: unambiguously a credential, no shape check.
+    (
+        re.compile(rf"(authorization{_SEP}Bearer\s+)[\w\-\.]+", re.IGNORECASE),
         r"\1[REDACTED]",
     ),
     (
-        re.compile(r"(authorization:\s*Basic\s+)[\w\+/=]+", re.IGNORECASE),
+        re.compile(rf"(authorization{_SEP}Basic\s+)[\w\+/=]+", re.IGNORECASE),
         r"\1[REDACTED]",
     ),
+    # The lookahead stops this from re-redacting the "Bearer"/"Basic" left behind
+    # by the two patterns above.
     (
-        re.compile(r"(authorization:\s*)[\w\-\.]+", re.IGNORECASE),
+        re.compile(
+            rf"(authorization{_SEP})(?!Bearer\b|Basic\b)[\w\-\.]+",
+            re.IGNORECASE,
+        ),
+        r"\1[REDACTED]",
+    ),
+    # A Bearer token with no header name in reach -- rest_invoker logs whole
+    # header dicts, and nesting puts the token well away from any name.
+    (
+        re.compile(r"\b(Bearer\s+)(?!token\b|auth)[\w\-\.=+/]{8,}", re.IGNORECASE),
         r"\1[REDACTED]",
     ),
     (
@@ -45,101 +154,56 @@ _SENSITIVE_PATTERNS = [
     ),
     (
         re.compile(
-            r"(x-[a-z\-]*(?:api|auth|token)[a-z\-]*:\s*)[\w\-\.]+",
+            rf"(x-[a-z\-]*(?:api|auth|token)[a-z\-]*{_SEP})[\w\-\.]+",
             re.IGNORECASE,
         ),
         r"\1[REDACTED]",
     ),
-    # A space is a separator too, not just - and _: an upstream service's own
-    # error body says "invalid api key: sk-live-..." in prose, and that body
-    # reaches us verbatim. Only a space -- \s would let a match jump log lines.
+    # Keyword patterns. A space is a separator too, not just - and _: an upstream
+    # service's own error body says "invalid api key: sk-live-..." in prose. The
+    # value is only redacted when it looks like a credential, so a diagnostic
+    # ("api key: not configured") still reads.
+    (
+        re.compile(rf"(api[-_ ]?key{_FILLER}{_SEP})({_VALUE})", re.IGNORECASE),
+        _redact_if_secret,
+    ),
+    (
+        re.compile(rf"(password{_FILLER}{_SEP})({_VALUE})", re.IGNORECASE),
+        _redact_if_secret,
+    ),
+    (
+        re.compile(rf"(client[-_ ]?secret{_FILLER}{_SEP})({_VALUE})", re.IGNORECASE),
+        _redact_if_secret,
+    ),
     (
         re.compile(
-            r"(api[-_ ]?key[\"']?\s*[:=]\s*[\"']?)[\w\-]+",
+            rf"(aws[-_ ]?secret[-_ ]?(?:access[-_ ]?)?key{_FILLER}{_SEP})({_VALUE})",
             re.IGNORECASE,
         ),
-        r"\1[REDACTED]",
+        _redact_if_secret,
     ),
     (
-        re.compile(r"(rh-[\w]{40,})", re.IGNORECASE),
-        r"rh-[REDACTED]",
+        re.compile(rf"(secret{_FILLER}{_SEP})({_VALUE})", re.IGNORECASE),
+        _redact_if_secret,
     ),
     (
         re.compile(
-            r"(password[\"']?\s*[:=]\s*[\"']?)[^\s\"']+",
+            rf"((?:session|access|refresh)[-_ ]?token{_FILLER}{_SEP})({_VALUE})",
             re.IGNORECASE,
         ),
-        r"\1[REDACTED]",
+        _redact_if_secret,
     ),
     (
         re.compile(
-            r"(secret[\"']?\s*[:=]\s*[\"']?)[\w\-\.]+",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"(session[-_ ]?token[\"']?\s*[:=]\s*[\"']?)[\w\-\.]+",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"\beyJ[\w\-\.]+\.eyJ[\w\-\.]+\.[\w\-\.]+",
-            re.IGNORECASE,
-        ),
-        r"[REDACTED_JWT]",
-    ),
-    (
-        re.compile(
-            r"((?:access|refresh)[-_ ]?token[\"']?\s*[:=]\s*[\"']?)"
-            r"[\w\-\.]+",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"(client[-_ ]?secret[\"']?\s*[:=]\s*[\"']?)[\w\-]+",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"((?:postgres|mysql|mongodb)://[^:]+:)([^@]+)(@)",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]\3",
-    ),
-    (
-        re.compile(r"(AKIA[\w]{16})", re.IGNORECASE),
-        r"AKIA[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"(aws[-_ ]?secret[-_ ]?(?:access[-_ ]?)?key[\"']?"
-            r"\s*[:=]\s*[\"']?)[\w\+/=]+",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"(private_key[\"']?\s*[:=]\s*[\"']?)"
+            rf"(private_key{_SEP})"
             r"-----BEGIN[^-]+-----[^-]+-----END[^-]+-----",
             re.IGNORECASE,
         ),
         r"\1[REDACTED_PRIVATE_KEY]",
     ),
     (
-        re.compile(
-            r"(token[\"']?\s*[:=]\s*[\"']?)[\w\-\.]{20,}",
-            re.IGNORECASE,
-        ),
-        r"\1[REDACTED]",
+        re.compile(rf"(token{_FILLER}{_SEP})([\w\-\.]{{20,}})", re.IGNORECASE),
+        _redact_if_secret,
     ),
 ]
 
@@ -202,6 +266,14 @@ class JsonLogFormatter(logging.Formatter):
             "module": record.name,
             "message": f"{record.name}: {record.getMessage()}",
         }
+        # Without this a logger.exception() reaches GCP with no frames at all;
+        # stack_trace is the key Error Reporting parses. Redaction still applies:
+        # set_logger wraps this formatter in RedactingFormatter, which redacts the
+        # serialised payload, traceback text included.
+        if record.exc_info:
+            payload["stack_trace"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            payload["stack_info"] = self.formatStack(record.stack_info)
         for field in _STRUCTURED_EXTRA_FIELDS:
             value = getattr(record, field, None)
             if value is not None:
@@ -222,7 +294,9 @@ class _WorkerContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.worker_role = self.worker_role
         record.role_prefix = f"[{self.worker_role}] - " if self.worker_role else ""
-        request_id = get_request_id()
+        # unhandled_exception_handler runs outside RequestIDMiddleware, so it
+        # passes request_id through extra= after the ContextVar was reset.
+        request_id = getattr(record, "request_id", None) or get_request_id()
         record.request_id = request_id or None
         record.request_prefix = f"[{request_id}] " if request_id else ""
         return True
