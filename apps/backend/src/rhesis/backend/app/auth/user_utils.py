@@ -303,6 +303,21 @@ async def get_authenticated_user_with_context(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User is not associated with an organization",
                 )
+
+            # ``azp`` marks a token-exchange-issued JWT; UI/SSO JWTs never
+            # carry it, so gating on it leaves their AuthKind.SESSION
+            # classification untouched. Storing the ``project`` claim on
+            # request.state is what lets get_project_context treat this
+            # like a project-scoped rh-* token (membership re-checked per
+            # request by assert_project_access). The re-decode is a cheap
+            # HMAC verify -- get_user_from_jwt discards the payload.
+            payload = verify_jwt_token(credentials.credentials, secret_key)
+            if payload.get("azp"):
+                setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
+                project_claim = payload.get("project")
+                if project_claim:
+                    setattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, str(project_claim))
+
             request.state.user = jwt_user
             return jwt_user
 

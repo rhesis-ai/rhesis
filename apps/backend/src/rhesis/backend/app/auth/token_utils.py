@@ -59,6 +59,7 @@ def create_session_token(
     scope: Optional[str] = None,
     jti: Optional[str] = None,
     epoch: Optional[Union[datetime, int]] = None,
+    project: Optional[str] = None,
 ) -> str:
     """Create a new session token for a user.
 
@@ -92,6 +93,13 @@ def create_session_token(
       check at verify time is one int comparison with no DB lookup,
       and that is the entire mechanism behind coarse revocation.
       Minting an azp-bearing token without it raises immediately.
+    - ``project`` -- project UUID the exchanged token is scoped to
+      (RFC 8693 ``resource`` parameter on ``/auth/token-exchange``).
+      ``None`` means no project scope (org-level rows only), which is
+      also the default when the caller omits ``resource`` at exchange
+      time. Consumed by ``get_authenticated_user_with_context`` to set
+      ``request.state.api_token_project_id`` the same way a
+      project-scoped ``rh-*`` token does.
     """
     if aud is not None and azp is None:
         # An ``aud`` without ``azp`` is unverifiable: ``verify_jwt_token``
@@ -146,11 +154,13 @@ def create_session_token(
                 to_encode["epoch"] = int(epoch.timestamp())
             else:
                 to_encode["epoch"] = int(epoch)
-    elif scope is not None or jti is not None or epoch is not None:
+        if project is not None:
+            to_encode["project"] = project
+    elif scope is not None or jti is not None or epoch is not None or project is not None:
         # Same reasoning as the aud-without-azp guard: the new claims
         # only have meaning in concert with ``azp``. Smuggling them in
         # alone would produce a token that looks bound but isn't.
-        raise ValueError("scope/jti/epoch require azp to be set")
+        raise ValueError("scope/jti/epoch/project require azp to be set")
 
     encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=get_jwt_algorithm())
     return encoded_jwt

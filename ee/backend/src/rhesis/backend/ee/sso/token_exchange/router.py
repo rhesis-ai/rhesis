@@ -219,6 +219,11 @@ async def _parse_form_payload(request: Request) -> TokenExchangeRequest:
       values. We require exactly one because our authorization model
       ties an exchanged token to one organization (the audience). A
       multi-audience exchange would have ambiguous org binding.
+    - **At most one resource.** RFC 8693's ``resource`` parameter
+      names the project the exchanged token should be scoped to. Zero
+      values means no project scope (org-level rows only, the
+      pre-existing behaviour); more than one would leave the binding
+      ambiguous, same rationale as audience.
     - **Single credential mechanism.** RFC 6749 §2.3.1 forbids
       sending client credentials via both Basic ``Authorization`` and
       the request body. Doing so could let two different secrets
@@ -265,6 +270,15 @@ async def _parse_form_payload(request: Request) -> TokenExchangeRequest:
         raise _FormParseError("audience_must_be_single")
     audience = audience_list[0]
 
+    # RFC 8693 resource: optional, at most one. Same ambiguity argument
+    # as audience -- a multi-valued resource would leave the project
+    # binding undefined. Absent means "no project scope" (org-level
+    # rows only), which is the pre-existing behaviour.
+    resource_list = form.get("resource") or []
+    if len(resource_list) > 1:
+        raise _FormParseError("resource_must_be_single")
+    resource = resource_list[0] if resource_list else None
+
     # Basic auth detection. If the header is present and parses
     # successfully, the body MUST NOT also carry credentials.
     auth_header = request.headers.get("authorization")
@@ -285,6 +299,7 @@ async def _parse_form_payload(request: Request) -> TokenExchangeRequest:
         audience=audience or "",
         requested_token_type=_single("requested_token_type") or None,
         scope=_single("scope"),
+        resource=resource,
         client_id=client_id,
         client_secret=client_secret,
         source_ip=get_real_ip(request),

@@ -193,6 +193,7 @@ def token_exchange_audit_log(
     subject_token_jti: Optional[str] = None,
     email: Optional[str] = None,
     scope: Optional[str] = None,
+    project_id: Optional[str] = None,
     reason_code: Optional[str] = None,
     ip: Optional[str] = None,
     user_agent: Optional[str] = None,
@@ -224,6 +225,8 @@ def token_exchange_audit_log(
         entry["hashed_email"] = he
     if scope is not None:
         entry["scope"] = scope
+    if project_id is not None:
+        entry["project_id"] = project_id
     if reason_code is not None:
         entry["reason_code"] = reason_code
     if ip is not None:

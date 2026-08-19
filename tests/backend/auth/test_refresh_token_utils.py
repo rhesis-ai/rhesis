@@ -78,6 +78,44 @@ class TestCreateRefreshToken:
         assert row is not None
         assert str(row.user_id) == str(user.id)
 
+    def test_persists_project_id(self, test_db):
+        """project_id (RFC 8693 resource, resolved at exchange time) is stored."""
+        org = create_test_organization(test_db, "ProjectId Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("projectid"), "ProjectId User"
+        )
+        test_db.flush()
+        project_id = str(uuid.uuid4())
+
+        raw = create_refresh_token(
+            test_db, str(user.id), client_id="client-abc", project_id=project_id
+        )
+        test_db.commit()
+
+        row = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        assert str(row.project_id) == project_id
+
+    def test_project_id_defaults_to_none(self, test_db):
+        org = create_test_organization(test_db, "NoProject Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("noproject"), "NoProject User"
+        )
+        test_db.flush()
+
+        raw = create_refresh_token(test_db, str(user.id))
+        test_db.commit()
+
+        row = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(raw))
+            .first()
+        )
+        assert row.project_id is None
+
     def test_assigns_new_family_when_none(self, test_db):
         org = create_test_organization(test_db, "Family Org")
         user = create_test_user(
@@ -469,6 +507,35 @@ class TestVerifyAndRefresh:
 
         assert returned != raw  # rotated
         assert row.is_revoked  # old token revoked
+
+    def test_project_id_preserved_across_rotation(self, test_db):
+        """The successor row keeps project_id -- the regression this exists to catch.
+
+        Without propagating project_id on rotation, a token-exchange-issued
+        access token's ``project`` claim would work until the first refresh
+        and then silently disappear.
+        """
+        org = create_test_organization(test_db, "ProjectRotate Org")
+        user = create_test_user(
+            test_db, org.id, _unique_email("projectrotate"), "ProjectRotate User"
+        )
+        test_db.flush()
+        project_id = str(uuid.uuid4())
+
+        raw = create_refresh_token(
+            test_db, str(user.id), client_id="client-abc", project_id=project_id
+        )
+        test_db.commit()
+
+        _, new_raw = verify_and_rotate_refresh_token(test_db, raw)
+        test_db.commit()
+
+        successor = (
+            test_db.query(RefreshToken)
+            .filter(RefreshToken.token_hash == _hash_token(new_raw))
+            .first()
+        )
+        assert str(successor.project_id) == project_id
 
     def test_token_exchange_reuse_revokes_family(self, test_db):
         """Reusing a rotated token-exchange token revokes the family."""

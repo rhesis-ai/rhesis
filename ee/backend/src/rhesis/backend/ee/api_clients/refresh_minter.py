@@ -147,11 +147,16 @@ def mint_for_client_bound_refresh(
     # preserves the original intent) and is consulted on the next
     # refresh; only the access token's scope is filtered.
     access_scope = _strip_offline_access(old_token.scope)
+    # ``old_token.project_id`` carries the project resolved from the
+    # RFC 8693 ``resource`` parameter at exchange time. Re-minting it
+    # on every rotation is what keeps the project claim alive past the
+    # first refresh -- without this it would vanish silently.
     return create_session_token(
         user,
         azp=auth_client.client_id,
         scope=access_scope,
         epoch=auth_client.token_epoch,
+        project=str(old_token.project_id) if old_token.project_id else None,
     )
 
 
