@@ -35,7 +35,7 @@ class StateStore:
         self._briefs: dict[str, TripBrief] = {}
         self._messages: dict[str, list[Message]] = {}
         self._lock = Lock()
-        self._async_locks: dict[str, tuple[int, asyncio.Lock]] = {}
+        self._async_locks: dict[str, tuple[asyncio.AbstractEventLoop, asyncio.Lock]] = {}
         self._max_conversations = max_conversations
         self._max_messages = max_messages_per_conversation
 
@@ -85,16 +85,29 @@ class StateStore:
         """Serialise turns within one conversation.
 
         Keyed by the running event loop as well as the conversation: the Rhesis connector
-        runs each turn on a fresh loop, and an ``asyncio.Lock`` bound to a dead loop
-        raises the moment it is contended.
+        runs each turn on a fresh loop, and an ``asyncio.Lock`` bound to a dead loop raises
+        the moment it is contended. The loop object is held rather than its ``id()``, which
+        a later loop can reuse once the first has been collected.
+
+        This table is bounded here rather than only in ``save``/``delete``: the lock is taken
+        before the turn runs, so a turn that raises leaves a conversation that never reaches
+        ``_briefs`` - and eviction there would never see it.
         """
-        loop_id = id(asyncio.get_running_loop())
+        loop = asyncio.get_running_loop()
         with self._lock:
             cached = self._async_locks.get(conversation_id)
-            if cached is None or cached[0] != loop_id:
-                cached = (loop_id, asyncio.Lock())
+            if cached is None or cached[0] is not loop:
+                self._prune_locks()
+                cached = (loop, asyncio.Lock())
                 self._async_locks[conversation_id] = cached
             return cached[1]
+
+    def _prune_locks(self) -> None:
+        """Drop locks bound to finished loops, then oldest-first if still at the cap."""
+        for key in [k for k, (loop, _) in self._async_locks.items() if loop.is_closed()]:
+            self._async_locks.pop(key, None)
+        while len(self._async_locks) >= self._max_conversations:
+            self._async_locks.pop(next(iter(self._async_locks)))
 
 
 default_store = StateStore()

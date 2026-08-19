@@ -171,3 +171,36 @@ async def test_sync_wrapper_refuses_to_run_inside_a_loop():
 
     with pytest.raises(RuntimeError, match="cannot be called from an active event loop"):
         run_chat_turn_sync("Hi", client=client_for(*greeting_script()))
+
+
+async def test_turn_locks_do_not_grow_without_bound():
+    """A turn that raises never reaches ``save``, so its conversation never enters the store.
+
+    Eviction only walks the saved conversations, so without a bound here every failed turn on
+    a fresh conversation id left its lock entry behind for the life of the process.
+    """
+    store = StateStore(max_conversations=4)
+    for index in range(20):
+        async with store.turn_lock(f"never-saved-{index}"):
+            pass
+
+    assert len(store._async_locks) <= 4
+
+
+async def test_the_same_conversation_reuses_one_lock_on_one_loop():
+    store = StateStore()
+    first = store.turn_lock("c1")
+    assert store.turn_lock("c1") is first
+
+
+def test_a_new_loop_gets_a_new_lock():
+    """An ``asyncio.Lock`` bound to a finished loop raises the moment it is contended."""
+    store = StateStore()
+
+    async def take():
+        async with store.turn_lock("c1"):
+            return store.turn_lock("c1")
+
+    first = asyncio.run(take())
+    second = asyncio.run(take())
+    assert first is not second
