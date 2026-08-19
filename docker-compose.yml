@@ -47,6 +47,7 @@ x-rhesis-config: &rhesis-config
   API_BASE_URL: *api_base_url
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-}
   RHESIS_API_KEY: ${RHESIS_API_KEY:-}
+  ENABLE_RHESIS_KEY: ${ENABLE_RHESIS_KEY:-true}  # Self-hosted: opt-out via env var
   RHESIS_CONNECTOR_DISABLED: true
   FRONTEND_URL: *frontend_url
   BACKEND_URL: http://backend:8080

@@ -86,6 +86,8 @@ data:
   BACKEND_ENV: "local"
   WORKER_ENV: "local"
   LOG_LEVEL: "INFO"
+  # Enables the org-scoped Rhesis platform API key UI/endpoints (/platform/rhesis-key).
+  ENABLE_RHESIS_KEY: "true"
 
   # =============================================================================
   # 🔗 INTERNAL URLS
