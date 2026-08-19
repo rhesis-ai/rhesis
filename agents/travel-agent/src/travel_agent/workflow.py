@@ -1,215 +1,72 @@
-"""Multi-agent workflow construction and invocation for Travel Agent."""
+"""Per-turn construction of the multi-agent handoff graph.
+
+The graph is rebuilt for every turn because its shape depends on the brief: only the
+specialists the router deems eligible are wired in, so the coordinator's handoff tools
+are exactly the moves that make sense right now. On a conversational turn no specialists
+are wired at all and the coordinator is left holding only its terminal tools.
+"""
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
-from agent_framework import Agent, Content, Message, Workflow
-from agent_framework_orchestrations import HandoffBuilder, HandoffSentEvent
+from agent_framework import Agent, Workflow
+from agent_framework_orchestrations import HandoffBuilder
 
-from travel_agent.agents import (
-    create_coordinator,
-    create_destination_finder,
-    create_logistics_planner,
-    create_sightseeing_scout,
-)
+from travel_agent.agents import SPECIALIST_FACTORIES, create_coordinator
 from travel_agent.client import build_chat_client
-from travel_agent.utils import (
-    COORDINATOR_NAME,
-    capture_final_text,
-    format_agent_workflow,
-    format_tool_chain,
-    normalize_agent_order,
-    record_function_calls,
-    resolve_response,
-    segment_texts,
-    user_visible_assistant_message,
+from travel_agent.router import eligible_targets
+from travel_agent.safety import SafetyVerdict
+from travel_agent.state import TripBrief
+
+WORKFLOW_NAME = "travel_agent_handoff"
+WORKFLOW_DESCRIPTION = (
+    "Travel Agent: a coordinator talks to the user and routes research to place, "
+    "sightseeing, dining, weather, transit and lodging specialists."
 )
 
-WORKFLOW_TIMEOUT_SECONDS = 120
-
-# Autonomous-mode retry prompt for specialists that reply without handing back.
-# Replaces MAF's generic "Continue assisting autonomously" default with a
-# targeted nudge so the next turn returns control to the coordinator.
-_HANDOFF_BACK_PROMPT = (
-    "Call the handoff_to_trip_coordinator tool now to return control to the "
-    "coordinator. Do not reply with more text."
+# Retry nudge for a specialist that replies with text instead of handing back. Without it
+# the turn would end at the specialist and the coordinator would never write the reply.
+HANDBACK_PROMPT = (
+    "Call handoff_to_trip_coordinator now to return control. Do not reply with more text."
 )
+SPECIALIST_TURN_LIMIT = 2
 
 
-def build_travel_workflow() -> Workflow:
-    """Construct the compiled multi-agent handoff workflow."""
-    client = build_chat_client()
-    coordinator = create_coordinator(client)
-    destination_finder = create_destination_finder(client)
-    sightseeing_scout = create_sightseeing_scout(client)
-    logistics_planner = create_logistics_planner(client)
-
-    return (
-        HandoffBuilder(
-            name="travel_agent_handoff",
-            participants=[
-                coordinator,
-                destination_finder,
-                sightseeing_scout,
-                logistics_planner,
-            ],
-            description=(
-                "Travel Agent demo: coordinator routes to destination, sightseeing, "
-                "and logistics specialists before synthesising the trip plan."
-            ),
-        )
-        .with_start_agent(coordinator)
-        .add_handoff(
-            coordinator,
-            [destination_finder, sightseeing_scout, logistics_planner],
-        )
-        .add_handoff(destination_finder, [coordinator])
-        .add_handoff(sightseeing_scout, [coordinator])
-        .add_handoff(logistics_planner, [coordinator])
-        # Autonomous mode is scoped to the specialists only. The coordinator is
-        # deliberately left non-autonomous so its first no-handoff response (the
-        # synthesized plan) is terminal: MAF emits ``request_info`` and the run
-        # stops, instead of re-prompting the coordinator to "Continue assisting
-        # autonomously" up to the turn limit. The specialists get a couple of
-        # autonomous turns as a retry safety net: if a specialist replies with
-        # plain text instead of handing back, the targeted prompt below nudges
-        # it to call its handoff tool so control returns to the coordinator
-        # (otherwise ``request_info`` would fire from the specialist and the
-        # coordinator would never get to synthesize the final plan).
-        .with_autonomous_mode(
-            agents=[destination_finder, sightseeing_scout, logistics_planner],
-            prompts={
-                "destination_finder": _HANDOFF_BACK_PROMPT,
-                "sightseeing_scout": _HANDOFF_BACK_PROMPT,
-                "logistics_planner": _HANDOFF_BACK_PROMPT,
-            },
-            turn_limits={
-                "destination_finder": 2,
-                "sightseeing_scout": 2,
-                "logistics_planner": 2,
-            },
-        )
-        .build()
-    )
-
-
-async def invoke_travel_workflow_async(
-    workflow: Workflow,
-    user_message: str,
+def build_travel_workflow(
+    brief: TripBrief,
+    message: str,
     *,
-    conversation_history: list[Message] | None = None,
-    conversation_id: str | None = None,
-) -> dict[str, Any]:
-    """Run the workflow once and return a structured result."""
-    handoff_targets: list[str] = []
-    tools_called: list[dict[str, Any]] = []
-    agents_seen: list[str] = []
-    # In streaming mode each ``output`` event is an ``AgentResponseUpdate``
-    # delta, so a single agent turn arrives as many partial-text chunks. We
-    # group contiguous chunks by author into segments and concatenate the raw
-    # text per segment, so word boundaries between chunks are preserved.
-    assistant_segments: list[dict[str, Any]] = []
-    final_text: str | None = None
+    verdict: SafetyVerdict | None = None,
+    client: Any | None = None,
+) -> Workflow:
+    """Build this turn's workflow for ``brief`` and the user's ``message``."""
+    chat_client = client if client is not None else build_chat_client()
 
-    user_msg = Message(role="user", contents=[Content.from_text(text=user_message)])
-    # Always pass a ``list[Message]`` to ``Workflow.run``. Its ``message`` param
-    # is typed ``Any`` and is forwarded to the start executor, which accepts a
-    # message list (the multi-turn path already relied on this by passing
-    # ``[*conversation_history, user_msg]``). Using the list form uniformly keeps
-    # single-turn and multi-turn runs on the same, verified input shape.
-    workflow_input = [*(conversation_history or []), user_msg]
+    coordinator = create_coordinator(chat_client, verdict)
+    names = eligible_targets(brief, message)
+    specialists: list[Agent] = [SPECIALIST_FACTORIES[name](chat_client) for name in names]
 
-    async def _consume_events() -> None:
-        nonlocal final_text
-        async for event in workflow.run(workflow_input, stream=True):
-            event_type = getattr(event, "type", None)
-            data = getattr(event, "data", None)
+    builder = HandoffBuilder(
+        name=WORKFLOW_NAME,
+        participants=[coordinator, *specialists],
+        description=WORKFLOW_DESCRIPTION,
+    ).with_start_agent(coordinator)
 
-            if event_type == "handoff_sent" and isinstance(data, HandoffSentEvent):
-                handoff_targets.append(data.target)
-                continue
-
-            if event_type == "output" and data is not None:
-                record_function_calls(data, tools_called=tools_called, agents_seen=agents_seen)
-                if getattr(data, "role", None) == "assistant":
-                    text = getattr(data, "text", "") or ""
-                    if text:
-                        author = getattr(data, "author_name", None)
-                        if not assistant_segments or assistant_segments[-1]["author"] != author:
-                            assistant_segments.append({"author": author, "parts": []})
-                        assistant_segments[-1]["parts"].append(text)
-                continue
-
-            if event_type == "request_info":
-                captured = capture_final_text(
-                    data,
-                    fallback=segment_texts(assistant_segments, author=COORDINATOR_NAME),
-                )
-                if captured:
-                    final_text = captured
-                continue
-
-    # ``asyncio.wait_for`` raises ``asyncio.TimeoutError`` which is only an alias
-    # of the builtin ``TimeoutError`` on Python 3.11+. Normalize to the builtin so
-    # callers (e.g. the FastAPI ``/chat`` route) can catch ``TimeoutError`` on
-    # every supported Python version.
-    try:
-        await asyncio.wait_for(_consume_events(), timeout=WORKFLOW_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError as exc:
-        raise TimeoutError(f"Travel workflow timed out after {WORKFLOW_TIMEOUT_SECONDS}s") from exc
-
-    response_text, final_agent = resolve_response(
-        assistant_segments,
-        final_text=final_text,
-    )
-    if not response_text:
-        raise RuntimeError("Travel workflow completed without producing a user-facing response.")
-
-    agents_involved = normalize_agent_order(agents_seen, handoff_targets)
-    updated_history = [*(conversation_history or []), user_msg]
-    updated_history.append(user_visible_assistant_message(response_text))
-
-    return {
-        "response": response_text,
-        "messages": updated_history,
-        "tools_called": tools_called,
-        "agents_involved": agents_involved,
-        "agent_workflow": format_agent_workflow(agents_involved),
-        "tool_chain": format_tool_chain(tools_called),
-        "conversation_id": conversation_id,
-        "agent": final_agent,
-    }
-
-
-def invoke_travel_workflow(
-    workflow: Workflow,
-    user_message: str,
-    *,
-    conversation_history: list[Message] | None = None,
-    conversation_id: str | None = None,
-) -> dict[str, Any]:
-    """Sync wrapper around :func:`invoke_travel_workflow_async`."""
-    return asyncio.run(
-        invoke_travel_workflow_async(
-            workflow,
-            user_message,
-            conversation_history=conversation_history,
-            conversation_id=conversation_id,
+    if specialists:
+        builder = builder.add_handoff(coordinator, specialists)
+        for specialist in specialists:
+            builder = builder.add_handoff(specialist, [coordinator])
+        # Autonomous mode covers the specialists only. The coordinator stays non-autonomous
+        # so its first reply without a handoff ends the run, instead of MAF re-prompting it
+        # to "continue assisting" until the turn limit.
+        builder = builder.with_autonomous_mode(
+            agents=specialists,
+            prompts={name: HANDBACK_PROMPT for name in names},
+            turn_limits={name: SPECIALIST_TURN_LIMIT for name in names},
         )
-    )
 
-
-async def run_query(query: str) -> dict[str, Any]:
-    """Build a fresh workflow and run a single query.
-
-    A new workflow is built per call on purpose: the participating agents use
-    ``require_per_service_call_history_persistence=True``, so a shared instance
-    would carry one caller's conversation context into later calls (cross-session
-    leakage in a multi-user or long-lived service).
-    """
-    return await invoke_travel_workflow_async(build_travel_workflow(), query)
+    return builder.build()
 
 
 def get_participants(workflow: Workflow) -> list[Agent]:
@@ -227,11 +84,10 @@ def get_participants(workflow: Workflow) -> list[Agent]:
 
 
 __all__ = [
-    "COORDINATOR_NAME",
-    "WORKFLOW_TIMEOUT_SECONDS",
+    "HANDBACK_PROMPT",
+    "SPECIALIST_TURN_LIMIT",
+    "WORKFLOW_DESCRIPTION",
+    "WORKFLOW_NAME",
     "build_travel_workflow",
     "get_participants",
-    "invoke_travel_workflow",
-    "invoke_travel_workflow_async",
-    "run_query",
 ]
