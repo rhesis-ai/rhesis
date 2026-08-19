@@ -681,12 +681,8 @@ async def quota_exceeded_exception_handler(request: Request, exc: QuotaExceededE
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle FastAPI request validation errors with detailed logging."""
-    # Log the detailed validation error for debugging
-    logger.error(
-        f"Request validation error on {request.method} {request.url}: {exc}", exc_info=True
-    )
-
-    # Log detailed validation errors
+    # One warning line per bad field, and no traceback: a 422 is the caller
+    # sending us the wrong shape, not a fault of ours to debug.
     log_validation_error(exc, request)
 
     # Return clean JSON response
