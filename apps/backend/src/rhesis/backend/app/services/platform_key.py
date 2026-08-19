@@ -1,4 +1,4 @@
-"""Org-scoped Rhesis platform API key management (local/self-hosted mode).
+"""Org-scoped Rhesis platform API key management.
 
 Stores an encrypted Rhesis platform API key on the organization row so
 self-hosted deployments can configure the hosted-model key per organization
@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.config.settings import get_application_settings, get_rhesis_settings
 from rhesis.backend.app.models.organization import Organization
 
-#: Providers whose models depend on the Rhesis platform key in local mode.
+#: Providers whose models depend on the Rhesis platform key when ENABLE_RHESIS_KEY is set.
 _PLATFORM_PROVIDERS = ("rhesis", "polyphemus")
 
 logger = logging.getLogger(__name__)
@@ -122,9 +122,9 @@ def annotate_model_availability(db: Session, organization_id, models_list) -> No
     performs ZERO network calls and ZERO commits (safe on the GET /models hot
     path):
 
-    - Outside local/self-hosted mode every model is available (no requirement
-      change on hosted deployments).
-    - In local mode, presence is the cheap ``get_availability_signals`` check
+    - With ENABLE_RHESIS_KEY unset every model is available (no requirement
+      change on deployments that don't use the platform key).
+    - When enabled, presence is the cheap ``get_availability_signals`` check
       (DB-stored key OR the ``RHESIS_API_KEY`` env var -- same source the model
       resolver authenticates with), which loads the organization row once and
       returns presence plus the cached ``rhesis_key_valid`` /
