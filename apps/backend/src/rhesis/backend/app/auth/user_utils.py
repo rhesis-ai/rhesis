@@ -311,7 +311,16 @@ async def get_authenticated_user_with_context(
             # like a project-scoped rh-* token (membership re-checked per
             # request by assert_project_access). The re-decode is a cheap
             # HMAC verify -- get_user_from_jwt discards the payload.
-            payload = verify_jwt_token(credentials.credentials, secret_key)
+            #
+            # Authentication already succeeded above, so this only reads
+            # claims for scoping and must not be able to fail the request:
+            # on any decode problem we fall through with no project scope,
+            # which is fail-closed (fewer rows visible, never more).
+            try:
+                payload = verify_jwt_token(credentials.credentials, secret_key)
+            except Exception:
+                logger.debug("Could not re-read JWT claims for project scope", exc_info=True)
+                payload = {}
             if payload.get("azp"):
                 setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
                 project_claim = payload.get("project")
