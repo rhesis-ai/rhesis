@@ -133,6 +133,25 @@ def scope_project_id(db: Session) -> str:
     return str(project_id) if project_id else ""
 
 
+def no_project_scope_hint(db: Session) -> str:
+    """Return a trailing explanation when *db* has no project in scope, else ``""``.
+
+    For appending to "not found" messages on project-scoped entities. Under
+    fail-closed project isolation a request with no active project sees only
+    org-level (``project_id IS NULL``) rows, so a lookup for a project-scoped
+    row misses no matter what id was passed. Saying so turns "your id is wrong"
+    into "your request has no project scope" -- the distinction that otherwise
+    costs an integrator a debugging session. Safe to expose: it describes the
+    caller's own request scope, not whether any row exists.
+    """
+    if scope_project_id(db):
+        return ""
+    return (
+        " (no project scope on this request -- project-scoped entities are invisible "
+        "without one; set X-Project-Id, or exchange a token with a resource parameter)"
+    )
+
+
 def bind_scope_to_session(
     db: Session,
     organization_id: str = "",

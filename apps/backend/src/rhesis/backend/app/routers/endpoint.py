@@ -11,6 +11,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import no_project_scope_hint
 from rhesis.backend.app.dependencies import (
     get_endpoint_service,
     get_tenant_context,
@@ -48,6 +49,15 @@ router = RhesisRouter(
     dependencies=[Depends(require_current_user_or_token)],
     resource="endpoint",
 )
+
+
+def _endpoint_not_found_detail(db: Session) -> str:
+    """404 detail for a missing endpoint.
+
+    ``endpoint.project_id`` is NOT NULL, so an endpoint is never visible without
+    a project in scope -- the hint says so rather than implying a bad id.
+    """
+    return f"Endpoint not found{no_project_scope_hint(db)}"
 
 
 @router.post("/", response_model=schemas.Endpoint)
@@ -242,7 +252,7 @@ async def test_endpoint_mapping(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if not endpoint:
-        raise HTTPException(status_code=404, detail="Endpoint not found")
+        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
 
     response_format = test_request.response_format.value if test_request.response_format else None
 
@@ -270,7 +280,7 @@ def read_endpoint(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if db_endpoint is None:
-        raise HTTPException(status_code=404, detail="Endpoint not found")
+        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
     return db_endpoint
 
 
@@ -286,7 +296,7 @@ def delete_endpoint(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if db_endpoint is None:
-        raise HTTPException(status_code=404, detail="Endpoint not found")
+        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
     return db_endpoint
 
 
@@ -307,7 +317,7 @@ def update_endpoint(
         user_id=user_id,
     )
     if db_endpoint is None:
-        raise HTTPException(status_code=404, detail="Endpoint not found")
+        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
     return db_endpoint
 
 
@@ -400,7 +410,7 @@ def explore_endpoint_route(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if db_endpoint is None:
-        raise HTTPException(status_code=404, detail="Endpoint not found")
+        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
 
     task_result = task_launcher(
         run_exploration_task,

@@ -772,7 +772,9 @@ def execute_test_set_on_endpoint(
         user_id=str(current_user.id),
     )
     if not db_endpoint:
-        raise ValueError(f"Endpoint not found: {endpoint_id}")
+        from rhesis.backend.app.database import no_project_scope_hint
+
+        raise ValueError(f"Endpoint not found: {endpoint_id}{no_project_scope_hint(db)}")
     logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
 
     # Check user access permissions
