@@ -3,15 +3,15 @@
 import * as React from 'react';
 import {
   Box,
-  Button,
-  Chip,
   LinearProgress,
   Skeleton,
   Stack,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
 import { FilterButton } from '@/components/common/FilterButton';
+import { PlanChip, UpgradeLink } from '@/components/common/QuotaChips';
 import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
 import UsageOverviewFilterDrawer from './UsageOverviewFilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -20,42 +20,13 @@ import {
   QUOTA_RESOURCE_ORDER,
   type QuotaResource,
 } from '@/constants/quota';
+import {
+  classifyZone,
+  isCommunityEdition,
+  zoneColor,
+  type QuotaZone,
+} from '@/utils/quota';
 import type { UsageResourceItem } from '@/utils/api-client/usage-client';
-
-const COMMUNITY_EDITION = 'community';
-const UPGRADE_URL = 'https://rhesis.ai/editions';
-
-function isCommunityEdition(edition: string): boolean {
-  return edition.toLowerCase() === COMMUNITY_EDITION;
-}
-
-function PlanChip({ edition }: { edition: string }) {
-  const label = `${edition.charAt(0).toUpperCase()}${edition.slice(1)} plan`;
-  return (
-    <Chip
-      label={label}
-      size="small"
-      color={isCommunityEdition(edition) ? 'default' : 'primary'}
-      sx={{ borderRadius: BORDER_RADIUS.pill, fontWeight: 600 }}
-    />
-  );
-}
-
-function UpgradeLink() {
-  return (
-    <Button
-      component="a"
-      href={UPGRADE_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      variant="outlined"
-      size="small"
-      sx={{ borderRadius: BORDER_RADIUS.sm, fontWeight: 600 }}
-    >
-      Upgrade
-    </Button>
-  );
-}
 
 function formatPeriodDate(isoDate: string): string {
   // period_start/period_end are date-only strings (YYYY-MM-DD), computed
@@ -71,10 +42,119 @@ function formatPeriodDate(isoDate: string): string {
   });
 }
 
-function progressColor(ratio: number): 'success' | 'warning' | 'error' {
-  if (ratio >= 1) return 'error';
-  if (ratio >= 0.8) return 'warning';
-  return 'success';
+/** Ceiling caption under a meter: names the overage allowance, or says
+ * there isn't one. `limit === null` (unlimited) renders nothing -- there is
+ * no ceiling to report. */
+function CeilingCaption({
+  limit,
+  ceiling,
+}: Pick<UsageResourceItem, 'limit' | 'ceiling'>) {
+  if (limit === null) return null;
+  if (ceiling === null || ceiling === limit) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        No overage allowance on this resource
+      </Typography>
+    );
+  }
+  return (
+    <Typography variant="caption" color="text.secondary">
+      {limit.toLocaleString()} included · {ceiling.toLocaleString()} before
+      requests fail
+    </Typography>
+  );
+}
+
+/**
+ * The bar itself. Fills toward `limit` in the "included" track; when the
+ * tier grants an overage allowance (`ceiling > limit`), a second hatched
+ * track past it fills as that allowance is consumed. Zero-width on a hard
+ * tier, where `ceiling === limit`.
+ */
+function MeterBar({
+  item,
+  zone,
+}: {
+  item: UsageResourceItem;
+  zone: QuotaZone;
+}) {
+  const { used, limit, ceiling } = item;
+  const color = zoneColor(zone);
+
+  if (limit === null) {
+    return (
+      <LinearProgress
+        variant="determinate"
+        value={0}
+        color="primary"
+        sx={{
+          height: 6,
+          borderRadius: BORDER_RADIUS.xs,
+          bgcolor: theme => theme.palette.action.hover,
+        }}
+      />
+    );
+  }
+
+  const total = ceiling !== null && ceiling > limit ? ceiling : limit;
+  const includedPct = total === 0 ? 100 : (limit / total) * 100;
+  const includedFill =
+    limit === 0 ? 100 : (Math.min(used, limit) / limit) * 100;
+  const overageCapacity = total - limit;
+  const overageUsed = Math.max(0, used - limit);
+  const overageFill =
+    overageCapacity > 0
+      ? (Math.min(overageUsed, overageCapacity) / overageCapacity) * 100
+      : 0;
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        height: 6,
+        borderRadius: BORDER_RADIUS.xs,
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          width: `${includedPct}%`,
+          bgcolor: theme => theme.palette.action.hover,
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            width: `${includedFill}%`,
+            bgcolor: theme => theme.palette[color].main,
+          }}
+        />
+      </Box>
+      {overageCapacity > 0 && (
+        <Box
+          sx={{
+            position: 'relative',
+            width: `${100 - includedPct}%`,
+            ml: '2px',
+            backgroundImage: theme =>
+              `repeating-linear-gradient(135deg, ${alpha(theme.palette[color].main, 0.25)} 0 4px, transparent 4px 8px)`,
+            bgcolor: theme => theme.palette.action.hover,
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              width: `${overageFill}%`,
+              bgcolor: theme => theme.palette[color].main,
+            }}
+          />
+        </Box>
+      )}
+    </Box>
+  );
 }
 
 function ResourceMeter({
@@ -91,7 +171,7 @@ function ResourceMeter({
   showLiveCountHint?: boolean;
 }) {
   const { limit } = item;
-  const ratio = limit === null ? 0 : limit === 0 ? 1 : item.used / limit;
+  const zone = classifyZone(item);
 
   return (
     <Box sx={{ mb: 3, '&:last-child': { mb: 0 } }}>
@@ -116,19 +196,10 @@ function ResourceMeter({
           {limit === null ? ' (Unlimited)' : ` / ${limit.toLocaleString()}`}
         </Typography>
       </Stack>
-      <LinearProgress
-        variant="determinate"
-        value={limit === null ? 0 : Math.min(ratio, 1) * 100}
-        color={limit === null ? 'primary' : progressColor(ratio)}
-        sx={{
-          height: 6,
-          borderRadius: BORDER_RADIUS.xs,
-          bgcolor: theme => theme.palette.action.hover,
-          '& .MuiLinearProgress-bar': {
-            borderRadius: BORDER_RADIUS.xs,
-          },
-        }}
-      />
+      <MeterBar item={item} zone={zone} />
+      <Box sx={{ mt: 0.5 }}>
+        <CeilingCaption limit={item.limit} ceiling={item.ceiling} />
+      </Box>
     </Box>
   );
 }

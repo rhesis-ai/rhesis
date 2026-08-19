@@ -15,6 +15,7 @@ const USAGE_RESOURCES = {
   test_executions: {
     used: 5,
     limit: 1000,
+    ceiling: 1000,
     period_start: '2026-08-01',
     period_end: '2026-08-31',
     kind: 'flow' as const,
@@ -22,6 +23,7 @@ const USAGE_RESOURCES = {
   model_tokens: {
     used: 999,
     limit: null,
+    ceiling: null,
     period_start: '2026-08-01',
     period_end: '2026-08-31',
     kind: 'flow' as const,
@@ -29,6 +31,7 @@ const USAGE_RESOURCES = {
   seats: {
     used: 3,
     limit: 10,
+    ceiling: 10,
     period_start: '2026-08-01',
     period_end: '2026-08-31',
     kind: 'stock' as const,
@@ -147,6 +150,7 @@ describe('UsageOverviewTab', () => {
         seats: {
           used: 3,
           limit: 10,
+          ceiling: 10,
           period_start: '2026-08-01',
           period_end: '2026-08-31',
           kind: 'stock' as const,
@@ -154,6 +158,7 @@ describe('UsageOverviewTab', () => {
         test_executions: {
           used: 5,
           limit: 1000,
+          ceiling: 1000,
           period_start: '2026-01-01',
           period_end: '2026-01-31',
           kind: 'flow' as const,
