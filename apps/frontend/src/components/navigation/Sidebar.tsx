@@ -11,7 +11,10 @@ import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import SvgIcon from '@mui/material/SvgIcon';
+import Badge from '@mui/material/Badge';
+import MuiLink from '@mui/material/Link';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
@@ -22,15 +25,30 @@ import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import BrandMark from '@/components/common/BrandMark';
 import { UserAvatar } from '@/components/common/UserAvatar';
-import { Can } from '@/components/common/Can';
+import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useUsage } from '@/contexts/UsageContext';
+import {
+  QUOTA_RESOURCE_LABELS,
+  QUOTA_RESOURCE_ORDER,
+  UPGRADE_URL,
+} from '@/constants/quota';
+import {
+  classifyZone,
+  flaggedResources,
+  isCommunityEdition,
+  quotaCopy,
+  zoneColor,
+  type FlaggedResource,
+} from '@/utils/quota';
+import { PlanChip } from '@/components/common/QuotaChips';
 import { ColorModeContext } from '@/components/providers/ThemeProvider';
 import { handleSignOut } from '@/actions/auth';
 import {
   SIDEBAR_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, COUNT_BADGE_SX, ELEVATION } from '@/styles/theme';
 import {
   type ExtendedUser,
   type StandaloneGroup,
@@ -45,7 +63,9 @@ import { NavLinkItem } from './NavLinkItem';
 import { NavSection } from './NavSection';
 import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
 import SupportDrawer from './SupportDrawer';
+import NotificationsDrawer from './NotificationsDrawer';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -89,6 +109,60 @@ function LeftPanelOpenIcon() {
   );
 }
 
+/** `"August 2026"` -- the org-menu usage block's header month. Stays in
+ * UTC: `period_end` is a date-only string computed in UTC by the backend. */
+function formatMonthLabel(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** One row of the org-menu usage block: a resource's label plus its
+ * value, coloured by zone -- flow resources show a percent, stock
+ * resources show a count, matching `QuotaBanner`'s split for the same
+ * reason (a flow resource's raw count means nothing without the period
+ * it accrued over; a stock resource's raw count is the whole story). */
+function UsageMenuRow({ resource, item, zone }: FlaggedResource) {
+  const label = QUOTA_RESOURCE_LABELS[resource];
+  const value =
+    item.kind === 'stock' || item.limit === null || item.limit === 0
+      ? `${item.used.toLocaleString()} of ${(item.limit ?? 0).toLocaleString()}`
+      : `${Math.round((item.used / item.limit) * 100)}%`;
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        px: '14px',
+        py: '2px',
+      }}
+    >
+      <Typography
+        variant="caption"
+        sx={{ color: theme => theme.palette.greyscale.label }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          color: theme =>
+            zone === 'healthy'
+              ? theme.palette.greyscale.label
+              : theme.palette[zoneColor(zone)].main,
+        }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
@@ -114,6 +188,63 @@ export function Sidebar() {
   // Support drawer
   const [supportOpen, setSupportOpen] = useState(false);
 
+  // Notifications drawer
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { unreadBySection } = useNotifications();
+  const totalUnread = Object.values(unreadBySection).reduce(
+    (sum, count) => sum + (count ?? 0),
+    0
+  );
+
+  // Quota awareness: `usage:read` is granted to every org member (see
+  // `auth/rbac.py`'s comment on `Usage.READ`), so the badge and org-menu
+  // block below show to everyone -- `UsageContext`'s own fail-closed
+  // contract (an empty `resources` while loading or on error) is what
+  // keeps this quiet until there is real data, not a permission check.
+  // "Can upgrade" is a narrower, separate question: Organization.UPDATE
+  // (the same owner/admin gate as Org Settings), not Usage.READ.
+  const { resources: usageResources, edition } = useUsage();
+  const flaggedUsage = flaggedResources(usageResources);
+  const flaggedCount = flaggedUsage.length;
+  const canManageOrg = useCan(Capability.Organization.UPDATE);
+  const canUpgrade =
+    canManageOrg && edition !== null && isCommunityEdition(edition);
+
+  // The badge answers "how many"; the sentence (only rendered as a tooltip
+  // here, in full in the org-menu block below) answers "how bad" -- no
+  // severity colour on the badge itself.
+  let usageTooltip: string | null = null;
+  const worst = flaggedCount === 1 ? flaggedUsage[0] : null;
+  if (worst && worst.zone !== 'healthy') {
+    usageTooltip = quotaCopy({
+      resource: worst.resource,
+      kind: worst.item.kind,
+      used: worst.item.used,
+      limit: worst.item.limit ?? 0,
+      zone: worst.zone,
+      periodEnd: worst.item.period_end,
+      canUpgrade,
+    }).sentence;
+  } else if (flaggedCount > 1) {
+    usageTooltip = `Your organization has ${flaggedCount} resources at or near their limit.`;
+  }
+
+  // Padded to a minimum of 3 rows (worst-first, then the next resources in
+  // canonical order) so the block never reads as near-empty for a healthy
+  // org -- but never capped: however many resources are actually flagged,
+  // that many rows show, so the row count always agrees with the badge.
+  const MIN_USAGE_ROWS = 3;
+  const usageRows: FlaggedResource[] = [...flaggedUsage];
+  if (usageRows.length < MIN_USAGE_ROWS) {
+    const included = new Set(usageRows.map(row => row.resource));
+    for (const resource of QUOTA_RESOURCE_ORDER) {
+      if (usageRows.length >= MIN_USAGE_ROWS) break;
+      if (included.has(resource)) continue;
+      const item = usageResources[resource];
+      if (!item || item.limit === null) continue;
+      usageRows.push({ resource, item, zone: classifyZone(item), ratio: 0 });
+    }
+  }
   const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
 
@@ -195,7 +326,11 @@ export function Sidebar() {
             </Tooltip>
             <Tooltip
               title={
-                activeProject ? `${orgName} · ${activeProject.name}` : orgName
+                usageTooltip
+                  ? `${activeProject ? `${orgName} · ${activeProject.name}` : orgName} — ${usageTooltip}`
+                  : activeProject
+                    ? `${orgName} · ${activeProject.name}`
+                    : orgName
               }
               placement="right"
             >
@@ -216,12 +351,23 @@ export function Sidebar() {
                   },
                 }}
               >
-                <BrandMark
-                  src={branding?.iconUrl}
-                  size={40}
-                  alt={`${orgName} logo`}
-                  priority
-                />
+                {flaggedCount > 0 ? (
+                  <Badge badgeContent={flaggedCount} color="primary" max={99}>
+                    <BrandMark
+                      src={branding?.iconUrl}
+                      size={40}
+                      alt={`${orgName} logo`}
+                      priority
+                    />
+                  </Badge>
+                ) : (
+                  <BrandMark
+                    src={branding?.iconUrl}
+                    size={40}
+                    alt={`${orgName} logo`}
+                    priority
+                  />
+                )}
               </ButtonBase>
             </Tooltip>
           </Box>
@@ -306,6 +452,23 @@ export function Sidebar() {
                   {orgName}
                 </Typography>
               </Box>
+              {flaggedCount > 0 && (
+                <Tooltip title={usageTooltip ?? ''} placement="right">
+                  <Box
+                    sx={{
+                      ...COUNT_BADGE_SX,
+                      flexShrink: 0,
+                      // Cancels the ButtonBase's own -28px so the badge's
+                      // right edge lands at the same inset as every nav-row
+                      // badge, instead of 28px further into the sidebar's
+                      // padding along with the rest of this button's content.
+                      mr: '28px',
+                    }}
+                  >
+                    {flaggedCount > 99 ? '99+' : flaggedCount}
+                  </Box>
+                </Tooltip>
+              )}
             </ButtonBase>
             {/* Collapse toggle — inline, right of brand row. Lifted a full icon
                 height clear of the project name, into the scrolling section's
@@ -422,17 +585,21 @@ export function Sidebar() {
               Projects
             </Typography>
           </MenuItem>
-          {/* Billing data -- hidden rather than shown-then-denied for
-              members without usage:read (the same capability GET /usage
-              requires). */}
-          <Can capability={Capability.Usage.READ}>
+          {/* Named "Org usage", not "Usage": the menu already reads
+              "Org Settings" two rows up, and quota is organization state,
+              never personal -- see IMPLEMENTATION_PROMPT.md's "the rule".
+              Visible to every member, not just admins: `usage:read` is
+              granted org-wide (see the note where `canManageOrg` is
+              computed above). Only the "Upgrade plan" row below is
+              narrower. */}
+          <>
             <MenuItem
               onClick={() => {
                 router.push('/organizations/usage');
                 setOrgMenuAnchor(null);
               }}
               sx={{
-                gap: '10px',
+                justifyContent: 'space-between',
                 px: '14px',
                 py: '8px',
                 '&:hover': {
@@ -440,24 +607,72 @@ export function Sidebar() {
                 },
               }}
             >
-              <DataUsageOutlinedIcon
-                sx={{
-                  fontSize: 24,
-                  color: theme => theme.palette.greyscale.body,
-                }}
-              />
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  color: theme => theme.palette.greyscale.body,
-                }}
-              >
-                Usage
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <DataUsageOutlinedIcon
+                  sx={{
+                    fontSize: 24,
+                    color: theme => theme.palette.greyscale.body,
+                  }}
+                />
+                <Typography
+                  sx={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    lineHeight: '22px',
+                    color: theme => theme.palette.greyscale.body,
+                  }}
+                >
+                  Org usage
+                </Typography>
+              </Box>
+              {flaggedCount > 0 && (
+                <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
+                  {flaggedCount > 99 ? '99+' : flaggedCount}
+                </Box>
+              )}
             </MenuItem>
-          </Can>
+            {Object.keys(usageResources).length > 0 && (
+              <Box sx={{ pb: '8px' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    px: '14px',
+                    py: '4px',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: theme => theme.palette.greyscale.subtitle }}
+                  >
+                    {Object.values(usageResources)[0]
+                      ? formatMonthLabel(
+                          Object.values(usageResources)[0].period_end
+                        )
+                      : 'Current usage'}
+                  </Typography>
+                  {edition && <PlanChip edition={edition} />}
+                </Box>
+                {usageRows.map(row => (
+                  <UsageMenuRow key={row.resource} {...row} />
+                ))}
+                {canUpgrade && (
+                  <Box sx={{ px: '14px', pt: '6px' }}>
+                    <MuiLink
+                      href={UPGRADE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="caption"
+                      sx={{ fontWeight: 700 }}
+                    >
+                      Upgrade plan →
+                    </MuiLink>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </>
           <Divider
             sx={{
               my: '6px',
@@ -626,6 +841,12 @@ export function Sidebar() {
           onClose={() => setSupportOpen(false)}
         />
 
+        {/* ── Notifications drawer ── */}
+        <NotificationsDrawer
+          open={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+        />
+
         {/* ── User menu popover (Figma 860:40824) ── */}
         <Popover
           open={menuOpen}
@@ -647,6 +868,46 @@ export function Sidebar() {
             },
           }}
         >
+          {/* Notifications */}
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setNotificationsOpen(true);
+            }}
+            sx={{
+              justifyContent: 'space-between',
+              px: '14px',
+              py: '8px',
+              '&:hover': {
+                bgcolor: theme => theme.palette.greyscale.border,
+              },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <NotificationsOutlinedIcon
+                sx={{
+                  fontSize: 24,
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  lineHeight: '22px',
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              >
+                Notifications
+              </Typography>
+            </Box>
+            {totalUnread > 0 && (
+              <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </Box>
+            )}
+          </MenuItem>
+
           {/* Dark Mode */}
           <MenuItem
             onClick={() => {

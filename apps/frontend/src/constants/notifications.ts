@@ -1,9 +1,9 @@
 /**
  * Notification sidebar sections. Mirrors the backend `NotificationSection`
- * enum in `apps/backend/src/rhesis/backend/app/models/enums.py`. Values must
- * equal the `NavigationPageItem.segment` of the page they badge (see
- * `src/app/layout.tsx`) -- keep in sync when adding a new section, same as
- * `FeatureName`/`Capability`.
+ * enum in `apps/backend/src/rhesis/backend/app/models/enums.py`. A value
+ * equals the `NavigationPageItem.segment` of the page it badges (see
+ * `src/app/layout.tsx`) when it badges one at all -- keep in sync when
+ * adding a new section, same as `FeatureName`/`Capability`.
  */
 export const NotificationSection = {
   TEST_SETS: 'test-sets',
@@ -12,6 +12,10 @@ export const NotificationSection = {
   // Badge only -- the architect page is a chat/session UI, not a grid, so
   // there are no rows for HIGHLIGHTED_ROW_CLASS to apply to.
   ARCHITECT: 'architect',
+  // Badges no nav item -- there is no "/usage" nav segment -- but a quota
+  // notification still needs a section to group and display under in the
+  // notification drawer (`NotificationsDrawer.tsx`).
+  USAGE: 'usage',
 } as const;
 
 export type NotificationSection =

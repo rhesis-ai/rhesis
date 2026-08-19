@@ -12,6 +12,7 @@ import {
   BACKDROP_COLORS,
   ELEVATION,
   FAB_GROUP_GAP,
+  COUNT_BADGE_SX,
 } from './theme-constants';
 import {
   contrastTextFor,
@@ -21,7 +22,14 @@ import {
   deriveBrandSurfaces,
   deriveSecondaryAccents,
 } from './brand-palette';
-export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION, FAB_GROUP_GAP };
+export {
+  GREYSCALE,
+  BORDER_RADIUS,
+  BACKDROP_COLORS,
+  ELEVATION,
+  FAB_GROUP_GAP,
+  COUNT_BADGE_SX,
+};
 
 /** Deployment brand colours (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`). */
 export interface BrandColors {
