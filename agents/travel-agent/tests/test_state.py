@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from travel_agent.state import (
+    UNPLACEABLE_REASONS,
     Phase,
     PlaceCandidate,
     Sight,
@@ -19,6 +20,7 @@ from travel_agent.state import (
     mark_unavailable,
     missing_slots,
     needs_a_real_city,
+    needs_resolution,
     pending_specialists,
     render_brief,
     render_plan,
@@ -302,3 +304,27 @@ def test_an_excluded_interest_does_not_count_as_a_change():
     add_interests(brief, ["museums"])
 
     assert "sights" in brief.no_results
+
+
+@pytest.mark.parametrize("reason", sorted(UNPLACEABLE_REASONS))
+def test_a_name_the_geocoder_placed_nowhere_goes_back_to_the_user(reason):
+    brief = TripBrief(legs=[TripLeg(city="Japan", days=3)])
+    brief.resolution_attempts["Japan"] = reason
+    assert needs_a_real_city(brief)
+    assert missing_slots(brief) == ["city"]
+    assert not needs_resolution(brief), "the name will not be placed on a retry"
+
+
+@pytest.mark.parametrize("reason", ["timeout", "error"])
+def test_a_geocoder_outage_leaves_the_name_alone(reason):
+    """The lookup never happened, so it has said nothing about the name on file.
+
+    Treating it as unplannable sent the coordinator back to ask which city with the city
+    already on file - and answering recorded the same name and asked again.
+    """
+    brief = TripBrief(legs=[TripLeg(city="Paris", days=3)])
+    brief.resolution_attempts["Paris"] = reason
+
+    assert not needs_a_real_city(brief)
+    assert missing_slots(brief) == ["interests", "budget"]
+    assert needs_resolution(brief), "a service that was down is worth another go"

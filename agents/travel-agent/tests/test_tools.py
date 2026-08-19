@@ -27,7 +27,7 @@ from tests.mocks import (
 )
 from travel_agent.brief import bind_brief
 from travel_agent.faults import ToolFaultMiddleware
-from travel_agent.state import Sight, TripBrief, TripLeg, needs_a_real_city
+from travel_agent.state import Sight, TripBrief, TripLeg, missing_slots, needs_a_real_city
 from travel_agent.tools import base
 from travel_agent.tools.base import ToolStatus, parse_faults
 from travel_agent.tools.dining import find_dining
@@ -451,3 +451,19 @@ async def test_a_later_success_clears_a_past_empty_result(monkeypatch):
     with bind_brief(brief):
         await invoke(find_sightseeing, city="Tokyo")
     assert "sights" not in brief.no_results
+
+
+async def test_a_geocoder_outage_does_not_strand_the_destination(monkeypatch):
+    """A dead Nominatim costs coordinates for the session; it must not cost the destination."""
+    FakeHTTP({"places": timeout()}).install(monkeypatch)
+    brief = TripBrief()
+    with bind_brief(brief):
+        message = await invoke(resolve_destination, place="Paris")
+
+    assert brief.resolution_attempts["Paris"] == "timeout"
+    assert brief.unavailable["places"] == "request timed out"
+    assert [leg.city for leg in brief.legs] == ["Paris"]
+    # The name is still good, so the conversation carries on instead of asking which city.
+    assert not needs_a_real_city(brief)
+    assert "city" not in missing_slots(brief)
+    assert "without map coordinates" in message

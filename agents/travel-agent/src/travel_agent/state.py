@@ -23,6 +23,12 @@ BudgetLevel = Literal["budget", "mid_range", "luxury"]
 # on every turn and failing again.
 SERVICES: tuple[str, ...] = ("places", "sights", "dining", "weather", "transit", "lodging")
 
+# ``resolution_attempts`` values that mean the *name* cannot be planned for, as opposed to the
+# geocoder being unreachable. The distinction matters because the two need opposite responses: an
+# unplaceable name has to go back to the user, while a timed-out lookup leaves a perfectly good
+# name on file and must not send the conversation back to ask which city.
+UNPLACEABLE_REASONS: frozenset[str] = frozenset({"empty", "no match", "country, not a city"})
+
 # Interest words that make a dining lookup worth a handoff.
 FOOD_TERMS: tuple[str, ...] = (
     "food",
@@ -337,8 +343,9 @@ def needs_resolution(brief: TripBrief) -> bool:
     """Whether the place resolver still has work worth doing.
 
     Coordinates gate everything downstream, so this is worth a hop - but only once per
-    name. A destination the geocoder has already failed on will fail again, and retrying
-    it was what turned a single bad lookup into a routing loop.
+    name. A name the geocoder could not place will not be placed on a retry, and retrying
+    it was what turned a single bad lookup into a routing loop. A name it never got to look
+    at, because the service timed out, is still worth another go.
     """
     if brief.candidates:
         return False  # waiting on the user to choose, not on the resolver
@@ -347,7 +354,7 @@ def needs_resolution(brief: TripBrief) -> bool:
         return True  # nothing recorded yet; the user may be naming a place this turn
     if leg.lat is not None:
         return False
-    return leg.city not in brief.resolution_attempts
+    return brief.resolution_attempts.get(leg.city) not in UNPLACEABLE_REASONS
 
 
 def needs_a_real_city(brief: TripBrief) -> bool:
@@ -356,8 +363,16 @@ def needs_a_real_city(brief: TripBrief) -> bool:
     True once the geocoder has been asked and could not place the name - "Japan" is a
     country, "Zzzz" is nothing. Every coordinate-based lookup would fail against it, so
     the conversation has to go back to the user rather than build around a dead end.
+
+    Keyed on *why* the attempt failed, not on the presence of an attempt. A geocoder that
+    timed out has said nothing about the name: treating that as unplannable sent the
+    coordinator back to ask which city with the city already on file, and answering it
+    recorded the same name and asked again.
     """
-    return any(leg.lat is None and leg.city in brief.resolution_attempts for leg in brief.legs)
+    return any(
+        leg.lat is None and brief.resolution_attempts.get(leg.city) in UNPLACEABLE_REASONS
+        for leg in brief.legs
+    )
 
 
 def wants_food(brief: TripBrief) -> bool:
@@ -527,6 +542,7 @@ __all__ = [
     "BUDGET_LABELS",
     "FOOD_TERMS",
     "SERVICES",
+    "UNPLACEABLE_REASONS",
     "BudgetLevel",
     "Phase",
     "PlaceCandidate",
