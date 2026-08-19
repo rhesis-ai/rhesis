@@ -6,7 +6,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from jwt import PyJWTError as JWTError
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ValidationError
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
@@ -63,7 +63,7 @@ from rhesis.backend.app.config.settings import (
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
-from rhesis.backend.app.error_handlers import internal_error
+from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
@@ -420,12 +420,14 @@ async def login_with_provider(
 
     try:
         return await auth_provider.get_authorization_url(request, callback_url)
+    except HTTPException:
+        # A provider's own deliberate 400 -- "Google authentication is not
+        # configured" -- must not be genericised into ours.
+        raise
     except Exception as e:
-        raise internal_error(
-            e,
-            context=f"initiating OAuth login for provider {provider}",
-            status_code=status.HTTP_400_BAD_REQUEST,
-        ) from e
+        # A missing OAuth client, an unreachable IdP or a bug of ours: nothing
+        # the caller sent is wrong, and the traceback is the point.
+        raise internal_error(e, context=f"initiating OAuth login for provider {provider}") from e
 
 
 @router.get("/callback")
@@ -505,11 +507,20 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+    except ValidationError as e:
+        # Pydantic's ValidationError is a ValueError too, but its text is our
+        # schema plus the values it rejected -- masked, not handed back.
+        raise internal_error(
+            e, context=f"completing OAuth callback for provider {provider_name}"
+        ) from e
+    except ValueError as e:
+        # `validate_and_normalize_email` rejecting the address the provider sent
+        # is the one reason the user can act on ("Invalid email address: ...").
+        logger.warning("OAuth callback rejected for provider %s: %s", provider_name, e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise internal_error(
-            e,
-            context=f"completing OAuth callback for provider {provider_name}",
-            status_code=status.HTTP_400_BAD_REQUEST,
+            e, context=f"completing OAuth callback for provider {provider_name}"
         ) from e
 
 
@@ -1358,7 +1369,6 @@ def verify_auth(
     """Verify JWT session token and return user info"""
     session_token = body.session_token
     return_to = body.return_to
-    logger.info(f"Verify request received. Token: {session_token[:8]}...")
 
     try:
         payload = verify_jwt_token(session_token, secret_key)
@@ -1389,15 +1399,19 @@ def verify_auth(
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except JWTError as e:
-        logger.error(f"JWT verification failed: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        # A malformed, tampered or stale token is the caller's problem, not a
+        # server fault to page anyone about.
+        logger.warning("JWT verification failed: %s", e)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error verifying token: {str(e)}")
+        # With the stack, unlike the branch above: this one cannot tell a bad
+        # token from a bug of ours.
+        logger.warning("Unexpected error verifying token: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
-        )
+        ) from e
 
 
 # =============================================================================
@@ -1433,8 +1447,9 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     user = user_crud.get_user_by_email(db, "admin@local.dev")
 
     if not user:
-        logger.error("QUICK START MODE user (admin@local.dev) not found in database")
-        raise HTTPException(
+        # Public: the whole value of this 500 is the fix it names, and the global
+        # handler logs it once as a warning.
+        raise PublicHTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=(
                 "QUICK START MODE user not found. "
