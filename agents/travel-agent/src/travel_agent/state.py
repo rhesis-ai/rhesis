@@ -205,12 +205,21 @@ def add_interests(brief: TripBrief, interests: list[str], *, city: str | None = 
     if leg is None:
         return
     excluded = {item.casefold() for item in brief.excluded_interests}
+    added = False
     for interest in interests:
         cleaned = interest.strip()
         if is_blank(cleaned) or cleaned.casefold() in excluded:
             continue
         if cleaned.casefold() not in {existing.casefold() for existing in leg.interests}:
             leg.interests.append(cleaned)
+            added = True
+
+    # Sights and dining both search on interests, so a new one is a different search - and
+    # an empty result for the old one says nothing about it. Restating a known interest is
+    # not a change, so it does not buy another attempt.
+    if added:
+        clear_no_results(brief, "sights")
+        clear_no_results(brief, "dining")
 
 
 def exclusion_terms(brief: TripBrief) -> set[str]:
@@ -449,7 +458,8 @@ def render_brief(brief: TripBrief) -> str:
         notes = "; ".join(f"{service} ({reason})" for service, reason in brief.no_results.items())
         lines.append(
             f"- Searched, found nothing: {notes}. "
-            "Say so plainly once and plan around it. Do not search again unless the trip changes."
+            "Say so plainly once and plan around it. Repeating the same search is pointless, "
+            "but searching for something different is fine."
         )
     if brief.plan_text:
         lines.append("- A plan has already been given to the user; this turn is a refinement.")

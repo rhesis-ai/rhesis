@@ -261,3 +261,44 @@ def test_an_empty_result_is_rendered_apart_from_an_outage():
     rendered = render_brief(brief)
     assert "Searched, found nothing: sights (no landmarks found)" in rendered
     assert "Unavailable this session: weather (request timed out)" in rendered
+    # The entry is keyed by service, so the instruction has to be about the search itself.
+    assert "searching for something different is fine" in rendered
+
+
+def test_a_new_interest_retries_the_searches_it_changes():
+    """ "nothing Ethiopian in Tokyo" says nothing about ramen, but it used to suppress it."""
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    add_interests(brief, ["ethiopian food"])
+    mark_no_results(brief, "dining", "no ethiopian restaurants")
+    mark_no_results(brief, "sights", "no landmarks found")
+    mark_no_results(brief, "weather", "no forecast returned")
+
+    add_interests(brief, ["ramen"])
+
+    assert "dining" not in brief.no_results
+    assert "sights" not in brief.no_results
+    # Weather does not search on interests, so its empty result still stands.
+    assert "weather" in brief.no_results
+    assert "dining_scout" in pending_specialists(brief)
+
+
+def test_restating_a_known_interest_does_not_buy_another_attempt():
+    """Otherwise a coordinator that re-records the brief every turn searches forever."""
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    add_interests(brief, ["ramen"])
+    mark_no_results(brief, "dining", "no ramen restaurants")
+
+    add_interests(brief, ["ramen", "  ", "RAMEN"])
+
+    assert "dining" in brief.no_results
+    assert "dining_scout" not in pending_specialists(brief)
+
+
+def test_an_excluded_interest_does_not_count_as_a_change():
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+    exclude_interests(brief, ["museums"])
+    mark_no_results(brief, "sights", "no landmarks found")
+
+    add_interests(brief, ["museums"])
+
+    assert "sights" in brief.no_results
