@@ -18,22 +18,28 @@ export const PROJECT_ID = __ENV.PROJECT_ID || '';
 // spike.js. REFRESH_TOKEN (also from /auth/exchange-code) lets each VU mint
 // a fresh session token mid-run without the password ever touching this
 // script. Optional: without it, AUTH_TOKEN is just used as-is for the run.
-const REFRESH_TOKEN = __ENV.REFRESH_TOKEN || '';
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 5m margin inside the 15m expiry
 
 let liveToken = AUTH_TOKEN;
+let liveRefreshToken = __ENV.REFRESH_TOKEN || '';
 let tokenMintedAt = -Infinity; // force an immediate refresh on first use
 
 function refreshTokenIfDue() {
-  if (!REFRESH_TOKEN || Date.now() - tokenMintedAt < REFRESH_INTERVAL_MS) return;
+  if (!liveRefreshToken || Date.now() - tokenMintedAt < REFRESH_INTERVAL_MS) return;
 
-  const res = http.post(`${API_BASE}/auth/refresh`, JSON.stringify({ refresh_token: REFRESH_TOKEN }), {
+  const res = http.post(`${API_BASE}/auth/refresh`, JSON.stringify({ refresh_token: liveRefreshToken }), {
     headers: { 'Content-Type': 'application/json' },
     tags: { name: 'auth_refresh' },
   });
-  if (res.status === 200) {
-    liveToken = res.json('access_token');
-  }
+  const accessToken = res.status === 200 ? res.json('access_token') : null;
+  // Only advance tokenMintedAt on success — on failure, leave it stale so the
+  // very next iteration retries instead of running on an expired token for
+  // the rest of the 10-minute window.
+  if (!accessToken) return;
+
+  liveToken = accessToken;
+  const rotatedRefreshToken = res.json('refresh_token');
+  if (rotatedRefreshToken) liveRefreshToken = rotatedRefreshToken;
   tokenMintedAt = Date.now();
 }
 
