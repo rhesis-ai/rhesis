@@ -50,7 +50,9 @@ def _owasp_requirement_names() -> list[str]:
 
 
 def _owasp_metric_names() -> list[str]:
-    return [m["name"] for m in load_metrics_from_initial_data() if m["name"].startswith(_OWASP_PREFIX)]
+    return [
+        m["name"] for m in load_metrics_from_initial_data() if m["name"].startswith(_OWASP_PREFIX)
+    ]
 
 
 def upgrade() -> None:
@@ -79,7 +81,9 @@ def upgrade() -> None:
         # Tag OWASP metrics and behaviors (mirrors b857edcac3c0).
         orgs = _list_organizations_with_owner(session)
         for org_id, user_id in orgs:
-            tag = session.query(models.Tag).filter_by(name=_TAG_NAME, organization_id=org_id).first()
+            tag = (
+                session.query(models.Tag).filter_by(name=_TAG_NAME, organization_id=org_id).first()
+            )
             if not tag:
                 tag = models.Tag(name=_TAG_NAME, organization_id=org_id, user_id=user_id)
                 session.add(tag)
