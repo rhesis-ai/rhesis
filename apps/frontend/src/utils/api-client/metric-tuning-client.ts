@@ -5,6 +5,7 @@ import {
   MetricTuningCaseCreate,
   MetricTuningCaseDeleteResponse,
   MetricTuningCaseUpdate,
+  MetricTuningReviewCreate,
   MetricTuningRun,
 } from './interfaces/metric-tuning';
 import { UUID } from 'crypto';
@@ -22,6 +23,10 @@ export class MetricTuningClient extends BaseApiClient {
 
   private runPath(metricId: UUID | string): string {
     return `${API_ENDPOINTS.metrics}/${metricId}/tuning/run`;
+  }
+
+  private reviewsPath(metricId: UUID | string): string {
+    return `${API_ENDPOINTS.metrics}/${metricId}/tuning/reviews`;
   }
 
   /** Cases for a metric. Empty when it has no tuning test set yet. */
@@ -63,6 +68,39 @@ export class MetricTuningClient extends BaseApiClient {
     return this.fetch<MetricTuningCaseDeleteResponse>(
       `${this.basePath(metricId)}/${caseId}`,
       { method: 'DELETE' }
+    );
+  }
+
+  /**
+   * Records what a reviewer made of the metric's verdict for one case.
+   *
+   * A rejection needs a comment — the API refuses a blank one, so the caller
+   * must collect it first.
+   */
+  async reviewTuningCase(
+    metricId: UUID | string,
+    caseId: UUID | string,
+    data: MetricTuningReviewCreate
+  ): Promise<MetricTuningCase> {
+    return this.fetch<MetricTuningCase>(
+      `${this.basePath(metricId)}/${caseId}/review`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  /**
+   * Accepts every case that is still unreviewed and has a verdict, and returns
+   * the whole case list as it now stands.
+   */
+  async acceptRemainingTuningCases(
+    metricId: UUID | string
+  ): Promise<MetricTuningCase[]> {
+    return this.fetch<MetricTuningCase[]>(
+      `${this.reviewsPath(metricId)}/accept-rest`,
+      { method: 'POST' }
     );
   }
 

@@ -54,6 +54,7 @@ import {
   GridRowParams,
   GridCellParams,
   GridColumnMenu,
+  type GridColumnGroupingModel,
   type GridColumnMenuProps,
   type GridToolbarProps,
 } from '@mui/x-data-grid';
@@ -101,6 +102,8 @@ interface FilterConfig {
 
 interface BaseDataGridProps {
   columns: GridColDef[];
+  /** Header groups spanning several columns, e.g. to separate a case from a run. */
+  columnGroupingModel?: GridColumnGroupingModel;
   rows: GridRowModel[];
   title?: string;
   loading?: boolean;
@@ -608,6 +611,7 @@ function FigmaPaginationFooter() {
 
 export default function BaseDataGrid({
   columns,
+  columnGroupingModel,
   rows,
   title,
   loading = false,
@@ -1386,6 +1390,7 @@ export default function BaseDataGrid({
                     apiRef={apiRef}
                     rows={serverSidePagination ? rows : filteredRows}
                     columns={gridColumns}
+                    {...(columnGroupingModel && { columnGroupingModel })}
                     getRowId={getRowId}
                     {...(autoHeight && { autoHeight: true })}
                     pagination
@@ -1458,6 +1463,7 @@ export default function BaseDataGrid({
                       apiRef={apiRef}
                       rows={serverSidePagination ? rows : filteredRows}
                       columns={gridColumns}
+                      {...(columnGroupingModel && { columnGroupingModel })}
                       getRowId={getRowId}
                       {...(autoHeight && { autoHeight: true })}
                       pagination
