@@ -292,8 +292,15 @@ export default function NotificationsDrawer({
         >
           {/* FormControlLabel rather than a hand-paired Switch and Typography:
               it associates the two, so the switch has a real accessible name
-              and the text is clickable. */}
+              and the text is clickable. `ml: 0` cancels FormControlLabel's
+              own -11px default left margin (see TabOverview.tsx's "Disable
+              tracing" toggle for the same fix) -- left uncancelled, that
+              margin pulls the switch left of this row's own start, and the
+              switch's root clips its own content to its box (by design, to
+              contain the ripple), so the pulled-left portion just disappears
+              instead of spilling visibly. */}
           <FormControlLabel
+            sx={{ ml: 0 }}
             control={
               <Switch
                 size="small"
