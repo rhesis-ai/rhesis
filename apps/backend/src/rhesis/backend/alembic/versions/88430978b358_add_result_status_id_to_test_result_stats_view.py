@@ -6,7 +6,7 @@ status filter sends test-result status UUIDs (Error/Fail/Pass/Review), which
 were matched against the wrong column and always returned zero rows because
 the UUIDs belong to different entity types.
 
-Revision ID: f0a1b2c3d4e5
+Revision ID: 88430978b358
 Revises: e4f5a6b7c8d9
 Create Date: 2026-08-20
 
@@ -17,7 +17,7 @@ from typing import Sequence, Union
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "f0a1b2c3d4e5"
+revision: str = "88430978b358"
 down_revision: Union[str, None] = "e4f5a6b7c8d9"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
