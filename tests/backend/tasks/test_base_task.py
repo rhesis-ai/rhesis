@@ -337,11 +337,27 @@ class TestInAppNotificationDecorator:
         """
         from rhesis.backend.tasks.architect.chat import architect_chat_task
         from rhesis.backend.tasks.execution.results import collect_results
-        from rhesis.backend.tasks.test_set import generate_and_save_test_set
+        from rhesis.backend.tasks.garak import import_garak_probes_task, sync_garak_test_set_task
+        from rhesis.backend.tasks.test_set import (
+            generate_and_save_owasp_test_set,
+            generate_and_save_test_set,
+        )
 
         assert (
             getattr(generate_and_save_test_set, "_notification_kind", None)
             == NotificationEventType.TestSet.GENERATION_COMPLETED
+        )
+        assert (
+            getattr(generate_and_save_owasp_test_set, "_notification_kind", None)
+            == NotificationEventType.TestSet.GENERATION_COMPLETED
+        )
+        assert (
+            getattr(import_garak_probes_task, "_notification_kind", None)
+            == NotificationEventType.TestSet.GARAK_IMPORT_COMPLETED
+        )
+        assert (
+            getattr(sync_garak_test_set_task, "_notification_kind", None)
+            == NotificationEventType.TestSet.GARAK_SYNC_COMPLETED
         )
         assert (
             getattr(collect_results, "_notification_kind", None)
