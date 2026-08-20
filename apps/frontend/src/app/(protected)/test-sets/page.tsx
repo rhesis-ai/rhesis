@@ -15,7 +15,7 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
 import FileImportDrawer from './components/FileImportDrawer';
-import GarakImportDrawer from './components/GarakImportDrawer';
+import SecurityTestDrawer from './components/SecurityTestDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
@@ -38,8 +38,7 @@ export default function TestSetsPage() {
 
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
-  const [garakImportDrawerOpen, setGarakImportDrawerOpen] =
-    React.useState(false);
+  const [securityDrawerOpen, setSecurityDrawerOpen] = React.useState(false);
 
   useDocumentTitle('Test Sets');
 
@@ -134,7 +133,7 @@ export default function TestSetsPage() {
                       ? 'Generate from OWASP'
                       : 'Import from Garak'
                 }
-                onClick={() => setGarakImportDrawerOpen(true)}
+                onClick={() => setSecurityDrawerOpen(true)}
               />
             )}
             <Can capability={Capability.TestSet.GENERATE}>
@@ -176,9 +175,9 @@ export default function TestSetsPage() {
         onSuccess={handleFileImportSuccess}
       />
 
-      <GarakImportDrawer
-        open={garakImportDrawerOpen}
-        onClose={() => setGarakImportDrawerOpen(false)}
+      <SecurityTestDrawer
+        open={securityDrawerOpen}
+        onClose={() => setSecurityDrawerOpen(false)}
         onImportStarted={handleGarakImportStarted}
         onOwaspSuccess={handleOwaspGenerateSuccess}
         canUseGarak={canGarak}

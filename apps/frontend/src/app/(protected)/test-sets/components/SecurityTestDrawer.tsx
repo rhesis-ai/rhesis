@@ -86,7 +86,7 @@ const stripMarkdown = (value: string) =>
     .replace(/\*(.+?)\*/g, '$1')
     .trim();
 
-interface GarakImportDrawerProps {
+interface SecurityTestDrawerProps {
   open: boolean;
   onClose: () => void;
   /**
@@ -102,14 +102,14 @@ interface GarakImportDrawerProps {
   canUseOwasp?: boolean;
 }
 
-export default function GarakImportDrawer({
+export default function SecurityTestDrawer({
   open,
   onClose,
   onImportStarted,
   onOwaspSuccess,
   canUseGarak = true,
   canUseOwasp = false,
-}: GarakImportDrawerProps) {
+}: SecurityTestDrawerProps) {
   const availableSources = React.useMemo(() => {
     const sources: SecuritySource[] = [];
     if (canUseGarak) sources.push('garak');
