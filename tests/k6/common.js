@@ -8,48 +8,17 @@ import { check, group, sleep } from 'k6';
 export const API_BASE = __ENV.API_BASE || 'https://api.rhesis.ai';
 export const FRONTEND_BASE = __ENV.FRONTEND_BASE || 'https://app.rhesis.ai';
 
-// Obtain by logging in yourself and passing the result as -e AUTH_TOKEN=...
-// (see tests/k6/README.md). Never embed a password in these scripts.
-export const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
-// Some authenticated routes are project-scoped and need this header alongside the token.
+// Obtain via POST /tokens/ (see tests/k6/README.md) and pass as -e API_KEY=...
+// API keys don't expire by default, so there's no refresh to manage here.
+export const API_KEY = __ENV.API_KEY || '';
+// Some authenticated routes are project-scoped and need this header alongside the key.
 export const PROJECT_ID = __ENV.PROJECT_ID || '';
 
-// The session token lasts ~15 minutes — shorter than every scenario but
-// spike.js. REFRESH_TOKEN (also from /auth/exchange-code) lets each VU mint
-// a fresh session token mid-run without the password ever touching this
-// script. Optional: without it, AUTH_TOKEN is just used as-is for the run.
-const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 5m margin inside the 15m expiry
-
-let liveToken = AUTH_TOKEN;
-let liveRefreshToken = __ENV.REFRESH_TOKEN || '';
-let tokenMintedAt = -Infinity; // force an immediate refresh on first use
-
-function refreshTokenIfDue() {
-  if (!liveRefreshToken || Date.now() - tokenMintedAt < REFRESH_INTERVAL_MS) return;
-
-  const res = http.post(`${API_BASE}/auth/refresh`, JSON.stringify({ refresh_token: liveRefreshToken }), {
-    headers: { 'Content-Type': 'application/json' },
-    tags: { name: 'auth_refresh' },
-  });
-  const accessToken = res.status === 200 ? res.json('access_token') : null;
-  // Only advance tokenMintedAt on success — on failure, leave it stale so the
-  // very next iteration retries instead of running on an expired token for
-  // the rest of the 10-minute window.
-  if (!accessToken) return;
-
-  liveToken = accessToken;
-  const rotatedRefreshToken = res.json('refresh_token');
-  if (rotatedRefreshToken) liveRefreshToken = rotatedRefreshToken;
-  tokenMintedAt = Date.now();
-}
-
-function authHeaders() {
-  return {
-    headers: liveToken
-      ? { Authorization: `Bearer ${liveToken}`, ...(PROJECT_ID ? { 'X-Project-Id': PROJECT_ID } : {}) }
-      : {},
-  };
-}
+const authHeaders = {
+  headers: API_KEY
+    ? { Authorization: `Bearer ${API_KEY}`, ...(PROJECT_ID ? { 'X-Project-Id': PROJECT_ID } : {}) }
+    : {},
+};
 
 // Safety circuit-breaker shared by every scenario: if error rate or p95
 // latency blows past these for delayAbortEval, k6 stops the run itself
@@ -106,16 +75,14 @@ export const ENDPOINT_TAGS = [
 ];
 
 // Highest-traffic authenticated GET endpoints (see tests/k6/README.md for
-// how this list was derived). Skipped entirely when AUTH_TOKEN is unset, so
+// how this list was derived). Skipped entirely when API_KEY is unset, so
 // the same scripts still work anonymously against just the public routes.
 export function hitAuthenticated() {
-  if (!AUTH_TOKEN) return;
-
-  refreshTokenIfDue();
+  if (!API_KEY) return;
 
   for (const { name, path } of AUTH_ENDPOINTS) {
     group(name, () => {
-      const res = http.get(`${API_BASE}${path}`, { ...authHeaders(), tags: { name } });
+      const res = http.get(`${API_BASE}${path}`, { ...authHeaders, tags: { name } });
       check(res, { [`${name} status 200`]: (r) => r.status === 200 });
     });
   }
