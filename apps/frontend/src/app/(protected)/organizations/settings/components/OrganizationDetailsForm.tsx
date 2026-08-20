@@ -143,12 +143,19 @@ function DetailsFields({
   );
   const [copied, setCopied] = useState(false);
 
-  const handleCopyId = useCallback(() => {
-    navigator.clipboard.writeText(organizationId).then(() => {
+  const notifications = useNotifications();
+
+  const handleCopyId = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(organizationId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
-  }, [organizationId]);
+    } catch (_err) {
+      notifications.show('Failed to copy organization ID', {
+        severity: 'error',
+      });
+    }
+  }, [organizationId, notifications]);
 
   const handleChange =
     (field: keyof DetailsDraft) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,7 +202,12 @@ function DetailsFields({
           >
             {organizationId}
             <Tooltip title={copied ? 'Copied' : 'Copy'}>
-              <IconButton size="small" onClick={handleCopyId} sx={{ ml: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={handleCopyId}
+                aria-label="Copy organization ID"
+                sx={{ ml: 0.5 }}
+              >
                 {copied ? (
                   <CheckIcon fontSize="inherit" />
                 ) : (
