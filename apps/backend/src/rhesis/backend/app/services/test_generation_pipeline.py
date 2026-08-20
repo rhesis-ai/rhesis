@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY, TestSetType
-from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.schemas.services import (
     SourceData,
     TestConfigItem,
@@ -43,6 +44,14 @@ logger = logging.getLogger(__name__)
 MAX_SAMPLE_SIZE = 6
 
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+
+
+def _error_message(e: Exception) -> str:
+    """A quota exhaustion gets the same organization-subject copy every
+    other surface uses; anything else falls back to its own message."""
+    if isinstance(e, QuotaExceededError):
+        return quota_exceeded_response_body(e.verdict)["message"]
+    return str(e)
 
 
 def _resolve_config_llm(db: Session, user: User):
@@ -174,7 +183,7 @@ async def _stream_config(
         yield {
             "type": "error",
             "phase": "config",
-            "message": str(e),
+            "message": _error_message(e),
         }
         yield {"type": "config_done", "total": 0}
         yield {"type": "_collected", "config": None}
@@ -230,7 +239,21 @@ async def test_generation_pipeline_stream(
     if config_response is None:
         # ── Phase 1: Streamed config generation ──
 
-        llm = _resolve_config_llm(db, user)
+        # Resolving the LLM is the one step in this whole generator with no
+        # surrounding try/except -- a quota exhaustion (or any other
+        # resolution failure) raised here used to propagate straight out of
+        # the generator. By the time that happens, StreamingResponse has
+        # already sent its 200 OK, so there is no clean 402 left to send;
+        # the stream just aborts with no event ever reaching the frontend,
+        # which reads as a request that hangs forever with no explanation.
+        try:
+            llm = _resolve_config_llm(db, user)
+        except Exception as e:
+            logger.error("Failed to resolve config LLM: %s", e, exc_info=True)
+            yield ndjson({"type": "error", "phase": "config", "message": _error_message(e)})
+            yield ndjson({"type": "done"})
+            return
+
         db_context = _fetch_db_context(
             db=db,
             organization_id=organization_id,
@@ -352,7 +375,7 @@ async def test_generation_pipeline_stream(
 
     except Exception as e:
         logger.error("Test generation failed at index %d: %s", test_index, e, exc_info=True)
-        yield ndjson({"type": "error", "phase": "tests", "message": str(e)})
+        yield ndjson({"type": "error", "phase": "tests", "message": _error_message(e)})
 
     yield ndjson({"type": "tests_done", "total": tests_generated})
     yield ndjson({"type": "done"})

@@ -5,11 +5,14 @@ from fastapi import Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.error_handlers import internal_error
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
     GenerateContentRequest,
@@ -440,6 +443,7 @@ def test_pipeline_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """Stream config and test generation as NDJSON events."""
     organization_id, _ = tenant_context
