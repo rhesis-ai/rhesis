@@ -3,6 +3,11 @@ kind: Application
 metadata:
   name: prd-base
   namespace: argocd
+  annotations:
+    # prd-base is excluded from its own kustomization (see kustomization.yaml)
+    # to avoid overwriting the imperative SHA pin set by publish-release.yml.
+    # Without this annotation, prune deletes prd-base on every sync.
+    argocd.argoproj.io/sync-options: Prune=false
 spec:
   project: default
   source:
