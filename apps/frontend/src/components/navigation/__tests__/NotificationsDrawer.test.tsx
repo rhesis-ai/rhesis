@@ -71,18 +71,18 @@ describe('NotificationsDrawer', () => {
 
   it('shows an empty state when there is nothing to report', async () => {
     render(<NotificationsDrawer open onClose={jest.fn()} />);
-    expect(await screen.findByText('No notifications yet')).toBeInTheDocument();
+    expect(await screen.findByText('Nothing new')).toBeInTheDocument();
   });
 
   it('distinguishes a failed load from an empty inbox', async () => {
-    // "No notifications yet" would read as good news when the request failed.
+    // "Nothing new" would read as good news when the request failed.
     mockGetNotifications.mockRejectedValue(new Error('network down'));
     render(<NotificationsDrawer open onClose={jest.fn()} />);
 
     expect(
       await screen.findByText(/Could not load notifications/i)
     ).toBeInTheDocument();
-    expect(screen.queryByText('No notifications yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nothing new')).not.toBeInTheDocument();
   });
 
   it('groups rows under a day heading', async () => {
@@ -100,9 +100,8 @@ describe('NotificationsDrawer', () => {
     ]);
     render(<NotificationsDrawer open onClose={jest.fn()} />);
 
-    expect(
-      await screen.findByText(/Imported test sets \(3\)/)
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Imported test sets')).toBeInTheDocument();
+    expect(screen.getByText('3 items')).toBeInTheDocument();
   });
 
   it('marks a row read through the context, not the client, so the badge follows', async () => {
@@ -248,5 +247,64 @@ describe('NotificationsDrawer', () => {
         expect.objectContaining({ skip: 30 })
       )
     );
+  });
+
+  it('colors a quota-blocked row the same severity as a failure, with a distinct icon', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-blocked',
+        section: NotificationSection.USAGE,
+        event_type: 'usage.blocked',
+        title: 'Projects limit reached',
+      }),
+      notification({
+        id: 'n-failed',
+        title: 'A run finished',
+        is_failure: true,
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    await screen.findByText('Projects limit reached');
+    expect(screen.getByTestId('ErrorOutlineIcon')).toBeInTheDocument();
+    expect(screen.getByTestId('WarningAmberOutlinedIcon')).toBeInTheDocument();
+  });
+
+  it('shows an amber icon for an approaching-limit row and a green one for an ordinary success', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-approaching',
+        section: NotificationSection.USAGE,
+        event_type: 'usage.approaching_limit',
+        title: 'Test runs approaching limit',
+      }),
+      notification({ id: 'n-ok', title: 'A run finished' }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    await screen.findByText('Test runs approaching limit');
+    expect(screen.getByTestId('BarChartOutlinedIcon')).toBeInTheDocument();
+    expect(screen.getByTestId('CheckCircleOutlineIcon')).toBeInTheDocument();
+  });
+
+  it('labels the recourse link by section and pluralizes it for a batch row', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-usage',
+        section: NotificationSection.USAGE,
+        event_type: 'usage.blocked',
+        title: 'Projects limit reached',
+      }),
+      notification({
+        id: 'n-batch',
+        section: NotificationSection.TEST_SETS,
+        title: 'Imported test sets',
+        item_count: 3,
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    expect(await screen.findByText(/Org usage/)).toBeInTheDocument();
+    expect(await screen.findByText(/View test sets/)).toBeInTheDocument();
   });
 });

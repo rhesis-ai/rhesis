@@ -12,13 +12,18 @@ import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import type SvgIcon from '@mui/material/SvgIcon';
 import { FilterDrawerShell } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Notification } from '@/utils/api-client/notifications-client';
 import {
   NotificationSection,
+  UsageNotificationEventType,
   isNotificationSection,
 } from '@/constants/notifications';
 import { useNotifications } from '@/contexts/NotificationsContext';
@@ -34,6 +39,11 @@ const UNREAD_ROW_TINT = 0.06;
 const EMPTY_ICON_SIZE = 32;
 /** Leading icon on a notification row. */
 const ROW_ICON_SIZE = 20;
+/** The rounded tint chip a row's icon sits in. */
+const ROW_ICON_CHIP_SIZE = 28;
+/** Tint behind a row's icon -- same ratio for every severity, so a heavier
+ * colour (error) doesn't read as a heavier chip than a lighter one (success). */
+const ROW_ICON_CHIP_TINT = 0.12;
 
 /** Where a row's own page lives, keyed by `NotificationSection`. Not always
  * `/${section}` -- `USAGE` badges no nav item (see `constants/notifications.ts`)
@@ -45,6 +55,55 @@ const SECTION_ROUTES: Record<NotificationSection, string> = {
   [NotificationSection.ARCHITECT]: '/architect',
   [NotificationSection.USAGE]: '/organizations/usage',
 };
+
+/** The recourse link's base label, keyed by `NotificationSection` -- what a
+ * reader clicks through to. Pluralized in `sectionLinkLabel` below when a
+ * row batches more than one entity. */
+const SECTION_LINK_LABEL: Record<NotificationSection, string> = {
+  [NotificationSection.TEST_SETS]: 'View test set',
+  [NotificationSection.TEST_RUNS]: 'View test run',
+  [NotificationSection.TASKS]: 'View task',
+  [NotificationSection.ARCHITECT]: 'Open architect',
+  [NotificationSection.USAGE]: 'Org usage',
+};
+
+function sectionLinkLabel(
+  section: NotificationSection | null,
+  itemCount: number
+): string | null {
+  if (!section) return null;
+  const label = SECTION_LINK_LABEL[section];
+  return itemCount > 1 ? `${label}s` : label;
+}
+
+type NotificationSeverity = 'success' | 'warning' | 'error';
+
+/** The colour a row's icon takes. `usage.blocked` and any other failure both
+ * read as `error` -- same severity, different glyph (see `notificationIcon`)
+ * -- since either one means "this needs the reader's attention now". */
+function notificationSeverity(n: Notification): NotificationSeverity {
+  if (n.event_type === UsageNotificationEventType.BLOCKED || n.is_failure) {
+    return 'error';
+  }
+  if (n.event_type === UsageNotificationEventType.APPROACHING_LIMIT) {
+    return 'warning';
+  }
+  return 'success';
+}
+
+/** The glyph a row's icon takes. Distinct from severity: a quota block and a
+ * failed test run are both `error`-severity, but "the org hit a limit" and
+ * "this run broke" are different situations and shouldn't look identical. */
+function notificationIcon(n: Notification): typeof SvgIcon {
+  if (n.event_type === UsageNotificationEventType.BLOCKED) {
+    return ErrorOutlineIcon;
+  }
+  if (n.is_failure) return WarningAmberOutlinedIcon;
+  if (n.event_type === UsageNotificationEventType.APPROACHING_LIMIT) {
+    return BarChartOutlinedIcon;
+  }
+  return CheckCircleOutlineIcon;
+}
 
 // Floors rather than rounds: 90 minutes is "1h ago", not "2h ago" -- an age
 // must never read as further in the past than it is. Clamped at 0 so clock
@@ -283,9 +342,18 @@ export default function NotificationsDrawer({
               <NotificationsNoneOutlinedIcon
                 sx={{ fontSize: EMPTY_ICON_SIZE, color: 'text.secondary' }}
               />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {unreadOnly ? "You're all caught up" : 'No notifications yet'}
+              <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+                {unreadOnly ? "You're all caught up" : 'Nothing new'}
               </Typography>
+              {!unreadOnly && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 0.5 }}
+                >
+                  Finished runs, imports, and quota alerts show up here.
+                </Typography>
+              )}
             </Box>
           ) : (
             groups.map(([label, rows]) => (
@@ -296,74 +364,132 @@ export default function NotificationsDrawer({
                 >
                   {label}
                 </Typography>
-                {rows.map(n => (
-                  <ButtonBase
-                    key={n.id}
-                    onClick={() => handleRowClick(n)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      textAlign: 'left',
-                      width: '100%',
-                      gap: '10px',
-                      px: '10px',
-                      py: '8px',
-                      borderRadius: BORDER_RADIUS.sm,
-                      bgcolor: n.read_at
-                        ? 'transparent'
-                        : theme =>
-                            alpha(theme.palette.primary.main, UNREAD_ROW_TINT),
-                      '&:hover': {
-                        bgcolor: theme => theme.palette.greyscale.surface2,
-                      },
-                    }}
-                  >
-                    {n.is_failure ? (
-                      <ErrorOutlineIcon
-                        sx={{
-                          fontSize: ROW_ICON_SIZE,
-                          color: 'error.main',
-                          flexShrink: 0,
-                          mt: '2px',
-                        }}
-                      />
-                    ) : (
-                      <NotificationsNoneOutlinedIcon
-                        sx={{
-                          fontSize: ROW_ICON_SIZE,
-                          color: 'text.secondary',
-                          flexShrink: 0,
-                          mt: '2px',
-                        }}
-                      />
-                    )}
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: n.read_at ? 400 : 600 }}
-                      >
-                        {n.title}
-                        {n.item_count > 1 ? ` (${n.item_count})` : ''}
-                      </Typography>
-                      {n.body && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          component="div"
-                        >
-                          {n.body}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                {rows.map(n => {
+                  const section = isNotificationSection(n.section)
+                    ? n.section
+                    : null;
+                  const severity = notificationSeverity(n);
+                  const Icon = notificationIcon(n);
+                  const link = sectionLinkLabel(section, n.item_count);
+                  return (
+                    <ButtonBase
+                      key={n.id}
+                      onClick={() => handleRowClick(n)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        textAlign: 'left',
+                        width: '100%',
+                        gap: '10px',
+                        px: '10px',
+                        py: '8px',
+                        borderRadius: BORDER_RADIUS.sm,
+                        bgcolor: n.read_at
+                          ? 'transparent'
+                          : theme =>
+                              alpha(
+                                theme.palette.primary.main,
+                                UNREAD_ROW_TINT
+                              ),
+                        '&:hover': {
+                          bgcolor: theme => theme.palette.greyscale.surface2,
+                        },
+                      }}
                     >
-                      {relativeTime(n.created_at)}
-                    </Typography>
-                  </ButtonBase>
-                ))}
+                      <Box
+                        sx={{
+                          width: ROW_ICON_CHIP_SIZE,
+                          height: ROW_ICON_CHIP_SIZE,
+                          borderRadius: BORDER_RADIUS.sm,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          bgcolor: theme =>
+                            alpha(
+                              theme.palette[severity].main,
+                              ROW_ICON_CHIP_TINT
+                            ),
+                        }}
+                      >
+                        <Icon
+                          sx={{
+                            fontSize: ROW_ICON_SIZE,
+                            color: `${severity}.main`,
+                          }}
+                        />
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: n.read_at ? 400 : 600 }}
+                        >
+                          {n.title}
+                          {n.item_count > 1 && (
+                            <Typography
+                              component="span"
+                              sx={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                color: 'text.secondary',
+                                border: theme =>
+                                  `1px solid ${theme.palette.greyscale.border}`,
+                                borderRadius: BORDER_RADIUS.xs,
+                                px: '5px',
+                                py: '1px',
+                                ml: '6px',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {n.item_count} items
+                            </Typography>
+                          )}
+                        </Typography>
+                        {n.body && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            component="div"
+                          >
+                            {n.body}
+                          </Typography>
+                        )}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            mt: '4px',
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ whiteSpace: 'nowrap' }}
+                          >
+                            {relativeTime(n.created_at)}
+                          </Typography>
+                          {link && (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: 'primary.main',
+                                fontWeight: 600,
+                                flexShrink: 0,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {link} &rarr;
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </ButtonBase>
+                  );
+                })}
               </Box>
             ))
           )}

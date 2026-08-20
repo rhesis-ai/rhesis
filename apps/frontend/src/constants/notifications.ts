@@ -38,3 +38,16 @@ export function isNotificationSection(
 
 /** CSS class applied to a grid row whose entity has an unseen notification. */
 export const HIGHLIGHTED_ROW_CLASS = 'rhesis-row-notified';
+
+/**
+ * The two `Notification.event_type` values a usage threshold crossing can
+ * carry. Mirrors `NotificationEventType.Usage` in `models/enums.py` -- kept
+ * as plain strings rather than importing the backend enum (Python and
+ * TypeScript share no module), the same split every other wire-value mirror
+ * in this file uses. `NotificationsDrawer` reads these to color a quota row
+ * distinctly from an ordinary success/failure one.
+ */
+export const UsageNotificationEventType = {
+  APPROACHING_LIMIT: 'usage.approaching_limit',
+  BLOCKED: 'usage.blocked',
+} as const;
