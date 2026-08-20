@@ -33,6 +33,7 @@ from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
 )
+from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
@@ -190,7 +191,12 @@ def extract_test_from_conversation_endpoint(
 
 
 @router.get("/", response_model=List[schemas.TestDetail])
-@with_count_header(model=models.Test, exclude_explorer_rows=True)
+# Both mirror the filters crud.get_tests applies, so the count matches the rows.
+@with_count_header(
+    model=models.Test,
+    exclude_explorer_rows=True,
+    extra_filter=exclude_metric_owned(models.Test),
+)
 def read_tests(
     response: Response,
     skip: int = 0,
@@ -276,6 +282,10 @@ def read_test(
         db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )
     if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+    # A metric's tuning cases are reachable only through their metric, so the
+    # identifier must not work here either.
+    if db_test.metric_id is not None:
         raise HTTPException(status_code=404, detail="Test not found")
     return db_test
 

@@ -58,6 +58,9 @@ class TestSet(TestSetBase):
     # Response-only (not on TestSetBase) -- a client-settable flag would let anyone
     # forge an Explorer set.
     explorer_row: bool = False
+    # Response-only for the same reason: a client-settable metric_id would let
+    # anyone hide a test set from the list, or unhide a metric's tuning set.
+    metric_id: Optional[UUID4] = None
 
     model_config = ConfigDict(from_attributes=True)
 

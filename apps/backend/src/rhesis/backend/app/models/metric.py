@@ -108,3 +108,12 @@ class Metric(
         "Requirement", secondary=requirement_metric_association, back_populates="metrics"
     )
     test_sets = relationship("TestSet", secondary="test_set_metric", back_populates="metrics")
+    # The metric's own tuning test set (TestSet.metric_id), distinct from the
+    # many-to-many `test_sets` above. viewonly: services/metric_tuning writes
+    # TestSet.metric_id directly.
+    tuning_test_set = relationship(
+        "TestSet",
+        foreign_keys="[TestSet.metric_id]",
+        uselist=False,
+        viewonly=True,
+    )
