@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { Grid, TextField } from '@mui/material';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Box, Grid, TextField, IconButton, Tooltip } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
 import { useRouter } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -115,6 +117,7 @@ export default function OrganizationDetailsForm({
     >
       {({ draft, setDraft, isEditing }) => (
         <DetailsFields
+          organizationId={organization.id}
           draft={draft}
           setDraft={setDraft}
           isEditing={isEditing}
@@ -125,10 +128,12 @@ export default function OrganizationDetailsForm({
 }
 
 function DetailsFields({
+  organizationId,
   draft,
   setDraft,
   isEditing,
 }: {
+  organizationId: string;
   draft: DetailsDraft;
   setDraft: (next: DetailsDraft | ((p: DetailsDraft) => DetailsDraft)) => void;
   isEditing: boolean;
@@ -136,6 +141,14 @@ function DetailsFields({
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>(
     {}
   );
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyId = useCallback(() => {
+    navigator.clipboard.writeText(organizationId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [organizationId]);
 
   const handleChange =
     (field: keyof DetailsDraft) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,6 +176,37 @@ function DetailsFields({
 
   return (
     <Grid container columnSpacing={columnSpacing} rowSpacing={gridSpacing}>
+      <Grid size={12}>
+        <ViewField
+          label="Organization ID"
+          helperText="Used for API integrations and support requests"
+          bgcolor="transparent"
+        >
+          <Box
+            sx={{
+              fontFamily: 'monospace',
+              fontSize: theme => theme.typography.body2.fontSize,
+              letterSpacing: '0.01em',
+              color: theme => theme.palette.greyscale.body,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            {organizationId}
+            <Tooltip title={copied ? 'Copied' : 'Copy'}>
+              <IconButton size="small" onClick={handleCopyId} sx={{ ml: 0.5 }}>
+                {copied ? (
+                  <CheckIcon fontSize="inherit" />
+                ) : (
+                  <ContentCopyIcon fontSize="inherit" />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </ViewField>
+      </Grid>
+
       <Grid size={{ xs: 12, md: 6 }}>
         {isEditing ? (
           <TextField
