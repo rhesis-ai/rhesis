@@ -98,6 +98,10 @@ config:
   authBlockDisposableEmails: "log"
   authDisposableEmailExtraDomains: ""
 
+  # Usage quota enforcement. Off by default so self-hosted deployments have no
+  # limits; Rhesis cloud overrides this to true in its per-env values files.
+  usageQuotasEnabled: false
+
   # AI model configuration
   azureOpenAiDeploymentName: "gpt-4o"
   azureOpenAiApiVersion: ""

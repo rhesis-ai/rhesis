@@ -30,6 +30,7 @@ config:
   environment: "production"
   logLevel: "INFO"
   jsonLoggerEnabled: true
+  usageQuotasEnabled: true
 
   # Must match kubernetes/clusters/prd/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
   dbName: "rhesis-prd-db"

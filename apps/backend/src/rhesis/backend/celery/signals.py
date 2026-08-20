@@ -66,7 +66,7 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
 @celeryd_init.connect
 @worker_process_init.connect
 def install_worker_usage_sink(**kwargs):
-    """Register the process-wide token-usage sink in the worker.
+    """Register the process-wide token-usage sink and EE providers in the worker.
 
     Connected to both signals on purpose, and ``celeryd_init`` is the
     load-bearing one. ``worker_process_init`` is sent only by the prefork and
@@ -79,9 +79,16 @@ def install_worker_usage_sink(**kwargs):
     installing after the fork keeps the sink independent of whatever the
     parent had imported at fork time. Installation is idempotent, so being
     called by both costs nothing.
+
+    ``bootstrap_ee_providers`` installs the EE license and quota providers so
+    workers resolve licensed quota limits instead of falling back to free-tier
+    defaults. It registers no features, so no feature gate can flip in a
+    worker. No-op when the EE package is not installed.
     """
+    from rhesis.backend.app.ee_bootstrap import bootstrap_ee_providers
     from rhesis.backend.app.utils.usage_tracking import install_usage_sink
 
+    bootstrap_ee_providers()
     install_usage_sink()
 
 

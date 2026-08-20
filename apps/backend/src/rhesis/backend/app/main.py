@@ -326,6 +326,9 @@ async def lifespan(app: FastAPI):
     """
     set_logger()
 
+    _quotas = get_application_settings().usage_quotas_enabled
+    logger.info("Usage quota enforcement: %s", "enabled" if _quotas else "disabled (self-hosted)")
+
     # Apply fail-fast Celery broker settings for the web process.
     # Must happen before any Celery task is published from an HTTP handler.
     from rhesis.backend.celery.core import apply_web_context_overrides

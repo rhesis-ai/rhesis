@@ -21,6 +21,7 @@ from rhesis.backend.app.features import (
 )
 from rhesis.backend.app.main import app
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.quota import QuotaResource
 
 _TEST_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -230,3 +231,17 @@ class TestFeaturesEndpointWithSignedProvider:
         assert body["license"]["edition"] == "community"
         assert body["license"]["licensed"] is False
         assert body["enabled"] == []
+
+
+class TestFeaturesEndpointQuotasOff:
+    """With quotas disabled, GET /features returns all-null limits with stable keys."""
+
+    def test_all_limits_null_with_quotas_off(
+        self, client: TestClient, registered_sso, mock_current_user, quotas_disabled
+    ):
+        response = client.get("/features")
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        limits = body["limits"]
+        assert set(limits.keys()) == {str(r) for r in QuotaResource}
+        assert all(v is None for v in limits.values())

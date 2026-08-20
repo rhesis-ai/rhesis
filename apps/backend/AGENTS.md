@@ -201,10 +201,11 @@ not supposed to require thinking about billing.
 - **Who to bill**: read at emission time from `app/usage_attribution.py`'s ContextVar, bound by
   the `bind_usage_attribution` async dependency (pulled in by `get_tenant_db_session`) and by the
   Celery `task_prerun` handler.
-- **Whether to bill**: `BaseLLM.usage_metered`, stamped by the model-resolution layer via
-  `stamp_usage_provenance`. This cannot move to the provider — an org's own OpenAI key means they
-  pay OpenAI directly, while the deployment default runs on our credentials, and that is the same
-  provider class with opposite answers.
+- **Whether to skip**: `BaseLLM.usage_metered`, stamped by the model-resolution layer via
+  `stamp_usage_provenance`. When `USAGE_QUOTAS_ENABLED` is true (Rhesis cloud), a `metered=False`
+  model is skipped: the org supplied its own API key and pays the provider directly. When quotas
+  are off (self-hosted, the default), every model accrues regardless so the usage page shows the
+  full picture of what the instance spent.
 
 Two rules for new code:
 

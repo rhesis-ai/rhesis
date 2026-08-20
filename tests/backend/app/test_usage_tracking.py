@@ -575,3 +575,28 @@ class TestResolveDefaultHostedModel:
             model.emit(30)
 
         assert fake_delay == [("org-42", QuotaResource.MODEL_TOKENS.value, 30)]
+
+
+class TestAccrueModelTokensQuotasOff:
+    """With quotas disabled, metered=False models still accrue (counting
+    instance spend) and unstamped models still warn."""
+
+    def test_metered_false_accrues_when_quotas_off(self, fake_delay, quotas_disabled):
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(500), _model(False))
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 500)]
+
+    def test_unstamped_model_still_warns_when_quotas_off(self, fake_delay, caplog, quotas_disabled):
+        _warned_unstamped.clear()
+        with caplog.at_level("WARNING"), usage_attribution("org-1"):
+            accrue_model_tokens(_usage(7), _StubLLM("stub/unstamped"))
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 7)]
+        assert UNSTAMPED_MARKER in caplog.text
+
+    def test_metered_true_still_accrues_when_quotas_off(self, fake_delay, quotas_disabled):
+        with usage_attribution("org-1"):
+            accrue_model_tokens(_usage(100), _model(True))
+
+        assert fake_delay == [("org-1", QuotaResource.MODEL_TOKENS.value, 100)]

@@ -87,6 +87,7 @@ class ApplicationSettings(BaseSettings):
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
     dev_mode: bool = Field(default=False, alias="DEV_MODE")
+    usage_quotas_enabled: bool = Field(default=False, alias="USAGE_QUOTAS_ENABLED")
     backend_env: Literal["production", "development", "staging", "local"] = Field(
         default="development", alias="BACKEND_ENV"
     )
