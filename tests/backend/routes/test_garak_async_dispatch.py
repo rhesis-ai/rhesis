@@ -22,12 +22,17 @@ from uuid import uuid4
 import pytest
 
 from rhesis.backend.app.routers.garak import (
+    generate_dynamic_probe,
     import_probes,
     preview_import,
     preview_sync,
     sync_test_set,
 )
-from rhesis.backend.app.schemas.garak import GarakImportRequest, GarakProbeSelection
+from rhesis.backend.app.schemas.garak import (
+    GarakGenerateRequest,
+    GarakImportRequest,
+    GarakProbeSelection,
+)
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
 
 
@@ -158,6 +163,76 @@ class TestSyncTestSetDispatch:
                 )
 
         assert exc_info.value.status_code == 400
+
+
+@pytest.mark.unit
+class TestGenerateDynamicProbeDispatch:
+    """Tests for generate_dynamic_probe (POST /garak/generate)."""
+
+    @staticmethod
+    def _dynamic_probe_service():
+        probe = GarakProbeInfo(
+            module_name="fitd",
+            class_name="FITD",
+            full_name="fitd.FITD",
+            description="d",
+            is_dynamic=True,
+        )
+        probe_service = MagicMock()
+        probe_service.garak_version = "0.14.0"
+        probe_service.extract_probes_from_module.return_value = [probe]
+        return probe_service
+
+    def test_forwards_model_id_override_to_the_task(self):
+        """OWASP generation and the plain generator both let a caller
+        override the generation model via `model_id` -- dynamic Garak
+        generation calls the same LLM-backed task and must too."""
+        request = GarakGenerateRequest(module_name="fitd", class_name="FITD", model_id="model-123")
+        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
+
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
+            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+        ):
+            mock_generator_cls.return_value.build.return_value = (
+                MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
+                {"garak_probe": "fitd.FITD"},
+            )
+            mock_launcher.return_value = MagicMock(id="task-dyn-123")
+
+            generate_dynamic_probe(
+                request=request,
+                current_user=current_user,
+                probe_service=self._dynamic_probe_service(),
+                db=MagicMock(),
+            )
+
+        _, call_kwargs = mock_launcher.call_args
+        assert call_kwargs["model_id"] == "model-123"
+
+    def test_defaults_model_id_to_none_when_omitted(self):
+        request = GarakGenerateRequest(module_name="fitd", class_name="FITD")
+        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
+
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
+            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+        ):
+            mock_generator_cls.return_value.build.return_value = (
+                MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
+                {"garak_probe": "fitd.FITD"},
+            )
+            mock_launcher.return_value = MagicMock(id="task-dyn-456")
+
+            generate_dynamic_probe(
+                request=request,
+                current_user=current_user,
+                probe_service=self._dynamic_probe_service(),
+                db=MagicMock(),
+            )
+
+        _, call_kwargs = mock_launcher.call_args
+        assert call_kwargs["model_id"] is None
 
 
 @pytest.mark.unit

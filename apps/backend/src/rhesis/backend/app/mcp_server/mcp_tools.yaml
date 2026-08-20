@@ -425,6 +425,8 @@ tools:
         description: >
           Number of tests to generate (integer, max 500). Omit to let the
           backend pick a random value between 100 and 200.
+      model_id:
+        description: "Omit. Uses the user's default generation model unless overridden."
 
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests

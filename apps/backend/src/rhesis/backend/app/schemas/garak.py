@@ -182,6 +182,10 @@ class GarakGenerateRequest(BaseModel):
             "If omitted a random value between 100 and 200 is chosen automatically."
         ),
     )
+    model_id: Optional[str] = Field(
+        None,
+        description="Optional model UUID to override the user's default generation model",
+    )
 
 
 class GarakGenerateResponse(BaseModel):
