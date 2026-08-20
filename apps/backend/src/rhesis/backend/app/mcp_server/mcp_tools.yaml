@@ -301,6 +301,133 @@ tools:
       endpoint_id:
         description: "REQUIRED. UUID of the endpoint."
 
+  # ── OWASP & Garak Security Test Generation ─────────────────
+  - name: list_owasp_categories
+    label: Listing OWASP risk categories
+    method: GET
+    path: /owasp/categories
+    description: >
+      List the risk categories (report sections) of an OWASP Top 10 report.
+      ENTITY: OwaspCategory. PREREQUISITES: none. CHAIN: call before
+      generate_owasp_test_set to resolve category ids (e.g. "llm01") and
+      confirm report scope with the user. Omitting categories in
+      generate_owasp_test_set targets every category in the report.
+    parameters:
+      framework:
+        description: >
+          "llm" (default, OWASP Top 10 for LLM Applications) or "agentic"
+          (OWASP Top 10 for Agentic AI). Omit for the LLM report.
+
+  - name: generate_owasp_test_set
+    label: Generating OWASP test set
+    method: POST
+    path: /owasp/generate
+    requires_confirmation: true
+    description: >
+      Generate a test set of adversarial prompts from an OWASP Top 10
+      report, tailored to the described system under test. An LLM crafts
+      attack prompts for each selected risk category. Tests are persisted
+      automatically. This runs as a background task — the response includes
+      a task_id. Poll get_job_status with that task_id until status is
+      "SUCCESS", then extract test_set_id from the result. CHAIN: use
+      list_owasp_categories first to resolve category ids; after SUCCESS →
+      get_test_set + list_test_set_tests to verify content → offer
+      execute_test_set.
+    parameters:
+      framework:
+        description: >
+          "llm" (default) or "agentic" — must match the report
+          list_owasp_categories was called with, if categories were
+          resolved from it.
+      purpose:
+        description: >
+          REQUIRED. What the system under test does, e.g. "Customer
+          service chatbot for a bank". Drives every generated attack.
+      categories:
+        description: >
+          Risk category ids to generate for, e.g. ["llm01", "llm07"]. Omit
+          to target every category in the selected report.
+      num_tests:
+        description: >
+          Total tests to generate, spread evenly across the selected
+          categories (integer, default 20, max 200).
+      name:
+        description: "Name for the generated test set (string). Omit for an auto-generated name."
+      batch_size:
+        description: "Omit unless you have a reason to change it. Defaults to 10."
+      model_id:
+        description: "Omit. Uses the user's default generation model unless overridden."
+      test_type:
+        description: '"Single-Turn" (default) or "Multi-Turn" conversational attacks.'
+
+  - name: list_garak_probes
+    label: Listing Garak probes
+    method: GET
+    path: /garak/probes
+    description: >
+      List all available Garak probe modules and their probe classes.
+      ENTITY: GarakProbeModule/GarakProbeClass. PREREQUISITES: none. CHAIN:
+      resolve module_name/class_name here, then use import_garak_probes for
+      probes where is_dynamic is false (the majority), or
+      generate_garak_test_set for probes where is_dynamic is true. Each
+      probe/module also carries the Rhesis category, topic, and requirement
+      it maps to.
+
+  - name: import_garak_probes
+    label: Importing Garak probes
+    method: POST
+    path: /garak/import
+    requires_confirmation: true
+    description: >
+      Import selected static Garak probes as Rhesis test sets — one test
+      set per probe, using the probe's built-in prompts (no LLM
+      generation). Use for probes where list_garak_probes reports
+      is_dynamic: false. This runs as a background task — the response
+      includes a task_id. Poll get_job_status until status is "SUCCESS",
+      then extract test_set_id(s) from the result. CHAIN: resolve probes
+      via list_garak_probes first; after SUCCESS → get_test_set +
+      list_test_set_tests to verify content → offer execute_test_set.
+    parameters:
+      probes:
+        description: >
+          REQUIRED, non-empty array. Each entry: {"module_name": ...,
+          "class_name": ..., "custom_name": <optional>}, resolved from
+          list_garak_probes.
+      name_prefix:
+        description: 'Prefix for auto-generated test set names. Defaults to "Garak".'
+      description_template:
+        description: "Optional description template applied to each created test set."
+
+  - name: generate_garak_test_set
+    label: Generating Garak test set
+    method: POST
+    path: /garak/generate
+    requires_confirmation: true
+    description: >
+      Generate a test set from a **dynamic** Garak probe (one with no
+      static prompts — list_garak_probes reports is_dynamic: true for it),
+      by synthesising prompts with the user's configured LLM based on the
+      probe's goal and tags. This runs as a background task — the response
+      includes a task_id. Poll get_job_status until status is "SUCCESS",
+      then extract test_set_id from the result. CHAIN: resolve module_name
+      and class_name from list_garak_probes first; use import_garak_probes
+      instead for non-dynamic probes.
+    parameters:
+      module_name:
+        description: "REQUIRED. Garak probe module name (e.g. 'fitd', 'atkgen', 'topic')."
+      class_name:
+        description: "REQUIRED. Garak probe class name (e.g. 'FITD', 'Tox', 'WordNet')."
+      name:
+        description: >
+          Custom name for the generated test set. Omit for the default
+          "Garak Dynamic: <module>.<class>".
+      num_tests:
+        description: >
+          Number of tests to generate (integer, max 500). Omit to let the
+          backend pick a random value between 100 and 200.
+      model_id:
+        description: "Omit. Uses the user's default generation model unless overridden."
+
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
     label: Listing tests

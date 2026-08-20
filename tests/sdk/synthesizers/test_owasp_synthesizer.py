@@ -129,6 +129,53 @@ def test_single_turn_generation_still_uses_prompt_schema(_mock_fetch):
     assert tests[0]["test_type"] == TestType.SINGLE_TURN.value
 
 
+# --- Topic naming: the computed topic wins over the LLM's echo of it ---
+
+
+@patch("rhesis.sdk.synthesizers.owasp_synthesizer.fetch_owasp_sections", return_value=_SECTIONS)
+def test_single_turn_topic_overrides_llm_echo(_mock_fetch):
+    """The final test's `topic` must be the computed section topic, not the
+    LLM's echo of the schema field -- the model is free to paraphrase or
+    re-case it (e.g. "prompt injection" instead of "LLM01: Prompt
+    Injection"), so generation must overwrite it rather than trust it."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {
+        "tests": [
+            {
+                "prompt_content": "Attack prompt",
+                "prompt_expected_response": "Refusal",
+                "prompt_language_code": "en",
+                "requirement": "OWASP LLM Top 10",
+                "category": "Harmful",
+                "topic": "prompt injection",
+            }
+        ]
+    }
+
+    synthesizer = OWASPSynthesizer(purpose="Customer support chatbot", model=mock_model)
+
+    tests = synthesizer._generate_without_sources(num_tests=1)
+
+    assert tests[0]["topic"] == "LLM01: Prompt Injection"
+
+
+@patch("rhesis.sdk.synthesizers.owasp_synthesizer.fetch_owasp_sections", return_value=_SECTIONS)
+def test_multi_turn_topic_overrides_llm_echo(_mock_fetch):
+    """Same guard as the single-turn case, for the multi-turn repack path."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {"tests": [_flat_multiturn_test(0)]}
+
+    synthesizer = OWASPSynthesizer(
+        purpose="Customer support chatbot",
+        model=mock_model,
+        test_type=TestType.MULTI_TURN,
+    )
+
+    tests = synthesizer._generate_without_sources(num_tests=1)
+
+    assert tests[0]["topic"] == "LLM01: Prompt Injection"
+
+
 # --- Topic naming: the ASI/LLM code prefix must be included, not just the name ---
 
 

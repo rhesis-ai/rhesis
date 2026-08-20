@@ -192,6 +192,12 @@ class OWASPSynthesizer(TestSetSynthesizer):
             # and consecutive-failure handling as single-turn for free.
             tests = self._generate_with_retry(n, **context)
             for t in tests:
+                # Trust the computed topic, not the LLM's echo of it (schema
+                # field "topic" in FlatTest/FlatMultiTurnTests) -- the prompt
+                # asks the model to repeat it verbatim, but it's free to
+                # paraphrase or re-case it, e.g. "improper output handling"
+                # instead of "LLM05: Improper Output Handling".
+                t["topic"] = context["topic"]
                 t.setdefault("metadata", {})["owasp_category"] = section.id
                 t.setdefault("metadata", {})["owasp_name"] = section.name
             all_tests.extend(tests)
@@ -213,8 +219,12 @@ class OWASPSynthesizer(TestSetSynthesizer):
         return self._multi_turn_template
 
     @staticmethod
-    def _flat_multiturn_test_to_nested(flat: Dict[str, Any]) -> Dict[str, Any]:
-        """Repack a flat multi-turn test dict (LLM output) into the nested shape."""
+    def _flat_multiturn_test_to_nested(flat: Dict[str, Any], topic: str) -> Dict[str, Any]:
+        """Repack a flat multi-turn test dict (LLM output) into the nested shape.
+
+        ``topic`` is the computed section topic, not ``flat["topic"]`` -- see
+        the single-turn override above for why the LLM's echo isn't trusted.
+        """
         return {
             "test_configuration": {
                 "goal": flat["test_configuration_goal"],
@@ -226,7 +236,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
             },
             "requirement": flat["requirement"],
             "category": flat["category"],
-            "topic": flat["topic"],
+            "topic": topic,
         }
 
     def _generate_batch(self, num_tests: int, **kwargs: Any) -> List[Dict[str, Any]]:
@@ -268,7 +278,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
         flat_tests = response["tests"][:num_tests]
         return [
             {
-                **self._flat_multiturn_test_to_nested(flat),
+                **self._flat_multiturn_test_to_nested(flat, kwargs["topic"]),
                 "test_type": TestType.MULTI_TURN.value,
                 "metadata": {"generated_by": self._get_synthesizer_name()},
             }

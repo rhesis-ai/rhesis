@@ -66,8 +66,8 @@ jest.mock('../components/FileImportDrawer', () => {
   };
 });
 
-jest.mock('../components/GarakImportDrawer', () => {
-  return function MockGarakImportDrawer() {
+jest.mock('../components/SecurityTestDrawer', () => {
+  return function MockSecurityTestDrawer() {
     return null;
   };
 });

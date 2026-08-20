@@ -449,6 +449,7 @@ def generate_dynamic_probe(
         num_tests=num_tests,
         name=test_set_name,
         metadata=probe_metadata,
+        model_id=request.model_id,
     )
 
     logger.info(

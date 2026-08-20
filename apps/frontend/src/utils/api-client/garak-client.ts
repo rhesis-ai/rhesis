@@ -146,6 +146,7 @@ export interface GarakGenerateRequest {
   class_name: string;
   name?: string;
   num_tests?: number;
+  model_id?: string;
 }
 
 /**

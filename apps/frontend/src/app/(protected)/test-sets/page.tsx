@@ -15,7 +15,7 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
 import FileImportDrawer from './components/FileImportDrawer';
-import GarakImportDrawer from './components/GarakImportDrawer';
+import SecurityTestDrawer from './components/SecurityTestDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
@@ -38,8 +38,7 @@ export default function TestSetsPage() {
 
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
-  const [garakImportDrawerOpen, setGarakImportDrawerOpen] =
-    React.useState(false);
+  const [securityDrawerOpen, setSecurityDrawerOpen] = React.useState(false);
 
   useDocumentTitle('Test Sets');
 
@@ -70,13 +69,14 @@ export default function TestSetsPage() {
   }, [queryClient, notifications]);
 
   const handleOwaspGenerateSuccess = React.useCallback(() => {
-    // Generation runs as a background task — the test set doesn't exist yet,
-    // so the drawer stays open showing its own completion state. The user
-    // closes it manually once they've read the "will appear in your list" note.
+    // Generation runs as a background task — this fires once it's queued,
+    // not once it's done. Invalidate now so the list picks up the completed
+    // test set whenever the user next revisits it, mirroring Garak import.
+    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
     notifications.show('OWASP test set generation started', {
       severity: 'success',
     });
-  }, [notifications]);
+  }, [queryClient, notifications]);
 
   if (isSessionLoading(status)) {
     return (
@@ -133,7 +133,7 @@ export default function TestSetsPage() {
                       ? 'Generate from OWASP'
                       : 'Import from Garak'
                 }
-                onClick={() => setGarakImportDrawerOpen(true)}
+                onClick={() => setSecurityDrawerOpen(true)}
               />
             )}
             <Can capability={Capability.TestSet.GENERATE}>
@@ -175,9 +175,9 @@ export default function TestSetsPage() {
         onSuccess={handleFileImportSuccess}
       />
 
-      <GarakImportDrawer
-        open={garakImportDrawerOpen}
-        onClose={() => setGarakImportDrawerOpen(false)}
+      <SecurityTestDrawer
+        open={securityDrawerOpen}
+        onClose={() => setSecurityDrawerOpen(false)}
         onImportStarted={handleGarakImportStarted}
         onOwaspSuccess={handleOwaspGenerateSuccess}
         canUseGarak={canGarak}

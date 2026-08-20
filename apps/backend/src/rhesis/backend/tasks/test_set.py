@@ -652,6 +652,7 @@ def generate_and_save_test_set(
         raise Exception(f"Test set generation and save failed: {error_msg}")
 
 
+@in_app_notification(NotificationEventType.TestSet.GENERATION_COMPLETED)
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
     subject_template="OWASP Test Set Generation Complete: {task_name} - {status}",
