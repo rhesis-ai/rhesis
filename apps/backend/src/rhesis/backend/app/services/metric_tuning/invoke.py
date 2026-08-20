@@ -4,17 +4,19 @@
 backwards produces numbers that look fine and mean nothing.**
 
 On the normal evaluation path a prompt's ``expected_response`` is handed to the
-metric as its ``expected_output`` -- the reference answer. On a tuning case that
-column holds the *expected verdict*: what the metric should have said. Pass it
-through and the metric under test is shown the answer key, told the expected
-response to "How are you?" is ``fail``, and every scorecard comes out flattering.
-Nothing raises when this is wrong.
+metric as its reference answer. A tuning case leaves that column empty -- there is
+no expected verdict any more (ADR-0005) -- so the original leak, where the metric
+under test was told the verdict it was supposed to return, is gone. The
+structural mistake it came from is not: route the metric under test through the
+normal evaluation path and it is being read at the wrong level, which is what
+produced that leak and will produce the next one.
 
 So a tuning run puts the metric in the system-under-test role: the case payload
 is unpacked into the same three arguments the metric receives in a real run --
-input, output, and the case's *own* expected output -- and nothing else. The
-expected verdict is read afterwards, by the comparison, and never enters here.
-See domain.local/adr/0002 and adr/0004.
+input, output, and the case's reference answer -- and nothing else. Nothing a
+human wrote reaches it, reviews and their comments included: a scorecard has to
+reflect the metric's judgement rather than its ability to read a hint.
+See domain.local/adr/0002, adr/0004 and adr/0005.
 
 **The judging model is resolved explicitly, and the chain ends in an error.**
 It is the metric's own model, else the configured default evaluation model, and
@@ -37,9 +39,12 @@ from rhesis.backend.app.crud.user import get_user
 from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningCaseResult
 from rhesis.backend.app.schemas.metric_types import ScoreType
 from rhesis.backend.app.services.metric_tuning.payload import CasePayload
-from rhesis.backend.app.services.metric_tuning.verdict import BINARY_VERDICTS
 
 logger = logging.getLogger(__name__)
+
+# How a binary metric's verdict is rendered. Lowercase so "Pass" and "pass" are
+# never two different verdicts in the same tuning set.
+BINARY_VERDICTS = ("pass", "fail")
 
 
 class MetricModelNotConfigured(Exception):
@@ -143,11 +148,11 @@ def resolve_metric_model(
 def verdict_from_score(metric: models.Metric, score: Union[float, str, None]) -> Optional[str]:
     """Render a metric's own score as a verdict string.
 
-    The stored expected verdict is one string for all three score types, so the
-    metric's answer has to be rendered the same way to sit beside it. A binary
-    metric returns a number the SDK treats as a flag, which is displayed as
-    pass/fail rather than as ``1.0`` -- a case labelled ``pass`` compared against
-    ``1.0`` reads as a disagreement to a human even when it is not.
+    One string for all three score types, so a reviewer's judgement can record
+    the verdict it was about without branching per metric. A binary metric
+    returns a number the SDK treats as a flag, which is rendered pass/fail rather
+    than as ``1.0`` -- a reviewer asked to judge ``1.0`` is being asked about the
+    wrong thing.
     """
     if score is None:
         return None
@@ -260,10 +265,10 @@ def invoke_metric_on_case(
         results = evaluator.evaluate(
             input_text=payload.input,
             output_text=payload.output,
-            # The case's own expected output -- what the *system under test*
-            # should have answered. Never prompt.expected_response, which is the
-            # expected verdict. See the module docstring.
-            expected_output=payload.expected_output or "",
+            # The case's own reference answer -- what the *system under test*
+            # should have answered. Never prompt.expected_response, which this
+            # feature does not write at all. See the module docstring.
+            expected_output=payload.reference_answer or "",
             context=[],
             metrics=[metric],
         )

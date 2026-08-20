@@ -25,6 +25,7 @@ from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningCaseMetadata,
     MetricTuningCaseResult,
+    MetricTuningReview,
     MetricTuningRunSummary,
     parse_metric_tuning_case_metadata,
     parse_metric_tuning_run_summary,
@@ -105,7 +106,11 @@ def get_tuning_cases(
     """Every tuning case in a tuning test set, oldest first.
 
     The prompt is eager-loaded because callers always serialize it -- it holds
-    both the input and the human's expected verdict.
+    the case payload the metric is shown.
+
+    ``id`` breaks ties on ``created_at``: two cases added in the same instant
+    would otherwise come back in whatever order the planner chose, and the grid
+    would reshuffle between polls.
     """
     return (
         db.query(models.Test)
@@ -118,7 +123,7 @@ def get_tuning_cases(
             test_test_set_association.c.test_set_id == test_set_id,
             models.Test.organization_id == organization_id,
         )
-        .order_by(models.Test.created_at.asc())
+        .order_by(models.Test.created_at.asc(), models.Test.id.asc())
         .all()
     )
 
@@ -156,21 +161,20 @@ def create_tuning_case(
     user_id: str,
     metric_id: uuid.UUID,
     content: str,
-    expected: Optional[str],
     metadata: MetricTuningCaseMetadata,
 ) -> models.Test:
-    """Insert a tuning case: the prompt holding the payload + verdict, then the test.
+    """Insert a tuning case: the prompt holding the case payload, then the test.
 
-    ``content`` is the serialized case payload -- what the metric is shown --
-    and ``expected`` is the verdict it should return, which is why they sit in
-    the prompt's two natural slots (ADR-0002, ADR-0003).
+    ``content`` is the serialized case payload -- what the metric is shown
+    (ADR-0003). ``expected_response`` is deliberately left unset: it held the
+    expected verdict until ADR-0005 retired that model, and a tuning case now
+    records no answer key at all.
 
     Associating the test with its test set is the caller's job -- that goes
     through the shared ``create_test_set_associations`` service.
     """
     db_prompt = models.Prompt(
         content=content,
-        expected_response=expected,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -212,9 +216,10 @@ def set_case_result(
 ) -> models.Test:
     """Record what the metric said about this case, overwriting the last run's.
 
-    Writes only the ``result`` key -- the case itself (its payload, its expected
-    verdict, its rationale) is what is being scored and is never touched by
-    scoring it.
+    Writes only the ``result`` key. The case payload is what is being scored and
+    is never touched by scoring it, and the reviews beside it are human-authored
+    history -- wiping those on every run would destroy the comments the feature
+    exists to produce (ADR-0005).
     """
     metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
     metadata.result = result
@@ -223,25 +228,36 @@ def set_case_result(
     return db_test
 
 
+def set_case_reviews(
+    db: Session, db_test: models.Test, reviews: List[MetricTuningReview]
+) -> models.Test:
+    """Overwrite a case's review history, leaving the run's result alone.
+
+    The whole list goes down at once because the service decides its shape --
+    whether a review replaced the last one, and which one the cap evicted.
+    """
+    metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
+    metadata.reviews = reviews
+    db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)
+    db.flush()
+    db.refresh(db_test)
+    return db_test
+
+
 def update_tuning_case(
     db: Session,
     db_test: models.Test,
     *,
     content: Optional[str] = None,
-    expected: Optional[str] = None,
     metadata: Optional[MetricTuningCaseMetadata] = None,
 ) -> models.Test:
     """Apply a partial update to a tuning case.
 
     Only non-None arguments are written, so a PUT that omits a field leaves it
-    alone. Callers that want to clear ``expected`` pass an empty string.
+    alone.
     """
-    if db_test.prompt is not None:
-        if content is not None:
-            db_test.prompt.content = content
-        if expected is not None:
-            # NULL, not "", so an unlabelled case looks the same however it got there.
-            db_test.prompt.expected_response = expected or None
+    if db_test.prompt is not None and content is not None:
+        db_test.prompt.content = content
 
     if metadata is not None:
         db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)

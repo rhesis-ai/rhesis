@@ -1,31 +1,53 @@
-"""API shapes for metric tuning cases.
+"""API shapes for metric tuning cases and the reviews of what a metric said.
 
-A tuning case is one example of what a metric should say: an input, the recorded
-output being judged, the verdict a human expects, and why. The verdict can be
-filled in later, which leaves the case **unlabelled** in the meantime. It is
-stored as a normal ``test`` + ``prompt`` pair owned by the metric -- see
-``services/metric_tuning/cases.py`` for the column mapping.
+A tuning case is one situation a metric has to get right: an input, the answer
+being judged and -- where the metric needs one -- a reference answer. It records
+no expected verdict. Nobody can honestly say what number a numeric metric
+*should* have returned, while saying whether ``0.2`` is wrong is easy, so the
+judgement happens after a run instead: a reviewer accepts what the metric said or
+rejects it with a comment (domain.local/adr/0005).
 
-``input``, ``output`` and ``expected_output`` are the **case payload**: what the
-metric is shown. They are stored together in ``prompt.content`` because a tuning
-case puts the metric in the system-under-test role (ADR-0003). ``expected`` is
-the answer key and is stored apart from them, on ``prompt.expected_response``.
+The three case fields are the **case payload** -- what the metric is shown --
+stored together in ``prompt.content`` because a tuning case puts the metric in
+the system-under-test role (ADR-0003). Reviews are stored apart, in
+``test.test_metadata``, and are never shown to the metric.
 
-``expected`` is a plain string on purpose. The owning metric's ``score_type``
-decides how to read it -- ``"pass"``/``"fail"`` for binary, ``"1.0"`` for
-numeric, a category name for categorical -- so one field serves all three
-without the API having to branch per metric. What keeps that honest is
-``services/metric_tuning/verdict.py``, which checks the string against the metric
-on the way in and again on the way out.
+``outcome`` and ``review`` are both derived on read. A review is only still
+standing while the metric's verdict has not materially changed under the metric's
+current threshold, which is a question that cannot be answered once and stored.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Optional, Union
 
 from pydantic import UUID4, BaseModel, ConfigDict
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.metric_tuning_metadata import TuningRunStatus
+from rhesis.backend.app.schemas.metric_tuning_metadata import ReviewDecision, TuningRunStatus
+
+
+class TuningCaseOutcome(str, Enum):
+    """How one case stands after the latest run.
+
+    ``UNREVIEWED`` is never counted as accepted: a set nobody looked at must not
+    report itself as perfect, and the cases an edit just broke must not read as
+    successes until someone looks.
+    """
+
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    # The metric call failed. Not the same as a verdict a reviewer rejected.
+    ERRORED = "errored"
+    UNREVIEWED = "unreviewed"
+
+
+class UnreviewedReason(str, Enum):
+    """Why an unreviewed case is unreviewed. The work is the same either way,
+    but a case that lost a review says so rather than looking untouched."""
+
+    NEVER_JUDGED = "never_judged"
+    INVALIDATED = "invalidated"
 
 
 class MetricTuningCaseBase(Base):
@@ -33,70 +55,85 @@ class MetricTuningCaseBase(Base):
     input: str
     # The answer the metric has to judge.
     output: str
-    # What the system under test should have answered. Optional -- plenty of
-    # metrics judge an answer without a reference to compare it to.
-    expected_output: Optional[str] = None
-    # The verdict a human expects from the metric for this case. Absent on an
-    # unlabelled case: one captured now and judged later.
-    expected: Optional[str] = None
-    # Why that verdict is right. Optional -- it is for the reviewer, not for scoring.
-    rationale: Optional[str] = None
+    # What the system under test should have answered, for a metric that judges
+    # against a reference. Never an "expected" anything -- that word belonged to
+    # the retired expected verdict and the two were indistinguishable in the grid.
+    reference_answer: Optional[str] = None
 
 
 class MetricTuningCaseCreate(MetricTuningCaseBase):
-    """A new case. Only the input and the answer being judged are required.
-
-    Those two are what the metric evaluates, so without them there is nothing to
-    run. A case saved without a verdict is an unlabelled case: runnable, but with
-    nothing to compare the result against, so scoring skips it.
-    """
+    """A new case. The input and the answer being judged are both required --
+    they are what the metric is run over, so without them there is nothing to
+    run."""
 
 
 class MetricTuningCaseUpdate(Base):
-    """Partial update -- only the fields present are applied.
-
-    ``expected`` reads absence and blankness differently: omitting it leaves the
-    stored verdict alone, while sending a blank one takes the verdict back and
-    returns the case to unlabelled.
-    """
+    """Partial update -- only the fields present are applied."""
 
     input: Optional[str] = None
     output: Optional[str] = None
-    expected_output: Optional[str] = None
-    expected: Optional[str] = None
-    rationale: Optional[str] = None
+    reference_answer: Optional[str] = None
 
 
 class MetricTuningCaseResult(BaseModel):
     """What the metric said about this case in the latest run.
 
-    Absent until the metric has been run over the case. ``verdict`` is the
-    metric's own answer, to be read beside ``expected`` -- which is what the
-    human said it should be, and which the metric never sees.
+    Absent until the metric has been run over the case. ``error`` set means the
+    call failed, which is deliberately not the same as a verdict a reviewer would
+    reject.
 
-    Plain ``BaseModel``, not the shared ``Base``: this is a value on a case, not
-    a row. ``Base`` would add ``id``/``nano_id``/``project_id``, and an ``id``
-    here would advertise a handle that does not exist.
+    Plain ``BaseModel``, not the shared ``Base``: this is a value on a case, not a
+    row. ``Base`` would add ``id``/``nano_id``/``project_id``, and an ``id`` here
+    would advertise a handle that does not exist.
     """
 
     # The metric's own verdict, as a string, whatever its score type.
     verdict: Optional[str] = None
     # The metric's explanation, where it produces one.
     reasoning: Optional[str] = None
-    # Set when the metric call failed for this case. Not the same as a wrong
-    # verdict, and never reported as one.
+    # Set when the metric call failed for this case.
     error: Optional[str] = None
     evaluated_at: Optional[str] = None
 
 
+class MetricTuningReview(BaseModel):
+    """The review that currently stands for a case.
+
+    ``verdict`` is the raw verdict the reviewer was judging, so the interface can
+    show what the judgement was about. The review history behind this is not
+    exposed: what a reader needs is the judgement that holds now and the comment
+    that came with it.
+    """
+
+    decision: ReviewDecision
+    # What is wrong with the verdict. Always present on a rejection.
+    comment: Optional[str] = None
+    verdict: Optional[str] = None
+    reviewed_at: Optional[str] = None
+
+
+class MetricTuningReviewCreate(BaseModel):
+    """A reviewer's judgement of the verdict a case currently carries.
+
+    The verdict being judged is read server-side from the stored result rather
+    than sent, so a review can never claim to be about something the metric did
+    not say.
+    """
+
+    decision: ReviewDecision
+    # Required on a rejection: the comment is what someone reads when rewriting
+    # the evaluation prompt, so a rejection without one records nothing useful.
+    comment: Optional[str] = None
+
+
 class MetricTuningCase(MetricTuningCaseBase):
     id: UUID4
-    # True when `expected` no longer fits the metric's current score type, which
-    # happens when the score type is changed after the case was written. Derived
-    # on read, never stored -- see services/metric_tuning/verdict.py.
-    is_stale: bool = False
     # The latest run's result for this case, or None if it has never been run.
     result: Optional[MetricTuningCaseResult] = None
+    # Derived on read, both of them -- see the module docstring.
+    outcome: TuningCaseOutcome = TuningCaseOutcome.UNREVIEWED
+    review: Optional[MetricTuningReview] = None
+    unreviewed_reason: Optional[UnreviewedReason] = None
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
 
@@ -127,3 +164,17 @@ class MetricTuningRun(BaseModel):
     errored_cases: int = 0
     # Why the run as a whole failed. A single case failing does not fail a run.
     error: Optional[str] = None
+
+
+__all__ = [
+    "MetricTuningCase",
+    "MetricTuningCaseCreate",
+    "MetricTuningCaseResult",
+    "MetricTuningCaseUpdate",
+    "MetricTuningReview",
+    "MetricTuningReviewCreate",
+    "MetricTuningRun",
+    "ReviewDecision",
+    "TuningCaseOutcome",
+    "UnreviewedReason",
+]
