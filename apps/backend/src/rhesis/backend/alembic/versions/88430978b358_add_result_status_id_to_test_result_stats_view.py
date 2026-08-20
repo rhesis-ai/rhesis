@@ -28,7 +28,7 @@ _RESULT_PASSED_IN = (
 _RESULT_FAILED_IN = "ARRAY['fail', 'failed']"
 
 V_TEST_RESULT_STATS_UP = f"""
-CREATE OR REPLACE VIEW v_test_result_stats AS
+CREATE VIEW v_test_result_stats AS
 SELECT trs.id AS test_result_id,
     trs.organization_id,
     trs.created_at,
@@ -71,7 +71,7 @@ WHERE trs.deleted_at IS NULL
 """
 
 V_TEST_RESULT_STATS_DOWN = """
-CREATE OR REPLACE VIEW v_test_result_stats AS
+CREATE VIEW v_test_result_stats AS
 SELECT trs.id AS test_result_id,
     trs.organization_id,
     trs.created_at,
@@ -114,8 +114,10 @@ WHERE trs.deleted_at IS NULL
 
 
 def upgrade() -> None:
+    op.execute("DROP VIEW IF EXISTS v_test_result_stats")
     op.execute(V_TEST_RESULT_STATS_UP)
 
 
 def downgrade() -> None:
+    op.execute("DROP VIEW IF EXISTS v_test_result_stats")
     op.execute(V_TEST_RESULT_STATS_DOWN)
