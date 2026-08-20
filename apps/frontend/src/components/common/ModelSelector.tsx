@@ -111,7 +111,11 @@ export default function ModelSelector({
   );
 
   // If preloaded data is supplied, use it; otherwise fetch internally.
-  const models = preloadedModels ?? fetchedModels ?? EMPTY_MODELS;
+  const allModels = preloadedModels ?? fetchedModels ?? EMPTY_MODELS;
+  const models =
+    purpose === 'embedding'
+      ? allModels
+      : allModels.filter(m => m.model_type !== 'embedding');
   const isLoading =
     preloadedModels !== undefined ? (isLoadingModelsProp ?? false) : isFetching;
 
