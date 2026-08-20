@@ -367,6 +367,25 @@ describe('MetricTuningTab — runs', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     expect(await screen.findByText(/the worker died/i)).toBeInTheDocument();
+    // The counts belong to the run that failed, and reading them as the result
+    // of the edit that was just made is the whole failure mode.
+    expect(screen.queryByText(/over 1 case/i)).not.toBeInTheDocument();
+  });
+
+  it('leaves the run control usable after a run failed', async () => {
+    // A failed run that disabled the button would be a dead end: the button is
+    // disabled on `running`, which is what an abandoned run used to stay.
+    mockGetTuningRun.mockResolvedValue({
+      ...COMPLETED,
+      status: 'failed',
+      error: 'the run stopped responding',
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(
+      await screen.findByRole('button', { name: /run metric/i })
+    ).toBeEnabled();
   });
 
   it('survives a failed start', async () => {
