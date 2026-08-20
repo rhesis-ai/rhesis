@@ -6,6 +6,7 @@ import {
   parseQuotaError,
   quotaCopy,
   usageMenuRows,
+  usageRowFillPercent,
   zoneColor,
 } from '@/utils/quota';
 import { QuotaResource } from '@/constants/quota';
@@ -372,5 +373,23 @@ describe('usageMenuRows', () => {
       3
     );
     expect(rows.map(r => r.resource)).toEqual([QuotaResource.SEATS]);
+  });
+});
+
+describe('usageRowFillPercent', () => {
+  it('fills proportionally to limit', () => {
+    expect(usageRowFillPercent(item(85, 100))).toBe(85);
+  });
+
+  it('caps at 100 for a soft-tier row still in its grace band', () => {
+    expect(usageRowFillPercent(item(150, 100, { ceiling: 200 }))).toBe(100);
+  });
+
+  it('fills fully for a zero-limit resource with any usage', () => {
+    expect(usageRowFillPercent(item(0, 0))).toBe(100);
+  });
+
+  it('rounds to the nearest whole percent', () => {
+    expect(usageRowFillPercent(item(1, 3))).toBe(33);
   });
 });

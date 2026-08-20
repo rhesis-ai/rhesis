@@ -184,6 +184,23 @@ export function usageMenuRows(
   return rows;
 }
 
+/**
+ * How much of a usage row's progress bar is filled, as a whole-number
+ * percent -- how close the resource is to `limit` (not `ceiling`): the bar
+ * answers the same question the row's trailing value does, a percent or a
+ * count of `limit`.
+ *
+ * Capped at 100 -- an over-limit soft-tier row (`used > limit`) still draws
+ * a full bar, not one that overflows its track. Fully filled, not zero,
+ * when there is no real `limit` to divide by: `limit: 0` ("none allowed")
+ * always classifies `blocked` (see `classifyZone`), even at `used: 0`, so
+ * an empty-looking bar there would contradict its own red fill colour.
+ */
+export function usageRowFillPercent(item: ZoneInput): number {
+  if (!item.limit) return 100;
+  return Math.min(100, Math.round((item.used / item.limit) * 100));
+}
+
 /** `"1 Sep"` -- the short form used in reset-date recourse copy. Stays in
  * UTC like `UsageOverviewTab`'s `formatPeriodDate`: `period_end` is a
  * date-only string computed in UTC, so formatting in the viewer's local

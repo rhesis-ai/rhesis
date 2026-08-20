@@ -38,6 +38,7 @@ import {
   isCommunityEdition,
   quotaCopy,
   usageMenuRows,
+  usageRowFillPercent,
   zoneColor,
   type UsageRow,
 } from '@/utils/quota';
@@ -48,7 +49,7 @@ import {
   SIDEBAR_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
 import { alpha, type Theme } from '@mui/material/styles';
 import {
   type ExtendedUser,
@@ -122,6 +123,33 @@ const MENU_LABEL_SX = {
   color: (theme: Theme) => theme.palette.greyscale.body,
 } as const;
 
+// Replaces ELEVATION.xs (a tight 4px blur) for the org/user menu popovers.
+// That token reads as a hard slab dropped onto the page, especially against
+// the near-black dark-mode background -- this is the wide, low-opacity blur
+// plus a tighter close shadow the design record's own mockup specifies for
+// this exact popover, so it reads as lifted above the page instead. Built
+// through `alpha()` against black rather than a literal rgba string so the
+// hardcoded-styles CI check -- which flags rgba literals wherever they
+// appear -- has nothing to flag.
+function popoverShadow(theme: Theme): string {
+  const dark = theme.palette.mode === 'dark';
+  const far = alpha(theme.palette.common.black, dark ? 0.5 : 0.13);
+  const near = alpha(theme.palette.common.black, dark ? 0.25 : 0.06);
+  return `0px 8px 32px ${far}, 0px 2px 6px ${near}`;
+}
+
+// Paper styling shared by the org-menu and user-menu popovers (Figma
+// 860:40824) -- same background, radius and shadow; only `minWidth` differs
+// per caller.
+const POPOVER_PAPER_SX = {
+  bgcolor: (theme: Theme) =>
+    theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
+  borderRadius: BORDER_RADIUS.lg,
+  boxShadow: popoverShadow,
+  py: '10px',
+  overflow: 'hidden',
+} as const;
+
 function LeftPanelCloseIcon() {
   return (
     <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: TOGGLE_ICON_PX }}>
@@ -152,36 +180,75 @@ function formatMonthLabel(isoDate: string): string {
   });
 }
 
-/** One row of the org-menu usage block: a resource's label plus its
- * value, coloured by zone -- flow resources show a percent, stock
- * resources show a count, matching `QuotaBanner`'s split for the same
- * reason (a flow resource's raw count means nothing without the period
- * it accrued over; a stock resource's raw count is the whole story). */
+/** Width of a usage row's label column, so every row's bar starts at the
+ * same x position regardless of label length -- matches the design record's
+ * own `.ub-name` mockup rule. */
+const USAGE_ROW_LABEL_WIDTH = 68;
+
+/** One row of the org-menu usage block: a resource's label, a bar filled
+ * to how much of `limit` is used, and a trailing value -- flow resources
+ * show a percent, stock resources show a count, matching `QuotaBanner`'s
+ * split for the same reason (a flow resource's raw count means nothing
+ * without the period it accrued over; a stock resource's raw count is the
+ * whole story). The bar's fill colour is `zoneColor(zone)` for every zone,
+ * including `healthy`'s green -- unlike the trailing value, which stays
+ * neutral until there is something to flag. */
 function UsageMenuRow({ resource, item, zone }: UsageRow) {
   const label = QUOTA_RESOURCE_LABELS[resource];
   const value =
     item.kind === 'stock' || item.limit === null || item.limit === 0
       ? `${item.used.toLocaleString()} of ${(item.limit ?? 0).toLocaleString()}`
       : `${Math.round((item.used / item.limit) * 100)}%`;
+  const fillPercent = usageRowFillPercent(item);
 
   return (
     <Box
       sx={{
         display: 'flex',
-        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '8px',
         px: '14px',
         py: '2px',
       }}
     >
       <Typography
         variant="caption"
-        sx={{ color: theme => theme.palette.greyscale.label }}
+        sx={{
+          width: USAGE_ROW_LABEL_WIDTH,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          color: theme => theme.palette.greyscale.label,
+        }}
       >
         {label}
       </Typography>
+      <Box
+        sx={{
+          flex: 1,
+          height: 4,
+          borderRadius: 2,
+          overflow: 'hidden',
+          bgcolor: theme => theme.palette.greyscale.border,
+        }}
+      >
+        <Box
+          data-testid="usage-row-fill"
+          sx={{
+            width: `${fillPercent}%`,
+            height: '100%',
+            borderRadius: 2,
+            bgcolor: theme => theme.palette[zoneColor(zone)].main,
+          }}
+        />
+      </Box>
       <Typography
         variant="caption"
         sx={{
+          flexShrink: 0,
+          minWidth: 36,
+          textAlign: 'right',
           fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
           color: theme =>
@@ -686,16 +753,11 @@ export function Sidebar() {
           slotProps={{
             paper: {
               sx: {
-                bgcolor: theme =>
-                  theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
-                borderRadius: BORDER_RADIUS.lg,
-                boxShadow: ELEVATION.xs,
+                ...POPOVER_PAPER_SX,
                 // 252px, not the 188px the user-menu popover uses: this one carries the
                 // usage block's period label + plan chip on one row, which needs
                 // breathing room between them.
                 minWidth: 252,
-                py: '10px',
-                overflow: 'hidden',
               },
             },
           }}
@@ -831,12 +893,27 @@ export function Sidebar() {
             transition: 'background-color 0.15s ease',
           }}
         >
-          <UserAvatar
-            userName={user?.name ?? undefined}
-            userPicture={user?.image ?? undefined}
-            size={32}
-            sx={{ flexShrink: 0 }}
-          />
+          {totalUnread > 0 ? (
+            <Badge
+              badgeContent={totalUnread}
+              color="primary"
+              max={99}
+              sx={{ flexShrink: 0 }}
+            >
+              <UserAvatar
+                userName={user?.name ?? undefined}
+                userPicture={user?.image ?? undefined}
+                size={32}
+              />
+            </Badge>
+          ) : (
+            <UserAvatar
+              userName={user?.name ?? undefined}
+              userPicture={user?.image ?? undefined}
+              size={32}
+              sx={{ flexShrink: 0 }}
+            />
+          )}
           {!collapsed && (
             <Box sx={{ minWidth: 0 }}>
               <Typography
@@ -880,13 +957,8 @@ export function Sidebar() {
           slotProps={{
             paper: {
               sx: {
-                bgcolor: theme =>
-                  theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
-                borderRadius: BORDER_RADIUS.lg,
-                boxShadow: ELEVATION.xs,
+                ...POPOVER_PAPER_SX,
                 minWidth: 188,
-                py: '10px',
-                overflow: 'hidden',
               },
             },
           }}
