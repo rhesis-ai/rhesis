@@ -112,7 +112,7 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
         "limit": verdict.limit,
         "kind": verdict.kind,
         "period_end": verdict.period_end,
-        "message": f"You've reached your {resource_display} limit{suffix}.",
+        "message": f"Your organization is at its {resource_display} limit{suffix}.",
     }
 
 
