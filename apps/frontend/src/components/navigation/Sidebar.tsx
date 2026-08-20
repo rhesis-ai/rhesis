@@ -613,7 +613,11 @@ export function Sidebar() {
               </Box>
             )}
           </MenuItem>
-          {Object.keys(usageResources).length > 0 && (
+          {/* Gated on rows, not on `usageResources` being non-empty: a
+              deployment with USAGE_QUOTAS_ENABLED off reports every resource
+              with a null limit, which yields no rows, and a period-and-plan
+              header standing alone over nothing is worse than no block. */}
+          {usageRows.length > 0 && (
             <Box sx={{ pb: '8px' }}>
               <Box
                 sx={{
