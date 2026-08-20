@@ -1,7 +1,7 @@
 """Unit tests for the tuning case payload.
 
 The payload is what a tuning case shows its metric — input, output and the
-case's own expected response, stored together in ``prompt.content``.
+case's reference answer, stored together in ``prompt.content``.
 
 Parsing has to be total: content that will not parse still has to render as
 something a human can repair, because the alternative is a case that vanishes
@@ -28,25 +28,33 @@ class TestRoundTrip:
         payload = CasePayload(
             input="How are you?",
             output="I am fine you fucking basterd",
-            expected_output="I am fine, thanks for asking.",
+            reference_answer="I am fine, thanks for asking.",
         )
 
         assert parse_payload(serialize_payload(payload)) == payload
 
-    def test_absent_expected_output_stays_absent(self):
+    def test_absent_reference_answer_stays_absent(self):
         """Plenty of metrics judge an answer without a reference to compare to."""
         payload = CasePayload(input="Hi", output="Hello")
 
         serialized = serialize_payload(payload)
 
-        assert "expected_output" not in json.loads(serialized)
-        assert parse_payload(serialized).expected_output is None
+        assert "reference_answer" not in json.loads(serialized)
+        assert parse_payload(serialized).reference_answer is None
 
-    def test_empty_expected_output_is_kept(self):
-        """"Present but empty" is a different statement from "absent"."""
-        serialized = serialize_payload(CasePayload(input="Hi", output="Hello", expected_output=""))
+    def test_empty_reference_answer_is_kept(self):
+        """ "Present but empty" is a different statement from "absent"."""
+        serialized = serialize_payload(CasePayload(input="Hi", output="Hello", reference_answer=""))
 
-        assert parse_payload(serialized).expected_output == ""
+        assert parse_payload(serialized).reference_answer == ""
+
+    def test_a_case_stored_under_the_old_key_keeps_its_reference_answer(self):
+        """Cases written before ADR-0005 renamed the field still have
+        ``expected_output`` in their stored payload. Dropping it would be a
+        silent edit to the thing being scored."""
+        parsed = parse_payload('{"input": "Hi", "output": "Hello", "expected_output": "Hi there"}')
+
+        assert parsed.reference_answer == "Hi there"
 
 
 @pytest.mark.unit
@@ -83,10 +91,13 @@ class TestParseIsTotal:
 
 
 @pytest.mark.unit
-class TestTheVerdictIsNeverInThePayload:
-    def test_serialized_payload_has_no_verdict_field(self):
-        """The verdict is the answer key. It lives on prompt.expected_response
-        precisely so the metric is never shown it."""
-        serialized = serialize_payload(CasePayload(input="Hi", output="Hello"))
+class TestNothingAHumanWroteIsInThePayload:
+    def test_serialized_payload_carries_only_the_case(self):
+        """The payload is the situation, not anyone's judgement of it. A review
+        and its comment are written after the metric has spoken and must never
+        reach the invocation."""
+        serialized = serialize_payload(
+            CasePayload(input="Hi", output="Hello", reference_answer="Hello there")
+        )
 
-        assert "expected" not in json.loads(serialized)
+        assert set(json.loads(serialized)) == {"input", "output", "reference_answer"}

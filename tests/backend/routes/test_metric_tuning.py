@@ -7,6 +7,11 @@ Tests the HTTP endpoints:
 - PUT    /metrics/{metric_id}/tuning/cases/{case_id}
 - DELETE /metrics/{metric_id}/tuning/cases/{case_id}
 
+A case is a situation the metric has to get right -- an input, the answer being
+judged and, where the metric needs one, a reference answer. It records no
+expected verdict; the judgement happens after a run, through the review routes
+(domain.local/adr/0005).
+
 Plus the visibility contract these rows depend on: a tuning test set must not
 appear in GET /test_sets and must not be reachable at GET /test_sets/{id}, a
 tuning case must not appear in GET /tests nor be reachable at GET /tests/{id},
@@ -30,9 +35,7 @@ from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 # The case from the roadmap: a toxicity metric that let an insult through.
 CASE_INPUT = "How are you?"
 CASE_OUTPUT = "I am fine you fucking basterd"
-CASE_EXPECTED_OUTPUT = "I am fine, thanks for asking."
-CASE_EXPECTED = "fail"
-CASE_RATIONALE = "the metric scored 0, but this is toxic so it should be 1"
+CASE_REFERENCE_ANSWER = "I am fine, thanks for asking."
 
 
 def _make_metric(
@@ -101,35 +104,6 @@ def other_metric(test_db: Session, test_org_id, authenticated_user_id) -> models
 
 
 @pytest.fixture
-def numeric_metric(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
-    metric = _make_metric(
-        test_db,
-        f"Numeric Metric {uuid.uuid4().hex[:6]}",
-        test_org_id,
-        authenticated_user_id,
-        score_type="numeric",
-        min_score=0.0,
-        max_score=1.0,
-        threshold=0.5,
-    )
-    return _persist(test_db, metric)
-
-
-@pytest.fixture
-def categorical_metric(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
-    metric = _make_metric(
-        test_db,
-        f"Categorical Metric {uuid.uuid4().hex[:6]}",
-        test_org_id,
-        authenticated_user_id,
-        score_type="categorical",
-        categories=["safe", "borderline", "toxic"],
-        passing_categories=["safe"],
-    )
-    return _persist(test_db, metric)
-
-
-@pytest.fixture
 def framework_metric(test_db: Session, test_org_id, authenticated_user_id) -> models.Metric:
     """A metric provided by a framework -- its prompt is not the org's to tune."""
     metric = _make_metric(
@@ -146,14 +120,21 @@ def _create_case(client: TestClient, metric_id, **overrides) -> dict:
     body = {
         "input": CASE_INPUT,
         "output": CASE_OUTPUT,
-        "expected_output": CASE_EXPECTED_OUTPUT,
-        "expected": CASE_EXPECTED,
-        "rationale": CASE_RATIONALE,
+        "reference_answer": CASE_REFERENCE_ANSWER,
     }
     body.update(overrides)
     response = client.post(f"/metrics/{metric_id}/tuning/cases", json=body)
     assert response.status_code == status.HTTP_201_CREATED, response.text
     return response.json()
+
+
+def _load_case(db: Session, case_id) -> models.Test:
+    return (
+        db.query(models.Test)
+        .options(joinedload(models.Test.prompt))
+        .filter(models.Test.id == case_id)
+        .one()
+    )
 
 
 @pytest.mark.integration
@@ -236,7 +217,7 @@ class TestOnlyCustomMetricsCanBeTuned:
     ):
         response = authenticated_client.post(
             f"/metrics/{framework_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": CASE_EXPECTED},
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -249,7 +230,7 @@ class TestOnlyCustomMetricsCanBeTuned:
     ):
         authenticated_client.post(
             f"/metrics/{framework_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": CASE_EXPECTED},
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
         )
 
         assert (
@@ -272,9 +253,22 @@ class TestCreateTuningCase:
 
         assert data["input"] == CASE_INPUT
         assert data["output"] == CASE_OUTPUT
-        assert data["expected"] == CASE_EXPECTED
-        assert data["rationale"] == CASE_RATIONALE
-        assert data["is_stale"] is False
+        assert data["reference_answer"] == CASE_REFERENCE_ANSWER
+
+    def test_the_input_and_the_answer_being_judged_are_enough(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """Plenty of metrics judge an answer without a reference to compare to."""
+        response = authenticated_client.post(
+            f"/metrics/{tuning_metric.id}/tuning/cases",
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, response.text
+        data = response.json()
+        assert data["input"] == CASE_INPUT
+        assert data["output"] == CASE_OUTPUT
+        assert data["reference_answer"] is None
 
     def test_creates_the_tuning_test_set_owned_by_the_metric(
         self,
@@ -312,10 +306,10 @@ class TestCreateTuningCase:
     ):
         """A tuning test set carries no metric at all, permanently.
 
-        Comparing a verdict against the expected one is plain code, not a metric
-        (ADR-0004), so nothing is waiting to be attached here. The placeholder
-        that used to hold the slot open was a metric row that computed nothing
-        and showed up in the organization's metric library."""
+        A run invokes the metric under tuning directly (ADR-0004), so nothing is
+        waiting to be attached here. The placeholder that used to hold the slot
+        open was a metric row that computed nothing and showed up in the
+        organization's metric library."""
         _create_case(authenticated_client, tuning_metric.id)
 
         test_set = (
@@ -326,27 +320,6 @@ class TestCreateTuningCase:
         )
         assert list(test_set.metrics) == []
 
-    def test_returns_the_expected_output_it_stored(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """The answer the system under test should have given, for metrics that
-        judge against a reference."""
-        data = _create_case(authenticated_client, tuning_metric.id)
-
-        assert data["expected_output"] == CASE_EXPECTED_OUTPUT
-
-    def test_expected_output_is_optional(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """Plenty of metrics judge an answer without a reference to compare to."""
-        response = authenticated_client.post(
-            f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": CASE_EXPECTED},
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.json()["expected_output"] is None
-
     def test_stores_the_whole_case_payload_in_prompt_content(
         self,
         authenticated_client: TestClient,
@@ -354,52 +327,43 @@ class TestCreateTuningCase:
         tuning_metric: models.Metric,
     ):
         """prompt.content is what the system under test receives, and here the
-        system under test is the metric -- so it gets the whole case."""
+        system under test is the metric -- so it gets the whole case, and only
+        the case."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
-        db_test = (
-            test_db.query(models.Test)
-            .options(joinedload(models.Test.prompt))
-            .filter(models.Test.id == data["id"])
-            .one()
-        )
-        payload = json.loads(db_test.prompt.content)
-        assert payload["input"] == CASE_INPUT
-        assert payload["output"] == CASE_OUTPUT
-        assert payload["expected_output"] == CASE_EXPECTED_OUTPUT
+        payload = json.loads(_load_case(test_db, data["id"]).prompt.content)
+        assert payload == {
+            "input": CASE_INPUT,
+            "output": CASE_OUTPUT,
+            "reference_answer": CASE_REFERENCE_ANSWER,
+        }
 
-    def test_the_verdict_is_not_part_of_the_payload(
+    def test_expected_response_is_left_null(
         self,
         authenticated_client: TestClient,
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """The verdict is the answer key. Putting it in the payload would show
-        the metric what it is supposed to say."""
+        """The column that would hand the metric an answer key stays empty.
+
+        It held the expected verdict until ADR-0005 retired that model. Anything
+        written here reaches the metric through the normal evaluation path as a
+        reference, and nothing raises -- the numbers just come out flattering."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
-        db_test = (
-            test_db.query(models.Test)
-            .options(joinedload(models.Test.prompt))
-            .filter(models.Test.id == data["id"])
-            .one()
-        )
-        assert "expected" not in json.loads(db_test.prompt.content)
-        assert db_test.prompt.expected_response == CASE_EXPECTED
+        assert _load_case(test_db, data["id"]).prompt.expected_response is None
 
-    def test_metadata_holds_only_the_rationale(
+    def test_metadata_starts_with_no_result_and_no_reviews(
         self,
         authenticated_client: TestClient,
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """The output moved into the payload; the rationale is not shown to the
-        metric, so it stays out of it."""
+        """The case text lives in the payload; the JSONB is for what comes after."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
-        db_test = test_db.query(models.Test).filter(models.Test.id == data["id"]).one()
-        assert db_test.test_metadata.get("rationale") == CASE_RATIONALE
-        assert "output" not in db_test.test_metadata
+        metadata = _load_case(test_db, data["id"]).test_metadata
+        assert metadata == {"reviews": []}
 
     def test_marks_the_case_as_metric_owned(
         self,
@@ -426,24 +390,12 @@ class TestCreateTuningCase:
         assert db_test.category_id is None
         assert db_test.topic_id is None
 
-    def test_rationale_is_optional(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """The reasoning is for the reviewer, not for scoring."""
-        response = authenticated_client.post(
-            f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": CASE_EXPECTED},
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.json()["rationale"] is None
-
     def test_input_is_required(
         self, authenticated_client: TestClient, tuning_metric: models.Metric
     ):
         response = authenticated_client.post(
             f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"output": CASE_OUTPUT, "expected": CASE_EXPECTED},
+            json={"output": CASE_OUTPUT},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -454,7 +406,7 @@ class TestCreateTuningCase:
         """The metric judges an answer, so there has to be an answer."""
         response = authenticated_client.post(
             f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "expected": CASE_EXPECTED},
+            json={"input": CASE_INPUT},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -462,7 +414,7 @@ class TestCreateTuningCase:
     def test_unknown_metric_404s(self, authenticated_client: TestClient):
         response = authenticated_client.post(
             f"/metrics/{uuid.uuid4()}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": CASE_EXPECTED},
+            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -470,264 +422,32 @@ class TestCreateTuningCase:
 
 @pytest.mark.integration
 @pytest.mark.routes
-class TestUnlabelledCases:
-    """A case can be captured now and judged later."""
+class TestACaseNobodyHasRun:
+    """A case can be captured now and judged after a run."""
 
-    def test_a_case_saves_without_a_verdict(
+    def test_it_reads_as_unreviewed_because_it_was_never_judged(
         self, authenticated_client: TestClient, tuning_metric: models.Metric
     ):
-        response = authenticated_client.post(
-            f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT},
-        )
+        """Unreviewed is never accepted, and a case with no verdict yet says why."""
+        created = _create_case(authenticated_client, tuning_metric.id)
 
-        assert response.status_code == status.HTTP_201_CREATED, response.text
-        assert response.json()["expected"] is None
+        assert created["outcome"] == "unreviewed"
+        assert created["unreviewed_reason"] == "never_judged"
+        assert created["review"] is None
+        assert created["result"] is None
 
-    def test_a_blank_verdict_is_the_same_as_none(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """An empty verdict control must not be stored as an empty verdict."""
-        response = authenticated_client.post(
-            f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": "   "},
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED, response.text
-        assert response.json()["expected"] is None
-
-    def test_an_unlabelled_case_is_listed(
+    def test_it_is_listed_like_any_other_case(
         self, authenticated_client: TestClient, tuning_metric: models.Metric
     ):
         """It is a complete case -- the metric could be run over it."""
-        created = _create_case(authenticated_client, tuning_metric.id, expected=None)
+        created = _create_case(authenticated_client, tuning_metric.id)
 
         listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
 
         assert [item["id"] for item in listed] == [created["id"]]
-        assert listed[0]["expected"] is None
+        assert listed[0]["outcome"] == "unreviewed"
         assert listed[0]["input"] == CASE_INPUT
         assert listed[0]["output"] == CASE_OUTPUT
-
-    def test_an_unlabelled_case_is_not_stale(
-        self,
-        authenticated_client: TestClient,
-        test_db: Session,
-        tuning_metric: models.Metric,
-    ):
-        """Staleness is about a verdict that no longer fits, not an absent one."""
-        _create_case(authenticated_client, tuning_metric.id, expected=None)
-
-        tuning_metric.score_type = "numeric"
-        tuning_metric.min_score = 0.0
-        tuning_metric.max_score = 1.0
-        test_db.commit()
-
-        listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
-
-        assert [item["is_stale"] for item in listed] == [False]
-
-    def test_a_verdict_supplied_later_is_stored(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        created = _create_case(authenticated_client, tuning_metric.id, expected=None)
-
-        response = authenticated_client.put(
-            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"expected": "pass"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK, response.text
-        assert response.json()["expected"] == "pass"
-
-    def test_a_verdict_supplied_later_is_validated(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """Judging late is not judging loosely -- the same check runs as on create."""
-        created = _create_case(authenticated_client, tuning_metric.id, expected=None)
-
-        response = authenticated_client.put(
-            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"expected": "maybe"},
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "binary" in response.json()["detail"]
-
-    def test_a_verdict_can_be_taken_back(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """A blank verdict on update returns the case to unlabelled."""
-        created = _create_case(authenticated_client, tuning_metric.id)
-
-        response = authenticated_client.put(
-            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"expected": ""},
-        )
-
-        assert response.status_code == status.HTTP_200_OK, response.text
-        assert response.json()["expected"] is None
-
-    def test_an_omitted_verdict_leaves_an_existing_one_alone(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """Absent and blank differ on update: omitted means "do not touch"."""
-        created = _create_case(authenticated_client, tuning_metric.id)
-
-        response = authenticated_client.put(
-            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"rationale": "still toxic"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["expected"] == CASE_EXPECTED
-
-
-@pytest.mark.integration
-@pytest.mark.routes
-class TestExpectedVerdictIsValidated:
-    """The verdict is one string for all score types, so it is checked against
-    the metric that owns it."""
-
-    def test_binary_rejects_anything_but_pass_or_fail(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        response = authenticated_client.post(
-            f"/metrics/{tuning_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": "yes"},
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "binary" in response.json()["detail"].lower()
-
-    def test_binary_verdict_is_stored_lowercase(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        """So "Pass" and "pass" cannot both live in one tuning test set."""
-        data = _create_case(authenticated_client, tuning_metric.id, expected="Pass")
-
-        assert data["expected"] == "pass"
-
-    def test_numeric_rejects_a_non_number(
-        self, authenticated_client: TestClient, numeric_metric: models.Metric
-    ):
-        response = authenticated_client.post(
-            f"/metrics/{numeric_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": "fail"},
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_numeric_rejects_a_value_outside_the_range(
-        self, authenticated_client: TestClient, numeric_metric: models.Metric
-    ):
-        response = authenticated_client.post(
-            f"/metrics/{numeric_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": "1.5"},
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_numeric_accepts_a_value_in_range(
-        self, authenticated_client: TestClient, numeric_metric: models.Metric
-    ):
-        data = _create_case(authenticated_client, numeric_metric.id, expected="0.8")
-
-        assert data["expected"] == "0.8"
-        assert data["is_stale"] is False
-
-    def test_categorical_rejects_an_unknown_category(
-        self, authenticated_client: TestClient, categorical_metric: models.Metric
-    ):
-        response = authenticated_client.post(
-            f"/metrics/{categorical_metric.id}/tuning/cases",
-            json={"input": CASE_INPUT, "output": CASE_OUTPUT, "expected": "spicy"},
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_categorical_accepts_one_of_the_metrics_categories(
-        self, authenticated_client: TestClient, categorical_metric: models.Metric
-    ):
-        data = _create_case(authenticated_client, categorical_metric.id, expected="toxic")
-
-        assert data["expected"] == "toxic"
-
-    def test_update_validates_the_new_verdict(
-        self, authenticated_client: TestClient, tuning_metric: models.Metric
-    ):
-        created = _create_case(authenticated_client, tuning_metric.id)
-
-        response = authenticated_client.put(
-            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"expected": "maybe"},
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-
-@pytest.mark.integration
-@pytest.mark.routes
-class TestStaleCases:
-    """A verdict that no longer fits its metric is marked, not deleted."""
-
-    def test_case_becomes_stale_when_the_score_type_changes(
-        self,
-        authenticated_client: TestClient,
-        test_db: Session,
-        tuning_metric: models.Metric,
-    ):
-        created = _create_case(authenticated_client, tuning_metric.id)
-        assert created["is_stale"] is False
-
-        # The metric author switches the metric from binary to numeric; "fail"
-        # is no longer something this metric can return.
-        tuning_metric.score_type = "numeric"
-        tuning_metric.min_score = 0.0
-        tuning_metric.max_score = 1.0
-        test_db.commit()
-
-        listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
-
-        assert [item["is_stale"] for item in listed] == [True]
-
-    def test_stale_cases_are_kept(
-        self,
-        authenticated_client: TestClient,
-        test_db: Session,
-        tuning_metric: models.Metric,
-    ):
-        """Work typed by hand is never destroyed on the author's behalf."""
-        created = _create_case(authenticated_client, tuning_metric.id)
-
-        tuning_metric.score_type = "numeric"
-        test_db.commit()
-
-        listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
-
-        assert [item["id"] for item in listed] == [created["id"]]
-
-    def test_a_stale_case_can_still_be_fixed(
-        self,
-        authenticated_client: TestClient,
-        test_db: Session,
-        tuning_metric: models.Metric,
-    ):
-        """Editing a stale case must be possible, or it could never be repaired."""
-        created = _create_case(authenticated_client, tuning_metric.id)
-
-        tuning_metric.score_type = "numeric"
-        tuning_metric.min_score = 0.0
-        tuning_metric.max_score = 1.0
-        test_db.commit()
-
-        response = authenticated_client.put(
-            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"expected": "0.2"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["is_stale"] is False
 
 
 @pytest.mark.integration
@@ -745,8 +465,7 @@ class TestUpdateTuningCase:
             json={
                 "input": "Are you well?",
                 "output": "Yes, thanks.",
-                "expected": "pass",
-                "rationale": "not toxic",
+                "reference_answer": "Yes, thank you for asking.",
             },
         )
 
@@ -754,8 +473,7 @@ class TestUpdateTuningCase:
         data = response.json()
         assert data["input"] == "Are you well?"
         assert data["output"] == "Yes, thanks."
-        assert data["expected"] == "pass"
-        assert data["rationale"] == "not toxic"
+        assert data["reference_answer"] == "Yes, thank you for asking."
 
     def test_omitted_fields_are_left_alone(
         self, authenticated_client: TestClient, tuning_metric: models.Metric
@@ -764,15 +482,54 @@ class TestUpdateTuningCase:
 
         response = authenticated_client.put(
             f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
-            json={"expected": "pass"},
+            json={"output": "Yes, thanks."},
         )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["expected"] == "pass"
+        assert data["output"] == "Yes, thanks."
         assert data["input"] == CASE_INPUT
-        assert data["output"] == CASE_OUTPUT
-        assert data["rationale"] == CASE_RATIONALE
+        assert data["reference_answer"] == CASE_REFERENCE_ANSWER
+
+    def test_editing_a_case_leaves_its_reviews_alone(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        tuning_metric: models.Metric,
+    ):
+        """Editing a case is not judging it. A review that no longer fits is
+        invalidated by the material-change rule on the next run, not wiped here."""
+        created = _create_case(authenticated_client, tuning_metric.id)
+        db_test = _load_case(test_db, created["id"])
+        db_test.test_metadata = {
+            "result": {"verdict": "pass", "reasoning": "reads as polite"},
+            "reviews": [
+                {
+                    "decision": "rejected",
+                    "comment": "scored a pass, but this is an insult",
+                    "verdict": "pass",
+                    "score_type": "binary",
+                }
+            ],
+        }
+        test_db.commit()
+
+        response = authenticated_client.put(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
+            json={"output": "I am fine, you idiot"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["review"]["comment"] == "scored a pass, but this is an insult"
+        test_db.refresh(db_test)
+        assert db_test.test_metadata["reviews"] == [
+            {
+                "decision": "rejected",
+                "comment": "scored a pass, but this is an insult",
+                "verdict": "pass",
+                "score_type": "binary",
+            }
+        ]
 
     def test_case_from_another_metric_404s(
         self,
@@ -785,7 +542,7 @@ class TestUpdateTuningCase:
 
         response = authenticated_client.put(
             f"/metrics/{tuning_metric.id}/tuning/cases/{theirs['id']}",
-            json={"expected": "pass"},
+            json={"output": "Yes, thanks."},
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -797,10 +554,69 @@ class TestUpdateTuningCase:
 
         response = authenticated_client.put(
             f"/metrics/{tuning_metric.id}/tuning/cases/{uuid.uuid4()}",
-            json={"expected": "pass"},
+            json={"output": "Yes, thanks."},
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestCasesStoredBeforeTheRename:
+    """`expected_output` was renamed `reference_answer`."""
+
+    def test_the_old_key_still_reads_as_the_reference_answer(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        tuning_metric: models.Metric,
+    ):
+        """Dropping the text on a rename would silently edit the thing being scored."""
+        created = _create_case(authenticated_client, tuning_metric.id)
+        db_test = _load_case(test_db, created["id"])
+        db_test.prompt.content = json.dumps(
+            {
+                "input": CASE_INPUT,
+                "output": CASE_OUTPUT,
+                "expected_output": CASE_REFERENCE_ANSWER,
+            }
+        )
+        test_db.commit()
+
+        listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
+
+        assert [item["reference_answer"] for item in listed] == [CASE_REFERENCE_ANSWER]
+
+    def test_editing_such_a_case_rewrites_it_under_the_new_key(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        tuning_metric: models.Metric,
+    ):
+        created = _create_case(authenticated_client, tuning_metric.id)
+        db_test = _load_case(test_db, created["id"])
+        db_test.prompt.content = json.dumps(
+            {
+                "input": CASE_INPUT,
+                "output": CASE_OUTPUT,
+                "expected_output": CASE_REFERENCE_ANSWER,
+            }
+        )
+        test_db.commit()
+
+        response = authenticated_client.put(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
+            json={"output": "Yes, thanks."},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        test_db.refresh(db_test.prompt)
+        payload = json.loads(db_test.prompt.content)
+        assert payload == {
+            "input": CASE_INPUT,
+            "output": "Yes, thanks.",
+            "reference_answer": CASE_REFERENCE_ANSWER,
+        }
 
 
 @pytest.mark.integration

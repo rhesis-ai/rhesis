@@ -1,4 +1,4 @@
-"""Metric tuning — a metric's own set of labelled cases, and runs over them.
+"""Metric tuning — a metric's own cases, runs over them, and reviews of the results.
 
 Mounted under ``/metrics`` with ``resource="metric"``, so the four existing
 ``metric:read|create|update|delete`` capabilities cover these routes and no
@@ -13,6 +13,12 @@ A run is started only by ``POST .../tuning/run`` and never as a side effect of
 anything else -- one LLM call per case is not something an edit should trigger.
 The work happens in a background task; ``GET .../tuning/run`` is what the
 interface polls while it goes.
+
+Reviewing is by exception: one case at a time through
+``POST .../tuning/cases/{case_id}/review``, and everything still unreviewed in one
+action through ``POST .../tuning/reviews/accept-rest``. The verdict a review is
+about is read from storage, never sent, so a review cannot be recorded against
+something the metric did not say.
 
 Only custom metrics can be tuned, and that is enforced here rather than only in
 the UI. The frontend hides the tab behind a flag, but these routes are live in
@@ -37,12 +43,16 @@ from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningCase,
     MetricTuningCaseCreate,
     MetricTuningCaseUpdate,
+    MetricTuningReviewCreate,
     MetricTuningRun,
 )
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.services.metric_tuning.invoke import MetricModelNotConfigured
+from rhesis.backend.app.services.metric_tuning.reviews import (
+    NothingToReview,
+    ReviewCommentRequired,
+)
 from rhesis.backend.app.services.metric_tuning.runs import NoTuningCases, TuningRunInFlight
-from rhesis.backend.app.services.metric_tuning.verdict import InvalidVerdict
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.metric_tuning import run_metric_tuning
 
@@ -117,8 +127,6 @@ def create_tuning_case(
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
     try:
         return service.create_tuning_case(db, metric, body, organization_id, user_id)
-    except InvalidVerdict as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -136,10 +144,7 @@ def update_tuning_case(
     organization_id, user_id = tenant_context
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
     db_test = _resolve_case_or_raise(db, metric_id, case_id, organization_id)
-    try:
-        return service.update_tuning_case(db, metric, db_test, body)
-    except InvalidVerdict as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return service.update_tuning_case(db, metric, db_test, body)
 
 
 @router.delete("/{metric_id}/tuning/cases/{case_id}")
@@ -156,6 +161,58 @@ def delete_tuning_case(
     db_test = _resolve_case_or_raise(db, metric_id, case_id, organization_id)
     service.delete_tuning_case(db, metric_id, db_test, organization_id, user_id)
     return {"deleted": True, "case_id": str(case_id)}
+
+
+# Both review routes are marked update for the same reason the run is: they write
+# onto the metric's own cases, so whoever can edit the metric can judge it.
+@router.post(
+    "/{metric_id}/tuning/cases/{case_id}/review",
+    response_model=MetricTuningCase,
+    **capability(Permission.Metric.UPDATE),
+)
+def review_tuning_case(
+    metric_id: UUID,
+    case_id: UUID,
+    body: MetricTuningReviewCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: models.User = Depends(require_current_user_or_token),
+):
+    """Accept or reject what the metric said about one case.
+
+    A rejection needs a comment. That comment is what someone reads when
+    rewriting the evaluation prompt, so a rejection without one records nothing
+    worth keeping.
+    """
+    organization_id, user_id = tenant_context
+    metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
+    db_test = _resolve_case_or_raise(db, metric_id, case_id, organization_id)
+    try:
+        return service.review_case(db, metric, db_test, body, user_id)
+    except (NothingToReview, ReviewCommentRequired) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post(
+    "/{metric_id}/tuning/reviews/accept-rest",
+    response_model=List[MetricTuningCase],
+    **capability(Permission.Metric.UPDATE),
+)
+def accept_remaining_tuning_cases(
+    metric_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: models.User = Depends(require_current_user_or_token),
+):
+    """Accept every case still unreviewed, and return the whole set.
+
+    This is what stops forty cases becoming forty decisions. Cases with no
+    verdict to judge -- never run, or one the metric call failed on -- are left
+    unreviewed rather than accepted.
+    """
+    organization_id, user_id = tenant_context
+    metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
+    return service.accept_remaining(db, metric, organization_id, user_id)
 
 
 @router.get("/{metric_id}/tuning/run", response_model=MetricTuningRun)
