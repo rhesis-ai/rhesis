@@ -48,7 +48,7 @@ import {
   SIDEBAR_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
-import { BORDER_RADIUS, COUNT_BADGE_SX, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
 import {
   type ExtendedUser,
@@ -58,6 +58,7 @@ import {
   groupNavItems,
   collapsedNavGroupSx,
   COLLAPSED_NAV_ITEM_SIZE,
+  COUNT_BADGE_SX,
 } from './sidebar-utils';
 import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';

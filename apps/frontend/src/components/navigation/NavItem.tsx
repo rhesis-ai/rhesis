@@ -7,13 +7,17 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import Badge from '@mui/material/Badge';
-import { BORDER_RADIUS, COUNT_BADGE_SX } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
 import { type NavigationPageItem } from '@/types/navigation';
 import { useCan } from '@/components/common/Can';
 import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { isNotificationSection } from '@/constants/notifications';
-import { isActive, collapsedNavItemSx } from './sidebar-utils';
+import {
+  isActive,
+  collapsedNavItemSx,
+  COUNT_BADGE_SX,
+} from './sidebar-utils';
 
 interface NavItemProps {
   item: NavigationPageItem;

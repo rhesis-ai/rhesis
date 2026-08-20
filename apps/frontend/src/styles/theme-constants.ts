@@ -36,26 +36,6 @@ export const BORDER_RADIUS = {
   pill: '999px',
 } as const;
 
-/**
- * The expanded-state count-badge pill: a small filled number used wherever
- * something needs a "how many" count next to it (nav items, the org-menu
- * usage block, the brand-row usage badge). `NavItem`'s badge additionally
- * inverts `bgcolor`/`color` when its row is active -- this is the shared,
- * non-active look every other consumer uses as-is.
- */
-export const COUNT_BADGE_SX = {
-  minWidth: 20,
-  height: 20,
-  px: '6px',
-  borderRadius: BORDER_RADIUS.sm,
-  bgcolor: 'primary.main',
-  color: 'primary.contrastText',
-  fontSize: 12,
-  fontWeight: 600,
-  lineHeight: '20px',
-  textAlign: 'center',
-} as const;
-
 export const BACKDROP_COLORS = {
   /** Teal overlay — used for create/edit entity drawers */
   create: 'rgba(0, 101, 140, 0.8)',

@@ -7,6 +7,7 @@ import {
   type NavigationHeaderItem,
   type NavigationActionItem,
 } from '@/types/navigation';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
 
@@ -22,6 +23,32 @@ export const collapsedNavItemSx = {
   boxSizing: 'border-box' as const,
   alignSelf: 'center',
 };
+
+/**
+ * The count-badge pill: a small filled number shown beside something that has
+ * a count -- a nav item's unread notifications, the brand row's flagged
+ * quota resources, the org and user menu rows.
+ *
+ * Lives here rather than in `styles/theme-constants.ts` because it is nav
+ * chrome, not a design token, and because that file is the token *definition*
+ * site: its palette literals are what the hardcoded-styles CI check exists to
+ * find everywhere else, so editing it drags all of them into scope.
+ *
+ * `NavItem` inverts `bgcolor`/`color` on an active row, whose background is
+ * already `primary.main`; every other consumer takes this as-is.
+ */
+export const COUNT_BADGE_SX = {
+  minWidth: 20,
+  height: 20,
+  px: '6px',
+  borderRadius: BORDER_RADIUS.sm,
+  bgcolor: 'primary.main',
+  color: 'primary.contrastText',
+  fontSize: 12,
+  fontWeight: 600,
+  lineHeight: '20px',
+  textAlign: 'center',
+} as const;
 
 export const collapsedNavGroupSx = {
   alignItems: 'center',
