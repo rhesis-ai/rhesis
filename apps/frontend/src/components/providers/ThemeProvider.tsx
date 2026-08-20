@@ -27,12 +27,35 @@ interface ThemeContextProviderProps {
 }
 
 const THEME_MODE_KEY = 'theme-mode';
-const THEME_MODE_COOKIE = 'theme-mode';
+/** Set once the mode comes from an explicit toggle, never cleared afterwards
+ * — that's what tells the OS-preference listener below to stop following. */
+const THEME_MODE_EXPLICIT_KEY = 'theme-mode-explicit';
 
-function persistThemeMode(mode: 'light' | 'dark') {
-  localStorage.setItem(THEME_MODE_KEY, mode);
+/**
+ * Writes the resolved mode to the cookie and localStorage regardless of how
+ * it was determined. Previously this only ran from the toggle, so a visitor
+ * who never touched the toggle (relying on `prefers-color-scheme` alone) had
+ * no cookie — the server always guessed 'light' and every reload replayed the
+ * light-render-then-flip-to-dark race on hydration. Persisting the
+ * OS-detected mode too means only the very first visit ever needs the flip.
+ */
+function persistThemeMode(mode: 'light' | 'dark', explicit: boolean) {
+  try {
+    localStorage.setItem(THEME_MODE_KEY, mode);
+    if (explicit) localStorage.setItem(THEME_MODE_EXPLICIT_KEY, '1');
+  } catch (error) {
+    console.error('Failed to persist theme mode:', error);
+  }
   document.documentElement.setAttribute('data-theme-mode', mode);
-  document.cookie = `${THEME_MODE_COOKIE}=${mode};path=/;max-age=31536000;SameSite=Lax`;
+  document.cookie = `${THEME_MODE_KEY}=${mode};path=/;max-age=31536000;SameSite=Lax`;
+}
+
+function resolveMode(): 'light' | 'dark' {
+  const attr = document.documentElement.getAttribute('data-theme-mode');
+  if (attr === 'light' || attr === 'dark') return attr;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
 }
 
 export default function ThemeContextProvider({
@@ -44,35 +67,19 @@ export default function ThemeContextProvider({
   const [mode, setMode] = React.useState<'light' | 'dark'>(initialMode);
 
   React.useLayoutEffect(() => {
-    const attr = document.documentElement.getAttribute('data-theme-mode');
-    if (attr === 'light' || attr === 'dark') {
-      setMode(attr);
-      return;
-    }
-
-    const storedMode = localStorage.getItem(THEME_MODE_KEY);
-    if (storedMode === 'light' || storedMode === 'dark') {
-      setMode(storedMode);
-      document.documentElement.setAttribute('data-theme-mode', storedMode);
-      return;
-    }
-
-    const systemMode = window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-    setMode(systemMode);
-    document.documentElement.setAttribute('data-theme-mode', systemMode);
+    const resolved = resolveMode();
+    setMode(resolved);
+    persistThemeMode(resolved, false);
   }, []);
 
   React.useEffect(() => {
-    const storedMode = localStorage.getItem(THEME_MODE_KEY);
-    if (storedMode) return;
+    if (localStorage.getItem(THEME_MODE_EXPLICIT_KEY)) return;
 
     const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
       const newMode = e.matches ? 'dark' : 'light';
       setMode(newMode);
-      document.documentElement.setAttribute('data-theme-mode', newMode);
+      persistThemeMode(newMode, false);
     };
     darkModeQuery.addEventListener('change', handler);
     return () => darkModeQuery.removeEventListener('change', handler);
@@ -88,7 +95,7 @@ export default function ThemeContextProvider({
 
         setMode(prevMode => {
           const newMode = prevMode === 'light' ? 'dark' : 'light';
-          persistThemeMode(newMode);
+          persistThemeMode(newMode, true);
           return newMode;
         });
 
