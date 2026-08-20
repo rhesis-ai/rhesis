@@ -372,7 +372,7 @@ export default function NotificationsDrawer({
             groups.map(([label, rows]) => (
               <Box
                 key={label}
-                sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+                sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
               >
                 <Typography
                   variant="caption"
