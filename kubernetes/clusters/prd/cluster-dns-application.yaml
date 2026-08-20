@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: c6b8511c8e3b022517c69de0be8a6a01d7fe8825
+    targetRevision: 104bba6bb0ee8d3023ec00f89dd8cbd717ef3afa
     path: kubernetes/clusters/prd/cluster-dns
   destination:
     server: https://kubernetes.default.svc
