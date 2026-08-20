@@ -10,13 +10,13 @@ community:
   all_features: false
   features: []
   limits:
-    test_executions: 1000
+    test_executions: 500
     tracing_spans: 50000
-    test_generation: 500
+    test_generation: 100
     model_tokens: 5000000
     seats: 3
-    projects: 1
-    endpoints: 1
+    projects: 3
+    endpoints: 3
   retention_days: 14
   overage: hard
 

@@ -83,13 +83,13 @@ class OveragePolicy(str, Enum):
 # test asserting the YAML's "community" entry matches -- can reference the
 # same numbers instead of duplicating them.
 FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
-    QuotaResource.TEST_EXECUTIONS: 1_000,
+    QuotaResource.TEST_EXECUTIONS: 500,
     QuotaResource.TRACING_SPANS: 50_000,
-    QuotaResource.TEST_GENERATION: 500,
+    QuotaResource.TEST_GENERATION: 100,
     QuotaResource.MODEL_TOKENS: 5_000_000,
     QuotaResource.SEATS: 3,
-    QuotaResource.PROJECTS: 1,
-    QuotaResource.ENDPOINTS: 1,
+    QuotaResource.PROJECTS: 3,
+    QuotaResource.ENDPOINTS: 3,
 }
 
 # Every resource explicitly set to None (unlimited). Explicit keys rather than
