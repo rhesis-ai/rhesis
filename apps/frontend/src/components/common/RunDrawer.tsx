@@ -79,16 +79,8 @@ import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useResourceUsage, useUsage } from '@/contexts/UsageContext';
 import { QuotaResource } from '@/constants/quota';
-import { useCan } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
-import {
-  isCommunityEdition,
-  isKnownQuotaResource,
-  parseQuotaError,
-} from '@/utils/quota';
-import { QuotaNotice } from '@/components/common/QuotaNotice';
+import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -292,17 +284,10 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<React.ReactNode>();
 
-  // Whether this reader can be offered the upgrade action in a quota
-  // notice: someone who can manage the org (Organization.UPDATE -- the
-  // same owner/admin gate as the Org Settings page), on a community-edition
-  // org. `usage:read` itself is granted to every member, not just admins,
-  // so it can't answer "can this person upgrade" -- everyone can now read
-  // the numbers; only Organization.UPDATE holders get pointed at the
-  // upgrade link. A member always gets pointed at an admin instead.
-  const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const { edition: orgEdition } = useUsage();
-  const canUpgrade =
-    canManageOrg && orgEdition !== null && isCommunityEdition(orgEdition);
+  // Preflight gate + the reactive 402 path, both from the shared hook so the
+  // threshold and the copy stay identical to every other gated action.
+  const executionQuota = useQuotaGate(QuotaResource.TEST_EXECUTIONS);
+  const asQuotaError = useQuotaErrorHandler();
 
   // ---- Project / Endpoint ----
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -1011,21 +996,9 @@ export default function RunDrawer(props: RunDrawerProps) {
       onSuccess?.();
       onClose();
     } catch (err) {
-      const quotaError = parseQuotaError(err);
       setError(
-        quotaError && isKnownQuotaResource(quotaError.resource) ? (
-          <QuotaNotice
-            resource={quotaError.resource}
-            kind={quotaError.kind}
-            used={quotaError.used}
-            limit={quotaError.limit ?? 0}
-            zone="blocked"
-            periodEnd={quotaError.periodEnd}
-            canUpgrade={canUpgrade}
-          />
-        ) : (
+        asQuotaError(err)?.notice ??
           getApiErrorMessage(err, 'Failed to execute')
-        )
       );
     } finally {
       setExecuting(false);
@@ -1055,11 +1028,6 @@ export default function RunDrawer(props: RunDrawerProps) {
   // the overage tolerance, and gating on `limit` would disable the button
   // for an org the backend would still happily accept -- erasing exactly the
   // grace band the tier grants.
-  const executionUsage = useResourceUsage(QuotaResource.TEST_EXECUTIONS);
-  const executionQuotaExhausted =
-    executionUsage !== null &&
-    executionUsage.ceiling !== null &&
-    executionUsage.used >= executionUsage.ceiling;
 
   const canExecute = useMemo(() => {
     const endpointId = resolveEndpointId();
@@ -1067,7 +1035,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (!endpointId || testSetIds.length === 0) return false;
     if (mode === 'runExperiment' && internalVersionHashes.size === 0)
       return false;
-    if (executionQuotaExhausted) return false;
+    if (executionQuota.exhausted) return false;
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1075,21 +1043,10 @@ export default function RunDrawer(props: RunDrawerProps) {
     selectedEndpoint,
     selectedTestSet,
     internalVersionHashes,
-    executionQuotaExhausted,
+    executionQuota.exhausted,
   ]);
 
-  const quotaExhaustedMessage =
-    executionQuotaExhausted && executionUsage ? (
-      <QuotaNotice
-        resource={QuotaResource.TEST_EXECUTIONS}
-        kind={executionUsage.kind}
-        used={executionUsage.used}
-        limit={executionUsage.limit ?? 0}
-        zone="blocked"
-        periodEnd={executionUsage.period_end}
-        canUpgrade={canUpgrade}
-      />
-    ) : undefined;
+  const quotaExhaustedMessage = executionQuota.notice;
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {

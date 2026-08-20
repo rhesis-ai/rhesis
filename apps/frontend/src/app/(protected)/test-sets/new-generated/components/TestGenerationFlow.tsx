@@ -34,6 +34,8 @@ import TestConfigurationConfirmation from './TestConfigurationConfirmation';
 import { TEMPLATES } from '@/config/test-templates';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { QuotaResource } from '@/constants/quota';
+import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
@@ -867,12 +869,22 @@ export default function TestGenerationFlow() {
     show,
   ]);
 
+  const generationQuota = useQuotaGate(QuotaResource.TEST_GENERATION);
+  const asQuotaError = useQuotaErrorHandler();
+
   // Final generation
   const handleGenerate = useCallback(async () => {
     if (!selectedProjectId) {
       show('A project must be selected before generating a test set.', {
         severity: 'error',
       });
+      return;
+    }
+    // Toast rather than an inline notice: this is a full-page flow with no
+    // drawer error slot. Sentence and recourse joined, no link -- a snackbar
+    // auto-dismisses, so a link in one is a trap.
+    if (generationQuota.message) {
+      show(generationQuota.message, { severity: 'error' });
       return;
     }
     setIsFinishing(true);
@@ -946,14 +958,19 @@ export default function TestGenerationFlow() {
 
       // Redirect to the newly created test set's detail page
       router.push(`/test-sets/${response.test_set_id}`);
-    } catch (_error) {
-      show('Failed to start test generation. Please try again.', {
-        severity: 'error',
-      });
+    } catch (error) {
+      // Backs up the preflight: usage can change between render and submit.
+      show(
+        asQuotaError(error)?.message ??
+          'Failed to start test generation. Please try again.',
+        { severity: 'error' }
+      );
     } finally {
       setIsFinishing(false);
     }
   }, [
+    asQuotaError,
+    generationQuota.message,
     configChips.requirement,
     configChips.topics,
     configChips.category,

@@ -40,6 +40,8 @@ import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import SchoolIcon from '@mui/icons-material/School';
 import ScienceIcon from '@mui/icons-material/Science';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import { QuotaResource } from '@/constants/quota';
+import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 
 const PROJECT_ICONS: {
   name: string;
@@ -88,7 +90,7 @@ export default function ProjectCreateDrawer({
 }: ProjectCreateDrawerProps) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState('');
+  const [error, setError] = React.useState<React.ReactNode>('');
   const [formData, setFormData] = React.useState(EMPTY_FORM);
 
   React.useEffect(() => {
@@ -118,6 +120,9 @@ export default function ProjectCreateDrawer({
   const handleSelect = (field: string) => (e: SelectChangeEvent<string>) =>
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
 
+  const projectQuota = useQuotaGate(QuotaResource.PROJECTS);
+  const asQuotaError = useQuotaErrorHandler();
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       setError('Project name is required');
@@ -135,7 +140,12 @@ export default function ProjectCreateDrawer({
       await onCreate(payload);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project');
+      // A 402 that slipped past the preflight (usage can change between
+      // render and submit) still gets real copy, not a raw error string.
+      setError(
+        asQuotaError(err)?.notice ??
+          (err instanceof Error ? err.message : 'Failed to create project')
+      );
     } finally {
       setLoading(false);
     }
@@ -148,8 +158,9 @@ export default function ProjectCreateDrawer({
       title="Create project"
       loading={loading}
       onSave={handleSave}
+      saveDisabled={projectQuota.exhausted}
       saveButtonText="Save"
-      error={error}
+      error={error || projectQuota.notice}
     >
       {/* 2-column row: Owner | Project Icon */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3.75 }}>

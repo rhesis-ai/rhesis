@@ -25,6 +25,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import type { UUID } from 'crypto';
+import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 
 interface FormData {
   projectName: string;
@@ -74,6 +75,8 @@ export default function CreateProjectClient({
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
 
+  const invalidateUsage = useInvalidateUsage();
+
   const handleComplete = async () => {
     try {
       setIsSubmitting(true);
@@ -114,6 +117,7 @@ export default function CreateProjectClient({
 
       try {
         const created = await projectsClient.createProject(projectData);
+        invalidateUsage();
         writeActiveProjectId(String(created.id));
         await refreshActiveProjects({ listOnly: false });
 

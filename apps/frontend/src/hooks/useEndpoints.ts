@@ -15,6 +15,7 @@ import {
 } from '@/utils/api-client/interfaces/project';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 
 const STALE_TIME = 5 * 60_000;
 
@@ -146,6 +147,7 @@ export function useEndpointOptions(enabled = true) {
 export function useDeleteEndpoint() {
   const queryClient = useQueryClient();
   const isAuthenticated = useIsAuthenticated();
+  const invalidateUsage = useInvalidateUsage();
   return useMutation({
     mutationFn: (id: string) => {
       if (!isAuthenticated) {
@@ -155,6 +157,9 @@ export function useDeleteEndpoint() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
+      // Endpoints are a stock resource: deleting one frees quota, and the
+      // endpoints gate reads the cached count.
+      invalidateUsage();
     },
   });
 }

@@ -24,6 +24,16 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/projects/my-project',
 }));
 
+// ClientWrapper now invalidates the cached /usage response after deleting a
+// project (a stock resource), and that path reads the session for its query
+// scope. `status` is required alongside `data` -- see apps/frontend/AGENTS.md.
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { user: { id: 'user-1' } },
+    status: 'authenticated',
+  }),
+}));
+
 jest.mock('@/hooks/useOnboardingTour', () => ({
   useOnboardingTour: jest.fn(),
 }));

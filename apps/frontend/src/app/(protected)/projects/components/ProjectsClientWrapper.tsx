@@ -29,6 +29,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
@@ -105,14 +106,19 @@ export default function ProjectsClientWrapper() {
     fetchProjects();
   }, [fetchProjects]);
 
+  const invalidateUsage = useInvalidateUsage();
+
   const handleCreate = useCallback(
     async (payload: ProjectCreate) => {
       const factory = new ApiClientFactory();
       const client = factory.getProjectsClient();
       await client.createProject(payload);
+      // Projects are a stock resource: the cached /usage count is now wrong,
+      // and the projects gate reads it.
+      invalidateUsage();
       await Promise.all([fetchProjects(), refreshActiveProjects()]);
     },
-    [fetchProjects, refreshActiveProjects]
+    [fetchProjects, refreshActiveProjects, invalidateUsage]
   );
 
   const confirmDelete = useCallback(async () => {
@@ -131,6 +137,9 @@ export default function ProjectsClientWrapper() {
       const factory = new ApiClientFactory();
       const client = factory.getProjectsClient();
       await client.deleteProject(deleteTarget.id);
+      // The whole point of the blocked-projects recourse: freeing one must
+      // unblock creation now, not up to five minutes from now.
+      invalidateUsage();
       setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
       await refreshActiveProjects();
       notifications.show('Project deleted successfully', {
@@ -144,7 +153,13 @@ export default function ProjectsClientWrapper() {
     } finally {
       setDeleteTarget(null);
     }
-  }, [deleteTarget, activeProjectId, refreshActiveProjects, notifications]);
+  }, [
+    deleteTarget,
+    activeProjectId,
+    refreshActiveProjects,
+    notifications,
+    invalidateUsage,
+  ]);
 
   // Mark onboarding step complete when projects are loaded
   useEffect(() => {

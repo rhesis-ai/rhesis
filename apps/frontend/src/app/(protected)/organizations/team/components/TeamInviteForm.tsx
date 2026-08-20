@@ -42,6 +42,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
+import { QuotaResource } from '@/constants/quota';
+import { useQuotaMessageFor } from '@/hooks/useQuotaGate';
 
 interface InviteItem {
   id: string;
@@ -80,6 +83,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
   ) {
     const { data: session, status } = useSession();
     const notifications = useNotifications();
+    const invalidateUsage = useInvalidateUsage();
+    const seatQuotaMessage = useQuotaMessageFor(QuotaResource.SEATS);
     const { projects: availableProjects } = useActiveProject();
     const {
       AddMemberRoleField,
@@ -196,6 +201,15 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         const validInvites = formData.invites.filter(invite =>
           invite.email.trim()
         );
+
+        // Seats are metered per invite, so gate on how many this submit
+        // actually consumes. A toast rather than a drawer error: this form
+        // surfaces everything that way and has no drawer-level error slot.
+        const seatBlock = seatQuotaMessage(validInvites.length);
+        if (seatBlock) {
+          notifications.show(seatBlock, { severity: 'error' });
+          return;
+        }
 
         if (validInvites.length === 0) {
           notifications.show('Please enter at least one email address', {
@@ -411,6 +425,9 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         }
 
         if (successCount > 0) {
+          // Each accepted invite consumes a seat, and seats are a stock
+          // resource the invite gate reads from the cached /usage response.
+          invalidateUsage();
           setFormData({ invites: [createInvite()] });
           setErrors({});
           setProjectRoles({});
