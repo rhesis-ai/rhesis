@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: 104bba6bb0ee8d3023ec00f89dd8cbd717ef3afa
+    targetRevision: 01b9ff2241b4dc74846b037d481ea1184669ed1b
     path: kubernetes/clusters/prd/cnpg-cluster
   destination:
     server: https://kubernetes.default.svc
