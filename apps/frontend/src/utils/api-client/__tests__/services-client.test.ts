@@ -1,4 +1,5 @@
 import { ServicesClient } from '../services-client';
+import type { TestPipelineRequest } from '../interfaces/test-set';
 
 const BASE_URL = 'http://localhost/api/backend';
 
@@ -17,6 +18,33 @@ function makeFetch(
     },
     json: () => Promise.resolve(body),
     text: () => Promise.resolve(JSON.stringify(body)),
+  } as unknown as Response);
+}
+
+/** A streaming response whose body yields the given NDJSON lines then closes. */
+function makeNdjsonStream(lines: string[]) {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      lines.forEach(line => controller.enqueue(encoder.encode(`${line}\n`)));
+      controller.close();
+    },
+  });
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    body,
+  } as unknown as Response);
+}
+
+/** A streaming response whose body never yields anything and never closes --
+ * simulates a stalled connection (e.g. the underlying model call hangs). */
+function makeStalledStream() {
+  const body = new ReadableStream<Uint8Array>({ start() {} });
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    body,
   } as unknown as Response);
 }
 
@@ -91,6 +119,39 @@ describe('ServicesClient', () => {
     expect(JSON.parse(opts.body)).toMatchObject({
       task_id: 'task-id',
       tool_id: 'tool-id',
+    });
+  });
+
+  describe('generateTestPipelineStream', () => {
+    const request: TestPipelineRequest = { prompt: 'Test the login flow' };
+
+    it('parses each NDJSON line as an event', async () => {
+      fetchMock.mockResolvedValue(
+        makeNdjsonStream([
+          '{"type":"config_done","total":1}',
+          '{"type":"done"}',
+        ])
+      );
+      const onEvent = jest.fn();
+
+      await client.generateTestPipelineStream(request, { onEvent });
+
+      expect(onEvent).toHaveBeenCalledWith({ type: 'config_done', total: 1 });
+      expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
+    });
+
+    it('rejects instead of hanging forever when the stream stalls', async () => {
+      jest.useFakeTimers();
+      fetchMock.mockResolvedValue(makeStalledStream());
+      const onEvent = jest.fn();
+
+      const result = client.generateTestPipelineStream(request, { onEvent });
+      const assertion = expect(result).rejects.toThrow(/Stream stalled/);
+      await jest.advanceTimersByTimeAsync(150_000);
+      await assertion;
+
+      expect(onEvent).not.toHaveBeenCalled();
+      jest.useRealTimers();
     });
   });
 });
