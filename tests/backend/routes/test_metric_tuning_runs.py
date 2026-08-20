@@ -22,6 +22,7 @@ Run with: python -m pytest tests/backend/routes/test_metric_tuning_runs.py -v
 """
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,7 +31,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.app.schemas.metric_tuning_metadata import (
+    MetricTuningRunSummary,
+    TuningRunStatus,
+)
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
@@ -208,6 +214,20 @@ def no_dispatch():
         yield launcher
 
 
+@pytest.fixture
+def broken_dispatch():
+    """Dispatch that raises, the way an unreachable broker does.
+
+    The claim is committed before this is called, so what the route does with the
+    failure is the whole question.
+    """
+    with patch(
+        "rhesis.backend.app.routers.metric_tuning.task_launcher",
+        side_effect=RuntimeError("broker unreachable"),
+    ) as launcher:
+        yield launcher
+
+
 def _create_case(client: TestClient, metric_id, **overrides) -> dict:
     body = {
         "input": CASE_INPUT,
@@ -296,6 +316,32 @@ def _stored_reviews(db: Session, case_id) -> list:
     db.expire_all()
     db_test = db.query(models.Test).filter(models.Test.id == uuid.UUID(str(case_id))).first()
     return (db_test.test_metadata or {}).get("reviews", [])
+
+
+def _claim(
+    test_db: Session,
+    metric: models.Metric,
+    org_id,
+    *,
+    last_advanced: timedelta = timedelta(seconds=0),
+    heartbeat: bool = True,
+) -> None:
+    """Leave a ``running`` claim behind, the way a worker that died would.
+
+    ``last_advanced`` is how long ago the run last got anywhere. ``heartbeat``
+    off writes the claim without ``progressed_at``, which is what a claim made
+    before that field existed looks like.
+    """
+    test_set = service.get_tuning_test_set(test_db, metric.id, org_id)
+    when = (datetime.now(timezone.utc) - last_advanced).isoformat()
+    summary = MetricTuningRunSummary(
+        status=TuningRunStatus.RUNNING,
+        started_at=when,
+        progressed_at=when if heartbeat else None,
+        total_cases=1,
+    )
+    crud_metric_tuning.set_run_summary(test_db, test_set, summary)
+    test_db.commit()
 
 
 def _run(test_db: Session, metric: models.Metric, org_id, *results, user_id=None, by_input=None):
@@ -960,3 +1006,187 @@ class TestRunsAndStandingReviews:
         assert [review["comment"] for review in _stored_reviews(test_db, rejected["id"])] == [
             REVIEW_COMMENT
         ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestARunThatNeverFinishes:
+    """A `running` claim nobody is behind must not wedge the metric forever.
+
+    Only the run itself ever clears its claim, so a worker that dies — or a
+    dispatch that never reaches one — leaves the claim standing, every later run
+    refused, and the Run button disabled on that same status. There is no reset
+    route by design: the claim carries a heartbeat and expires on its own.
+    """
+
+    def test_a_stale_claim_does_not_refuse_the_next_run(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+        no_dispatch,
+    ):
+        """The crashed-worker entrance: recovery used to mean editing the database."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _claim(test_db, tuning_metric, test_org_id, last_advanced=service.STALE_RUN_AFTER * 2)
+
+        response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        assert response.json()["status"] == "running"
+        assert no_dispatch.call_count == 1
+
+    def test_a_stale_claim_reads_as_failed_rather_than_forever_running(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """Otherwise the interface polls a spinner nothing is behind."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _claim(test_db, tuning_metric, test_org_id, last_advanced=service.STALE_RUN_AFTER * 2)
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+
+        assert body["status"] == "failed"
+        assert body["error"] == service.STALE_RUN_MESSAGE
+        assert body["completed_at"] is None
+
+    def test_a_claim_from_before_the_heartbeat_existed_still_expires(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+        no_dispatch,
+    ):
+        """Nothing migrates the stored summary, so `started_at` has to stand in."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _claim(
+            test_db,
+            tuning_metric,
+            test_org_id,
+            last_advanced=service.STALE_RUN_AFTER * 2,
+            heartbeat=False,
+        )
+
+        response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    def test_a_run_that_is_still_advancing_is_left_alone(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+        no_dispatch,
+    ):
+        """The escape hatch must not become a second way to double-run a metric."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _claim(test_db, tuning_metric, test_org_id, last_advanced=timedelta(seconds=30))
+
+        response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        no_dispatch.assert_not_called()
+        still = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert still["status"] == "running"
+
+    def test_a_long_run_keeps_renewing_its_claim(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """The window covers one case, not the whole set — a run advances the heartbeat."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _claim(test_db, tuning_metric, test_org_id, last_advanced=service.STALE_RUN_AFTER * 2)
+
+        _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "toxic"})
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+
+        assert body["status"] == "completed"
+
+    def test_the_refusal_does_not_disturb_the_run_in_progress(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+        no_dispatch,
+    ):
+        """A rejected second press must cost the first run nothing."""
+        case = _create_case(authenticated_client, tuning_metric.id)
+        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        refused = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+        assert refused.status_code == status.HTTP_409_CONFLICT
+
+        _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "toxic"})
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert body["status"] == "completed"
+        assert body["completed_cases"] == 1
+        assert body["errored_cases"] == 0
+        result = _cases_by_id(authenticated_client, tuning_metric.id)[case["id"]]["result"]
+        assert result["reasoning"] == "toxic"
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestADispatchThatNeverReachesAWorker:
+    """The claim is committed before dispatch, so a broker failure needs releasing.
+
+    This is the second entrance to the same wedge, and the one that does not need
+    waiting out: the request itself knows no run is coming.
+    """
+
+    def test_a_dispatch_failure_is_reported_rather_than_read_as_started(
+        self,
+        authenticated_client: TestClient,
+        tuning_metric: models.Metric,
+        broken_dispatch,
+    ):
+        _create_case(authenticated_client, tuning_metric.id)
+
+        response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "broker" not in response.text, "the broker's own words are not the caller's business"
+
+    def test_a_dispatch_failure_leaves_no_run_in_flight(
+        self,
+        authenticated_client: TestClient,
+        tuning_metric: models.Metric,
+        broken_dispatch,
+    ):
+        _create_case(authenticated_client, tuning_metric.id)
+        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+
+        assert body["status"] == "failed"
+        assert body["error"]
+
+    def test_the_next_run_is_not_refused(
+        self,
+        authenticated_client: TestClient,
+        tuning_metric: models.Metric,
+        no_dispatch,
+    ):
+        """Waiting out the staleness window for a run never queued is not recovery."""
+        _create_case(authenticated_client, tuning_metric.id)
+        with patch(
+            "rhesis.backend.app.routers.metric_tuning.task_launcher",
+            side_effect=RuntimeError("broker unreachable"),
+        ):
+            authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
