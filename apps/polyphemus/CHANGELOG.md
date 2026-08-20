@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-20
+
+### Changed
+- **Deployment Infrastructure**: Fully migrated deployment from Cloud Run to Kubernetes (K8s) managed via ArgoCD.
+- **Configuration Management**: Updated configuration loading to read from Helm ConfigMaps and existing secrets rather than GitHub Secrets, with `POLYPHEMUS_LOCATION` now sourced directly from Helm values.
+- **Authentication Service**: Refactored internal token resolution to import validation utilities from the newly isolated backend token CRUD module.
+
+### Removed
+- Legacy Cloud Run deployment workflows and associated orphaned CI utility actions.
+- `mypy` static type checker as a development dependency, transitioning type-checking processes to `pyright`.
+
+
 ## [0.5.0] - 2026-08-06
 
 ### Added

@@ -13,6 +13,38 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-20
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.13.0**
+- **Frontend 0.13.0**
+- **SDK 0.13.0**
+- **Polyphemus 0.6.0**
+
+### Summary of Changes
+
+**Backend v0.13.0:**
+Key changes include: OWASP test generation: parity fixes and Architect integration (#2527), fix(backend): adjust community plan usage limits (#2529)....
+
+**Frontend v0.13.0:**
+Key changes include: OWASP test generation: parity fixes and Architect integration (#2527), Add ENABLE_RHESIS_KEY config to control platform key feature (#2521)....
+
+**SDK v0.13.0:**
+Key changes include: OWASP test generation: parity fixes and Architect integration (#2527), Fix OWASP metrics accuracy: calibrated rubrics, metric-level stats, and multi-turn context (#2503)....
+
+**Polyphemus v0.6.0:**
+Key changes include: chore: remove mypy from the repository (#2482), refactor(backend): extract user crud module (#2458)....
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.12.0] - 2026-08-06
 
 ### Platform Release
