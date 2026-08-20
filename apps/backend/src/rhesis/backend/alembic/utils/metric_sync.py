@@ -121,6 +121,7 @@ def sync_metrics_to_organizations(
     metric_definitions: List[Dict[str, Any]] | None = None,
     verbose: bool = True,
     commit: bool = False,
+    commit_per_org: bool = False,
 ) -> Dict[str, int]:
     """
     Sync metrics to all existing organizations.
@@ -140,6 +141,11 @@ def sync_metrics_to_organizations(
             loading from initial_data.json. When provided, metric_names is ignored.
         verbose: If True, print progress messages
         commit: If True, commit the session after syncing. If False, caller is responsible.
+        commit_per_org: If True, commit after each organization and expunge the session.
+            Off by default so frozen migrations keep their single-transaction behaviour.
+            Turn it on for large deployments: the work is idempotent, so a run killed
+            part-way resumes instead of restarting from zero, and the identity map stays
+            flat instead of growing across every organization.
 
     Returns:
         Dictionary with stats: {
@@ -193,6 +199,56 @@ def sync_metrics_to_organizations(
             )
             existing_metric_names = {m.name for m in existing_metrics}
 
+            # Preloaded once per org, replacing per-metric lookups inside the loop
+            # below. At ~20 metrics per org this is the difference between ~170
+            # statements per org and ~5, which matters once an install has hundreds
+            # of orgs (the v0.13.0 OWASP resync hit ~291).
+            from rhesis.backend.app.models.metric import requirement_metric_association
+
+            requirements_by_name = {
+                r.name: r
+                for r in session.query(models.Requirement)
+                .filter(models.Requirement.organization_id == org_id)
+                .all()
+            }
+            existing_assoc_pairs = {
+                (row.requirement_id, row.metric_id)
+                for row in session.execute(
+                    requirement_metric_association.select().where(
+                        requirement_metric_association.c.organization_id == org_id
+                    )
+                )
+            }
+            # get_or_create_* returns the same row for the same args within an org,
+            # so memoising avoids re-querying it once per metric.
+            type_lookup_cache: Dict[tuple, Any] = {}
+            status_cache: Dict[str, Any] = {}
+
+            def _cached_type_lookup(type_name: str, type_value: str):
+                key = (type_name, type_value)
+                if key not in type_lookup_cache:
+                    type_lookup_cache[key] = get_or_create_type_lookup(
+                        db=session,
+                        type_name=type_name,
+                        type_value=type_value,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        commit=False,
+                    )
+                return type_lookup_cache[key]
+
+            def _cached_status(name: str):
+                if name not in status_cache:
+                    status_cache[name] = get_or_create_status(
+                        db=session,
+                        name=name,
+                        entity_type=EntityType.METRIC,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        commit=False,
+                    )
+                return status_cache[name]
+
             org_created = 0
             org_skipped = 0
             org_errors = 0
@@ -207,34 +263,13 @@ def sync_metrics_to_organizations(
 
                 try:
                     # Get or create the metric type
-                    metric_type = get_or_create_type_lookup(
-                        db=session,
-                        type_name="MetricType",
-                        type_value=metric_item["metric_type"],
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
-                    )
+                    metric_type = _cached_type_lookup("MetricType", metric_item["metric_type"])
 
                     # Get or create the backend type
-                    backend_type = get_or_create_type_lookup(
-                        db=session,
-                        type_name="BackendType",
-                        type_value=metric_item["backend_type"],
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
-                    )
+                    backend_type = _cached_type_lookup("BackendType", metric_item["backend_type"])
 
                     # Get or create the status
-                    status = get_or_create_status(
-                        db=session,
-                        name=metric_item["status"],
-                        entity_type=EntityType.METRIC,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
-                    )
+                    status = _cached_status(metric_item["status"])
 
                     # Create metric data
                     metric_data = {
@@ -285,32 +320,10 @@ def sync_metrics_to_organizations(
                         "behaviors", []
                     )
                     for requirement_name in requirement_names:
-                        requirement = (
-                            session.query(models.Requirement)
-                            .filter(
-                                models.Requirement.name == requirement_name,
-                                models.Requirement.organization_id == org_id,
-                            )
-                            .first()
-                        )
+                        requirement = requirements_by_name.get(requirement_name)
                         if requirement:
-                            # Check if association already exists
-                            from rhesis.backend.app.models.metric import (
-                                requirement_metric_association,
-                            )
-
-                            existing = session.execute(
-                                requirement_metric_association.select().where(
-                                    requirement_metric_association.c.requirement_id
-                                    == requirement.id,
-                                    requirement_metric_association.c.metric_id == metric.id,
-                                    requirement_metric_association.c.organization_id
-                                    == uuid.UUID(organization_id),
-                                )
-                            ).first()
-
                             # Create association with explicit organization_id and user_id
-                            if not existing:
+                            if (requirement.id, metric.id) not in existing_assoc_pairs:
                                 session.execute(
                                     requirement_metric_association.insert().values(
                                         requirement_id=requirement.id,
@@ -319,6 +332,7 @@ def sync_metrics_to_organizations(
                                         user_id=uuid.UUID(user_id),
                                     )
                                 )
+                                existing_assoc_pairs.add((requirement.id, metric.id))
 
                     org_created += 1
 
@@ -335,6 +349,13 @@ def sync_metrics_to_organizations(
             stats["total_skipped"] += org_skipped
             stats["total_errors"] += org_errors
             stats["organizations_processed"] += 1
+
+            if commit_per_org:
+                session.commit()
+                # Without this the identity map keeps every org's rows, so each
+                # autoflush scans an ever-growing set and later orgs run slower
+                # than earlier ones.
+                session.expunge_all()
 
             if verbose and org_created > 0:
                 print(f"  ✓ Org {organization_id}: created {org_created}, skipped {org_skipped}")
@@ -409,6 +430,7 @@ def sync_requirements_to_organizations(
     requirement_names: List[str] | None = None,
     verbose: bool = True,
     commit: bool = False,
+    commit_per_org: bool = False,
 ) -> Dict[str, int]:
     """
     Sync requirements to all existing organizations.
@@ -509,6 +531,10 @@ def sync_requirements_to_organizations(
             stats["total_skipped"] += org_skipped
             stats["total_errors"] += org_errors
             stats["organizations_processed"] += 1
+
+            if commit_per_org:
+                session.commit()
+                session.expunge_all()
 
             if verbose and org_created > 0:
                 print(f"  ✓ Org {organization_id}: created {org_created}, skipped {org_skipped}")

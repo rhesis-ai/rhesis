@@ -64,11 +64,17 @@ def upgrade() -> None:
         metric_names = _owasp_metric_names()
 
         # Sync requirements first so metric -> requirement associations resolve.
+        # commit_per_org: this runs at container start via `alembic upgrade head`,
+        # and on an install with hundreds of orgs a single transaction is both slow
+        # and all-or-nothing — a pod restart part-way through would otherwise discard
+        # every org's work and begin again from zero. The syncs skip names that
+        # already exist, so committing per org makes a killed run resume instead.
         sync_requirements_to_organizations(
             session=session,
             requirement_names=requirement_names,
             verbose=True,
             commit=False,
+            commit_per_org=True,
         )
 
         sync_metrics_to_organizations(
@@ -76,6 +82,7 @@ def upgrade() -> None:
             metric_names=metric_names,
             verbose=True,
             commit=False,
+            commit_per_org=True,
         )
 
         # Tag OWASP metrics and behaviors (mirrors b857edcac3c0).
@@ -88,6 +95,16 @@ def upgrade() -> None:
                 tag = models.Tag(name=_TAG_NAME, organization_id=org_id, user_id=user_id)
                 session.add(tag)
                 session.flush()
+            # One query for every already-tagged pair in this org, instead of a
+            # TaggedItem lookup per entity. At ~30 OWASP entities per org that is
+            # ~30 statements down to 1.
+            already_tagged = {
+                (ti.entity_id, ti.entity_type)
+                for ti in session.query(models.TaggedItem)
+                .filter_by(tag_id=tag.id, organization_id=org_id)
+                .all()
+            }
+
             for model_cls in (models.Metric, models.Requirement):
                 rows = (
                     session.query(model_cls)
@@ -98,17 +115,7 @@ def upgrade() -> None:
                     .all()
                 )
                 for entity in rows:
-                    exists = (
-                        session.query(models.TaggedItem)
-                        .filter_by(
-                            tag_id=tag.id,
-                            entity_id=entity.id,
-                            entity_type=model_cls.__name__,
-                            organization_id=org_id,
-                        )
-                        .first()
-                    )
-                    if not exists:
+                    if (entity.id, model_cls.__name__) not in already_tagged:
                         session.add(
                             models.TaggedItem(
                                 tag_id=tag.id,
@@ -118,6 +125,12 @@ def upgrade() -> None:
                                 user_id=user_id,
                             )
                         )
+                        already_tagged.add((entity.id, model_cls.__name__))
+
+            # Same rationale as commit_per_org above: keep this resumable and stop
+            # the identity map growing across every org.
+            session.commit()
+            session.expunge_all()
 
         session.commit()
     except Exception:
