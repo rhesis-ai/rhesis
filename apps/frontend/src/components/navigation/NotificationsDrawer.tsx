@@ -370,7 +370,10 @@ export default function NotificationsDrawer({
             </Box>
           ) : (
             groups.map(([label, rows]) => (
-              <Box key={label}>
+              <Box
+                key={label}
+                sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+              >
                 <Typography
                   variant="caption"
                   sx={{ px: '4px', color: 'text.secondary', fontWeight: 600 }}
