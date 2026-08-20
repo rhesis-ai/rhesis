@@ -193,7 +193,9 @@ class TestFlowResourceQuotaGate:
         _bypass_model_validation,
     ):
         limit = 10
-        _install(QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: limit}, overage=OveragePolicy.HARD))
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: limit}, overage=OveragePolicy.HARD)
+        )
         increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, limit)
 
         response = authenticated_client.post(
@@ -241,9 +243,7 @@ class TestFlowResourceQuotaGate:
         )
         increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, limit)
 
-        response = authenticated_client.post(
-            "/test_sets/generate", json={"num_tests": 1}
-        )
+        response = authenticated_client.post("/test_sets/generate", json={"num_tests": 1})
 
         assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
         body = response.json()
@@ -264,8 +264,53 @@ class TestFlowResourceQuotaGate:
             QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
         )
 
+        response = authenticated_client.post("/test_sets/generate", json={"num_tests": 1})
+
+        assert response.status_code != status.HTTP_402_PAYMENT_REQUIRED, response.text
+
+    def test_owasp_generate_at_the_limit_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+    ):
+        """`POST /owasp/generate` accrues against the same TEST_GENERATION
+        quota as the plain generator (see tasks/test_set.py's
+        dispatch_accrual call in generate_and_save_owasp_test_set) and must
+        be gated the same way."""
+        limit = 5
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, limit)
+
         response = authenticated_client.post(
-            "/test_sets/generate", json={"num_tests": 1}
+            "/owasp/generate", json={"purpose": "Customer service chatbot", "num_tests": 1}
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["error"] == "quota_exceeded"
+        assert body["resource"] == QuotaResource.TEST_GENERATION.value
+        assert body["used"] == limit
+        assert body["limit"] == limit
+
+    def test_owasp_generate_under_the_limit_is_not_blocked(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+
+        response = authenticated_client.post(
+            "/owasp/generate", json={"purpose": "Customer service chatbot", "num_tests": 1}
         )
 
         assert response.status_code != status.HTTP_402_PAYMENT_REQUIRED, response.text
