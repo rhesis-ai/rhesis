@@ -111,7 +111,7 @@ REGISTRY = {
             "behavior_ids": TR.behavior_id,
             "category_ids": TR.category_id,
             "topic_ids": TR.topic_id,
-            "status_ids": TR.test_status_id,
+            "status_ids": TR.result_status_id,
             "test_ids": TR.test_id,
             "test_type_ids": TR.test_type_id,
             "user_ids": TR.test_user_id,

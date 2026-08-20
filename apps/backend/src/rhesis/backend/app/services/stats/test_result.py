@@ -75,7 +75,7 @@ def _apply_filters(query, db, **f):
         ("behavior_ids", V.behavior_id),
         ("category_ids", V.category_id),
         ("topic_ids", V.topic_id),
-        ("status_ids", V.test_status_id),
+        ("status_ids", V.result_status_id),
         ("test_ids", V.test_id),
         ("test_type_ids", V.test_type_id),
         ("user_ids", V.test_user_id),
