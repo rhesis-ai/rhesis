@@ -73,7 +73,11 @@ export default function ThemeContextProvider({
   }, []);
 
   React.useEffect(() => {
-    if (localStorage.getItem(THEME_MODE_EXPLICIT_KEY)) return;
+    try {
+      if (localStorage.getItem(THEME_MODE_EXPLICIT_KEY)) return;
+    } catch {
+      // Storage unavailable (e.g. restricted privacy context); follow OS.
+    }
 
     const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
