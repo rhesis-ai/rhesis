@@ -13,6 +13,38 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-20
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.13.0**
+- **Frontend 0.13.0**
+- **SDK 0.13.0**
+- **Polyphemus 0.6.0**
+
+### Summary of Changes
+
+**Backend v0.13.0:**
+OWASP Top 10 test generation, in-app notifications via websockets, project-scoped token exchange, disposable email blocking, usage quota enforcement, error masking with secure logging, and eager loading refactor.
+
+**Frontend v0.13.0:**
+White-labeling and custom branding, OWASP test generation UI, real-time notification badges, usage quota banners, platform API key drawer, and behavior-to-requirement rename across all routes.
+
+**SDK v0.13.0:**
+OWASP synthesizer with single-turn and multi-turn generation, insights entity replacing legacy statistics, process-wide token tracking, and behavior-to-requirement rename.
+
+**Polyphemus v0.6.0:**
+Full migration from Cloud Run to Kubernetes managed via ArgoCD, configuration via Helm ConfigMaps, and removal of legacy deployment workflows.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.12.0] - 2026-08-06
 
 ### Platform Release

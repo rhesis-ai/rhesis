@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-20
+
+### Added
+
+- **White-Labeling & Custom Branding**: Added support for configuring primary/secondary brand colors, custom favicon URLs, and product names at request time. Branding is dynamically applied across the application, including sign-in, sign-out, and onboarding screens.
+- **OWASP Top 10 Test Generation**: Integrated OWASP Top 10 test set generation into the UI, featuring support for multi-turn test generation, OWASP category descriptions, and metric filtering.
+- **In-App Notifications**: Introduced a real-time notification system. Users now see sidebar badges and highlighted grid rows for completed background jobs, including test-set generation, Garak imports/syncs, test-run executions, task assignments, and completed Architect plans.
+- **Usage Quota Banners & Enforcement**: Added a global `QuotaBanner` that displays when resource utilization reaches 80%. The execution action in the run drawer now dynamically gates runs based on the organization's quota ceiling (limit plus overage tolerance) and gracefully handles 402 (Payment Required) responses.
+- **Endpoint Connection Guidance**: The Architect welcome screen now guides users to connect an endpoint if none are configured for the active project, displaying helpful documentation cards and hiding prompt suggestion chips.
+- **Platform API Key Drawer**: Moved the Rhesis platform API key configuration from an inline card to a dedicated drawer on the Models page, accessible via a new floating action button (FAB). Added support for overriding environment-sourced keys with organization-specific keys.
+- **Dynamic Garak Model Selector**: Added a model selector for Garak generation, visible when dynamic probes are selected.
+
+### Changed
+
+- **"Behavior" to "Requirement" Rename**: Renamed the "Behavior" entity to "Requirement" across the entire user interface, including routes, components, hooks, and asset templates. Added automatic redirects from `/behaviors` to `/requirements`.
+- **Unified Security Test Drawer**: Merged Garak imports and OWASP generation into a unified `SecurityTestDrawer` featuring a segmented source selector, detailed tool descriptions, and external documentation links.
+- **Architect Empty State**: Simplified the Architect getting-started screen by centering the main input and styling help articles as cards at the bottom of the viewport.
+- **Metric Filtering & Sorting**: Metrics in the grid are now sorted alphabetically by name. Filter pills and drawer options are now derived from complete reference data rather than paginated results, preventing missing options.
+- **Granular Metric Outcome Filtering**: Replaced simple metric checkboxes in the test-run filter drawer with segmented controls, allowing users to filter test-run details by specific metric outcomes (All, Evaluated, Passed, Failed).
+
+### Fixed
+
+- **Immediate Grid Updates**: Fixed an issue where saving changes to an endpoint (such as toggling active status) did not immediately refresh the endpoints grid.
+- **OWASP List Invalidation**: Fixed a bug where completed OWASP test sets would not appear in the test sets list until the page was manually reloaded.
+- **Single-Turn Conversation Status**: Fixed a bug where single-turn conversation tabs incorrectly displayed a red "Failed" chip even when all metrics had passed.
+- **Notification Accumulation**: Fixed notification badges and row highlights failing to accumulate or clearing prematurely while navigating.
+- **Pre-flight Checks**: Pre-flight checks are now enabled by default, and the toggle correctly resets when the execution drawer is opened.
+- **Test Run Error Tooltips**: Added informative hover tooltips to "Error" pills in test runs to explain the underlying cause of the failure (e.g., missing metrics or execution errors).
+- **RBAC Role UI Gate**: Hidden role-assignment dropdowns in the invite and member drawers when the RBAC feature is not licensed for the organization.
+- **Stale List Caching**: Set the stale time for entity lists (test sets, test runs, and tasks) to zero to ensure they refetch on mount, preventing empty-state flashes or missing rows after redirects.
+
+### Removed
+
+- Cleaned up the codebase by removing 38 unused component, hook, and action files, along with 19 unused dependencies.
+
 ## [0.12.0] - 2026-08-06
 
 ### Added

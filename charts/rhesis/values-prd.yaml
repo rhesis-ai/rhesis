@@ -99,6 +99,18 @@ backend:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+  # Covers `alembic upgrade head` at boot. Budget = initialDelaySeconds +
+  # (failureThreshold - 1) * periodSeconds = 30 + 89*10 = ~15min. Sized for a
+  # data migration that touches every organization; v0.13.0's OWASP resync needs
+  # ~5-15min across ~300 orgs. Liveness below stays tight because it does not
+  # start until this succeeds.
+  startupProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 90
   livenessProbe:
     httpGet:
       path: /health

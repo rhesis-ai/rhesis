@@ -4,33 +4,33 @@ requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version == '3.13.*' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
 ]
 conflicts = [[
@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-08-10T16:49:50.130617Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6747,7 +6747,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.12.0"
+version = "0.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -7021,7 +7021,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.12.0"
+version = "0.13.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -8069,16 +8069,16 @@ version = "2.13.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version == '3.13.*' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version == '3.13.*' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
     "python_full_version == '3.13.*' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
     "python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu'",
 ]
 dependencies = [
@@ -8125,10 +8125,10 @@ resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'emscripten'",
     "python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'win32'",
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [

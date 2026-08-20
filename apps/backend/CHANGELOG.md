@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-20
+
+### Added
+- **OWASP Top 10 Generation**: Added support for generating OWASP Top 10 test sets, featuring both single-turn and multi-turn generation, automatic tagging, and report caching.
+- **In-App Notifications**: Introduced a websocket-driven notification system to alert users when long-running background tasks (such as test-set generation, Garak imports, test-run executions, task assignments, and Architect plans) complete.
+- **Project-Scoped Token Exchange**: Added support for RFC 8693 token exchange, allowing clients to scope exchanged tokens to a specific project using the `resource` parameter (`urn:rhesis:project:<uuid>`).
+- **Disposable Email Blocking**: Implemented screening for self-serve sign-ups (password registration, magic links, and OAuth first-time logins) to block disposable email domains, configurable via `AUTH_BLOCK_DISPOSABLE_EMAILS`.
+- **Local-Mode Platform Keys**: Added support for encrypted, per-organization Rhesis platform API keys to unlock and manage hosted models in local or self-hosted environments.
+- **Unified Insights MCP Tool**: Added a consolidated `get_insights` MCP tool backed by the `/insights/` aggregation endpoint to replace legacy statistics tools.
+
+### Changed
+- **Behavior to Requirement Rename**: Renamed the "Behavior" entity to "Requirement" across the entire stack, including database schemas, API contracts, SDK models, and frontend routes/components.
+- **Usage Quota Enforcement**: Transitioned usage limits from display-only to active enforcement across test executions, test generations, seats, projects, endpoints, and hosted-model tokens. Paid tiers now benefit from a 25% overage grace band, and exhausted quotas return a structured `402 Payment Required` response.
+- **Self-Hosted Quota Bypass**: Introduced the `USAGE_QUOTAS_ENABLED` setting (defaulting to `false` for self-hosted instances) to ensure self-hosted deployments are never blocked by usage limits while still tracking local consumption.
+- **Error Masking & Secure Logging**: Implemented global exception handling to mask internal server errors (such as database tracebacks) with generic 5xx messages and unique `error_id` tracking. Logs now automatically redact sensitive credentials, API keys, and connection strings.
+- **Architect Tool Parity**: Registered OWASP and Garak generation tasks as Architect MCP tools and improved nested schema rendering to prevent first-attempt tool call failures.
+- **Model Brand Renaming**: Renamed "Rhesis Default" models to "Rhesis" and "Rhesis Default Embedding" to "Rhesis Embedding", updating the composite identifier to `rhesis/rhesis`.
+- **Eager Loading Refactor**: Migrated database eager loading from reflection-based resolution to explicit `include()` declarations, resolving several latent N+1 query bugs.
+- **CRUD Monolith Split**: Refactored the monolithic `crud/__init__.py` file into domain-specific submodules (e.g., `user`, `model`, `file`, `requirement`, `source`, `task`, `tag`, `test_run`, `embedding`, `comment`, `token`, and `telemetry`).
+
+### Fixed
+- **Architect Deadlocks**: Resolved a critical deadlock in the SDK's sync/async bridge (`run_sync`) that caused Architect turns to hang indefinitely when streaming responses.
+- **Credential Leakage Prevention**: Prevented tenant model configurations with empty or whitespace API keys from falling back to deployment-level environment credentials, protecting host billing.
+- **Retry Storm Mitigation**: Configured Celery tasks to immediately fail and log `ModelConfigurationError` on permanent provider errors (e.g., 404 Model Not Found) instead of triggering useless retries.
+- **OWASP Evaluation Accuracy**: Calibrated judge rubrics for the 20 seeded OWASP metrics, enabled multi-turn context collection, and corrected metric-level statistics to prevent a single failing metric from dragging down the status of passing sibling metrics.
+- **Sensitive Data Exposure**: Removed raw input payloads from 422 validation error responses and logs to prevent sensitive data (such as passwords) from being exposed in cleartext.
+- **Soft-Delete Integrity**: Ensured `ItemDeletedException` is consistently raised when attempting to access soft-deleted rows across all CRUD operations, services, and background tasks.
+- **SDK Registration Overhead**: Removed synchronous agent invocation during SDK registration, eliminating unnecessary tracing traffic and idle-reconnection quota consumption.
+
+### Removed
+- **Unused Entity Models**: Deleted obsolete database models, schemas, and endpoints for `UseCase`, `Risk`, `ResponsePattern`, and `TestContext`, retiring 16 orphaned RBAC permissions.
+- **Legacy Stats Endpoints**: Removed deprecated `/stats` and `StatsCalculator` endpoints in favor of the unified `/insights/` registry.
+- **Mypy Dependency**: Removed `mypy` from the repository's development dependencies and CI checks in favor of `pyright`.
+
+
 ## [0.12.0] - 2026-08-06
 
 ### Added

@@ -439,8 +439,10 @@ export default function MetricsDirectoryTab({
                 Array.isArray(metric.requirements) &&
                 metric.requirements.length > 0;
 
-              const isCustomMetric =
-                metric.backend_type?.type_value?.toLowerCase() === 'custom';
+              const backendType =
+                metric.backend_type?.type_value?.toLowerCase();
+              const isClickableMetric =
+                backendType === 'custom' || backendType === 'rhesis';
 
               return (
                 <MetricCard
@@ -464,7 +466,7 @@ export default function MetricsDirectoryTab({
                           setSelectedMetric(metric);
                           setAssignDialogOpen(true);
                         }
-                      : isCustomMetric
+                      : isClickableMetric
                         ? () => router.push(`/metrics/${metric.id}`)
                         : undefined
                   }

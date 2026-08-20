@@ -13,6 +13,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-20
+
+### Added
+- **OWASP Top 10 Test Generation**: Introduced `OWASPSynthesizer` supporting both single-turn and multi-turn test generation, complete with report caching and parsing.
+- **Insights Entity**: Added the `Insights` entity to replace legacy statistics endpoints, providing structured access to test run and execution metrics.
+- **Process-Wide Token Tracking**: Added `set_default_usage_callback()` to configure a process-wide token usage callback across all models, alongside a new `BaseLLM.usage_metered` attribute.
+- **Vertex AI Embedding Region**: Added support for `VERTEX_AI_EMBEDDING_LOCATION` to specify a separate region specifically for Vertex embeddings.
+- **Isolated Tracer Provider**: Added `build_tracer_provider` to initialize a tracer provider with the Rhesis exporter attached without modifying global OpenTelemetry state.
+
+### Changed
+- **Behavior to Requirement Rename**: Renamed the `Behavior` entity to `Requirement` across the entire SDK (including `entities/requirement.py`, synthesizers, and Architect templates) to align with stack-wide terminology updates.
+- **Lightweight Telemetry Package**: Moved telemetry primitives (`attributes`, `context`, `token_extraction`) to the lightweight `rhesis.telemetry` package, allowing integrations to use telemetry without pulling in heavy SDK dependencies (like PyTorch or Transformers). Legacy import paths are preserved as backward-compatible shims.
+- **Architect Tooling & Schema Improvements**:
+  - Enhanced tool schema rendering to support nested argument shapes up to two levels deep (e.g., nested arrays/objects).
+  - Added local pre-dispatch validation for tool arguments to catch missing required fields before making API calls.
+  - Improved error feedback for the Architect by echoing truncated arguments of failed tool calls to assist in self-correction.
+  - Updated Architect guidelines and templates to generate richer, multi-step metric definitions and handle multi-turn test set selection.
+
+### Removed
+- **Deprecated Stats Methods**: Removed deprecated `stats()` methods on `TestResults`, `TestRuns`, and `TestRun` (which now raise `NotImplementedError` in favor of the new `Insights` entity).
+
+### Fixed
+- **Sync/Async Deadlocks**: 
+  - Prevented a permanent deadlock in `run_sync` when called from the background event loop's thread.
+  - Fixed `BaseLLM.generate_stream` fallback to await `a_generate()` instead of bridging synchronously, resolving deadlocks during streaming.
+- **Quota Error Handling**: Decorated `BaseEntity.push()` to surface 402 Payment Required quota errors as structured `RhesisAPIError` exceptions instead of leaking raw HTTP errors.
+- **Robust Tool Parsing**: Handled literal control characters (newlines/tabs) in JSON tool arguments emitted by models (e.g., Gemini) by relaxing parser strictness.
+- **Telemetry Batch Resilience**: Implemented individual span validation in telemetry exports to prevent a single malformed span from failing an entire batch export.
+- **Synthesizer Stability**: 
+  - Fixed `MultiTurnSynthesizer` to gracefully handle and retry failed batches (up to 3 times) instead of crashing on bad model responses.
+  - Ensured `OWASPSynthesizer` topic casing is deterministic and prefixed topics with their risk codes (e.g., "LLM01: Prompt Injection").
+- **Error Verbosity**: Improved error logging for model API errors to include the server's response body.
+
+
 ### Added
 
 - `set_default_usage_callback()` / `get_default_usage_callback()`: register one process-wide sink
