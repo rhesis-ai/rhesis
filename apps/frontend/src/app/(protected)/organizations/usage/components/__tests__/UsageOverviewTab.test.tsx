@@ -101,7 +101,7 @@ describe('UsageOverviewTab', () => {
   it('shows a plan chip and an upgrade link for the community edition', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('Community')).toBeInTheDocument();
+    expect(screen.getByText('community')).toBeInTheDocument();
     const upgradeLink = screen.getByRole('link', { name: 'Upgrade' });
     expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/editions');
     expect(upgradeLink).toHaveAttribute('target', '_blank');
@@ -184,7 +184,7 @@ describe('UsageOverviewTab', () => {
 
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('Enterprise')).toBeInTheDocument();
+    expect(screen.getByText('enterprise')).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Upgrade' })
     ).not.toBeInTheDocument();
