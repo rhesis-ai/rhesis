@@ -49,7 +49,7 @@ import {
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import {
   type ExtendedUser,
   type StandaloneGroup,
@@ -142,11 +142,11 @@ function LeftPanelOpenIcon() {
   );
 }
 
-/** `"August 2026"` -- the org-menu usage block's header month. Stays in
+/** `"Aug 2026"` -- the org-menu usage block's header month. Stays in
  * UTC: `period_end` is a date-only string computed in UTC by the backend. */
 function formatMonthLabel(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('en-US', {
-    month: 'long',
+    month: 'short',
     year: 'numeric',
     timeZone: 'UTC',
   });
@@ -277,6 +277,147 @@ export function Sidebar() {
   const usagePeriodLabel = usagePeriodSource
     ? formatMonthLabel(usagePeriodSource.period_end)
     : null;
+
+  // Reordered around the usage block below, not fixed: with a block to
+  // show, "Switch project" and the divider move ahead of it so the everyday
+  // navigation items stay together at the top instead of splitting across a
+  // wall of usage rows. With nothing to show, "Org usage" is just another
+  // nav row and stays where it was.
+  const orgUsageSection = (
+    <>
+      {/* Named "Org usage", not "Usage": the menu already reads "Org
+          Settings" two rows up, and quota is organization state, never
+          personal -- see IMPLEMENTATION_PROMPT.md's "the rule". Visible to
+          every member, not just admins: `usage:read` is granted org-wide
+          (see the note where `canManageOrg` is computed above). Only the
+          "Upgrade plan" row below is narrower. */}
+      <MenuItem
+        onClick={() => {
+          router.push('/organizations/usage');
+          setOrgMenuAnchor(null);
+        }}
+        sx={{ ...MENU_ROW_SX, justifyContent: 'space-between' }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <DataUsageOutlinedIcon
+            sx={{
+              fontSize: 24,
+              color: theme => theme.palette.greyscale.body,
+            }}
+          />
+          <Typography
+            sx={{
+              fontSize: 14,
+              fontWeight: 700,
+              lineHeight: '22px',
+              color: theme => theme.palette.greyscale.body,
+            }}
+          >
+            Org usage
+          </Typography>
+        </Box>
+        {flaggedCount > 0 && (
+          <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
+            {flaggedCount > 99 ? '99+' : flaggedCount}
+          </Box>
+        )}
+      </MenuItem>
+      {/* Gated on rows, not on `usageResources` being non-empty: a
+          deployment with USAGE_QUOTAS_ENABLED off reports every resource
+          with a null limit, which yields no rows, and a period-and-plan
+          header standing alone over nothing is worse than no block. */}
+      {usageRows.length > 0 && (
+        <Box sx={{ pb: '8px' }}>
+          {/* The header and rows are their own click target -- same
+              destination as the "Org usage" row above, so a reader doesn't
+              have to aim for that one specific row when the whole block is
+              about the same page. "Upgrade plan" stays a sibling outside
+              this button, not nested in it: nested interactive elements
+              would fire both on a single click. */}
+          <ButtonBase
+            onClick={() => {
+              router.push('/organizations/usage');
+              setOrgMenuAnchor(null);
+            }}
+            sx={{
+              display: 'block',
+              width: '100%',
+              textAlign: 'left',
+              borderRadius: BORDER_RADIUS.sm,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: '14px',
+                py: '4px',
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ color: theme => theme.palette.greyscale.subtitle }}
+              >
+                {usagePeriodLabel ?? 'Current usage'}
+              </Typography>
+              {edition && <PlanChip edition={edition} />}
+            </Box>
+            {usageRows.map(row => (
+              <UsageMenuRow key={row.resource} {...row} />
+            ))}
+          </ButtonBase>
+          {canUpgrade && (
+            <Box sx={{ px: '14px', pt: '6px' }}>
+              <MuiLink
+                href={UPGRADE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="caption"
+                sx={{ fontWeight: 700 }}
+              >
+                Upgrade plan →
+              </MuiLink>
+            </Box>
+          )}
+        </Box>
+      )}
+    </>
+  );
+
+  // A soft alpha overlay on the popover's own surface, not
+  // `greyscale.border`: that token is tuned for the app's regular
+  // greyscale.surface1/2 backgrounds, and against this popover's own
+  // near-black (dark mode) / near-white (light mode) paper background, set
+  // just below, it sat close enough in luminance to read as no divider
+  // at all.
+  const orgMenuDivider = (
+    <Divider
+      sx={{
+        my: '6px',
+        borderColor: theme =>
+          alpha(
+            theme.palette.mode === 'light'
+              ? theme.palette.common.black
+              : theme.palette.common.white,
+            0.14
+          ),
+      }}
+    />
+  );
+
+  const switchProjectItem = (
+    <MenuItem
+      onClick={() => {
+        setOrgMenuAnchor(null);
+        setSwitcherOpen(true);
+      }}
+      sx={MENU_ROW_SX}
+    >
+      <SwapHorizOutlinedIcon sx={MENU_ICON_SX} />
+      <Typography sx={MENU_LABEL_SX}>Switch project</Typography>
+    </MenuItem>
+  );
 
   const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
@@ -549,7 +690,10 @@ export function Sidebar() {
                   theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
                 borderRadius: BORDER_RADIUS.lg,
                 boxShadow: ELEVATION.xs,
-                minWidth: 188,
+                // 252px, not the 188px the user-menu popover uses: this one carries the
+                // usage block's period label + plan chip on one row, which needs
+                // breathing room between them.
+                minWidth: 252,
                 py: '10px',
                 overflow: 'hidden',
               },
@@ -576,101 +720,19 @@ export function Sidebar() {
             <AppsOutlinedIcon sx={MENU_ICON_SX} />
             <Typography sx={MENU_LABEL_SX}>Projects</Typography>
           </MenuItem>
-          {/* Named "Org usage", not "Usage": the menu already reads
-              "Org Settings" two rows up, and quota is organization state,
-              never personal -- see IMPLEMENTATION_PROMPT.md's "the rule".
-              Visible to every member, not just admins: `usage:read` is
-              granted org-wide (see the note where `canManageOrg` is
-              computed above). Only the "Upgrade plan" row below is
-              narrower. */}
-          <MenuItem
-            onClick={() => {
-              router.push('/organizations/usage');
-              setOrgMenuAnchor(null);
-            }}
-            sx={{ ...MENU_ROW_SX, justifyContent: 'space-between' }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <DataUsageOutlinedIcon
-                sx={{
-                  fontSize: 24,
-                  color: theme => theme.palette.greyscale.body,
-                }}
-              />
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  color: theme => theme.palette.greyscale.body,
-                }}
-              >
-                Org usage
-              </Typography>
-            </Box>
-            {flaggedCount > 0 && (
-              <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
-                {flaggedCount > 99 ? '99+' : flaggedCount}
-              </Box>
-            )}
-          </MenuItem>
-          {/* Gated on rows, not on `usageResources` being non-empty: a
-              deployment with USAGE_QUOTAS_ENABLED off reports every resource
-              with a null limit, which yields no rows, and a period-and-plan
-              header standing alone over nothing is worse than no block. */}
-          {usageRows.length > 0 && (
-            <Box sx={{ pb: '8px' }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  px: '14px',
-                  py: '4px',
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{ color: theme => theme.palette.greyscale.subtitle }}
-                >
-                  {usagePeriodLabel ?? 'Current usage'}
-                </Typography>
-                {edition && <PlanChip edition={edition} />}
-              </Box>
-              {usageRows.map(row => (
-                <UsageMenuRow key={row.resource} {...row} />
-              ))}
-              {canUpgrade && (
-                <Box sx={{ px: '14px', pt: '6px' }}>
-                  <MuiLink
-                    href={UPGRADE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    variant="caption"
-                    sx={{ fontWeight: 700 }}
-                  >
-                    Upgrade plan →
-                  </MuiLink>
-                </Box>
-              )}
-            </Box>
+          {usageRows.length > 0 ? (
+            <>
+              {switchProjectItem}
+              {orgMenuDivider}
+              {orgUsageSection}
+            </>
+          ) : (
+            <>
+              {orgUsageSection}
+              {orgMenuDivider}
+              {switchProjectItem}
+            </>
           )}
-          <Divider
-            sx={{
-              my: '6px',
-              borderColor: theme => theme.palette.greyscale.border,
-            }}
-          />
-          <MenuItem
-            onClick={() => {
-              setOrgMenuAnchor(null);
-              setSwitcherOpen(true);
-            }}
-            sx={MENU_ROW_SX}
-          >
-            <SwapHorizOutlinedIcon sx={MENU_ICON_SX} />
-            <Typography sx={MENU_LABEL_SX}>Switch project</Typography>
-          </MenuItem>
         </Popover>
 
         <ProjectSwitcherDrawer

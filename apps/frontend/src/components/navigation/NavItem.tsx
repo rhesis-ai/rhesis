@@ -13,11 +13,7 @@ import { useCan } from '@/components/common/Can';
 import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { isNotificationSection } from '@/constants/notifications';
-import {
-  isActive,
-  collapsedNavItemSx,
-  COUNT_BADGE_SX,
-} from './sidebar-utils';
+import { isActive, collapsedNavItemSx, COUNT_BADGE_SX } from './sidebar-utils';
 
 interface NavItemProps {
   item: NavigationPageItem;
