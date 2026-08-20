@@ -51,6 +51,20 @@ spec:
             {{- end }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
+          {{- with .Values.backend.startupProbe }}
+          # Suspends liveness and readiness until startup succeeds, so a slow
+          # `alembic upgrade head` can't be SIGKILLed mid-migration. Without it,
+          # liveness has to be widened to cover the worst-case migration, which
+          # would slow crash detection for an already-running pod.
+          startupProbe:
+            httpGet:
+              path: {{ .httpGet.path | quote }}
+              port: {{ $.Values.backend.service.targetPort }}
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: {{ .Values.backend.livenessProbe.httpGet.path | quote }}
