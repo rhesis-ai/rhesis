@@ -40,8 +40,12 @@ const THEME_MODE_EXPLICIT_KEY = 'theme-mode-explicit';
  * OS-detected mode too means only the very first visit ever needs the flip.
  */
 function persistThemeMode(mode: 'light' | 'dark', explicit: boolean) {
-  localStorage.setItem(THEME_MODE_KEY, mode);
-  if (explicit) localStorage.setItem(THEME_MODE_EXPLICIT_KEY, '1');
+  try {
+    localStorage.setItem(THEME_MODE_KEY, mode);
+    if (explicit) localStorage.setItem(THEME_MODE_EXPLICIT_KEY, '1');
+  } catch (error) {
+    console.error('Failed to persist theme mode:', error);
+  }
   document.documentElement.setAttribute('data-theme-mode', mode);
   document.cookie = `${THEME_MODE_KEY}=${mode};path=/;max-age=31536000;SameSite=Lax`;
 }
