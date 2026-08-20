@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -50,7 +50,6 @@ export default function TestSetLinkedTestsSection({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [totalCount, setTotalCount] = useState(initialTestCount);
   const [isGenerating, setIsGenerating] = useState(initialIsGenerating);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -118,10 +117,6 @@ export default function TestSetLinkedTestsSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- testSetId is stable; router is stable
   }, [isGenerating]);
 
-  const handleRefresh = useCallback(() => {
-    setRefreshKey(k => k + 1);
-  }, []);
-
   const handleAssignTests = async (tests: TestDetail[]) => {
     if (tests.length === 0) return;
     try {
@@ -144,7 +139,6 @@ export default function TestSetLinkedTestsSection({
       await queryClient.invalidateQueries({
         queryKey: [...testSetKeys.detail(testSetId), 'tests'],
       });
-      handleRefresh();
       // Sync the server-rendered testCount prop for this page.
       router.refresh();
     } catch (error) {
@@ -260,7 +254,6 @@ export default function TestSetLinkedTestsSection({
           </Box>
 
           <EmbeddingTestsPanel
-            key={refreshKey}
             testSetId={testSetId}
             testSetType={testSetType}
             onTotalCountChange={setTotalCount}
