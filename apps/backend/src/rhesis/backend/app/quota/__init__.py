@@ -57,6 +57,36 @@ class QuotaResource(str, Enum):
 QuotaResourceLike = Union[QuotaResource, str]
 
 
+# Display names for user-facing copy, lowercased for use mid-sentence.
+# Mirrors QUOTA_RESOURCE_LABELS in apps/frontend/src/constants/quota.ts and
+# must stay in sync with it: the frontend renders the inline gates and the
+# banner, this side renders the notification a quota crossing writes, and
+# the two are read by the same person about the same resource.
+#
+# Deliberately not `resource.value.replace("_", " ")`: TEST_EXECUTIONS is
+# called "test runs" throughout the product, which no mechanical transform
+# of the wire value produces.
+QUOTA_RESOURCE_LABELS: dict[QuotaResource, str] = {
+    QuotaResource.TEST_EXECUTIONS: "test runs",
+    QuotaResource.TRACING_SPANS: "tracing spans",
+    QuotaResource.TEST_GENERATION: "test generation",
+    QuotaResource.MODEL_TOKENS: "model tokens",
+    QuotaResource.SEATS: "seats",
+    QuotaResource.PROJECTS: "projects",
+    QuotaResource.ENDPOINTS: "endpoints",
+}
+
+
+def resource_label(resource: QuotaResource) -> str:
+    """Lowercase display name for *resource*, for use mid-sentence.
+
+    Falls back to the wire value with underscores spaced out, so a resource
+    added to :class:`QuotaResource` before this map catches up degrades to
+    readable-but-unpolished rather than raising in a copy path.
+    """
+    return QUOTA_RESOURCE_LABELS.get(resource, resource.value.replace("_", " "))
+
+
 class OveragePolicy(str, Enum):
     """What happens when an organization reaches a limit.
 
@@ -256,6 +286,7 @@ __all__ = [
     "DefaultQuotaProvider",
     "FREE_TIER_LIMITS",
     "OveragePolicy",
+    "QUOTA_RESOURCE_LABELS",
     "QuotaPolicy",
     "QuotaProvider",
     "QuotaRegistry",
@@ -263,4 +294,5 @@ __all__ = [
     "QuotaResourceLike",
     "UNLIMITED_LIMITS",
     "limits_to_wire",
+    "resource_label",
 ]

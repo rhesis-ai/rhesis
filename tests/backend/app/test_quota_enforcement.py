@@ -225,4 +225,4 @@ class TestQuotaExceededResponseBody:
         assert body["limit"] == 10
         assert body["kind"] == "flow"
         assert body["period_end"] == verdict.period_end
-        assert "test executions" in body["message"]
+        assert "test runs" in body["message"]

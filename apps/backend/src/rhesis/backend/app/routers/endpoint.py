@@ -31,6 +31,7 @@ from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreE
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -97,19 +98,7 @@ def create_endpoint(
         user_id=user_id,
     )
 
-    from rhesis.backend.app.services.usage import count_org_endpoints
-    from rhesis.backend.app.services.usage_notifications import (
-        check_and_notify_threshold_crossing,
-    )
-
-    new_count = count_org_endpoints(db, organization_id)
-    check_and_notify_threshold_crossing(
-        db,
-        _quota_gate,
-        QuotaResource.ENDPOINTS,
-        previous_used=new_count - 1,
-        new_used=new_count,
-    )
+    notify_stock_crossing(db, _quota_gate, QuotaResource.ENDPOINTS)
 
     return new_endpoint
 

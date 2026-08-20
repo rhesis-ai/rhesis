@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.usage import Usage
-from rhesis.backend.app.quota import QuotaRegistry, QuotaResource
+from rhesis.backend.app.quota import QuotaRegistry, QuotaResource, resource_label
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.usage import (
     _STOCK_COUNTERS,
@@ -55,7 +55,9 @@ class QuotaVerdict:
         without the frontend re-deriving the split.
     :param period_end: ISO date the current billing period ends, so a
         blocked flow resource can be told when it resets without a second
-        round trip to `GET /usage`.
+        round trip to `GET /usage`. ``None`` for a stock resource: seats,
+        projects and endpoints are live counts that never reset, so a
+        period end would be a meaningless date on the wire.
     """
 
     resource: QuotaResource
@@ -64,7 +66,7 @@ class QuotaVerdict:
     allowed: bool
     over_limit: bool
     kind: str
-    period_end: str
+    period_end: Optional[str]
 
 
 class QuotaExceededError(Exception):
@@ -100,7 +102,7 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
     must build the response itself instead of letting the exception
     propagate there (see the note on :class:`QuotaExceededError`).
     """
-    resource_display = verdict.resource.value.replace("_", " ")
+    resource_display = resource_label(verdict.resource)
     is_stock = verdict.resource in _STOCK_COUNTERS
     suffix = "" if is_stock else " for this period"
     return {
@@ -163,8 +165,10 @@ def check_quota(
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
     used = _read_usage(db, org_id, resource)
-    kind = STOCK_KIND if resource in _STOCK_COUNTERS else FLOW_KIND
-    _, period_end = _current_period()
+    is_stock = resource in _STOCK_COUNTERS
+    kind = STOCK_KIND if is_stock else FLOW_KIND
+    # Stock resources never reset, so they carry no period end -- see QuotaVerdict.
+    period_end = None if is_stock else _current_period()[1].isoformat()
 
     if limit is None:
         return QuotaVerdict(
@@ -174,7 +178,7 @@ def check_quota(
             allowed=True,
             over_limit=False,
             kind=kind,
-            period_end=period_end.isoformat(),
+            period_end=period_end,
         )
 
     ceiling = policy.ceiling_for(limit)
@@ -185,7 +189,7 @@ def check_quota(
         allowed=used < ceiling,
         over_limit=used >= limit,
         kind=kind,
-        period_end=period_end.isoformat(),
+        period_end=period_end,
     )
 
 
