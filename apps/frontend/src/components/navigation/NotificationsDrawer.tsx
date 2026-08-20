@@ -213,14 +213,20 @@ export default function NotificationsDrawer({
     (Object.keys(unreadBySection) as NotificationSection[]).forEach(section => {
       if ((unreadBySection[section] ?? 0) > 0) markSectionRead(section);
     });
+    if (unreadOnly) {
+      // Every row currently loaded was fetched with unread_only: true, so
+      // marking them all read empties this list entirely rather than
+      // leaving now-read rows rendered under an "Unread only" filter.
+      setItems([]);
+      setPagesLoaded(0);
+      setHasMore(false);
+      return;
+    }
     setItems(prev =>
       prev.map(n =>
         n.read_at ? n : { ...n, read_at: new Date().toISOString() }
       )
     );
-    // Everything shown is read now, so an unread-only list is empty and has
-    // nothing older to offer.
-    if (unreadOnly) setHasMore(false);
   };
 
   const handleRowClick = (notification: Notification) => {

@@ -196,6 +196,25 @@ describe('NotificationsDrawer', () => {
     );
   });
 
+  it('empties the list immediately when marking all read while filtered to unread', async () => {
+    // Every row loaded while the filter is on was fetched with
+    // unread_only: true, so marking them all read must clear the list --
+    // leaving them rendered (just with read_at set) would contradict the
+    // "Unread only" filter the user just turned on.
+    mockUnreadBySection = { [NotificationSection.TEST_RUNS]: 1 };
+    mockGetNotifications.mockResolvedValue([notification()]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+    await screen.findByText('A run finished');
+
+    fireEvent.click(screen.getByRole('switch', { name: /unread only/i }));
+    await screen.findByText('A run finished');
+
+    fireEvent.click(screen.getByRole('button', { name: /mark all read/i }));
+
+    expect(screen.queryByText('A run finished')).not.toBeInTheDocument();
+    expect(await screen.findByText("You're all caught up")).toBeInTheDocument();
+  });
+
   it('offers older pages only while a full page comes back', async () => {
     mockGetNotifications.mockResolvedValue([notification()]);
     render(<NotificationsDrawer open onClose={jest.fn()} />);
