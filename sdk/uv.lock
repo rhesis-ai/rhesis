@@ -6031,6 +6031,8 @@ requires-dist = [
     { name = "agent-framework-openai", marker = "extra == 'microsoft-agent-framework'", specifier = ">=1.1.0" },
     { name = "google-adk", marker = "extra == 'all'", specifier = ">=2.6,<3" },
     { name = "google-adk", marker = "extra == 'google-adk'", specifier = ">=2.6,<3" },
+    { name = "haystack-ai", marker = "extra == 'all'", specifier = ">=2.22.0" },
+    { name = "haystack-ai", marker = "extra == 'haystack'", specifier = ">=2.22.0" },
     { name = "ipykernel", specifier = ">=6.0.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "jupyter", specifier = ">=1.0.0" },
@@ -6054,11 +6056,12 @@ requires-dist = [
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
 ]
-provides-extras = ["langchain", "langgraph", "pydantic-ai", "microsoft-agent-framework", "google-adk", "all"]
+provides-extras = ["langchain", "langgraph", "pydantic-ai", "microsoft-agent-framework", "google-adk", "haystack", "all"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hatch", specifier = ">=1.14.1" },
+    { name = "haystack-ai", specifier = ">=2.22.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pydantic-ai", specifier = ">=0.0.49" },
     { name = "pyright", specifier = ">=1.1.406" },
