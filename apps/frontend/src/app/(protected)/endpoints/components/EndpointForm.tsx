@@ -15,12 +15,12 @@ import ActionBar from '@/components/common/ActionBar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useTestEndpoint } from '@/hooks/useEndpoints';
+import { useCreateEndpoint } from '@/hooks/useCreateEndpoint';
 import {
   AutoConfigureResult,
   Endpoint,
 } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { createEndpoint } from '@/actions/endpoints';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { readActiveProjectId } from '@/utils/active-project';
@@ -136,6 +136,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const notifications = useNotifications();
     const { markStepComplete } = useOnboarding();
     const testEndpointMutation = useTestEndpoint();
+    const createEndpoint = useCreateEndpoint();
 
     const [formData, setFormData] = useState<FormData>({
       name: '',
@@ -389,6 +390,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       formData,
       reqBody,
       resBody,
+      createEndpoint,
       markStepComplete,
       notifications,
       onCreated,

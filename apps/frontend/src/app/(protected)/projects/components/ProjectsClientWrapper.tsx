@@ -29,7 +29,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
+import { useCreateProject, useDeleteProject } from '@/hooks/useEndpoints';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
@@ -106,19 +106,15 @@ export default function ProjectsClientWrapper() {
     fetchProjects();
   }, [fetchProjects]);
 
-  const invalidateUsage = useInvalidateUsage();
+  const createProject = useCreateProject();
+  const deleteProject = useDeleteProject();
 
   const handleCreate = useCallback(
     async (payload: ProjectCreate) => {
-      const factory = new ApiClientFactory();
-      const client = factory.getProjectsClient();
-      await client.createProject(payload);
-      // Projects are a stock resource: the cached /usage count is now wrong,
-      // and the projects gate reads it.
-      invalidateUsage();
+      await createProject(payload);
       await Promise.all([fetchProjects(), refreshActiveProjects()]);
     },
-    [fetchProjects, refreshActiveProjects, invalidateUsage]
+    [createProject, fetchProjects, refreshActiveProjects]
   );
 
   const confirmDelete = useCallback(async () => {
@@ -134,12 +130,7 @@ export default function ProjectsClientWrapper() {
       return;
     }
     try {
-      const factory = new ApiClientFactory();
-      const client = factory.getProjectsClient();
-      await client.deleteProject(deleteTarget.id);
-      // The whole point of the blocked-projects recourse: freeing one must
-      // unblock creation now, not up to five minutes from now.
-      invalidateUsage();
+      await deleteProject(deleteTarget.id);
       setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
       await refreshActiveProjects();
       notifications.show('Project deleted successfully', {
@@ -156,9 +147,9 @@ export default function ProjectsClientWrapper() {
   }, [
     deleteTarget,
     activeProjectId,
+    deleteProject,
     refreshActiveProjects,
     notifications,
-    invalidateUsage,
   ]);
 
   // Mark onboarding step complete when projects are loaded

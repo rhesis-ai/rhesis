@@ -42,7 +42,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
+import { useCreateUser } from '@/hooks/useUsers';
 import { QuotaResource } from '@/constants/quota';
 import { useQuotaMessageFor } from '@/hooks/useQuotaGate';
 
@@ -83,7 +83,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
   ) {
     const { data: session, status } = useSession();
     const notifications = useNotifications();
-    const invalidateUsage = useInvalidateUsage();
+    const createUser = useCreateUser();
     const seatQuotaMessage = useQuotaMessageFor(QuotaResource.SEATS);
     const { projects: availableProjects } = useActiveProject();
     const {
@@ -219,10 +219,9 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         }
 
         const clientFactory = new ApiClientFactory();
-        const usersClient = clientFactory.getUsersClient();
 
         type InviteResult = {
-          user: Awaited<ReturnType<typeof usersClient.createUser>> | null;
+          user: Awaited<ReturnType<typeof createUser>> | null;
           invitation: {
             email: string;
             success: boolean;
@@ -241,7 +240,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
             };
 
             try {
-              const user = await usersClient.createUser(userData);
+              const user = await createUser(userData);
               if (user && invite.orgRoleId && assignOrgMemberRole) {
                 try {
                   await assignOrgMemberRole(String(user.id), invite.orgRoleId);
@@ -425,9 +424,6 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         }
 
         if (successCount > 0) {
-          // Each accepted invite consumes a seat, and seats are a stock
-          // resource the invite gate reads from the cached /usage response.
-          invalidateUsage();
           setFormData({ invites: [createInvite()] });
           setErrors({});
           setProjectRoles({});

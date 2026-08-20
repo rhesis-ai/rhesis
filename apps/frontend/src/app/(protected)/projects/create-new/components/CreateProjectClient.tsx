@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import ProjectDetailsStep from './ProjectDetailsStep';
 import FinishStep from './FinishStep';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { writeActiveProjectId } from '@/utils/active-project';
@@ -25,7 +24,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import type { UUID } from 'crypto';
-import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
+import { useCreateProject } from '@/hooks/useEndpoints';
 
 interface FormData {
   projectName: string;
@@ -65,7 +64,7 @@ export default function CreateProjectClient({
     owner_id: userId,
   });
 
-  const projectsClient = new ApiClientFactory().getProjectsClient();
+  const createProject = useCreateProject();
 
   const handleNext = () => {
     setActiveStep(prevActiveStep => prevActiveStep + 1);
@@ -74,8 +73,6 @@ export default function CreateProjectClient({
   const handleBack = () => {
     setActiveStep(prevActiveStep => prevActiveStep - 1);
   };
-
-  const invalidateUsage = useInvalidateUsage();
 
   const handleComplete = async () => {
     try {
@@ -116,8 +113,7 @@ export default function CreateProjectClient({
       };
 
       try {
-        const created = await projectsClient.createProject(projectData);
-        invalidateUsage();
+        const created = await createProject(projectData);
         writeActiveProjectId(String(created.id));
         await refreshActiveProjects({ listOnly: false });
 

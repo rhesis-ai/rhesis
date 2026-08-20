@@ -54,7 +54,7 @@ import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { getMemberJoinStatus } from '@/utils/member-join-status';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
+import { useDeleteUser } from '@/hooks/useUsers';
 
 interface TeamMembersGridProps {
   refreshTrigger?: number;
@@ -140,7 +140,7 @@ export default function TeamMembersGrid({
     setDeleteDialogOpen(true);
   }, []);
 
-  const invalidateUsage = useInvalidateUsage();
+  const deleteUser = useDeleteUser();
 
   const handleConfirmDelete = async () => {
     if (!userToDelete || !isAuthenticated(status)) {
@@ -150,12 +150,7 @@ export default function TeamMembersGrid({
     try {
       setDeleting(true);
 
-      const clientFactory = new ApiClientFactory();
-      const usersClient = clientFactory.getUsersClient();
-
-      await usersClient.deleteUser(userToDelete.id);
-      // Removing a member frees a seat.
-      invalidateUsage();
+      await deleteUser(userToDelete.id);
 
       notifications.show(
         `Successfully removed ${getDisplayName(userToDelete)} from the organization.`,

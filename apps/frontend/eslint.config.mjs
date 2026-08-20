@@ -87,6 +87,17 @@ export default [
       // Prevent dark-mode regressions: GREYSCALE.light.* and GREYSCALE.dark.*
       // are raw static tokens; use theme.palette.greyscale.* in sx callbacks instead.
       // Only src/styles/theme.ts and src/styles/theme-constants.ts are exempt.
+      //
+      // Stock-resource mutation boundary.
+      //
+      // Creating or deleting an endpoint, project, or user changes the
+      // cached /usage count, so the call must also invalidate that cache
+      // (see useInvalidateUsage). Calling the API client directly makes it
+      // easy to forget that step, so these methods may only be called from
+      // inside src/hooks/ (useCreateEndpoint in its own file, useDeleteEndpoint,
+      // useCreateProject, useDeleteProject, useCreateUser, useDeleteUser),
+      // which do it once, centrally. The override below re-declares this
+      // rule for src/hooks/** without these entries.
       'no-restricted-syntax': [
         'error',
         {
@@ -101,6 +112,31 @@ export default [
           message:
             'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
         },
+        {
+          selector: "CallExpression[callee.property.name='createProject']",
+          message:
+            'Call useCreateProject() from @/hooks/useEndpoints instead of the API client directly -- it invalidates the usage cache on success.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='deleteProject']",
+          message:
+            'Call useDeleteProject() from @/hooks/useEndpoints instead of the API client directly -- it invalidates the usage cache on success.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='deleteEndpoint']",
+          message:
+            'Call useDeleteEndpoint() from @/hooks/useEndpoints instead of the API client directly -- it invalidates the usage cache on success.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='createUser']",
+          message:
+            'Call useCreateUser() from @/hooks/useUsers instead of the API client directly -- it invalidates the usage cache on success.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='deleteUser']",
+          message:
+            'Call useDeleteUser() from @/hooks/useUsers instead of the API client directly -- it invalidates the usage cache on success.',
+        },
       ],
 
       // Open-core boundary guard.
@@ -109,9 +145,29 @@ export default [
       // only sanctioned bridge is apps/frontend/src/ee_bootstrap.ts,
       // which is exempted in the override below. EE code may import
       // freely from core; the inverse is what we forbid here.
+      //
+      // The `paths` entry below is a second instance of the stock-resource
+      // mutation boundary described above: createEndpoint is a server
+      // action rather than an API client method, so it needs an import
+      // restriction instead of a call-expression one. Only useCreateEndpoint
+      // (src/hooks/useEndpoints.ts) may import it.
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: '@/actions/endpoints',
+              importNames: ['createEndpoint'],
+              message:
+                'Call useCreateEndpoint() from @/hooks/useCreateEndpoint instead of the server action directly -- it invalidates the endpoints list and the usage cache on success.',
+            },
+            {
+              name: '@/actions/endpoints/create',
+              importNames: ['createEndpoint'],
+              message:
+                'Call useCreateEndpoint() from @/hooks/useCreateEndpoint instead of the server action directly -- it invalidates the endpoints list and the usage cache on success.',
+            },
+          ],
           patterns: [
             {
               group: ['@rhesis/ee-frontend', '@rhesis/ee-frontend/*'],
@@ -139,6 +195,56 @@ export default [
     files: ['src/ee_bootstrap.ts'],
     rules: {
       'no-restricted-imports': 'off',
+    },
+  },
+  {
+    // Mutation hooks are the sanctioned place to call these stock-resource
+    // mutations directly -- the entries above enforce "go through the hook"
+    // everywhere else. Redeclare (rather than disable) the other entries in
+    // each rule so the EE boundary and the GREYSCALE guard still apply
+    // inside src/hooks/ and src/utils/api-client/ (the client methods
+    // themselves, and their own unit tests, legitimately call each other by
+    // name without going through a hook).
+    files: ['src/hooks/**/*.{ts,tsx}', 'src/utils/api-client/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='light']",
+          message:
+            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.light.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
+        },
+        {
+          selector:
+            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='dark']",
+          message:
+            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
+        },
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@rhesis/ee-frontend', '@rhesis/ee-frontend/*'],
+              message:
+                'Core frontend may not import from @rhesis/ee-frontend. Plug into a registry in @/lib/extension-registries instead, and register from ee/frontend/src/bootstrap.ts. The only sanctioned exception is apps/frontend/src/ee_bootstrap.ts.',
+            },
+            {
+              group: [
+                '../../../../../ee/frontend/*',
+                '../../../../ee/frontend/*',
+                '../../../ee/frontend/*',
+                '../../ee/frontend/*',
+                '../ee/frontend/*',
+              ],
+              message:
+                'Use the @rhesis/ee-frontend package rather than relative paths into ee/frontend/. (Note: relative imports of EE from core are forbidden anyway -- see the @rhesis/ee-frontend rule.)',
+            },
+          ],
+        },
+      ],
     },
   },
   {

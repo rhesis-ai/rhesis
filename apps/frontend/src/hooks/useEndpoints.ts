@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { endpointKeys, projectKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -11,6 +11,7 @@ import {
 import { EndpointCreate } from '@/utils/api-client/endpoints-client';
 import {
   Project,
+  ProjectCreate,
   ProjectsQueryParams,
 } from '@/utils/api-client/interfaces/project';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
@@ -162,6 +163,43 @@ export function useDeleteEndpoint() {
       invalidateUsage();
     },
   });
+}
+
+export function useCreateProject() {
+  const isAuthenticated = useIsAuthenticated();
+  const invalidateUsage = useInvalidateUsage();
+  return useCallback(
+    async (data: ProjectCreate) => {
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
+      }
+      const project = await new ApiClientFactory()
+        .getProjectsClient()
+        .createProject(data);
+      // Projects are a stock resource: creating one consumes quota, and the
+      // projects gate reads the cached count.
+      invalidateUsage();
+      return project;
+    },
+    [isAuthenticated, invalidateUsage]
+  );
+}
+
+export function useDeleteProject() {
+  const isAuthenticated = useIsAuthenticated();
+  const invalidateUsage = useInvalidateUsage();
+  return useCallback(
+    async (id: string) => {
+      if (!isAuthenticated) {
+        throw new Error('Not authenticated');
+      }
+      await new ApiClientFactory().getProjectsClient().deleteProject(id);
+      // Deleting a project frees quota, and the projects gate reads the
+      // cached count.
+      invalidateUsage();
+    },
+    [isAuthenticated, invalidateUsage]
+  );
 }
 
 export function useTestEndpoint() {

@@ -22,7 +22,7 @@ import {
   FormHelperText,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import { createEndpoint } from '@/actions/endpoints';
+import { useCreateEndpoint } from '@/hooks/useCreateEndpoint';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -47,6 +47,7 @@ export default function SwaggerEndpointForm() {
   const { data: session, status } = useSession();
   const { markStepComplete } = useOnboarding();
   const notifications = useNotifications();
+  const createEndpoint = useCreateEndpoint();
 
   const [formData, setFormData] = useState({
     name: '',

@@ -16,6 +16,8 @@ import { UUID } from 'crypto';
 import { UserUpdate } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { writeActiveProjectId } from '@/utils/active-project';
+import { useCreateProject } from '@/hooks/useEndpoints';
+import { useCreateUser } from '@/hooks/useUsers';
 
 type OnboardingStatus =
   | 'idle'
@@ -60,6 +62,8 @@ export default function OnboardingPageClient({
 
   const organizationsClient = new ApiClientFactory().getOrganizationsClient();
   const usersClient = new ApiClientFactory().getUsersClient();
+  const createUser = useCreateUser();
+  const createProject = useCreateProject();
 
   const completingRef = React.useRef(false);
 
@@ -149,8 +153,6 @@ export default function OnboardingPageClient({
         const authenticatedUsersClient = authenticatedFactory.getUsersClient();
         const authenticatedOrganizationsClient =
           authenticatedFactory.getOrganizationsClient();
-        const authenticatedProjectsClient =
-          authenticatedFactory.getProjectsClient();
 
         try {
           const validEmails = formData.invites
@@ -173,8 +175,7 @@ export default function OnboardingPageClient({
               };
 
               try {
-                const user =
-                  await authenticatedUsersClient.createUser(userData);
+                const user = await createUser(userData);
                 invitationResults.push({ email, success: true });
                 return user;
               } catch (error: unknown) {
@@ -265,8 +266,7 @@ export default function OnboardingPageClient({
             icon: 'SmartToy',
           };
 
-          const createdProject =
-            await authenticatedProjectsClient.createProject(projectData);
+          const createdProject = await createProject(projectData);
 
           writeActiveProjectId(String(createdProject.id));
           await authenticatedUsersClient.updateUserSettings({
