@@ -34,6 +34,7 @@ from rhesis.backend.app.services.metric_tuning.invoke import (
     resolve_metric_model,
 )
 from rhesis.backend.app.services.metric_tuning.payload import parse_payload
+from rhesis.backend.app.services.metric_tuning.staleness import abandoned, run_is_stale
 from rhesis.backend.app.services.metric_tuning.test_sets import get_tuning_test_set
 
 logger = logging.getLogger(__name__)
@@ -52,11 +53,17 @@ def _now() -> str:
 
 
 def get_tuning_run(db: Session, metric: models.Metric, organization_id: str):
-    """The metric's latest run. ``never_run`` when there has not been one."""
+    """The metric's latest run. ``never_run`` when there has not been one.
+
+    A claim that has stopped advancing reads as failed rather than as forever in
+    progress -- otherwise the interface shows a spinner nothing is behind and
+    keeps its own Run button disabled. Derived, not written: see ``staleness``.
+    """
     test_set = get_tuning_test_set(db, metric.id, organization_id)
     if not test_set:
         return MetricTuningRunSummary()
-    return crud_metric_tuning.get_run_summary(test_set)
+    summary = crud_metric_tuning.get_run_summary(test_set)
+    return abandoned(summary) if run_is_stale(summary) else summary
 
 
 def start_tuning_run(
@@ -70,8 +77,11 @@ def start_tuning_run(
     The refusal while a run is in flight is advisory: the stored status is the
     only check, so two requests in the same instant can both pass. The failure
     mode is a summary belonging to neither run rather than corruption, which is
-    the trade ADR-0004 accepts for a flagged feature. Making it actually safe is
-    its own ticket.
+    the trade ADR-0004 accepts for a flagged feature.
+
+    A claim that has stopped advancing is taken over instead of refused, so a
+    worker that died -- or a dispatch that never reached one -- cannot wedge the
+    metric permanently.
     """
     test_set = get_tuning_test_set(db, metric.id, organization_id)
     if not test_set:
@@ -83,16 +93,24 @@ def start_tuning_run(
 
     current = crud_metric_tuning.get_run_summary(test_set)
     if current.status == TuningRunStatus.RUNNING:
-        raise TuningRunInFlight("A run is already in progress for this metric.")
+        if not run_is_stale(current):
+            raise TuningRunInFlight("A run is already in progress for this metric.")
+        logger.warning(
+            "Taking over a tuning run for metric %s that stopped advancing at %s",
+            metric.id,
+            current.progressed_at or current.started_at,
+        )
 
     # Checked here, before anything is written or queued, so a metric with no
     # model is refused outright rather than producing a run that judges with
     # something nobody picked. Raises MetricModelNotConfigured.
     resolve_metric_model(db, metric, organization_id, user_id)
 
+    claimed_at = _now()
     summary = MetricTuningRunSummary(
         status=TuningRunStatus.RUNNING,
-        started_at=_now(),
+        started_at=claimed_at,
+        progressed_at=claimed_at,
         total_cases=len(cases),
         completed_cases=0,
         errored_cases=0,
@@ -145,6 +163,7 @@ def execute_tuning_run(
     summary.error = None
     if not summary.started_at:
         summary.started_at = _now()
+    summary.progressed_at = _now()
 
     _clear_previous_results(db, cases)
     crud_metric_tuning.set_run_summary(db, test_set, summary)
@@ -158,6 +177,9 @@ def execute_tuning_run(
         summary.completed_cases += 1
         if result.error:
             summary.errored_cases += 1
+        # Renewed per case, so a long set never looks abandoned while it is
+        # working and a dead worker's claim expires on the same short window.
+        summary.progressed_at = _now()
         crud_metric_tuning.set_run_summary(db, test_set, summary)
         db.commit()
 

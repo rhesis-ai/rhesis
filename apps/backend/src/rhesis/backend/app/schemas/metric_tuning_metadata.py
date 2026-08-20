@@ -165,6 +165,10 @@ class MetricTuningRunSummary(BaseModel):
     status: TuningRunStatus = TuningRunStatus.NEVER_RUN
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    # Touched when the run claims its slot and again after every case. A running
+    # claim that stops advancing is taken over rather than refusing every later
+    # run forever -- see services/metric_tuning/staleness.py.
+    progressed_at: Optional[str] = None
     total_cases: int = 0
     completed_cases: int = 0
     # How many cases the metric call failed on. Reported apart from the verdicts
@@ -174,7 +178,7 @@ class MetricTuningRunSummary(BaseModel):
     # fail the run -- that is `errored_cases`.
     error: Optional[str] = None
 
-    @field_validator("error", "started_at", "completed_at", mode="before")
+    @field_validator("error", "started_at", "completed_at", "progressed_at", mode="before")
     @classmethod
     def _validate_optional_str(cls, v: Any) -> Optional[str]:
         return _coerce_optional_str(v)

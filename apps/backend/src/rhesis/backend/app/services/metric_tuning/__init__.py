@@ -43,12 +43,19 @@ from rhesis.backend.app.services.metric_tuning.runs import (
     get_tuning_run,
     start_tuning_run,
 )
+from rhesis.backend.app.services.metric_tuning.staleness import (
+    STALE_RUN_AFTER,
+    STALE_RUN_MESSAGE,
+    run_is_stale,
+)
 from rhesis.backend.app.services.metric_tuning.test_sets import (
     get_or_create_tuning_test_set,
     get_tuning_test_set,
 )
 
 __all__ = [
+    "STALE_RUN_AFTER",
+    "STALE_RUN_MESSAGE",
     "MetricModelNotConfigured",
     "NoTuningCases",
     "NothingToReview",
@@ -69,6 +76,7 @@ __all__ = [
     "resolve_metric_model",
     "review_case",
     "review_still_stands",
+    "run_is_stale",
     "standing_review",
     "start_tuning_run",
     "to_api",

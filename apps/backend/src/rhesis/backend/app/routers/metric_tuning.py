@@ -264,6 +264,18 @@ def start_tuning_run(
     # not yet written the claim it is about to update.
     db.commit()
 
-    task_launcher(run_metric_tuning, str(metric_id), current_user=current_user, db=db)
+    try:
+        task_launcher(run_metric_tuning, str(metric_id), current_user=current_user, db=db)
+    except Exception as e:
+        # The claim is already committed, so a dispatch that never reaches a
+        # worker -- broker down, publish error -- would leave the metric refusing
+        # every later run with nothing on its way to clear the claim. Released
+        # here rather than left for the staleness window to pick up: this side
+        # knows for certain that no run is coming.
+        logger.exception("Failed to queue tuning run for metric %s", metric_id)
+        service.fail_tuning_run(db, metric, organization_id, "it could not be queued.")
+        raise HTTPException(
+            status_code=503, detail="The run could not be queued. Please try again."
+        ) from e
 
     return MetricTuningRun(**summary.model_dump(mode="json"))
