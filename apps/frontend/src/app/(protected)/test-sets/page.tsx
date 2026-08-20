@@ -70,13 +70,14 @@ export default function TestSetsPage() {
   }, [queryClient, notifications]);
 
   const handleOwaspGenerateSuccess = React.useCallback(() => {
-    // Generation runs as a background task — the test set doesn't exist yet,
-    // so the drawer stays open showing its own completion state. The user
-    // closes it manually once they've read the "will appear in your list" note.
+    // Generation runs as a background task — this fires once it's queued,
+    // not once it's done. Invalidate now so the list picks up the completed
+    // test set whenever the user next revisits it, mirroring Garak import.
+    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
     notifications.show('OWASP test set generation started', {
       severity: 'success',
     });
-  }, [notifications]);
+  }, [queryClient, notifications]);
 
   if (isSessionLoading(status)) {
     return (
