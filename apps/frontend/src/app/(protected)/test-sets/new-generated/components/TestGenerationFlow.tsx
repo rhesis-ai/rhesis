@@ -340,6 +340,9 @@ export default function TestGenerationFlow() {
     setDescription('');
   }, []);
 
+  const generationQuota = useQuotaGate(QuotaResource.TEST_GENERATION);
+  const asQuotaError = useQuotaErrorHandler();
+
   const handlePipelineEvent = useCallback(
     (event: TestPipelineEvent) => {
       switch (event.type) {
@@ -392,6 +395,17 @@ export default function TestGenerationFlow() {
       const templateId = sessionStorage.getItem('selectedTemplateId');
       if (!templateId) return;
 
+      // Preview generation streams through the same pipeline the final
+      // submit gates on, but it never surfaces its own error: a hang or a
+      // silently-swallowed failure mid-stream left the skeleton loaders
+      // stuck forever with no toast. Blocking here, before the stream ever
+      // opens, is the same check handleGenerate already makes.
+      if (generationQuota.message) {
+        sessionStorage.removeItem('selectedTemplateId');
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
+
       try {
         const template = TEMPLATES.find(t => t.id === templateId);
         if (!template) {
@@ -433,11 +447,18 @@ export default function TestGenerationFlow() {
     initializeFromTemplate();
     // selectedProjectId, selectedSources, testType, selectedModelId intentionally excluded - template init runs once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, handlePipelineEvent]);
+  }, [show, handlePipelineEvent, generationQuota.message]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
     async (desc: string, sources: SourceData[]) => {
+      // Same check handleGenerate makes before the final submit -- without
+      // it, a user already over quota reaches the streaming pipeline, which
+      // has no quota enforcement of its own and can hang with no error.
+      if (generationQuota.message) {
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
       setDescription(desc);
       setSelectedSources(sources);
       setSelectedSourceIds(sources.map(s => s.id));
@@ -492,11 +513,22 @@ export default function TestGenerationFlow() {
         setIsLoadingSamples(false);
       }
     },
-    [show, testType, selectedProjectId, selectedModelId, handlePipelineEvent]
+    [
+      show,
+      testType,
+      selectedProjectId,
+      selectedModelId,
+      handlePipelineEvent,
+      generationQuota.message,
+    ]
   );
 
   // Generate test samples
   const generateSamples = useCallback(async () => {
+    if (generationQuota.message) {
+      show(generationQuota.message, { severity: 'error' });
+      return;
+    }
     setTestSamples([]);
     setIsLoadingSamples(true);
 
@@ -547,6 +579,7 @@ export default function TestGenerationFlow() {
     selectedModelId,
     handlePipelineEvent,
     show,
+    generationQuota.message,
   ]);
 
   // Regenerate sample with feedback
@@ -701,6 +734,10 @@ export default function TestGenerationFlow() {
 
   const handleSendMessage = useCallback(
     async (message: string) => {
+      if (generationQuota.message) {
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
       const chipStates: Array<{
         label: string;
         description: string;
@@ -802,6 +839,7 @@ export default function TestGenerationFlow() {
       chatMessages,
       testType,
       handlePipelineEvent,
+      generationQuota.message,
     ]
   );
 
@@ -868,9 +906,6 @@ export default function TestGenerationFlow() {
     testType,
     show,
   ]);
-
-  const generationQuota = useQuotaGate(QuotaResource.TEST_GENERATION);
-  const asQuotaError = useQuotaErrorHandler();
 
   // Final generation
   const handleGenerate = useCallback(async () => {
