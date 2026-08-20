@@ -26,16 +26,16 @@ This release includes the following component versions:
 ### Summary of Changes
 
 **Backend v0.13.0:**
-Key changes include: OWASP test generation: parity fixes and Architect integration (#2527), fix(backend): adjust community plan usage limits (#2529)....
+OWASP Top 10 test generation, in-app notifications via websockets, project-scoped token exchange, disposable email blocking, usage quota enforcement, error masking with secure logging, and eager loading refactor.
 
 **Frontend v0.13.0:**
-Key changes include: OWASP test generation: parity fixes and Architect integration (#2527), Add ENABLE_RHESIS_KEY config to control platform key feature (#2521)....
+White-labeling and custom branding, OWASP test generation UI, real-time notification badges, usage quota banners, platform API key drawer, and behavior-to-requirement rename across all routes.
 
 **SDK v0.13.0:**
-Key changes include: OWASP test generation: parity fixes and Architect integration (#2527), Fix OWASP metrics accuracy: calibrated rubrics, metric-level stats, and multi-turn context (#2503)....
+OWASP synthesizer with single-turn and multi-turn generation, insights entity replacing legacy statistics, process-wide token tracking, and behavior-to-requirement rename.
 
 **Polyphemus v0.6.0:**
-Key changes include: chore: remove mypy from the repository (#2482), refactor(backend): extract user crud module (#2458)....
+Full migration from Cloud Run to Kubernetes managed via ArgoCD, configuration via Helm ConfigMaps, and removal of legacy deployment workflows.
 
 See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
