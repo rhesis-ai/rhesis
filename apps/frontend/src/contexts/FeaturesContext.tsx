@@ -34,6 +34,7 @@ interface FeaturesState {
   enabled: ReadonlySet<string>;
   warnings: Readonly<Record<string, string>>;
   isLocalMode: boolean;
+  rhesisKeyEnabled: boolean;
   loading: boolean;
   error: Error | null;
 }
@@ -43,6 +44,7 @@ const DEFAULT_STATE: FeaturesState = {
   enabled: new Set<string>(),
   warnings: {},
   isLocalMode: false,
+  rhesisKeyEnabled: false,
   loading: true,
   error: null,
 };
@@ -90,6 +92,7 @@ export function FeaturesProvider({
         enabled: new Set<string>(),
         warnings: {},
         isLocalMode: false,
+        rhesisKeyEnabled: false,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -99,6 +102,7 @@ export function FeaturesProvider({
       enabled: new Set<string>(data.enabled),
       warnings: data.warnings ?? {},
       isLocalMode: data.is_local ?? false,
+      rhesisKeyEnabled: data.rhesis_key_enabled ?? false,
       loading: false,
       error: null,
     };
@@ -143,14 +147,22 @@ export function useFeaturesState(): FeaturesState {
 /**
  * Whether this deployment runs in local/self-hosted mode.
  *
- * Single source of truth for local-only UI (e.g. the Rhesis platform key
- * card, greying Polyphemus in the provider picker) -- derived from the
- * backend's `BACKEND_ENV` via `GET /features` instead of a separate
- * frontend-only env var, so the two can never disagree. Fail-closed like
- * every other flag on this context: `false` while loading or on error.
+ * Single source of truth for local-only UI (e.g. greying Polyphemus in the
+ * provider picker) -- derived from the backend's `BACKEND_ENV` via
+ * `GET /features`. Fail-closed: `false` while loading or on error.
  */
 export function useIsLocalMode(): boolean {
   return useContext(FeaturesContext).isLocalMode;
+}
+
+/**
+ * Whether the Rhesis platform API key option is enabled (ENABLE_RHESIS_KEY).
+ *
+ * Controls the platform key UI and endpoints independently of deployment type.
+ * Fail-closed: `false` while loading or on error.
+ */
+export function useRhesisKeyEnabled(): boolean {
+  return useContext(FeaturesContext).rhesisKeyEnabled;
 }
 
 /**

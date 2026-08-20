@@ -97,6 +97,7 @@ class ApplicationSettings(BaseSettings):
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
     json_logger_enabled: bool = Field(default=False, alias="JSON_LOGGER_ENABLED")
     api_base_url: str = Field(default="http://localhost:8080", alias="API_BASE_URL")
+    enable_rhesis_key: bool = Field(default=False, alias="ENABLE_RHESIS_KEY")
 
     @field_validator("api_base_url")
     @classmethod

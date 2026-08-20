@@ -17,6 +17,11 @@ export interface FeaturesResponse {
    * predates this field.
    */
   is_local?: boolean;
+  /**
+   * Whether the Rhesis platform API key option is enabled (ENABLE_RHESIS_KEY).
+   * Optional to tolerate older backends that predate this field.
+   */
+  rhesis_key_enabled?: boolean;
 }
 
 /**

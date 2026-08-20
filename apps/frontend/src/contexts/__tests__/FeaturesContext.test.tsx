@@ -9,6 +9,7 @@ import {
   useFeature,
   useFeaturesState,
   useIsLocalMode,
+  useRhesisKeyEnabled,
 } from '../FeaturesContext';
 
 const mockGetFeatures = jest.fn();
@@ -255,6 +256,63 @@ describe('useIsLocalMode', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('local-mode')).toHaveTextContent('false')
+    );
+  });
+});
+
+function RhesisKeyEnabledProbe() {
+  const rhesisKeyEnabled = useRhesisKeyEnabled();
+  return <div data-testid="rhesis-key-enabled">{String(rhesisKeyEnabled)}</div>;
+}
+
+describe('useRhesisKeyEnabled', () => {
+  it('returns true when the backend reports rhesis_key_enabled', async () => {
+    mockGetFeatures.mockResolvedValue({
+      license: LICENSE,
+      enabled: [],
+      rhesis_key_enabled: true,
+    });
+
+    render(
+      <FeaturesProvider>
+        <RhesisKeyEnabledProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent('true')
+    );
+  });
+
+  it('defaults to false when rhesis_key_enabled is absent (older backend)', async () => {
+    mockGetFeatures.mockResolvedValue({ license: LICENSE, enabled: [] });
+
+    render(
+      <FeaturesProvider>
+        <RhesisKeyEnabledProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent(
+        'false'
+      )
+    );
+  });
+
+  it('fails closed (false) while loading and on fetch error', async () => {
+    mockGetFeatures.mockRejectedValue(new Error('boom'));
+
+    render(
+      <FeaturesProvider>
+        <RhesisKeyEnabledProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('rhesis-key-enabled')).toHaveTextContent(
+        'false'
+      )
     );
   });
 });

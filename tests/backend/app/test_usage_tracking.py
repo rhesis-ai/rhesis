@@ -438,23 +438,23 @@ class TestConfiguredModelProvenance:
 
 
 class TestPlatformKeyModelProvenance:
-    """A local-mode platform-key model is ours to bill.
+    """A platform-key model is ours to bill.
 
     The one place where ``_is_hosted_model`` cannot be used to derive the
     stamp. It reads *any* API key as the org's own, and the Rhesis platform
     key looks exactly like one while actually being Rhesis-issued credentials
-    for local/self-hosted mode -- so ``_try_platform_key_model`` has to pass
-    ``metered`` explicitly. Pinned because it is a merge-time judgement call
-    (#2377 landed on main wiring the old per-call-site accrual callback here,
-    which this branch replaced with the stamp) and getting it backwards would
-    either bill an org for its own spend or stop billing ours, silently.
+    -- so ``_try_platform_key_model`` has to pass ``metered`` explicitly.
+    Pinned because it is a merge-time judgement call (#2377 landed on main
+    wiring the old per-call-site accrual callback here, which this branch
+    replaced with the stamp) and getting it backwards would either bill an
+    org for its own spend or stop billing ours, silently.
     """
 
     @pytest.fixture
-    def in_local_mode_with_a_platform_key(self, monkeypatch):
+    def rhesis_key_enabled_with_a_platform_key(self, monkeypatch):
         monkeypatch.setattr(
             "rhesis.backend.app.utils.user_model_utils.get_application_settings",
-            lambda: SimpleNamespace(is_local=True),
+            lambda: SimpleNamespace(enable_rhesis_key=True),
         )
         monkeypatch.setattr(
             "rhesis.backend.app.utils.user_model_utils.get_platform_api_key",
@@ -465,7 +465,7 @@ class TestPlatformKeyModelProvenance:
             lambda **kwargs: _StubLLM(kwargs.get("model_name", "default")),
         )
 
-    def test_language_model_is_stamped_metered(self, in_local_mode_with_a_platform_key):
+    def test_language_model_is_stamped_metered(self, rhesis_key_enabled_with_a_platform_key):
         from rhesis.backend.app.utils.user_model_utils import _try_platform_key_model
 
         model = _try_platform_key_model(
@@ -474,11 +474,11 @@ class TestPlatformKeyModelProvenance:
 
         assert model.usage_metered is True
 
-    def test_returns_none_outside_local_mode(self, monkeypatch):
+    def test_returns_none_when_rhesis_key_disabled(self, monkeypatch):
         """So callers fall through to their own delegation/default logic."""
         monkeypatch.setattr(
             "rhesis.backend.app.utils.user_model_utils.get_application_settings",
-            lambda: SimpleNamespace(is_local=False),
+            lambda: SimpleNamespace(enable_rhesis_key=False),
         )
         from rhesis.backend.app.utils.user_model_utils import _try_platform_key_model
 

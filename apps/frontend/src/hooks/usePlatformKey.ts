@@ -9,24 +9,24 @@ import {
 } from '@/utils/api-client/platform-client';
 import type { PlatformKeyStatus } from '@/utils/api-client/interfaces/platform';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useIsLocalMode } from '@/contexts/FeaturesContext';
+import { useRhesisKeyEnabled } from '@/contexts/FeaturesContext';
 
 /**
  * Status of, and mutations for, the deployment-wide Rhesis platform API key.
  *
- * Only fetches in local mode (the backend endpoints 404 otherwise). On a
- * successful set/clear the models query is invalidated so any grid greying that
- * depends on model availability re-resolves.
+ * Only fetches when ENABLE_RHESIS_KEY is set (the backend endpoints 404
+ * otherwise). On a successful set/clear the models query is invalidated so
+ * any grid greying that depends on model availability re-resolves.
  */
 export function usePlatformKey(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
-  const isLocalMode = useIsLocalMode();
+  const rhesisKeyEnabled = useRhesisKeyEnabled();
   const queryClient = useQueryClient();
 
   const query = useQuery<PlatformKeyStatus>({
     queryKey: platformKeyKeys.all(),
     queryFn: getRhesisPlatformKeyStatus,
-    enabled: enabled && isAuthenticated && isLocalMode,
+    enabled: enabled && isAuthenticated && rhesisKeyEnabled,
     staleTime: 60_000,
   });
 
@@ -50,5 +50,5 @@ export function usePlatformKey(enabled = true) {
     },
   });
 
-  return { query, setKey, clearKey, isLocalMode };
+  return { query, setKey, clearKey, rhesisKeyEnabled };
 }

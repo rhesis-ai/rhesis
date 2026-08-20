@@ -1,7 +1,7 @@
-"""Local-mode Rhesis platform API key management.
+"""Rhesis platform API key management.
 
-All endpoints are gated by :func:`require_local_mode` (they 404 on non-local
-deployments, preventing enumeration) and by ``require_current_user_or_token``.
+All endpoints are gated by :func:`require_rhesis_key_enabled` (they 404 when
+ENABLE_RHESIS_KEY is not set, preventing enumeration) and by ``require_current_user_or_token``.
 The organization is always resolved from the authenticated user, so a caller
 can only read or write their own organization's platform key. The raw key is
 never returned by any response.
@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.feature_gates import require_local_mode
+from rhesis.backend.app.auth.feature_gates import require_rhesis_key_enabled
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.models.user import User
@@ -31,11 +31,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/platform",
     tags=["platform"],
-    dependencies=[Depends(require_local_mode)],
+    dependencies=[Depends(require_rhesis_key_enabled)],
     responses={404: {"description": "Not found"}},
-    # Local-only endpoints: keep them out of the OpenAPI schema so they are not
-    # enumerable on non-local (SaaS) deployments. require_local_mode still
-    # enforces the 404 behavior regardless.
+    # Keep these out of the OpenAPI schema when the feature is disabled so they
+    # are not enumerable. require_rhesis_key_enabled enforces 404 regardless.
     include_in_schema=False,
 )
 

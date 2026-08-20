@@ -41,6 +41,9 @@ class FeaturesResponse(BaseModel):
     #: the frontend derives this from here instead of its own env var so the two
     #: can never drift apart.
     is_local: bool = False
+    #: Whether the Rhesis platform API key option is enabled (ENABLE_RHESIS_KEY=true).
+    #: Controls the platform key UI and endpoints independently of deployment type.
+    rhesis_key_enabled: bool = False
 
 
 @router.get("", response_model=FeaturesResponse)
@@ -61,4 +64,5 @@ def list_features(
         warnings=warnings,
         limits=limits,
         is_local=get_application_settings().is_local,
+        rhesis_key_enabled=get_application_settings().enable_rhesis_key,
     )

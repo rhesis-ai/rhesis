@@ -122,6 +122,7 @@ CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 
 # Environment
 BACKEND_ENV=local
+ENABLE_RHESIS_KEY=true
 DEV_MODE=true
 LOG_LEVEL=DEBUG
 OTEL_RHESIS_TELEMETRY_ENABLED=false

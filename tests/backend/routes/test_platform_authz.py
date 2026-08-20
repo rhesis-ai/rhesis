@@ -33,9 +33,9 @@ def _auth(token) -> dict:
     return {"Authorization": f"Bearer {token.token}"}
 
 
-def _local_mode():
-    """Patch require_local_mode's settings check so the routes don't 404."""
-    settings = type("_Settings", (), {"is_local": True})()
+def _rhesis_key_enabled():
+    """Patch require_rhesis_key_enabled's settings check so the routes don't 404."""
+    settings = type("_Settings", (), {"enable_rhesis_key": True})()
     return patch(
         "rhesis.backend.app.auth.feature_gates.get_application_settings",
         return_value=settings,
@@ -83,20 +83,20 @@ class TestPlatformKeyAdminDeniedForNonOwner:
 
     def test_set_key_denied(self, client: TestClient, test_db):
         _org, _user, token = _context(test_db, "Member")
-        with _ee_provider_active(), _local_mode():
+        with _ee_provider_active(), _rhesis_key_enabled():
             resp = client.put("/platform/rhesis-key", json={"key": "rh-test"}, headers=_auth(token))
         assert resp.status_code == 403, resp.text
 
     def test_clear_key_denied(self, client: TestClient, test_db):
         _org, _user, token = _context(test_db, "Member")
-        with _ee_provider_active(), _local_mode():
+        with _ee_provider_active(), _rhesis_key_enabled():
             resp = client.delete("/platform/rhesis-key", headers=_auth(token))
         assert resp.status_code == 403, resp.text
 
     def test_read_key_status_still_allowed(self, client: TestClient, test_db):
         """GET is read-only (masked key only) and stays open to any member."""
         _org, _user, token = _context(test_db, "Member")
-        with _ee_provider_active(), _local_mode():
+        with _ee_provider_active(), _rhesis_key_enabled():
             resp = client.get("/platform/rhesis-key", headers=_auth(token))
         assert resp.status_code != 403, resp.text
 
@@ -108,12 +108,12 @@ class TestPlatformKeyAdminAllowedForOwner:
 
     def test_set_key_allowed(self, client: TestClient, test_db):
         _org, _user, token = _context(test_db, "Owner")
-        with _ee_provider_active(), _local_mode(), _no_op_validation():
+        with _ee_provider_active(), _rhesis_key_enabled(), _no_op_validation():
             resp = client.put("/platform/rhesis-key", json={"key": "rh-test"}, headers=_auth(token))
         assert resp.status_code != 403, resp.text
 
     def test_clear_key_allowed(self, client: TestClient, test_db):
         _org, _user, token = _context(test_db, "Owner")
-        with _ee_provider_active(), _local_mode():
+        with _ee_provider_active(), _rhesis_key_enabled():
             resp = client.delete("/platform/rhesis-key", headers=_auth(token))
         assert resp.status_code != 403, resp.text
