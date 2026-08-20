@@ -35,7 +35,7 @@ class TestBinaryVerdicts:
         assert verdict_from_score(_metric("binary"), score) == score.strip().lower()
 
     def test_rendered_as_pass_not_as_one_point_zero(self):
-        """`1.0` beside an expected `pass` reads as a disagreement to a human."""
+        """A reviewer asked to judge `1.0` is being asked about the wrong thing."""
         assert verdict_from_score(_metric("binary"), 1.0) == "pass"
 
     @pytest.mark.parametrize("score", ["no", "false", "0", "harmful"])

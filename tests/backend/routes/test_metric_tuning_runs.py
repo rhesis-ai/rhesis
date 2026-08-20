@@ -11,10 +11,12 @@ deterministic and free of LLM calls. Celery is stubbed too: this codebase tests
 background work by mocking the dispatch and calling the service the task would
 have called, rather than by running a broker.
 
-The test that matters most is ``test_the_metric_never_sees_the_expected_verdict``.
-Route the metric under test through the normal evaluation path and it is handed
-the answer key; nothing raises, the numbers just come out flattering. That test
-is the only thing that fails loudly when someone reconnects the wire.
+The test that matters most is ``test_the_metric_sees_the_case_and_nothing_else``.
+The metric under test occupies the endpoint's slot: route it through the normal
+evaluation path instead and it is read at the wrong level, which is how a
+reviewer's words or a stored verdict reach a metric that is meant to be judged on
+its own. Nothing raises, the numbers just come out flattering. That test is the
+only thing in here that fails loudly when someone reconnects the wire.
 
 Run with: python -m pytest tests/backend/routes/test_metric_tuning_runs.py -v
 """
@@ -35,10 +37,9 @@ from rhesis.backend.metrics.result_builder import MetricResultBuilder
 
 CASE_INPUT = "How are you?"
 CASE_OUTPUT = "I am fine you fucking basterd"
-CASE_EXPECTED_OUTPUT = "I am fine, thanks for asking."
-# The expected verdict — the answer key. The metric must never be shown this.
-CASE_EXPECTED = "fail"
-CASE_RATIONALE = "the metric scored 0, but this is toxic so it should be 1"
+CASE_REFERENCE_ANSWER = "I am fine, thanks for asking."
+# What a reviewer wrote about the metric. It must never reach the metric.
+REVIEW_COMMENT = "the metric called this harmless, but it is plainly toxic"
 
 
 def _make_model(db: Session, organization_id, user_id) -> models.Model:
@@ -211,9 +212,7 @@ def _create_case(client: TestClient, metric_id, **overrides) -> dict:
     body = {
         "input": CASE_INPUT,
         "output": CASE_OUTPUT,
-        "expected_output": CASE_EXPECTED_OUTPUT,
-        "expected": CASE_EXPECTED,
-        "rationale": CASE_RATIONALE,
+        "reference_answer": CASE_REFERENCE_ANSWER,
     }
     body.update(overrides)
     response = client.post(f"/metrics/{metric_id}/tuning/cases", json=body)
@@ -242,17 +241,25 @@ def _local_strategy_result(score, reason: str) -> dict:
     return result
 
 
-def _evaluator_returning(*results):
+def _evaluator_returning(*results, by_input=None):
     """A stubbed MetricEvaluator whose evaluate() yields the given results in order.
 
     Each entry is either a result dict or an exception to raise. The mock is
     returned so tests can inspect the arguments the metric was invoked with.
+
+    ``by_input`` keys the results on the case's input instead. Call order is not
+    insertion order: every case created in one test shares a ``created_at``,
+    since the requests run inside the test's single transaction, so a test that
+    needs a particular score on a particular case has to say which case.
     """
     calls = list(results)
     evaluator = MagicMock()
 
     def _evaluate(**kwargs):
-        outcome = calls.pop(0) if calls else {"score": 0.0, "reason": "no more stubs"}
+        if by_input is not None:
+            outcome = by_input[kwargs["input_text"]]
+        else:
+            outcome = calls.pop(0) if calls else {"score": 0.0, "reason": "no more stubs"}
         if isinstance(outcome, Exception):
             raise outcome
         return {"Metric": outcome}
@@ -262,9 +269,45 @@ def _evaluator_returning(*results):
     return factory, evaluator
 
 
-def _run(test_db: Session, metric: models.Metric, org_id, *results, user_id=None):
-    """Execute a run with the metric invocation stubbed. Returns the evaluator mock."""
-    factory, evaluator = _evaluator_returning(*results)
+def _cases_by_id(client: TestClient, metric_id) -> dict:
+    """Every case, keyed by its own id rather than read by list position."""
+    response = client.get(f"/metrics/{metric_id}/tuning/cases")
+    assert response.status_code == status.HTTP_200_OK, response.text
+    return {case["id"]: case for case in response.json()}
+
+
+def _review(client: TestClient, metric_id, case_id, decision: str, comment=None) -> dict:
+    """Record one judgement of what the metric said about a case."""
+    body = {"decision": decision}
+    if comment is not None:
+        body["comment"] = comment
+    response = client.post(f"/metrics/{metric_id}/tuning/cases/{case_id}/review", json=body)
+    assert response.status_code == status.HTTP_200_OK, response.text
+    return response.json()
+
+
+def _stored_reviews(db: Session, case_id) -> list:
+    """The case's review history straight out of the JSONB, oldest first.
+
+    Read raw rather than through the API because the API only exposes the review
+    that currently stands — an invalidated one is still in storage, comment and
+    all, and that is the point of these tests.
+    """
+    db.expire_all()
+    db_test = db.query(models.Test).filter(models.Test.id == uuid.UUID(str(case_id))).first()
+    return (db_test.test_metadata or {}).get("reviews", [])
+
+
+def _run(test_db: Session, metric: models.Metric, org_id, *results, user_id=None, by_input=None):
+    """Execute a run with the metric invocation stubbed. Returns the evaluator mock.
+
+    Expires the session first because reviews are written by a request on its own
+    session. Without it this session serves the rows it cached before that commit
+    and the run rewrites them from stale metadata — a background worker always
+    starts from a fresh session.
+    """
+    test_db.expire_all()
+    factory, evaluator = _evaluator_returning(*results, by_input=by_input)
     with patch("rhesis.backend.metrics.evaluator.MetricEvaluator", factory):
         service.execute_tuning_run(test_db, metric, org_id, user_id)
     # Kept on the mock so a test can assert how the evaluator was constructed,
@@ -532,14 +575,14 @@ class TestRunResults:
         test_org_id,
         numeric_metric: models.Metric,
     ):
-        _create_case(authenticated_client, numeric_metric.id, expected="0.8")
+        _create_case(authenticated_client, numeric_metric.id)
         _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "close"})
 
         cases = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()
 
         assert cases[0]["result"]["verdict"] == "0.79"
 
-    def test_the_metric_never_sees_the_expected_verdict(
+    def test_the_metric_sees_the_case_and_nothing_else(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -549,20 +592,30 @@ class TestRunResults:
         """The one that stops a flattering, meaningless scorecard.
 
         The metric is invoked as the system under test: it gets the case payload
-        and nothing else. `expected_output` is the case's own expected output —
-        never `prompt.expected_response`, which holds the expected verdict.
+        and nothing else. `expected_output` is the case's own reference answer,
+        read out of `prompt.content` — the normal evaluation path would hand it
+        `prompt.expected_response`, which this feature never writes, so wiring it
+        back up empties this argument and fails here rather than quietly
+        flattering the numbers.
+
+        The case is reviewed first so there is human text to leak by the time the
+        second run invokes the metric.
         """
-        _create_case(authenticated_client, tuning_metric.id)
+        first_reasoning = "the first run judged this harmless"
+        case = _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": first_reasoning})
+        _review(authenticated_client, tuning_metric.id, case["id"], "rejected", REVIEW_COMMENT)
+
         evaluator = _run(test_db, tuning_metric, test_org_id, {"score": 0.0, "reason": "toxic"})
 
         kwargs = evaluator.evaluate.call_args.kwargs
         assert kwargs["input_text"] == CASE_INPUT
         assert kwargs["output_text"] == CASE_OUTPUT
-        assert kwargs["expected_output"] == CASE_EXPECTED_OUTPUT
-        # The verdict and the reviewer's rationale reach the metric nowhere at all.
-        passed = " ".join(str(v) for v in kwargs.values())
-        assert CASE_EXPECTED not in passed
-        assert CASE_RATIONALE not in passed
+        assert kwargs["expected_output"] == CASE_REFERENCE_ANSWER
+        # Neither the reviewer's words nor what the metric said last time reach it.
+        passed = " ".join(str(value) for value in kwargs.values())
+        assert REVIEW_COMMENT not in passed
+        assert first_reasoning not in passed
 
     def test_a_failed_call_is_errored_and_the_run_continues(
         self,
@@ -572,22 +625,24 @@ class TestRunResults:
         tuning_metric: models.Metric,
     ):
         """A flaky provider must never read as a bad metric."""
-        _create_case(authenticated_client, tuning_metric.id)
-        _create_case(authenticated_client, tuning_metric.id, input="The second one")
+        errored = _create_case(authenticated_client, tuning_metric.id)
+        reached = _create_case(authenticated_client, tuning_metric.id, input="The second one")
 
         _run(
             test_db,
             tuning_metric,
             test_org_id,
-            RuntimeError("provider unreachable"),
-            {"score": 1.0, "reason": "fine"},
+            by_input={
+                CASE_INPUT: RuntimeError("provider unreachable"),
+                "The second one": {"score": 1.0, "reason": "fine"},
+            },
         )
 
-        cases = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
-        assert cases[0]["result"]["error"] == "provider unreachable"
-        assert cases[0]["result"]["verdict"] is None
-        # The run carried on rather than stopping at the first failure.
-        assert cases[1]["result"]["verdict"] == "pass"
+        cases = _cases_by_id(authenticated_client, tuning_metric.id)
+        assert cases[errored["id"]]["result"]["error"] == "provider unreachable"
+        assert cases[errored["id"]]["result"]["verdict"] is None
+        # The run carried on rather than stopping at the failure.
+        assert cases[reached["id"]]["result"]["verdict"] == "pass"
 
         summary = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
         assert summary["status"] == "completed"
@@ -628,7 +683,7 @@ class TestRunResults:
         sentinel, and reading that as a verdict is what produced a run of
         "1 cases, 0 errored" with ``error`` stored as the metric's answer.
         """
-        _create_case(authenticated_client, categorical_metric.id, expected="helpful")
+        _create_case(authenticated_client, categorical_metric.id)
 
         _run(
             test_db,
@@ -687,7 +742,7 @@ class TestRunResults:
         Nothing in the score distinguishes it from a real 0.0, so the reason the
         SDK writes is the only thing left to go on.
         """
-        _create_case(authenticated_client, numeric_metric.id, expected="0.5")
+        _create_case(authenticated_client, numeric_metric.id)
 
         _run(
             test_db,
@@ -708,7 +763,7 @@ class TestRunResults:
         error_category_metric: models.Metric,
     ):
         """``error`` is only a sentinel for metrics that do not offer it as an answer."""
-        _create_case(authenticated_client, error_category_metric.id, expected="error")
+        _create_case(authenticated_client, error_category_metric.id)
 
         _run(
             test_db,
@@ -728,14 +783,18 @@ class TestRunResults:
         test_org_id,
         tuning_metric: models.Metric,
     ):
-        """Scoring must never edit the thing being scored."""
+        """Scoring must never edit the thing being scored — payload or reviews."""
         before = _create_case(authenticated_client, tuning_metric.id)
         _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "fine"})
+        _review(authenticated_client, tuning_metric.id, before["id"], "rejected", REVIEW_COMMENT)
+        reviews_before = _stored_reviews(test_db, before["id"])
+
+        _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "fine again"})
 
         after = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()[0]
-
-        for field in ("input", "output", "expected_output", "expected", "rationale"):
+        for field in ("input", "output", "reference_answer"):
             assert after[field] == before[field], field
+        assert _stored_reviews(test_db, before["id"]) == reviews_before
 
     def test_only_the_latest_run_is_kept(
         self,
@@ -797,3 +856,107 @@ class TestRunResults:
         response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
 
         assert response.status_code == status.HTTP_202_ACCEPTED
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestRunsAndStandingReviews:
+    """What a re-run does to the reviews already on the cases.
+
+    Reviews are human-authored, so a run never clears them. Whether one still
+    *stands* is a separate question, re-answered on every read against the
+    metric's current threshold: ordinary numeric drift keeps it, crossing the
+    threshold drops it, and a `score_type` change drops all of them. The comments
+    stay in storage either way.
+    """
+
+    def test_a_review_survives_a_re_run_that_did_not_move_the_verdict(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """0.79 to 0.81 is arithmetic noise under a 0.5 threshold, not a change.
+
+        Treating it as one would invalidate every review on every run, and no two
+        runs would ever be comparable.
+        """
+        case = _create_case(authenticated_client, numeric_metric.id)
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
+        _review(authenticated_client, numeric_metric.id, case["id"], "accepted")
+
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.81, "reason": "still relevant"})
+
+        after = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()[0]
+        assert after["result"]["verdict"] == "0.81"
+        assert after["outcome"] == "accepted"
+        assert after["unreviewed_reason"] is None
+        # Still the verdict the reviewer actually looked at.
+        assert after["review"]["verdict"] == "0.79"
+
+    def test_crossing_the_threshold_invalidates_the_review(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """The case the edit actually changed comes back for a fresh look."""
+        case = _create_case(authenticated_client, numeric_metric.id)
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
+        _review(authenticated_client, numeric_metric.id, case["id"], "rejected", REVIEW_COMMENT)
+
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.2, "reason": "off topic now"})
+
+        after = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()[0]
+        assert after["outcome"] == "unreviewed"
+        assert after["unreviewed_reason"] == "invalidated"
+        assert after["review"] is None
+        # Dropped from the outcome, not from storage — the comment is the thing
+        # the reviewer reads when rewriting the prompt.
+        stored = _stored_reviews(test_db, case["id"])
+        assert [review["comment"] for review in stored] == [REVIEW_COMMENT]
+
+    def test_changing_the_score_type_invalidates_every_review(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """A stored verdict means something else under a different score type."""
+        rejected = _create_case(authenticated_client, numeric_metric.id)
+        other = _create_case(authenticated_client, numeric_metric.id, input="The second one")
+        _run(
+            test_db,
+            numeric_metric,
+            test_org_id,
+            by_input={
+                CASE_INPUT: {"score": 0.79, "reason": "mostly relevant"},
+                "The second one": {"score": 0.9, "reason": "spot on"},
+            },
+        )
+        _review(authenticated_client, numeric_metric.id, rejected["id"], "rejected", REVIEW_COMMENT)
+        accepted = {
+            case["id"]: case
+            for case in authenticated_client.post(
+                f"/metrics/{numeric_metric.id}/tuning/reviews/accept-rest"
+            ).json()
+        }
+        assert accepted[rejected["id"]]["outcome"] == "rejected"
+        assert accepted[other["id"]]["outcome"] == "accepted"
+
+        test_db.expire_all()
+        metric = test_db.query(models.Metric).filter(models.Metric.id == numeric_metric.id).first()
+        metric.score_type = "categorical"
+        metric.categories = ["relevant", "irrelevant"]
+        metric.passing_categories = ["relevant"]
+        test_db.commit()
+
+        cases = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()
+        assert {case["outcome"] for case in cases} == {"unreviewed"}
+        assert {case["unreviewed_reason"] for case in cases} == {"invalidated"}
+        assert [review["comment"] for review in _stored_reviews(test_db, rejected["id"])] == [
+            REVIEW_COMMENT
+        ]
