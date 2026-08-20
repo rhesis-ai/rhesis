@@ -19,9 +19,9 @@ def auto_instrument(*frameworks: str) -> List[str]:
         *frameworks: Specific frameworks. Recognized values:
                      ``"langchain"``, ``"langgraph"``, ``"autogen"``,
                      ``"pydantic_ai"``, ``"agent_framework"`` (alias:
-                     ``"maf"``, for Microsoft Agent Framework), and
+                     ``"maf"``, for Microsoft Agent Framework),
                      ``"google_adk"`` (alias: ``"adk"``, for the Google
-                     Agent Development Kit).
+                     Agent Development Kit), and ``"haystack"``.
                      If empty, auto-detects all installed frameworks.
 
     Returns:
@@ -45,6 +45,10 @@ def auto_instrument(*frameworks: str) -> List[str]:
 
         # Google ADK
         auto_instrument("google_adk")  # or "adk"
+
+        # Haystack. Set HAYSTACK_CONTENT_TRACING_ENABLED=true before importing
+        # haystack, or spans carry no prompts or completions.
+        auto_instrument("haystack")
     """
     from rhesis.sdk.telemetry.integrations import get_all_integrations
 
