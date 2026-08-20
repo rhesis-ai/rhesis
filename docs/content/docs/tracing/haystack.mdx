@@ -1,0 +1,282 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Haystack
+
+Zero-config tracing for [Haystack](https://haystack.deepset.ai/) pipelines, components, and agents.
+
+Haystack does not emit OpenTelemetry spans on its own. It has its own tracing abstraction, and an integration registers a tracer implementation with it. Rhesis registers one that writes spans directly in the Rhesis [semantic conventions](/docs/tracing/semantic-conventions), so a pipeline run arrives as a trace whose children are named after what each component does — not as one opaque span per run. Your pipeline code does not change.
+
+<Mermaid chart={`flowchart LR
+    AI["auto_instrument('haystack')"] --> HS["haystack.tracing.enable_tracing"]
+    HS --> RUN["Pipeline / Agent run"]
+    RUN --> T["ai.* / function.* traces"]`} />
+
+## Installation
+
+Install the SDK with the `haystack` extra:
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install "rhesis-sdk[haystack]"`}
+</CodeBlock>
+
+## Enable content tracing first
+
+Haystack reads `HAYSTACK_CONTENT_TRACING_ENABLED` once, when `haystack` is imported. Set it before that import or spans carry no prompts, completions, or tool input and output — and nothing can switch it on afterwards. The integration logs a warning when it starts up and finds the flag off.
+
+Export it in the environment that starts your process:
+
+<CodeBlock filename="terminal" language="bash">
+{`export HAYSTACK_CONTENT_TRACING_ENABLED=true`}
+</CodeBlock>
+
+Or set it at the very top of your entry point, above every Haystack import:
+
+<CodeBlock filename="app.py" language="python">
+{`import os
+
+os.environ["HAYSTACK_CONTENT_TRACING_ENABLED"] = "true"
+
+from haystack import Pipeline  # every haystack import must come after the line above`}
+</CodeBlock>
+
+## Quick Start
+
+Create the `RhesisClient` first — it installs the OpenTelemetry tracer provider and the Rhesis exporter — then call `auto_instrument`. After that, use Haystack exactly as you normally would.
+
+<CodeBlock filename="app.py" language="python">
+{`import os
+
+os.environ["HAYSTACK_CONTENT_TRACING_ENABLED"] = "true"
+
+from haystack import Pipeline
+from haystack.components.builders import ChatPromptBuilder
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.dataclasses import ChatMessage
+
+from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+
+# 1. Initialize Rhesis (sets up tracing). Required before auto_instrument().
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+# 2. Enable Haystack auto-instrumentation
+auto_instrument("haystack")
+
+# 3. Use Haystack normally - every pipeline, component, and tool call is traced
+pipe = Pipeline()
+pipe.add_component("prompt", ChatPromptBuilder(
+    template=[ChatMessage.from_user("{{question}}")],
+    required_variables=["question"],
+))
+pipe.add_component("llm", OpenAIChatGenerator(model="gpt-4o-mini"))
+pipe.connect("prompt.prompt", "llm.messages")
+
+result = pipe.run({"prompt": {"question": "What is Haystack?"}})
+print(result["llm"]["replies"][0].text)`}
+</CodeBlock>
+
+<Callout type="info">
+  **Order matters.** `auto_instrument()` must run **after** `RhesisClient` is created. Without an active Rhesis tracer provider the call returns an empty list and logs a warning, because the default OpenTelemetry provider drops every span it is given.
+</Callout>
+
+`auto_instrument()` with no arguments auto-detects every installed framework, including Haystack. Pass `"haystack"` to enable it explicitly. The call returns the list of frameworks that were instrumented:
+
+<CodeBlock filename="app.py" language="python">
+{`enabled = auto_instrument("haystack")
+assert "haystack" in enabled  # ["haystack"]`}
+</CodeBlock>
+
+## What Gets Traced
+
+A pipeline run becomes the trace root, with one child span per component, named after the operation the component performs rather than its class. Haystack 3.0 agents add a span per reasoning step and per tool call; Haystack 2.x routed tool calls through a single `ToolInvoker` component span, which is renamed after the tools it actually called.
+
+### Operation Mapping
+
+| Haystack operation | Rhesis span | Also recorded |
+|---|---|---|
+| `Pipeline.run` (root) | `function.haystack.pipeline.run` | Conversation input and output, trace name |
+| `Pipeline.run_async` (root) | `function.haystack.async_pipeline.run` | Conversation input and output |
+| `Agent.run` | `ai.agent.invoke` | `ai.agent.name`, agent input and output |
+| Agent reasoning step | `function.haystack.agent.step` | |
+| Any `*ChatGenerator` / `*Generator` | `ai.llm.invoke` | `ai.model.name`, token usage, `ai.prompt` / `ai.completion` events |
+| Any `*Retriever` | `ai.retrieval` | |
+| Any `*Embedder` | `ai.embedding.generate` | `ai.model.name`, token usage |
+| Agent tool call, or a 2.x `ToolInvoker` | `ai.tool.invoke` | `ai.tool.name`, `ai.tool.type`, tool input and output |
+| One agent invoked through another's tool | `ai.agent.handoff` | `ai.agent.handoff.from`, `ai.agent.handoff.to` |
+| Any other component | `function.haystack.<component_name>` | |
+
+Components Rhesis has no specific mapping for still get a span, named after the component instance so the pipeline's shape stays visible in the trace.
+
+## Attaching Your Own Metadata
+
+`rhesis_invocation_context` attaches metadata to every span in the run it wraps, so you can filter a trace by your own session or test-run identifier:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.integrations.haystack import rhesis_invocation_context
+
+with rhesis_invocation_context({"session_id": "chat-42", "user_id": "u-7"}):
+    result = pipe.run({"prompt": {"question": "What is Haystack?"}})`}
+</CodeBlock>
+
+`session_id`, `conversation_id`, `test_run_id`, `test_id`, `test_result_id`, and `test_configuration_id` map onto the Rhesis conversation and test-execution attributes. Every other key travels as `haystack.invocation.<key>`, so `user_id` above lands on `haystack.invocation.user_id`.
+
+Passing a `session_id` (or `conversation_id`) is also what marks the run's root span as a conversation turn. Without one there is no conversation to group into, and the turn-root flag is not set.
+
+## Conversation Tracing
+
+An application that drives Haystack from its own loop — a chat server, a REPL, a batch script — needs two things `auto_instrument` alone does not give it: turns grouped into one trace instead of one trace per exchange, and a span wrapping the whole run so the turn has a root of its own. `RhesisTracing` provides both.
+
+<CodeBlock filename="chat.py" language="python">
+{`from rhesis.sdk.telemetry.integrations.haystack import RhesisTracing
+
+tracing = RhesisTracing("My Assistant")
+tracing.start_conversation("conversation-1")
+
+for message in ["Hello", "Tell me more"]:
+    with tracing.turn(message) as turn:
+        result = pipe.run({"prompt": {"question": message}})
+        turn.output = result["llm"]["replies"][0].text
+
+tracing.flush()`}
+</CodeBlock>
+
+Assign `turn.output` yourself. Only your application knows which part of a pipeline result is the reply the user saw — it may be a tool result or a value held in agent state rather than the last assistant message.
+
+Every turn after the first joins the first turn's trace, so the conversation reads as one trace. Calling `start_conversation` again begins a new one. `RhesisTracing` never raises: if Rhesis is not configured it logs a warning and every method becomes a no-op, so tracing cannot take your application down. Check `tracing.enabled` to report it.
+
+## Trace Links
+
+To show a "view this trace" link in your own UI, read the trace currently open in this context:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.integrations.haystack import get_trace_id, get_trace_url
+
+# Called from inside a run - from a component, or the function that invoked the pipeline.
+trace_id = get_trace_id()
+trace_url = get_trace_url()`}
+</CodeBlock>
+
+Both return an empty string outside a run. `get_trace_url` also returns empty when the frontend origin cannot be derived from your backend URL — set `RHESIS_FRONTEND_URL` for self-hosted deployments.
+
+## Content Capture and Privacy
+
+Content capture is on by default, and obeys two independent switches — both must allow it:
+
+- `HAYSTACK_CONTENT_TRACING_ENABLED`, Haystack's own flag, which must be `true` before Haystack is imported.
+- `RHESIS_DISABLE_CONTENT_CAPTURE`, the Rhesis-wide opt-out honoured by every integration.
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_DISABLE_CONTENT_CAPTURE=true`}
+</CodeBlock>
+
+With capture off, span names, timings, token counts, and model names are still recorded; prompts, completions, tool input and output, and conversation text are not.
+
+Two limits apply to what is recorded, and neither marks the value as shortened: conversation attributes are capped at 10,000 characters and content events at 8,000. Haystack's own `haystack.pipeline.input_data` tag carries the run payload regardless of the Rhesis opt-out, capped at 8,000 characters. There is no redaction hook — to strip fields before they leave the process, subclass the span handler.
+
+## Custom Span Handlers
+
+Subclass `DefaultSpanHandler` to add attributes or remove content, then pass it in before enabling:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.integrations.haystack import DefaultSpanHandler, get_integration
+
+class RedactingHandler(DefaultSpanHandler):
+    def handle(self, span, component_type):
+        super().handle(span, component_type)
+        span.raw_span().set_attribute("my.tenant", "acme")
+
+get_integration().configure(name="My App", span_handler=RedactingHandler())
+auto_instrument("haystack")`}
+</CodeBlock>
+
+`configure` also sets the trace name shown in the Rhesis UI, which otherwise defaults to `Haystack` or the value of `RHESIS_HAYSTACK_TRACE_NAME`.
+
+## Flush Behavior
+
+By default the integration exports once per pipeline run, as the root span closes. That costs one blocking round trip per run and guarantees everything is on the backend by the time `run()` returns — which is what you want for hard kills (`SIGKILL`, container OOM) and serverless sandbox freezes.
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_HAYSTACK_ENFORCE_FLUSH=false`}
+</CodeBlock>
+
+With it off, exporting is left to the batch processor and you flush on shutdown yourself. Do that only where a normal exit is guaranteed:
+
+<CodeBlock filename="server.py" language="python">
+{`from haystack.tracing import tracer
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    tracer.actual_tracer.flush()`}
+</CodeBlock>
+
+## Testing Haystack Applications
+
+`HaystackTarget` lets Penelope hold a multi-turn conversation with a pipeline or an agent — see [Conversation Simulation](/docs/tests/conversation-simulation).
+
+<CodeBlock filename="test.py" language="python">
+{`from rhesis.penelope import HaystackTarget
+
+# An Agent takes messages directly.
+target = HaystackTarget(agent, target_id="support-bot")
+
+# A Pipeline needs to be told where the message goes.
+target = HaystackTarget(
+    rag_pipeline,
+    target_id="rag-bot",
+    input_component="prompt",
+    input_key="question",
+)`}
+</CodeBlock>
+
+## Disabling
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import disable_auto_instrument
+
+disable_auto_instrument()`}
+</CodeBlock>
+
+Haystack swaps in its own no-op tracer, so runs after this emit nothing at all.
+
+## Two Packages, One Integration
+
+Rhesis and deepset both ship a Haystack integration. They cover the same ground and you only need one.
+
+| | `rhesis-sdk[haystack]` | `rhesis-haystack` |
+|---|---|---|
+| Maintained in | This repository | [haystack-core-integrations](https://github.com/deepset-ai/haystack-core-integrations) |
+| Import path | `rhesis.sdk.telemetry.integrations.haystack` | `haystack_integrations.tracing.rhesis` |
+| Enabled by | `auto_instrument("haystack")` | Adding a `RhesisConnector` to a pipeline |
+| Python | 3.12+ (the SDK's floor) | 3.10+ |
+| Dependencies | The full Rhesis SDK | `haystack-ai` and `rhesis[telemetry]` only |
+| Pipeline YAML | Not supported | `RhesisConnector` serializes with the pipeline |
+| Shares a provider with `@endpoint` / `@observe` | Yes | No, it owns its own |
+
+Pick `rhesis-sdk[haystack]` when you already use the Rhesis SDK for evaluations, test sets, or Penelope, and want Haystack spans nested under your `@endpoint` spans. Pick `rhesis-haystack` when you want tracing only, on a lighter dependency footprint, or you load pipelines from YAML.
+
+## Troubleshooting
+
+**`auto_instrument("haystack")` returns an empty list.** Either `haystack-ai` is not installed, or `RhesisClient` was not created first. The integration logs which.
+
+**Spans arrive with no prompts or completions.** `HAYSTACK_CONTENT_TRACING_ENABLED` was not `true` before Haystack was imported, or `RHESIS_DISABLE_CONTENT_CAPTURE` is set.
+
+**The trace shows the pipeline but no conversation text.** Conversation input and output are read from chat messages in the run payload. A pipeline whose input is a plain string — a `ChatPromptBuilder` variable, say — has no user message to find, so nothing is stamped rather than a serialized dict being shown as the turn. Use `RhesisTracing` to record the turn text yourself.
+
+**Turn grouping is missing.** Conversation grouping needs a `session_id`, through `rhesis_invocation_context` or `RhesisTracing.start_conversation`.
+
+**A `ComponentTool` invocation looks flat.** The tool span is recorded, but the component it wraps gets no span of its own, so the tree does not nest there.
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) - Every supported framework
+  - [Conversation Tracing](/docs/tracing/conversation-tracing) - Sessions and turns
+  - [Multi-Agent Tracing](/docs/tracing/multi-agent) - Agent and handoff spans
+  - [Semantic Conventions](/docs/tracing/semantic-conventions) - The `ai.*` span schema
+  - [Conversation Simulation](/docs/tests/conversation-simulation) - Testing with Penelope
+</Callout>

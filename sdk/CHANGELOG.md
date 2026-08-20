@@ -57,6 +57,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     content. `OTEL_SEMCONV_STABILITY_OPT_IN` is never touched -- it is a global OpenTelemetry
     switch affecting unrelated instrumentation.
 
+- **Haystack auto-instrumentation**: `auto_instrument("haystack")` registers a Haystack tracer that
+  writes Rhesis `ai.*` / `function.*` spans as they are opened. Unlike the ADK and MAF
+  integrations there is nothing to translate afterwards -- Haystack emits no OpenTelemetry spans of
+  its own, so an integration supplies the tracer instead. A pipeline run arrives as a trace whose
+  children are named after what each component does: `ai.llm.invoke` with model name and token
+  usage, `ai.retrieval`, `ai.embedding.generate`, `ai.tool.invoke`, `ai.agent.invoke`, and
+  `ai.agent.handoff` when one agent is invoked through another's tool. Haystack 3.0 agent-step
+  spans and the 2.x `ToolInvoker` component span are both handled. Install with the new `haystack`
+  extra.
+  - `HAYSTACK_CONTENT_TRACING_ENABLED=true` must be set **before** `haystack` is imported or spans
+    carry no prompts or completions: Haystack reads that variable once, at import time, so the
+    integration can only warn. `RHESIS_DISABLE_CONTENT_CAPTURE` is honoured on top of it.
+  - `RhesisTracing` groups several turns into one conversation trace for an app that drives
+    Haystack from its own loop, `rhesis_invocation_context` attaches session and test-run ids to
+    every span in a run, and a `SpanHandler` subclass is the hook for redaction.
+  - `RHESIS_HAYSTACK_ENFORCE_FLUSH` exports once per run as the root span closes (default on),
+    also accepting the upstream `HAYSTACK_RHESIS_ENFORCE_FLUSH` name.
+
 ### Changed
 
 - `deepeval` pinned to `3.7.9` (from `3.7.0`). Versions up to 3.7.4 pin `google-genai < 2`, which is

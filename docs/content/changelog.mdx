@@ -26,6 +26,14 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
   from the model's last message. See
   [Conversation Tracing](/docs/tracing/conversation-tracing).
 
+**Haystack integration**
+
+- **Auto-instrumentation**: `auto_instrument("haystack")` traces pipeline runs, every component,
+  agent steps and tool calls. Haystack emits no OpenTelemetry spans of its own, so Rhesis supplies
+  the tracer and writes its schema directly. See [Haystack](/docs/tracing/haystack).
+- **Penelope target**: `HaystackTarget` for multi-turn conversation simulation against a Haystack
+  pipeline or agent.
+
 ## [0.10.0] - 2026-07-09
 
 ### Platform Release

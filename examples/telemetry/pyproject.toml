@@ -43,6 +43,9 @@ crewai = [
 google-adk = [
     "google-adk>=2.6,<3",
 ]
+haystack = [
+    "haystack-ai>=2.22.0",
+]
 
 [tool.uv]
 exclude-newer = "1 week"
