@@ -123,6 +123,7 @@ class TestResultStatsView(Base):
     test_metrics = Column(JSONB)
     status_name = Column(String)
     result = Column(String)
+    result_status_id = Column(GUID())
     test_status_id = Column(GUID())
     requirement_id = Column(GUID())
     category_id = Column(GUID())
