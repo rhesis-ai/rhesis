@@ -38,6 +38,7 @@ import type {
 } from '@/utils/api-client/garak-client';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
+import ModelSelector from '@/components/common/ModelSelector';
 import {
   drawerFieldsSx,
   drawerListChipSx,
@@ -138,6 +139,9 @@ export default function SecurityTestDrawer({
     new Set()
   );
   const [searchQuery, setSearchQuery] = React.useState('');
+  // Only used for dynamic probes (they call the user's LLM to synthesize
+  // prompts) -- static probes copy built-in prompts and never touch a model.
+  const [modelId, setModelId] = React.useState('');
   // Both static import and dynamic generation are pure fire-and-forget
   // dispatch calls (fast 202 responses) — there's no real incremental
   // progress to report, so this only ever gets set once, after every
@@ -351,6 +355,7 @@ export default function SecurityTestDrawer({
                 garakClient.generateDynamicProbe({
                   module_name: probe.module_name,
                   class_name: probe.class_name,
+                  model_id: modelId || undefined,
                 })
               )
             )
@@ -384,6 +389,7 @@ export default function SecurityTestDrawer({
     setImportResult(null);
     setPreparingImport(false);
     setSearchQuery('');
+    setModelId('');
     setOwaspFooter(null);
     setSource(availableSources[0] ?? 'garak');
   }, [availableSources]);
@@ -615,6 +621,20 @@ export default function SecurityTestDrawer({
                     ) : undefined,
                   }}
                 />
+
+                {getSelectedProbeObjects().dynamicProbes.length > 0 && (
+                  <ModelSelector
+                    value={modelId}
+                    onChange={setModelId}
+                    label="Generation Model"
+                    purpose="generation"
+                    disabled={importing}
+                    compact
+                    hideHelperText
+                    fieldSx={{ ...drawerOutlinedFieldSx, flexShrink: 0 }}
+                    enabled={open}
+                  />
+                )}
 
                 {loadingModules ? (
                   <Box display="flex" justifyContent="center" p={4}>
