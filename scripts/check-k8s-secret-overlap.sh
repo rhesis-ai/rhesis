@@ -25,11 +25,11 @@ for env in dev stg prd; do
     helm template rhesis charts/rhesis -f "charts/rhesis/values-$env.yaml" \
       --show-only templates/configmap.yaml \
       | grep -oE '^  [A-Z][A-Z0-9_]+:' | tr -d ' :' | sort -u
-  )
+  ) || true
   secret_keys=$(
     grep -oE 'secretKey: [A-Z][A-Z0-9_]+' "$secrets_file" \
       | awk '{print $2}' | sort -u
-  )
+  ) || true
   overlap=$(comm -12 <(echo "$cm_keys") <(echo "$secret_keys"))
   if [[ -n "$overlap" ]]; then
     echo "[$env] key(s) declared in both the ConfigMap and $secrets_file:" >&2
