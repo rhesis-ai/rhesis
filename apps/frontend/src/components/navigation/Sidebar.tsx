@@ -34,12 +34,12 @@ import {
   UPGRADE_URL,
 } from '@/constants/quota';
 import {
-  classifyZone,
   flaggedResources,
   isCommunityEdition,
   quotaCopy,
+  usageMenuRows,
   zoneColor,
-  type FlaggedResource,
+  type UsageRow,
 } from '@/utils/quota';
 import { PlanChip } from '@/components/common/QuotaChips';
 import { ColorModeContext } from '@/components/providers/ThemeProvider';
@@ -49,6 +49,7 @@ import {
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
 import { BORDER_RADIUS, COUNT_BADGE_SX, ELEVATION } from '@/styles/theme';
+import type { Theme } from '@mui/material/styles';
 import {
   type ExtendedUser,
   type StandaloneGroup,
@@ -89,6 +90,37 @@ const TOGGLE_LIFT_PX = TOGGLE_ICON_PX + TOGGLE_BUTTON_PADDING_PX;
 // Nudge toward the sidebar edge, into its 26px side padding.
 const TOGGLE_NUDGE_RIGHT_PX = 8;
 
+// Rows the org-menu usage block always shows, padding flagged resources with
+// the next ones in canonical order so it never reads as near-empty for a
+// healthy org. A floor, never a cap: every flagged resource gets a row, so
+// the row count always agrees with the badge.
+const MIN_USAGE_ROWS = 3;
+
+// Shared row style for the org and user menu popovers (Figma 860:40824).
+// Every row in both menus uses this; a row with a trailing badge overrides
+// `justifyContent` to 'space-between'.
+const MENU_ROW_SX = {
+  gap: '10px',
+  px: '14px',
+  py: '8px',
+  '&:hover': {
+    bgcolor: (theme: Theme) => theme.palette.greyscale.border,
+  },
+} as const;
+
+// Icon + label pair inside a menu row.
+const MENU_ICON_SX = {
+  fontSize: 24,
+  color: (theme: Theme) => theme.palette.greyscale.body,
+} as const;
+
+const MENU_LABEL_SX = {
+  fontSize: 14,
+  fontWeight: 700,
+  lineHeight: '22px',
+  color: (theme: Theme) => theme.palette.greyscale.body,
+} as const;
+
 function LeftPanelCloseIcon() {
   return (
     <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: TOGGLE_ICON_PX }}>
@@ -124,7 +156,7 @@ function formatMonthLabel(isoDate: string): string {
  * resources show a count, matching `QuotaBanner`'s split for the same
  * reason (a flow resource's raw count means nothing without the period
  * it accrued over; a stock resource's raw count is the whole story). */
-function UsageMenuRow({ resource, item, zone }: FlaggedResource) {
+function UsageMenuRow({ resource, item, zone }: UsageRow) {
   const label = QUOTA_RESOURCE_LABELS[resource];
   const value =
     item.kind === 'stock' || item.limit === null || item.limit === 0
@@ -215,7 +247,7 @@ export function Sidebar() {
   // severity colour on the badge itself.
   let usageTooltip: string | null = null;
   const worst = flaggedCount === 1 ? flaggedUsage[0] : null;
-  if (worst && worst.zone !== 'healthy') {
+  if (worst) {
     usageTooltip = quotaCopy({
       resource: worst.resource,
       kind: worst.item.kind,
@@ -229,22 +261,22 @@ export function Sidebar() {
     usageTooltip = `Your organization has ${flaggedCount} resources at or near their limit.`;
   }
 
-  // Padded to a minimum of 3 rows (worst-first, then the next resources in
-  // canonical order) so the block never reads as near-empty for a healthy
-  // org -- but never capped: however many resources are actually flagged,
-  // that many rows show, so the row count always agrees with the badge.
-  const MIN_USAGE_ROWS = 3;
-  const usageRows: FlaggedResource[] = [...flaggedUsage];
-  if (usageRows.length < MIN_USAGE_ROWS) {
-    const included = new Set(usageRows.map(row => row.resource));
-    for (const resource of QUOTA_RESOURCE_ORDER) {
-      if (usageRows.length >= MIN_USAGE_ROWS) break;
-      if (included.has(resource)) continue;
-      const item = usageResources[resource];
-      if (!item || item.limit === null) continue;
-      usageRows.push({ resource, item, zone: classifyZone(item), ratio: 0 });
-    }
-  }
+  const usageRows = usageMenuRows(
+    usageResources,
+    QUOTA_RESOURCE_ORDER,
+    MIN_USAGE_ROWS
+  );
+  // Specifically a flow resource, for the same reason UsageOverviewTab picks
+  // one deliberately: stock items always carry the *current* period, so
+  // taking whichever resource happens to come first would silently mislabel
+  // the block the moment the two periods differ.
+  const usagePeriodSource = Object.values(usageResources).find(
+    resourceItem => resourceItem.kind === 'flow'
+  );
+  const usagePeriodLabel = usagePeriodSource
+    ? formatMonthLabel(usagePeriodSource.period_end)
+    : null;
+
   const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
 
@@ -528,62 +560,20 @@ export function Sidebar() {
               router.push('/organizations/settings');
               setOrgMenuAnchor(null);
             }}
-            sx={{
-              gap: '10px',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
+            sx={MENU_ROW_SX}
           >
-            <SettingsOutlinedIcon
-              sx={{
-                fontSize: 24,
-                color: theme => theme.palette.greyscale.body,
-              }}
-            />
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 700,
-                lineHeight: '22px',
-                color: theme => theme.palette.greyscale.body,
-              }}
-            >
-              Org Settings
-            </Typography>
+            <SettingsOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>Org Settings</Typography>
           </MenuItem>
           <MenuItem
             onClick={() => {
               router.push('/projects');
               setOrgMenuAnchor(null);
             }}
-            sx={{
-              gap: '10px',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
+            sx={MENU_ROW_SX}
           >
-            <AppsOutlinedIcon
-              sx={{
-                fontSize: 24,
-                color: theme => theme.palette.greyscale.body,
-              }}
-            />
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 700,
-                lineHeight: '22px',
-                color: theme => theme.palette.greyscale.body,
-              }}
-            >
-              Projects
-            </Typography>
+            <AppsOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>Projects</Typography>
           </MenuItem>
           {/* Named "Org usage", not "Usage": the menu already reads
               "Org Settings" two rows up, and quota is organization state,
@@ -592,87 +582,74 @@ export function Sidebar() {
               granted org-wide (see the note where `canManageOrg` is
               computed above). Only the "Upgrade plan" row below is
               narrower. */}
-          <>
-            <MenuItem
-              onClick={() => {
-                router.push('/organizations/usage');
-                setOrgMenuAnchor(null);
-              }}
-              sx={{
-                justifyContent: 'space-between',
-                px: '14px',
-                py: '8px',
-                '&:hover': {
-                  bgcolor: theme => theme.palette.greyscale.border,
-                },
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <DataUsageOutlinedIcon
-                  sx={{
-                    fontSize: 24,
-                    color: theme => theme.palette.greyscale.body,
-                  }}
-                />
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    lineHeight: '22px',
-                    color: theme => theme.palette.greyscale.body,
-                  }}
-                >
-                  Org usage
-                </Typography>
-              </Box>
-              {flaggedCount > 0 && (
-                <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
-                  {flaggedCount > 99 ? '99+' : flaggedCount}
-                </Box>
-              )}
-            </MenuItem>
-            {Object.keys(usageResources).length > 0 && (
-              <Box sx={{ pb: '8px' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    px: '14px',
-                    py: '4px',
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: theme => theme.palette.greyscale.subtitle }}
-                  >
-                    {Object.values(usageResources)[0]
-                      ? formatMonthLabel(
-                          Object.values(usageResources)[0].period_end
-                        )
-                      : 'Current usage'}
-                  </Typography>
-                  {edition && <PlanChip edition={edition} />}
-                </Box>
-                {usageRows.map(row => (
-                  <UsageMenuRow key={row.resource} {...row} />
-                ))}
-                {canUpgrade && (
-                  <Box sx={{ px: '14px', pt: '6px' }}>
-                    <MuiLink
-                      href={UPGRADE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      variant="caption"
-                      sx={{ fontWeight: 700 }}
-                    >
-                      Upgrade plan →
-                    </MuiLink>
-                  </Box>
-                )}
+          <MenuItem
+            onClick={() => {
+              router.push('/organizations/usage');
+              setOrgMenuAnchor(null);
+            }}
+            sx={{ ...MENU_ROW_SX, justifyContent: 'space-between' }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <DataUsageOutlinedIcon
+                sx={{
+                  fontSize: 24,
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  lineHeight: '22px',
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              >
+                Org usage
+              </Typography>
+            </Box>
+            {flaggedCount > 0 && (
+              <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
+                {flaggedCount > 99 ? '99+' : flaggedCount}
               </Box>
             )}
-          </>
+          </MenuItem>
+          {Object.keys(usageResources).length > 0 && (
+            <Box sx={{ pb: '8px' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  px: '14px',
+                  py: '4px',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: theme => theme.palette.greyscale.subtitle }}
+                >
+                  {usagePeriodLabel ?? 'Current usage'}
+                </Typography>
+                {edition && <PlanChip edition={edition} />}
+              </Box>
+              {usageRows.map(row => (
+                <UsageMenuRow key={row.resource} {...row} />
+              ))}
+              {canUpgrade && (
+                <Box sx={{ px: '14px', pt: '6px' }}>
+                  <MuiLink
+                    href={UPGRADE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="caption"
+                    sx={{ fontWeight: 700 }}
+                  >
+                    Upgrade plan →
+                  </MuiLink>
+                </Box>
+              )}
+            </Box>
+          )}
           <Divider
             sx={{
               my: '6px',
@@ -684,31 +661,10 @@ export function Sidebar() {
               setOrgMenuAnchor(null);
               setSwitcherOpen(true);
             }}
-            sx={{
-              gap: '10px',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
+            sx={MENU_ROW_SX}
           >
-            <SwapHorizOutlinedIcon
-              sx={{
-                fontSize: 24,
-                color: theme => theme.palette.greyscale.body,
-              }}
-            />
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 700,
-                lineHeight: '22px',
-                color: theme => theme.palette.greyscale.body,
-              }}
-            >
-              Switch project
-            </Typography>
+            <SwapHorizOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>Switch project</Typography>
           </MenuItem>
         </Popover>
 
@@ -874,32 +830,11 @@ export function Sidebar() {
               setMenuAnchor(null);
               setNotificationsOpen(true);
             }}
-            sx={{
-              justifyContent: 'space-between',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
+            sx={{ ...MENU_ROW_SX, justifyContent: 'space-between' }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <NotificationsOutlinedIcon
-                sx={{
-                  fontSize: 24,
-                  color: theme => theme.palette.greyscale.body,
-                }}
-              />
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  color: theme => theme.palette.greyscale.body,
-                }}
-              >
-                Notifications
-              </Typography>
+              <NotificationsOutlinedIcon sx={MENU_ICON_SX} />
+              <Typography sx={MENU_LABEL_SX}>Notifications</Typography>
             </Box>
             {totalUnread > 0 && (
               <Box sx={{ ...COUNT_BADGE_SX, flexShrink: 0 }}>
@@ -914,61 +849,18 @@ export function Sidebar() {
               toggleColorMode();
               setMenuAnchor(null);
             }}
-            sx={{
-              gap: '10px',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
+            sx={MENU_ROW_SX}
           >
-            <DarkModeOutlinedIcon
-              sx={{
-                fontSize: 24,
-                color: theme => theme.palette.greyscale.body,
-              }}
-            />
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 700,
-                lineHeight: '22px',
-                color: theme => theme.palette.greyscale.body,
-              }}
-            >
+            <DarkModeOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>
               {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
             </Typography>
           </MenuItem>
 
           {/* Sign Out */}
-          <MenuItem
-            onClick={() => handleSignOut()}
-            sx={{
-              gap: '10px',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
-          >
-            <ExitToAppOutlinedIcon
-              sx={{
-                fontSize: 24,
-                color: theme => theme.palette.greyscale.body,
-              }}
-            />
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 700,
-                lineHeight: '22px',
-                color: theme => theme.palette.greyscale.body,
-              }}
-            >
-              Sign Out
-            </Typography>
+          <MenuItem onClick={() => handleSignOut()} sx={MENU_ROW_SX}>
+            <ExitToAppOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>Sign Out</Typography>
           </MenuItem>
         </Popover>
       </Box>

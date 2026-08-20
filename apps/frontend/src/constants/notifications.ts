@@ -21,5 +21,20 @@ export const NotificationSection = {
 export type NotificationSection =
   (typeof NotificationSection)[keyof typeof NotificationSection];
 
+const NOTIFICATION_SECTION_VALUES: string[] =
+  Object.values(NotificationSection);
+
+/**
+ * Narrows a wire value (a `Notification.section` string, or a URL segment)
+ * to `NotificationSection`. Lives here rather than in each consumer: the
+ * badge context, `NavItem` and the notifications drawer all need it, and
+ * three copies drift the moment a section is added.
+ */
+export function isNotificationSection(
+  value: string
+): value is NotificationSection {
+  return NOTIFICATION_SECTION_VALUES.includes(value);
+}
+
 /** CSS class applied to a grid row whose entity has an unseen notification. */
 export const HIGHLIGHTED_ROW_CLASS = 'rhesis-row-notified';

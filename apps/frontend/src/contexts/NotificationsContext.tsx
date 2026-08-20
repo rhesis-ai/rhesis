@@ -15,7 +15,10 @@ import { EventType } from '@/utils/websocket';
 import { useWebSocketContext } from './WebSocketContext';
 import { useActiveProject } from './ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { NotificationSection } from '@/constants/notifications';
+import {
+  NotificationSection,
+  isNotificationSection,
+} from '@/constants/notifications';
 
 type SectionCounts = Partial<Record<NotificationSection, number>>;
 type SectionHighlights = Partial<Record<NotificationSection, string[]>>;
@@ -38,6 +41,21 @@ interface NotificationsContextValue {
   highlightedIds: (section: NotificationSection) => string[];
   /** Zero a section's badge and persist read_at on the backend. */
   markSectionRead: (section: NotificationSection) => void;
+  /**
+   * Mark one notification read: decrement its section's badge by the items
+   * that row stands for, and persist `read_at`.
+   *
+   * Distinct from `markSectionRead` because reading one row in the
+   * notification drawer must not zero the whole section. Callers that hit
+   * `markRead` on the client directly instead of going through here leave
+   * `unreadBySection` stale, and the badge keeps counting a notification
+   * the server already considers read.
+   */
+  markOneRead: (
+    section: NotificationSection,
+    notificationId: string,
+    itemCount: number
+  ) => void;
   /** Drop one id from a section's highlight list (e.g. on row click). */
   clearHighlight: (section: NotificationSection, id: string) => void;
   /**
@@ -60,6 +78,7 @@ const defaultNotificationsContext: NotificationsContextValue = {
   unreadBySection: {},
   highlightedIds: () => [],
   markSectionRead: () => {},
+  markOneRead: () => {},
   clearHighlight: () => {},
   registerViewing: () => () => {},
 };
@@ -67,12 +86,6 @@ const defaultNotificationsContext: NotificationsContextValue = {
 const NotificationsContext = createContext<NotificationsContextValue>(
   defaultNotificationsContext
 );
-
-const SECTION_VALUES: string[] = Object.values(NotificationSection);
-
-function isNotificationSection(value: string): value is NotificationSection {
-  return SECTION_VALUES.includes(value);
-}
 
 /**
  * Tracks per-section unread counts and highlightable entity ids for the
@@ -278,10 +291,31 @@ export function NotificationsProvider({
     [highlighted]
   );
 
+  const markOneRead = useCallback(
+    (
+      section: NotificationSection,
+      notificationId: string,
+      itemCount: number
+    ) => {
+      // Subtract item_count, not 1: the badge counts entities a notification
+      // stands for (3 for a Garak import of three test sets), so reading that
+      // one row clears all three from the count. Floored at 0 -- a summary
+      // refetch is the source of truth if these ever disagree.
+      setUnreadBySection(prev => {
+        const current = prev[section] ?? 0;
+        if (current === 0) return prev;
+        return { ...prev, [section]: Math.max(0, current - itemCount) };
+      });
+      markIdsRead([notificationId]);
+    },
+    [markIdsRead]
+  );
+
   const value: NotificationsContextValue = {
     unreadBySection,
     highlightedIds,
     markSectionRead,
+    markOneRead,
     clearHighlight,
     registerViewing,
   };

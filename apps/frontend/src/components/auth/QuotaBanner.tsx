@@ -45,7 +45,7 @@ export default function QuotaBanner() {
   // current one was dismissed, rather than staying silenced for the rest
   // of the session -- dismissing a spans warning shouldn't also hide a
   // later, unrelated seats warning.
-  if (!worst || worst.zone === 'healthy' || dismissedFor === worst.resource) {
+  if (!worst || dismissedFor === worst.resource) {
     return null;
   }
 

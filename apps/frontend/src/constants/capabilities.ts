@@ -191,9 +191,20 @@ export const Capability = {
     UPDATE: 'organization:update',
   },
   /**
-   * Metered consumption against plan limits. Separate from
-   * `Organization.READ`, which every Viewer holds for basic org context --
-   * usage is billing data and is restricted to org admins.
+   * Metered consumption against plan limits: counters and caps, no money.
+   *
+   * Held by **every** org member, not just admins -- quota enforcement
+   * blocks members too, so hiding the reason from them only turns a clear
+   * 402 into a support ticket. See the long note on
+   * `_OWNER_ONLY_CAPABILITIES` in `apps/backend/.../auth/rbac.py` (which
+   * deliberately excludes this) and `_VIEWER_EXCLUDED_READS` in
+   * `ee/.../rbac/models.py`; the two must agree or community and EE
+   * disagree about who may read usage.
+   *
+   * So this is *not* the capability to gate an admin-only affordance on --
+   * use `Organization.UPDATE` for "can act on billing" (e.g. an upgrade
+   * CTA). When a real billing surface lands (spend, invoices, payment
+   * method) it gets its own owner-only permission.
    */
   Usage: {
     READ: 'usage:read',
