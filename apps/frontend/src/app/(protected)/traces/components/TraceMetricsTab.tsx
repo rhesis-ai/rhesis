@@ -287,7 +287,8 @@ export default function TraceMetricsTab({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
   const traceMetrics = selectedSpan?.trace_metrics as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
 
   const turnMetrics = useMemo(() => {
     if (!traceMetrics?.turn_metrics) return null;

@@ -15,7 +15,8 @@ import { EventType, WebSocketMessage, EventHandler } from '@/utils/websocket';
  * `preflight:{id}`) can use the plain string form.
  */
 export type ChannelSubscription =
-  string | { channel: string; projectId?: string | null };
+  | string
+  | { channel: string; projectId?: string | null };
 
 /**
  * Options for the useWebSocket hook.
