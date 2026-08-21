@@ -209,6 +209,48 @@ class TestMetricSoftDeleteContract(MetricTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_410_GONE
 
 
+# === METRIC DETAIL ACCESS RESTRICTION TESTS ===
+
+
+@pytest.mark.integration
+class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
+    """Non-Rhesis metrics must return 403 on detail access."""
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
+    def test_get_non_rhesis_metric_returns_403(self, mock_generate, metric_factory):
+        """GET /metrics/{id} returns 403 for a metric with backend_type != rhesis."""
+        mock_generate.return_value = dict(_NUMERIC_SYNTHESIZED)
+
+        create_resp = metric_factory.client.post(
+            self.endpoints.generate,
+            json={"prompt": "any prompt"},
+        )
+        assert create_resp.status_code == status.HTTP_200_OK
+        metric_id = create_resp.json()["id"]
+
+        get_resp = metric_factory.client.get(self.endpoints.get(metric_id))
+        assert get_resp.status_code == status.HTTP_403_FORBIDDEN
+        assert "restricted" in get_resp.json()["detail"].lower()
+
+        metric_factory.client.delete(self.endpoints.remove(metric_id))
+
+    def test_get_rhesis_metric_returns_200(self, metric_factory):
+        """GET /metrics/{id} returns 200 for a standard (no backend_type) metric."""
+        metric = metric_factory.create(self.get_sample_data())
+        metric_id = metric["id"]
+
+        get_resp = metric_factory.client.get(self.endpoints.get(metric_id))
+        assert get_resp.status_code == status.HTTP_200_OK
+
+    def test_list_metrics_unaffected(self, metric_factory):
+        """GET /metrics (list) still returns all metrics regardless of backend_type."""
+        metric_factory.create(self.get_sample_data())
+
+        response = metric_factory.client.get(self.endpoints.list)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.json()) >= 1
+
+
 # === METRIC-SPECIFIC VALIDATION TESTS ===
 
 
@@ -500,7 +542,7 @@ class TestMetricGenerate(MetricTestMixin, BaseEntityTests):
 
     @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
     def test_generate_metric_persists(self, mock_generate, metric_factory):
-        """Generated metric is persisted and retrievable via GET."""
+        """Generated metric is persisted but detail access is restricted (custom backend_type)."""
         mock_generate.return_value = dict(_NUMERIC_SYNTHESIZED)
 
         create_resp = metric_factory.client.post(
@@ -511,8 +553,7 @@ class TestMetricGenerate(MetricTestMixin, BaseEntityTests):
         metric_id = create_resp.json()["id"]
 
         get_resp = metric_factory.client.get(self.endpoints.get(metric_id))
-        assert get_resp.status_code == status.HTTP_200_OK
-        assert get_resp.json()["name"] == "Factual Accuracy"
+        assert get_resp.status_code == status.HTTP_403_FORBIDDEN
 
         metric_factory.client.delete(self.endpoints.remove(metric_id))
 
