@@ -76,6 +76,12 @@ microsoft-agent-framework = [
 google-adk = [
     "google-adk>=2.6,<3",
 ]
+# Haystack. Unlike the ADK target above, haystack-ai IS in the dev group: the
+# target feeds real ChatMessage objects to a fake agent, so its tests would
+# silently skip without it.
+haystack = [
+    "haystack-ai>=2.22.0",
+]
 all = [
     "langchain>=1.3.9",
     "langchain-core>=1.3.3",
@@ -85,10 +91,15 @@ all = [
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
     "google-adk>=2.6,<3",
+    "haystack-ai>=2.22.0",
 ]
 
 [dependency-groups]
 dev = [
+    # haystack-ai in dev because tests/penelope/targets/test_haystack.py feeds real ChatMessage
+    # objects to a fake agent -- without it those tests would silently skip. End users install via
+    # the ``rhesis-penelope[haystack]`` extra.
+    "haystack-ai>=2.22.0",
     "pre-commit>=4.3.0",
     "hatch>=1.14.1",
     "pytest>=9.0.3",

@@ -124,12 +124,19 @@ Turns on **one** conversation still serialize, or two overlapping turns would re
 
 Tracing is opt-in at the entrypoint boundary — business modules never import Rhesis or Haystack tracing.
 
+Two Haystack tracing integrations expose the same `RhesisTracing` API, and each has its own entry point so no file serves both. **native** is `rhesis-sdk[haystack]`, the integration in this repo; **upstream** is deepset's `rhesis-haystack`, installed on demand (see the README).
+
 | Entrypoint | Tracing |
 |---|---|
 | `chat_terminal/chat.py`, `examples/run_scenarios.py` | None — runs standalone even when `RHESIS_*` creds are set |
-| `python -m visit_prep`, `chat_terminal/chat_traced.py`, `examples/run_scenarios_traced.py` | `RhesisTracing` from `rhesis-haystack` enables the global tracer and, in the scripts, opens each turn's root span |
+| `chat_terminal/chat_traced_native.py`, `examples/run_scenarios_traced_native.py`, `python -m visit_prep` | `RhesisTracing` from **native** enables the global tracer and, in the scripts, opens each turn's root span |
+| `chat_terminal/chat_traced_upstream.py`, `examples/run_scenarios_traced_upstream.py`, `python -m visit_prep --tracing upstream` | The same, through **upstream** |
 
-`app.py` imports `RhesisClient` and `@endpoint` for the served path. The FastAPI dev server (`python -m visit_prep`) registers the SDK endpoint and opens the WebSocket connector via uvicorn's event loop.
+Each pair shares its harness — `chat_terminal/_traced_runner.py` and `examples/_traced_runner.py` — so the variants differ only in which `RhesisTracing` they import. Neither harness imports Haystack or either integration, which is what lets a variant set `HAYSTACK_CONTENT_TRACING_ENABLED` before its integration is imported. Haystack reads that variable once, at import time.
+
+`visit_prep/app_factory.py` holds the served path — `RhesisClient`, `@endpoint`, and the FastAPI wiring — and `create_app(tracing_cls)` builds it for one integration. `app.py` and `app_upstream.py` are two-line wrappers that pick one; `python -m visit_prep --tracing` selects which module uvicorn imports. The client is created before `RhesisTracing`, because the native integration reuses the provider it installs — that is what makes Haystack spans nest under the `@endpoint` span and flush with it.
+
+The FastAPI dev server registers the SDK endpoint and opens the WebSocket connector via uvicorn's event loop.
 
 ## Trace Surface
 
@@ -147,4 +154,6 @@ Tracing is opt-in at the entrypoint boundary — business modules never import R
 Multi-turn grouping:
 
 - **Served path** (`python -m visit_prep`): SDK `@endpoint` `session_id` mapping groups turns by `conversation_id`.
-- **Script path** (`chat_traced.py`, `run_scenarios_traced.py`): `RhesisTracing.start_conversation()` groups the turns and `RhesisTracing.turn()` opens the turn root carrying the message and the reply. All turns of one conversation share a trace.
+- **Script path** (the `*_traced_native.py` / `*_traced_upstream.py` entry points): `RhesisTracing.start_conversation()` groups the turns and `RhesisTracing.turn()` opens the turn root carrying the message and the reply. All turns of one conversation share a trace.
+
+This table holds for both integrations: they resolve span names through the same `rhesis.telemetry.schemas.AIOperationType`. `tests/test_span_tree.py` asserts it by running every test once per installed integration, so a divergence fails there rather than being noticed in the UI.

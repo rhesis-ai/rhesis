@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `auto_instrument("google_adk")` arrives as one trace instead of one per turn. An id already set
   upstream is left alone, since in a platform-driven run that value is the grouping key.
   Install with the new `google-adk` extra.
+- **`HaystackTarget`** for driving multi-turn conversations against a Haystack `Pipeline` or `Agent`. Detects which one it wraps by shape, replays conversation history to agents per `conversation_id`, and locates the reply across the output sockets Haystack pipelines commonly use (overridable via `output_component` / `output_key` / `reply_keys`). File attachments are refused rather than dropped, since how a file reaches a pipeline depends on that pipeline's own converters. Install with the new `haystack` extra.
 - **Global tool execution limit** to prevent infinite loops. By default, limits total tool executions to `max_iterations × 5` (e.g., 10 turns × 5 = 50 executions).
 - **Environment variable support** for configuring the execution multiplier via `PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER`.
 - **Progress warnings** at 60% and 80% of execution limits to help developers tune limits before hitting hard stops.

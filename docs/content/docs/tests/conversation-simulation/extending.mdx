@@ -142,6 +142,28 @@ target = GoogleADKTarget(runner, target_id="adk-bot", description="Customer supp
 target = GoogleADKTarget(adk_agent, target_id="adk-bot")`}
 </CodeBlock>
 
+<CodeBlock filename="haystack_target.py" language="python">
+{`from haystack.components.agents import Agent
+from haystack.components.generators.chat import OpenAIChatGenerator
+from rhesis.penelope import HaystackTarget
+
+haystack_agent = Agent(
+    chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
+    system_prompt="Help customers resolve support requests.",
+    tools=[],
+)
+haystack_agent.warm_up()
+target = HaystackTarget(haystack_agent, target_id="support-agent")
+
+# A Pipeline needs to be told which component and socket the message goes to.
+target = HaystackTarget(
+    rag_pipeline,
+    target_id="rag-bot",
+    input_component="prompt",
+    input_key="question",
+)`}
+</CodeBlock>
+
 The MAF target preserves multi-turn context by keeping a MAF thread/session object per `conversation_id`, and bridges MAF's async `run()` to Penelope's synchronous target contract - so you can drive any MAF agent through Penelope's multi-turn testing without changing the agent.
 
 The Google ADK target uses Penelope's `conversation_id` **directly as the ADK session id**, so multi-turn context lives where ADK already keeps it and the same key lines up in Rhesis traces. It looks a session up before creating it, which means a caller-supplied id works and a persistent session service (`DatabaseSessionService`, `VertexAiSessionService`) resumes a conversation that started in another process. ADK's `run_async` is an async generator rather than a coroutine, so the target consumes the event stream and picks the assistant reply from it: the last final-response event with text, falling back to the last complete event and then to streamed partials. `GoogleADKTarget` accepts these constructor parameters:
@@ -163,6 +185,25 @@ The Google ADK target uses Penelope's `conversation_id` **directly as the ADK se
 | `target_id` | Yes | A unique identifier for the system under test |
 | `description` | No | A human-readable description; defaults to a label containing the target ID |
 
+`HaystackTarget` wraps either a `Pipeline` or an `Agent`, detected by shape, and replays the
+conversation history to agents on each turn:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `pipeline` | Yes | A Haystack `Pipeline` or `Agent` |
+| `target_id` | Yes | A unique identifier for the system under test |
+| `description` | No | A human-readable description; defaults to a label containing the wrapped type |
+| `input_component` | For pipelines | Component the message is fed to |
+| `input_key` | No | Input socket on that component. Defaults to `query` |
+| `output_component` | No | Component whose output holds the reply. Defaults to searching all of them |
+| `output_key` | No | Output socket holding the reply. Tried before the common names |
+| `reply_keys` | No | Replaces the list of output socket names to try |
+
+Haystack pipelines name their components freely, so there is no single correct reply socket. The
+target tries `replies`, `last_message`, `messages`, `answers`, `answer`, `reply`, `result`, and
+`output` in that order, at the top level and inside each component's output. Set `output_key` or
+`reply_keys` when your pipeline puts its answer somewhere else.
+
 ### Async and file-aware targets
 
 Use `a_execute_test()` when Penelope runs inside an event loop. LangChain and
@@ -178,7 +219,9 @@ LangGraph targets call their native `ainvoke()` methods, while Pydantic AI calls
 </CodeBlock>
 
 LangChain, LangGraph, and Pydantic AI targets accept file attachments as inline
-dictionaries or object-storage-backed `FileReference` objects. Text and PDF
+dictionaries or object-storage-backed `FileReference` objects. `HaystackTarget` does not: how a
+file reaches a pipeline depends on that pipeline's own converters, so it reports an error rather
+than dropping the attachment silently. Text and PDF
 extractions are passed as text; other files become framework-native multimodal
 content blocks. The async path fetches object-storage bytes with `aread_bytes()`.
 

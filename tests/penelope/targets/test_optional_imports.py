@@ -1,11 +1,11 @@
 """Regression test: rhesis.penelope.targets must import without optional deps.
 
-langchain, langgraph, pydantic-ai, google-adk, and the agent-framework packages
-are all optional dependencies of rhesis-penelope (see penelope/pyproject.toml).
-LangChainTarget, LangGraphTarget, PydanticAITarget, MAFTarget, and
-GoogleADKTarget are imported unconditionally from targets/__init__.py, so none of
-their modules may import those optional packages at module level - only inside
-the functions that actually need them.
+langchain, langgraph, pydantic-ai, google-adk, haystack-ai, and the agent-framework
+packages are all optional dependencies of rhesis-penelope (see
+penelope/pyproject.toml). LangChainTarget, LangGraphTarget, PydanticAITarget,
+MAFTarget, GoogleADKTarget, and HaystackTarget are imported unconditionally from
+targets/__init__.py, so none of their modules may import those optional packages at
+module level - only inside the functions that actually need them.
 """
 
 import builtins
@@ -23,6 +23,7 @@ _BLOCKED = {
     "agent_framework",
     "google.adk",
     "google.genai",
+    "haystack",
 }
 
 
@@ -66,6 +67,7 @@ def test_targets_package_imports_without_optional_deps(block_optional_deps):
     assert targets.PydanticAITarget is not None
     assert targets.MAFTarget is not None
     assert targets.GoogleADKTarget is not None
+    assert targets.HaystackTarget is not None
 
 
 def test_endpoint_target_usable_without_optional_deps(block_optional_deps):

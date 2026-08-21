@@ -23,6 +23,7 @@ from rhesis.penelope.schemas import (
 from rhesis.penelope.targets import (
     EndpointTarget,
     GoogleADKTarget,
+    HaystackTarget,
     LangChainTarget,
     LangGraphTarget,
     MAFTarget,
@@ -52,6 +53,7 @@ __all__ = [
     "EndpointTarget",
     "LangChainTarget",
     "LangGraphTarget",
+    "HaystackTarget",
     "MAFTarget",
     "PydanticAITarget",
     "GoogleADKTarget",

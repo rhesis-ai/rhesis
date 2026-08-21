@@ -165,6 +165,24 @@ Demonstrates:
 uv run --extra google-adk google_adk_example.py
 ```
 
+### 10. Haystack Pipelines and Agents
+**File**: `haystack_example.py`
+
+Demonstrates:
+- Auto-instrumentation with `auto_instrument("haystack")`
+- A RAG pipeline traced component by component: `ai.retrieval`, then `ai.llm.invoke` with model
+  name and token usage
+- An agent with a tool, producing `ai.agent.invoke` with per-step LLM and per-call tool spans
+- Attaching your own session or test-run ids with `rhesis_invocation_context`
+- Grouping several turns into one conversation trace with `RhesisTracing`
+
+**Use Case**: When you build with Haystack and want the whole pipeline visible, not just the
+entry point.
+
+> `HAYSTACK_CONTENT_TRACING_ENABLED` must be `true` **before** haystack is imported. Haystack
+> reads it once at import time, so setting it afterwards has no effect and spans carry no
+> prompts or completions. The example sets it at the top of the file for that reason.
+
 ## Prerequisites
 
 This project uses `uv` for package management. Install it first:
@@ -202,6 +220,9 @@ uv sync --extra llamaindex
 
 # Install with CrewAI support
 uv sync --extra crewai
+
+# Install with Haystack support
+uv sync --extra haystack
 ```
 
 ## Prerequisites - Start the Backend
@@ -286,6 +307,9 @@ uv run --extra crewai crewai_example.py
 
 # LangGraph workflow example
 uv run --extra langgraph langgraph_example.py
+
+# Haystack pipeline + agent + conversation example
+uv run --extra haystack haystack_example.py
 ```
 
 **How it works**: `uv run` automatically:

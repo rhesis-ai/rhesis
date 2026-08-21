@@ -46,6 +46,7 @@ from rhesis.penelope import (
     PenelopeAgent,
     EndpointTarget,
     GoogleADKTarget,
+    HaystackTarget,
     LangChainTarget,
     LangGraphTarget,
     MAFTarget,
@@ -60,6 +61,10 @@ target = MAFTarget(maf_agent, target_id="maf-bot")
 # Google ADK: pass a Runner, or a bare agent to have one built for you.
 # The conversation_id is used directly as the ADK session id.
 target = GoogleADKTarget(adk_runner, target_id="adk-bot")
+
+# Haystack agent, or a pipeline told which component and socket the message goes to.
+target = HaystackTarget(haystack_agent, target_id="haystack-bot")
+target = HaystackTarget(rag_pipeline, target_id="rag-bot", input_component="prompt")
 
 result = penelope.execute_test(
     target=target,

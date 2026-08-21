@@ -7,12 +7,14 @@ it because the other tests drive these loops with ``turn_hook=None``.
 
 from __future__ import annotations
 
+import importlib
 import sys
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
+from tests import integrations
 from tests.mocks import greeting_script, make_pipeline
 
 CHAT_DIR = Path(__file__).resolve().parent.parent / "chat_terminal"
@@ -53,11 +55,13 @@ def turn_hook():
     return hook
 
 
-def test_conversation_turn_matches_the_real_handle():
-    """The stand-in must not drift from the integration's ConversationTurn."""
-    from haystack_integrations.tracing.rhesis import ConversationTurn
+def test_conversation_turn_matches_the_real_handle(integration):
+    """The stand-in must not drift from either integration's ConversationTurn."""
+    module = importlib.import_module(
+        integrations.NATIVE_MODULE if integration.name == "native" else integrations.UPSTREAM_MODULE
+    )
 
-    real = ConversationTurn()
+    real = module.ConversationTurn()
     real.output = "reply"
     assert real.output == "reply"
     # The loops assign `output`; there is deliberately no setter method to drift from.

@@ -475,8 +475,8 @@ export function ObservabilitySection() {
         >
           Auto-instrumentation
         </a>{' '}
-        works out of the box for LangChain, LangGraph, Microsoft Agent Framework, and Google ADK;
-        connect any Python app using the{' '}
+        works out of the box for LangChain, LangGraph, Microsoft Agent Framework, Google ADK, and
+        Haystack; connect any Python app using the{' '}
         <a
           href="/sdk/connector"
           style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}

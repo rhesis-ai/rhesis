@@ -2,18 +2,20 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Auto-Instrumentation
 
-Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, and Google ADK applications. It traces LLM calls, tool invocations, and chain executions without modifying your code.
+Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack applications. It traces LLM calls, tool invocations, and chain executions without modifying your code.
 
 <Mermaid chart={`flowchart LR
     AI["auto_instrument()"] --> LC["LangChain"]
     AI --> LG["LangGraph"]
     AI --> MAF["Microsoft Agent Framework"]
     AI --> PAI["Pydantic AI"]
+    AI --> HS["Haystack"]
 
     LC --> T["Automatic Traces"]
     LG --> T
     MAF --> T
-    PAI --> T`} />
+    PAI --> T
+    HS --> T`} />
 
 ## API at a glance
 
@@ -28,6 +30,7 @@ auto_instrument("langchain", "langgraph")      # explicit multiple frameworks
 auto_instrument("agent_framework")             # Microsoft Agent Framework (alias: "maf")
 auto_instrument("pydantic_ai")                 # Pydantic AI
 auto_instrument("google_adk")                  # Google ADK (alias: "adk")
+auto_instrument("haystack")                    # Haystack
 disable_auto_instrument()                      # turn everything off`}
 </CodeBlock>
 
@@ -242,9 +245,12 @@ disable_auto_instrument()`}
 | Microsoft Agent Framework | Auto-instrument (OTel span translation) | `agent_framework` (alias `maf`) | `agent-framework` | Supported |
 | Pydantic AI | Auto-instrument (OTel span translation) | `pydantic_ai` | `pydantic-ai` | Supported |
 | Google ADK | Auto-instrument (OTel span translation) | `google_adk` (alias `adk`) | `google-adk` | Supported |
+| Haystack | Auto-instrument (registers a Haystack tracer) | `haystack` | `haystack` | Supported |
 | Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, …) | `@observe.*` decorators | n/a | n/a | Use [Decorators](/docs/tracing/decorators) |
 
-Microsoft Agent Framework and Google ADK each have their own dedicated guide — see [Microsoft Agent Framework](/docs/tracing/agent-framework) and [Google ADK](/docs/tracing/google-adk) for installation, handoff tracing, and content-capture options. For Pydantic AI, call `auto_instrument("pydantic_ai")` after creating `RhesisClient`.
+Microsoft Agent Framework, Google ADK and Haystack each have their own dedicated guide — see [Microsoft Agent Framework](/docs/tracing/agent-framework), [Google ADK](/docs/tracing/google-adk) and [Haystack](/docs/tracing/haystack) for installation, handoff tracing, and content-capture options. For Pydantic AI, call `auto_instrument("pydantic_ai")` after creating `RhesisClient`.
+
+Haystack needs one extra step: `HAYSTACK_CONTENT_TRACING_ENABLED` must be `true` before `haystack` is imported, or its spans carry no prompts or completions.
 
 For frameworks not in the auto-instrument list, wrap the functions, tools, or agents you want to trace with `@observe.llm`, `@observe.tool`, `@observe.retrieval`, etc. Without decorators only top-level inputs and outputs are captured.
 
@@ -259,6 +265,7 @@ To add a new framework to the auto-instrument list, see [Contributing: SDK Integ
   - [Multi-Agent Tracing](/docs/tracing/multi-agent) - Agent and handoff spans
   - [Microsoft Agent Framework](/docs/tracing/agent-framework) - Native agent and handoff tracing for MAF
   - [Google ADK](/docs/tracing/google-adk) - Native agent and handoff tracing for Google ADK
+  - [Haystack](/docs/tracing/haystack) - Pipeline, component, and agent tracing
   - [Integrations](/docs/integrations) - The four integration layers at a glance
   - [Connector](/sdk/connector) - Register functions as endpoints
 </Callout>

@@ -9,6 +9,7 @@ const meta: MetaRecord = {
   "auto-instrumentation": "Auto-Instrumentation",
   "agent-framework": "Microsoft Agent Framework",
   "google-adk": "Google ADK",
+  haystack: "Haystack",
   "multi-agent": "Multi-Agent Tracing",
   "conversation-tracing": "Conversation Tracing",
 };
