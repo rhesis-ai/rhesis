@@ -754,7 +754,9 @@ class TestBulkCreateEnforcesUniformTestType:
                 )
             ],
         )
-        assert payload.tests[0].test_configuration == {"goal": "multi turn"}
+        # TestData normalises a goal-bearing config through MultiTurnTestConfig,
+        # whose max_turns defaults to 10 — so it is always present on the way out.
+        assert payload.tests[0].test_configuration == {"goal": "multi turn", "max_turns": 10}
 
     def test_effective_type_precedence_is_shared(self):
         base = {
