@@ -409,3 +409,54 @@ class TestToolParameterDocumentation:
         generate = by_name["generate_test_set"].inputSchema
         assert "project_id" not in generate.get("required", [])
         assert generate["properties"]["project_id"].get("description")
+
+
+@pytest.mark.unit
+class TestProjectScopeGuidance:
+    """Tool docs must not tell the agent to resolve or ask for a project.
+
+    ``create_endpoint`` used to say ``project_id`` was REQUIRED and to
+    "resolve it via list_projects (use the user's project, or ask if
+    ambiguous)". Both are wrong: ``EndpointCreate.project_id`` is optional and
+    ``auto_stamp`` fills it from the request scope. The agent followed the docs
+    and asked the user which project they meant on every session.
+    """
+
+    _PROJECT_SCOPED_CREATES = ("create_endpoint", "create_project")
+
+    def _tool(self, name):
+        for tc in load_tool_configs():
+            if tc["name"] == name:
+                return tc
+        pytest.fail(f"{name} missing from mcp_tools.yaml")
+
+    @pytest.mark.parametrize("tool_name", _PROJECT_SCOPED_CREATES)
+    def test_project_id_param_says_omit(self, tool_name):
+        param = self._tool(tool_name)["parameters"]["project_id"]
+        assert "Omit" in param["description"], (
+            f"{tool_name} should tell the agent to omit project_id — the request scope supplies it"
+        )
+
+    @pytest.mark.parametrize("tool_name", _PROJECT_SCOPED_CREATES)
+    def test_no_tool_asks_the_user_for_a_project(self, tool_name):
+        tool = self._tool(tool_name)
+        blob = " ".join(
+            [tool.get("description", "")]
+            + [p.get("description", "") for p in tool["parameters"].values()]
+        )
+        for banned in ("ask if ambiguous", "REQUIRED. UUID of the project"):
+            assert banned not in blob, f"{tool_name} still says: {banned!r}"
+
+    def test_create_endpoint_does_not_chain_through_list_projects(self):
+        desc = self._tool("create_endpoint")["description"]
+        assert "list_projects" not in desc, (
+            "create_endpoint must not send the agent to list_projects — the "
+            "endpoint lands in the request's project automatically"
+        )
+
+    def test_get_project_does_not_claim_create_endpoint_needs_it(self):
+        desc = self._tool("get_project")["description"]
+        assert "project_id\n      is required" not in desc
+        assert "Not needed before create_endpoint" in desc.replace("\n      ", " ") or (
+            "NOT needed before create_endpoint" in desc.replace("\n      ", " ")
+        ), "get_project should say create_endpoint does not need it"

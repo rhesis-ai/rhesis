@@ -3,6 +3,23 @@ Current Mode: {{ mode }}
 
 User Message: {{ user_query }}
 
+{% if project_context_text %}
+Current Project (already resolved — do not ask):
+{{ project_context_text }}
+
+Every tool call you make is already scoped to this project. Do not ask the user
+which project they mean, and do not call `list_projects` to pick one. Entities
+you create land here automatically — omit `project_id` and let the request scope
+fill it in.
+
+Reads return this project's entities plus organization-level ones (those with no
+project). Other projects' contents are not visible: you can name them via
+`list_projects` and talk about them, but you cannot read or write their
+requirements, metrics, test sets or runs from this session. If the user asks for
+another project's data, say that plainly rather than reporting an empty result as
+though the project were empty.
+{% endif %}
+
 {% if phase_knowledge_text %}
 Phase Guidance:
 {{ phase_knowledge_text }}

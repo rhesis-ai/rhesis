@@ -139,6 +139,7 @@ class ArchitectAgent(BaseAgent):
         history_window: Optional[int] = None,
         verbose: bool = False,
         event_handlers: Optional[List[AgentEventHandler]] = None,
+        project_context: Optional[Dict[str, Any]] = None,
     ):
         self._cfg = config or ArchitectConfig()
         templates_dir = Path(__file__).parent / "prompt_templates"
@@ -155,6 +156,10 @@ class ArchitectAgent(BaseAgent):
             jinja_env=build_architect_jinja_env(templates_dir),
         )
         self._conversation_history: List[Dict[str, Any]] = []
+        # The project this session is scoped to. Tool calls carry it as
+        # X-Project-Id, so the agent must not ask the user which project
+        # they mean — see _format_project_context.
+        self._project_context: Dict[str, Any] = project_context or {}
         self._plan: Optional[ArchitectPlan] = None
         self._mode: AgentMode = AgentMode.DISCOVERY
         self._workflow_path: WorkflowPath = WorkflowPath.UNSET
@@ -1516,7 +1521,51 @@ class ArchitectAgent(BaseAgent):
             plan_progress_text=plan_progress_text,
             discovery_state_text=discovery_text,
             attachments_text=attachments_text,
+            project_context_text=self._format_project_context(),
         )
+
+    def _format_project_context(self) -> str:
+        """Describe the project this session is scoped to.
+
+        Without this the agent has no way to know: the ``project`` table is
+        not covered by the ``project_isolation`` RLS policy, so
+        ``list_projects`` returns every project in the organization with
+        nothing marking the active one. It would ask the user instead.
+        """
+        name = self._clean_project_field(
+            self._project_context.get("name"), self._cfg.project_name_max_chars
+        )
+        project_id = (self._project_context.get("project_id") or "").strip()
+        if not name and not project_id:
+            return ""
+
+        label = name or "(unnamed)"
+        lines = [f"Project: {label}"]
+        if project_id:
+            lines.append(f"Project ID: {project_id}")
+        description = self._clean_project_field(
+            self._project_context.get("description"),
+            self._cfg.project_description_max_chars,
+        )
+        if description:
+            lines.append(f"About: {description}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _clean_project_field(value: Any, max_chars: int) -> str:
+        """Flatten and clip a project field before it enters the prompt.
+
+        The block is line-structured, so a newline inside a name or
+        description would forge a field the user never set (``About: x\nProject:
+        Other``). Collapsing whitespace removes that, and the clip keeps a long
+        description from being paid for on every turn.
+        """
+        if not isinstance(value, str):
+            return ""
+        flattened = " ".join(value.split())
+        if len(flattened) > max_chars:
+            return flattened[:max_chars].rstrip() + "…"
+        return flattened
 
     def _format_discovery_state(self) -> str:
         """Format the discovery state for the iteration prompt."""
