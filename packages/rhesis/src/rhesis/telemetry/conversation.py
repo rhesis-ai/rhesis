@@ -33,6 +33,7 @@ from threading import Lock
 from typing import Iterator, Optional
 
 from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from rhesis.telemetry.constants import ConversationContext
@@ -143,7 +144,9 @@ class ConversationTurn:
         if self._span is None:
             return None
         context = self._span.get_span_context()
-        return format(context.trace_id, "032x") if context else None
+        if context is None or not context.is_valid:
+            return None
+        return format(context.trace_id, "032x")
 
     def _stamp_output(self) -> None:
         if self._span is None or not self.output:
@@ -173,25 +176,36 @@ def conversation_turn(
         A :class:`ConversationTurn`. Assign ``turn.output`` before the block ends —
         that is the whole point of the span outliving the agent run.
 
-    Opens no span, and only binds the conversation id, when tracing is off or when a
-    Rhesis span above it already owns the turn root.
+    Opens no span, and only binds the conversation id, when tracing is off, when no
+    recording tracer provider is installed, or when Rhesis already owns this turn's
+    trace -- behind ``@endpoint`` / ``@observe``, or in any platform-driven turn
+    that supplied a conversation trace id.
     """
     previous_conversation_id = get_conversation_id()
+    previous_conversation_trace_id = get_conversation_trace_id()
     set_conversation_id(conversation_id)
 
-    # An enclosing Rhesis span already published a trace id for this turn and the
-    # platform reports it onwards, so adding a second turn root here would fight it.
-    owned_elsewhere = is_tracing_disabled() or get_root_trace_id() is not None
-    provider = trace.get_tracer_provider() if not owned_elsewhere else None
-    if owned_elsewhere or not hasattr(provider, "get_tracer"):
+    # Either ContextVar means Rhesis already owns this turn's trace and reports it
+    # onwards -- ``root_trace_id`` from an enclosing @endpoint / @observe span,
+    # ``conversation_trace_id`` from a platform-driven turn whose own record is
+    # written to that trace. A second span claiming the turn root would fight it.
+    owned_elsewhere = (
+        is_tracing_disabled()
+        or get_root_trace_id() is not None
+        or previous_conversation_trace_id is not None
+    )
+    # Only an SDK TracerProvider records: the default global is a no-op proxy that
+    # still answers get_tracer() but hands back an invalid, all-zero trace id,
+    # which would then be published as this conversation's anchor.
+    provider = None if owned_elsewhere else trace.get_tracer_provider()
+    if owned_elsewhere or not isinstance(provider, SDKTracerProvider):
         try:
             yield ConversationTurn(conversation_id, None, input)
         finally:
             set_conversation_id(previous_conversation_id)
         return
 
-    previous_conversation_trace_id = get_conversation_trace_id()
-    anchor = _anchors.get(conversation_id) or previous_conversation_trace_id
+    anchor = _anchors.get(conversation_id)
     parent_context = build_conversation_parent_context(anchor) if anchor else None
 
     attributes = ConversationContext.SpanAttributes
@@ -199,12 +213,17 @@ def conversation_turn(
     turn: Optional[ConversationTurn] = None
     try:
         with tracer.start_as_current_span(name, context=parent_context) as span:
-            trace_id = format(span.get_span_context().trace_id, "032x")
-            # First turn of the conversation: its own trace becomes the anchor, and
-            # is published so nested integrations join it instead of inventing one.
-            _anchors.set(conversation_id, trace_id)
-            set_root_trace_id(trace_id)
-            set_conversation_trace_id(trace_id)
+            span_context = span.get_span_context()
+            # A provider that has been shut down hands back a non-recording span.
+            # Anchoring the conversation to its all-zero trace id would send every
+            # later turn to a trace that cannot exist.
+            trace_id = format(span_context.trace_id, "032x") if span_context.is_valid else None
+            if trace_id:
+                # First turn of the conversation: its own trace becomes the anchor,
+                # published so nested integrations join it rather than invent one.
+                _anchors.set(conversation_id, trace_id)
+                set_root_trace_id(trace_id)
+                set_conversation_trace_id(trace_id)
 
             span.set_attribute(attributes.IS_TURN_ROOT, True)
             span.set_attribute(attributes.CONVERSATION_ID, conversation_id)
