@@ -316,6 +316,30 @@ Web browsers handle this automatically.
     return description
 
 
+def _validate_test_identity_override(db) -> None:
+    """Fail startup loudly if RHESIS_TEST_ORGANIZATION_ID/RHESIS_TEST_USER_ID
+    are set but don't resolve to a local organization/user.
+
+    See ``app/utils/observability.py:_build_test_identity_override`` for why
+    this override exists. Without this check, a typo'd id would surface as
+    an opaque FK/RLS error deep inside the first connector-invoked endpoint
+    call instead of at startup.
+    """
+    organization_id = os.getenv("RHESIS_TEST_ORGANIZATION_ID") or None
+    user_id = os.getenv("RHESIS_TEST_USER_ID") or None
+    if not organization_id or not user_id:
+        return
+
+    from rhesis.backend.app import models
+
+    if not db.query(models.Organization).filter(models.Organization.id == organization_id).first():
+        raise RuntimeError(
+            f"RHESIS_TEST_ORGANIZATION_ID={organization_id} does not match any local organization."
+        )
+    if not db.query(models.User).filter(models.User.id == user_id).first():
+        raise RuntimeError(f"RHESIS_TEST_USER_ID={user_id} does not match any local user.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -370,6 +394,7 @@ async def lifespan(app: FastAPI):
     with get_db() as db:
         initialize_local_environment(db)
         run_startup_hooks(db)
+        _validate_test_identity_override(db)
 
     # Pre-fetch exchange rate on startup (non-blocking async)
     from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate_async
