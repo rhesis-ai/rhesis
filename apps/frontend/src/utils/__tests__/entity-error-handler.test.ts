@@ -8,6 +8,7 @@ import {
   parseEntityFromPathname,
   urlSegmentToResolveEntityType,
   buildNotFoundEntityData,
+  isResolvableEntityTable,
 } from '../entity-error-handler';
 
 // ============================================================================
@@ -311,5 +312,28 @@ describe('buildNotFoundEntityData', () => {
     expect(result.model_name).toBe('TestSet');
     expect(result.table_name).toBe('test_set');
     expect(result.list_url).toBe('/test-sets');
+  });
+});
+
+// ============================================================================
+// isResolvableEntityTable
+// ============================================================================
+
+describe('isResolvableEntityTable', () => {
+  it.each(['endpoint', 'test_run', 'test_set', 'metric', 'task'])(
+    'resolves project-scoped entity %s',
+    table => {
+      expect(isResolvableEntityTable(table)).toBe(true);
+    }
+  );
+
+  it('does not resolve a project — it is not scoped to a project', () => {
+    expect(isResolvableEntityTable('project')).toBe(false);
+  });
+
+  it('does not resolve unknown or missing tables', () => {
+    expect(isResolvableEntityTable('organization')).toBe(false);
+    expect(isResolvableEntityTable(undefined)).toBe(false);
+    expect(isResolvableEntityTable('')).toBe(false);
   });
 });
