@@ -11,6 +11,9 @@ resources:
   # them lives in base/grafana-resources (shared identically by dev/stg/prd).
   - discord-webhook-secret.yaml
   - grafana-smtp-credentials.yaml
+  # Google OIDC client id/secret consumed by the auth.google config in
+  # base/grafana-resources/grafana-instance.yaml.
+  - grafana-google-oidc-credentials.yaml
 
 configMapGenerator:
   - name: grafana-config
