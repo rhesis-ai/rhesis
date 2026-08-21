@@ -117,6 +117,39 @@ async def prepare_and_load_session(
     return resolved_session_id, session_data
 
 
+def _resolve_project_context(db, project_id: Optional[str], organization_id: str) -> Optional[dict]:
+    """Look up the session's project so the agent can name it.
+
+    The agent cannot resolve this itself: ``project`` is not covered by the
+    ``project_isolation`` RLS policy, so ``list_projects`` returns every
+    project in the organization with nothing marking the active one.
+
+    A project that no longer resolves is not fatal — the prompt block is
+    simply omitted and the agent behaves as it did before.
+    """
+    if not project_id:
+        return None
+
+    from uuid import UUID
+
+    from rhesis.backend.app.crud import project as project_crud
+
+    try:
+        project = project_crud.get_project(db, UUID(project_id), organization_id=organization_id)
+    except Exception:
+        logger.warning("Could not resolve project %s for Architect context", project_id)
+        return None
+
+    if not project:
+        return None
+
+    return {
+        "project_id": str(project.id),
+        "name": project.name or "",
+        "description": project.description or "",
+    }
+
+
 @observe()
 async def build_agent(
     session_data: Dict[str, Any],
@@ -144,6 +177,7 @@ async def build_agent(
             raise ValueError(f"User {user_id} is inactive")
         delegation_token = create_service_delegation_token(user, "backend")
         model = get_user_generation_model(db, user)
+        project_context = _resolve_project_context(db, project_id, organization_id)
 
     agent_state = session_data["agent_state"]
     snapshot = ArchitectAgentStateSnapshot(
@@ -174,6 +208,7 @@ async def build_agent(
         event_handlers=[ws_handler, *tracing_handlers],
         max_iterations=snapshot.max_iterations,
         verbose=False,
+        project_context=project_context,
     )
     agent.restore_state(snapshot)
 
