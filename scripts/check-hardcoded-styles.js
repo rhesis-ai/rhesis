@@ -96,6 +96,15 @@ const PATTERNS = {
   emojis: /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu
 };
 
+// GitHub issue/PR references collide with the hex pattern because digits are valid hex chars.
+// Matched per-match rather than per-line, so `color: '#123456' // fixes #2133` still flags the color.
+const ISSUE_REFERENCE = {
+  // All-digit only, so #abc, #abc123 and #fff2ab stay flagged as colors.
+  digitsOnly: /^#\d+$/,
+  // A reference word directly before the `#`. A real color always has a quote or `:` in between.
+  keyword: /\b(?:issues?|pulls?|prs?|gh|fix(?:e[sd])?|close[sd]?|resolve[sd]?|revert(?:ed|s)?|see|refs?|references?)\s*[:(\-]?\s*$/i,
+};
+
 // Files to exclude from checking
 const EXCLUDE_PATTERNS = [
   /node_modules/,
@@ -185,6 +194,33 @@ class StyleChecker {
   }
 
   /**
+   * Index where a line's comment starts, or -1. Masks `scheme://` first, or a URL's slashes
+   * would read as a comment opener and hide a real color later on the line.
+   */
+  commentStartIndex(line) {
+    const masked = line.replace(/\w+:\/\//g, match => '.'.repeat(match.length));
+    const jsdoc = masked.match(/^\s*\*/);
+    if (jsdoc) {
+      return jsdoc[0].length - 1;
+    }
+    const openers = [masked.indexOf('//'), masked.indexOf('/*')].filter(index => index !== -1);
+    return openers.length > 0 ? Math.min(...openers) : -1;
+  }
+
+  /**
+   * Check if a hex match is really a GitHub issue/PR reference (`closes #2133`, `// TODO(#2133)`)
+   */
+  isIssueReference(line, match, commentStart) {
+    if (!ISSUE_REFERENCE.digitsOnly.test(match[0])) {
+      return false;
+    }
+    if (commentStart !== -1 && match.index > commentStart) {
+      return true;
+    }
+    return ISSUE_REFERENCE.keyword.test(line.slice(0, match.index));
+  }
+
+  /**
    * Get all theme colors as a flat array for checking
    */
   getAllThemeColors() {
@@ -259,7 +295,12 @@ class StyleChecker {
 
         // Check for hex colors
         let match;
+        const commentStart = this.commentStartIndex(line);
+        PATTERNS.hexColors.lastIndex = 0;
         while ((match = PATTERNS.hexColors.exec(line)) !== null) {
+          if (this.isIssueReference(line, match, commentStart)) {
+            continue;
+          }
           this.violations.push({
             file: filePath,
             line: lineNumber,
