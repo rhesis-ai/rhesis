@@ -120,6 +120,17 @@ export default function ClientWrapper({
   );
 
   const handleDeleteConfirm = async () => {
+    // The FAB is guarded at render time, but activeProject can resolve after this
+    // page rendered — a session with no active-project cookie and a single project
+    // auto-selects it client-side — so the FAB may have been enabled when the
+    // dialog opened. Re-check before the DELETE, as the list page does.
+    if (isActiveProject) {
+      notifications.show(ACTIVE_PROJECT_DELETE_BLOCKED, {
+        severity: 'warning',
+      });
+      setDeleteConfirmOpen(false);
+      return;
+    }
     setIsDeleting(true);
     try {
       const apiFactory = new ApiClientFactory();

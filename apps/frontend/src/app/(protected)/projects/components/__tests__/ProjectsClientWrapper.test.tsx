@@ -189,6 +189,11 @@ describe('ProjectsClientWrapper active-project delete guard', () => {
       expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument()
     );
     expect(mockDeleteProject).not.toHaveBeenCalled();
+    // The dialog must not just vanish with no explanation.
+    expect(mockShow).toHaveBeenCalledWith(
+      ACTIVE_PROJECT_DELETE_BLOCKED,
+      expect.objectContaining({ severity: 'warning' })
+    );
   });
 
   it('surfaces a failed delete instead of failing silently', async () => {

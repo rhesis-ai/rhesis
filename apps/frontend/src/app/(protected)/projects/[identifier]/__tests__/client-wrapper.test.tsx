@@ -244,4 +244,33 @@ describe('Project detail ClientWrapper active-project guard', () => {
 
     expect(editFab()).toBeEnabled();
   });
+
+  it('refuses the delete when the project became active while the dialog was open', async () => {
+    // No active-project cookie yet, so the FAB renders enabled.
+    mockActiveProject = null;
+    const { rerender } = render(
+      <ClientWrapper project={makeProject()} projectId="proj-1" />
+    );
+
+    await openDeleteModal();
+
+    // ActiveProjectContext resolves and auto-selects this project.
+    mockActiveProject = { id: 'proj-1', name: 'My Project' } as Project;
+    rerender(<ClientWrapper project={makeProject()} projectId="proj-1" />);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /confirm delete/i })
+    );
+
+    expect(mockDeleteProject).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument()
+    );
+    // The dialog must not just vanish with no explanation.
+    expect(mockShow).toHaveBeenCalledWith(
+      ACTIVE_PROJECT_DELETE_BLOCKED,
+      expect.objectContaining({ severity: 'warning' })
+    );
+  });
 });

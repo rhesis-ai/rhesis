@@ -121,6 +121,9 @@ export default function ProjectsClientWrapper() {
     // cookie yet, or a single project being auto-selected mid-flight), so a
     // click can slip through the disabled trash can. Re-check before the DELETE.
     if (activeProjectId !== null && deleteTarget.id === activeProjectId) {
+      notifications.show(ACTIVE_PROJECT_DELETE_BLOCKED, {
+        severity: 'warning',
+      });
       setDeleteTarget(null);
       return;
     }
