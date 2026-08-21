@@ -54,6 +54,8 @@ from rhesis.sdk.telemetry.integrations.genai import (
     KEEP_PARENT,
     TRUTHY_ENV_VALUES,
     AncestryRegistry,
+    ConversationTraceRegistry,
+    RetracedSpan,
     TranslatedSpan,
     content_capture_enabled,
     translate_events,
@@ -63,6 +65,8 @@ from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.context import (
     get_conversation_id,
+    get_conversation_trace_id,
+    get_root_trace_id,
     is_llm_observation_active,
     set_llm_observation_active,
 )
@@ -414,6 +418,11 @@ class _ConversationContentRegistry:
 
 _conversation_content = _ConversationContentRegistry()
 
+# Which Rhesis conversation trace each ADK trace belongs to. ADK opens a fresh
+# trace per turn, so without this every turn of a conversation lands in the
+# viewer as its own trace instead of as one more turn of the same one.
+_conversation_traces = ConversationTraceRegistry()
+
 
 def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
     """Build Rhesis conversation attributes for an ADK trace-root span.
@@ -736,7 +745,23 @@ class GoogleADKTranslatingExporter(SpanExporter):
                     exc_info=True,
                 )
                 translated.append(_safe_fallback_span(span))
-        return self._wrapped.export(translated)
+        return self._wrapped.export(self._join_conversation_traces(translated))
+
+    @staticmethod
+    def _join_conversation_traces(spans: list[ReadableSpan]) -> list[ReadableSpan]:
+        """Rewrite every span of a claimed trace onto its conversation's trace id.
+
+        Applies to non-ADK spans as well. They share the trace with the ADK run --
+        an enclosing ``@endpoint`` span, an HTTP client span from an unrelated
+        instrumentation -- and leaving them behind on the original trace id would
+        tear the turn in half.
+        """
+        joined: list[ReadableSpan] = []
+        for span in spans:
+            trace_id = getattr(getattr(span, "context", None), "trace_id", None)
+            target = _conversation_traces.target(trace_id)
+            joined.append(RetracedSpan(span, target) if target is not None else span)
+        return joined
 
     def _translate_adk_span(
         self,
@@ -904,9 +929,25 @@ class GoogleADKLLMDedupSpanProcessor(SpanProcessor):
 
             # Read the app's conversation id here: by ``on_end`` the caller's
             # contextvar may already have been restored.
+            conversation_id = get_conversation_id()
             _conversation_content.record_rhesis_conversation_id(
-                self._trace_id(span), get_conversation_id()
+                self._trace_id(span), conversation_id
             )
+            # Claim the turn's trace for the conversation here too: this is the
+            # last moment the ContextVars are readable, and the run root starts
+            # before every span whose trace id the exporter will rewrite.
+            #
+            # Both ContextVars mean "something outside this process already owns
+            # the trace identity": ``root_trace_id`` is what the tracer publishes
+            # as the endpoint's result and the conversation's id for the next
+            # turn, and ``conversation_trace_id`` is a trace the platform minted
+            # and is writing its own turn records to. Either way it joins the
+            # turns itself, and moving spans off that id would strand the link,
+            # the reply and the next turn on a trace that has no spans. Standalone
+            # ADK runs -- a terminal chat, a script -- have neither, and are the
+            # only place this rewrite is safe.
+            if get_root_trace_id() is None and get_conversation_trace_id() is None:
+                _conversation_traces.claim(self._trace_id(span), conversation_id)
 
             span_name = getattr(span, "name", "") or ""
             if not (mapping.is_call_llm_span(span_name) or mapping.is_model_span(span_name)):

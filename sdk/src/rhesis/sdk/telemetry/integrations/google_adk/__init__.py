@@ -11,8 +11,8 @@ Development Kit) applications:
   mechanisms -- ``sub_agents`` + ``transfer_to_agent`` and ``AgentTool`` -- so the
   Rhesis Graph View renders connected edges
 - Workflows, nodes and the run root (``function.google_adk.*``)
-- Conversation turn roots, so multi-turn ADK sessions group in the
-  Conversation tab without any manual span code
+- Conversation turn roots, and every turn of a conversation joined into one
+  trace rather than one trace per turn -- both without any manual span code
 
 ADK emits OTEL spans natively under the instrumentation scope
 ``gcp.vertex.agent``; this integration translates them into Rhesis's ``ai.*`` /
@@ -60,6 +60,18 @@ thread, which gets fresh context variables. That means the ADK spans start a new
 trace instead of nesting under an enclosing Rhesis ``@endpoint`` / ``@observe``
 span, and the conversation id set via ``rhesis.telemetry.context`` is invisible
 to them. ``Runner.run_async`` (and ``run_debug``) nest correctly.
+
+**Conversation joining needs the id set before the run.** ADK opens its own run
+root per turn and OTEL mints a fresh trace id for it, so the integration rewrites
+the turn's spans onto a trace id shared by the conversation. That target has to be
+known when the run span is *created*, and ADK assigns no span attributes until much
+later, so the only readable source is
+``rhesis.telemetry.context.set_conversation_id``. Without one, the ADK session id
+still labels the turn root -- that is read at export -- but the turns stay on
+separate traces. The rewrite only ever applies to a standalone run: when
+``root_trace_id`` or ``conversation_trace_id`` is set, Rhesis owns the trace id,
+publishes it onwards and writes its own turn records to it, so the ids are left
+untouched. The conversation's first turn is never moved either.
 
 **ADK cannot be turned off.** Unlike MAF and Pydantic AI, ADK has no
 instrumentation switch -- it emits spans as soon as any ``TracerProvider``
