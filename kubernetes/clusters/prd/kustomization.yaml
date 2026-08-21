@@ -3,12 +3,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # base.yaml is intentionally NOT listed here (unlike dev/stg): prd-base is pinned to
-  # an immutable commit SHA via an imperative `argocd app set`/`sync` in
-  # publish-release.yml, not tracked from a branch. If base.yaml were self-managed,
-  # every sync would re-apply whatever targetRevision is committed at prd-base's own
-  # pinned commit — which can never equal that commit's own (not-yet-known) hash — so
-  # the imperative pin would be reverted on every sync. See kubernetes/README.md.
+  # The root Application (prd-base) is NOT here, and has no base.yaml in this
+  # directory at all — unlike dev/stg. It lives in kubernetes/bootstrap/prd-base.yaml
+  # because its targetRevision is an imperative SHA pin set by publish-release.yml,
+  # which a self-managed manifest would revert on every sync. See kubernetes/README.md.
   - argocd/argocd-application.yaml
   - argocd/argocd-ingress.yaml
   - external-secrets.yaml
