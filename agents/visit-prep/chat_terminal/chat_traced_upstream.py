@@ -2,10 +2,12 @@
 
 Uses ``rhesis-haystack`` — ``haystack_integrations.tracing.rhesis``. That package is not a
 declared dependency of visit-prep, because its path source cannot be resolved from every checkout.
-Install it into this project's environment first:
+Install it into this project's environment first. ``--no-deps`` is required: the package pins
+``rhesis[telemetry]>=0.13.0``, and resolving that would replace the local editable ``rhesis``
+with a PyPI build, which breaks the ``rhesis`` / ``rhesis.sdk`` namespace package.
 
     cd agents/visit-prep
-    uv pip install -e <path-to>/haystack-core-integrations/integrations/rhesis
+    uv pip install -e <path-to>/haystack-core-integrations/integrations/rhesis --no-deps
 
 Then run:
 
@@ -27,7 +29,7 @@ try:
 except ImportError as exc:  # noqa: BLE001 - the fix is an install, so say so plainly
     raise SystemExit(
         "rhesis-haystack is not installed. Install it with:\n"
-        "  uv pip install -e <path-to>/haystack-core-integrations/integrations/rhesis\n"
+        "  uv pip install -e <path-to>/haystack-core-integrations/integrations/rhesis --no-deps\n"
         "Or trace through the native integration with chat_traced_native.py."
     ) from exc
 
