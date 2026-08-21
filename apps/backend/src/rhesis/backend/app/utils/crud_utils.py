@@ -148,6 +148,12 @@ def _prepare_item_data(
     # Convert Pydantic to dict
     data = _convert_pydantic_to_dict(item_data)
 
+    # nano_id is server-owned: nothing in the backend ever writes one, so drop it here as
+    # well as at the schema layer. This covers the dict-based callers that skip Pydantic.
+    # `id` is deliberately NOT dropped -- FileCreate pre-generates its primary key so the
+    # storage path and the test_output JSONB marker can embed it before the row exists.
+    data.pop("nano_id", None)
+
     # Drop keys that have no corresponding ORM column on this model.
     # This handles schema fields (e.g. project_id on Base) that are absent from
     # models like Organization, User, and Project itself.
@@ -186,6 +192,12 @@ def _prepare_update_data(
     # project_id is immutable — silently strip it from update payloads so callers
     # cannot accidentally (or maliciously) change the project scope of a record.
     data.pop("project_id", None)
+
+    # Identity is immutable. Unlike creates (where FileCreate legitimately pre-generates
+    # its primary key), no update path may ever rebind id or nano_id: update_item applies
+    # every remaining key, so leaving these in would let a PUT repoint a row's identity.
+    data.pop("id", None)
+    data.pop("nano_id", None)
 
     # Token scopes are mint-time-only: the SP9 "scopes ⊆ issuer" + chained-mint
     # guard runs only at creation (routers/token.py). Stripping scopes here makes

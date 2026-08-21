@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # Category schemas
@@ -23,5 +23,5 @@ class TypeLookupUpdate(TypeLookupBase):
     type_value: Optional[str] = None
 
 
-class TypeLookup(TypeLookupBase):
+class TypeLookup(TypeLookupBase, ServerIdentity):
     pass

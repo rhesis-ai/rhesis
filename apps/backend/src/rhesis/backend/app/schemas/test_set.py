@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.constants import TestSetType, TestType
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import StatusReference, TypeLookupReference
 from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.user import UserReference
@@ -51,7 +51,7 @@ class TestSetUpdate(TestSetBase):
     name: str = None
 
 
-class TestSet(TestSetBase):
+class TestSet(TestSetBase, ServerIdentity):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]

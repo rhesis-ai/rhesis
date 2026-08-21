@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 from pydantic import UUID4, BaseModel, ConfigDict
 
-from .base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 class FileEntityType(str, Enum):
@@ -14,7 +14,7 @@ class FileEntityType(str, Enum):
     ARCHITECT_SESSION = "ArchitectSession"
 
 
-class FileResponse(Base):
+class FileResponse(Base, ServerIdentity):
     """File metadata response — never includes raw content or storage_path."""
 
     filename: str

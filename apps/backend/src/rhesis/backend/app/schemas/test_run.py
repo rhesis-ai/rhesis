@@ -3,8 +3,8 @@ from typing import Any, ClassVar, Dict, List, Optional
 from pydantic import UUID4, ConfigDict
 
 from rhesis.backend.app.auth.capabilities import ResourceType
-from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import (
     ProjectReference,
     StatusReference,
@@ -37,7 +37,7 @@ class TestRunUpdate(TestRunBase):
     pass
 
 
-class TestRun(TestRunBase, WithPermittedActions):
+class TestRun(TestRunBase, WithPermittedActions, ServerIdentity):
     """Full TestRun response with server-resolved object-level affordances.
 
     ``permitted_actions`` is populated automatically during serialization for
@@ -50,7 +50,7 @@ class TestRun(TestRunBase, WithPermittedActions):
     model_config = ConfigDict(from_attributes=True)
 
 
-class EndpointReference(Base):
+class EndpointReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -63,7 +63,7 @@ class EndpointReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TestSetReference(Base):
+class TestSetReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     user_id: Optional[UUID4] = None
@@ -75,7 +75,7 @@ class TestSetReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TestConfigurationReference(Base):
+class TestConfigurationReference(Base, ServerIdentity):
     id: UUID4
     attributes: Optional[Dict[str, Any]] = None
     endpoint: Optional[EndpointReference] = None

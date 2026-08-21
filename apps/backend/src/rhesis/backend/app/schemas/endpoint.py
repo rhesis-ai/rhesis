@@ -10,7 +10,7 @@ from rhesis.backend.app.models.enums import (
     EndpointEnvironment,
     EndpointResponseFormat,
 )
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
 from rhesis.backend.app.schemas.user import UserReference
 
@@ -141,7 +141,7 @@ class EndpointMappingTestRequest(Base):
     response_format: Optional[EndpointResponseFormat] = None
 
 
-class Endpoint(Base):
+class Endpoint(Base, ServerIdentity):
     """Response schema - excludes sensitive write-only fields"""
 
     id: UUID4

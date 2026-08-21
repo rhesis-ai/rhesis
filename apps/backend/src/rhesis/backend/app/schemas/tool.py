@@ -4,7 +4,8 @@ from typing import Any, Dict, Optional, Union
 
 from pydantic import UUID4, ConfigDict, field_serializer
 
-from .base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
+
 from .references import TypeLookupReference
 from .type_lookup import TypeLookup
 
@@ -50,7 +51,7 @@ class ToolUpdate(ToolBase):
         return json.dumps(value)
 
 
-class Tool(Base):
+class Tool(Base, ServerIdentity):
     """
     Complete Tool schema with relationships.
 
@@ -79,7 +80,7 @@ class Tool(Base):
 
 # Extends ToolBase, not Tool -- Tool declares status/user as full relationship
 # objects, which would leak back in through inheritance if this extended it instead.
-class ToolDetail(ToolBase):
+class ToolDetail(ToolBase, ServerIdentity):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]

@@ -8,7 +8,7 @@ from rhesis.backend.app.constants import (
     REVIEW_TARGET_TEST_RESULT,
     ReviewTarget,
 )
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
 from rhesis.backend.app.schemas.references import (
     RequirementReference,
@@ -45,7 +45,7 @@ class TestResultUpdate(TestResultBase):
     test_configuration_id: Optional[UUID4] = None
 
 
-class TestResult(TestResultBase, WithPermittedActions):
+class TestResult(TestResultBase, WithPermittedActions, ServerIdentity):
     """Full TestResult response with server-resolved object-level affordances.
 
     ``permitted_actions`` is populated automatically during serialization for
@@ -62,7 +62,7 @@ class TestResult(TestResultBase, WithPermittedActions):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TestReference(Base):
+class TestReference(Base, ServerIdentity):
     id: UUID4
     prompt: Optional[PromptReference] = None
     requirement: Optional[RequirementReference] = None
@@ -70,7 +70,7 @@ class TestReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TestRunReference(Base):
+class TestRunReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
 

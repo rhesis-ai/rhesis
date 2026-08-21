@@ -4,7 +4,7 @@ from typing import Any, Optional
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.auth.constants import AuthProviderType
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # User Settings schemas - use BaseModel instead of Base since these are not DB models
@@ -242,7 +242,7 @@ class UserUpdate(UserBase):
     email: Optional[str] = None
 
 
-class User(UserBase):
+class User(UserBase, ServerIdentity):
     user_settings: Optional[UserSettingsOutput] = Field(
         default_factory=lambda: UserSettingsOutput(version=1),
         description="User preferences and settings",
@@ -250,7 +250,7 @@ class User(UserBase):
 
 
 # For use in responses where we need minimal user info
-class UserReference(Base):
+class UserReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = ""  # Default to empty string to avoid validation errors
     given_name: Optional[str] = ""  # Default to empty string to avoid validation errors

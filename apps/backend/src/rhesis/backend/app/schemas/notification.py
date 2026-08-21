@@ -4,10 +4,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
-class NotificationRead(Base):
+class NotificationRead(Base, ServerIdentity):
     """A single notification, as returned by the API and carried in the
     websocket ``NOTIFICATION`` event payload."""
 

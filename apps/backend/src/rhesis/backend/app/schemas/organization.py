@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import UUID4, field_validator
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
 # Public alias used by the SSO router and other modules that need the same pattern.
@@ -59,5 +59,5 @@ class OrganizationUpdate(OrganizationBase):
     email: Optional[str] = None
 
 
-class Organization(OrganizationBase):
+class Organization(OrganizationBase, ServerIdentity):
     pass
