@@ -360,6 +360,82 @@ class TestFlowResourceQuotaGate:
 
         assert response.status_code != status.HTTP_402_PAYMENT_REQUIRED, response.text
 
+    def test_generate_tests_at_the_limit_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+    ):
+        """`POST /services/generate/tests` is the non-streaming sample
+        preview `handleRegenerateSample`/`handleLoadMoreSamples` call --
+        it had neither a client-side check nor a require_quota gate."""
+        limit = 5
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, limit)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 1},
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["error"] == "quota_exceeded"
+        assert body["resource"] == QuotaResource.TEST_GENERATION.value
+
+    def test_generate_multiturn_tests_at_the_limit_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+    ):
+        limit = 5
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, limit)
+
+        response = authenticated_client.post(
+            "/services/generate/multiturn-tests",
+            json={"generation_prompt": "Test a chatbot", "num_tests": 1},
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["error"] == "quota_exceeded"
+        assert body["resource"] == QuotaResource.TEST_GENERATION.value
+
+    def test_generate_test_config_at_the_limit_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+    ):
+        """`POST /services/generate/test_config` backs the config-only step
+        of the same preview flow and was gated neither client- nor
+        server-side."""
+        limit = 5
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, limit)
+
+        response = authenticated_client.post(
+            "/services/generate/test_config", json={"prompt": "Test the login flow"}
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["error"] == "quota_exceeded"
+        assert body["resource"] == QuotaResource.TEST_GENERATION.value
+
 
 class TestRequireQuotaFlowResourceWarningHeader:
     """The SOFT-policy grace band sets `QUOTA_WARNING_HEADER` on an allowed

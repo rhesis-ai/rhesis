@@ -317,6 +317,7 @@ async def generate_tests_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Generate test cases using the prompt synthesizer.
@@ -376,6 +377,7 @@ async def generate_multiturn_tests_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Generate multi-turn test cases using the MultiTurnSynthesizer.
@@ -474,6 +476,7 @@ async def generate_test_config(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
 ):
     """
     Generate test configuration JSON based on user description.
