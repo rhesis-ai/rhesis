@@ -35,13 +35,6 @@ Admin / cross-org reads:
         results = db.query(SomeModel).all()   # filter skipped
     Auto-stamp is NOT affected by bypass - inserts still get the caller's identity.
 
-Per-query bypass (legacy Query API only):
-    query._bypass_scope = True
-
-    Note: db.execute(select(...)) / ORM 2.0 style reads are not auto-filtered by the
-    before_compile listener at all, so no bypass is needed or available for them.
-    RLS (Phase 5) is the security backstop for those paths.
-
 Background scripts / migrations:
     Scripts run outside get_db_with_tenant_variables. Scope is unbound, auto-stamp is
     a no-op, and NOT-NULL constraints on organization_id will trip. Explicitly bind:

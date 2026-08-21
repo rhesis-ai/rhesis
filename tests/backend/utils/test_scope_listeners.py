@@ -2,15 +2,15 @@
 Tests for the ambient request scope listeners (scope_events.py).
 
 The shipped implementation uses two listeners:
-  auto_filter  - Query.before_compile  (covers db.query(...), not db.execute(select(...)))
-  auto_stamp   - Session.before_flush  (covers all ORM pending inserts, not bulk operations)
+  auto_filter  - Session.do_orm_execute  (covers db.query(...), db.execute(select(...)),
+                 Query.update()/.delete(), and relationship loads)
+  auto_stamp   - Session.before_flush    (covers all ORM pending inserts, not bulk operations)
 
 Coverage:
 - Auto-filter no-ops when scope is unbound (isolate_request_scope fixture)
-- Auto-filter applies org_id predicate when scope is bound (before_compile)
+- Auto-filter applies org_id predicate when scope is bound (do_orm_execute)
 - Auto-filter is idempotent with explicit filter + bound scope
 - bypass_tenant_filter() suppresses auto-filter
-- query._bypass_scope = True suppresses auto-filter (per-query bypass)
 - Kill switch (RHESIS_DISABLE_SCOPE_LISTENER=1) checked at query time by both listeners
 - Auto-stamp fires when scope is bound and column is None
 - Auto-stamp does NOT overwrite explicit values
@@ -41,8 +41,9 @@ from rhesis.backend.app.scope import (
 )
 from rhesis.backend.app.utils import crud_utils
 from tests.backend.routes.fixtures.data_factories import (
-    RequirementDataFactory,
     ProjectDataFactory,
+    PromptDataFactory,
+    RequirementDataFactory,
 )
 
 
@@ -187,11 +188,75 @@ class TestAutoFilterWhenBound:
         assert b1.id in ids
         assert b2.id not in ids
 
+    def test_bound_scope_filters_select_style_query(
+        self, test_db: Session, test_org_id, test_org2_id, bound_scope
+    ):
+        """db.execute(select(...)) is filtered too - the gap the before_compile listener had."""
+        from sqlalchemy import select
+
+        b1 = crud_utils.create_item(
+            test_db,
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        b2 = crud_utils.create_item(
+            test_db,
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
+            organization_id=test_org2_id,
+        )
+
+        with bound_scope(organization_id=test_org_id):
+            results = test_db.execute(select(models.Requirement)).scalars().all()
+
+        ids = {b.id for b in results}
+        assert b1.id in ids
+        assert b2.id not in ids
+
+    def test_bound_scope_filters_relationship_lazy_load(
+        self, test_db: Session, test_org_id, test_org2_id, bound_scope
+    ):
+        """
+        Lazy-loading a relationship is filtered too - another gap the before_compile
+        listener had, since it never fired for the secondary SELECT a lazy load issues.
+        """
+        from rhesis.backend.app.utils.crud_utils import create_item
+
+        requirement = create_item(
+            test_db,
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        own_org_prompt = create_item(
+            test_db,
+            models.Prompt,
+            {**PromptDataFactory.minimal_data(), "requirement_id": requirement.id},
+            organization_id=test_org_id,
+        )
+        # Deliberately stamped with a different org than its parent requirement, to
+        # prove the relationship load is filtered by the ACTIVE scope, not merely by
+        # whatever the FK join happens to return.
+        create_item(
+            test_db,
+            models.Prompt,
+            {**PromptDataFactory.minimal_data(), "requirement_id": requirement.id},
+            organization_id=test_org2_id,
+        )
+
+        with bound_scope(organization_id=test_org_id):
+            test_db.expire(requirement, ["prompts"])
+            loaded_prompt_ids = {p.id for p in requirement.prompts}
+
+        assert own_org_prompt.id in loaded_prompt_ids
+        assert len(loaded_prompt_ids) == 1
+
 
 @pytest.mark.unit
 @pytest.mark.utils
 class TestBypassFiltering:
-    """bypass_tenant_filter() and per-query bypasses suppress the listener."""
+    """bypass_tenant_filter() suppresses the listener."""
 
     def test_bypass_context_manager_skips_filter(
         self, test_db: Session, test_org_id, test_org2_id, bound_scope
@@ -217,24 +282,6 @@ class TestBypassFiltering:
         ids = {b.id for b in results}
         assert b1.id in ids
         assert b2.id in ids
-
-    def test_legacy_per_query_bypass(
-        self, test_db: Session, test_org_id, test_org2_id, bound_scope
-    ):
-        """query._bypass_scope = True suppresses the legacy before_compile listener."""
-        b2 = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
-
-        with bound_scope(organization_id=test_org_id):
-            q = test_db.query(models.Requirement)
-            q._bypass_scope = True
-            results = q.all()
-
-        assert any(b.id == b2.id for b in results)
 
 
 @pytest.mark.unit
@@ -432,7 +479,7 @@ class TestKillSwitch:
     ):
         """
         RHESIS_DISABLE_SCOPE_LISTENER=1 is re-checked at call time by both listeners:
-        auto_filter (before_compile) and auto_stamp (before_flush) both call
+        auto_filter (do_orm_execute) and auto_stamp (before_flush) both call
         _kill_switch_active() on every invocation, so setting the env var at runtime
         disables filtering for subsequent queries even in the same process.
         """

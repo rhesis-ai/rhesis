@@ -3,10 +3,13 @@ SQLAlchemy event listeners for automatic tenant scope filtering and stamping.
 
 TWO LISTENERS
 -------------
-1. auto_filter  (Query.before_compile)
-   PRIMARY filter. Covers db.query(...), db.query(...).update(), db.query(...).delete().
-   Fires for ALL Query-based operations including lazy-loaded relationships loaded via
-   the legacy Query API. Does NOT fire for db.execute(select(...)) / ORM 2.0 style.
+1. auto_filter  (Session.do_orm_execute)
+   Adds WHERE organization_id = ... (and project_id logic) to every SELECT, UPDATE,
+   and DELETE issued through the Session: db.query(...), db.execute(select(...)),
+   db.scalars(...), Query.update()/.delete(), and relationship lazy/eager loads.
+   Uses with_loader_criteria() so the predicate follows an entity everywhere it
+   occurs - joins, subqueries, aliases, and loader-triggered secondary queries -
+   without needing to touch every call site.
 
 2. auto_stamp  (Session.before_flush)
    Before every flush, fills organization_id / user_id / project_id from the ambient
@@ -15,16 +18,28 @@ TWO LISTENERS
 
 COVERAGE NOTES
 --------------
-This implementation uses Query.before_compile which covers the dominant db.query(...)
-pattern throughout this codebase. db.execute(select(...)) statements (ORM 2.0 style)
-are not filtered by this listener — use db.query(...) or add explicit organization_id
-filters. RLS (Phase 5) backstops all tenant tables regardless of the filtering path.
-If select()-style auto-filtering is ever needed, add a do_orm_execute listener here.
+This used to run on Query.before_compile, which only fires for the legacy db.query(...)
+API - db.execute(select(...)) went unfiltered at the ORM layer (RLS was the only
+backstop for that path). do_orm_execute fires for every Session.execute() call,
+including the internal one legacy Query.all()/.update()/.delete() issue under the
+hood (Query has been built on the unified execution path since SQLAlchemy 1.4), so
+one listener now covers all of it, plus relationship loads that before_compile could
+not reach at all.
 
-EXEMPT MODELS
--------------
-User, Organization, Token - no auto-filter applied; these must be queried
-before any tenant context is known.
+TENANT-SCOPED CLASSES
+----------------------
+The set of classes to filter is derived once, at listener-registration time, from
+the actual mapped columns (has_organization_id / has_project_id in query_utils.py) -
+not a hand-maintained per-model registry. A new model with an organization_id column
+is covered automatically the next time the process starts; nobody has to remember to
+add it anywhere. EXEMPT_TABLES is the one deliberate override: Token has a real
+organization_id column but must stay queryable by its raw value before any scope is
+known, so it is force-excluded despite otherwise matching. User and Organization
+need no override - they are excluded because they lack the column outright (User's
+organization_id is a plain FK, not something the identity lookup path filters on;
+Organization has no such column since it's the org table itself). Keeping all three
+in EXEMPT_TABLES matches the original design intent even though only Token is load
+bearing today.
 
 PRODUCTION KNOBS
 ----------------
@@ -36,16 +51,16 @@ RHESIS_DISABLE_SCOPE_LISTENER=1   Kill switch. Both filter and stamp are no-ops.
                                    database.py + re-applied by _reapply_tenant_vars);
                                    RLS remains the security backstop regardless.
 
-PER-QUERY BYPASS
-----------------
-Legacy Query API:  query._bypass_scope = True
+BYPASS
+------
+Admin / cross-org reads: bypass_tenant_filter() context manager (scope.py). Disables
+auto_filter for its block; auto_stamp is unaffected.
 
 KNOWN LIMITATIONS
 -----------------
-- db.execute(select(...)) / ORM 2.0 SELECT style is NOT filtered by this listener.
-  Use db.query(...) or explicit filters. RLS provides the security backstop.
 - Session.bulk_insert_mappings / bulk_save_objects skip before_flush; auto-stamp
-  does NOT fire. Payloads must include organization_id / user_id / project_id.
+  does NOT fire, and they also skip do_orm_execute, so auto-filter does not apply
+  either. Payloads must include organization_id / user_id / project_id.
 - Raw SQL INSERT/UPDATE/DELETE bypasses both listeners. Add explicit WHERE clauses
   or rely on RLS (Phase 5).
 - Background scripts run outside get_db_with_tenant_variables; call bind_scope()
@@ -55,22 +70,15 @@ KNOWN LIMITATIONS
 import logging
 import os
 
-from sqlalchemy import event, or_
-from sqlalchemy.orm import Query, Session
+from sqlalchemy import and_, event, or_
+from sqlalchemy.orm import Session, with_loader_criteria
 
 logger = logging.getLogger(__name__)
 
-# Tables that should never be auto-filtered (queried before any tenant context).
-#
-# This is the ORM-layer exempt set and is deliberately NARROWER than the RLS-exempt
-# set in the migrations ({token, user, organization, refresh_token, alembic_version}).
-# The two serve different layers and are not required to match:
-#   - This set: tables the ORM auto_filter/auto_stamp listeners skip because they are
-#     queried before any tenant context exists (auth/identity lookups).
-#   - RLS-exempt set: tables with no tenant policy at the database level.
-# refresh_token / alembic_version are absent here only because they have no
-# organization_id column, so the listeners already no-op on them. If you add a tenant
-# column to an auth/infra table, reconcile both lists deliberately.
+# Tables force-excluded from auto_filter despite matching column presence.
+# Rationale per table is in the module docstring (TENANT-SCOPED CLASSES) - Token
+# is the only load-bearing entry; User/Organization are already excluded by
+# column absence and are listed here defensively.
 EXEMPT_TABLES = frozenset({"user", "organization", "token"})
 
 # Tables exempt from the PROJECT predicate only (org filtering still applies).
@@ -109,21 +117,73 @@ def _scope_from_session(session):
     return current_scope()
 
 
-def _inject_filter(query: Query, condition) -> Query:
-    """
-    Append a WHERE condition to a Query, even when LIMIT or OFFSET is already set.
-
-    SQLAlchemy's public Query.filter() raises InvalidRequestError when called after
-    .limit() or .offset(). We use the supported enable_assertions(False) path to
-    bypass that Python-level guard without touching private internals. The resulting
-    SQL is correct: WHERE always precedes LIMIT/OFFSET in the generated statement.
-    """
-    return query.enable_assertions(False).filter(condition)
-
-
 def _kill_switch_active() -> bool:
     """Return True when RHESIS_DISABLE_SCOPE_LISTENER=1 is set."""
     return os.environ.get("RHESIS_DISABLE_SCOPE_LISTENER", "").lower() in ("1", "true")
+
+
+def _build_tenant_classes():
+    """
+    Enumerate mapped classes needing the org/project WHERE predicate.
+
+    Returns a list of (model_cls, needs_project_filter) tuples.
+    """
+    from rhesis.backend.app.models.base import Base
+    from rhesis.backend.app.utils.query_utils import has_organization_id, has_project_id
+
+    tenant_classes = []
+    for mapper in Base.registry.mappers:
+        model_cls = mapper.class_
+        tablename = getattr(model_cls, "__tablename__", None)
+        if tablename in EXEMPT_TABLES:
+            continue
+        if not has_organization_id(model_cls):
+            continue
+        needs_project_filter = (
+            has_project_id(model_cls) and tablename not in PROJECT_FILTER_EXEMPT_TABLES
+        )
+        tenant_classes.append((model_cls, needs_project_filter))
+    return tenant_classes
+
+
+# ----------------------------------------------------------------------------
+# Criteria builders for with_loader_criteria().
+#
+# Each returns a freshly defined, UNCONDITIONAL closure over plain scalar values
+# (never a dataclass/dict looked up inside the closure body). SQLAlchemy's lambda
+# cache keys on the closure's code object plus its captured values; a closure that
+# branches on a mutable value's *shape* at call time (e.g. "if scope.project_id")
+# risks serving a stale cached WHERE shape from an earlier call with a different
+# branch. Picking one of these three fixed-shape functions in auto_filter, instead
+# of branching inside a single shared closure, avoids that trap.
+# ----------------------------------------------------------------------------
+
+
+def _org_only_criteria(organization_id):
+    def _criteria(cls):
+        return cls.organization_id == organization_id
+
+    return _criteria
+
+
+def _org_and_active_project_criteria(organization_id, project_id):
+    def _criteria(cls):
+        return and_(
+            cls.organization_id == organization_id,
+            or_(cls.project_id == project_id, cls.project_id.is_(None)),
+        )
+
+    return _criteria
+
+
+def _org_and_null_project_criteria(organization_id):
+    def _criteria(cls):
+        return and_(
+            cls.organization_id == organization_id,
+            cls.project_id.is_(None),
+        )
+
+    return _criteria
 
 
 def setup_scope_listeners():
@@ -145,92 +205,56 @@ def setup_scope_listeners():
         )
         return
 
-    # ------------------------------------------------------------------
-    # Listener 1: Auto-filter via Query.before_compile
-    # Covers db.query(...), db.query(...).update(), db.query(...).delete()
-    # ------------------------------------------------------------------
-    @event.listens_for(Query, "before_compile", retval=True)
-    def auto_filter(query):
+    tenant_classes = _build_tenant_classes()
+
+    # Listener 1: auto_filter - see module docstring for what it covers.
+    @event.listens_for(Session, "do_orm_execute")
+    def auto_filter(orm_execute_state):
         from rhesis.backend.app.scope import is_tenant_filter_disabled
 
         if _kill_switch_active():
-            return query
+            return
         if is_tenant_filter_disabled():
-            return query
-        if getattr(query, "_bypass_scope", False):
-            return query
-        # Idempotency guard: before_compile can fire more than once for the same
-        # Query object (e.g. subquery compilation). Avoid appending duplicate
-        # predicates. Pattern mirrors _soft_delete_filter_applied in soft_delete_events.py.
-        if getattr(query, "_scope_filter_applied", False):
-            return query
+            return
 
-        # Prefer session.info so async route handlers (event-loop thread) see the
-        # same scope as the sync dep (threadpool thread) that created the session.
-        session = query.session
-        if session is not None:
-            scope = _scope_from_session(session)
-        else:
-            from rhesis.backend.app.scope import current_scope
-
-            scope = current_scope()
+        # Deliberately does not skip is_column_load / is_relationship_load to rely on
+        # with_loader_criteria's propagation instead: propagation only carries criteria
+        # from whatever SELECT loaded the parent, so an object created via
+        # session.add()+flush() (an INSERT, not a SELECT) would have its relationships
+        # load unfiltered later. Re-attaching every time costs a redundant re-attach on
+        # already-covered loads, not a correctness risk.
+        scope = _scope_from_session(orm_execute_state.session)
         if scope.organization_id is None:
-            return query
+            return
 
-        for desc in query.column_descriptions:
-            entity = desc.get("entity")
-            if entity is None:
-                continue
-            if getattr(entity, "__tablename__", None) in EXEMPT_TABLES:
-                continue
-            table = getattr(entity, "__table__", None)
-            if table is None:
-                continue
-            # Use frozenset of names to avoid triggering SQLAlchemy column operators
-            col_names = frozenset(col.name for col in table.columns)
-            if "organization_id" in col_names:
-                query = _inject_filter(query, entity.organization_id == scope.organization_id)
-            # Project filtering is fail-closed: we only reach this branch when an org
-            # scope is active (the listener returns early when organization_id is None,
-            # so org-less system/bootstrap sessions are never project-filtered).
-            #   - project set   -> rows in that project plus org-level (NULL) rows
-            #   - project unset -> org-level (NULL) rows only
-            # project_membership is exempt (org-scoped access-control table).
-            if (
-                "project_id" in col_names
-                and getattr(entity, "__tablename__", None) not in PROJECT_FILTER_EXEMPT_TABLES
-            ):
-                if scope.project_id:
-                    query = _inject_filter(
-                        query,
-                        or_(
-                            entity.project_id == scope.project_id,
-                            entity.project_id.is_(None),
-                        ),
-                    )
-                else:
-                    query = _inject_filter(query, entity.project_id.is_(None))
+        # Project filtering is fail-closed: we only reach this branch when an org
+        # scope is active (the check above returns early when organization_id is
+        # None, so org-less system/bootstrap sessions are never project-filtered).
+        #   - project set   -> rows in that project plus org-level (NULL) rows
+        #   - project unset -> org-level (NULL) rows only
+        if scope.project_id:
+            project_criteria = _org_and_active_project_criteria(
+                scope.organization_id, scope.project_id
+            )
+        else:
+            project_criteria = _org_and_null_project_criteria(scope.organization_id)
+        org_only_criteria = _org_only_criteria(scope.organization_id)
 
-        query._scope_filter_applied = True
-        return query
+        stmt = orm_execute_state.statement
+        for model_cls, needs_project_filter in tenant_classes:
+            criteria = project_criteria if needs_project_filter else org_only_criteria
+            stmt = stmt.options(with_loader_criteria(model_cls, criteria, include_aliases=True))
+        orm_execute_state.statement = stmt
 
-    # ------------------------------------------------------------------
-    # Listener 2: Auto-stamp on INSERT via Session.before_flush
+    # Listener 2: auto_stamp - see module docstring for what it fills in.
     #
-    # Session.before_flush is used instead of the mapper-level before_insert
-    # because declarative_base() does not propagate before_insert to subclasses
-    # correctly in all SQLAlchemy 2.x configurations. Session.before_flush
-    # gives direct access to session.new (pending inserts) and fires
-    # synchronously before the INSERT statements are issued.
+    # Uses Session.before_flush rather than the mapper-level before_insert because
+    # declarative_base() does not propagate before_insert to subclasses correctly in
+    # all SQLAlchemy 2.x configurations; before_flush gives direct access to
+    # session.new and fires before the INSERT statements are issued.
     #
-    # Fills organization_id / user_id / project_id from RequestScope
-    # when the column is present and the value is None.
-    # Bypass does NOT suppress stamping.
-    #
-    # NOTE: We import Base from models.base (the @as_declarative() Base), NOT
-    # from database.py (the declarative_base() Base). All application models
-    # inherit from models.base.Base.
-    # ------------------------------------------------------------------
+    # Base here is models.base.Base (the @as_declarative() one all app models
+    # inherit from), not the declarative_base() Base in database.py.
     from rhesis.backend.app.models.base import Base
 
     @event.listens_for(Session, "before_flush")
