@@ -1,6 +1,10 @@
 # Test Result Analysis
 
-How to retrieve, interpret, and present test run results after an `execute_test_set` call completes.
+How to retrieve and interpret test run results after an `execute_test_set` call
+completes.
+
+This file covers **retrieval only**. The output format — sections, ordering, and
+the caps on failures and next steps — lives in `phases/analysis.md`.
 
 ---
 
@@ -50,30 +54,6 @@ To understand a specific failure in depth, call `get_test_result` with the resul
 
 ---
 
-## Presenting a single-run summary
-
-Structure your summary as:
-
-1. **Overall**: total tests, pass count, fail count, pass rate percentage
-2. **Failures by requirement**: group failed results by the `requirement` field; count failures per requirement
-3. **Notable patterns**: any requirement or metric with a high failure rate (e.g., "3 of 4 failures came from the Safety Compliance metric")
-4. **Link**: `[Test Set Name](/test-runs/<uuid>)` — use the test set name as link text, never a raw UUID
-
-Example structure:
-```
-Results: 8/10 passed (80%)
-
-Failures:
-- Refuses Harmful Requests: 2 failures
-- Maintains Conversation Context: 1 failure
-
-Pattern: Safety Compliance metric failed on all 2 boundary-test prompts.
-
-Full results: [Safety Test Suite](/test-runs/abc123)
-```
-
----
-
 ## Run comparison
 
 When the user asks to compare runs or detect regressions, use `get_test_result_stats`.
@@ -115,15 +95,6 @@ get_test_result_stats
 ```
 
 Use when the user wants to understand which evaluation criteria changed between runs.
-
-### Presenting a comparison
-
-Structure comparisons as:
-- **Overall**: pass rate change (e.g., "72% → 85%, +13 points")
-- **Improved**: requirements or metrics that went from failing to passing
-- **Regressed**: requirements or metrics that went from passing to failing
-- **Unchanged**: brief count of stable results
-- **Links**: to both test runs so the user can drill into details
 
 ---
 
@@ -188,12 +159,3 @@ Returns: full prompt, full response, expected response, metric scores with indiv
 ## Insights handoff
 
 When the message is an Insights page summarize handoff, follow `insights-summary.md`: skip the menu, re-fetch with the listed `test_run_ids` / requirements, enforce the nested ≤50-run budget, then present aggregates and a few failure samples.
-
----
-
-## Offering next steps after analysis
-
-After presenting results, proactively offer relevant follow-ups:
-- If pass rate is low: "Would you like me to improve any of these metrics, or adjust the test set to focus on different requirements?"
-- If a prior run exists for the same test set: "Would you like me to compare this with the previous run?"
-- If there are failures concentrated in one requirement: "This requirement might need a stricter or more specific metric — want me to improve it?"
