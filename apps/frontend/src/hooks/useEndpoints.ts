@@ -166,6 +166,7 @@ export function useDeleteEndpoint() {
 }
 
 export function useCreateProject() {
+  const queryClient = useQueryClient();
   const isAuthenticated = useIsAuthenticated();
   const invalidateUsage = useInvalidateUsage();
   return useCallback(
@@ -176,16 +177,18 @@ export function useCreateProject() {
       const project = await new ApiClientFactory()
         .getProjectsClient()
         .createProject(data);
+      queryClient.invalidateQueries({ queryKey: projectKeys.all() });
       // Projects are a stock resource: creating one consumes quota, and the
       // projects gate reads the cached count.
       invalidateUsage();
       return project;
     },
-    [isAuthenticated, invalidateUsage]
+    [queryClient, isAuthenticated, invalidateUsage]
   );
 }
 
 export function useDeleteProject() {
+  const queryClient = useQueryClient();
   const isAuthenticated = useIsAuthenticated();
   const invalidateUsage = useInvalidateUsage();
   return useCallback(
@@ -194,11 +197,12 @@ export function useDeleteProject() {
         throw new Error('Not authenticated');
       }
       await new ApiClientFactory().getProjectsClient().deleteProject(id);
+      queryClient.invalidateQueries({ queryKey: projectKeys.all() });
       // Deleting a project frees quota, and the projects gate reads the
       // cached count.
       invalidateUsage();
     },
-    [isAuthenticated, invalidateUsage]
+    [queryClient, isAuthenticated, invalidateUsage]
   );
 }
 
