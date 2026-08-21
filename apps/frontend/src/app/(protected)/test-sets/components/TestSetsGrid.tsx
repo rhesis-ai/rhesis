@@ -5,7 +5,6 @@ import {
   GridColDef,
   GridRowParams,
   GridFilterModel,
-  GridRowSelectionModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -43,9 +42,8 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import RunDrawer from '@/components/common/RunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications } from '@/components/common/NotificationContext';
-// Renamed on import: distinct from the toast system's useNotifications above --
-// this one tracks the persistent "a background job finished" badge/highlight.
+// Tracks the persistent "a background job finished" badge/highlight -- distinct
+// from the toast system's useNotifications, which useBulkDelete owns internally.
 import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
 import {
   HIGHLIGHTED_ROW_CLASS,
@@ -66,8 +64,8 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
-import { useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
+import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -178,12 +176,10 @@ export default function TestSetsGrid({
 }: TestSetsGridProps) {
   const router = useRouter();
   const { status } = useSession();
-  const notifications = useNotifications();
   const { highlightedIds, clearHighlight } = useJobNotifications();
   const testSetHighlights = highlightedIds(NotificationSection.TEST_SETS);
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
-  const queryClient = useQueryClient();
 
   // ── Search + type filter ────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -193,12 +189,26 @@ export default function TestSetsGrid({
   const [drawerFilters, setDrawerFilters] = useState<TestSetFilters>(
     EMPTY_TEST_SET_FILTERS
   );
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  // ── Bulk selection + delete ──────────────────────────────────────────────────
+  const {
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      new ApiClientFactory().getTestSetsClient().bulkDeleteTestSets(ids),
+    queryKey: testSetKeys.all(),
+    itemLabelSingular: 'test set',
+    itemLabelPlural: 'test sets',
+  });
 
   // ── Grid state (pagination, filter, sort) via useGridState ──────────────────
   const {
@@ -311,63 +321,6 @@ export default function TestSetsGrid({
     [router, clearHighlight]
   );
 
-  const handleSelectionChange = useCallback(
-    (newSelection: GridRowSelectionModel) => {
-      setSelectedRows(newSelection);
-    },
-    []
-  );
-
-  // ── Delete ───────────────────────────────────────────────────────────────────
-
-  const handleDeleteTestSets = useCallback(() => {
-    setDeleteModalOpen(true);
-  }, []);
-
-  const handleDeleteConfirm = useCallback(async () => {
-    const idsToDelete = pendingDeleteId
-      ? [pendingDeleteId]
-      : (selectedRows as string[]);
-    if (idsToDelete.length === 0) return;
-
-    try {
-      setIsDeleting(true);
-      const clientFactory = new ApiClientFactory();
-      const testSetsClient = clientFactory.getTestSetsClient();
-
-      await Promise.all(
-        idsToDelete.map(id => testSetsClient.deleteTestSet(id))
-      );
-
-      notifications.show(
-        `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'test set' : 'test sets'}`,
-        { severity: 'success', autoHideDuration: 4000 }
-      );
-
-      setPendingDeleteId(null);
-      setSelectedRows([]);
-      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-    } catch {
-      notifications.show('Failed to delete test sets', {
-        severity: 'error',
-        autoHideDuration: 6000,
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalOpen(false);
-    }
-  }, [pendingDeleteId, selectedRows, notifications, queryClient]);
-
-  const handleDeleteCancel = useCallback(() => {
-    setDeleteModalOpen(false);
-    setPendingDeleteId(null);
-  }, []);
-
-  const handleRowDeleteAction = useCallback((id: string) => {
-    setPendingDeleteId(id);
-    setDeleteModalOpen(true);
-  }, []);
-
   const handleRowEditAction = useCallback(
     (id: string) => {
       router.push(`/test-sets/${id}`);
@@ -392,10 +345,10 @@ export default function TestSetsGrid({
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
-        onClick: handleDeleteTestSets,
+        onClick: () => requestDelete(),
       },
     ];
-  }, [selectedRows.length, handleDeleteTestSets]);
+  }, [selectedRows.length, requestDelete]);
 
   // ── Column definitions ───────────────────────────────────────────────────────
 
@@ -420,7 +373,7 @@ export default function TestSetsGrid({
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
-      onDelete: id => handleRowDeleteAction(id),
+      onDelete: id => requestDelete(id),
       canEdit: () => canEditTestSet,
       canDelete: () => canDeleteTestSet,
     });
@@ -637,7 +590,7 @@ export default function TestSetsGrid({
       },
       actionsCol,
     ];
-  }, [handleRowEditAction, handleRowDeleteAction]);
+  }, [handleRowEditAction, requestDelete]);
 
   const filtersActive =
     filterModel.items.length > 0 ||
@@ -733,6 +686,10 @@ export default function TestSetsGrid({
               },
             }}
             sx={rowActionsHoverSx}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={handleSelectionChange}
           />
 
           {/* Test Run Drawer */}
@@ -747,8 +704,8 @@ export default function TestSetsGrid({
               />
               <DeleteModal
                 open={deleteModalOpen}
-                onClose={handleDeleteCancel}
-                onConfirm={handleDeleteConfirm}
+                onClose={cancelDelete}
+                onConfirm={confirmDelete}
                 isLoading={isDeleting}
                 title={pendingDeleteId ? 'Delete Test Set' : 'Delete Test Sets'}
                 message={

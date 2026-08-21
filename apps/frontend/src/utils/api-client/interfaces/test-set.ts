@@ -86,6 +86,11 @@ export interface TestSetBulkAssociateRequest {
   test_ids: UUID[];
 }
 
+export interface TestSetBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+}
+
 // Test set generation interfaces
 
 /**
