@@ -6,6 +6,53 @@ import pluginImport from 'eslint-plugin-import';
 import { configs as typescriptConfigs } from 'typescript-eslint';
 import globals from 'globals';
 
+// Prevent dark-mode regressions: GREYSCALE.light.* and GREYSCALE.dark.* are
+// raw static tokens; use theme.palette.greyscale.* in sx callbacks instead.
+// Shared across three rule blocks below (the base ruleset, and the two
+// overrides that replace no-restricted-syntax outright for their files),
+// so this guard doesn't drift between copies. Only src/styles/theme.ts and
+// src/styles/theme-constants.ts are exempt (see the override further down).
+const GREYSCALE_NO_RESTRICTED_SYNTAX = [
+  {
+    selector:
+      "MemberExpression[object.object.name='GREYSCALE'][object.property.name='light']",
+    message:
+      'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.light.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
+  },
+  {
+    selector:
+      "MemberExpression[object.object.name='GREYSCALE'][object.property.name='dark']",
+    message:
+      'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
+  },
+];
+
+// Open-core boundary guard: core (apps/frontend/) must never statically
+// import EE code. The only sanctioned bridge is apps/frontend/src/
+// ee_bootstrap.ts, exempted in its own override below. EE code may import
+// freely from core; the inverse is what this forbids. Shared between the
+// base ruleset's no-restricted-imports and the src/hooks/ override, which
+// redeclares it (rather than disabling the rule outright) so this boundary
+// still applies inside src/hooks/.
+const EE_BOUNDARY_IMPORT_PATTERNS = [
+  {
+    group: ['@rhesis/ee-frontend', '@rhesis/ee-frontend/*'],
+    message:
+      'Core frontend may not import from @rhesis/ee-frontend. Plug into a registry in @/lib/extension-registries instead, and register from ee/frontend/src/bootstrap.ts. The only sanctioned exception is apps/frontend/src/ee_bootstrap.ts.',
+  },
+  {
+    group: [
+      '../../../../../ee/frontend/*',
+      '../../../../ee/frontend/*',
+      '../../../ee/frontend/*',
+      '../../ee/frontend/*',
+      '../ee/frontend/*',
+    ],
+    message:
+      'Use the @rhesis/ee-frontend package rather than relative paths into ee/frontend/. (Note: relative imports of EE from core are forbidden anyway -- see the @rhesis/ee-frontend rule.)',
+  },
+];
+
 export default [
   {
     ignores: [
@@ -84,9 +131,7 @@ export default [
       'react/jsx-uses-react': 'off',
       'react/jsx-uses-vars': 'error',
 
-      // Prevent dark-mode regressions: GREYSCALE.light.* and GREYSCALE.dark.*
-      // are raw static tokens; use theme.palette.greyscale.* in sx callbacks instead.
-      // Only src/styles/theme.ts and src/styles/theme-constants.ts are exempt.
+      // GREYSCALE guard (see GREYSCALE_NO_RESTRICTED_SYNTAX above), plus:
       //
       // Stock-resource mutation boundary.
       //
@@ -100,18 +145,7 @@ export default [
       // rule for src/hooks/** without these entries.
       'no-restricted-syntax': [
         'error',
-        {
-          selector:
-            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='light']",
-          message:
-            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.light.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
-        },
-        {
-          selector:
-            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='dark']",
-          message:
-            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
-        },
+        ...GREYSCALE_NO_RESTRICTED_SYNTAX,
         {
           selector: "CallExpression[callee.property.name='createProject']",
           message:
@@ -139,12 +173,7 @@ export default [
         },
       ],
 
-      // Open-core boundary guard.
-      //
-      // Core (apps/frontend/) must never statically import EE code. The
-      // only sanctioned bridge is apps/frontend/src/ee_bootstrap.ts,
-      // which is exempted in the override below. EE code may import
-      // freely from core; the inverse is what we forbid here.
+      // EE boundary guard (see EE_BOUNDARY_IMPORT_PATTERNS above), plus:
       //
       // The `paths` entry below is a second instance of the stock-resource
       // mutation boundary described above: createEndpoint is a server
@@ -168,24 +197,7 @@ export default [
                 'Call useCreateEndpoint() from @/hooks/useCreateEndpoint instead of the server action directly -- it invalidates the endpoints list and the usage cache on success.',
             },
           ],
-          patterns: [
-            {
-              group: ['@rhesis/ee-frontend', '@rhesis/ee-frontend/*'],
-              message:
-                'Core frontend may not import from @rhesis/ee-frontend. Plug into a registry in @/lib/extension-registries instead, and register from ee/frontend/src/bootstrap.ts. The only sanctioned exception is apps/frontend/src/ee_bootstrap.ts.',
-            },
-            {
-              group: [
-                '../../../../../ee/frontend/*',
-                '../../../../ee/frontend/*',
-                '../../../ee/frontend/*',
-                '../../ee/frontend/*',
-                '../ee/frontend/*',
-              ],
-              message:
-                'Use the @rhesis/ee-frontend package rather than relative paths into ee/frontend/. (Note: relative imports of EE from core are forbidden anyway -- see the @rhesis/ee-frontend rule.)',
-            },
-          ],
+          patterns: EE_BOUNDARY_IMPORT_PATTERNS,
         },
       ],
     },
@@ -207,43 +219,10 @@ export default [
     // name without going through a hook).
     files: ['src/hooks/**/*.{ts,tsx}', 'src/utils/api-client/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector:
-            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='light']",
-          message:
-            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.light.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
-        },
-        {
-          selector:
-            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='dark']",
-          message:
-            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...GREYSCALE_NO_RESTRICTED_SYNTAX],
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            {
-              group: ['@rhesis/ee-frontend', '@rhesis/ee-frontend/*'],
-              message:
-                'Core frontend may not import from @rhesis/ee-frontend. Plug into a registry in @/lib/extension-registries instead, and register from ee/frontend/src/bootstrap.ts. The only sanctioned exception is apps/frontend/src/ee_bootstrap.ts.',
-            },
-            {
-              group: [
-                '../../../../../ee/frontend/*',
-                '../../../../ee/frontend/*',
-                '../../../ee/frontend/*',
-                '../../ee/frontend/*',
-                '../ee/frontend/*',
-              ],
-              message:
-                'Use the @rhesis/ee-frontend package rather than relative paths into ee/frontend/. (Note: relative imports of EE from core are forbidden anyway -- see the @rhesis/ee-frontend rule.)',
-            },
-          ],
-        },
+        { patterns: EE_BOUNDARY_IMPORT_PATTERNS },
       ],
     },
   },
@@ -263,7 +242,8 @@ export default [
     // project cookie via next/headers.
     //
     // Note: this override REPLACES no-restricted-syntax for matching files, so the
-    // GREYSCALE selectors are repeated here to keep that protection in place.
+    // GREYSCALE selectors are repeated here (via the shared constant) to keep that
+    // protection in place.
     //
     // Server Components (page.tsx / layout.tsx) are intentionally NOT covered:
     // many of those files are 'use client' and legitimately construct
@@ -274,18 +254,7 @@ export default [
     rules: {
       'no-restricted-syntax': [
         'error',
-        {
-          selector:
-            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='light']",
-          message:
-            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.light.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
-        },
-        {
-          selector:
-            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='dark']",
-          message:
-            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
-        },
+        ...GREYSCALE_NO_RESTRICTED_SYNTAX,
         {
           selector: "NewExpression[callee.name='ApiClientFactory']",
           message:
