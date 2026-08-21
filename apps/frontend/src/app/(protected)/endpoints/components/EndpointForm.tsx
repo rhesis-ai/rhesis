@@ -24,6 +24,7 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { readActiveProjectId } from '@/utils/active-project';
+import { getApiErrorMessage } from '@/utils/error-utils';
 import AutoConfigureDrawer from './AutoConfigureDrawer';
 import TabOverview from './TabOverview';
 import TabConnection from './TabConnection';
@@ -369,7 +370,17 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             formData.auth_token;
         }
 
-        await createEndpoint(endpointData as Omit<Endpoint, 'id'>);
+        const result = await createEndpoint(
+          endpointData as Omit<Endpoint, 'id'>
+        );
+        if (!result.success) {
+          // createEndpoint never throws on a business failure (a 402 from
+          // an exhausted endpoints quota included) -- it returns
+          // {success: false, error} instead, per its own doc comment.
+          // Both callers used to ignore that and show "created
+          // successfully" regardless.
+          throw new Error(result.error);
+        }
         markStepComplete('endpointSetup');
         notifications.show('Endpoint created successfully!', {
           severity: 'success',
@@ -382,7 +393,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           );
         }
       } catch (err) {
-        setError((err as Error).message);
+        setError(getApiErrorMessage(err, 'Failed to create endpoint.'));
       } finally {
         setIsSubmitting(false);
       }

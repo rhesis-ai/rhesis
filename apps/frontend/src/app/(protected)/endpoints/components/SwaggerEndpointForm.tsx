@@ -30,6 +30,7 @@ import { useSession } from 'next-auth/react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { readActiveProjectId } from '@/utils/active-project';
+import { getApiErrorMessage } from '@/utils/error-utils';
 
 import { getProjectIcon, ENVIRONMENTS } from './endpoint-icon-utils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -127,7 +128,17 @@ export default function SwaggerEndpointForm() {
 
     setIsSubmitting(true);
     try {
-      await createEndpoint(formData as unknown as Omit<Endpoint, 'id'>);
+      const result = await createEndpoint(
+        formData as unknown as Omit<Endpoint, 'id'>
+      );
+      if (!result.success) {
+        // createEndpoint never throws on a business failure (a 402 from
+        // an exhausted endpoints quota included) -- it returns
+        // {success: false, error} instead, per its own doc comment.
+        // Both callers used to ignore that and show "created
+        // successfully" regardless.
+        throw new Error(result.error);
+      }
 
       // Mark onboarding step as complete
       markStepComplete('endpointSetup');
@@ -141,7 +152,7 @@ export default function SwaggerEndpointForm() {
         projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
       );
     } catch (error) {
-      setError((error as Error).message);
+      setError(getApiErrorMessage(error, 'Failed to create endpoint.'));
     } finally {
       setIsSubmitting(false);
     }
