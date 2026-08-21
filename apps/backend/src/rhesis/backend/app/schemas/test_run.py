@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, List, Optional
 
-from pydantic import UUID4, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
@@ -48,6 +48,16 @@ class TestRun(TestRunBase, WithPermittedActions, ServerIdentity):
     # __owner_attr__ defaults to "user_id", which is the creator column on TestRun.
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TestRunBulkDeleteRequest(BaseModel):
+    test_run_ids: List[UUID4]
+
+
+class TestRunBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
+    forbidden_ids: List[str]
 
 
 class EndpointReference(Base, ServerIdentity):

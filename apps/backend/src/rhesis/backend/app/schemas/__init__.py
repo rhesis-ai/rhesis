@@ -145,7 +145,15 @@ from .test_result import (
     TestResultDetail,
     TestResultUpdate,
 )
-from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunDetail, TestRunUpdate
+from .test_run import (
+    TestRun,
+    TestRunBase,
+    TestRunBulkDeleteRequest,
+    TestRunBulkDeleteResponse,
+    TestRunCreate,
+    TestRunDetail,
+    TestRunUpdate,
+)
 from .test_set import (
     ExplorerTestSetCreate,
     TestData,
@@ -156,6 +164,8 @@ from .test_set import (
     TestSetBulkAssociateRequest,
     TestSetBulkAssociateResponse,
     TestSetBulkCreate,
+    TestSetBulkDeleteRequest,
+    TestSetBulkDeleteResponse,
     TestSetBulkDisassociateRequest,
     TestSetBulkDisassociateResponse,
     TestSetBulkResponse,
@@ -259,11 +269,15 @@ __all__ = [
     "TestRunRescoreRequest",
     "TestSetBulkDisassociateResponse",
     "TestSetBulkDisassociateRequest",
+    "TestSetBulkDeleteRequest",
+    "TestSetBulkDeleteResponse",
     "TestRun",
     "TestRunBase",
     "TestRunCreate",
     "TestRunDetail",
     "TestRunUpdate",
+    "TestRunBulkDeleteRequest",
+    "TestRunBulkDeleteResponse",
     "Status",
     "StatusBase",
     "StatusCreate",
