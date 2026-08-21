@@ -1684,12 +1684,19 @@ class ArchitectAgent(BaseAgent):
         tool_results_text = self._format_tool_results_for_streaming()
 
         template = self._jinja_env.get_template("streaming_response.j2")
+        # The writer needs the phase guidance too, not just the iteration pass:
+        # it owns the shape of a run summary, and the seed it works from is one
+        # or two sentences that cannot carry a table.
+        phase_knowledge_text = render_phase_knowledge(
+            self._jinja_env, self._mode, self._workflow_path
+        )
         return template.render(
             conversation_history=conv_window,
             plan_text=plan_text,
             tool_results=tool_results_text,
             reasoning=reasoning,
             final_answer=final_answer,
+            phase_knowledge_text=phase_knowledge_text,
         )
 
     def _render_tool_result(self, tr: ToolResult, *, prefix: str, preview: int) -> Optional[str]:

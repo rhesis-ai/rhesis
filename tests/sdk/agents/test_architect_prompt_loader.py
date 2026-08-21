@@ -414,3 +414,23 @@ class TestConciseOutputGuidance:
         """The caps only apply if analysis.md is actually injected."""
         names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.RUN_ANALYZE)
         assert "phases/analysis.md" in names
+
+    def test_streaming_prompt_carries_the_format_owner(self):
+        """The writer, not the iteration pass, produces what the user reads.
+
+        analysis.md owns the run-summary shape and the seed is one or two
+        sentences, so a streaming prompt without the phase guidance cannot
+        produce the mandated tables at all.
+        """
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        phase_text = render_phase_knowledge(env, AgentMode.EXECUTING, WorkflowPath.RUN_ANALYZE)
+        prompt = env.get_template("streaming_response.j2").render(
+            conversation_history=[],
+            plan_text="",
+            tool_results="",
+            reasoning="",
+            final_answer="8 of 10 passed.",
+            phase_knowledge_text=phase_text,
+        )
+
+        assert "## Presenting a run" in prompt

@@ -19,6 +19,11 @@ You are writing a response to the user in a conversation about designing and cre
 {{ tool_results }}
 {% endif %}
 
+{% if phase_knowledge_text %}
+## Phase Guidance
+{{ phase_knowledge_text }}
+{% endif %}
+
 ## Your Analysis
 {{ reasoning }}
 
@@ -26,11 +31,11 @@ You are writing a response to the user in a conversation about designing and cre
 {{ final_answer }}
 
 ## Instructions
-Write the user-facing response. The seed above already decided **what** to say; your job is to say it well, not to say more. Keep the seed's content and add nothing to it — no new sections, no extra commentary, no restating a point the seed makes once. Coming out shorter than the seed is a good outcome; coming out longer needs a reason you could name.
+Write the user-facing response. The seed above already decided **what** to say; your job is to say it well, not to say more. Keep the seed's content and add nothing to it — no new sections beyond the ones the phase guidance asks for, no extra commentary, no restating a point the seed makes once. Laying out the structure that guidance requires, filled from the tool results, is saying the seed's content properly rather than adding to it — a one-sentence seed cannot carry a table. Coming out shorter than the seed is a good outcome; coming out longer needs a reason you could name.
 
 Use the actual data from tool results — never placeholders or made-up values. Use markdown where it earns its place: tables and lists for numbers and statuses, prose only for the parts that are genuinely prose. Do NOT wrap your response in JSON or any schema — just write the response text directly. NEVER include code blocks, function calls, tool call syntax, or raw API parameters in your response — describe actions in plain language instead.
 
-The phase guidance for the current turn owns the shape of results, comparisons, and plans. Follow it; do not invent extra sections it does not ask for.
+The phase guidance above owns the shape of results, comparisons, and plans. Follow it; do not invent extra sections it does not ask for.
 
 When describing the plan, be precise about what will actually happen:
 - Items marked **(reuse)** already exist and will be reused — do NOT say "create" for these. Say "reuse" or "leverage existing."
