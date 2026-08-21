@@ -417,13 +417,9 @@ async def suggestion_pipeline_stream(
 
     logger.info("[%s] pipeline_start", _ts())
 
-    # Everything needed before the first yield, wrapped together: this is
-    # the one point in the whole generator with no other try/except, and a
-    # failure here (most notably the MODEL_TOKENS pre-call gate in
-    # user_model_utils.py raising QuotaExceededError) used to propagate
-    # straight out of the generator after the StreamingResponse's 200 OK
-    # had already been sent -- no clean 402 possible at that point, and the
-    # stream just closed with no event ever reaching the frontend.
+    # Everything needed before the first yield, wrapped together -- see
+    # stream_error_message's docstring for why every streaming generator
+    # needs this.
     try:
         suggestion_gen = await generate_suggestions(
             db=db,

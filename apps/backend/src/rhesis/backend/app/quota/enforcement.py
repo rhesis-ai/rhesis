@@ -121,10 +121,25 @@ def stream_error_message(e: Exception) -> str:
     streaming pipeline emitting a ``{"type": "error", "message": ...}``
     NDJSON event rather than a structured 402 body.
 
+    Why every streaming generator needs this: a ``StreamingResponse``
+    sends its 200 OK before pulling the first item out of the generator.
+    Anything raised before the first ``yield`` -- most notably the
+    MODEL_TOKENS pre-call gate in ``user_model_utils.py`` raising
+    :class:`QuotaExceededError`, but any resolution failure has the same
+    shape -- used to propagate straight out with no clean 402 left to
+    send; the stream just aborted with no event ever reaching the
+    frontend, which reads as a request that hangs forever with no
+    explanation. Wrapping that setup code in one try/except per
+    generator and yielding an event built from this function's return
+    value is the fix; see ``test_generation_pipeline_stream`` and
+    ``suggestion_pipeline_stream`` for the two current call sites.
+
     A :class:`QuotaExceededError` gets the same organization-subject copy
     every other quota surface uses instead of its own technical
     ``__str__`` ("Quota exceeded for model_tokens: ..."); anything else
-    falls back to its own message.
+    falls back to its own message -- these pipelines show the underlying
+    LLM/provider error verbatim by design, so a user can see *why*
+    generation failed (a rate limit, an invalid key, and so on).
     """
     if isinstance(e, QuotaExceededError):
         return quota_exceeded_response_body(e.verdict)["message"]
