@@ -155,6 +155,7 @@ async def build_agent(
         plan_data=session_data["plan_data"],
         max_iterations=agent_state.get("max_iterations", 15),
         pending_tasks=agent_state.get("pending_tasks") or [],
+        carried_tool_results=agent_state.get("carried_tool_results") or [],
     )
 
     tool_provider = LocalToolProvider(fastapi_app, delegation_token, project_id=project_id)
@@ -270,6 +271,10 @@ async def persist_state(
             "guard_state": snapshot.guard_state,
             "pending_tasks": snapshot.pending_tasks,
             "id_to_name": snapshot.id_to_name,
+            # Rendered tool data from this and earlier turns. Execution
+            # history itself dies with the Celery task, so without this a
+            # follow-up question has only the agent's own prose to go on.
+            "carried_tool_results": snapshot.carried_tool_results,
         }
         if root_trace_id:
             # Read on the next turn by ``architect_chat_task`` and bound via

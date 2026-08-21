@@ -29,3 +29,6 @@ class ArchitectAgentStateSnapshot(BaseModel):
     plan_data: Optional[Dict[str, Any]] = None
     max_iterations: int = 15
     pending_tasks: List[Dict[str, Any]] = Field(default_factory=list)
+    # Rendered tool results from earlier turns. Execution history itself is
+    # not portable — this is the readable digest the next turn quotes from.
+    carried_tool_results: List[str] = Field(default_factory=list)

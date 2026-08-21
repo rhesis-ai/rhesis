@@ -40,6 +40,13 @@ from .workflow import WorkflowPath, resolve_workflow_path_update
 
 logger = logging.getLogger(__name__)
 
+# Pseudo-tools that stand for agent control flow, not fetched data.
+_INTERNAL_TOOL_NAMES: FrozenSet[str] = frozenset(t.value for t in InternalTool)
+
+# Floor on an unnamed record's share of the summary budget. Below this a
+# record is too clipped to be worth showing as a record at all.
+_MIN_RECORD_CHARS = 400
+
 
 # ── helpers ──────────────────────────────────────────────────────
 
@@ -87,10 +94,11 @@ def _unwrap_list_envelope(data: Any) -> Tuple[Optional[List[Any]], Dict[str, Any
 
 
 def _trim_for_summary(value: Any, max_chars: int) -> Any:
-    """Drop empty values and clip long strings, recursively.
+    """Drop empty values and clip runaway strings, recursively.
 
-    Keeps an unnamed record readable in a prompt without dumping the
-    whole payload.
+    ``max_chars`` is a backstop against one pathological field, not a
+    summary width — an unnamed record is the only place its content is
+    ever shown, so it has to arrive whole.
     """
     if isinstance(value, str):
         return value[:max_chars].rstrip() + "…" if len(value) > max_chars else value
@@ -225,6 +233,14 @@ class ArchitectAgent(BaseAgent):
         # Per-turn attachments (mentions + file text)
         self._attachments: Optional[Dict[str, Any]] = None
 
+        # Tool data from earlier turns, already rendered. The backend
+        # builds a fresh agent per user message, so _execution_history is
+        # empty on every follow-up; this is what survives.
+        self._carried_tool_results: List[str] = []
+        # Index into _execution_history where the current turn starts, so
+        # the streaming prompt can show this turn's data as this turn's.
+        self._turn_start_step: int = 0
+
     # ── public API ───────────────────────────────────────────────
 
     def chat(
@@ -266,6 +282,7 @@ class ArchitectAgent(BaseAgent):
             # leak into a later finish (e.g. an auto-resumed
             # [TASK_COMPLETED] summary).
             self._blocked_this_turn = False
+            self._turn_start_step = len(self._execution_history)
             self._conversation_history.append({"role": Role.USER, "content": message})
             self._maybe_update_workflow_path(message)
 
@@ -430,6 +447,8 @@ class ArchitectAgent(BaseAgent):
         self._attachments = None
         self._discovery_state = _default_discovery_state()
         self._id_to_name.clear()
+        self._carried_tool_results.clear()
+        self._turn_start_step = 0
         self._requirement_id_names.clear()
         self._metric_id_names.clear()
         self._linked_pairs.clear()
@@ -1193,6 +1212,8 @@ class ArchitectAgent(BaseAgent):
         content: str,
         max_items: int = 50,
         desc_chars: int = 80,
+        record_chars: int = 4_000,
+        record_block_chars: int = 20_000,
     ) -> Optional[str]:
         """Render a list/paginated-list tool result as a compact summary.
 
@@ -1202,6 +1223,16 @@ class ArchitectAgent(BaseAgent):
         emits one line per item (id, name, short description, key
         attributes) so every item in the page is visible to the LLM in a
         fraction of the bytes.
+
+        Two separate budgets, because the two item shapes are not the same
+        problem. A named entity gets ``desc_chars`` of its description —
+        the rest is one ``get_*`` call away. An unnamed record (an
+        annotation, a test result) is dumped whole: this rendering is the
+        only place its content is ever shown, so clipping it to a preview
+        width leaves the LLM completing a human's half-sentence. Those
+        records are bounded per field by ``record_chars`` and in aggregate
+        by ``record_block_chars``, both large enough that real data passes
+        through intact.
 
         Returns ``None`` when ``content`` is not a recognised list shape,
         so callers can fall back to plain truncation.
@@ -1247,19 +1278,35 @@ class ArchitectAgent(BaseAgent):
             return "\n".join(lines)
 
         shown = data[:max_items]
+        # Share the block budget across the unnamed records on this page, so a
+        # page of small records (annotations) is never clipped at all and a page
+        # of fat ones (test results) degrades in detail instead of losing rows.
+        # Dropping rows would read as "there were only four", which is the same
+        # lie as the bare "- ?" this renderer exists to prevent.
+        unnamed_count = sum(1 for item in shown if not (item.get("name") or item.get("title")))
+        allowance = record_chars
+        if unnamed_count:
+            allowance = min(
+                record_chars, max(_MIN_RECORD_CHARS, record_block_chars // unnamed_count)
+            )
+
         for item in shown:
             name = item.get("name") or item.get("title")
             if not name:
                 # Annotations, test results and anything else without a label
                 # would render as a bare "- ?", hiding every field from the
-                # LLM — which then invents the content. Keep the record.
+                # LLM — which then invents the content. Keep the record whole:
+                # a review comment clipped to a preview width is a half
+                # sentence the LLM finishes on the human's behalf.
                 # ensure_ascii=False so non-ASCII review text stays readable
                 # rather than arriving at the LLM as \uXXXX escapes.
                 compact_item = json.dumps(
-                    _trim_for_summary(item, desc_chars),
+                    _trim_for_summary(item, allowance),
                     default=str,
                     ensure_ascii=False,
                 )
+                if len(compact_item) > allowance:
+                    compact_item = compact_item[:allowance].rstrip() + "… [record truncated]"
                 lines.append(f"  - {compact_item}")
                 continue
             eid = item.get("id", "")
@@ -1284,7 +1331,6 @@ class ArchitectAgent(BaseAgent):
             lines.append(
                 f"  … and {len(data) - len(shown)} more item(s) on this page (omitted from summary)"
             )
-
         return "\n".join(lines)
 
     @staticmethod
@@ -1383,6 +1429,7 @@ class ArchitectAgent(BaseAgent):
             plan_data=plan_data,
             max_iterations=self.max_iterations,
             pending_tasks=list(self._pending_tasks),
+            carried_tool_results=self._build_carried_tool_results(),
         )
 
     def restore_state(self, snapshot: ArchitectAgentStateSnapshot) -> None:
@@ -1416,6 +1463,8 @@ class ArchitectAgent(BaseAgent):
 
         if snapshot.id_to_name:
             self._id_to_name = dict(snapshot.id_to_name)
+
+        self._carried_tool_results = list(snapshot.carried_tool_results)
 
         if snapshot.plan_data:
             try:
@@ -1664,13 +1713,72 @@ class ArchitectAgent(BaseAgent):
             return f"{prefix} Error: {tr.error}"
         return None
 
-    def _format_tool_results_for_streaming(self) -> str:
-        """Format tool results from the current turn."""
-        if not self._execution_history:
+    _CARRIED_RESULTS_HEADER = (
+        "Data already collected earlier in this conversation. Quote from it "
+        "instead of recalling it from your own previous answers. It may be "
+        "stale — call the tool again if the user needs current state."
+    )
+
+    def _build_carried_tool_results(self) -> List[str]:
+        """Render this session's tool data into lines that outlive the turn.
+
+        The backend builds a fresh agent per user message, so
+        ``_execution_history`` is empty on every follow-up. Without this, a
+        question about something already fetched — the exact words of a
+        review, who left it — is answered from the agent's own earlier
+        prose, and the missing detail gets invented.
+
+        Failures and the internal pseudo-tools are dropped: an error is not
+        data, and a ``finish`` result is the answer text, which is already
+        in the conversation history.
+        """
+        cfg = self._cfg
+        fresh: List[str] = []
+        for step in self._execution_history:
+            for tr in step.tool_results:
+                if tr.tool_name in _INTERNAL_TOOL_NAMES or not (tr.success and tr.content):
+                    continue
+                rendered = self._render_tool_result(
+                    tr,
+                    prefix=f"[{tr.tool_name}]",
+                    preview=cfg.tool_result_preview_chars,
+                )
+                if rendered:
+                    fresh.append(rendered)
+
+        # Newest first so recent data wins the budget, then back to
+        # chronological order for the prompt.
+        selected: List[str] = []
+        used = 0
+        for rendered in reversed([*self._carried_tool_results, *fresh]):
+            if len(selected) >= cfg.carried_result_max_entries:
+                break
+            if used + len(rendered) > cfg.carried_result_max_chars:
+                break
+            selected.append(rendered)
+            used += len(rendered)
+        selected.reverse()
+        return selected
+
+    def _format_carried_tool_results(self) -> str:
+        """Render the earlier-turn digest as one labelled prompt block."""
+        if not self._carried_tool_results:
             return ""
+        return "\n\n".join([self._CARRIED_RESULTS_HEADER, *self._carried_tool_results])
+
+    def _format_tool_results_for_streaming(self) -> str:
+        """Format tool data available to the response writer.
+
+        Earlier turns come first as a labelled block, then this turn's
+        results. The slice matters: without it a third-turn response is
+        handed turn one's results as freshly collected data.
+        """
         cfg = self._cfg
         parts: List[str] = []
-        for step in self._execution_history:
+        carried = self._format_carried_tool_results()
+        if carried:
+            parts.append(carried)
+        for step in self._execution_history[self._turn_start_step :]:
             if step.tool_results:
                 for tr in step.tool_results:
                     rendered = self._render_tool_result(
@@ -1701,6 +1809,10 @@ class ArchitectAgent(BaseAgent):
             if len(content) > max_chars:
                 content = content[:max_chars] + "..."
             parts.append(f"{role}: {content}")
+
+        carried = self._format_carried_tool_results()
+        if carried:
+            parts.append(carried)
 
         exec_window = self._execution_history[-self._history_window :]
         if len(self._execution_history) > self._history_window:

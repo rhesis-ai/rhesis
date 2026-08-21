@@ -2421,15 +2421,57 @@ class TestCompactUnnamedListResults:
         assert out is not None
         assert "nano_id" not in out
 
-    def test_long_comment_is_clipped(self):
+    def test_long_comment_survives_whole(self):
+        """A review comment is only ever shown here — it must arrive intact.
+
+        Clipping it to a preview width leaves the LLM holding half a
+        sentence, which it finishes on the reviewer's behalf.
+        """
+        comment = (
+            "The agent quoted a refund of 240 EUR that appears nowhere in the policy, "
+            "then repeated it with a made-up section number when challenged. The metric "
+            "passed it, so the judge is scoring fluency rather than groundedness."
+        )
         item = self._annotation(1)
-        item["comments"] = "z" * 500
+        item["comments"] = comment
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps([item]))
+        assert out is not None
+        assert comment in out
+
+    def test_runaway_field_is_still_bounded(self):
+        """``record_chars`` is a backstop against one pathological field."""
+        item = self._annotation(1)
+        item["comments"] = "z" * 9_000
         out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps([item]), desc_chars=100
+            json.dumps([item]), record_chars=2_000
         )
         assert out is not None
-        assert "z" * 500 not in out
+        assert "z" * 9_000 not in out
         assert "…" in out
+
+    def test_fat_page_keeps_every_row_and_marks_the_clipping(self):
+        """Detail degrades; rows do not disappear.
+
+        Dropping records to fit a budget reads as "there were only four",
+        which is the same lie as the bare "- ?".
+        """
+        items = []
+        for idx in range(20):
+            item = self._annotation(idx)
+            item["comments"] = f"review {idx} " + "lorem ipsum dolor sit amet " * 200
+            items.append(item)
+        payload = {
+            "results": items,
+            "_pagination": {"returned": 20, "has_more": False},
+        }
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(payload))
+        assert out is not None
+        rows = [line for line in out.splitlines() if line.startswith("  - ")]
+        assert len(rows) == 20
+        assert all("[record truncated]" in row for row in rows)
+        # Every review is still identifiable even where its text is cut.
+        for idx in range(20):
+            assert f"review {idx} " in out
 
     def test_named_items_keep_the_compact_form(self):
         """Entities with names are unaffected — no raw JSON for them."""
@@ -2499,6 +2541,152 @@ class TestToolResultTruncationMarker:
         assert rendered is not None
         assert "truncated" not in rendered
         assert "Passed" in rendered
+
+
+# ── carried tool-result tests ─────────────────────────────────────
+
+_ANNOTATION_PAGE = json.dumps(
+    {
+        "results": [
+            {
+                "id": None,
+                "review_id": "e87b6bc0-1111",
+                "comments": "Quoted a refund figure that is nowhere in the policy.",
+                "status": {"name": "Fail"},
+                "user": {"name": "Nicolai Bohn"},
+                "target": {"type": "turn", "turn_index": 3},
+            }
+        ],
+        "_pagination": {"returned": 1, "has_more": False},
+    }
+)
+
+
+def _tool_step(iteration, tool_name, *, content=None, error=None):
+    """One execution step carrying a single tool result."""
+    return ExecutionStep(
+        iteration=iteration,
+        reasoning=f"step {iteration}",
+        action="call_tool",
+        tool_calls=[],
+        tool_results=[
+            ToolResult(
+                tool_name=tool_name,
+                success=error is None,
+                content=content or "",
+                error=error,
+            )
+        ],
+    )
+
+
+@pytest.mark.unit
+class TestCarriedToolResults:
+    """Tool data has to outlive the turn that fetched it.
+
+    The backend builds a fresh agent per user message, so a follow-up
+    question ("who left that review?") otherwise has nothing but the
+    agent's own earlier prose to answer from — and fills the gaps.
+    """
+
+    def test_digest_reaches_a_fresh_agent(self):
+        first = _make_agent(_mock_model())
+        first._execution_history.append(_tool_step(1, "list_annotations", content=_ANNOTATION_PAGE))
+
+        second = _make_agent(_mock_model())
+        second.restore_state(first.dump_state())
+
+        assert not second._execution_history
+        for prompt in (second._format_history(), second._format_tool_results_for_streaming()):
+            assert "Quoted a refund figure" in prompt
+            assert "Nicolai Bohn" in prompt
+            assert "turn_index" in prompt
+
+    def test_carried_block_is_labelled_as_earlier_data(self):
+        agent = _make_agent(_mock_model())
+        agent._carried_tool_results = ["[list_annotations]: one review"]
+
+        assert "already collected earlier" in agent._format_history()
+
+    def test_failed_calls_and_finish_results_excluded(self):
+        agent = _make_agent(_mock_model())
+        agent._execution_history.extend(
+            [
+                _tool_step(1, "list_annotations", content=_ANNOTATION_PAGE),
+                _tool_step(2, "get_test_set", error="404 not found"),
+                _tool_step(3, "finish", content="One review, from Nicolai."),
+            ]
+        )
+
+        digest = agent._build_carried_tool_results()
+
+        # An error is not data, and the finish text is already the
+        # assistant message in conversation history.
+        assert len(digest) == 1
+        assert "list_annotations" in digest[0]
+
+    def test_newest_entries_win_the_entry_cap(self):
+        agent = _make_agent(_mock_model())
+        for i in range(20):
+            agent._execution_history.append(
+                _tool_step(i, "list_metrics", content=json.dumps({"marker": f"call-{i}"}))
+            )
+
+        digest = agent._build_carried_tool_results()
+
+        assert len(digest) == agent._cfg.carried_result_max_entries
+        assert "call-19" in digest[-1]
+        assert not any("call-0" in entry for entry in digest)
+
+    def test_char_budget_drops_the_oldest(self):
+        agent = _make_agent(_mock_model())
+        for i in range(6):
+            bulky = json.dumps({"marker": i, "pad": "x" * 3000})
+            agent._execution_history.append(_tool_step(i, "get_test_result", content=bulky))
+
+        digest = agent._build_carried_tool_results()
+
+        assert sum(len(entry) for entry in digest) <= agent._cfg.carried_result_max_chars
+        assert len(digest) < 6
+
+    def test_earlier_carried_data_survives_a_turn_that_fetched_nothing(self):
+        first = _make_agent(_mock_model())
+        first._execution_history.append(_tool_step(1, "list_annotations", content=_ANNOTATION_PAGE))
+
+        second = _make_agent(_mock_model())
+        second.restore_state(first.dump_state())
+        third = _make_agent(_mock_model())
+        third.restore_state(second.dump_state())
+
+        assert "Quoted a refund figure" in third._format_history()
+
+    def test_streaming_shows_only_this_turns_results_as_current(self):
+        agent = _make_agent(_mock_model())
+        agent._execution_history.append(
+            _tool_step(1, "list_metrics", content=json.dumps({"marker": "old-turn"}))
+        )
+        agent._turn_start_step = len(agent._execution_history)
+        agent._execution_history.append(
+            _tool_step(2, "list_requirements", content=json.dumps({"marker": "this-turn"}))
+        )
+
+        streaming = agent._format_tool_results_for_streaming()
+
+        # Stale data presented as freshly collected is its own hallucination
+        # source — the previous turn's results belong in the carried block.
+        assert "this-turn" in streaming
+        assert "old-turn" not in streaming
+
+    def test_reset_clears_the_digest(self):
+        agent = _make_agent(_mock_model())
+        agent._carried_tool_results = ["[list_annotations]: one review"]
+        agent._turn_start_step = 3
+
+        agent.reset()
+
+        assert agent._carried_tool_results == []
+        assert agent._turn_start_step == 0
+        assert agent._format_tool_results_for_streaming() == ""
 
 
 # ── Mapping completion tests ─────────────────────────────────────
