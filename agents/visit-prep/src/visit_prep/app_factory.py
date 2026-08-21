@@ -4,8 +4,8 @@ Rhesis concerns — client construction, ``RhesisTracing``, ``@endpoint`` — li
 and the two thin wrappers that call it (``app.py`` for the native integration, ``app_upstream.py``
 for deepset's). Nothing else under ``visit_prep`` imports from ``rhesis.sdk``.
 
-``HAYSTACK_CONTENT_TRACING_ENABLED`` is set by those wrappers before they import their integration,
-because Haystack reads it once at import time.
+``HAYSTACK_CONTENT_TRACING_ENABLED`` and ``.env`` are handled by :mod:`visit_prep._bootstrap`, which
+the package ``__init__`` runs before anything here imports Haystack.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Protocol
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
@@ -68,8 +67,6 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
 
     :param tracing_cls: The ``RhesisTracing`` class of the integration to trace through.
     """
-    load_dotenv()
-
     # Initialise the Rhesis client so ``@endpoint`` has a registered default client to attach
     # traces to. ``RhesisClient.__init__`` calls ``_register_default_client`` as a side effect —
     # the local variable is never passed anywhere; ``@endpoint`` resolves it via
