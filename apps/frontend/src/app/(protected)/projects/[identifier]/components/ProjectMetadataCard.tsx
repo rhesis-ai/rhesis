@@ -79,14 +79,14 @@ export default function ProjectMetadataCard({
     [project]
   );
 
-  const handleSave = async (draft: MetadataDraft) => {
-    await onSave({
+  // Returning the result keeps the card in edit mode when the update fails.
+  const handleSave = (draft: MetadataDraft) =>
+    onSave({
       name: draft.name.trim(),
       description: draft.description,
       is_active: draft.is_active,
       owner_id: draft.owner_id || undefined,
     });
-  };
 
   const ownerFromProject =
     project.owner?.name || project.owner?.email || 'Not assigned';
