@@ -116,6 +116,21 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
     }
 
 
+def stream_error_message(e: Exception) -> str:
+    """Turn an exception caught mid-stream into a plain string, for a
+    streaming pipeline emitting a ``{"type": "error", "message": ...}``
+    NDJSON event rather than a structured 402 body.
+
+    A :class:`QuotaExceededError` gets the same organization-subject copy
+    every other quota surface uses instead of its own technical
+    ``__str__`` ("Quota exceeded for model_tokens: ..."); anything else
+    falls back to its own message.
+    """
+    if isinstance(e, QuotaExceededError):
+        return quota_exceeded_response_body(e.verdict)["message"]
+    return str(e)
+
+
 def _read_usage(db: Session, org_id: str, resource: QuotaResource) -> int:
     """Read current usage for exactly one resource.
 
