@@ -2649,6 +2649,37 @@ class TestCarriedToolResults:
         assert sum(len(entry) for entry in digest) <= agent._cfg.carried_result_max_chars
         assert len(digest) < 6
 
+    # A page of unnamed records is the shape that outgrows the digest budget:
+    # each one is dumped whole, so 50 of them render far past it.
+    @staticmethod
+    def _fat_page(rows: int = 50, width: int = 600) -> str:
+        return json.dumps([{"id": f"row-{i}", "content": "y" * width} for i in range(rows)])
+
+    def test_an_oversized_page_is_truncated_not_dropped(self):
+        """A page bigger than the whole budget used to return an empty digest."""
+        agent = _make_agent(_mock_model())
+        agent._execution_history.append(
+            _tool_step(1, "list_annotations", content=self._fat_page())
+        )
+
+        digest = agent._build_carried_tool_results()
+
+        assert digest
+        assert "truncated" in digest[0]
+        assert sum(len(entry) for entry in digest) <= agent._cfg.carried_result_max_chars
+
+    def test_an_oversized_page_does_not_wipe_earlier_entries(self):
+        agent = _make_agent(_mock_model())
+        agent._carried_tool_results = ["[list_annotations]: one review, from Nicolai."]
+        agent._execution_history.append(
+            _tool_step(1, "list_annotations", content=self._fat_page())
+        )
+
+        digest = agent._build_carried_tool_results()
+
+        assert any("one review, from Nicolai." in entry for entry in digest)
+        assert sum(len(entry) for entry in digest) <= agent._cfg.carried_result_max_chars
+
     def test_earlier_carried_data_survives_a_turn_that_fetched_nothing(self):
         first = _make_agent(_mock_model())
         first._execution_history.append(_tool_step(1, "list_annotations", content=_ANNOTATION_PAGE))

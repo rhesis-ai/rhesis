@@ -1753,8 +1753,18 @@ class ArchitectAgent(BaseAgent):
         for rendered in reversed([*self._carried_tool_results, *fresh]):
             if len(selected) >= cfg.carried_result_max_entries:
                 break
-            if used + len(rendered) > cfg.carried_result_max_chars:
-                break
+            room = cfg.carried_result_max_chars - used
+            if len(rendered) > room:
+                marker = f"… [truncated, {len(rendered)} chars total]"
+                # Degrade detail instead of stopping: a compacted 50-row page
+                # runs past this whole budget on its own, and stopping there
+                # returned an empty digest — losing the data this exists to
+                # carry. Half the budget at most, so one fat page cannot
+                # starve the older entries behind it.
+                keep = min(room, cfg.carried_result_max_chars // 2)
+                if keep <= len(marker):
+                    continue
+                rendered = rendered[: keep - len(marker)].rstrip() + marker
             selected.append(rendered)
             used += len(rendered)
         selected.reverse()
