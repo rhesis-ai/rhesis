@@ -1532,7 +1532,9 @@ class ArchitectAgent(BaseAgent):
         ``list_projects`` returns every project in the organization with
         nothing marking the active one. It would ask the user instead.
         """
-        name = (self._project_context.get("name") or "").strip()
+        name = self._clean_project_field(
+            self._project_context.get("name"), self._cfg.project_name_max_chars
+        )
         project_id = (self._project_context.get("project_id") or "").strip()
         if not name and not project_id:
             return ""
@@ -1541,10 +1543,29 @@ class ArchitectAgent(BaseAgent):
         lines = [f"Project: {label}"]
         if project_id:
             lines.append(f"Project ID: {project_id}")
-        description = (self._project_context.get("description") or "").strip()
+        description = self._clean_project_field(
+            self._project_context.get("description"),
+            self._cfg.project_description_max_chars,
+        )
         if description:
             lines.append(f"About: {description}")
         return "\n".join(lines)
+
+    @staticmethod
+    def _clean_project_field(value: Any, max_chars: int) -> str:
+        """Flatten and clip a project field before it enters the prompt.
+
+        The block is line-structured, so a newline inside a name or
+        description would forge a field the user never set (``About: x\nProject:
+        Other``). Collapsing whitespace removes that, and the clip keeps a long
+        description from being paid for on every turn.
+        """
+        if not isinstance(value, str):
+            return ""
+        flattened = " ".join(value.split())
+        if len(flattened) > max_chars:
+            return flattened[:max_chars].rstrip() + "…"
+        return flattened
 
     def _format_discovery_state(self) -> str:
         """Format the discovery state for the iteration prompt."""

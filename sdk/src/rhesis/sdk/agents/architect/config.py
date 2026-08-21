@@ -40,6 +40,12 @@ class ArchitectConfig:
     recent_msg_max_chars: int = 2_000
     older_msg_max_chars: int = 500
 
+    # ── project context ───────────────────────────────────────────
+    # Rendered every turn, so an unbounded description would be paid for
+    # on each one.
+    project_name_max_chars: int = 200
+    project_description_max_chars: int = 500
+
     # ── streaming / tool-result preview ───────────────────────────
     tool_result_preview_chars: int = 4_000
     reasoning_preview_chars: int = 200

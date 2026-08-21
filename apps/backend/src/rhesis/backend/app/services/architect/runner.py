@@ -136,8 +136,8 @@ def _resolve_project_context(db, project_id: Optional[str], organization_id: str
 
     try:
         project = project_crud.get_project(db, UUID(project_id), organization_id=organization_id)
-    except Exception:
-        logger.warning("Could not resolve project %s for Architect context", project_id)
+    except Exception as exc:
+        logger.warning("Could not resolve project %s for Architect context: %s", project_id, exc)
         return None
 
     if not project:
