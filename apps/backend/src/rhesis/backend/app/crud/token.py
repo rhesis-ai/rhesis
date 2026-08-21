@@ -18,12 +18,13 @@ compared as a guard against hash collisions.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item,
@@ -174,6 +175,26 @@ def revoke_token(
 ) -> Optional[models.Token]:
     """Delete token."""
     return delete_item(db, models.Token, token_id, organization_id, user_id)
+
+
+def bulk_revoke_tokens(
+    db: Session,
+    token_ids: List[uuid.UUID],
+    organization_id: str = None,
+    user_id: str = None,
+) -> Dict[str, List[str]]:
+    """Soft delete (revoke) multiple tokens in one transaction.
+
+    No owner-only rule on token delete, so this is a direct wrapper around
+    the generic bulk helper.
+    """
+    return bulk_delete_by_ids(
+        db,
+        models.Token,
+        token_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = None) -> int:
