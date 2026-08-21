@@ -161,3 +161,55 @@ class TestRedisRetryCooldown:
             await redis_manager.initialize()
 
         assert not redis_manager.is_available
+
+
+class TestRedisConnectionResilience:
+    """Verify the client is built so redis-py reconnects on its own (closes #1695)."""
+
+    @pytest.mark.asyncio
+    async def test_dropped_connection_is_retried_not_raised(
+        self, redis_manager, mock_redis_settings
+    ):
+        """A dropped connection must reconnect instead of surfacing to the caller.
+
+        Asserted against a real redis-py connection built from the same kwargs, so this
+        catches an option being dropped or renamed — not just "from_url got a dict".
+        """
+        import redis.asyncio as real_redis
+        from redis.exceptions import ConnectionError as RedisConnectionError
+        from redis.exceptions import TimeoutError as RedisTimeoutError
+
+        recorded = {}
+
+        async def _capture(url, **kwargs):
+            recorded["url"] = url
+            recorded["kwargs"] = kwargs
+            client = AsyncMock()
+            client.ping = AsyncMock(return_value=True)
+            return client
+
+        with patch(
+            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+            return_value=mock_redis_settings,
+        ), patch(
+            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
+            side_effect=_capture,
+        ):
+            await redis_manager.initialize()
+
+        assert redis_manager.is_available
+
+        # from_url() does not open a socket, so this is safe without a Redis server.
+        connection = real_redis.from_url(
+            recorded["url"], **recorded["kwargs"]
+        ).connection_pool.make_connection()
+
+        # Zero retries or an empty retry_on_error is what made blpop raise instead of reconnect.
+        assert connection.retry._retries > 0
+        assert RedisConnectionError in connection.retry_on_error
+        assert RedisTimeoutError in connection.retry_on_error
+        assert RedisConnectionError in connection.retry._supported_errors
+
+        # Keeps an idle pooled connection from being handed out already dead.
+        assert connection.health_check_interval > 0
+        assert connection.socket_keepalive is True
