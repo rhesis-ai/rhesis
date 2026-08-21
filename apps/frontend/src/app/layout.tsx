@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import Script from 'next/script';
 import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
@@ -365,8 +364,13 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     productName: deploymentBranding.productName,
     homeUrl: '/architect',
   };
+  // Empty when `API_BASE_URL` is unset or blank — whichever of Helm,
+  // docker-compose or the dev scripts supplies the environment — so
+  // `getClientApiBaseUrl()` throws instead of silently using localhost;
+  // a deployed frontend would otherwise point `/auth/*` at the visitor's
+  // own machine.
   const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
-    apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
+    apiBaseUrl: process.env.API_BASE_URL || '',
     brandPrimaryColor: deploymentBranding.primaryColor,
     brandFaviconUrl: deploymentBranding.faviconUrl,
     brandProductName: deploymentBranding.productName,
@@ -417,6 +421,17 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning data-theme-mode={storedThemeMode}>
       <head>
         {/*
+          Plain inline script rather than `next/script` with
+          `beforeInteractive`: that renders a `self.__next_s` push drained by
+          the client bootstrap, which both logs a React 19 console error and
+          gives up the guarantee that `__ENV__` exists before any client code
+          reads it. Inline in <head> it is in the initial HTML.
+        */}
+        <script
+          id="rhesis-runtime-env"
+          dangerouslySetInnerHTML={{ __html: runtimeEnvScript }}
+        />
+        {/*
           Runs before first paint: when the visitor has made no explicit choice,
           resolve the mode from the browser instead of defaulting to light.
           `ThemeContextProvider` reads the attribute this sets, so the two agree
@@ -432,9 +447,6 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         />
       </head>
       <body suppressHydrationWarning>
-        <Script id="rhesis-runtime-env" strategy="beforeInteractive">
-          {runtimeEnvScript}
-        </Script>
         <ThemeContextProvider
           disableTransitionOnChange
           initialMode={storedThemeMode ?? 'light'}

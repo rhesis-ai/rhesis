@@ -19,16 +19,30 @@ export function resolveLocalhostUrl(url: string): string {
 }
 
 /**
- * Gets the API base URL for client-side requests with localhost resolution
- * Uses runtime config injected into window.__ENV__ or falls back to default
+ * Gets the API base URL for the browser's direct calls to the backend's
+ * unauthenticated `/auth/*` endpoints, from the runtime config the root layout
+ * injects into `window.__ENV__` (or `API_BASE_URL` when called on the server).
+ *
+ * Throws when it is not configured. There used to be a `http://localhost:8080`
+ * fallback here, which only ever looked right in local dev: in a deployed
+ * environment it pointed the sign-in, verify-email, magic-link and
+ * reset-password flows at the visitor's own machine instead of failing.
  *
  * @returns Resolved API base URL
  */
 export function getClientApiBaseUrl(): string {
   const baseUrl =
     typeof window === 'undefined'
-      ? process.env.API_BASE_URL || 'http://localhost:8080'
-      : window.__ENV__?.apiBaseUrl || 'http://localhost:8080';
+      ? process.env.API_BASE_URL
+      : window.__ENV__?.apiBaseUrl;
+  if (!baseUrl) {
+    throw new Error(
+      'API_BASE_URL is not configured — cannot resolve the backend URL for ' +
+        'authentication requests. Set API_BASE_URL for the frontend, ' +
+        'wherever its environment comes from (Helm `config.apiBaseUrl`, ' +
+        'docker-compose, or the dev scripts).'
+    );
+  }
   return resolveLocalhostUrl(baseUrl);
 }
 

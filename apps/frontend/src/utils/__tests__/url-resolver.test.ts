@@ -50,8 +50,15 @@ describe('getClientApiBaseUrl', () => {
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:9090/api');
   });
 
-  it('falls back to default when runtime config is not set', () => {
-    expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:8080');
+  it('throws when runtime config is not set', () => {
+    expect(() => getClientApiBaseUrl()).toThrow('API_BASE_URL');
+  });
+
+  it('throws when runtime config is an empty string', () => {
+    // What an environment that declares API_BASE_URL but leaves it blank
+    // ships — e.g. the chart's default `config.apiBaseUrl: ""`.
+    window.__ENV__ = { apiBaseUrl: '' };
+    expect(() => getClientApiBaseUrl()).toThrow('API_BASE_URL');
   });
 
   it('resolves localhost in the URL', () => {
