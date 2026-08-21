@@ -227,9 +227,13 @@ class TestBulkCreateTests:
         test_db.add(multi_turn_type)
         test_db.flush()
 
+        other_org = models.Organization(name="Other Org")
+        test_db.add(other_org)
+        test_db.flush()
+
         other_org_set = models.TestSet(
             name="Other org multi-turn set",
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             user_id=authenticated_user_id,
             test_set_type_id=multi_turn_type.id,
         )

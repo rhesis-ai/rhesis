@@ -754,7 +754,7 @@ class TestBulkCreateEnforcesUniformTestType:
                 )
             ],
         )
-        assert payload.tests[0].test_configuration == {"goal": "multi turn"}
+        assert payload.tests[0].test_configuration == {"goal": "multi turn", "max_turns": 10}
 
     def test_effective_type_precedence_is_shared(self):
         base = {
