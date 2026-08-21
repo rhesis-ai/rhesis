@@ -31,6 +31,8 @@ from .emoji_reaction import CommentEmojis, EmojiReaction
 from .endpoint import (
     Endpoint,
     EndpointBase,
+    EndpointBulkDeleteRequest,
+    EndpointBulkDeleteResponse,
     EndpointCreate,
     EndpointDetail,
     EndpointTestRequest,
@@ -219,6 +221,8 @@ __all__ = [
     "EndpointDetail",
     "EndpointTestRequest",
     "EndpointUpdate",
+    "EndpointBulkDeleteRequest",
+    "EndpointBulkDeleteResponse",
     "Model",
     "ModelBase",
     "ModelCreate",

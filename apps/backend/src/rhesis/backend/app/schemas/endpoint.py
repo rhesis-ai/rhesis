@@ -203,6 +203,15 @@ class EndpointDetail(Endpoint):
     project: Optional[ProjectReference] = None
 
 
+class EndpointBulkDeleteRequest(BaseModel):
+    endpoint_ids: List[UUID4]
+
+
+class EndpointBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
+
+
 # Auto-configure schemas — use BaseModel (not Base) since these are
 # transient DTOs that should not carry id/nano_id UUID fields.
 
