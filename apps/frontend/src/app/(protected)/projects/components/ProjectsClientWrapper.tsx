@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
 import ProjectCard from './ProjectCard';
 import ProjectCreateDrawer from './ProjectCreateDrawer';
@@ -37,6 +38,10 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  ACTIVE_PROJECT_DELETE_BLOCKED,
+  PROJECT_DELETE_WARNING,
+} from '../constants';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -68,7 +73,9 @@ export default function ProjectsClientWrapper() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
   const { markStepComplete, progress, activeTour } = useOnboarding();
-  const { refresh: refreshActiveProjects } = useActiveProject();
+  const { activeProject, refresh: refreshActiveProjects } = useActiveProject();
+  const notifications = useNotifications();
+  const activeProjectId = activeProject ? String(activeProject.id) : null;
   const isOnProjectTour = activeTour === 'project';
   const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
 
@@ -110,18 +117,31 @@ export default function ProjectsClientWrapper() {
 
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
+    // The active project can only become known after the card rendered (no
+    // cookie yet, or a single project being auto-selected mid-flight), so a
+    // click can slip through the disabled trash can. Re-check before the DELETE.
+    if (activeProjectId !== null && deleteTarget.id === activeProjectId) {
+      setDeleteTarget(null);
+      return;
+    }
     try {
       const factory = new ApiClientFactory();
       const client = factory.getProjectsClient();
       await client.deleteProject(deleteTarget.id);
       setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
       await refreshActiveProjects();
+      notifications.show('Project deleted successfully', {
+        severity: 'success',
+      });
     } catch (error) {
-      console.error('Failed to delete project:', error);
+      notifications.show(
+        error instanceof Error ? error.message : 'Failed to delete project',
+        { severity: 'error' }
+      );
     } finally {
       setDeleteTarget(null);
     }
-  }, [deleteTarget, refreshActiveProjects]);
+  }, [deleteTarget, activeProjectId, refreshActiveProjects, notifications]);
 
   // Mark onboarding step complete when projects are loaded
   useEffect(() => {
@@ -323,6 +343,11 @@ export default function ProjectsClientWrapper() {
                           })
                       : undefined
                   }
+                  deleteDisabledReason={
+                    String(project.id) === activeProjectId
+                      ? ACTIVE_PROJECT_DELETE_BLOCKED
+                      : undefined
+                  }
                 />
               ))}
             </Box>
@@ -366,6 +391,7 @@ export default function ProjectsClientWrapper() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
         title="Delete project?"
+        warningMessage={PROJECT_DELETE_WARNING}
         message={
           <>
             Are you sure you want to delete{' '}
