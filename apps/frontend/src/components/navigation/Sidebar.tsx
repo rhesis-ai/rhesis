@@ -886,7 +886,11 @@ export function Sidebar() {
             width: collapsed ? COLLAPSED_NAV_ITEM_SIZE : 'auto',
             alignSelf: collapsed ? 'center' : 'stretch',
             borderRadius: BORDER_RADIUS.pill,
-            overflow: 'hidden',
+            // No overflow: hidden -- the unread-count Badge below is meant to
+            // overflow its anchor (MUI positions it via a translate past the
+            // avatar's own edge), and clipping it here cut it off, especially
+            // collapsed where there's only ~4px of slack around the avatar.
+            // The org-icon button above (also badged) never had this either.
             '&:hover': {
               bgcolor: theme => theme.palette.greyscale.surface2,
             },
