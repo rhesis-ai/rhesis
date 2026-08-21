@@ -145,14 +145,6 @@ export function FilterDrawerShell({
         sx={{
           flex: 1,
           overflowY: 'auto',
-          // Explicit, not left to default: a browser resolves a lone
-          // `overflow-y` by silently promoting `overflow-x` to `auto` too
-          // (CSS Overflow spec, "computed value" section) unless both axes
-          // are set. That clipped a control with a negative own-margin --
-          // e.g. `FormControlLabel`'s built-in -11px -- flush against this
-          // box's left edge, right where NotificationsDrawer's "Unread
-          // only" switch sits.
-          overflowX: 'visible',
           display: 'flex',
           flexDirection: 'column',
           gap: 5,
