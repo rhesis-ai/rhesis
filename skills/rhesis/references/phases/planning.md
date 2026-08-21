@@ -48,7 +48,7 @@ State the type for each test set when you present the plan, and check that the m
 
 Propose existing entities when they match. Say explicitly: "I'll reuse 'Refuses Harmful Requests'."
 
-Skip project for ad-hoc work.
+Never plan a project. The session is already scoped to one, and entities land there automatically — plan a project only when the user explicitly asks for a new one.
 
 ## Approval gate
 

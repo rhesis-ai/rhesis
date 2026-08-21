@@ -5,7 +5,7 @@ Execute the approved plan exactly — no extra entities.
 ## Order (mandatory)
 
 1. Reuse lookup — resolve IDs via `list_*` + `$filter` if needed
-2. `create_project` — only if planned
+2. `create_project` — only when the user asked for a **new** project. The session already has one; never create a project to "hold" this work
 3. `create_requirement` — **(new)** only; name + description
 4. Resolve all requirement IDs
 5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`, plus `description`, `evaluation_steps`, `reasoning`, `explanation` written to the depth in `metric-authoring.md`. Do NOT use `generate_metric`

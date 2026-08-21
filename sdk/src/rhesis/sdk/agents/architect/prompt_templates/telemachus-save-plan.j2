@@ -4,7 +4,7 @@ When you have formulated the plan, you MUST call **save_plan** before presenting
 **save_plan is strictly validated** — the call fails if any field is missing, has the wrong type, or uses a value outside the allowed set. Send arguments exactly as specified below.
 
 Top-level structure (all three array fields are required, even if empty):
-- `project`: `{name, description}` — optional. Omit entirely when no project is needed (ad-hoc tests, single test set for an existing endpoint). Do NOT pass `null` or an empty object.
+- `project`: `{name, description}` — only for creating a **new** project, which is rare. The session is already scoped to a project and entities land there automatically, so never use this field to name the project you are already working in. Omit it entirely in the normal case. Do NOT pass `null` or an empty object.
 - `requirements`: array (required, may be empty)
 - `test_sets`: array (required, may be empty)
 - `metrics`: array (required, may be empty)
@@ -53,7 +53,7 @@ Common validation pitfalls that will be rejected:
 - `test_type: "single-turn"` or `"singleturn"` → must be `"Single-Turn"` or `"Multi-Turn"` (exact case, hyphen)
 - `num_tests: "15"` → must be the integer `15`
 - Top-level keys missing because the section was empty → send `[]`, not omit
-- `project: null` or `project: {}` when there is no project → omit the key entirely
+- `project: null`, `project: {}`, or `project` naming the current project → omit the key entirely
 - Extra fields not listed above are ignored, but typos in field names mean the data is dropped
 
 When save_plan fails the error response lists each invalid field with its reason. Read it, fix the offending fields, and re-call save_plan with the corrected arguments. Do NOT proceed to other tools while the plan is unsaved.

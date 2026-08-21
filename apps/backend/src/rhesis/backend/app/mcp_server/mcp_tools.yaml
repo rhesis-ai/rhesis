@@ -15,10 +15,10 @@ tools:
     path: /projects/{project_id}
     description: >
       Get one project by ID. ENTITY: Project. PREREQUISITES: project_id
-      from list_projects. CHAIN: use before create_endpoint (project_id
-      is required) or when confirming project context for an endpoint.
-      NEVER: ask the user for a project ID when they gave a name — use
-      list_projects with $filter first.
+      from list_projects. CHAIN: use when the user asks about a specific
+      project by name. NOT needed before create_endpoint — that takes its
+      project from the request scope. NEVER: ask the user for a project ID
+      when they gave a name — use list_projects with $filter first.
     parameters:
       project_id:
         description: "REQUIRED. UUID of the project."
@@ -999,9 +999,9 @@ tools:
     requires_confirmation: true
     description: >
       Register a new REST API endpoint (an AI system to be tested — a chat
-      API, completion API, or chatbot). Resolve the target project FIRST with
-      list_projects and pass its id as project_id (REQUIRED — the endpoint
-      cannot be created without it). Do NOT send server-managed fields
+      API, completion API, or chatbot). The endpoint is created in the
+      current project automatically — do NOT resolve a project or ask the
+      user which one to use. Do NOT send server-managed fields
       (id, user_id, organization_id, status_id, created_at, updated_at).
       After creating, you can verify reachability with check_endpoint.
     parameters:
@@ -1009,8 +1009,8 @@ tools:
         description: "REQUIRED. Endpoint name, unique within the project (string)."
       project_id:
         description: >
-          REQUIRED. UUID of the project this endpoint belongs to. Resolve it
-          via list_projects (use the user's project, or ask if ambiguous).
+          Omit. The project scope is taken from the request, not from this
+          field.
       connection_type:
         description: 'Connection protocol. Use "REST" for HTTP APIs (default for chatbots).'
       url:

@@ -21,11 +21,11 @@ List configured endpoints (the AI systems under test).
 ### `create_endpoint`
 Register a new REST API endpoint (the AI system to be tested — a chat API, completion API, or chatbot).
 
-Resolve the target project **first** with `list_projects` and pass its id — the endpoint cannot be created without a `project_id`. After creating, verify reachability with `check_endpoint`.
+The endpoint is created in the current project automatically — do not resolve a project or ask which one to use. After creating, verify reachability with `check_endpoint`.
 
 **Key parameters:**
 - `name` (required) — endpoint name, unique within the project
-- `project_id` (required) — UUID of the owning project; resolve via `list_projects`
+- `project_id` — omit; the project scope is taken from the request
 - `connection_type` — `"REST"` for HTTP APIs (default for chatbots)
 - `url` (required for REST) — full endpoint URL, e.g. `https://api.example.com/chat`
 - `method` — HTTP method, e.g. `"POST"` or `"GET"`
@@ -42,7 +42,7 @@ Resolve the target project **first** with `list_projects` and pass its id — th
 - `auth_token` — bearer token / API key (write-only, stored encrypted)
 - `client_id`, `client_secret`, `token_url`, `scopes`, `audience` — OAuth client-credentials fields (`client_secret` is write-only, stored encrypted)
 
-**Common mistakes:** Omitting `project_id` — the create fails because it is a required relationship. Always resolve the project with `list_projects` first. Do NOT send server-managed fields (`id`, `user_id`, `organization_id`, `status_id`, `created_at`, `updated_at`) — `status_id` is auto-assigned to "Active".
+**Common mistakes:** Sending `project_id` — it is filled from the request scope, and passing one is how endpoints end up in the wrong project. Do NOT send server-managed fields (`id`, `user_id`, `organization_id`, `status_id`, `created_at`, `updated_at`) — `status_id` is auto-assigned to "Active".
 
 ---
 
@@ -534,7 +534,7 @@ Create a knowledge source for grounding Single-Turn `generate_test_set`.
 ### `get_project`
 Get one project by ID.
 
-**CHAIN:** after `list_projects` when you need full project detail before `create_endpoint`.
+**CHAIN:** after `list_projects` when the user asks about a specific project by name. Not needed before `create_endpoint` — that takes its project from the request scope.
 
 **Key parameters:** `project_id` (required)
 
