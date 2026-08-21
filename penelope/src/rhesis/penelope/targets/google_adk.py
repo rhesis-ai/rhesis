@@ -47,12 +47,36 @@ import asyncio
 import inspect
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Awaitable, Dict, List, Optional
+from contextlib import contextmanager
+from typing import Any, Awaitable, Dict, Iterator, List, Optional
 from uuid import uuid4
 
 from rhesis.sdk.targets import Target, TargetResponse
+from rhesis.telemetry.context import get_conversation_id, set_conversation_id
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _conversation_scope(conversation_id: str) -> Iterator[None]:
+    """Bind the Rhesis conversation id for one turn.
+
+    This is what makes the Google ADK telemetry integration put every turn of a
+    simulated conversation into a single Rhesis trace rather than one trace per
+    turn. Skipped when something upstream already set an id: in a
+    platform-driven run that value is the authoritative grouping key and a
+    target must not override it.
+    """
+    previous = get_conversation_id()
+    if previous is not None:
+        yield
+        return
+    set_conversation_id(conversation_id)
+    try:
+        yield
+    finally:
+        set_conversation_id(previous)
+
 
 # Default identifiers used when the caller hands over a bare agent instead of a
 # fully configured ``Runner``. ``app_name`` scopes sessions inside the session
@@ -231,8 +255,9 @@ class GoogleADKTarget(Target):
         try:
             session_id = conversation_id or uuid4().hex
             runner = self._resolve_runner()
-            await self._ensure_session(runner, session_id)
-            events = await self._collect_events(runner, message, session_id, **kwargs)
+            with _conversation_scope(session_id):
+                await self._ensure_session(runner, session_id)
+                events = await self._collect_events(runner, message, session_id, **kwargs)
             content = self._extract_reply(events)
 
             if content is None:
