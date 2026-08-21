@@ -110,3 +110,13 @@ class TaskDetail(Task):
     assignee: Optional[UserReference] = None
     status: Optional[StatusReference] = None
     priority: Optional[TypeLookupReference] = None
+
+
+class TaskBulkDeleteRequest(BaseModel):
+    task_ids: List[UUID4]
+
+
+class TaskBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
+    forbidden_ids: List[str]

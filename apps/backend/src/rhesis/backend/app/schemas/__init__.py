@@ -114,7 +114,15 @@ from .source import (
 )
 from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
-from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
+from .task_management import (
+    Task,
+    TaskBase,
+    TaskBulkDeleteRequest,
+    TaskBulkDeleteResponse,
+    TaskCreate,
+    TaskDetail,
+    TaskUpdate,
+)
 from .test import (
     ConversationMessage,
     ConversationTestExtractionResponse,
@@ -328,6 +336,8 @@ __all__ = [
     "TaskCreate",
     "TaskDetail",
     "TaskUpdate",
+    "TaskBulkDeleteRequest",
+    "TaskBulkDeleteResponse",
     "TokenBase",
     "TokenCreate",
     "TokenUpdate",
