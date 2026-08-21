@@ -14,9 +14,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.services import test as test_service
 from tests.backend.routes.fixtures.data_factories import (
-    RequirementDataFactory,
     CategoryDataFactory,
     PromptDataFactory,
+    RequirementDataFactory,
     TopicDataFactory,
 )
 
@@ -166,6 +166,89 @@ class TestBulkCreateTests:
             assert test_obj.requirement_id is not None
             assert test_obj.category_id is not None
             assert test_obj.status_id is not None
+
+    def test_bulk_create_tests_rejects_mismatched_target_set_type(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
+        """Direct bulk creation must respect the target test set's type."""
+        multi_turn_type = models.TypeLookup(
+            type_name="TestSetType",
+            type_value="Multi-Turn",
+            description="Multi-Turn test set type",
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(multi_turn_type)
+        test_db.flush()
+
+        test_set = models.TestSet(
+            name="Multi-turn target",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            test_set_type_id=multi_turn_type.id,
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        with pytest.raises(ValueError, match="does not match target test set type"):
+            test_service.bulk_create_tests(
+                db=test_db,
+                tests_data=[create_bulk_test_data()],
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                test_set_id=str(test_set.id),
+            )
+
+    def test_bulk_create_tests_rejects_cross_org_test_set_id(
+        self,
+        test_db: Session,
+        authenticated_user_id,
+        test_org_id,
+        test_organization,
+        test_type_lookup,
+        db_status,
+        db_user,
+    ):
+        """A cross-org test_set_id must fail fast, never leak type or create unassociated tests."""
+        multi_turn_type = models.TypeLookup(
+            type_name="TestSetType",
+            type_value="Multi-Turn",
+            description="Multi-Turn test set type",
+            organization_id=test_organization.id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(multi_turn_type)
+        test_db.flush()
+
+        other_org_set = models.TestSet(
+            name="Other org multi-turn set",
+            organization_id=uuid.uuid4(),
+            user_id=authenticated_user_id,
+            test_set_type_id=multi_turn_type.id,
+        )
+        test_db.add(other_org_set)
+        test_db.commit()
+
+        # The caller is test_org_id; the other org's set is inaccessible and
+        # must be rejected instead of silently creating unassociated tests.
+        with pytest.raises(
+            test_service.TestSetInaccessibleError, match="not found or not accessible"
+        ):
+            test_service.bulk_create_tests(
+                db=test_db,
+                tests_data=[create_bulk_test_data()],
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                test_set_id=str(other_org_set.id),
+                test_type_value="Single-Turn",
+            )
 
     def test_bulk_create_tests_invalid_uuid(self, test_db: Session, authenticated_user_id):
         """Test bulk_create_tests with invalid UUID parameters."""

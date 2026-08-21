@@ -36,6 +36,34 @@ def format_test_set_type(v: Optional[str]) -> Optional[str]:
     return formatted
 
 
+def resolve_test_type(
+    test_data: Dict[str, Any],
+    test_set_type: Optional[str] = None,
+    default_test_type: Optional[str] = None,
+) -> str:
+    """Return the effective turn type for one test payload.
+
+    Precedence matches the historical service behavior and must stay in one
+    place: explicit test_type, then auto-detection from test_configuration.goal
+    or prompt, then the parent test-set type, then the platform default.
+    """
+    individual_test_type = test_data.get("test_type")
+    if individual_test_type is not None:
+        return TestType.get_value(individual_test_type)
+
+    test_configuration = test_data.get("test_configuration") or {}
+    if isinstance(test_configuration, dict) and "goal" in test_configuration:
+        return TestType.MULTI_TURN.value
+    if test_data.get("prompt"):
+        return TestType.SINGLE_TURN.value
+    if test_set_type:
+        return TestType.get_value(test_set_type)
+
+    return (
+        TestType.get_value(default_test_type) if default_test_type else TestType.SINGLE_TURN.value
+    )
+
+
 def validate_test_config_content(v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Validate test_configuration JSON based on content.

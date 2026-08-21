@@ -1152,13 +1152,18 @@ class TestSet(BaseEntity):
     def _infer_test_set_type(tests: List[Test]) -> TestType:
         """Infer the test set type from the tests.
 
-        Returns MULTI_TURN if any test has test_type == MULTI_TURN,
-        otherwise SINGLE_TURN.
+        A test set must be uniformly Single-Turn or Multi-Turn. Mixed
+        collections fail here instead of building a payload the API will
+        reject.
         """
-        for test in tests:
-            if test.test_type == TestType.MULTI_TURN:
-                return TestType.MULTI_TURN
-        return TestType.SINGLE_TURN
+        inferred_types = {test.test_type for test in tests if test.test_type is not None}
+        if len(inferred_types) > 1:
+            raise ValueError(
+                "Cannot create a TestSet with mixed test types: "
+                f"{sorted(t.value for t in inferred_types)}. "
+                "Split the tests into separate Single-Turn and Multi-Turn test sets."
+            )
+        return next(iter(inferred_types), TestType.SINGLE_TURN)
 
     @classmethod
     def _dict_to_test(cls, entry: Dict[str, Any]) -> Optional[Test]:
@@ -1236,12 +1241,18 @@ class TestSet(BaseEntity):
                 language_code=language_code if language_code else "en",
             )
 
-        # Determine test type
-        test_type_value = entry.get("test_type", "Single-Turn")
+        # Determine test type. When the entry has a goal but no explicit
+        # test_type, infer Multi-Turn so imports do not silently build a
+        # Single-Turn payload around multi-turn configuration.
+        test_type_value = entry.get("test_type")
+        if test_type_value is None:
+            nested_goal = (entry.get("test_configuration") or {}).get("goal")
+            has_goal = bool(nested_goal) or bool(str(entry.get("goal") or "").strip())
+            test_type_value = "Multi-Turn" if has_goal else "Single-Turn"
         if isinstance(test_type_value, str):
             test_type = TestType(test_type_value)
         else:
-            test_type = TestType.SINGLE_TURN
+            test_type = test_type_value
 
         # Build test kwargs — let Test.model_validator handle
         # building test_configuration from flat fields.
