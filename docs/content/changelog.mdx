@@ -26,12 +26,6 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
   from the model's last message. See
   [Conversation Tracing](/docs/tracing/conversation-tracing).
 
-### Fixed
-
-- **Conversations no longer start on two traces.** A stateful endpoint's first turn was recorded on a
-  trace id the platform generated, separate from the one the endpoint's own SDK had already opened,
-  so the first turn appeared apart from the rest of the conversation.
-
 ## [0.10.0] - 2026-07-09
 
 ### Platform Release
