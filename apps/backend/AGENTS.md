@@ -87,8 +87,9 @@ needed.
 
 `models/scope_events.py` registers two listeners:
 
-- `auto_filter` (`Query.before_compile`) — adds `WHERE organization_id=...` (and `project_id=...`)
-  to every SELECT, UPDATE, DELETE automatically
+- `auto_filter` (`Session.do_orm_execute`) — adds `WHERE organization_id=...` (and `project_id=...`)
+  to every SELECT, UPDATE, DELETE automatically, including `db.execute(select(...))` and
+  relationship lazy/eager loads
 - `auto_stamp` (`Session.before_flush`) — fills `organization_id`, `user_id`, `project_id` on new
   ORM objects when the column is `None`
 
@@ -103,9 +104,6 @@ from rhesis.backend.app.scope import bypass_tenant_filter
 with bypass_tenant_filter():
     all_rows = db.query(SomeModel).all()  # filter skipped; stamp still active
 
-# Per-query bypass (legacy Query API only):
-query._bypass_scope = True
-
 # Background scripts / migrations (scope is unbound outside get_db_with_tenant_variables):
 from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
 
@@ -116,13 +114,11 @@ finally:
     reset_scope(token)
 ```
 
-### Limitations (Phase 0 — document, not fix)
+### Limitations
 
-- `db.execute(select(...))` / `db.scalars(...)` (ORM 2.0 style) are **not** auto-filtered by the
-  `before_compile` listener. Use `db.query(...)` instead, or add explicit `organization_id` filters.
-  RLS (Phase 5) is the security backstop for those paths.
-- `Session.bulk_insert_mappings` / `bulk_save_objects` bypass `before_flush`; auto-stamp does **not**
-  fire. Include `organization_id`/`user_id`/`project_id` in bulk payloads manually.
+- `Session.bulk_insert_mappings` / `bulk_save_objects` bypass `before_flush` AND `do_orm_execute`;
+  neither auto-stamp nor auto-filter apply. Include `organization_id`/`user_id`/`project_id` in
+  bulk payloads manually.
 - Raw SQL `INSERT`/`UPDATE`/`DELETE` bypasses both listeners. Auth uses some intentionally; tenant-
   scoped raw SQL must add explicit `WHERE` clauses or rely on RLS.
 - Background scripts run outside `get_db_with_tenant_variables`. Bind scope explicitly or pass
