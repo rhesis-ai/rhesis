@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import ClassVar, List, Optional, Set
 
-from pydantic import UUID4
+from pydantic import UUID4, BaseModel
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
@@ -79,3 +79,12 @@ class TokenCreateResponse(Base, ServerIdentity):
     name: str
     project_id: Optional[UUID4] = None
     last_refreshed_at: Optional[datetime] = None  # For refresh operations
+
+
+class TokenBulkDeleteRequest(BaseModel):
+    token_ids: List[UUID4]
+
+
+class TokenBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
