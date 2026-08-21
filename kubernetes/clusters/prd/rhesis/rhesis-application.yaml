@@ -1,5 +1,5 @@
 # Argo CD Application — deploys the Rhesis Helm chart to the prd cluster.
-# This file is synced by the root prd Application (clusters/prd/base.yaml).
+# This file is synced by the root prd Application (bootstrap/prd-base.yaml).
 #
 # sync-wave 10 ensures:
 #   - ESO (wave -1) and ClusterSecretStore (wave 1) are ready
