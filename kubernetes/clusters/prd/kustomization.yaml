@@ -22,6 +22,7 @@ resources:
   # Monitoring stack (sync-wave on each wrapper defers grafana-resources until CRDs exist)
   - grafana-operator.yaml
   - kube-prometheus-stack.yaml
+  - volumesnapshotclass.yaml
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml

@@ -1,0 +1,11 @@
+# Makes PVC snapshots possible in prd (e.g. for Loki's filesystem storage, which has no
+# durability beyond its PVC). Retain so a deleted VolumeSnapshot never takes the underlying
+# disk snapshot with it.
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: pd-retain
+  annotations:
+    snapshot.storage.k8s.io/is-default-class: "true"
+driver: pd.csi.storage.gke.io
+deletionPolicy: Retain
