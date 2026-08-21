@@ -1,6 +1,6 @@
 import asyncio
 import os
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 # Check if connector should be disabled
 # Accept common truthy values: true, 1, yes, on (case-insensitive)
@@ -114,6 +114,7 @@ class RhesisClient:
         base_url: Optional[str] = None,
         project_id: Optional[str] = None,
         environment: Optional[str] = None,
+        identity_override: Optional[Any] = None,
     ):
         """
         Initialize the Rhesis observability client.
@@ -127,6 +128,10 @@ class RhesisClient:
                        will try to get from RHESIS_PROJECT_ID environment variable.
             environment: Optional environment name. If not provided, will try to get
                         from RHESIS_ENVIRONMENT environment variable (default: "development").
+            identity_override: Optional ``EndpointContext`` to use for
+                connector-invoked endpoints in place of the org/user identity
+                sent by the remote backend on connect. See
+                ``ConnectorManager.__init__``.
         """
         from rhesis.sdk.config import get_api_key, get_base_url
 
@@ -137,6 +142,7 @@ class RhesisClient:
         # Observability configuration
         self.project_id = project_id or os.getenv("RHESIS_PROJECT_ID")
         self.environment = environment or os.getenv("RHESIS_ENVIRONMENT", "development")
+        self._identity_override = identity_override
 
         # Resolve project_id from token when not explicitly provided
         if not self.project_id and self.api_key:
@@ -181,7 +187,9 @@ class RhesisClient:
             logger.debug(f"Token introspection failed: {e}")
 
     @classmethod
-    def from_environment(cls) -> Union["RhesisClient", DisabledClient]:
+    def from_environment(
+        cls, identity_override: Optional[Any] = None
+    ) -> Union["RhesisClient", DisabledClient]:
         """
         Create a RhesisClient from environment variables.
 
@@ -195,6 +203,10 @@ class RhesisClient:
             RHESIS_API_KEY: Required API key
             RHESIS_ENVIRONMENT: Optional, defaults to 'development'
             RHESIS_BASE_URL: Optional, defaults to 'http://localhost:8080'
+
+        Args:
+            identity_override: Optional ``EndpointContext``, see
+                ``RhesisClient.__init__``.
 
         Returns:
             RhesisClient or DisabledClient instance
@@ -224,6 +236,7 @@ class RhesisClient:
             api_key=api_key,
             environment=os.getenv("RHESIS_ENVIRONMENT") or "development",
             base_url=os.getenv("RHESIS_BASE_URL") or "http://localhost:8080",
+            identity_override=identity_override,
         )
 
     def _init_telemetry(self) -> None:
@@ -319,6 +332,7 @@ class RhesisClient:
                 project_id=self.project_id,
                 environment=self.environment,
                 base_url=self._base_url,
+                identity_override=self._identity_override,
             )
             self._connector_manager.initialize()
         return self._connector_manager

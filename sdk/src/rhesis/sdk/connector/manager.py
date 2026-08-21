@@ -36,6 +36,7 @@ class ConnectorManager:
         project_id: str | None = None,
         environment: str = "development",
         base_url: str = "ws://localhost:8080",
+        identity_override: Any | None = None,
     ):
         """
         Initialize connector manager.
@@ -45,6 +46,11 @@ class ConnectorManager:
             project_id: Project identifier (optional for metrics-only)
             environment: Environment name (default: "development")
             base_url: Base URL for WebSocket connection
+            identity_override: Optional ``EndpointContext`` to use in place of
+                the organization/user identity the server sends on connect.
+                For running this process's own endpoints against a remote
+                Rhesis instance, where the remote identity would otherwise
+                be applied to this process's local data.
 
         Raises:
             ValueError: If environment is not valid
@@ -61,6 +67,7 @@ class ConnectorManager:
         self.project_id = project_id
         self.environment = environment
         self.base_url = base_url
+        self._identity_override = identity_override
 
         self._registry = FunctionRegistry()
         self._metric_registry = MetricRegistry()
@@ -117,11 +124,16 @@ class ConnectorManager:
         return self._connection_id
 
     def _build_endpoint_context(self):
-        """Build an ``EndpointContext`` from the connection's identity.
+        """Build the ``EndpointContext`` for an incoming execute-test request.
 
-        Returns ``None`` if the server has not yet sent identity fields
-        (e.g. connecting to an older backend).
+        Returns ``identity_override`` when one was configured. Otherwise
+        builds one from the connection's identity, or ``None`` if the
+        server has not yet sent identity fields (e.g. connecting to an
+        older backend).
         """
+        if self._identity_override is not None:
+            return self._identity_override
+
         if not self._organization_id or not self._user_id:
             return None
         from rhesis.sdk.context import EndpointContext

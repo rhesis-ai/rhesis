@@ -70,6 +70,40 @@ def test_manager_uses_telemetry_tracer(manager):
     assert isinstance(manager._tracer, Tracer)
 
 
+def test_build_endpoint_context_uses_handshake_identity_by_default(manager):
+    """Without an override, context comes from the server's connect message."""
+    manager._organization_id = "remote-org"
+    manager._user_id = "remote-user"
+
+    ctx = manager._build_endpoint_context()
+
+    assert ctx.organization_id == "remote-org"
+    assert ctx.user_id == "remote-user"
+
+
+def test_build_endpoint_context_none_without_handshake_identity(manager):
+    """No handshake identity and no override means no context."""
+    assert manager._build_endpoint_context() is None
+
+
+def test_build_endpoint_context_prefers_identity_override():
+    """An identity_override wins even when the server sent its own identity."""
+    from rhesis.sdk.context import EndpointContext
+
+    override = EndpointContext(organization_id="local-org", user_id="local-user")
+    manager = ConnectorManager(
+        api_key="test-api-key",
+        project_id="test-project",
+        environment="development",
+        base_url="http://localhost:8080",
+        identity_override=override,
+    )
+    manager._organization_id = "remote-org"
+    manager._user_id = "remote-user"
+
+    assert manager._build_endpoint_context() is override
+
+
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
 @patch("asyncio.get_running_loop")
 def test_initialize(mock_get_loop, mock_ws_class, manager):
