@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas.base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # Base Prompt Schema
@@ -30,5 +30,5 @@ class PromptUpdate(PromptBase):
 
 
 # Read schema (optional, if it contains extra fields)
-class Prompt(PromptBase):
+class Prompt(PromptBase, ServerIdentity):
     pass

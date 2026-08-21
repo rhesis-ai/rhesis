@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import UUID4, BaseModel, Field
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # TestConfiguration schemas
@@ -26,7 +26,7 @@ class TestConfigurationUpdate(TestConfigurationBase):
     endpoint_id: Optional[UUID4] = None
 
 
-class TestConfiguration(TestConfigurationBase):
+class TestConfiguration(TestConfigurationBase, ServerIdentity):
     pass
 
 

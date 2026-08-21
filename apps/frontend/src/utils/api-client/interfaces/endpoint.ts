@@ -78,8 +78,13 @@ export interface Endpoint {
   // They can be set during create/update but are never returned in responses
 }
 
-// Type for editing endpoints - includes write-only fields
-export interface EndpointEditData extends Partial<Endpoint> {
+// Type for editing endpoints - includes write-only fields.
+// id/nano_id are assigned by the backend and ignored in request bodies, so they are
+// omitted here to stop callers from spreading a fetched entity straight into an update.
+export interface EndpointEditData extends Omit<
+  Partial<Endpoint>,
+  'id' | 'nano_id'
+> {
   // null clears the stored token; undefined leaves it untouched
   auth_token?: string | null;
   client_secret?: string;

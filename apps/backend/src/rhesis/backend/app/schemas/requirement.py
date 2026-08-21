@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 from pydantic import UUID4, Field
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
@@ -24,7 +24,7 @@ class RequirementUpdate(RequirementBase):
     name: Optional[str] = None
 
 
-class Requirement(RequirementBase):
+class Requirement(RequirementBase, ServerIdentity):
     tags: List[Tag] = Field(default_factory=list)
     created_at: Optional[Union[datetime, str]] = None
     user: Optional[UserReference] = None

@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
@@ -28,7 +28,7 @@ class ProjectUpdate(ProjectBase):
     name: Optional[str] = None
 
 
-class Project(ProjectBase):
+class Project(ProjectBase, ServerIdentity):
     id: UUID4
 
 
