@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    # id/nano_id are server-owned. MetricConfig always carries id (it's a dataclass field, so
+    # asdict emits it), but the backend assigns it; the update path addresses the metric by
+    # id in the URL instead.
+    config.pop("id", None)
+    config.pop("nano_id", None)
+
     if config.get("passing_categories"):
         config["reference_score"] = config.get("passing_categories")[0]
     else:

@@ -129,8 +129,12 @@ class Model(BaseEntity):
         if self.provider:
             data["icon"] = self.provider.lower()
 
-        if "id" in data and data["id"] is not None:
-            response = self._update(data["id"], data)
+        # id is server-owned: it addresses the resource in the URL, never in the body.
+        entity_id = data.pop("id", None)
+        data.pop("nano_id", None)
+
+        if entity_id is not None:
+            response = self._update(entity_id, data)
         else:
             response = self._create(data)
             self.id = response["id"]
