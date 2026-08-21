@@ -155,10 +155,11 @@ export class ExplorerClient extends BaseApiClient {
    * @param testSetIds Test set IDs to delete
    */
   async bulkDeleteExplorerTestSets(testSetIds: string[]): Promise<void> {
-    await this.fetch<void>(`${API_ENDPOINTS.explorer}/bulk`, {
-      method: 'DELETE',
-      body: JSON.stringify({ test_set_ids: testSetIds }),
-    });
+    await this.bulkDelete<void>(
+      API_ENDPOINTS.explorer,
+      'test_set_ids',
+      testSetIds
+    );
   }
 
   /**

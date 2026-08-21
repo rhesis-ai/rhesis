@@ -561,6 +561,29 @@ export class BaseApiClient {
   }
 
   /**
+   * Deletes multiple entities in one request.
+   *
+   * Every backend bulk-delete endpoint follows the same shape: `DELETE
+   * {basePath}/bulk` with a body of `{ [idsField]: string[] }`, returning
+   * `{ deleted_ids, not_found_ids, forbidden_ids? }`. Each entity client
+   * adds one line on top of this rather than re-implementing the request.
+   *
+   * @param basePath The entity's base endpoint (e.g. API_ENDPOINTS.tests)
+   * @param idsField The request body's id-array field name (e.g. 'test_ids')
+   * @param ids The ids to delete
+   */
+  protected async bulkDelete<TResp>(
+    basePath: string,
+    idsField: string,
+    ids: string[]
+  ): Promise<TResp> {
+    return this.fetch<TResp>(`${basePath}/bulk`, {
+      method: 'DELETE',
+      body: JSON.stringify({ [idsField]: ids }),
+    });
+  }
+
+  /**
    * Fetches paginated data from the API
    * @param endpoint The API endpoint to fetch from
    * @param params Pagination parameters
