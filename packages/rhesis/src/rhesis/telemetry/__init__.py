@@ -24,6 +24,12 @@ from rhesis.telemetry.context import (
     set_test_execution_context,
     set_tracing_disabled,
 )
+from rhesis.telemetry.conversation import (
+    DEFAULT_TURN_SPAN_NAME,
+    ConversationTurn,
+    build_conversation_parent_context,
+    conversation_turn,
+)
 from rhesis.telemetry.exporter import RhesisOTLPExporter
 from rhesis.telemetry.provider import (
     build_tracer_provider,
@@ -58,6 +64,11 @@ __all__ = [
     "create_llm_attributes",
     "create_tool_attributes",
     "validate_span_name",
+    # Conversation turns
+    "DEFAULT_TURN_SPAN_NAME",
+    "ConversationTurn",
+    "build_conversation_parent_context",
+    "conversation_turn",
     # Context
     "get_conversation_id",
     "get_conversation_mapped_input",
