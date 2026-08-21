@@ -58,7 +58,13 @@ describe('ServicesClient', () => {
     global.fetch = fetchMock;
   });
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+    // Always restored, not just on the happy path: a failed assertion in
+    // the stall test would otherwise leak fake timers into every test
+    // that runs after it in this file.
+    jest.useRealTimers();
+  });
 
   it('gets GitHub contents with URL-encoded repo_url param', async () => {
     fetchMock.mockResolvedValue(makeFetch('readme content'));
@@ -151,7 +157,39 @@ describe('ServicesClient', () => {
       await assertion;
 
       expect(onEvent).not.toHaveBeenCalled();
-      jest.useRealTimers();
+    });
+
+    it('surfaces a 402 as a quota error, not the raw response body', async () => {
+      fetchMock.mockResolvedValue(
+        makeFetch(
+          {
+            error: 'quota_exceeded',
+            resource: 'test_generation',
+            used: 5,
+            limit: 5,
+            kind: 'flow',
+            period_end: '2026-09-01',
+            message:
+              'Your organization is at its test generation limit for this period.',
+          },
+          402
+        )
+      );
+      const onEvent = jest.fn();
+
+      let caught: (Error & { status?: number; data?: unknown }) | undefined;
+      try {
+        await client.generateTestPipelineStream(request, { onEvent });
+      } catch (e) {
+        caught = e as Error & { status?: number; data?: unknown };
+      }
+
+      expect(caught).toBeDefined();
+      expect(caught?.status).toBe(402);
+      expect(caught?.data).toMatchObject({ error: 'quota_exceeded' });
+      expect(caught?.message).toBe(
+        'API error: 402 - Your organization is at its test generation limit for this period.'
+      );
     });
   });
 });

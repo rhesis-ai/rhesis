@@ -1,4 +1,8 @@
-import { BaseApiClient } from './base-client';
+import {
+  ApiErrorData,
+  BaseApiClient,
+  parseApiErrorResponse,
+} from './base-client';
 import { API_ENDPOINTS } from './config';
 
 // Types for the new endpoints - matching backend schemas
@@ -226,10 +230,29 @@ export class ServicesClient extends BaseApiClient {
     );
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(
-        `Test pipeline request failed (${response.status}): ${errorBody}`
-      );
+      // Same shape BaseApiClient's own fetch() throws (status/data attached,
+      // "API error: {status} - " prefix): getApiErrorMessage() strips that
+      // prefix and parseQuotaError() reads .status/.data, and this request
+      // goes through fetch() directly rather than that shared path, so
+      // without this a 402 (require_quota on the route this streams from)
+      // showed the raw JSON body in a toast instead of the quota sentence.
+      const bodyText = await response.text();
+      let errorData: ApiErrorData = {};
+      try {
+        errorData = JSON.parse(bodyText) as ApiErrorData;
+      } catch {
+        // Not JSON; parseApiErrorResponse falls back to stringifying {}.
+      }
+      const message = parseApiErrorResponse(errorData) || bodyText;
+      const error = new Error(
+        `API error: ${response.status} - ${message}`
+      ) as Error & {
+        status?: number;
+        data?: ApiErrorData;
+      };
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
     }
 
     for await (const event of this.readNdjsonStream(response)) {

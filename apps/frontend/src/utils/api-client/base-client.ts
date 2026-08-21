@@ -109,7 +109,7 @@ export function formatApiErrorDetail(detail: unknown): string {
   return '';
 }
 
-function parseApiErrorResponse(errorData: ApiErrorData): string {
+export function parseApiErrorResponse(errorData: ApiErrorData): string {
   if (errorData.detail) {
     const formatted = formatApiErrorDetail(errorData.detail);
     if (formatted) {
