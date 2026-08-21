@@ -43,14 +43,74 @@ class TestSetup:
         tracing = RhesisTracing("app", enabled=False)
         assert tracing.enabled is False
 
-    def test_disabled_without_an_api_key(self, sdk_provider, monkeypatch):
+    def test_enabled_from_an_existing_client_without_an_env_key(self, sdk_provider, monkeypatch):
+        """An app that built its client in code must still get tracing.
+
+        Regression guard: the gate used to require ``RHESIS_API_KEY`` in the environment, so
+        ``RhesisClient(api_key=...)`` followed by ``RhesisTracing(...)`` was silently untraced --
+        even though the client had already installed the provider that tracing needs.
+        """
         monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        tracing = RhesisTracing("app")
+        assert tracing.enabled is True
+
+    def test_disabled_without_a_client_or_a_key(self, sdk_provider, monkeypatch):
+        """With no client to inherit and no key to build one from, there is no route to a provider."""
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: None)
+        tracing = RhesisTracing("app")
+        assert tracing.enabled is False
+
+    def test_a_disabled_client_does_not_count_as_a_client(self, sdk_provider, monkeypatch):
+        """``DisabledClient`` registers itself as the default but installs no provider."""
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: True)
         tracing = RhesisTracing("app")
         assert tracing.enabled is False
 
     def test_enabled_when_a_provider_and_key_exist(self, sdk_provider):
         tracing = RhesisTracing("app")
         assert tracing.enabled is True
+
+
+class TestProviderReachability:
+    """The gate that decides whether setup is worth attempting, tested directly.
+
+    Driving this through ``RhesisTracing(...)`` would build a real client for the key-only case,
+    which resolves a project over HTTP.
+    """
+
+    def test_an_existing_client_is_enough(self, monkeypatch):
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: object())
+        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: False)
+        assert RhesisTracing._can_reach_a_provider({}) is True
+
+    def test_an_env_key_is_enough_without_a_client(self, monkeypatch):
+        monkeypatch.setenv("RHESIS_API_KEY", "rh-from-env")
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: None)
+        assert RhesisTracing._can_reach_a_provider({}) is True
+
+    def test_an_api_key_kwarg_is_enough_without_a_client(self, monkeypatch):
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: None)
+        assert RhesisTracing._can_reach_a_provider({"api_key": "rh-passed-in"}) is True
+
+    def test_nothing_available(self, monkeypatch):
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: None)
+        assert RhesisTracing._can_reach_a_provider({}) is False
+
+    def test_an_explicit_none_api_key_is_not_a_key(self, monkeypatch):
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: None)
+        assert RhesisTracing._can_reach_a_provider({"api_key": None}) is False
+
+    def test_a_disabled_client_is_not_a_client(self, monkeypatch):
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: object())
+        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: True)
+        assert RhesisTracing._can_reach_a_provider({}) is False
 
     def test_never_raises_when_enabling_fails(self, sdk_provider, monkeypatch):
         """Tracing is not in the application's data path, so it must cost nothing when broken."""

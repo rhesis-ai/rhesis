@@ -153,14 +153,36 @@ class RhesisTracing:
         if not enabled:
             logger.info("Rhesis tracing disabled by the caller.")
             return
-        if not os.getenv("RHESIS_API_KEY") and "api_key" not in tracer_kwargs:
-            logger.info("RHESIS_API_KEY is not set; Rhesis tracing is disabled.")
+        if not self._can_reach_a_provider(tracer_kwargs):
+            logger.info(
+                "No usable Rhesis client and no API key (RHESIS_API_KEY or api_key=); "
+                "Rhesis tracing is disabled."
+            )
             return
 
         try:
             self._tracer = self._start_tracing(name, tracer_kwargs)
         except Exception as exc:  # noqa: BLE001 - tracing must never break the application
             logger.warning("Could not enable Rhesis tracing: %s", exc)
+
+    @staticmethod
+    def _can_reach_a_provider(tracer_kwargs: dict[str, Any]) -> bool:
+        """Whether there is any route to a tracer provider, so setup is worth attempting.
+
+        An existing client is enough on its own -- it has already installed the provider, and its
+        credentials came from wherever the application configured them, which is not necessarily
+        the environment. Gating on ``RHESIS_API_KEY`` alone silently disabled tracing for an app
+        that built its client in code, even though :meth:`_start_tracing` would have succeeded.
+
+        An API key only matters when there is no client, since that is the case where
+        :meth:`_start_tracing` has to build one. A ``DisabledClient`` counts as no client: it
+        installs no provider and exists precisely to keep telemetry off.
+        """
+        from rhesis.sdk.decorators import get_default_client, is_client_disabled
+
+        if get_default_client() is not None and not is_client_disabled():
+            return True
+        return bool(os.getenv("RHESIS_API_KEY") or tracer_kwargs.get("api_key"))
 
     @staticmethod
     def _start_tracing(name: str, tracer_kwargs: dict[str, Any]) -> Optional[RhesisTracer]:
