@@ -242,6 +242,15 @@ export interface PipelineDoneEvent {
   type: 'done';
 }
 
+/** Pipeline-level failure before any suggestion could be produced -- e.g.
+ * quota exhaustion during model resolution. Distinct from the per-item
+ * `error` field on `output`/`evaluation` events, which reports one row
+ * failing while the rest of the pipeline keeps going. */
+export interface PipelineErrorEvent {
+  type: 'error';
+  message: string;
+}
+
 export type SuggestionPipelineEvent =
   | PipelineSuggestionsEvent
   | PipelineSuggestionEvent
@@ -251,6 +260,7 @@ export type SuggestionPipelineEvent =
   | PipelineEvaluationEvent
   | PipelineOutputSummaryEvent
   | PipelineEvalSummaryEvent
+  | PipelineErrorEvent
   | PipelineDoneEvent;
 
 // =============================================================================
