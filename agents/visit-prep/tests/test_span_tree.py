@@ -1,4 +1,10 @@
-"""Assert coordinator → specialist handoffs nest in the Haystack/Rhesis span tree."""
+"""Assert coordinator → specialist handoffs nest in the Haystack/Rhesis span tree.
+
+Every test here runs once per installed integration, driven by the ``integration`` fixture in
+``conftest.py``. The assertions are deliberately shared: both integrations map through
+``rhesis.telemetry.schemas.AIOperationType``, so any span name or attribute that differs between
+them is a parity bug and should fail here.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +14,6 @@ from typing import Any
 import pytest
 from haystack import tracing
 from haystack.tracing import disable_tracing
-from haystack_integrations.tracing.rhesis import RhesisTracing
-from haystack_integrations.tracing.rhesis.tracer import (
-    RhesisTelemetry,
-    RhesisTracer,
-    rhesis_invocation_context,
-)
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -33,15 +33,15 @@ TURN_SPAN_NAME = "function.visit_prep_turn"
 
 
 @contextmanager
-def _rhesis_tracing(provider: TracerProvider):
-    telemetry = RhesisTelemetry(
+def _rhesis_tracing(integration, provider: TracerProvider):
+    telemetry = integration.RhesisTelemetry(
         provider=provider,
         otel_tracer=provider.get_tracer("visit-prep-span-tree"),
         project_id="proj-test",
         environment="test",
         base_url="http://localhost:8080",
     )
-    rhesis_tracer = RhesisTracer(telemetry=telemetry, name="visit-prep-test")
+    rhesis_tracer = integration.RhesisTracer(telemetry=telemetry, name="visit-prep-test")
     rhesis_tracer.enforce_flush = False
     previous = tracing.tracer.is_content_tracing_enabled
     tracing.tracer.is_content_tracing_enabled = True
@@ -54,12 +54,12 @@ def _rhesis_tracing(provider: TracerProvider):
 
 
 @pytest.fixture
-def traced_stack():
+def traced_stack(integration):
     """Yield ``(exporter, provider)`` with Haystack traced onto that provider."""
     provider = TracerProvider()
     exporter = InMemorySpanExporter()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    with _rhesis_tracing(provider):
+    with _rhesis_tracing(integration, provider):
         try:
             yield exporter, provider
         finally:
@@ -73,25 +73,18 @@ def traced_exporter(traced_stack):
 
 
 @pytest.fixture
-def script_tracing(traced_stack, monkeypatch):
+def script_tracing(integration, traced_stack, monkeypatch):
     """Yield ``(exporter, tracing)`` set up as a traced script has it.
 
-    The connector is stubbed and the global tracer redirected, so ``RhesisTracing`` runs
-    against the in-memory exporter instead of a backend.
+    Each integration aims its ``RhesisTracing`` at the in-memory provider its own way — see
+    ``tests/integrations.py`` — so nothing here reaches a backend.
     """
     exporter, provider = traced_stack
 
-    class _StubConnector:
-        def __init__(self, name, **kwargs):
-            self.tracer = provider
-
-    import haystack_integrations.components.connectors.rhesis as connector_module
-
-    monkeypatch.setenv("RHESIS_API_KEY", "test-key")
-    monkeypatch.setattr(connector_module, "RhesisConnector", _StubConnector)
+    integration.aim_at_provider(monkeypatch, provider)
     monkeypatch.setattr(trace, "get_tracer", lambda *a, **k: provider.get_tracer("visit-prep-turn"))
-    tracing_instance = RhesisTracing("Visit-Prep-Test", turn_span_name=TURN_SPAN_NAME)
-    assert tracing_instance.enabled
+    tracing_instance = integration.RhesisTracing("Visit-Prep-Test", turn_span_name=TURN_SPAN_NAME)
+    assert tracing_instance.enabled, f"{integration.name} tracing failed to enable"
     return exporter, tracing_instance
 
 
@@ -155,7 +148,7 @@ def _sdk_endpoint_span(provider: TracerProvider):
     )
 
 
-def test_pipeline_span_nests_under_sdk_endpoint_span(traced_stack):
+def test_pipeline_span_nests_under_sdk_endpoint_span(integration, traced_stack):
     """One turn must yield one turn root, with the Haystack tree hanging off it.
 
     Regression guard: the pipeline span used to claim ``is_turn_root``, which made the exporter
@@ -172,7 +165,7 @@ def test_pipeline_span_nests_under_sdk_endpoint_span(traced_stack):
             endpoint_span.set_attribute(attrs.IS_TURN_ROOT, True)
             endpoint_span.set_attribute(attrs.CONVERSATION_ID, "conv-1")
             # What RhesisTracing.start_conversation() does in app.py.
-            with rhesis_invocation_context({"session_id": "conv-1"}):
+            with integration.rhesis_invocation_context({"session_id": "conv-1"}):
                 run_turn(msg, VisitPrepState(), pipeline=make_pipeline(gather_script(msg)))
     finally:
         set_root_trace_id(None)

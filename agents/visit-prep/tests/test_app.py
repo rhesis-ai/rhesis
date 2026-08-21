@@ -13,6 +13,7 @@ class _FakeState:
 
 
 def _import_app_with_rhesis_disabled(monkeypatch):
+    """Import the native app module with tracing off, so no client or provider is built."""
     monkeypatch.setenv("RHESIS_API_KEY", "")
     monkeypatch.setenv("RHESIS_PROJECT_ID", "")
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
@@ -35,9 +36,13 @@ def test_chat_endpoint_awaits_async_run(monkeypatch):
             "state": _FakeState(),
         }
 
-    monkeypatch.setattr(app_mod, "run_chat_turn_async", fake_run_chat_turn_async)
+    # The endpoint lives in the factory now, so patch the name the factory resolves.
+    import visit_prep.app_factory as factory
 
-    result = asyncio.run(app_mod.chat_endpoint_traced(message="hello", conversation_id="c1"))
+    monkeypatch.setattr(factory, "run_chat_turn_async", fake_run_chat_turn_async)
+
+    chat_endpoint_traced = app_mod.app.state.chat_endpoint_traced
+    result = asyncio.run(chat_endpoint_traced(message="hello", conversation_id="c1"))
 
     assert result.response == "hi"
     assert called["message"] == "hello"

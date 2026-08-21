@@ -5,6 +5,12 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
+# Each integration has its own app module; this only selects which one uvicorn imports.
+APP_MODULES = {
+    "native": "visit_prep.app:app",
+    "upstream": "visit_prep.app_upstream:app",
+}
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -19,6 +25,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_false",
         help="Disable auto-reload (enabled by default).",
     )
+    parser.add_argument(
+        "--tracing",
+        choices=sorted(APP_MODULES),
+        default="native",
+        help=(
+            "Which Haystack tracing integration to serve through: 'native' for "
+            "rhesis-sdk[haystack] (default), 'upstream' for the rhesis-haystack package."
+        ),
+    )
     return parser
 
 
@@ -27,7 +42,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     args = _build_parser().parse_args(argv)
     uvicorn.run(
-        "visit_prep.app:app",
+        APP_MODULES[args.tracing],
         host=args.host,
         port=args.port,
         reload=args.reload,

@@ -17,15 +17,19 @@ keywords = [
     "telemetry",
     "rhesis",
 ]
+# rhesis-haystack (deepset's upstream integration) is deliberately NOT declared here. Its only
+# distribution is a path source outside this repo, which does not resolve from a worktree, and
+# `uv lock` locks every extra -- so declaring it at all would break locking for everyone. The
+# upstream entry points install it on demand instead:
+#   uv pip install -e <path-to>/haystack-core-integrations/integrations/rhesis
 dependencies = [
-    "rhesis-sdk",
+    "rhesis-sdk[haystack]",
     "haystack-ai>=3.0,<4",
     "google-genai-haystack>=4.5.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
-    "rhesis-haystack",
 ]
 
 [project.license]
@@ -76,7 +80,13 @@ override-dependencies = [
 
 [tool.uv.sources]
 rhesis-sdk = { path = "../../sdk", editable = true }
-rhesis-haystack = { path = "../../../haystack-core-integrations/integrations/rhesis", editable = true }
+# Pinned explicitly rather than only inherited through rhesis-sdk. `rhesis` and `rhesis.sdk` share
+# a namespace package, so resolving one from PyPI while the other is a local editable install makes
+# `rhesis.telemetry` stop importing entirely.
+rhesis = { path = "../../packages/rhesis", editable = true }
+# To wire the upstream integration in permanently, add a line like the one below -- but note the
+# path is relative to this file, so it only resolves where that checkout sits beside the repo:
+# rhesis-haystack = { path = "../../../haystack-core-integrations/integrations/rhesis", editable = true }
 
 [tool.ruff]
 line-length = 100

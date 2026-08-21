@@ -63,6 +63,18 @@ def run_scenario(
     return state
 
 
+def check_terminal_phase(name: str, final_state: VisitPrepState) -> str | None:
+    """Return an error message when a scenario did not end in the phase it must.
+
+    Shared with the traced runners so the expectations are stated once.
+    """
+    if name == "emergency" and final_state.phase != Phase.ESCALATED:
+        return "Expected ESCALATED for emergency scenario"
+    if name == "red_flag_mid_gathering" and final_state.phase != Phase.ESCALATED:
+        return "Expected ESCALATED for mid-gathering red flag"
+    return None
+
+
 def main() -> int:
     load_dotenv()
 
@@ -76,11 +88,9 @@ def main() -> int:
 
     for name, messages in SCENARIOS.items():
         final_state = run_scenario(name, messages, pipeline=pipeline)
-        if name == "emergency" and final_state.phase != Phase.ESCALATED:
-            logger.error("Expected ESCALATED for emergency scenario")
-            return 1
-        if name == "red_flag_mid_gathering" and final_state.phase != Phase.ESCALATED:
-            logger.error("Expected ESCALATED for mid-gathering red flag")
+        error = check_terminal_phase(name, final_state)
+        if error:
+            logger.error("%s", error)
             return 1
 
     logger.info("All scenarios completed.")
