@@ -87,6 +87,8 @@ const EMPTY_CATEGORIES: Record<OwaspFramework, OwaspCategory[]> = {
 const MIN_TESTS = 5;
 const MAX_TESTS = 100;
 const DEFAULT_TESTS = 20;
+/** Too short a description gives the generator nothing to tailor attacks to. */
+const MIN_PURPOSE_LENGTH = 10;
 
 const categoryKey = (framework: OwaspFramework, id: string) =>
   `${framework}:${id}`;
@@ -274,8 +276,10 @@ export default function OwaspGenerateForm({
       return;
     }
 
-    if (!purpose.trim()) {
-      setError('Please describe what your system under test does');
+    if (purpose.trim().length < MIN_PURPOSE_LENGTH) {
+      setError(
+        `Please describe what your system under test does (at least ${MIN_PURPOSE_LENGTH} characters)`
+      );
       return;
     }
 
@@ -331,6 +335,10 @@ export default function OwaspGenerateForm({
     onSuccess,
   ]);
 
+  const trimmedPurposeLength = purpose.trim().length;
+  const purposeTooShort = trimmedPurposeLength < MIN_PURPOSE_LENGTH;
+  const canGenerate = selectionsByFramework.length > 0 && !purposeTooShort;
+
   const saveButtonText =
     selectionsByFramework.length > 1
       ? `Generate ${selectionsByFramework.length} Test Sets`
@@ -340,7 +348,7 @@ export default function OwaspGenerateForm({
     if (!active) return;
     onFooterChange?.({
       onSave: results ? undefined : handleGenerate,
-      saveDisabled: submitting || loadingCategories,
+      saveDisabled: submitting || loadingCategories || !canGenerate,
       saveButtonText,
       loading: submitting,
       closeButtonText: results ? 'Close' : 'Cancel',
@@ -352,6 +360,7 @@ export default function OwaspGenerateForm({
     handleGenerate,
     submitting,
     loadingCategories,
+    canGenerate,
     saveButtonText,
     onFooterChange,
   ]);
@@ -550,7 +559,12 @@ export default function OwaspGenerateForm({
           <TextField
             label="System under test"
             placeholder="e.g. Customer service chatbot for a retail bank with access to account balances and transfers"
-            helperText="Describe what the system does — attacks are tailored to this description."
+            helperText={
+              purposeTooShort
+                ? `Describe what the system does — at least ${MIN_PURPOSE_LENGTH} characters (${MIN_PURPOSE_LENGTH - trimmedPurposeLength} to go).`
+                : 'Describe what the system does — attacks are tailored to this description.'
+            }
+            error={trimmedPurposeLength > 0 && purposeTooShort}
             value={purpose}
             onChange={e => setPurpose(e.target.value)}
             fullWidth
