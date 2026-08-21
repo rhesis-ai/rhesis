@@ -41,10 +41,17 @@ from rhesis.telemetry.attributes import AIAttributes, validate_span_name  # noqa
 from rhesis.telemetry.constants import ConversationContext  # noqa: E402
 from rhesis.telemetry.context import (  # noqa: E402
     set_conversation_id,
+    set_conversation_trace_id,
     set_llm_observation_active,
+    set_root_trace_id,
 )
+from rhesis.telemetry.conversation import conversation_turn  # noqa: E402
 from rhesis.telemetry.schemas import AIOperationType  # noqa: E402
 
+from rhesis.sdk.telemetry.integrations.genai import (  # noqa: E402
+    ConversationTraceRegistry,
+    RetracedSpan,
+)
 from rhesis.sdk.telemetry.integrations.google_adk import (  # noqa: E402
     GoogleADKIntegration,
     GoogleADKLLMDedupSpanProcessor,
@@ -200,9 +207,11 @@ def reset_llm_observation_flag():
 
 @pytest.fixture(autouse=True)
 def reset_conversation_id():
-    """Keep the conversation-id contextvar from leaking between tests."""
+    """Keep the conversation contextvars from leaking between tests."""
     yield
     set_conversation_id(None)
+    set_conversation_trace_id(None)
+    set_root_trace_id(None)
 
 
 # ---------------------------------------------------------------------------
@@ -1068,6 +1077,265 @@ class TestConversationTurnRoot:
         ]
         assert len(stamped) == 1
         assert stamped[0].parent is None
+
+
+class TestConversationTraceJoin:
+    """Every turn of a conversation has to land in one Rhesis trace.
+
+    ADK opens its own run root per turn, so OTEL mints a fresh trace id each
+    time. Left alone, a ten-turn chat shows up as ten unrelated traces even
+    though every turn carries the same conversation id.
+    """
+
+    @staticmethod
+    async def _turns(count: int, *, conversation_id: str | None) -> None:
+        """Run ``count`` independent ADK turns, optionally under one conversation."""
+        if conversation_id is not None:
+            set_conversation_id(conversation_id)
+        for index in range(count):
+            script(text(f"Answer {index}."))
+            await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+
+    @pytest.mark.asyncio
+    async def test_turns_of_one_conversation_share_one_trace(self, captured_spans):
+        await self._turns(3, conversation_id="conv-join")
+
+        spans = captured_spans.get_finished_spans()
+        trace_ids = {span.context.trace_id for span in spans}
+        assert len(trace_ids) == 1, f"expected one trace, got {len(trace_ids)}"
+        # One turn root per turn, all on that single trace.
+        stamped = [
+            s
+            for s in spans
+            if (s.attributes or {}).get(ConversationContext.SpanAttributes.IS_TURN_ROOT)
+        ]
+        assert len(stamped) == 3
+        assert all(s.parent is None for s in stamped)
+
+    @pytest.mark.asyncio
+    async def test_the_first_turn_keeps_its_own_trace_id(self, captured_spans):
+        """The anchor is turn 1's real id, so turn 1 is never moved.
+
+        Anything that observed a trace id for the first turn -- an endpoint
+        result, a backend turn record, a link in the viewer -- still resolves.
+        """
+        await self._turns(1, conversation_id="conv-anchor")
+        first = {s.context.trace_id for s in captured_spans.get_finished_spans()}
+        assert len(first) == 1
+        captured_spans.clear()
+
+        await self._turns(2, conversation_id="conv-anchor")
+        later = {s.context.trace_id for s in captured_spans.get_finished_spans()}
+        assert later == first
+
+    @pytest.mark.asyncio
+    async def test_two_conversations_do_not_collide(self, captured_spans):
+        await self._turns(1, conversation_id="conv-a")
+        first = {s.context.trace_id for s in captured_spans.get_finished_spans()}
+        captured_spans.clear()
+        await self._turns(1, conversation_id="conv-b")
+        second = {s.context.trace_id for s in captured_spans.get_finished_spans()}
+
+        assert len(first) == len(second) == 1
+        assert first != second
+
+    @pytest.mark.asyncio
+    async def test_without_a_conversation_id_each_turn_keeps_its_own_trace(self, captured_spans):
+        """The documented limit of the join.
+
+        Turn-root *labelling* can fall back to the ADK session id, because that is
+        read from span attributes at export. Joining cannot: the target trace has
+        to be known when the run root is *created*, and ADK assigns no attributes
+        at ``on_start``, so nothing but the Rhesis contextvar is readable then.
+        """
+        await self._turns(2, conversation_id=None)
+
+        assert len({s.context.trace_id for s in captured_spans.get_finished_spans()}) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_platform_owned_conversation_is_left_alone(self, captured_spans):
+        """``conversation_trace_id`` means the platform minted the trace itself.
+
+        It is writing its own turn records -- the mapped input and the reply --
+        to that trace and joining the turns by its id. Moving spans anywhere
+        would separate the agent's spans from the reply.
+        """
+        set_conversation_trace_id("ab" * 16)
+        await self._turns(2, conversation_id="conv-platform")
+
+        spans = captured_spans.get_finished_spans()
+        # Untouched: whatever OTEL assigned each turn, not an id of our choosing.
+        assert int("ab" * 16, 16) not in {s.context.trace_id for s in spans}
+        assert len({s.context.trace_id for s in spans}) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_rhesis_root_span_keeps_ownership_of_the_trace_id(
+        self, captured_spans, session_provider
+    ):
+        """The served path: never move spans off the trace id the platform published.
+
+        With an ``@endpoint`` / ``@observe`` span above the run, ``root_trace_id`` is
+        the id the platform hands onwards -- the endpoint result, the conversation's
+        trace id for the next turn, the link the viewer opens, and the trace its own
+        invoker span carrying the turn's output is written to. Rewriting under it
+        strands all of those on a trace id with no spans: the link 404s, the reply
+        never joins the turn, and turn 1 splits off from the rest.
+        """
+        provider, _captured = session_provider
+        set_conversation_id("conv-served")
+        script(text("Hi."))
+
+        tracer = provider.get_tracer("rhesis.sdk")
+        with tracer.start_as_current_span("function.reg_advisor_chat") as endpoint_span:
+            published = format(endpoint_span.get_span_context().trace_id, "032x")
+            set_root_trace_id(published)
+            await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+
+        spans = captured_spans.get_finished_spans()
+        assert {format(s.context.trace_id, "032x") for s in spans} == {published}
+
+    @pytest.mark.asyncio
+    async def test_a_conversation_turn_above_the_run_owns_the_turn(self, captured_spans):
+        """An app that owns its turn boundary must own it alone.
+
+        ``conversation_turn`` exists for apps whose reply is not the model's last
+        message. When one is open, the ADK root must not also claim turn-root, and
+        the exporter-side rewrite must not move anything: the turn span already
+        published the trace id.
+        """
+        script(text("Hi."))
+        with conversation_turn("conv-owned", input="What is the weather in Berlin?") as turn:
+            await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+            published = turn.trace_id
+            turn.output = "a reply the model never produced"
+
+        spans = captured_spans.get_finished_spans()
+        stamped = [
+            s
+            for s in spans
+            if (s.attributes or {}).get(ConversationContext.SpanAttributes.IS_TURN_ROOT)
+        ]
+        assert len(stamped) == 1
+        assert stamped[0].name == "function.conversation_turn"
+        assert (
+            stamped[0].attributes[ConversationContext.SpanAttributes.CONVERSATION_OUTPUT]
+            == "a reply the model never produced"
+        )
+        # ADK spans joined it rather than being rewritten onto an id of our choosing.
+        assert {format(s.context.trace_id, "032x") for s in spans} == {published}
+
+    @pytest.mark.asyncio
+    async def test_translation_survives_the_join(self, captured_spans):
+        """Regression guard: the retrace wrapper must not shadow the translation.
+
+        ``ReadableSpan`` serves ``name`` / ``attributes`` / ``events`` from private
+        slots, so a wrapper that forwards by ``__getattr__`` alone resolves them on
+        the innermost span and silently ships the raw ADK values.
+        """
+        set_conversation_id("conv-intact")
+        script(text("Joined answer."))
+        await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+
+        exported = names(captured_spans)
+        assert AIOperationType.LLM_INVOKE.value in exported
+        assert not any(name.startswith(("call_llm", "invoke_agent")) for name in exported)
+        for span in captured_spans.get_finished_spans():
+            assert validate_span_name(span.name), span.name
+
+        llm = spans_named(captured_spans, AIOperationType.LLM_INVOKE.value)[0]
+        assert llm.attributes[AIAttributes.LLM_TOKENS_TOTAL] == 24
+        assert event_bodies(llm, "ai.completion") == ["Joined answer."]
+
+    @pytest.mark.asyncio
+    async def test_child_parents_are_rebound_to_the_new_trace(self, captured_spans):
+        set_conversation_id("conv-parents")
+        script(text("Hi."))
+        await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+
+        for span in captured_spans.get_finished_spans():
+            if span.parent is not None:
+                assert span.parent.trace_id == span.context.trace_id
+
+    @pytest.mark.asyncio
+    async def test_non_adk_spans_on_the_trace_are_joined_too(
+        self, captured_spans, session_provider
+    ):
+        """An enclosing Rhesis span must not be left behind on the old trace."""
+        provider, _captured = session_provider
+        set_conversation_id("conv-enclosing")
+        script(text("Hi."))
+
+        tracer = provider.get_tracer("rhesis.sdk")
+        with tracer.start_as_current_span("function.enclosing"):
+            await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+
+        spans = captured_spans.get_finished_spans()
+        assert any(s.name == "function.enclosing" for s in spans)
+        assert len({s.context.trace_id for s in spans}) == 1
+
+
+class TestConversationTraceRegistry:
+    """The shared pieces the join is built from."""
+
+    def test_the_anchor_turn_is_never_rewritten(self):
+        registry = ConversationTraceRegistry()
+        registry.claim(0xA1, "conv-1")
+        assert registry.target(0xA1) is None
+
+    def test_later_turns_point_at_the_anchor(self):
+        registry = ConversationTraceRegistry()
+        registry.claim(0xA1, "conv-1")
+        registry.claim(0xB2, "conv-1")
+        registry.claim(0xC3, "conv-1")
+        assert registry.target(0xB2) == 0xA1
+        assert registry.target(0xC3) == 0xA1
+
+    def test_conversations_are_independent(self):
+        registry = ConversationTraceRegistry()
+        registry.claim(0xA1, "conv-1")
+        registry.claim(0xB2, "conv-2")
+        assert registry.target(0xB2) is None
+
+    def test_no_conversation_id_means_no_join(self):
+        registry = ConversationTraceRegistry()
+        registry.claim(7, None)
+        assert registry.target(7) is None
+
+    def test_a_repeated_trace_id_does_not_re_anchor(self):
+        """Turns sharing one trace id (the platform's own join) stay put."""
+        registry = ConversationTraceRegistry()
+        registry.claim(0xA1, "conv-1")
+        registry.claim(0xA1, "conv-1")
+        assert registry.target(0xA1) is None
+
+    def test_eviction_is_bounded(self):
+        registry = ConversationTraceRegistry(max_conversations=2)
+        for index in (1, 2, 3):
+            registry.claim(index, f"conv-{index}")
+        # The oldest conversation's anchor is gone; the newest still resolves.
+        registry.claim(99, "conv-3")
+        assert registry.target(99) == 3
+
+    def test_retraced_span_forwards_every_readable_property(self):
+        """Anything not forwarded would read a slot the wrapper never set."""
+        provider = TracerProvider()
+        tracer = provider.get_tracer(mapping.INSTRUMENTATION_SCOPE)
+        with tracer.start_as_current_span("call_llm") as raw:
+            for key, value in CALL_LLM_ATTRIBUTES.items():
+                raw.set_attribute(key, value)
+        original = translate_span(raw)
+        moved = RetracedSpan(original, 0xABC)
+
+        assert moved.context.trace_id == 0xABC
+        assert moved.get_span_context().trace_id == 0xABC
+        assert moved.name == original.name
+        assert dict(moved.attributes or {}) == dict(original.attributes or {})
+        assert moved.kind == original.kind
+        assert moved.status == original.status
+        assert moved.start_time == original.start_time
+        assert moved.end_time == original.end_time
+        assert moved.resource == original.resource
+        assert moved.instrumentation_scope == original.instrumentation_scope
 
 
 class TestContentCaptureOptOut:

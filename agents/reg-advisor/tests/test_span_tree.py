@@ -24,7 +24,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from rhesis.sdk.telemetry.integrations.google_adk import GoogleADKIntegration
 from rhesis.telemetry.attributes import AIAttributes, validate_span_name
 
-from reg_advisor.session import StateStore, run_chat_turn
+from reg_advisor.session import TURN_SPAN_NAME, StateStore, run_chat_turn
 from reg_advisor.state import ProductProfile, RegAdvisorState
 from tests.mocks import (
     COMPLETE_PROFILE,
@@ -32,6 +32,7 @@ from tests.mocks import (
     briefing_script,
     build_runner_with,
     gather_script,
+    greeting_script,
 )
 
 
@@ -170,17 +171,57 @@ def test_tool_spans_keep_a_parent(spans):
 
 
 def test_turn_root_carries_the_conversation(spans):
-    """A plain run must populate the Conversation tab with no manual span code."""
+    """One turn root per exchange, and it is the app's own turn span.
+
+    ``run_chat_turn`` opens it, so the reply recorded is the one the user saw
+    rather than whatever the model happened to say last. The ADK run root must not
+    claim turn-root as well: two of them per exchange makes the exporter strip the
+    real parent of one and the subtree detaches into a phantom turn.
+    """
     from rhesis.telemetry.constants import ConversationContext
 
+    attrs = ConversationContext.SpanAttributes
     _run_gathering_turn()
-    roots = [span for span in spans() if span.parent is None]
-    assert len(roots) == 1, [span.name for span in roots]
+    exported = spans()
+    roots = [span for span in exported if span.attributes.get(attrs.IS_TURN_ROOT)]
+    assert [span.name for span in roots] == [TURN_SPAN_NAME]
     attributes = roots[0].attributes
-    assert attributes[ConversationContext.SpanAttributes.IS_TURN_ROOT] is True
-    assert attributes[ConversationContext.SpanAttributes.CONVERSATION_ID] == "trace-shape-1"
-    assert attributes[ConversationContext.SpanAttributes.CONVERSATION_INPUT]
-    assert attributes[ConversationContext.SpanAttributes.CONVERSATION_OUTPUT]
+    assert attributes[attrs.CONVERSATION_ID] == "trace-shape-1"
+    assert attributes[attrs.CONVERSATION_INPUT]
+    assert attributes[attrs.CONVERSATION_OUTPUT]
+    assert not any(
+        span.name.startswith("function.google_adk") and span.attributes.get(attrs.IS_TURN_ROOT)
+        for span in exported
+    )
+
+
+def test_a_reply_composed_outside_the_model_is_still_recorded(spans):
+    """The regression this whole primitive exists for.
+
+    ``greet_and_explain`` is a terminal *tool*: its output is the user-facing reply,
+    and it appears in no ``llm_response`` blob. Anything that mines model spans for
+    the reply shows an empty bubble for this turn.
+    """
+    from rhesis.telemetry.constants import ConversationContext
+
+    attrs = ConversationContext.SpanAttributes
+    result = run_chat_turn(
+        "hello",
+        conversation_id="terminal-tool-1",
+        store=StateStore(),
+        runner=build_runner_with(MockLlm(greeting_script())),
+    )
+    reply = result["response"]
+    assert reply, "the turn must have produced a reply to record"
+
+    exported = spans()
+    root = next(span for span in exported if span.attributes.get(attrs.IS_TURN_ROOT))
+    assert root.attributes[attrs.CONVERSATION_OUTPUT] == reply
+
+    # The reply genuinely is not in any model span, so this cannot be extracted.
+    assert not any(
+        reply in str(span.attributes.get("gcp.vertex.agent.llm_response", "")) for span in exported
+    )
 
 
 def test_prompts_and_completions_carry_real_text(spans):
@@ -190,3 +231,36 @@ def test_prompts_and_completions_carry_real_text(spans):
     event_names = {event.name for span in llm_spans for event in span.events}
     assert "ai.prompt" in event_names
     assert "ai.completion" in event_names
+
+
+def test_a_multi_turn_conversation_is_one_trace(spans):
+    """Turns of one conversation must join, or the viewer shows N unrelated traces.
+
+    The regression this guards is invisible in a single-turn test: every turn is a
+    well-formed trace on its own, and only the trace *ids* give away that the
+    conversation was torn into pieces.
+    """
+    from rhesis.telemetry.constants import ConversationContext
+
+    store = StateStore()
+    for message in ("A smartwatch app estimating AF risk from PPG.", "It runs in the cloud."):
+        run_chat_turn(
+            message,
+            conversation_id="multi-turn-1",
+            store=store,
+            runner=build_runner_with(MockLlm(gather_script(message))),
+        )
+
+    exported = spans()
+    trace_ids = {span.context.trace_id for span in exported}
+    assert len(trace_ids) == 1, f"expected one trace for the conversation, got {len(trace_ids)}"
+
+    attrs = ConversationContext.SpanAttributes
+    # Counted by attribute, not by a missing parent: every turn after the first
+    # hangs off the synthetic placeholder and only becomes a root span once the
+    # exporter strips it.
+    roots = [span for span in exported if span.attributes.get(attrs.IS_TURN_ROOT)]
+    assert [span.name for span in roots] == [TURN_SPAN_NAME] * 2
+    for root in roots:
+        assert root.attributes[attrs.CONVERSATION_ID] == "multi-turn-1"
+        assert root.attributes[attrs.CONVERSATION_OUTPUT]

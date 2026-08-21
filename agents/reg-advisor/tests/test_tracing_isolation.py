@@ -58,9 +58,14 @@ def test_business_modules_do_not_import_the_sdk(module):
 
 
 def test_session_uses_the_light_telemetry_package_only():
-    """Conversation grouping needs a contextvar, not the whole SDK."""
+    """Owning a conversation turn needs the light package, not the whole SDK.
+
+    This is the guard that keeps ``conversation_turn`` in ``rhesis.telemetry``: the
+    moment it moves into ``rhesis.sdk``, every module that owns a turn has to pull
+    the SDK in with it.
+    """
     source = inspect.getsource(session)
-    assert "rhesis.telemetry.context" in source
+    assert "from rhesis.telemetry" in source
     assert "rhesis.sdk" not in source
 
 

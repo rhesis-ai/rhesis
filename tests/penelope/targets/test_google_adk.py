@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import pytest
+from rhesis.telemetry.context import get_conversation_id, set_conversation_id
 
 from rhesis.penelope.targets import GoogleADKTarget
 from rhesis.sdk.targets import Target
@@ -327,6 +328,68 @@ class TestMultiTurnContinuity:
         response = target.send_message("hello", "some-id")
         assert response.success is True
         assert runner.session_service.created == ["some-id"]
+
+
+class TestConversationTracing:
+    """The target binds the Rhesis conversation id for the turn.
+
+    Without it the Google ADK telemetry integration cannot join the turns, and a
+    simulated conversation renders as one trace per turn.
+    """
+
+    class RecordingRunner(FakeRunner):
+        """Captures the conversation id visible while the run is in flight."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self.seen: list = []
+
+        async def run_async(self, *, user_id, session_id, new_message, **kwargs):
+            self.seen.append(get_conversation_id())
+            async for event in super().run_async(
+                user_id=user_id, session_id=session_id, new_message=new_message, **kwargs
+            ):
+                yield event
+
+    def teardown_method(self) -> None:
+        set_conversation_id(None)
+
+    def test_conversation_id_is_bound_during_the_turn(self):
+        runner = self.RecordingRunner({"*": [[FakeEvent("Hi.")]]})
+        target = GoogleADKTarget(runner, "adk-bot", "My ADK agent")
+
+        target.send_message("Hello", "conv-77")
+
+        assert runner.seen == ["conv-77"]
+
+    def test_the_generated_session_id_is_bound_when_no_id_is_given(self):
+        runner = self.RecordingRunner({"*": [[FakeEvent("Hi.")]]})
+        target = GoogleADKTarget(runner, "adk-bot", "My ADK agent")
+
+        response = target.send_message("Hello")
+
+        assert runner.seen == [response.conversation_id]
+
+    def test_the_contextvar_is_restored_afterwards(self):
+        runner = self.RecordingRunner({"*": [[FakeEvent("Hi.")]]})
+        target = GoogleADKTarget(runner, "adk-bot", "My ADK agent")
+
+        target.send_message("Hello", "conv-77")
+
+        assert get_conversation_id() is None
+
+    def test_an_id_set_upstream_is_not_overridden(self):
+        """In a platform-driven run the caller's id is the grouping key."""
+        runner = self.RecordingRunner({"*": [[FakeEvent("Hi.")]]})
+        target = GoogleADKTarget(runner, "adk-bot", "My ADK agent")
+
+        set_conversation_id("platform-conv")
+        try:
+            target.send_message("Hello", "conv-77")
+        finally:
+            set_conversation_id(None)
+
+        assert runner.seen == ["platform-conv"]
 
 
 class TestReplyExtraction:
