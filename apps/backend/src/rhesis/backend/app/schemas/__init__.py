@@ -103,7 +103,15 @@ from .requirement import (
     RequirementDetail,
     RequirementUpdate,
 )
-from .source import Source, SourceBase, SourceCreate, SourceUpdate, SourceWithContent
+from .source import (
+    Source,
+    SourceBase,
+    SourceBulkDeleteRequest,
+    SourceBulkDeleteResponse,
+    SourceCreate,
+    SourceUpdate,
+    SourceWithContent,
+)
 from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
 from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
@@ -292,6 +300,8 @@ __all__ = [
     "SourceCreate",
     "SourceUpdate",
     "SourceWithContent",
+    "SourceBulkDeleteRequest",
+    "SourceBulkDeleteResponse",
     "Topic",
     "TopicBase",
     "TopicCreate",

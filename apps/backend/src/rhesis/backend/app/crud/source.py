@@ -19,12 +19,13 @@ were never used and were removed rather than carried over in the split.
 """
 
 import uuid
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item_detail,
@@ -134,6 +135,26 @@ def delete_source(
 ) -> Optional[models.Source]:
     """Delete source."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
+
+
+def bulk_delete_sources(
+    db: Session,
+    source_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, List[str]]:
+    """Soft delete multiple sources in one transaction.
+
+    No owner-only rule on source delete, so this is a direct wrapper around
+    the generic bulk helper.
+    """
+    return bulk_delete_by_ids(
+        db,
+        models.Source,
+        source_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 def create_chunk(

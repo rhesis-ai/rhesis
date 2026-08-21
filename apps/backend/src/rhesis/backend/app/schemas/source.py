@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import Tag
@@ -73,3 +73,12 @@ class SourceWithContent(Source):
     content: Optional[str] = None  # Raw text content from source, extracted
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SourceBulkDeleteRequest(BaseModel):
+    source_ids: List[UUID4]
+
+
+class SourceBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
