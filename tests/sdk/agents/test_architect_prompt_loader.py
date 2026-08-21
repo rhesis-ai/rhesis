@@ -152,6 +152,7 @@ class TestRenderPhaseKnowledge:
         assert "no** endpoint at all" in text
         assert "connecting-application" in text
 
+
 @pytest.mark.unit
 class TestBundledSkillReferences:
     def test_render_system_prompt_with_bundled_refs_only(self, tmp_path, monkeypatch):
@@ -272,3 +273,54 @@ class TestEntityLinkGuidanceMatchesFrontend:
             f"{template} documents trace links without naming trace_db_id — "
             "the agent may use trace_id, which does not resolve"
         )
+
+
+@pytest.mark.unit
+class TestProjectContextBlock:
+    """The agent must be told which project it is in.
+
+    It cannot work this out: ``project`` is not covered by the
+    ``project_isolation`` RLS policy, so ``list_projects`` returns every
+    project in the organization with nothing marking the active one. Without
+    the injected block the agent asked the user on every session.
+    """
+
+    def _render(self, **ctx):
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        base = {
+            "mode": "discovery",
+            "workflow_path": "unset",
+            "user_query": "I need a test set",
+            "tools_text": "",
+        }
+        return env.get_template("iteration_prompt.j2").render(**{**base, **ctx})
+
+    def test_block_names_the_project(self):
+        text = self._render(project_context_text="Project: Travel Agent\nProject ID: abc-123")
+        assert "Travel Agent" in text
+        assert "do not ask" in text.lower()
+
+    def test_block_forbids_resolving_a_project(self):
+        text = self._render(project_context_text="Project: Travel Agent")
+        assert "do not call `list_projects` to pick one" in text
+        assert "omit `project_id`" in text
+
+    def test_block_is_honest_about_org_level_rows(self):
+        """RLS matches project_id = current OR project_id IS NULL.
+
+        Claiming the agent sees only this project's rows would make it give
+        the wrong reason for why an org-level entity showed up.
+        """
+        text = self._render(project_context_text="Project: Travel Agent")
+        assert "organization-level" in text
+
+    def test_block_admits_other_projects_are_unreadable(self):
+        text = self._render(project_context_text="Project: Travel Agent")
+        assert "cannot read or write" in text
+        assert "empty result" in text
+
+    def test_no_block_without_a_project(self):
+        """Sessions with no project must render exactly as before."""
+        text = self._render(project_context_text="")
+        assert "Current Project" not in text
+        assert "do not call `list_projects`" not in text

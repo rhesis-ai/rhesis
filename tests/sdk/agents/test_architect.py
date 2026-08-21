@@ -3438,3 +3438,54 @@ class TestArchitectFormatAttachments:
         agent = _make_agent(mock_model)
         agent._attachments = None
         assert agent._format_attachments() == ""
+
+
+@pytest.mark.unit
+class TestProjectContext:
+    """``_format_project_context`` renders the session's project for the prompt."""
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        model.a_generate = AsyncMock(return_value={})
+        return model
+
+    def _agent(self, mock_model, project_context=None):
+        return ArchitectAgent(
+            model=mock_model,
+            tools=[],
+            verbose=False,
+            project_context=project_context,
+        )
+
+    def test_renders_name_and_id(self, mock_model):
+        agent = self._agent(
+            mock_model,
+            {"project_id": "abc-123", "name": "Travel Agent", "description": ""},
+        )
+        text = agent._format_project_context()
+        assert "Project: Travel Agent" in text
+        assert "Project ID: abc-123" in text
+        assert "About:" not in text
+
+    def test_includes_description_when_present(self, mock_model):
+        agent = self._agent(
+            mock_model,
+            {"project_id": "abc-123", "name": "Travel Agent", "description": "Booking bot"},
+        )
+        assert "About: Booking bot" in agent._format_project_context()
+
+    def test_empty_without_project(self, mock_model):
+        """No project means the block is omitted, not rendered blank."""
+        assert self._agent(mock_model)._format_project_context() == ""
+        assert self._agent(mock_model, {})._format_project_context() == ""
+
+    def test_id_only_project_still_renders(self, mock_model):
+        """A project whose name failed to resolve is still worth naming."""
+        text = self._agent(mock_model, {"project_id": "abc-123"})._format_project_context()
+        assert "abc-123" in text
+        assert "(unnamed)" in text
+
+    def test_whitespace_only_fields_are_treated_as_absent(self, mock_model):
+        agent = self._agent(mock_model, {"project_id": "  ", "name": "  "})
+        assert agent._format_project_context() == ""
