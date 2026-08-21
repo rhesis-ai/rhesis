@@ -52,7 +52,9 @@ export class OrganizationsClient extends BaseApiClient {
 
   async updateOrganization(
     id: UUID | string,
-    data: Partial<Organization>
+    // id/nano_id are backend-assigned and ignored in request bodies; the organization is
+    // addressed by the id path param instead.
+    data: Omit<Partial<Organization>, 'id' | 'nano_id'>
   ): Promise<Organization> {
     return this.fetch<Organization>(`${API_ENDPOINTS.organizations}/${id}`, {
       method: 'PUT',
