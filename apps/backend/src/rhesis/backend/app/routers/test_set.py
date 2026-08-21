@@ -13,6 +13,7 @@ from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.dependencies import (
     get_project_context,
     get_tenant_context,
@@ -385,6 +386,28 @@ def read_test_set(
 ):
     organization_id, user_id = tenant_context
     return resolve_test_set_or_raise(test_set_identifier, db, organization_id)
+
+
+@router.delete("/bulk", response_model=schemas.TestSetBulkDeleteResponse)
+def bulk_delete_test_sets(
+    request: schemas.TestSetBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple test sets at once.
+
+    Registered before /{test_set_id} below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{test_set_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id, user_id = tenant_context
+    return test_set_crud.bulk_delete_test_sets(
+        db=db,
+        test_set_ids=request.test_set_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 @router.delete("/{test_set_id}", response_model=schemas.TestSet)
