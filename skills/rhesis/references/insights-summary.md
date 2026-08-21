@@ -42,9 +42,8 @@ summarize just one run.
 2. Identify the weak requirements and metrics from the pooled numbers.
 3. Failures: `list_test_results` with Failed status + requirement scope across the same `test_run_ids`;
    minimal `$select`. Call `get_test_result` only for a few samples.
-4. Present: overall (across all runs) → by requirement → by metric → 2–3 failure examples → links to
-   runs/tests.
-5. Suggest concrete next steps (narrow filters, re-run weak requirements, open failed cases).
+4. Present using the shape in `phases/analysis.md` — same sections and same caps, with
+   "overall" meaning pooled across every run in scope rather than a single run.
 
 Do **not** follow the per-run requirement-breakdown loop from `result-analysis.md` for an Insights
 handoff — that loop (one `test_run_id` per call) is for comparing two runs. Pass all IDs at once so
