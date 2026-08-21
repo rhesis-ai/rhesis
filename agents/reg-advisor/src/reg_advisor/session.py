@@ -10,7 +10,7 @@ from typing import Any
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from rhesis.telemetry.context import get_conversation_id, set_conversation_id
+from rhesis.telemetry.conversation import conversation_turn
 
 from reg_advisor.runner import APP_NAME, build_coordinator_agent, run_turn, run_turn_async
 from reg_advisor.state import RegAdvisorState
@@ -86,6 +86,10 @@ class StateStore:
             return True
 
 
+# Names the turn root in the trace viewer. Must stay under the ``function.`` or
+# ``ai.`` namespace or the backend rejects the span.
+TURN_SPAN_NAME = "function.reg_advisor_turn"
+
 default_store = StateStore()
 
 _default_agent: LlmAgent | None = None
@@ -143,19 +147,16 @@ def run_chat_turn(
     active_store = store or default_store
     conv_id = conversation_id or str(uuid.uuid4())
 
-    # Mark this as a real conversation turn so the Google ADK integration stamps
-    # the run's root span as a Rhesis conversation turn root, keyed by this id so
-    # turns group together. One-shot callers that invoke the runner directly
-    # (e.g. examples/run_scenarios.py) skip this and stay single-turn.
-    previous_conversation_id = get_conversation_id()
-    set_conversation_id(conv_id)
-    try:
+    # Own the turn so the trace carries what the user actually saw. The reply is
+    # not always the model's last message -- a terminal tool, a refusal or a
+    # briefing composes it -- so no framework integration can recover it, and ADK's
+    # own run span has already ended by the time we hold it.
+    with conversation_turn(conv_id, input=message, name=TURN_SPAN_NAME) as turn:
         with active_store.conversation_lock(conv_id):
             state = active_store.get(conv_id)
             result = run_turn(message, state, runner=runner or build_turn_runner())
             active_store.set(conv_id, result["state"])
-    finally:
-        set_conversation_id(previous_conversation_id)
+        turn.output = result["response"]
 
     result["conversation_id"] = conv_id
     return result
@@ -172,21 +173,21 @@ async def run_chat_turn_async(
     active_store = store or default_store
     conv_id = conversation_id or str(uuid.uuid4())
 
-    previous_conversation_id = get_conversation_id()
-    set_conversation_id(conv_id)
-    try:
+    # Stands down to just binding the conversation id when @endpoint already owns
+    # the turn root, which is the served path in app.py.
+    with conversation_turn(conv_id, input=message, name=TURN_SPAN_NAME) as turn:
         async with active_store.async_conversation_lock(conv_id):
             state = active_store.get(conv_id)
             result = await run_turn_async(message, state, runner=runner or build_turn_runner())
             active_store.set(conv_id, result["state"])
-    finally:
-        set_conversation_id(previous_conversation_id)
+        turn.output = result["response"]
 
     result["conversation_id"] = conv_id
     return result
 
 
 __all__ = [
+    "TURN_SPAN_NAME",
     "StateStore",
     "build_turn_runner",
     "default_store",
