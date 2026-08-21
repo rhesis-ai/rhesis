@@ -176,11 +176,6 @@ class TestTraceJoining:
         assert second.parent is not None
         assert second.parent.span_id == ConversationContext.SYNTHETIC_PARENT_SPAN_ID
 
-    def test_a_platform_supplied_trace_id_is_adopted(self, spans):
-        """An unseen conversation resumed from a persisted trace id joins it."""
-        set_conversation_trace_id("ab" * 16)
-        with conversation_turn("conv-resumed", input="hi") as turn:
-            assert turn.trace_id == "ab" * 16
 
     def test_the_conversation_trace_id_is_published_for_nested_integrations(self, spans):
         with conversation_turn("conv-publish", input="hi") as turn:
@@ -214,6 +209,37 @@ class TestStandsDown:
         with conversation_turn("conv-served", input="hi"):
             assert get_conversation_id() == "conv-served"
         assert not spans()
+
+    def test_no_span_when_the_platform_supplied_a_conversation_trace(self, spans):
+        """``conversation_trace_id`` means the platform already owns this turn.
+
+        It writes its own turn record -- including the reply -- to that trace and
+        joins the turns by its id, so a second turn root here would compete.
+        """
+        set_conversation_trace_id("ab" * 16)
+        with conversation_turn("conv-platform", input="hi") as turn:
+            assert turn.trace_id is None
+            turn.output = "reply"
+        assert not spans()
+
+    def test_no_span_under_a_non_recording_provider(self, spans, monkeypatch):
+        """The default global provider answers get_tracer() but records nothing.
+
+        Its spans carry an all-zero trace id, which would otherwise be published
+        as this conversation's anchor and send every later turn to a trace that
+        cannot exist.
+        """
+        from opentelemetry.trace import ProxyTracerProvider
+
+        monkeypatch.setattr(
+            "rhesis.telemetry.conversation.trace.get_tracer_provider",
+            lambda: ProxyTracerProvider(),
+        )
+        with conversation_turn("conv-noop", input="hi") as turn:
+            assert turn.trace_id is None
+            turn.output = "reply"
+        assert not spans()
+        assert get_root_trace_id() is None
 
     def test_no_span_when_tracing_is_disabled(self, spans):
         set_tracing_disabled(True)
