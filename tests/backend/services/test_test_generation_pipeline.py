@@ -695,6 +695,42 @@ class TestPipelineStream:
         assert "test" not in types
         assert types[-1] == "done"
 
+    async def test_db_context_failure_reports_error_instead_of_raising(self):
+        """_fetch_db_context (e.g. a deleted/inaccessible project) sat right
+        after _resolve_config_llm but outside its try/except -- it must be
+        caught by the same block, not just the LLM-resolution call."""
+        user = _make_user()
+        mock_db = MagicMock()
+        llm = _streaming_llm()
+
+        with (
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline._resolve_config_llm",
+                return_value=llm,
+            ),
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline._fetch_db_context",
+                side_effect=ValueError("Project with id p-1 not found or not accessible"),
+            ),
+        ):
+            events = await _collect_ndjson(
+                test_generation_pipeline_stream(
+                    db=mock_db,
+                    user=user,
+                    prompt="test",
+                    organization_id=str(uuid.uuid4()),
+                    project_id="p-1",
+                )
+            )
+
+        types = [e["type"] for e in events]
+        error_events = [e for e in events if e["type"] == "error"]
+        assert error_events, "db-context failure must yield an error event, not raise"
+        assert error_events[0]["phase"] == "config"
+        assert "not found or not accessible" in error_events[0]["message"]
+        assert "test" not in types
+        assert types[-1] == "done"
+
     async def test_exhausted_model_tokens_quota_gets_organization_subject_copy(self):
         """A QuotaExceededError raised at resolution time (the pre-call token
         gate in user_model_utils.py) must read like every other quota

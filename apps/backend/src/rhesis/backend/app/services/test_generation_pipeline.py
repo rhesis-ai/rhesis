@@ -231,28 +231,24 @@ async def test_generation_pipeline_stream(
     if config_response is None:
         # ── Phase 1: Streamed config generation ──
 
-        # Resolving the LLM is the one step in this whole generator with no
-        # surrounding try/except -- a quota exhaustion (or any other
-        # resolution failure) raised here used to propagate straight out of
-        # the generator. By the time that happens, StreamingResponse has
-        # already sent its 200 OK, so there is no clean 402 left to send;
-        # the stream just aborts with no event ever reaching the frontend,
-        # which reads as a request that hangs forever with no explanation.
+        # Everything needed before the first yield, wrapped together --
+        # see stream_error_message's docstring for why this must catch
+        # both the LLM resolution and _fetch_db_context (a
+        # deleted/inaccessible project also raises here).
         try:
             llm = _resolve_config_llm(db, user)
+            db_context = _fetch_db_context(
+                db=db,
+                organization_id=organization_id,
+                prompt=prompt,
+                project_id=project_id,
+                previous_messages=previous_messages,
+            )
         except Exception as e:
-            logger.error("Failed to resolve config LLM: %s", e, exc_info=True)
+            logger.error("Failed to set up config generation: %s", e, exc_info=True)
             yield ndjson({"type": "error", "phase": "config", "message": stream_error_message(e)})
             yield ndjson({"type": "done"})
             return
-
-        db_context = _fetch_db_context(
-            db=db,
-            organization_id=organization_id,
-            prompt=prompt,
-            project_id=project_id,
-            previous_messages=previous_messages,
-        )
 
         async for event in _stream_config(llm, db_context):
             if event.get("type") == "_collected":
