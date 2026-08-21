@@ -25,6 +25,7 @@ import {
 } from '@/utils/onboarding-service';
 import { getTourSteps, driverConfig } from '@/config/onboarding-tours';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(
   undefined
@@ -54,6 +55,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const userScope = useUserScope();
+  // Mounted inside ActiveProjectProvider (see LayoutContent), so the live project
+  // list is available here — used to keep `projectCreated` honest below.
+  const { projects, loading: projectsLoading } = useActiveProject();
   // Initialize with localStorage data immediately to avoid flash
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
     // Load synchronously during initialization to prevent flash
@@ -401,11 +405,21 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     status,
   ]);
 
-  const isComplete = isOnboardingComplete(progress);
-  const completionPercentage = calculateCompletionPercentage(progress);
+  // A stored `projectCreated` can outlive the project — another member deletes it,
+  // or the API does — leaving the checklist claiming a step with no project behind
+  // it. Derive the flag from the live list instead of trusting the stored bit.
+  // Deliberately never written back: mergeProgress ORs local with remote, so an
+  // unset would be resurrected on the next load.
+  const effectiveProgress: OnboardingProgress =
+    projectsLoading || projects.length > 0 || !progress.projectCreated
+      ? progress
+      : { ...progress, projectCreated: false };
+
+  const isComplete = isOnboardingComplete(effectiveProgress);
+  const completionPercentage = calculateCompletionPercentage(effectiveProgress);
 
   const value: OnboardingContextValue = {
-    progress,
+    progress: effectiveProgress,
     isComplete,
     completionPercentage,
     markStepComplete,

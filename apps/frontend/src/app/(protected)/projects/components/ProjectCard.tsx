@@ -104,10 +104,17 @@ interface ProjectCardProps {
   project: Project;
   isLoading?: boolean;
   onDelete?: () => void;
+  /** When set, the trash can renders disabled with this as its tooltip. */
+  deleteDisabledReason?: string;
 }
 
 const ProjectCard = React.memo(
-  ({ project, isLoading = false, onDelete }: ProjectCardProps) => {
+  ({
+    project,
+    isLoading = false,
+    onDelete,
+    deleteDisabledReason,
+  }: ProjectCardProps) => {
     const router = useRouter();
 
     if (isLoading) {
@@ -149,6 +156,8 @@ const ProjectCard = React.memo(
         description={project.description}
         onClick={() => router.push(`/projects/${project.id}`)}
         onDelete={onDelete}
+        deleteDisabledReason={deleteDisabledReason}
+        deleteLabel="Delete project"
         userAvatar={project.owner?.picture}
         userName={project.owner?.name}
         chipSections={chipSections}

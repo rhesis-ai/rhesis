@@ -18,6 +18,11 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import {
+  ACTIVE_PROJECT_DELETE_BLOCKED,
+  PROJECT_DELETE_WARNING,
+} from '../constants';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectDetailTabs from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
@@ -41,9 +46,19 @@ export default function ClientWrapper({
   const [currentProject, setCurrentProject] = useState<Project>(project);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleted, setIsDeleted] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const notifications = useNotifications();
-  const { syncProject } = useActiveProject();
+  const {
+    activeProject,
+    refresh: refreshActiveProjects,
+    syncProject,
+  } = useActiveProject();
+
+  // Deleting the project that scopes the whole app would leave every other view
+  // pointing at something that no longer exists. Switch away from it first.
+  const isActiveProject =
+    !!activeProject && String(activeProject.id) === String(projectId);
 
   const title = currentProject.name || `Project ${params.identifier}`;
   const breadcrumbs: BreadcrumbItem[] = [
@@ -105,21 +120,43 @@ export default function ClientWrapper({
   );
 
   const handleDeleteConfirm = async () => {
+    // The FAB is guarded at render time, but activeProject can resolve after this
+    // page rendered — a session with no active-project cookie and a single project
+    // auto-selects it client-side — so the FAB may have been enabled when the
+    // dialog opened. Re-check before the DELETE, as the list page does.
+    if (isActiveProject) {
+      notifications.show(ACTIVE_PROJECT_DELETE_BLOCKED, {
+        severity: 'warning',
+      });
+      setDeleteConfirmOpen(false);
+      return;
+    }
     setIsDeleting(true);
     try {
       const apiFactory = new ApiClientFactory();
       const projectsClient = apiFactory.getProjectsClient();
       await projectsClient.deleteProject(projectId);
+      // Unmount the detail body on this same render: the tabs below fire their
+      // own project-scoped requests, and the refresh and navigation each take a
+      // round trip. Without this the user watches the deleted project's tabs
+      // fail one by one.
+      setIsDeleted(true);
+      setDeleteConfirmOpen(false);
       notifications.show('Project deleted successfully', {
         severity: 'success',
       });
-      router.push('/projects');
+      // The sidebar and switcher read ActiveProjectProvider state seeded by the
+      // root layout, which router.refresh() does not re-run — so this is the only
+      // way to drop the project from them without a full reload. It also clears
+      // the active-project cookie when the deleted project was the active one.
+      await refreshActiveProjects();
+      // replace, not push: the deleted project's URL must not come back on Back.
+      router.replace('/projects');
     } catch (error) {
       notifications.show(
         error instanceof Error ? error.message : 'Failed to delete project',
         { severity: 'error' }
       );
-    } finally {
       setDeleteConfirmOpen(false);
       setIsDeleting(false);
     }
@@ -131,6 +168,7 @@ export default function ClientWrapper({
         <Fab
           icon={<EditIcon sx={{ fontSize: 28 }} />}
           tooltip="Edit project"
+          aria-label="Edit project"
           onClick={() => setIsDrawerOpen(true)}
           disabled={isUpdating || isDeleting}
         />
@@ -138,14 +176,21 @@ export default function ClientWrapper({
       <Can capability={Capability.Project.UPDATE}>
         <Fab
           icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-          tooltip="Delete project"
+          tooltip={
+            isActiveProject ? ACTIVE_PROJECT_DELETE_BLOCKED : 'Delete project'
+          }
+          aria-label="Delete project"
           onClick={() => setDeleteConfirmOpen(true)}
           loading={isDeleting}
-          disabled={isUpdating}
+          disabled={isUpdating || isActiveProject}
         />
       </Can>
     </FabGroup>
   );
+
+  // The project is gone; hold a neutral state until router.replace() lands rather
+  // than rendering a detail page with nothing behind it.
+  if (isDeleted) return <PageLoadingState />;
 
   return (
     <PageLayout
@@ -175,6 +220,14 @@ export default function ClientWrapper({
         itemType="project"
         itemName={currentProject.name}
         title="Delete Project"
+        warningMessage={PROJECT_DELETE_WARNING}
+        message={
+          <>
+            Are you sure you want to delete{' '}
+            <strong>{currentProject.name}</strong>? This action cannot be
+            undone.
+          </>
+        }
       />
     </PageLayout>
   );

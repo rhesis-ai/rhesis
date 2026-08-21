@@ -10,6 +10,7 @@ import EntityMessageState from '@/components/common/EntityMessageState';
 import { useCrossProjectResolve } from '@/hooks/useCrossProjectResolve';
 import {
   buildNotFoundEntityData,
+  isResolvableEntityTable,
   NotFoundEntityData,
 } from '@/utils/entity-error-handler';
 import {
@@ -52,8 +53,15 @@ export default function DetailNotFoundState({
   onRetry,
   isRetrying = false,
 }: DetailNotFoundStateProps) {
+  // Skip the resolve for entities the backend can't resolve across projects —
+  // otherwise its rejection reads as "we couldn't check right now, try again",
+  // which hides the real answer: the thing is gone.
   const { crossProjectData, isResolving, resolveError, retryResolve } =
-    useCrossProjectResolve(entityTableName, entityId);
+    useCrossProjectResolve(
+      entityTableName,
+      entityId,
+      isResolvableEntityTable(entityTableName)
+    );
 
   const entityData = useMemo(
     () =>

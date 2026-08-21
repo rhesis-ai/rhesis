@@ -54,6 +54,31 @@ export function urlSegmentToResolveEntityType(urlSegment: string): string {
   );
 }
 
+/**
+ * Entity tables the backend can resolve across projects — mirrors
+ * ``RESOLVABLE_ENTITY_TABLES`` in ``routers/resolve.py``. Only project-scoped
+ * entities are in it: asking "is this in another project?" is meaningless for a
+ * project itself, and ``GET /resolve`` rejects anything outside this set.
+ */
+export const RESOLVABLE_ENTITY_TABLES = new Set([
+  'endpoint',
+  'experiment',
+  'metric',
+  'requirement',
+  'source',
+  'task',
+  'test',
+  'test_run',
+  'test_set',
+]);
+
+/** Whether a cross-project resolve is worth attempting for this table. */
+export function isResolvableEntityTable(
+  tableName: string | undefined
+): boolean {
+  return !!tableName && RESOLVABLE_ENTITY_TABLES.has(tableName);
+}
+
 export interface ParsedPathEntity {
   entityType: string;
   entityId: string;

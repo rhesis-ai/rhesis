@@ -2,7 +2,14 @@
 
 import React from 'react';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
-import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
+import {
+  Box,
+  ButtonBase,
+  Typography,
+  Avatar,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
@@ -30,6 +37,10 @@ export interface EntityCardProps {
   description?: string;
   onClick?: () => void;
   onDelete?: () => void;
+  /** When set, the delete button renders disabled with this as its tooltip. */
+  deleteDisabledReason?: string;
+  /** Accessible name for the delete button, and its tooltip when enabled. */
+  deleteLabel?: string;
   userAvatar?: string;
   userName?: string;
   status?: 'active' | 'inactive' | string;
@@ -99,6 +110,8 @@ export default function EntityCard({
   description,
   onClick,
   onDelete,
+  deleteDisabledReason,
+  deleteLabel = 'Delete',
   userAvatar,
   userName,
   status,
@@ -167,20 +180,35 @@ export default function EntityCard({
         >
           {topRightActions}
           {onDelete && (
-            <IconButton
-              size="small"
-              onClick={e => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              sx={{
-                color: 'primary.dark',
-                padding: '2px',
-                '& .MuiSvgIcon-root': { fontSize: 20 },
-              }}
-            >
-              <DeleteIcon />
-            </IconButton>
+            <Tooltip title={deleteDisabledReason || deleteLabel}>
+              {/* The span keeps the tooltip working on a disabled button, and
+                  carries the cursor — MUI sets pointer-events: none on the
+                  button itself once disabled. */}
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  cursor: deleteDisabledReason ? 'not-allowed' : undefined,
+                }}
+              >
+                <IconButton
+                  size="small"
+                  aria-label={deleteLabel}
+                  disabled={!!deleteDisabledReason}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  sx={{
+                    color: 'primary.dark',
+                    padding: '2px',
+                    '& .MuiSvgIcon-root': { fontSize: 20 },
+                  }}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+            </Tooltip>
           )}
         </Box>
       )}

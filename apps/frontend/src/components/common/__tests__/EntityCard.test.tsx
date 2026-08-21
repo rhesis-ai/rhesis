@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import EntityCard from '../EntityCard';
 
 const defaultProps = {
@@ -120,6 +121,88 @@ describe('EntityCard', () => {
       screen.getByText('My Entity').closest('.MuiButtonBase-root')
     ).toHaveStyle({
       justifyContent: 'flex-start',
+    });
+  });
+  describe('delete button', () => {
+    it('names the delete button and fires onDelete when enabled', async () => {
+      const onDelete = jest.fn();
+      render(<EntityCard {...defaultProps} onDelete={onDelete} />);
+
+      const button = screen.getByRole('button', { name: 'Delete' });
+      expect(button).toBeEnabled();
+
+      await userEvent.click(button);
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses deleteLabel as the accessible name', () => {
+      render(
+        <EntityCard
+          {...defaultProps}
+          onDelete={jest.fn()}
+          deleteLabel="Delete project"
+        />
+      );
+
+      expect(
+        screen.getByRole('button', { name: 'Delete project' })
+      ).toBeInTheDocument();
+    });
+
+    it('disables the delete button and swallows clicks when a reason is given', async () => {
+      const onDelete = jest.fn();
+      render(
+        <EntityCard
+          {...defaultProps}
+          onDelete={onDelete}
+          deleteDisabledReason="Active project — cannot be deleted."
+        />
+      );
+
+      const button = screen.getByRole('button', { name: 'Delete' });
+      expect(button).toBeDisabled();
+      // MUI puts pointer-events: none on a disabled button, so a real click never
+      // reaches it — the span wrapper absorbs it.
+      expect(button).toHaveStyle({ pointerEvents: 'none' });
+
+      await userEvent.click(button.parentElement as HTMLElement);
+      expect(onDelete).not.toHaveBeenCalled();
+    });
+
+    it('shows the reason as the tooltip on the disabled delete button', async () => {
+      render(
+        <EntityCard
+          {...defaultProps}
+          onDelete={jest.fn()}
+          deleteDisabledReason="Active project — cannot be deleted."
+        />
+      );
+
+      // Hovering the wrapper, not the button: MUI sets pointer-events: none on a
+      // disabled button, which is exactly why the span wrapper exists.
+      const wrapper = screen.getByRole('button', { name: 'Delete' })
+        .parentElement as HTMLElement;
+      await userEvent.hover(wrapper);
+
+      expect(
+        await screen.findByRole('tooltip', {
+          name: 'Active project — cannot be deleted.',
+        })
+      ).toBeInTheDocument();
+    });
+
+    it('keeps the title clear of the top-right slot when delete is disabled', () => {
+      render(
+        <EntityCard
+          {...defaultProps}
+          onDelete={jest.fn()}
+          deleteDisabledReason="Nope"
+        />
+      );
+
+      expect(screen.getByText('My Entity')).toHaveStyle({
+        paddingRight: '36px',
+      });
     });
   });
 });
