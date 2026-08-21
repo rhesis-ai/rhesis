@@ -4,6 +4,10 @@ import logging
 import time
 
 import redis.asyncio as redis
+from redis.asyncio.retry import Retry
+from redis.backoff import ExponentialBackoff
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from rhesis.backend.app.config.settings import get_redis_settings
 
@@ -13,6 +17,13 @@ logger = logging.getLogger(__name__)
 # Prevents hammering Redis during an outage while ensuring self-healing
 # once the service recovers (closes #2272).
 _RETRY_COOLDOWN_SECONDS = 30
+
+# Ping a pooled connection that has been idle this long before reusing it,
+# so a connection the server already dropped is replaced instead of used.
+_HEALTH_CHECK_INTERVAL_SECONDS = 30
+
+# Per-command reconnect attempts on a dropped connection.
+_COMMAND_RETRIES = 3
 
 
 class RedisConnectionManager:
@@ -47,6 +58,13 @@ class RedisConnectionManager:
                 decode_responses=True,
                 encoding="utf-8",
                 max_connections=3,
+                health_check_interval=_HEALTH_CHECK_INTERVAL_SECONDS,
+                socket_keepalive=True,
+                retry=Retry(ExponentialBackoff(cap=1.0, base=0.05), _COMMAND_RETRIES),
+                # Without retry_on_error redis-py raises a dropped connection at the
+                # call site instead of reconnecting, which floods the RPC listener's
+                # blpop loop with ConnectionError (closes #1695).
+                retry_on_error=[RedisConnectionError, RedisTimeoutError],
             )
             # Actually test the connection - from_url() doesn't connect until first use
             await self._client.ping()
