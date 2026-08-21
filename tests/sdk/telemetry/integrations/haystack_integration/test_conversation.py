@@ -55,7 +55,7 @@ class TestSetup:
         assert tracing.enabled is True
 
     def test_disabled_without_a_client_or_a_key(self, sdk_provider, monkeypatch):
-        """With no client to inherit and no key to build one from, there is no route to a provider."""
+        """No client to inherit and no key to build one from means no route to a provider."""
         monkeypatch.delenv("RHESIS_API_KEY", raising=False)
         monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: None)
         tracing = RhesisTracing("app")
@@ -64,13 +64,39 @@ class TestSetup:
     def test_a_disabled_client_does_not_count_as_a_client(self, sdk_provider, monkeypatch):
         """``DisabledClient`` registers itself as the default but installs no provider."""
         monkeypatch.delenv("RHESIS_API_KEY", raising=False)
-        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: True)
+
+        class _Disabled:
+            is_disabled = True
+
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: _Disabled())
         tracing = RhesisTracing("app")
         assert tracing.enabled is False
 
     def test_enabled_when_a_provider_and_key_exist(self, sdk_provider):
         tracing = RhesisTracing("app")
         assert tracing.enabled is True
+
+    def test_never_raises_when_enabling_fails(self, sdk_provider, monkeypatch):
+        """Tracing is not in the application's data path, so it must cost nothing when broken."""
+
+        def boom(self):
+            raise RuntimeError("boom")
+
+        # Patched on the class object, not via a dotted string: the integrations package binds the
+        # name ``haystack`` to the integration singleton, so a dotted path through it does not
+        # resolve to this module.
+        monkeypatch.setattr(HaystackIntegration, "enable", boom)
+        tracing = RhesisTracing("app")
+        assert tracing.enabled is False
+
+    def test_the_trace_name_is_passed_through(self, sdk_provider):
+        tracing = RhesisTracing("My Assistant")
+        assert tracing.enabled is True
+        assert tracing._tracer._name == "My Assistant"
+
+    def test_turn_span_name_can_be_overridden(self, sdk_provider):
+        tracing = RhesisTracing("app", turn_span_name="function.haystack.exchange")
+        assert tracing.turn_span_name == "function.haystack.exchange"
 
 
 class TestProviderReachability:
@@ -83,7 +109,6 @@ class TestProviderReachability:
     def test_an_existing_client_is_enough(self, monkeypatch):
         monkeypatch.delenv("RHESIS_API_KEY", raising=False)
         monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: object())
-        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: False)
         assert RhesisTracing._can_reach_a_provider({}) is True
 
     def test_an_env_key_is_enough_without_a_client(self, monkeypatch):
@@ -108,31 +133,25 @@ class TestProviderReachability:
 
     def test_a_disabled_client_is_not_a_client(self, monkeypatch):
         monkeypatch.delenv("RHESIS_API_KEY", raising=False)
-        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: object())
-        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: True)
+
+        class _Disabled:
+            is_disabled = True
+
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: _Disabled())
         assert RhesisTracing._can_reach_a_provider({}) is False
 
-    def test_never_raises_when_enabling_fails(self, sdk_provider, monkeypatch):
-        """Tracing is not in the application's data path, so it must cost nothing when broken."""
+    def test_a_leftover_disabled_client_elsewhere_does_not_disable_a_live_one(self, monkeypatch):
+        """Regression guard for a real CI failure.
 
-        def boom(self):
-            raise RuntimeError("boom")
-
-        # Patched on the class object, not via a dotted string: the integrations package binds the
-        # name ``haystack`` to the integration singleton, so a dotted path through it does not
-        # resolve to this module.
-        monkeypatch.setattr(HaystackIntegration, "enable", boom)
-        tracing = RhesisTracing("app")
-        assert tracing.enabled is False
-
-    def test_the_trace_name_is_passed_through(self, sdk_provider):
-        tracing = RhesisTracing("My Assistant")
-        assert tracing.enabled is True
-        assert tracing._tracer._name == "My Assistant"
-
-    def test_turn_span_name_can_be_overridden(self, sdk_provider):
-        tracing = RhesisTracing("app", turn_span_name="function.haystack.exchange")
-        assert tracing.turn_span_name == "function.haystack.exchange"
+        The gate used to call ``is_client_disabled()``, which reads the module-global default
+        client, while resolving the client through ``get_default_client()``. Any earlier test that
+        left a ``DisabledClient`` in that global -- ``tests/sdk/test_client.py`` does, and sorts
+        first -- made this gate report the live client as unreachable.
+        """
+        monkeypatch.delenv("RHESIS_API_KEY", raising=False)
+        monkeypatch.setattr("rhesis.sdk.decorators.get_default_client", lambda: object())
+        monkeypatch.setattr("rhesis.sdk.decorators.is_client_disabled", lambda: True)
+        assert RhesisTracing._can_reach_a_provider({}) is True
 
 
 class TestInertTurn:

@@ -176,11 +176,18 @@ class RhesisTracing:
 
         An API key only matters when there is no client, since that is the case where
         :meth:`_start_tracing` has to build one. A ``DisabledClient`` counts as no client: it
-        installs no provider and exists precisely to keep telemetry off.
-        """
-        from rhesis.sdk.decorators import get_default_client, is_client_disabled
+        registers itself as the default but installs no provider, existing precisely to keep
+        telemetry off.
 
-        if get_default_client() is not None and not is_client_disabled():
+        ``is_disabled`` is read off the client this function looked up, rather than through
+        ``is_client_disabled()``, so there is one source of truth. That helper reads the
+        module-global default client directly, which can disagree with what ``get_default_client()``
+        returns -- and did, in a suite where an earlier test had left a disabled client behind.
+        """
+        from rhesis.sdk.decorators import get_default_client
+
+        client = get_default_client()
+        if client is not None and not getattr(client, "is_disabled", False):
             return True
         return bool(os.getenv("RHESIS_API_KEY") or tracer_kwargs.get("api_key"))
 
