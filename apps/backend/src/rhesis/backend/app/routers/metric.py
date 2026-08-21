@@ -305,10 +305,7 @@ def read_metric(
     db_metric = metric_crud.get_metric(db, metric_id, organization_id, user_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
-    if (
-        db_metric.backend_type
-        and db_metric.backend_type.type_value != MetricBackendType.RHESIS
-    ):
+    if db_metric.backend_type and db_metric.backend_type.type_value != MetricBackendType.RHESIS:
         raise HTTPException(
             status_code=403,
             detail="Detail access is restricted to Rhesis metrics",
