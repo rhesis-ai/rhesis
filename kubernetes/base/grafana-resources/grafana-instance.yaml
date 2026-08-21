@@ -60,8 +60,26 @@ spec:
                   value: PLACEHOLDER
                 - name: GF_SMTP_FROM_NAME
                   value: "Rhesis Alerts"
+                # Declared here (not clicked through the UI) so it survives ArgoCD's
+                # selfHeal instead of being wiped on the next sync. See
+                # grafana-google-oidc-credentials.yaml in each cluster's grafana-resources
+                # overlay for the client id/secret.
+                - name: GF_AUTH_GOOGLE_CLIENT_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-google-oidc-credentials
+                      key: client-id
+                - name: GF_AUTH_GOOGLE_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-google-oidc-credentials
+                      key: client-secret
   config:
     server:
       root_url: PLACEHOLDER
     auth.anonymous:
       enabled: "false"
+    auth.google:
+      enabled: "true"
+      allow_sign_up: "true"
+      allowed_domains: rhesis.ai
