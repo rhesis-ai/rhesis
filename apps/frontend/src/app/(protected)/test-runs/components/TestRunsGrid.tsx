@@ -4,9 +4,11 @@ import React, { useState, useCallback, useContext, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
+import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import ListIcon from '@mui/icons-material/List';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
@@ -14,6 +16,7 @@ import {
   GridColDef,
   GridPaginationModel,
   GridFilterModel,
+  GridRowParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -180,13 +183,30 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
   );
 
   // ── Other UI state ─────────────────────────────────────────────────────────
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
+
+  // ── Bulk selection + delete ──────────────────────────────────────────────────
+  const {
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      new ApiClientFactory().getTestRunsClient().bulkDeleteTestRuns(ids),
+    queryKey: testRunKeys.all(),
+    itemLabelSingular: 'test run',
+    itemLabelPlural: 'test runs',
+    getSkippedCount: response => response.forbidden_ids.length,
+    skippedReason: 'not yours to delete',
+  });
 
   // ── Grid state (pagination, filter, sort) ─────────────────────────────────
 
@@ -304,11 +324,6 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
 
   // ── Row action handlers ────────────────────────────────────────────────────
 
-  const handleRowDeleteAction = useCallback((id: string) => {
-    setPendingDeleteId(id);
-    setDeleteModalOpen(true);
-  }, []);
-
   const handleRowEditAction = useCallback(
     (id: string) => {
       router.push(`/test-runs/${id}`);
@@ -336,7 +351,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
       canEdit: row => can(row as unknown as TestRun, Capability.TestRun.UPDATE),
       onCancel: id => handleRowCancelAction(id),
       canCancel: isCancellableRun,
-      onDelete: id => handleRowDeleteAction(id),
+      onDelete: id => requestDelete(id),
       canDelete: row =>
         can(row as unknown as TestRun, Capability.TestRun.DELETE),
       width: 112,
@@ -647,7 +662,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     handleRowEditAction,
     handleRowCancelAction,
     isCancellableRun,
-    handleRowDeleteAction,
+    requestDelete,
   ]);
 
   // ── Row handlers ──────────────────────────────────────────────────────────
@@ -659,37 +674,6 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     },
     [router, clearHighlight]
   );
-
-  // ── Delete handlers ───────────────────────────────────────────────────────
-
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!pendingDeleteId) return;
-
-    try {
-      setIsDeleting(true);
-      const clientFactory = new ApiClientFactory();
-      const testRunsClient = clientFactory.getTestRunsClient();
-
-      await testRunsClient.deleteTestRun(pendingDeleteId);
-
-      notifications.show('Successfully deleted test run', {
-        severity: 'success',
-      });
-
-      setPendingDeleteId(null);
-      queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-    } catch (_error) {
-      notifications.show('Failed to delete test run', { severity: 'error' });
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalOpen(false);
-    }
-  }, [pendingDeleteId, notifications, queryClient]);
-
-  const handleDeleteCancel = useCallback(() => {
-    setDeleteModalOpen(false);
-    setPendingDeleteId(null);
-  }, []);
 
   // ── Cancel handlers ───────────────────────────────────────────────────────
 
@@ -729,6 +713,20 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     },
     [setPaginationModel]
   );
+
+  const getActionButtons = useCallback(() => {
+    if (selectedRows.length === 0) return [];
+
+    return [
+      {
+        label: 'Delete',
+        icon: <DeleteIcon />,
+        variant: 'outlined' as const,
+        color: 'error' as const,
+        onClick: () => requestDelete(),
+      },
+    ];
+  }, [selectedRows.length, requestDelete]);
 
   const runKindToolbar = useMemo(
     () => (
@@ -823,21 +821,33 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             gridToolbarExtra={runKindToolbar}
+            actionButtons={getActionButtons()}
             disablePaperWrapper={true}
             showToolbar={true}
             toolbarSlot={TestRunsUnifiedToolbar}
             persistState
             storageKey="test-runs-grid-v2"
             sx={rowActionsHoverSx}
+            checkboxSelection
+            disableRowSelectionOnClick
+            isRowSelectable={(params: GridRowParams) =>
+              can(params.row as unknown as TestRun, Capability.TestRun.DELETE)
+            }
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={handleSelectionChange}
           />
 
           <DeleteModal
             open={deleteModalOpen}
-            onClose={handleDeleteCancel}
-            onConfirm={handleDeleteConfirm}
+            onClose={cancelDelete}
+            onConfirm={confirmDelete}
             isLoading={isDeleting}
-            title="Delete Test Run"
-            message="Are you sure you want to delete this test run? Related data will not be deleted."
+            title={pendingDeleteId ? 'Delete Test Run' : 'Delete Test Runs'}
+            message={
+              pendingDeleteId
+                ? 'Are you sure you want to delete this test run? Related data will not be deleted.'
+                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test run' : 'test runs'}? Related data will not be deleted.`
+            }
             itemType="test runs"
           />
 

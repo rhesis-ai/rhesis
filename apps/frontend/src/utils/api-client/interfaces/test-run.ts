@@ -39,3 +39,9 @@ export interface TestRunDetail extends TestRun {
     passed: number;
   };
 }
+
+export interface TestRunBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+  forbidden_ids: string[];
+}

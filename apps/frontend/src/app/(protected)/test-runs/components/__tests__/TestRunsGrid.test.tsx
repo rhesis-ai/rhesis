@@ -34,6 +34,7 @@ jest.mock('@/components/common/NotificationContext', () => ({
 
 const mockGetTestRuns = jest.fn();
 const mockDeleteTestRun = jest.fn();
+const mockBulkDeleteTestRuns = jest.fn();
 const mockGetProject = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
@@ -41,6 +42,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
     getTestRunsClient: () => ({
       getTestRuns: mockGetTestRuns,
       deleteTestRun: mockDeleteTestRun,
+      bulkDeleteTestRuns: mockBulkDeleteTestRuns,
     }),
     getProjectsClient: () => ({
       getProject: mockGetProject,
@@ -286,11 +288,15 @@ describe('TestRunsGrid', () => {
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
 
-  it('calls deleteTestRun and shows success notification on confirm', async () => {
+  it('calls bulkDeleteTestRuns and shows success notification on confirm', async () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
-    mockDeleteTestRun.mockResolvedValue(undefined);
+    mockBulkDeleteTestRuns.mockResolvedValue({
+      deleted_ids: ['r-1'],
+      not_found_ids: [],
+      forbidden_ids: [],
+    });
     render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
@@ -301,7 +307,9 @@ describe('TestRunsGrid', () => {
       screen.getByRole('button', { name: /confirm delete/i })
     );
 
-    await waitFor(() => expect(mockDeleteTestRun).toHaveBeenCalledWith('r-1'));
+    await waitFor(() =>
+      expect(mockBulkDeleteTestRuns).toHaveBeenCalledWith(['r-1'])
+    );
     await waitFor(() =>
       expect(mockShow).toHaveBeenCalledWith(
         expect.stringContaining('deleted'),
@@ -314,7 +322,7 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
-    mockDeleteTestRun.mockRejectedValue(new Error('Server error'));
+    mockBulkDeleteTestRuns.mockRejectedValue(new Error('Server error'));
     render(<TestRunsGrid />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
