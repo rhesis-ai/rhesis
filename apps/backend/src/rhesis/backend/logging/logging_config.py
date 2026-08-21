@@ -302,6 +302,38 @@ class _WorkerContextFilter(logging.Filter):
         return True
 
 
+#: Infra paths whose *successful* access lines are pure noise. Kubelet hits
+#: /health every 10-15s per pod (charts/rhesis/values-prd.yaml), which is the
+#: only access traffic an idle pod produces. Failures still log -- a 503 from a
+#: probe is the signal worth having. Same idea as EXCLUDED_PREFIXES in
+#: telemetry/middleware.py, applied to access logs instead of spans.
+_QUIET_ACCESS_PATHS = frozenset({"/health", "/healthz"})
+
+
+class _QuietProbeAccessFilter(logging.Filter):
+    """Drop 2xx/3xx ``uvicorn.access`` lines for infra probe paths.
+
+    Filtering here rather than by log level: uvicorn writes every access line at
+    INFO whatever the status (``h11_impl.RequestResponseCycle.send``), so no
+    level keeps the errors and drops the probes. ``--no-access-log`` is no help
+    either -- it clears the logger's handlers at Config init, and set_logger
+    runs later and re-propagates, which turns access logging back on.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # uvicorn logs '%s - "%s %s HTTP/%s" %d' with
+        # (client_addr, method, path_with_query, http_version, status). Matching
+        # on the args rather than the formatted message keeps this cheap, and
+        # means a uvicorn format change degrades to "log everything".
+        args = record.args
+        if not isinstance(args, tuple) or len(args) != 5:
+            return True
+        path, status = args[2], args[4]
+        if not isinstance(path, str) or not isinstance(status, int) or status >= 400:
+            return True
+        return path.split("?", 1)[0] not in _QUIET_ACCESS_PATHS
+
+
 class ColorFormatter(logging.Formatter):
     """Formatter that adds ANSI color codes to log level names for terminal output."""
 
@@ -385,6 +417,8 @@ def set_logger(worker_role: str | None = None):
         logger = logging.getLogger(name)
         logger.handlers.clear()
         logger.propagate = True
+
+    logging.getLogger("uvicorn.access").addFilter(_QuietProbeAccessFilter())
 
     # Suppress verbose Celery-internal loggers that emit misleading task-signature
     # dumps and other low-signal debug chatter at the DEBUG level.
