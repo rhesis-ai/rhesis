@@ -2370,6 +2370,137 @@ class TestArchitectCompactListRendering:
         assert "List response" not in formatted
 
 
+@pytest.mark.unit
+class TestCompactUnnamedListResults:
+    """Items with no name/title must keep their content.
+
+    ``list_annotations`` returns reviews keyed on ``review_id`` with the
+    human's words in ``comments`` — no name, no title, and ``id`` is
+    always null. Rendering those as a bare "- ?" told the LLM that N
+    reviews existed while showing it none of them, and it filled the
+    gap by inventing reviewers, comments and turn numbers.
+    """
+
+    @staticmethod
+    def _annotation(idx: int) -> dict:
+        return {
+            "id": None,
+            "nano_id": None,
+            "review_id": f"r-{idx}",
+            "source": "test_result",
+            "comments": f"Turn {idx} contradicted the itinerary",
+            "status": {"name": "Fail"},
+            "user": {"name": "Nicolai Bohn"},
+            "target": {"type": "turn", "reference": f"Turn {idx}"},
+            "resolved": False,
+            "test_run_id": "run-1",
+            "behavior_name": "Goal Achievement",
+        }
+
+    def test_annotation_content_survives_compaction(self):
+        payload = {
+            "results": [self._annotation(1), self._annotation(2)],
+            "_pagination": {"returned": 2, "has_more": False},
+        }
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(payload))
+        assert out is not None
+        assert "List response: 2 item(s)" in out
+        # The regression: every line collapsed to "  - ?"
+        assert "  - ?" not in out
+        for idx in (1, 2):
+            assert f"Turn {idx} contradicted the itinerary" in out
+        assert "Nicolai Bohn" in out
+        assert "Fail" in out
+        assert "Goal Achievement" in out
+
+    def test_null_fields_are_dropped(self):
+        """``id``/``nano_id`` are null on every annotation — noise."""
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps([self._annotation(1)])
+        )
+        assert out is not None
+        assert "nano_id" not in out
+
+    def test_long_comment_is_clipped(self):
+        item = self._annotation(1)
+        item["comments"] = "z" * 500
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps([item]), desc_chars=100
+        )
+        assert out is not None
+        assert "z" * 500 not in out
+        assert "…" in out
+
+    def test_named_items_keep_the_compact_form(self):
+        """Entities with names are unaffected — no raw JSON for them."""
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps([{"id": "u-1", "name": "Alpha", "description": "first"}])
+        )
+        assert out is not None
+        assert "  - Alpha (id: u-1) — first" in out
+        assert "{" not in out
+
+    def test_format_history_surfaces_annotation_comments(self):
+        """End-to-end through the prompt builder."""
+        agent = _make_agent(_mock_model())
+        agent._execution_history.append(
+            ExecutionStep(
+                iteration=1,
+                reasoning="check human feedback on the run",
+                action="call_tool",
+                tool_calls=[],
+                tool_results=[
+                    ToolResult(
+                        tool_name="list_annotations",
+                        success=True,
+                        content=json.dumps(
+                            {
+                                "results": [self._annotation(1)],
+                                "_pagination": {"returned": 1, "has_more": False},
+                            }
+                        ),
+                    )
+                ],
+            )
+        )
+        formatted = agent._format_history()
+        assert "Turn 1 contradicted the itinerary" in formatted
+        assert "Nicolai Bohn" in formatted
+
+
+@pytest.mark.unit
+class TestToolResultTruncationMarker:
+    """A cut-off record must announce itself.
+
+    Without a marker the LLM reads truncated JSON as a complete record
+    and completes the missing half from imagination.
+    """
+
+    def test_marker_added_when_content_exceeds_preview(self):
+        agent = _make_agent(_mock_model())
+        content = json.dumps({"test_output": {"output": "x" * 6000}})
+        rendered = agent._render_tool_result(
+            ToolResult(tool_name="get_test_result", success=True, content=content),
+            prefix="[get_test_result]",
+            preview=4000,
+        )
+        assert rendered is not None
+        assert "[truncated" in rendered
+        assert str(len(content)) in rendered
+
+    def test_no_marker_when_content_fits(self):
+        agent = _make_agent(_mock_model())
+        content = json.dumps({"id": "u-1", "status": "Passed"})
+        rendered = agent._render_tool_result(
+            ToolResult(tool_name="get_test_result", success=True, content=content),
+            prefix="[get_test_result]",
+            preview=4000,
+        )
+        assert rendered is not None
+        assert "truncated" not in rendered
+        assert "Passed" in rendered
+
+
 # ── Mapping completion tests ─────────────────────────────────────
 
 

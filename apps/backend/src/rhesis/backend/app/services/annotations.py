@@ -78,6 +78,14 @@ def list_annotations(
     Explicit org/project predicates are required because this uses ``text()``
     SQL (ORM auto-filter does not apply).
 
+    Test-result project scoping matches the ORM auto-filter and the
+    ``project_isolation`` RLS policy: rows in the active project *plus*
+    org-level rows whose ``project_id`` is NULL. Strict equality would hide
+    reviews that the test run page and ``get_test_result`` both show, because
+    a run whose test configuration carries no project produces results with a
+    NULL project_id. ``trace.project_id`` is NOT NULL, so the trace branch
+    needs no such allowance.
+
     ``test_run_id`` and ``test_result_id`` narrow *both* branches: ``trace``
     carries its own ``test_run_id``/``test_result_id``, so scoping to a run
     returns reviews on that run's test results and on the traces it produced.
@@ -141,6 +149,7 @@ def list_annotations(
               AND (
                     CAST(:project_id AS uuid) IS NULL
                     OR tr.project_id = CAST(:project_id AS uuid)
+                    OR tr.project_id IS NULL
                   )
               AND (
                     CAST(:test_run_id AS uuid) IS NULL
