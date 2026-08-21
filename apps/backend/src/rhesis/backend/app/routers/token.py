@@ -24,6 +24,8 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.token import (
+    TokenBulkDeleteRequest,
+    TokenBulkDeleteResponse,
     TokenCreate,
     TokenCreateResponse,
     TokenInfoResponse,
@@ -253,6 +255,28 @@ def read_token(
     if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
+
+
+@router.delete("/bulk", response_model=TokenBulkDeleteResponse)
+def bulk_delete_tokens(
+    request: TokenBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete (revoke) multiple tokens at once.
+
+    Registered before /{token_id} below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{token_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id, user_id = tenant_context
+    return token_crud.bulk_revoke_tokens(
+        db=db,
+        token_ids=request.token_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 @router.delete("/{token_id}", response_model=TokenRead)

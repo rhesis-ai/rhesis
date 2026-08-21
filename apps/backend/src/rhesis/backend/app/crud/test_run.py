@@ -21,13 +21,14 @@ the cascade to test results is driven by ``config/cascade_config.py`` inside
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item_detail,
@@ -334,3 +335,53 @@ def delete_test_run(
     return delete_item(
         db, models.TestRun, test_run_id, organization_id=organization_id, user_id=user_id
     )
+
+
+def bulk_delete_test_runs(
+    db: Session,
+    test_run_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple test runs in one transaction, enforcing the same
+    owner-only rule as the single-item delete route: only the creator may
+    delete their own test run. Ids that exist but belong to someone else are
+    reported in "forbidden_ids" rather than silently skipped or deleted.
+    """
+    return bulk_delete_by_ids(
+        db,
+        models.TestRun,
+        test_run_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+        owner_attr="user_id",
+    )
+
+
+def get_test_run_task_ids(
+    db: Session,
+    test_run_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[uuid.UUID, Tuple[Optional[str], Optional[str]]]:
+    """Map ids in ``test_run_ids`` to (status_name, task_id).
+
+    Used by the bulk-delete route to find active runs among the ones it's
+    about to soft-delete, so their Celery task can be revoked -- same as the
+    single-item delete route does per-run. Deciding which status counts as
+    "active" is left to the caller (RunStatus lives in tasks/, which this
+    module must not import -- see AGENTS.md's tasks-layout rule).
+    """
+    rows = (
+        QueryBuilder(db, models.TestRun)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_related(include(models.TestRun.status))
+        .with_custom_filter(lambda q: q.filter(models.TestRun.id.in_(test_run_ids)))
+        .all()
+    )
+    return {
+        row.id: (row.status.name if row.status else None, (row.attributes or {}).get("task_id"))
+        for row in rows
+    }

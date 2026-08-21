@@ -121,6 +121,28 @@ def read_source(
     return db_source
 
 
+@router.delete("/bulk", response_model=schemas.SourceBulkDeleteResponse)
+def bulk_delete_sources(
+    request: schemas.SourceBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple sources at once.
+
+    Registered before /{source_id} below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{source_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id, user_id = tenant_context
+    return source_crud.bulk_delete_sources(
+        db=db,
+        source_ids=request.source_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
 @router.delete("/{source_id}")
 def delete_source(
     source_id: uuid.UUID,

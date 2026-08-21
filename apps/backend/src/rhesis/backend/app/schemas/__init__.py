@@ -31,6 +31,8 @@ from .emoji_reaction import CommentEmojis, EmojiReaction
 from .endpoint import (
     Endpoint,
     EndpointBase,
+    EndpointBulkDeleteRequest,
+    EndpointBulkDeleteResponse,
     EndpointCreate,
     EndpointDetail,
     EndpointTestRequest,
@@ -100,10 +102,26 @@ from .prompt_template import (
     PromptTemplateCreate,
     PromptTemplateUpdate,
 )
-from .source import Source, SourceBase, SourceCreate, SourceUpdate, SourceWithContent
+from .source import (
+    Source,
+    SourceBase,
+    SourceBulkDeleteRequest,
+    SourceBulkDeleteResponse,
+    SourceCreate,
+    SourceUpdate,
+    SourceWithContent,
+)
 from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
-from .task_management import Task, TaskBase, TaskCreate, TaskDetail, TaskUpdate
+from .task_management import (
+    Task,
+    TaskBase,
+    TaskBulkDeleteRequest,
+    TaskBulkDeleteResponse,
+    TaskCreate,
+    TaskDetail,
+    TaskUpdate,
+)
 from .test import (
     ConversationMessage,
     ConversationTestExtractionResponse,
@@ -144,7 +162,15 @@ from .test_result import (
     TestResultDetail,
     TestResultUpdate,
 )
-from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunDetail, TestRunUpdate
+from .test_run import (
+    TestRun,
+    TestRunBase,
+    TestRunBulkDeleteRequest,
+    TestRunBulkDeleteResponse,
+    TestRunCreate,
+    TestRunDetail,
+    TestRunUpdate,
+)
 from .test_set import (
     ExplorerTestSetCreate,
     TestData,
@@ -155,6 +181,8 @@ from .test_set import (
     TestSetBulkAssociateRequest,
     TestSetBulkAssociateResponse,
     TestSetBulkCreate,
+    TestSetBulkDeleteRequest,
+    TestSetBulkDeleteResponse,
     TestSetBulkDisassociateRequest,
     TestSetBulkDisassociateResponse,
     TestSetBulkResponse,
@@ -209,6 +237,8 @@ __all__ = [
     "EndpointDetail",
     "EndpointTestRequest",
     "EndpointUpdate",
+    "EndpointBulkDeleteRequest",
+    "EndpointBulkDeleteResponse",
     "Model",
     "ModelBase",
     "ModelCreate",
@@ -257,11 +287,15 @@ __all__ = [
     "TestRunRescoreRequest",
     "TestSetBulkDisassociateResponse",
     "TestSetBulkDisassociateRequest",
+    "TestSetBulkDeleteRequest",
+    "TestSetBulkDeleteResponse",
     "TestRun",
     "TestRunBase",
     "TestRunCreate",
     "TestRunDetail",
     "TestRunUpdate",
+    "TestRunBulkDeleteRequest",
+    "TestRunBulkDeleteResponse",
     "Status",
     "StatusBase",
     "StatusCreate",
@@ -272,6 +306,8 @@ __all__ = [
     "SourceCreate",
     "SourceUpdate",
     "SourceWithContent",
+    "SourceBulkDeleteRequest",
+    "SourceBulkDeleteResponse",
     "Topic",
     "TopicBase",
     "TopicCreate",
@@ -298,6 +334,8 @@ __all__ = [
     "TaskCreate",
     "TaskDetail",
     "TaskUpdate",
+    "TaskBulkDeleteRequest",
+    "TaskBulkDeleteResponse",
     "TokenBase",
     "TokenCreate",
     "TokenUpdate",
