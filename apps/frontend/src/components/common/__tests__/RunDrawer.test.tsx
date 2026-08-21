@@ -59,6 +59,19 @@ jest.mock('../NotificationContext', () => ({
 
 jest.mock('@/contexts/UsageContext', () => ({
   useResourceUsage: jest.fn(),
+  useUsage: jest.fn(() => ({
+    resources: {},
+    edition: 'community',
+    loading: false,
+    error: null,
+  })),
+}));
+
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  useCanWithStatus: () => ({ allowed: true, loading: false }),
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: () => true,
 }));
 
 jest.mock('@/utils/api-client/client-factory', () => ({

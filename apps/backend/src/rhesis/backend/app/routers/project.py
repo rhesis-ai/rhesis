@@ -22,6 +22,7 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.odata import apply_select
 
@@ -69,6 +70,8 @@ def create_project(
     )
     db.commit()
     db.refresh(new_project)
+
+    notify_stock_crossing(db, _quota_gate, QuotaResource.PROJECTS)
 
     return new_project
 

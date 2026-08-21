@@ -190,4 +190,18 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         entity_type=EntityType.ARCHITECT_SESSION.value,
         render=_render_architect_plan_completed,
     ),
+    NotificationEventType.Usage.APPROACHING_LIMIT: NotificationKind(
+        event_type=NotificationEventType.Usage.APPROACHING_LIMIT,
+        section=NotificationSection.USAGE,
+        # No entity to link or highlight -- a quota crossing is about the
+        # organization's consumption of a resource, not one row of it.
+        entity_type=None,
+        # Emitted directly from services/usage_notifications.py, not a
+        # Celery completion hook -- same shape as Task.ASSIGNED above.
+    ),
+    NotificationEventType.Usage.BLOCKED: NotificationKind(
+        event_type=NotificationEventType.Usage.BLOCKED,
+        section=NotificationSection.USAGE,
+        entity_type=None,
+    ),
 }

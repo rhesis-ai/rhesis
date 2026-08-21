@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.crud import user as user_crud
+from rhesis.backend.app.quota.enforcement import stream_error_message
 from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
 from rhesis.backend.app.services.explorer.evaluation import (
     EVAL_MAX_CONCURRENCY,
@@ -404,6 +405,8 @@ async def suggestion_pipeline_stream(
              "diversity_scores": [float|null, ...]|null}`` (scores match sorted order)
       - ``{"type": "output_summary", "generated": int, "total": int}``
       - ``{"type": "eval_summary", "evaluated": int, "total": int}``
+      - ``{"type": "error", "message": str}`` (pipeline-level failure before
+             any suggestion could be produced -- e.g. quota exhaustion)
       - ``{"type": "done"}``
     """
     pipeline_t0 = time.monotonic()
@@ -414,27 +417,36 @@ async def suggestion_pipeline_stream(
 
     logger.info("[%s] pipeline_start", _ts())
 
-    suggestion_gen = await generate_suggestions(
-        db=db,
-        test_set_identifier=test_set_identifier,
-        organization_id=organization_id,
-        user_id=user_id,
-        topic=topic,
-        num_examples=num_examples,
-        num_suggestions=num_suggestions,
-        user_feedback=user_feedback,
-        stream=True,
-    )
+    # Everything needed before the first yield, wrapped together -- see
+    # stream_error_message's docstring for why every streaming generator
+    # needs this.
+    try:
+        suggestion_gen = await generate_suggestions(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic=topic,
+            num_examples=num_examples,
+            num_suggestions=num_suggestions,
+            user_feedback=user_feedback,
+            stream=True,
+        )
 
-    # ── Resolve services once ──
-    invoker = EndpointInvoker(
-        db=db,
-        endpoint_id=endpoint_id,
-        organization_id=organization_id,
-        user_id=user_id,
-        max_concurrency=10,
-    )
-    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+        # ── Resolve services once ──
+        invoker = EndpointInvoker(
+            db=db,
+            endpoint_id=endpoint_id,
+            organization_id=organization_id,
+            user_id=user_id,
+            max_concurrency=10,
+        )
+        sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    except Exception as e:
+        logger.error("Failed to set up suggestion pipeline: %s", e, exc_info=True)
+        yield _ndjson({"type": "error", "message": stream_error_message(e)})
+        yield _ndjson({"type": "done"})
+        return
 
     embedder = None
     if generate_embeddings:
@@ -726,8 +738,17 @@ async def evaluate_suggestions_stream(
       - {"type": "item", "index": int, "input": str, "label": str, "labeler": str,
          "model_score": float, "metrics": dict|null, "error": str|null}
       - {"type": "summary", "evaluated": int, "total": int}
+      - {"type": "error", "message": str} (failed before any item could be
+         evaluated -- e.g. quota exhaustion)
     """
-    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    try:
+        sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+    except Exception as e:
+        logger.error("Failed to resolve evaluation metrics: %s", e, exc_info=True)
+        yield _ndjson({"type": "error", "message": stream_error_message(e)})
+        yield _ndjson({"type": "summary", "evaluated": 0, "total": len(suggestions)})
+        return
+
     semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
     fanout = EventFanout()
     evaluated = 0

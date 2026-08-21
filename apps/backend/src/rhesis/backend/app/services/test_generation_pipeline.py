@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY, TestSetType
-from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota.enforcement import stream_error_message
 from rhesis.backend.app.schemas.services import (
     SourceData,
     TestConfigItem,
@@ -174,7 +175,7 @@ async def _stream_config(
         yield {
             "type": "error",
             "phase": "config",
-            "message": str(e),
+            "message": stream_error_message(e),
         }
         yield {"type": "config_done", "total": 0}
         yield {"type": "_collected", "config": None}
@@ -230,14 +231,24 @@ async def test_generation_pipeline_stream(
     if config_response is None:
         # ── Phase 1: Streamed config generation ──
 
-        llm = _resolve_config_llm(db, user)
-        db_context = _fetch_db_context(
-            db=db,
-            organization_id=organization_id,
-            prompt=prompt,
-            project_id=project_id,
-            previous_messages=previous_messages,
-        )
+        # Everything needed before the first yield, wrapped together --
+        # see stream_error_message's docstring for why this must catch
+        # both the LLM resolution and _fetch_db_context (a
+        # deleted/inaccessible project also raises here).
+        try:
+            llm = _resolve_config_llm(db, user)
+            db_context = _fetch_db_context(
+                db=db,
+                organization_id=organization_id,
+                prompt=prompt,
+                project_id=project_id,
+                previous_messages=previous_messages,
+            )
+        except Exception as e:
+            logger.error("Failed to set up config generation: %s", e, exc_info=True)
+            yield ndjson({"type": "error", "phase": "config", "message": stream_error_message(e)})
+            yield ndjson({"type": "done"})
+            return
 
         async for event in _stream_config(llm, db_context):
             if event.get("type") == "_collected":
@@ -352,7 +363,7 @@ async def test_generation_pipeline_stream(
 
     except Exception as e:
         logger.error("Test generation failed at index %d: %s", test_index, e, exc_info=True)
-        yield ndjson({"type": "error", "phase": "tests", "message": str(e)})
+        yield ndjson({"type": "error", "phase": "tests", "message": stream_error_message(e)})
 
     yield ndjson({"type": "tests_done", "total": tests_generated})
     yield ndjson({"type": "done"})

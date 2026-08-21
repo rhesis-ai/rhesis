@@ -10,7 +10,7 @@ import {
   EndpointEditData,
 } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { createEndpoint } from '@/actions/endpoints';
+import { useCreateEndpoint } from '@/hooks/useCreateEndpoint';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
@@ -24,6 +24,7 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
   const { data: session, status } = useSession();
   const notifications = useNotifications();
   const queryClient = useQueryClient();
+  const createEndpoint = useCreateEndpoint();
 
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
   const [isDuplicating, setIsDuplicating] = useState(false);
@@ -168,7 +169,7 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     } finally {
       setIsDuplicating(false);
     }
-  }, [endpoint, notifications, router]);
+  }, [endpoint, notifications, router, createEndpoint]);
 
   return {
     endpoint,

@@ -36,6 +36,7 @@ from rhesis.backend.app.schemas.user import (
     UserSettingsUpdate,
 )
 from rhesis.backend.app.services import polyphemus as polyphemus_service
+from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
@@ -234,6 +235,8 @@ def create_user(
         except Exception as e:
             logger.error(f"Error sending invitation email to {created_user.email}: {str(e)}")
             # Don't fail user creation if email sending fails
+
+    notify_stock_crossing(db, _quota_gate, QuotaResource.SEATS)
 
     return created_user
 

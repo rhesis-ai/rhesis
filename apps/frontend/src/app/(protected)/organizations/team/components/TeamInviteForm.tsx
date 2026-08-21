@@ -42,6 +42,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useCreateUser } from '@/hooks/useUsers';
+import { QuotaResource } from '@/constants/quota';
+import { useQuotaMessageFor } from '@/hooks/useQuotaGate';
 
 interface InviteItem {
   id: string;
@@ -80,6 +83,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
   ) {
     const { data: session, status } = useSession();
     const notifications = useNotifications();
+    const createUser = useCreateUser();
+    const seatQuotaMessage = useQuotaMessageFor(QuotaResource.SEATS);
     const { projects: availableProjects } = useActiveProject();
     const {
       AddMemberRoleField,
@@ -197,6 +202,15 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
           invite.email.trim()
         );
 
+        // Seats are metered per invite, so gate on how many this submit
+        // actually consumes. A toast rather than a drawer error: this form
+        // surfaces everything that way and has no drawer-level error slot.
+        const seatBlock = seatQuotaMessage(validInvites.length);
+        if (seatBlock) {
+          notifications.show(seatBlock, { severity: 'error' });
+          return;
+        }
+
         if (validInvites.length === 0) {
           notifications.show('Please enter at least one email address', {
             severity: 'error',
@@ -205,10 +219,9 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         }
 
         const clientFactory = new ApiClientFactory();
-        const usersClient = clientFactory.getUsersClient();
 
         type InviteResult = {
-          user: Awaited<ReturnType<typeof usersClient.createUser>> | null;
+          user: Awaited<ReturnType<typeof createUser>> | null;
           invitation: {
             email: string;
             success: boolean;
@@ -227,7 +240,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
             };
 
             try {
-              const user = await usersClient.createUser(userData);
+              const user = await createUser(userData);
               if (user && invite.orgRoleId && assignOrgMemberRole) {
                 try {
                   await assignOrgMemberRole(String(user.id), invite.orgRoleId);

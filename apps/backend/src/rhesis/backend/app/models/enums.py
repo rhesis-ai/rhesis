@@ -63,15 +63,19 @@ class EmbeddingOrigin(str, Enum):
 class NotificationSection(str, Enum):
     """Sidebar section a notification's badge count belongs to.
 
-    Values must equal the frontend NavigationPageItem.segment for that page
-    (mirrored in src/constants/notifications.ts, kept in sync manually like
-    FeatureName/Capability).
+    Values must equal the frontend NavigationPageItem.segment for that page,
+    when the section badges a nav item at all (mirrored in
+    src/constants/notifications.ts, kept in sync manually like
+    FeatureName/Capability). ``USAGE`` badges nothing -- there is no
+    "/usage" nav segment to attach a count to -- it exists so a quota
+    notification still groups and displays in the notification drawer.
     """
 
     TEST_SETS = "test-sets"
     TEST_RUNS = "test-runs"
     TASKS = "tasks"
     ARCHITECT = "architect"
+    USAGE = "usage"
 
 
 class NotificationEventType:
@@ -99,6 +103,13 @@ class NotificationEventType:
         #: pending -- i.e. the plan is done. Mid-plan turns don't notify; see
         #: the renderer in services/notification/catalog.py.
         PLAN_COMPLETED = "architect.plan_completed"
+
+    class Usage(str, Enum):
+        #: Crossed 80% of a resource's limit. Nothing is blocked yet.
+        APPROACHING_LIMIT = "usage.approaching_limit"
+        #: Crossed the resource's ceiling -- the action it gates is now
+        #: blocked (a 402 on the next attempt).
+        BLOCKED = "usage.blocked"
 
 
 # Notification.entity_type reuses rhesis.backend.app.constants.EntityType

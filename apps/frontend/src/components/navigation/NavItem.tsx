@@ -12,11 +12,8 @@ import { type NavigationPageItem } from '@/types/navigation';
 import { useCan } from '@/components/common/Can';
 import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
-import { NotificationSection } from '@/constants/notifications';
-import { isActive, collapsedNavItemSx } from './sidebar-utils';
-
-const NOTIFICATION_SECTION_VALUES: string[] =
-  Object.values(NotificationSection);
+import { isNotificationSection } from '@/constants/notifications';
+import { isActive, collapsedNavItemSx, COUNT_BADGE_SX } from './sidebar-utils';
 
 interface NavItemProps {
   item: NavigationPageItem;
@@ -33,8 +30,8 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
   const ambient = useAmbientPermissions();
   const singlePermitted = useCan(item.requiredPermission ?? '');
   const { unreadBySection } = useNotifications();
-  const unread = NOTIFICATION_SECTION_VALUES.includes(item.segment)
-    ? (unreadBySection[item.segment as NotificationSection] ?? 0)
+  const unread = isNotificationSection(item.segment)
+    ? (unreadBySection[item.segment] ?? 0)
     : 0;
 
   const requiredAnyOf = item.requiredAnyOf;
@@ -127,17 +124,15 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
           {unread > 0 && (
             <Box
               sx={{
+                ...COUNT_BADGE_SX,
                 flexShrink: 0,
-                minWidth: 20,
-                height: 20,
-                px: '6px',
-                borderRadius: BORDER_RADIUS.sm,
-                bgcolor: active ? 'primary.contrastText' : 'primary.main',
-                color: active ? 'primary.main' : 'primary.contrastText',
-                fontSize: 12,
-                fontWeight: 600,
-                lineHeight: '20px',
-                textAlign: 'center',
+                // Inverted on the active row, whose background is already
+                // primary.main -- the only place this badge deviates from
+                // the shared look.
+                ...(active && {
+                  bgcolor: 'primary.contrastText',
+                  color: 'primary.main',
+                }),
               }}
             >
               {unread > 99 ? '99+' : unread}

@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
 from rhesis.backend.app.services.explorer import (
     evaluate_suggestions_stream,
     invoke_endpoint_for_suggestions_stream,
@@ -299,6 +301,27 @@ class TestEvaluateSuggestionsStream:
 
         assert events == [{"type": "summary", "evaluated": 0, "total": 0}]
 
+    async def test_metrics_resolution_failure_reports_error_instead_of_crashing(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        """Resolving metrics was the one step with no try/except -- a failure
+        there (e.g. an exhausted MODEL_TOKENS quota) used to propagate
+        straight out of the generator instead of yielding an event."""
+        with patch(_RESOLVE_METRICS_PATCH, side_effect=RuntimeError("evaluation model down")):
+            events = await _collect(
+                evaluate_suggestions_stream(
+                    db=test_db,
+                    organization_id=test_org_id,
+                    user_id=authenticated_user_id,
+                    metric_names=["Correctness"],
+                    suggestions=[{"input": "in", "output": "out"}],
+                )
+            )
+
+        error = next(e for e in events if e["type"] == "error")
+        assert "evaluation model down" in error["message"]
+        assert events[-1] == {"type": "summary", "evaluated": 0, "total": 1}
+
 
 async def _fake_suggestion_stream(items):
     """Stand-in for generate_suggestions(..., stream=True)'s async generator."""
@@ -503,3 +526,60 @@ class TestSuggestionPipelineStream:
         # ...just with no embedding work attempted and no diversity ordering.
         embed_one.assert_not_called()
         assert not any(e["type"] == "embedding" for e in events)
+
+    async def test_setup_failure_reports_error_instead_of_crashing(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        """generate_suggestions (and resolve_sdk_metrics right after it) run
+        before the first yield with no other try/except in the whole
+        generator -- a failure there (e.g. an exhausted MODEL_TOKENS quota
+        from the pre-call gate in user_model_utils.py) used to propagate
+        straight out of the generator instead of yielding an event."""
+        with patch(_GENERATE_SUGGESTIONS_PATCH, side_effect=RuntimeError("model unreachable")):
+            events = await _collect(
+                suggestion_pipeline_stream(
+                    db=test_db,
+                    test_set_identifier="some-test-set",
+                    organization_id=test_org_id,
+                    user_id=authenticated_user_id,
+                    endpoint_id=str(uuid.uuid4()),
+                    metric_names=["Correctness"],
+                    num_suggestions=2,
+                )
+            )
+
+        error = next(e for e in events if e["type"] == "error")
+        assert "model unreachable" in error["message"]
+        assert "suggestion" not in {e["type"] for e in events}
+        assert events[-1] == {"type": "done"}
+
+    async def test_exhausted_model_tokens_quota_gets_organization_subject_copy(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        """A QuotaExceededError must read like every other quota message in
+        the app, not the exception's own technical string."""
+        verdict = QuotaVerdict(
+            resource=QuotaResource.MODEL_TOKENS,
+            used=51_080,
+            limit=1_000,
+            allowed=False,
+            over_limit=True,
+            kind="flow",
+            period_end="2026-09-01",
+        )
+        with patch(_GENERATE_SUGGESTIONS_PATCH, side_effect=QuotaExceededError(verdict)):
+            events = await _collect(
+                suggestion_pipeline_stream(
+                    db=test_db,
+                    test_set_identifier="some-test-set",
+                    organization_id=test_org_id,
+                    user_id=authenticated_user_id,
+                    endpoint_id=str(uuid.uuid4()),
+                    metric_names=["Correctness"],
+                    num_suggestions=2,
+                )
+            )
+
+        error = next(e for e in events if e["type"] == "error")
+        assert error["message"] == "Your organization is at its model tokens limit for this period."
+        assert "QuotaExceededError" not in error["message"]
