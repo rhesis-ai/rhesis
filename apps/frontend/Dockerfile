@@ -138,7 +138,7 @@ EXPOSE 3000
 
 # Add a health check that uses the PORT env var with fallback
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
+  CMD curl -f http://localhost:${PORT:-3000}/api/health || exit 1
 
 # server.js does process.chdir(__dirname) so PORT env var drives the port.
 # Run from /app; server.js is at apps/frontend/server.js inside the standalone output.
