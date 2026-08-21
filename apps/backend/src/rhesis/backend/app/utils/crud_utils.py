@@ -150,9 +150,14 @@ def _prepare_item_data(
 
     # nano_id is server-owned: nothing in the backend ever writes one, so drop it here as
     # well as at the schema layer. This covers the dict-based callers that skip Pydantic.
-    # `id` is deliberately NOT dropped -- FileCreate pre-generates its primary key so the
-    # storage path and the test_output JSONB marker can embed it before the row exists.
     data.pop("nano_id", None)
+
+    # id is server-owned too, with one exception: File pre-generates its primary key so the
+    # storage path and the test_output JSONB marker can embed it before the row exists
+    # (routers/file.py, tasks/execution/executors/results.py). Every other model's id is
+    # dropped here, so a dict-based caller that skips Pydantic validation can't squat a UUID.
+    if getattr(model, "__name__", None) != "File":
+        data.pop("id", None)
 
     # Drop keys that have no corresponding ORM column on this model.
     # This handles schema fields (e.g. project_id on Base) that are absent from
