@@ -199,7 +199,12 @@ export default function ImportExplorerTestSetDialog({
           sx={{
             border: theme => `1px solid ${theme.palette.divider}`,
             borderRadius: 1,
-            overflow: 'hidden',
+            // Scroll the list itself, so the search box stays pinned. `overflow: hidden`
+            // here zeroed the flex item's automatic min-height, so a long list was
+            // squashed by the drawer and clipped with no way to reach the rest.
+            minHeight: 0,
+            overflowX: 'hidden',
+            overflowY: 'auto',
           }}
         >
           {testSets.map((ts, idx) => (
