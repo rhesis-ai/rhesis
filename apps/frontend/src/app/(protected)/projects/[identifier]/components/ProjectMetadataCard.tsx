@@ -79,14 +79,14 @@ export default function ProjectMetadataCard({
     [project]
   );
 
-  const handleSave = async (draft: MetadataDraft) => {
-    await onSave({
+  // Returning the result keeps the card in edit mode when the update fails.
+  const handleSave = (draft: MetadataDraft) =>
+    onSave({
       name: draft.name.trim(),
       description: draft.description,
       is_active: draft.is_active,
       owner_id: draft.owner_id || undefined,
     });
-  };
 
   const ownerFromProject =
     project.owner?.name || project.owner?.email || 'Not assigned';
@@ -109,11 +109,11 @@ export default function ProjectMetadataCard({
         return (
           <Grid
             container
-            columnSpacing={isEditing ? 2 : '30px'}
-            rowSpacing={isEditing ? 2 : '20px'}
+            columnSpacing="30px"
+            rowSpacing="20px"
             alignItems="flex-start"
           >
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
               {isEditing ? (
                 <TextField
                   fullWidth
@@ -156,11 +156,14 @@ export default function ProjectMetadataCard({
               )}
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 3 }}>
               {isEditing ? (
                 <FormControl fullWidth>
-                  <InputLabel>Owner</InputLabel>
+                  {/* `displayEmpty` + `shrink` keep the label floated when no
+                      owner is set, so "Not assigned" shows in the value slot. */}
+                  <InputLabel shrink>Owner</InputLabel>
                   <Select
+                    displayEmpty
                     value={draft.owner_id}
                     label="Owner"
                     onChange={e =>
