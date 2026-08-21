@@ -60,6 +60,32 @@ def chat(input: str, session_id: str = None) -> dict:
 
 The `session_id` field in the response is mapped to `conversation_id` internally — they refer to the same concept. When the same `session_id` is returned across turns, Rhesis links all spans into a single conversation thread.
 
+## Standalone Apps: Owning the Turn
+
+Behind `@endpoint` the turn root is the endpoint span and Rhesis fills in the reply from the mapped response, so there is nothing more to do. A **standalone** run has no endpoint — a terminal chat, a script, a worker — and there the framework integration has to guess the turn's reply from the model spans it can see. That works when the reply *is* the model's last message. It does not when your app composes the reply itself: from a tool result, from a template, from its own branching. That text appears in no span, and the agent framework's run span has already ended by the time your code holds it, so nothing downstream can recover it.
+
+`conversation_turn` closes that gap. It opens a span that outlives the agent run, so the reply can be recorded after the fact:
+
+<CodeBlock filename="session.py" language="python">
+{`from rhesis.telemetry import conversation_turn
+
+with conversation_turn(conversation_id, input=message) as turn:
+    result = run_my_agent(message)
+    turn.output = result["reply"]`}
+</CodeBlock>
+
+That one block replaces any manual `set_conversation_id` call. It binds the conversation id, marks the span as the turn root with the message and the reply, and puts every turn of the conversation on a single trace — the first turn keeps its own trace id and later turns join it.
+
+Pass `name=` to label the turn in the viewer (`name="function.my_agent_turn"`). The name must start with `function.` or be a valid `ai.*` operation, or the backend rejects the span.
+
+<Callout type="info">
+  It is safe to leave in place everywhere. When a Rhesis span above it already owns the turn root — behind `@endpoint` or `@observe`, or in any platform-driven turn — `conversation_turn` binds the conversation id and opens **no** span, because two spans claiming the turn root in one exchange detaches one subtree into a phantom turn. With tracing switched off it is a no-op that still yields a usable `turn`, so your code never branches on whether tracing is configured.
+</Callout>
+
+## Why a Trace Can Look Incomplete for a Moment
+
+Opening a trace the instant a turn finishes can show a couple of child spans and no conversation data. Spans are batched and exported every 5 seconds, and the turn root is the *outermost* span, so it ends last and ships in a later batch than its children. Until it arrives there is no span carrying the conversation attributes. Re-opening the trace a moment later shows the full picture — the view is fetched on open, and enrichment runs asynchronously after ingest.
+
 ## Filtering Traces
 
 In the Traces dashboard, use the **trace type filter** to focus on conversation traces. The filter separates single-turn and multi-turn traces so you can quickly find sessions with multiple turns or specific conversation IDs.

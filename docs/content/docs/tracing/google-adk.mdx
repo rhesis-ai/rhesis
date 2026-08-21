@@ -89,7 +89,7 @@ Once enabled, ADK operations are captured automatically and mapped onto the Rhes
 - **Model calls** - each model call becomes one `ai.llm.invoke` span with model, provider, token counts (including cached and reasoning tokens), finish reason, and `ai.prompt` / `ai.completion` events carrying the real text
 - **Tools** - tool executions become `ai.tool.invoke` spans with `ai.tool.input` / `ai.tool.output` events
 - **Handoffs** - agent-to-agent delegation becomes `ai.agent.handoff` spans, for **both** ADK multi-agent mechanisms
-- **Conversations** - the run root carries the turn's input and output, so multi-turn sessions group in the Conversation tab with no manual span code
+- **Conversations** - the run root carries the turn's input and output, and every turn of a conversation lands in one trace rather than one trace per turn
 - **Workflows and nodes** - `Workflow` / node orchestration and the run root become `function.google_adk.*` spans
 
 ### Operation Mapping
@@ -149,7 +149,7 @@ Each handoff span carries `ai.agent.handoff.from` and `ai.agent.handoff.to`. See
 
 ## Conversation Grouping
 
-To group turns into a conversation, set a conversation id around each turn. The integration stamps the run root as a Rhesis conversation turn root keyed by that id:
+ADK opens its own root span for every turn, and OpenTelemetry gives each one a fresh trace id. Rhesis instead shows a conversation as a **single trace** whose roots are the individual turns. To get that, set a conversation id around each turn — the integration both stamps the run root as a conversation turn root and puts every turn on one trace:
 
 <CodeBlock filename="session.py" language="python">
 {`from rhesis.telemetry.context import get_conversation_id, set_conversation_id
@@ -163,7 +163,33 @@ finally:
     set_conversation_id(previous)`}
 </CodeBlock>
 
-With no conversation id set, the integration falls back to the **ADK session id**, so an app that reuses one session across turns gets grouping for free. An app that creates a fresh session per turn should set the id explicitly.
+That is the whole integration: no per-turn span to open, nothing to thread through your own loop. The conversation's trace is the **first turn's own trace**; later turns are moved onto it. The first turn is never moved, so any trace id already recorded for it still resolves.
+
+This applies only to a **standalone ADK run** — a terminal chat, a script, anything where ADK's own run span is the top of the trace and no part of Rhesis has published an id for it. Behind `@endpoint` or `@observe`, or anywhere the platform supplied a conversation trace id, Rhesis owns the trace and already joins the turns itself, so the integration leaves the ids untouched. That id is what the platform returns as the endpoint result, persists as the conversation's trace id for the next turn, and writes its own turn record to — including the reply. Moving spans off it would separate the agent's spans from their own reply.
+
+<Callout type="info">
+  **Turn labelling and turn joining need different things.** With no conversation id set, the turn root is still *labelled* with the ADK session id, so an app that reuses one session across turns is grouped in the Conversation tab. It is not *joined* into one trace, though: the target trace has to be known when ADK creates the run span, and ADK assigns no span attributes at that point, so only the conversation id from `rhesis.telemetry.context` is readable that early. Set it explicitly if you want one trace per conversation.
+</Callout>
+
+### When the Reply Is Not the Model's Last Message
+
+The turn's recorded reply is extracted from ADK's model spans, which is right when your agent answers with model text. It cannot work when the reply comes from somewhere else — a terminal tool's output, a template, a branch in your own code. None of that reaches an `llm_response` attribute, and ADK's run span has already ended by the time your code holds the reply, so those turns show an empty reply in the Conversation tab.
+
+If your agent answers that way, own the turn instead — see [Owning the Turn](/docs/tracing/conversation-tracing#standalone-apps-owning-the-turn):
+
+<CodeBlock filename="session.py" language="python">
+{`from rhesis.telemetry import conversation_turn
+
+with conversation_turn(conversation_id, input=message) as turn:
+    result = await run_turn_async(message)
+    turn.output = result["response"]`}
+</CodeBlock>
+
+The ADK run then nests under that span, which becomes the turn root and carries the reply your user actually saw. This is what `agents/reg-advisor/` does, because its reply can come from a terminal tool or a refusal composed in Python.
+
+<Callout type="info">
+  A step that ADK blocks on its own `max_llm_calls` budget still opens a `call_llm` span, so it still becomes an `ai.llm.invoke` — with no prompt or completion and near-zero duration. Blocked steps therefore count towards the model calls you see on a trace.
+</Callout>
 
 ## Telemetry Schema Versions
 

@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a persistent session service resumes a conversation started in another process. ADK's `run_async`
   is an async generator rather than a coroutine, so the target consumes the event stream and picks
   the reply from it (final-response event, then last complete event, then streamed partials).
+  The turn also runs with the Rhesis conversation id bound, so a simulated conversation traced by
+  `auto_instrument("google_adk")` arrives as one trace instead of one per turn. An id already set
+  upstream is left alone, since in a platform-driven run that value is the grouping key.
   Install with the new `google-adk` extra.
 - **Global tool execution limit** to prevent infinite loops. By default, limits total tool executions to `max_iterations × 5` (e.g., 10 turns × 5 = 50 executions).
 - **Environment variable support** for configuring the execution multiplier via `PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER`.
