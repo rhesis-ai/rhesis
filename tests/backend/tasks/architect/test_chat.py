@@ -199,6 +199,52 @@ async def test_persist_state_omits_trace_id_when_tracing_disabled():
     assert "conversation_trace_id" not in session_update.agent_state
 
 
+# ── persist_state carries tool data forward ─────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_persist_state_stores_carried_tool_results():
+    """Execution history dies with the Celery task, so the rendered tool
+    data has to reach ``agent_state`` or the next turn answers a question
+    about it from the agent's own prose."""
+    agent = MagicMock()
+    agent.dump_state.return_value = MagicMock(
+        mode="discovery",
+        max_iterations=15,
+        discovery_state={},
+        guard_state={},
+        pending_tasks=[],
+        id_to_name={},
+        plan_data=None,
+        carried_tool_results=["[list_annotations]: one Fail review from Nicolai Bohn"],
+    )
+
+    with (
+        patch("rhesis.telemetry.context.get_root_trace_id", return_value=None),
+        patch(
+            "rhesis.backend.app.services.architect.runner.get_db_with_tenant_variables"
+        ) as mock_db_ctx,
+        patch("rhesis.backend.app.crud.create_architect_message"),
+        patch("rhesis.backend.app.crud.update_architect_session") as mock_update,
+    ):
+        mock_db_ctx.return_value.__enter__.return_value = MagicMock()
+
+        await persist_state(
+            agent=agent,
+            response="reply",
+            session_id=_VALID_SESSION_ID,
+            organization_id="org",
+            user_id="user",
+            session_has_title=True,
+            user_message="hi",
+        )
+
+    session_update = mock_update.call_args.kwargs["session"]
+    assert session_update.agent_state["carried_tool_results"] == [
+        "[list_annotations]: one Fail review from Nicolai Bohn"
+    ]
+
+
 # ── _conversation_telemetry_context lifecycle ───────────────────────
 
 

@@ -53,6 +53,12 @@ class ArchitectConfig:
     # how often the agent gets a call wrong.
     failed_args_preview_chars: int = 1_500
 
+    # ── tool data carried between turns ───────────────────────────
+    # The backend builds a fresh agent per user message, so execution
+    # history dies with the turn. These bound the digest that survives.
+    carried_result_max_entries: int = 12
+    carried_result_max_chars: int = 12_000
+
     # ── HTTP methods treated as read-only ─────────────────────────
     readonly_http_methods: frozenset = field(
         default_factory=lambda: frozenset({"GET", "HEAD", "OPTIONS"})
