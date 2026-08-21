@@ -13,6 +13,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`conversation_turn`** (`rhesis.telemetry.conversation_turn`, re-exported from
+  `rhesis.sdk.telemetry`): a context manager for an app that owns its own conversation turn.
+  Auto-instrumentation can only report a reply it can see on a span, so an app whose reply is
+  composed from a tool result, a template or its own branching had no way to record it -- the text
+  is in no span, and the framework's run span has ended by the time the app holds it. This opens a
+  turn-root span that outlives the run, carries the message and the reply, and puts every turn of a
+  conversation on one trace (the first turn keeps its own trace id; later turns join it). It stands
+  down to just binding the conversation id when a Rhesis span above it already owns the turn root
+  -- behind `@endpoint` / `@observe` or any platform-driven turn -- and is a no-op that still
+  yields a usable handle when tracing is off. Framework-neutral: Google ADK, MAF, Haystack and
+  LangChain apps all use the same primitive.
+
+- **Google ADK auto-instrumentation**: `auto_instrument("google_adk")` (alias `"adk"`) translates
+  the OpenTelemetry spans Google ADK already emits into the Rhesis `ai.*` / `function.*` schema.
+  Agent activations, model calls with prompts/completions and token counts, tool calls with their
+  I/O, and agent-to-agent handoffs for **both** ADK multi-agent mechanisms (`sub_agents` +
+  `transfer_to_agent` and `AgentTool`) so the Graph View renders connected edges. The run root is
+  stamped as a conversation turn root, so multi-turn ADK sessions group in the Conversation tab
+  without any manual span code. Both ADK telemetry schema versions are supported and neither is
+  forced. Install with the new `google-adk` extra.
+  - Every turn of a conversation is joined into **one trace**. ADK opens its own run root per turn,
+    so OpenTelemetry mints a fresh trace id each time and a chat would otherwise arrive as one
+    unrelated trace per turn. The integration rewrites each turn's spans onto a shared trace id
+    of the conversation's first turn, which is itself never moved, so any id already recorded for
+    it still resolves. Requires the conversation id to be set
+    (`rhesis.telemetry.context.set_conversation_id`) before the run: ADK assigns no span attributes
+    at span start, so the ADK session id, which still labels the turn root, cannot be read early
+    enough to pick the target trace. Applies only to a standalone run. When `root_trace_id` or
+    `conversation_trace_id` is set -- behind `@endpoint` / `@observe`, or any platform-driven
+    conversation -- Rhesis owns the trace id, publishes it onwards and writes its own turn records
+    (including the reply) to it, so the ids are left untouched.
+  - ADK emits two spans per model call (`call_llm` wrapping `generate_content {model}`); the
+    integration keeps one as `ai.llm.invoke` and drops the duplicate, re-pointing the tool spans
+    ADK had parented on it so nothing orphans.
+  - ADK infrastructure spans (`send_data`, `create_cache`, `handle_context_caching`,
+    `compact_events`, `execute_tool (merged)`) are dropped by default;
+    `RHESIS_GOOGLE_ADK_VERBOSE_SPANS=1` forwards them under `function.google_adk.*`.
+  - `RHESIS_DISABLE_CONTENT_CAPTURE=1` switches off all three of ADK's overlapping content knobs,
+    including the admin lock that stops a per-request `RunConfig.telemetry` from re-enabling
+    content. `OTEL_SEMCONV_STABILITY_OPT_IN` is never touched -- it is a global OpenTelemetry
+    switch affecting unrelated instrumentation.
+
+### Changed
+
+- `deepeval` pinned to `3.7.9` (from `3.7.0`). Versions up to 3.7.4 pin `google-genai < 2`, which is
+  incompatible with `google-adk >= 2.6`; 3.7.5 dropped the `google-genai` dependency entirely, so
+  the bump is what makes the `google-adk` extra installable at all.
+- `TranslatedSpan` accepts an optional `new_parent`, and `synthesize_message_events` /
+  `extract_conversation_input` / `extract_conversation_output` accept an optional `chat_operations`.
+  Both are backward compatible; they exist so an integration can re-point a child whose parent it
+  dropped, and reuse the shared message helpers for a framework that names its model-call operation
+  something other than `chat`.
+
 ## [0.13.0] - 2026-08-20
 
 ### Added
@@ -35,13 +90,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Deprecated Stats Methods**: Removed deprecated `stats()` methods on `TestResults`, `TestRuns`, and `TestRun` (which now raise `NotImplementedError` in favor of the new `Insights` entity).
 
 ### Fixed
-- **Sync/Async Deadlocks**: 
+- **Sync/Async Deadlocks**:
   - Prevented a permanent deadlock in `run_sync` when called from the background event loop's thread.
   - Fixed `BaseLLM.generate_stream` fallback to await `a_generate()` instead of bridging synchronously, resolving deadlocks during streaming.
 - **Quota Error Handling**: Decorated `BaseEntity.push()` to surface 402 Payment Required quota errors as structured `RhesisAPIError` exceptions instead of leaking raw HTTP errors.
 - **Robust Tool Parsing**: Handled literal control characters (newlines/tabs) in JSON tool arguments emitted by models (e.g., Gemini) by relaxing parser strictness.
 - **Telemetry Batch Resilience**: Implemented individual span validation in telemetry exports to prevent a single malformed span from failing an entire batch export.
-- **Synthesizer Stability**: 
+- **Synthesizer Stability**:
   - Fixed `MultiTurnSynthesizer` to gracefully handle and retry failed batches (up to 3 times) instead of crashing on bad model responses.
   - Ensured `OWASPSynthesizer` topic casing is deterministic and prefixed topics with their risk codes (e.g., "LLM01: Prompt Injection").
 - **Error Verbosity**: Improved error logging for model API errors to include the server's response body.

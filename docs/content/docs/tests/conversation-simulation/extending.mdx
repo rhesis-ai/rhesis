@@ -119,7 +119,41 @@ maf_agent = ChatAgent(
 target = MAFTarget(maf_agent, target_id="maf-bot")`}
 </CodeBlock>
 
+<CodeBlock filename="google_adk_target.py" language="python">
+{`from google.adk.agents import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from rhesis.penelope import GoogleADKTarget
+
+adk_agent = Agent(
+    name="support_agent",
+    model="gemini-3-flash",
+    instruction="Help customers resolve support requests.",
+)
+runner = Runner(
+    agent=adk_agent,
+    app_name="support",
+    session_service=InMemorySessionService(),
+)
+target = GoogleADKTarget(runner, target_id="adk-bot", description="Customer support agent")
+
+# A bare agent works too - the target wraps it in a Runner with an
+# in-memory session service.
+target = GoogleADKTarget(adk_agent, target_id="adk-bot")`}
+</CodeBlock>
+
 The MAF target preserves multi-turn context by keeping a MAF thread/session object per `conversation_id`, and bridges MAF's async `run()` to Penelope's synchronous target contract - so you can drive any MAF agent through Penelope's multi-turn testing without changing the agent.
+
+The Google ADK target uses Penelope's `conversation_id` **directly as the ADK session id**, so multi-turn context lives where ADK already keeps it and the same key lines up in Rhesis traces. It looks a session up before creating it, which means a caller-supplied id works and a persistent session service (`DatabaseSessionService`, `VertexAiSessionService`) resumes a conversation that started in another process. ADK's `run_async` is an async generator rather than a coroutine, so the target consumes the event stream and picks the assistant reply from it: the last final-response event with text, falling back to the last complete event and then to streamed partials. `GoogleADKTarget` accepts these constructor parameters:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `runner` | Yes | An ADK `Runner`, or a bare ADK agent to wrap in one |
+| `target_id` | Yes | A unique identifier for the system under test |
+| `description` | No | A human-readable description; defaults to a label containing the target ID |
+| `app_name` | No | App name for session scoping; defaults to the runner's own, else `"penelope"` |
+| `user_id` | No | User id passed to every ADK run call; defaults to `"penelope-user"` |
+| `session_service` | No | Session service used when wrapping a bare agent |
 
 `PydanticAITarget` accepts these constructor parameters:
 

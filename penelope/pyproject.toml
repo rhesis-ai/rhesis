@@ -68,6 +68,14 @@ microsoft-agent-framework = [
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
 ]
+# Google ADK. Upper bound because ADK reserves breaking changes for major
+# versions; the target only duck-types the runner, so it is tolerant within a
+# major. Deliberately absent from the dev group: the target never imports
+# google.adk, and tests/penelope/targets/test_google_adk.py drives fakes, so
+# installing ADK would only slow the test environment down.
+google-adk = [
+    "google-adk>=2.6,<3",
+]
 all = [
     "langchain>=1.3.9",
     "langchain-core>=1.3.3",
@@ -76,6 +84,7 @@ all = [
     "pydantic-ai>=0.0.49",
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
+    "google-adk>=2.6,<3",
 ]
 
 [dependency-groups]

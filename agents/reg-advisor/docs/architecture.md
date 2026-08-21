@@ -279,6 +279,58 @@ as a mechanism rather than built out.
 
 ## Framework Boundary
 
-Business modules stay free of framework-boundary concerns, so tracing can be added later at the
-entrypoints only — `app.py`, `chat_terminal/`, `examples/` — without touching `classify.py`,
-`knowledge.py`, `state.py` or `safety.py`. None of those imports ADK at all.
+Business modules stay free of framework-boundary concerns, so tracing is added at the entrypoints
+only — `app.py`, `chat_terminal/`, `examples/` — without touching `classify.py`, `knowledge.py`,
+`state.py` or `safety.py`. None of those imports ADK at all.
+
+`tests/test_tracing_isolation.py` enforces this: it fails if any business module imports
+`rhesis.sdk`.
+
+## Tracing
+
+The Rhesis SDK's Google ADK integration is enabled in `app.py`, which is the only module that
+imports `rhesis.sdk`:
+
+```python
+rhesis_client = RhesisClient.from_environment()   # or DisabledClient() with no credentials
+auto_instrument("google_adk")
+```
+
+ADK emits OpenTelemetry spans unconditionally; the integration wraps the exporter and translates
+them into Rhesis's `ai.*` schema. Nothing in this app calls into it, and removing those two lines
+removes tracing entirely.
+
+Only one place beyond `app.py` needs to know about tracing at all: `session.py` marks each turn
+with `set_conversation_id`, which is what makes turns group into a conversation in the Rhesis UI.
+It imports the light `rhesis.telemetry.context` module — a contextvar accessor with no client, no
+HTTP and no provider ownership — not the SDK.
+
+The two standalone entry points each have a traced twin that owns its own client construction:
+`chat_terminal/chat_traced.py` and `examples/run_scenarios_traced.py`. Both wrap the plain
+version's `main()` rather than duplicating it, so the untraced path stays the one under test and
+neither copy can drift.
+
+### What the trace looks like
+
+Reg-Advisor delegates exclusively through `AgentTool`, never `transfer_to_agent`. ADK models an
+`AgentTool` call by nesting a whole inner `Runner` beneath an `execute_tool` span, so the trace is
+deep rather than wide:
+
+```
+function.google_adk.invocation            turn root: input, output, conversation id
+└─ ai.agent.invoke  reg_advisor_coordinator
+   └─ ai.llm.invoke                       prompts, completion, token counts
+      └─ ai.tool.invoke  intake_agent     the AgentTool call itself
+         └─ function.google_adk.invocation  the inner Runner's own root
+            ├─ ai.agent.invoke  intake_agent
+            └─ ai.agent.handoff            coordinator -> intake_agent
+```
+
+The `ai.agent.handoff` spans are synthesized by the SDK from that nesting; they are the only
+source of the edges the Graph View draws, because this app emits no `transfer_to_agent` calls.
+`tests/test_span_tree.py` asserts they are present, which is what catches a refactor that
+flattens the graph.
+
+One shape worth noting: ADK emits two spans per model call (`call_llm` wrapping
+`generate_content {model}`). The SDK keeps the outer one as `ai.llm.invoke` and drops the inner
+duplicate, re-pointing the tool spans ADK had parented on it so nothing orphans.

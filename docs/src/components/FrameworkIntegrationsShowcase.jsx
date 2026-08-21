@@ -52,6 +52,12 @@ const FRAMEWORK_TRACING_ITEMS = [
     src: '/integrations/microsoft.svg',
     kind: 'simpleIcon',
   },
+  {
+    name: 'Google ADK',
+    href: '/docs/tracing/google-adk',
+    src: '/integrations/providers/google.svg',
+    kind: 'simpleIcon',
+  },
 ]
 
 /** LangChain, LangGraph, and SDK Connector — single Observability section on /docs/integrations */
@@ -469,8 +475,8 @@ export function ObservabilitySection() {
         >
           Auto-instrumentation
         </a>{' '}
-        works out of the box for LangChain, LangGraph, and Microsoft Agent Framework; connect any
-        Python app using the{' '}
+        works out of the box for LangChain, LangGraph, Microsoft Agent Framework, and Google ADK;
+        connect any Python app using the{' '}
         <a
           href="/sdk/connector"
           style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}

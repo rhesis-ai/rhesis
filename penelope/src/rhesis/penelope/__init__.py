@@ -22,6 +22,7 @@ from rhesis.penelope.schemas import (
 )
 from rhesis.penelope.targets import (
     EndpointTarget,
+    GoogleADKTarget,
     LangChainTarget,
     LangGraphTarget,
     MAFTarget,
@@ -53,6 +54,7 @@ __all__ = [
     "LangGraphTarget",
     "MAFTarget",
     "PydanticAITarget",
+    "GoogleADKTarget",
 ]
 
 # Deprecated alias: MicrosoftAgentFrameworkTarget was renamed to MAFTarget.

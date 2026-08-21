@@ -24,7 +24,10 @@ jobs:
           # Lob is excluded: through v3.96.0 its key pattern is `test_` + 35 word characters, so
           # every 40-character pytest function name matches and Lob's API answers 403, which that
           # version reads as "verified". Fixed upstream in 43b8e371a, unreleased. We don't use Lob.
-          extra_args: --results=verified,unknown --exclude-detectors=Lob
+          # uv.lock files are excluded via .trufflehog-exclude-paths; see that file for why.
+          extra_args: >-
+            --results=verified,unknown --exclude-detectors=Lob
+            --exclude-paths=.trufflehog-exclude-paths
 
   changes:
     if: github.event_name != 'push'

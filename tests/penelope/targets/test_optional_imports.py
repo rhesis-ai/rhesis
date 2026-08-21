@@ -1,11 +1,11 @@
 """Regression test: rhesis.penelope.targets must import without optional deps.
 
-langchain, langgraph, pydantic-ai, and the agent-framework packages are all
-optional dependencies of rhesis-penelope (see penelope/pyproject.toml).
-LangChainTarget, LangGraphTarget, PydanticAITarget, and MAFTarget are imported
-unconditionally from targets/__init__.py, so none of their modules may import
-those optional packages at module level - only inside the functions that
-actually need them.
+langchain, langgraph, pydantic-ai, google-adk, and the agent-framework packages
+are all optional dependencies of rhesis-penelope (see penelope/pyproject.toml).
+LangChainTarget, LangGraphTarget, PydanticAITarget, MAFTarget, and
+GoogleADKTarget are imported unconditionally from targets/__init__.py, so none of
+their modules may import those optional packages at module level - only inside
+the functions that actually need them.
 """
 
 import builtins
@@ -13,19 +13,35 @@ import sys
 
 import pytest
 
-_BLOCKED = {"langchain_core", "langgraph", "pydantic_ai", "agent_framework"}
+# Blocked module paths. Dotted entries block that module and its submodules only:
+# ``google`` is a namespace package shared with unrelated distributions, so
+# blocking it wholesale would take out imports that have nothing to do with ADK.
+_BLOCKED = {
+    "langchain_core",
+    "langgraph",
+    "pydantic_ai",
+    "agent_framework",
+    "google.adk",
+    "google.genai",
+}
+
+
+def _is_blocked(module_name: str) -> bool:
+    return any(
+        module_name == blocked or module_name.startswith(f"{blocked}.") for blocked in _BLOCKED
+    )
 
 
 @pytest.fixture
 def block_optional_deps(monkeypatch):
-    """Make imports of langchain_core/langgraph/pydantic_ai raise ImportError,
+    """Make imports of every optional framework raise ImportError,
     and drop any already-imported rhesis.penelope modules so the next import
     is forced to go through the (now-blocked) optional packages fresh.
     """
     real_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name.split(".")[0] in _BLOCKED:
+        if _is_blocked(name):
             raise ImportError(f"simulated: {name} not installed")
         return real_import(name, *args, **kwargs)
 
@@ -33,7 +49,7 @@ def block_optional_deps(monkeypatch):
 
     removed = {}
     for mod_name in list(sys.modules):
-        if mod_name.split(".")[0] in _BLOCKED or mod_name.startswith("rhesis.penelope"):
+        if _is_blocked(mod_name) or mod_name.startswith("rhesis.penelope"):
             removed[mod_name] = sys.modules.pop(mod_name)
 
     yield
@@ -49,6 +65,7 @@ def test_targets_package_imports_without_optional_deps(block_optional_deps):
     assert targets.LangGraphTarget is not None
     assert targets.PydanticAITarget is not None
     assert targets.MAFTarget is not None
+    assert targets.GoogleADKTarget is not None
 
 
 def test_endpoint_target_usable_without_optional_deps(block_optional_deps):
@@ -62,3 +79,20 @@ def test_endpoint_target_usable_without_optional_deps(block_optional_deps):
 
     target = EndpointTarget(endpoint=endpoint)
     assert target.target_id == "endpoint-123"
+
+
+def test_google_adk_target_constructible_without_adk_installed(block_optional_deps):
+    """The target duck-types the runner, so construction must not need ADK."""
+
+    from rhesis.penelope.targets import GoogleADKTarget
+
+    class FakeRunner:
+        app_name = "fake"
+        session_service = object()
+
+        async def run_async(self, **kwargs):  # pragma: no cover - not driven here
+            raise AssertionError("not driven in this test")
+
+    target = GoogleADKTarget(FakeRunner(), "adk-bot")
+    assert target.target_id == "adk-bot"
+    assert target.target_type == "google_adk"

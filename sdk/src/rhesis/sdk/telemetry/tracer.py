@@ -9,7 +9,6 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Optional
 
 from opentelemetry import trace
-from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
@@ -23,6 +22,7 @@ from rhesis.telemetry.context import (
     is_tracing_disabled,
     set_root_trace_id,
 )
+from rhesis.telemetry.conversation import build_conversation_parent_context
 from rhesis.telemetry.provider import get_tracer_provider
 from rhesis.telemetry.schemas import TestExecutionContext
 
@@ -339,20 +339,9 @@ class Tracer:
         Returns:
             OTEL Context with synthetic parent, or None on error
         """
-        try:
-            trace_id_int = int(conv_trace_id, 16)
-            # Use a placeholder span_id (stripped by the exporter)
-            synthetic_span_ctx = SpanContext(
-                trace_id=trace_id_int,
-                span_id=ConvContextConstants.SYNTHETIC_PARENT_SPAN_ID,
-                is_remote=True,
-                trace_flags=TraceFlags(TraceFlags.SAMPLED),
-            )
-            parent_span = NonRecordingSpan(synthetic_span_ctx)
-            return trace.set_span_in_context(parent_span)
-        except (ValueError, TypeError):
-            logger.warning(f"Invalid conversation trace_id: {conv_trace_id}")
-            return None
+        # Shared with rhesis.telemetry.conversation_turn, which needs the same
+        # inheritance trick for apps that own their own turn boundary.
+        return build_conversation_parent_context(conv_trace_id)
 
     def trace_execution(
         self,

@@ -62,6 +62,43 @@ Drives six scripted conversations against the real model — greeting, out of sc
 both worked examples above, and an ambiguous product that must end in a question rather than a
 guess. Checks a post-condition per scenario and exits non-zero when one fails. Needs an API key.
 
+## Tracing
+
+Reg-Advisor is wired to the Rhesis SDK's Google ADK integration, so a run shows up in Rhesis as
+a coherent trace: one root per turn carrying the question and the answer, an `ai.agent.invoke`
+span per agent activation, an `ai.llm.invoke` per model call with prompts, completions and token
+counts, an `ai.tool.invoke` per tool call with its input and output, and `ai.agent.handoff` edges
+between the coordinator and its specialists so the Graph View draws a connected graph.
+
+Set `RHESIS_API_KEY` and `RHESIS_PROJECT_ID` to turn it on. Without them the app runs exactly as
+before and nothing is shipped.
+
+Each entry point has a traced twin, so tracing is never in the way of running the thing
+plainly:
+
+```bash
+uv run python chat_terminal/chat.py            # interactive REPL
+uv run python chat_terminal/chat_traced.py     # the same REPL, traced
+
+uv run python examples/run_scenarios.py        # scripted scenarios
+uv run python examples/run_scenarios_traced.py # the same scenarios, traced
+```
+
+The traced variants exit with a message if the Rhesis credentials are missing, rather than
+running untraced and looking like they worked.
+
+The integration is enabled in exactly one place, `src/reg_advisor/app.py`:
+
+```python
+auto_instrument("google_adk")
+```
+
+Order matters: `RhesisClient` must exist first, because that is what installs the tracer provider
+whose exporter the integration wraps. Two tests guard the wiring —
+`tests/test_span_tree.py` asserts the trace shape (and fails if a refactor flattens the agent
+graph) and `tests/test_tracing_isolation.py` asserts `app.py` stays the only module importing the
+SDK.
+
 ## Tests
 
 ```bash
@@ -77,6 +114,10 @@ Unit tests only. They use a mocked model and need no API key and no network.
 | `GOOGLE_API_KEY` | Yes | Gemini API key. `GEMINI_API_KEY` also works. |
 | `REG_ADVISOR_MODEL` | No | Gemini model id. Default `gemini-3.1-flash-lite`. |
 | `GOOGLE_GENAI_USE_VERTEXAI` | No | Set to `1` to use Vertex AI instead of the Gemini API, with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`. |
+| `RHESIS_API_KEY` | No | Rhesis API key. Both this and `RHESIS_PROJECT_ID` must be set for traces to ship. |
+| `RHESIS_PROJECT_ID` | No | Rhesis project id. |
+| `RHESIS_BASE_URL` | No | Point the SDK at a self-hosted or local backend. |
+| `RHESIS_DISABLE_CONTENT_CAPTURE` | No | Set to `1` to keep prompts, completions and tool I/O out of the spans. |
 
 ## Safety Constraints
 
@@ -97,8 +138,8 @@ Unit tests only. They use a mocked model and need no API key and no network.
 ```
 src/reg_advisor/     state, knowledge, classifier, safety, tools, agents, runner, session, app
 knowledge/           taxonomy, decision trees, comparisons, sources, gap log (YAML)
-chat_terminal/       interactive REPL
-examples/            scripted scenarios
+chat_terminal/       interactive REPL, plain and traced
+examples/            scripted scenarios, plain and traced
 docs/                architecture
-tests/               unit tests, mocked model
+tests/               unit tests (mocked model), trace-shape and isolation guards
 ```

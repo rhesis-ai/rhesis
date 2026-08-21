@@ -14,6 +14,7 @@ from rhesis.telemetry.attributes import (
 )
 
 # Re-export from rhesis.telemetry (lightweight foundation)
+from rhesis.telemetry.conversation import ConversationTurn, conversation_turn
 from rhesis.telemetry.exporter import RhesisOTLPExporter
 from rhesis.telemetry.provider import get_tracer_provider, shutdown_tracer_provider
 
@@ -38,6 +39,8 @@ __all__ = [
     "disable_auto_instrument",
     # Primary API
     "Tracer",
+    "ConversationTurn",
+    "conversation_turn",
     # Schemas
     "SpanKind",
     "StatusCode",

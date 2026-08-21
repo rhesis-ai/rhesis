@@ -25,10 +25,12 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from threading import Lock
+from typing import Any, Collection, Iterable, Mapping, Optional, Sequence
 
 from opentelemetry.sdk.trace import Event, ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.trace import SpanContext
 
 from rhesis.telemetry.attributes import AIAttributes
 
@@ -316,14 +318,22 @@ def join_text_parts(parts: Any) -> str:
     return "".join(chunks)
 
 
-def extract_conversation_input(attributes: Mapping[str, Any]) -> str | None:
+def extract_conversation_input(
+    attributes: Mapping[str, Any],
+    *,
+    chat_operations: Collection[str] = (OP_CHAT,),
+) -> str | None:
     """Return the original user query text from a chat span's input messages.
 
     Reads ``gen_ai.input.messages`` and returns the text of the first
     ``role == "user"`` message. Returns ``None`` for non-chat spans,
     missing/empty content, or when capture is disabled.
+
+    ``chat_operations`` names the ``gen_ai.operation.name`` values that count as
+    a model call. It exists for frameworks that use their own operation name for
+    the same thing (Google ADK reports ``generate_content``).
     """
-    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+    if attributes.get(GEN_AI_OPERATION_NAME) not in chat_operations:
         return None
     messages = coerce_message_list(attributes.get(GEN_AI_INPUT_MESSAGES))
     if not messages:
@@ -337,15 +347,21 @@ def extract_conversation_input(attributes: Mapping[str, Any]) -> str | None:
     return None
 
 
-def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
+def extract_conversation_output(
+    attributes: Mapping[str, Any],
+    *,
+    chat_operations: Collection[str] = (OP_CHAT,),
+) -> str | None:
     """Return the assistant response text from a chat span's output messages.
 
     Reads ``gen_ai.output.messages`` and joins the text parts of every
     ``role == "assistant"`` message. Tool-call-only turns yield an empty
     string and are skipped. Returns ``None`` for non-chat spans or when there
     is no assistant text output.
+
+    See :func:`extract_conversation_input` for ``chat_operations``.
     """
-    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+    if attributes.get(GEN_AI_OPERATION_NAME) not in chat_operations:
         return None
     messages = coerce_message_list(attributes.get(GEN_AI_OUTPUT_MESSAGES))
     if not messages:
@@ -363,6 +379,8 @@ def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
 
 def synthesize_message_events(
     attributes: Mapping[str, Any],
+    *,
+    chat_operations: Collection[str] = (OP_CHAT,),
 ) -> list[tuple[str, dict[str, Any]]]:
     """Build ``ai.prompt`` / ``ai.completion`` events from GenAI message attrs.
 
@@ -373,9 +391,10 @@ def synthesize_message_events(
     not duplicate LLM content onto agent/tool spans.
 
     Returns an empty list when this is not a chat span or no message attributes
-    are present (e.g. content capture disabled).
+    are present (e.g. content capture disabled). See
+    :func:`extract_conversation_input` for ``chat_operations``.
     """
-    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+    if attributes.get(GEN_AI_OPERATION_NAME) not in chat_operations:
         return []
 
     events: list[tuple[str, dict[str, Any]]] = []
@@ -452,14 +471,23 @@ def synthesize_tool_io_events(
 # TranslatedSpan: read-only ReadableSpan view with swapped name/attrs/events
 # ---------------------------------------------------------------------------
 
+# Sentinel for ``TranslatedSpan(new_parent=...)``. A plain ``None`` default
+# would be ambiguous: ``None`` is also a legitimate parent value meaning "this
+# span is a trace root", so we need a third value for "leave the parent alone".
+KEEP_PARENT = object()
+
 
 class TranslatedSpan(ReadableSpan):
     """Read-only view that swaps the original span's name/attributes/events.
 
     OTEL ``ReadableSpan`` exposes its data via properties. By overriding only
-    the three we care about we get a span that quacks like the original (kind,
-    parent, status, timestamps, resource, instrumentation_scope, ...) but that
-    appears in the Rhesis ``ai.*`` namespace to downstream consumers.
+    the four we care about we get a span that quacks like the original (kind,
+    status, timestamps, resource, instrumentation_scope, ...) but that appears
+    in the Rhesis ``ai.*`` namespace to downstream consumers.
+
+    ``new_parent`` is optional and defaults to :data:`KEEP_PARENT`; pass a
+    ``SpanContext`` (or ``None``) only to re-point a span whose real parent the
+    integration dropped.
     """
 
     def __init__(
@@ -468,6 +496,7 @@ class TranslatedSpan(ReadableSpan):
         new_name: str,
         new_attributes: Mapping[str, Any],
         new_events: Sequence[Event],
+        new_parent: Any = KEEP_PARENT,
     ) -> None:
         # Skip ReadableSpan.__init__ on purpose: the parent stores fields in
         # private slots and forces us to copy them all over. Instead, we keep
@@ -477,6 +506,7 @@ class TranslatedSpan(ReadableSpan):
         self._new_name = new_name
         self._new_attributes = dict(new_attributes)
         self._new_events = tuple(new_events)
+        self._new_parent = new_parent
 
     @property
     def name(self) -> str:  # type: ignore[override]
@@ -490,6 +520,14 @@ class TranslatedSpan(ReadableSpan):
     def events(self):  # type: ignore[override]
         return self._new_events
 
+    @property
+    def parent(self):  # type: ignore[override]
+        # Lets an integration re-point a span whose real parent it dropped, so
+        # the child does not orphan in the exported trace.
+        if self._new_parent is KEEP_PARENT:
+            return self._original.parent
+        return self._new_parent
+
     def __getattr__(self, item: str) -> Any:
         # __getattr__ is only consulted when normal lookup fails, so it never
         # masks the explicit overrides above.
@@ -500,6 +538,190 @@ class TranslatedSpan(ReadableSpan):
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return f"TranslatedSpan(name={self._new_name!r}, original={self._original!r})"
+
+
+class RetracedSpan(ReadableSpan):
+    """Read-only view that moves a span onto a different trace id.
+
+    Composes over anything ``ReadableSpan``-shaped, :class:`TranslatedSpan`
+    included, which is why every public property is forwarded by hand instead of
+    leaning on ``__getattr__``. ``ReadableSpan`` implements them as properties
+    over private slots this wrapper never sets, so an inherited ``attributes``
+    would resolve ``self._attributes`` through ``__getattr__`` onto the
+    *innermost* span and quietly hand back the untranslated values.
+
+    The parent link is rebound to the new trace as well: only ``span_id`` reaches
+    the Rhesis exporter, but a parent context still pointing at the abandoned
+    trace is an inconsistency the next reader has to work out.
+    """
+
+    def __init__(self, original: ReadableSpan, trace_id: int) -> None:
+        # Same reason as TranslatedSpan for skipping ReadableSpan.__init__.
+        self._original = original
+        self._context = self._rebind(original.context, trace_id)
+        self._parent = self._rebind(original.parent, trace_id)
+
+    @staticmethod
+    def _rebind(ctx: Optional[SpanContext], trace_id: int) -> Optional[SpanContext]:
+        if ctx is None:
+            return None
+        return SpanContext(
+            trace_id=trace_id,
+            span_id=ctx.span_id,
+            is_remote=ctx.is_remote,
+            trace_flags=ctx.trace_flags,
+            trace_state=ctx.trace_state,
+        )
+
+    @property
+    def context(self):  # type: ignore[override]
+        return self._context
+
+    @property
+    def parent(self):  # type: ignore[override]
+        return self._parent
+
+    def get_span_context(self):  # type: ignore[override]
+        return self._context
+
+    @property
+    def name(self):  # type: ignore[override]
+        return self._original.name
+
+    @property
+    def attributes(self):  # type: ignore[override]
+        return self._original.attributes
+
+    @property
+    def events(self):  # type: ignore[override]
+        return self._original.events
+
+    @property
+    def links(self):  # type: ignore[override]
+        return self._original.links
+
+    @property
+    def kind(self):  # type: ignore[override]
+        return self._original.kind
+
+    @property
+    def status(self):  # type: ignore[override]
+        return self._original.status
+
+    @property
+    def start_time(self):  # type: ignore[override]
+        return self._original.start_time
+
+    @property
+    def end_time(self):  # type: ignore[override]
+        return self._original.end_time
+
+    @property
+    def resource(self):  # type: ignore[override]
+        return self._original.resource
+
+    @property
+    def instrumentation_scope(self):  # type: ignore[override]
+        return self._original.instrumentation_scope
+
+    @property
+    def instrumentation_info(self):  # type: ignore[override]
+        return self._original.instrumentation_info
+
+    @property
+    def dropped_attributes(self):  # type: ignore[override]
+        return self._original.dropped_attributes
+
+    @property
+    def dropped_events(self):  # type: ignore[override]
+        return self._original.dropped_events
+
+    @property
+    def dropped_links(self):  # type: ignore[override]
+        return self._original.dropped_links
+
+    def to_json(self, indent: int = 4) -> str:  # type: ignore[override]
+        return self._original.to_json(indent=indent)
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._original, item)
+
+    def __repr__(self) -> str:  # pragma: no cover - cosmetic
+        trace_id = format(self._context.trace_id, "032x") if self._context else None
+        return f"RetracedSpan(trace_id={trace_id}, original={self._original!r})"
+
+
+class ConversationTraceRegistry:
+    """Joins the traces of one conversation onto the trace id of its first turn.
+
+    A natively instrumented framework opens its own root span per turn, so OTEL
+    mints a fresh trace id each time and a conversation arrives as one unrelated
+    trace per turn. This records the first turn's id and hands it back for the
+    rest, so later turns can be rewritten onto it.
+
+    Two rules keep that from corrupting anything. The first turn is **never**
+    rewritten -- it keeps the id it was born with, which is the id anything else
+    in the process would have observed and published. And the caller must not
+    claim at all when something outside the process owns the trace identity; see
+    the ``root_trace_id`` / ``conversation_trace_id`` check at the call site. An
+    id we invented can never match one a backend minted independently, and a span
+    written to a trace id nobody else knows is a span nothing can link to.
+
+    Written at span *start*, where the conversation ContextVars are still live,
+    and read at *export*, where they are not -- a ``BatchSpanProcessor`` exports
+    on its own thread. :meth:`claim` therefore has to run on the first span of a
+    trace, which is the framework's run root: it starts before every span whose
+    trace id will need rewriting, so no span can escape with the wrong id.
+
+    Bounded, because a long-lived process would otherwise keep one entry per
+    conversation and per trace forever.
+    """
+
+    def __init__(self, *, max_conversations: int = 2048, max_traces: int = 4096) -> None:
+        self._anchors: dict[str, int] = {}
+        self._targets: dict[int, int] = {}
+        self._lock = Lock()
+        self._max_conversations = max_conversations
+        self._max_traces = max_traces
+
+    def claim(self, trace_id: Optional[int], conversation_id: Optional[str]) -> None:
+        """Anchor ``conversation_id`` to a trace, once per trace.
+
+        The first turn seen for a conversation becomes its anchor and is left
+        alone. Every later turn records a rewrite onto that anchor.
+        """
+        if trace_id is None or not conversation_id or trace_id in self._targets:
+            return
+        with self._lock:
+            anchor = self._anchors.get(conversation_id)
+            if anchor is None:
+                self._evict(self._anchors, self._max_conversations)
+                self._anchors[conversation_id] = trace_id
+                return
+            self._evict(self._targets, self._max_traces)
+            self._targets.setdefault(trace_id, anchor)
+
+    @staticmethod
+    def _evict(store: dict, limit: int) -> None:
+        while len(store) >= limit:
+            try:
+                store.pop(next(iter(store)))
+            except StopIteration:  # pragma: no cover - racy but harmless
+                return
+
+    def target(self, trace_id: Optional[int]) -> Optional[int]:
+        """Return the trace id to rewrite to, or ``None`` to leave the span alone."""
+        if trace_id is None:
+            return None
+        target = self._targets.get(trace_id)
+        if target is None or target == trace_id:
+            return None
+        return target
+
+    def clear(self) -> None:
+        with self._lock:
+            self._anchors.clear()
+            self._targets.clear()
 
 
 def translate_events(

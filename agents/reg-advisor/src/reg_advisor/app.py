@@ -1,19 +1,51 @@
-"""Reg-Advisor FastAPI application."""
+"""Reg-Advisor FastAPI application.
+
+This is the only module that imports the Rhesis SDK; everything below it is
+plain Google ADK. Tracing is additive: with no Rhesis credentials the app runs
+exactly as before, just without shipping spans.
+"""
 
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.clients import DisabledClient
+from rhesis.sdk.telemetry import auto_instrument
 
 from reg_advisor.knowledge import get_knowledge_base, validate_knowledge_base
 from reg_advisor.session import default_store, get_default_agent, run_chat_turn_async
 from reg_advisor.state import Phase
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+# Initialise the Rhesis client so ``@endpoint`` and ``auto_instrument`` have a
+# tracer provider to attach to. Gate on the credentials themselves:
+# ``RhesisClient.__init__`` eagerly installs OTEL providers and tries to ship
+# spans, so constructing it without an API key / project id would export against
+# ``project_id="unknown"`` with ``Authorization: Bearer None``. Falling back to
+# ``DisabledClient`` before construction is the only way to keep telemetry off.
+if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
+    rhesis_client = RhesisClient.from_environment()
+else:
+    logger.info(
+        "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
+        "Traces will NOT be shipped to the backend."
+    )
+    rhesis_client = DisabledClient()
+
+# THE line under test: turn on the SDK's Google ADK integration. It must come
+# after the client, which is what installs the provider whose exporter the
+# integration wraps.
+auto_instrument("google_adk")
 
 _startup_validated = False
 
@@ -113,12 +145,44 @@ async def delete_conversation(conversation_id: str) -> dict[str, Any]:
     return {"deleted": conversation_id}
 
 
+@endpoint(
+    name="reg_advisor_chat",
+    description="Chat with the Reg-Advisor Google ADK multi-agent system.",
+    request_mapping={
+        "message": "{{ input }}",
+        "conversation_id": "{{ session_id | default(none) }}",
+    },
+    response_mapping={
+        "output": "{{ response }}",
+        "session_id": "{{ conversation_id }}",
+        # phase is an enum, so it is stringified before tojson sees it.
+        "metadata": "{{ {'phase': phase | string, 'turn': turn} | tojson }}",
+    },
+)
+async def chat_endpoint_traced(
+    message: str,
+    conversation_id: str | None = None,
+) -> ChatResponse:
+    """Traced entry point for one Reg-Advisor turn.
+
+    Async so the ``/chat`` route can await it directly from the running event
+    loop while still going through ``@endpoint``, which opens the Rhesis endpoint
+    span the ADK spans then nest under and applies the mappings used for
+    conversation grouping.
+    """
+    result = await run_chat_turn_async(message, conversation_id=conversation_id)
+    return _chat_response_from_result(result)
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     if not _startup_validated:
         raise HTTPException(status_code=503, detail="Service starting up")
     try:
-        result = await run_chat_turn_async(request.message, conversation_id=request.conversation_id)
+        return await chat_endpoint_traced(
+            message=request.message,
+            conversation_id=request.conversation_id,
+        )
     except RuntimeError as exc:
         # A missing credential is the user's problem to fix, so it travels with its real
         # message. Everything else is ours, and stays generic.
@@ -129,7 +193,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except Exception as exc:
         logger.error("Chat turn failed", exc_info=True)
         raise HTTPException(status_code=500, detail="Error processing request") from exc
-    return _chat_response_from_result(result)
 
 
-__all__ = ["ChatRequest", "ChatResponse", "app"]
+__all__ = ["ChatRequest", "ChatResponse", "app", "chat_endpoint_traced"]
