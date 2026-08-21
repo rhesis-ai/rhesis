@@ -1,5 +1,6 @@
 """Tests for lazy phase prompt loading."""
 
+import re
 import shutil
 from pathlib import Path
 
@@ -324,3 +325,92 @@ class TestProjectContextBlock:
         text = self._render(project_context_text="")
         assert "Current Project" not in text
         assert "do not call `list_projects`" not in text
+
+
+@pytest.mark.unit
+class TestConciseOutputGuidance:
+    """Guard the rules that keep Architect answers short.
+
+    Verbosity crept in from three directions: a personality that rewarded
+    narration, a streaming template that told the agent to *expand* the seed
+    answer, and three separate files each prescribing a run-summary format.
+    Prompt wording has no runtime assertions, so these tests are what stops
+    any of the three from coming back.
+    """
+
+    # Emoji, arrows and check marks the old personality encouraged.
+    _DECORATION = re.compile("[✅❌✓✔✖✗\U0001f300-\U0001faff\U0001f600-\U0001f64f]")
+
+    def test_personality_sets_a_length_budget(self):
+        text = (_TEMPLATES_DIR / "personality.j2").read_text()
+        assert "150 words" in text, "personality no longer states a prose budget"
+        assert "Response shape" in text
+
+    def test_personality_bans_narration_and_preamble(self):
+        text = (_TEMPLATES_DIR / "personality.j2").read_text()
+        assert "You never use emoji." in text
+        assert "think out loud" not in text, (
+            "'think out loud' invites the agent to narrate its own process"
+        )
+        for banned in ("emojis sparingly", "light, observational sense of humor"):
+            assert banned not in text, f"personality still carries: {banned!r}"
+
+    # Files whose check marks are data in a worked example, not sample output.
+    # use-case-bracketfeld.md marks requirement/metric scope compatibility in a
+    # table the agent reads but never reproduces.
+    _DECORATION_EXEMPT = frozenset({"use-case-bracketfeld.md"})
+
+    @pytest.mark.parametrize(
+        "path",
+        sorted(
+            [p for p in _TEMPLATES_DIR.rglob("*") if p.suffix in (".j2", ".md")]
+            + [p for p in _SKILLS_REFS.rglob("*") if p.suffix == ".md"]
+        ),
+        ids=lambda p: p.name,
+    )
+    def test_no_prompt_decorates_with_emoji(self, path):
+        """Example output in the prompts is what the agent imitates."""
+        if path.name in self._DECORATION_EXEMPT:
+            pytest.skip(f"{path.name} uses marks as example data, not as output")
+        found = self._DECORATION.findall(path.read_text())
+        assert not found, f"{path.name} shows decoration the agent will copy: {found[:5]}"
+
+    def test_streaming_template_tightens_rather_than_expands(self):
+        text = (_TEMPLATES_DIR / "streaming_response.j2").read_text()
+        assert "Expand on the seed" not in text, (
+            "the streaming pass must not be told to expand the seed answer"
+        )
+        assert "add nothing to it" in text
+        assert "shorter than the seed is a good outcome" in text.lower()
+
+    def test_streaming_template_defers_result_format_to_phase_guidance(self):
+        """One file owns the run-summary shape; this template is not it."""
+        text = (_TEMPLATES_DIR / "streaming_response.j2").read_text()
+        for owned_elsewhere in ("By requirement", "What went wrong", "Calibrate depth"):
+            assert owned_elsewhere not in text, (
+                f"streaming_response.j2 re-specifies {owned_elsewhere!r} — "
+                "phases/analysis.md owns the result format"
+            )
+
+    def test_only_analysis_phase_prescribes_the_run_summary_shape(self):
+        owner = (_SKILLS_REFS / "phases" / "analysis.md").read_text()
+        assert "## Presenting a run" in owner
+
+        for name in ("result-analysis.md", "insights-summary.md"):
+            text = (_SKILLS_REFS / name).read_text()
+            assert "## Presenting" not in text, (
+                f"{name} prescribes output format again — it should point at "
+                "phases/analysis.md instead"
+            )
+
+    def test_analysis_phase_caps_failures_and_next_steps(self):
+        text = (_SKILLS_REFS / "phases" / "analysis.md").read_text()
+        assert "at most 3" in text, "failure and next-step caps are missing"
+        assert "does **not** change with the pass rate" in text, (
+            "a failing run must not produce a longer message than a passing one"
+        )
+
+    def test_executing_turn_loads_the_format_owner(self):
+        """The caps only apply if analysis.md is actually injected."""
+        names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.RUN_ANALYZE)
+        assert "phases/analysis.md" in names
