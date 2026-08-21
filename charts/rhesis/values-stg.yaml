@@ -42,9 +42,9 @@ config:
   rhesisBaseUrl: "https://stg-api.rhesis.ai"
   frontendUrl: "https://stg-app.rhesis.ai"
   backendUrl: "http://backend:8080"
-  # Disposable-email screening: off | log | enforce. Starts at log so the
-  # community list's false-positive rate can be measured before it rejects.
-  authBlockDisposableEmails: "log"
+  # Disposable-email screening: off | log | enforce. Ran as log from #2511 so the
+  # community list's false-positive rate could be measured; enforcing since 2026-08-21.
+  authBlockDisposableEmails: "enforce"
   authDisposableEmailExtraDomains: ""
 
   # GCP
