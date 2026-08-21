@@ -85,7 +85,7 @@ jobs:
 
           # cnpg-operator.yaml is intentionally excluded — manual sync, manual promotion.
           FILES=(
-            kubernetes/clusters/prd/base.yaml
+            kubernetes/bootstrap/prd-base.yaml
             kubernetes/clusters/prd/arc.yaml
             kubernetes/clusters/prd/loki.yaml
             kubernetes/clusters/prd/kube-prometheus-stack.yaml
@@ -172,6 +172,19 @@ jobs:
               fi
             done
           }
+
+          # prd-base is bootstrap, not GitOps-managed, so nothing recreates it if it
+          # goes missing. ArgoCD reports a non-existent app as PermissionDenied, which
+          # retry_argocd treats as fail-fast, so an absent root app used to surface as
+          # a confusing auth error. Create it from the checked-in manifest instead.
+          # Guarded rather than --upsert: upsert would reset targetRevision to the
+          # committed value and automated sync could fire on it before the pin below.
+          if ! argocd app get prd-base \
+            --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web >/dev/null 2>&1; then
+            echo "prd-base not found — creating it from kubernetes/bootstrap/prd-base.yaml"
+            retry_argocd argocd app create -f kubernetes/bootstrap/prd-base.yaml \
+              --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
+          fi
 
           retry_argocd argocd app set prd-base --revision "$PROMOTED_SHA" \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
