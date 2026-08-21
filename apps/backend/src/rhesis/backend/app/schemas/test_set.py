@@ -269,6 +269,15 @@ class TestSetBulkDisassociateResponse(BaseModel):
     message: str
 
 
+class TestSetBulkDeleteRequest(BaseModel):
+    test_set_ids: List[UUID4]
+
+
+class TestSetBulkDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    not_found_ids: List[str]
+
+
 class ExecutionMetric(BaseModel):
     """Metric specification for execution-time metric override.
 
