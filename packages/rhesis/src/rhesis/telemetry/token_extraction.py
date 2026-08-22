@@ -199,7 +199,7 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
     )
 
     # Calculate total if not explicitly provided
-    if not total_tokens and (input_tokens or output_tokens):
+    if not total_tokens and (input_tokens or output_tokens or cache_creation_tokens or cache_read_tokens):
         total_tokens = (
             input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
         )

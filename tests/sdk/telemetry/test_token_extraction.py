@@ -30,3 +30,7 @@ class TestExtractTokenUsage:
 
     def test_none_returns_zeroes(self):
         assert extract_token_usage(None) == (0, 0, 0)
+
+    def test_cache_only_tokens(self):
+        usage = {"cache_creation_input_tokens": 1000, "cache_read_input_tokens": 4000}
+        assert extract_token_usage(usage) == (0, 0, 5000)
