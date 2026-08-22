@@ -80,10 +80,14 @@ def _acquire_migration_advisory_lock(connectable):
     keeps the lock beyond ``ALEMBIC_LOCK_TIMEOUT`` seconds so orchestrators
     can retry instead of racing through an upgrade.
     """
-    lock_connection = connectable.connect().execution_options(isolation_level="AUTOCOMMIT")
-    if lock_connection.dialect.name != "postgresql":
-        lock_connection.close()
+    # Check the dialect at engine level before opening the lock connection:
+    # applying AUTOCOMMIT isolation via execution_options may be rejected on
+    # dialects other than PostgreSQL, and non-PG setups must skip locking
+    # entirely rather than fail while trying to skip it.
+    if connectable.dialect.name != "postgresql":
         return None
+
+    lock_connection = connectable.connect().execution_options(isolation_level="AUTOCOMMIT")
 
     deadline = time.monotonic() + MIGRATION_LOCK_TIMEOUT_SECONDS
     waited = False
