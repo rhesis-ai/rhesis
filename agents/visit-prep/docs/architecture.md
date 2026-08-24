@@ -136,7 +136,7 @@ Each pair shares its harness — `chat_terminal/_traced_runner.py` and `examples
 
 `visit_prep/app_factory.py` holds the served path — `RhesisClient`, `@endpoint`, and the FastAPI wiring — and `create_app(tracing_cls)` builds it for one integration. `app.py` and `app_upstream.py` are two-line wrappers that pick one; `python -m visit_prep --tracing` selects which module uvicorn imports. The client is created before `RhesisTracing`, because the native integration reuses the provider it installs — that is what makes Haystack spans nest under the `@endpoint` span and flush with it.
 
-The FastAPI dev server registers the SDK endpoint and opens the WebSocket connector via uvicorn's event loop.
+The FastAPI dev server registers the SDK endpoint at import time and opens the WebSocket connector from its `lifespan` startup. The `lifespan` call is what makes the Playground work: uvicorn imports the app module from `uvicorn.main.run`, before `asyncio.run`, so the `@endpoint` decorator runs with no event loop and the connector defers its connection forever unless something restarts it inside the loop.
 
 ## Trace Surface
 
