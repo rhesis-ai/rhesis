@@ -3,7 +3,9 @@
 import asyncio
 import json
 import logging
+import os
 import re
+import ssl
 from collections.abc import Coroutine
 from typing import Any, Callable, Dict, Optional
 
@@ -72,6 +74,27 @@ def _classify_by_close_code(exception: Exception) -> tuple[bool, str] | None:
     return None
 
 
+def _classify_by_exception_type(exception: Exception) -> tuple[bool, str] | None:
+    """
+    Classify error by exception type.
+
+    Returns:
+        Tuple of (is_retryable, error_message) or None if not applicable
+    """
+    # A trust-store failure never fixes itself. Without this it falls through to the transient
+    # default below and retries forever, because the message carries no HTTP status and none of
+    # the TRANSIENT_KEYWORDS.
+    if isinstance(exception, ssl.SSLCertVerificationError):
+        return False, (
+            f"TLS certificate verification failed: {exception}\n"
+            "The server certificate could not be verified against any trusted CA. Check:\n"
+            "  - SSL_CERT_FILE / SSL_CERT_DIR, if you set either\n"
+            "  - a corporate proxy re-signing TLS traffic (add its root CA)\n"
+            "  - your system clock"
+        )
+    return None
+
+
 def _classify_by_http_status(error_str: str) -> tuple[bool, str] | None:
     """
     Classify error by HTTP status code.
@@ -120,12 +143,61 @@ def classify_websocket_error(exception: Exception) -> tuple[bool, str]:
     if result := _classify_by_http_status(error_str):
         return result
 
+    # Try classification by exception type
+    if result := _classify_by_exception_type(exception):
+        return result
+
     # Check for transient keywords in error message
     if any(kw in error_str.lower() for kw in ErrorClassification.TRANSIENT_KEYWORDS):
         return True, f"Network error: {error_str}. Retrying..."
 
     # Default: treat as transient
     return True, f"Connection error: {error_str}. Retrying..."
+
+
+def _default_trust_store_is_usable() -> bool:
+    """Whether this interpreter can verify TLS with its default trust store.
+
+    ``cafile`` is the resolved bundle -- ``SSL_CERT_FILE`` if that path exists, else the
+    compiled-in default if *that* exists, else ``None``. ``openssl_cafile`` is the compiled-in
+    path whether or not anything is there, so testing it would report success on exactly the
+    broken installs this guards against.
+    """
+    paths = ssl.get_default_verify_paths()
+    if paths.cafile:
+        return True
+    return bool(paths.capath and os.path.isdir(paths.capath))
+
+
+def _fallback_ssl_context(url: str) -> ssl.SSLContext | None:
+    """A certifi-backed context, but only when the interpreter has no trust store of its own.
+
+    Some builds ship a CA path that does not exist -- a python.org macOS install whose
+    ``Install Certificates.command`` was never run is the common case. Trace export survives it
+    because ``requests`` bundles certifi, while ``websockets`` uses the default context, so the
+    connector alone fails TLS and it reads like a platform outage.
+
+    Returns ``None`` whenever the default store works, so healthy machines keep their system and
+    corporate roots and a genuine verification error still surfaces. Also ``None`` for a plain
+    ``ws://`` URL: there is no TLS to verify, and ``websockets`` raises ``ValueError`` on an
+    ``ssl`` argument for a non-TLS URI, which would break local development on exactly the
+    interpreters this is meant to rescue.
+    """
+    if not url.lower().startswith("wss://"):
+        return None
+    if _default_trust_store_is_usable():
+        return None
+    try:
+        import certifi
+    except ImportError:  # pragma: no cover - certifi ships with requests, a hard dependency
+        return None
+
+    logger.warning(
+        "This interpreter has no usable default CA bundle (%s does not exist); "
+        "verifying the connector's TLS connection with certifi instead.",
+        ssl.get_default_verify_paths().openssl_cafile,
+    )
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 class WebSocketConnection:
@@ -284,7 +356,7 @@ class WebSocketConnection:
                             if not is_retryable:
                                 # Permanent error - don't retry
                                 logger.error(f"Permanent connection failure:\n{error_message}")
-                                logger.error("Not retrying authentication/authorization failures.")
+                                logger.error("Not retrying: this will not resolve on its own.")
                                 self._log_state_change(ConnectionState.FAILED, "permanent error")
                                 self._failure_reason = error_message
 
@@ -351,11 +423,16 @@ class WebSocketConnection:
     async def _attempt_single_connection(self) -> None:
         """Attempt a single WebSocket connection."""
         logger.debug(f"Attempting WebSocket connection to {self.url}")
+        # Omit the kwarg entirely when the default store works, so healthy machines keep
+        # websockets' own context untouched.
+        ssl_context = _fallback_ssl_context(self.url)
+        extra = {"ssl": ssl_context} if ssl_context else {}
         async with websockets.connect(
             self.url,
             additional_headers=self.headers,
             ping_interval=self.ping_interval,
             ping_timeout=self.ping_timeout,
+            **extra,
         ) as websocket:
             self.websocket = websocket
             self._log_state_change(ConnectionState.CONNECTED, "websocket established")
