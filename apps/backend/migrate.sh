@@ -65,6 +65,11 @@ maybe_wait_for_database() {
 
 # Function to run migrations
 #
+# Concurrent replicas are serialized by a Postgres advisory lock acquired in
+# alembic's env.py (see MIGRATION_ADVISORY_LOCK_KEY there), so simultaneous
+# Cloud Run Job instances wait for each other instead of racing through the
+# upgrade. The wait is logged by Alembic; tune it with ALEMBIC_LOCK_TIMEOUT.
+#
 # We use `psql` (not `alembic current`) to read the revision before and after
 # the upgrade. Each `alembic` invocation costs ~5-6s of Python cold-start +
 # SDK/model imports inside the Cloud Run Job, so two diagnostic calls used to
