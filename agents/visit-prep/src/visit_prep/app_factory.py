@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
+from rhesis.sdk.decorators import get_default_client
 from visit_prep.session import default_store, run_chat_turn_async
 from visit_prep.state import Phase
 
@@ -100,6 +101,14 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
 
         # Build the shared pipeline + generator once so per-turn requests reuse it.
         get_default_pipeline()
+
+        # Dial out the connector now that uvicorn's loop is running. @endpoint registered the
+        # function at import time, which uvicorn does before asyncio.run() -- so the connection
+        # was deferred and the Playground would never see this app.
+        client = get_default_client()
+        if client is not None:
+            client.start_connector()
+
         state["startup_validated"] = True
         logger.info("Visit-Prep ready: coordinator + history + summary + critic specialists")
         yield
