@@ -299,7 +299,7 @@ def get_providers(
     policy = get_password_policy()
 
     organization = None
-    effective_org = org or get_auth_settings().default_sso_organization
+    effective_org = org if org is not None else get_auth_settings().default_sso_organization
     if effective_org:
         # Failures in org lookup are non-fatal: enrichers run with
         # organization=None and produce a base provider list.
