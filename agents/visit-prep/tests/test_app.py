@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import Mock
 
 from visit_prep.state import Phase
 
@@ -47,3 +48,28 @@ def test_chat_endpoint_awaits_async_run(monkeypatch):
     assert result.response == "hi"
     assert called["message"] == "hello"
     assert called["conversation_id"] == "c1"
+
+
+def test_lifespan_starts_the_connector(monkeypatch):
+    """The lifespan dials the connector, which is what puts this app in the Playground.
+
+    ``@endpoint`` registers at import time, and uvicorn imports the app module from
+    ``uvicorn.main.run`` before ``asyncio.run``, so the connection is deferred with only a
+    warning. Nothing else picks it up, so dropping this call silently unregisters the agent.
+    """
+    app_mod = _import_app_with_rhesis_disabled(monkeypatch)
+
+    import visit_prep.app_factory as factory
+    import visit_prep.session as session
+
+    monkeypatch.setattr(session, "get_default_pipeline", lambda: None)
+    fake_client = Mock()
+    monkeypatch.setattr(factory, "get_default_client", lambda: fake_client)
+
+    async def drive_lifespan():
+        async with app_mod.app.router.lifespan_context(app_mod.app):
+            pass
+
+    asyncio.run(drive_lifespan())
+
+    fake_client.start_connector.assert_called_once()
