@@ -54,6 +54,7 @@ class ConnectorManager:
 
         Raises:
             ValueError: If environment is not valid
+            TypeError: If identity_override is set but isn't an EndpointContext
         """
         environment = environment.lower()
 
@@ -62,6 +63,15 @@ class ConnectorManager:
                 f"Invalid environment: '{environment}'. "
                 f"Valid environments: {', '.join(Environment.ALL)}"
             )
+
+        if identity_override is not None:
+            from rhesis.sdk.context import EndpointContext
+
+            if not isinstance(identity_override, EndpointContext):
+                raise TypeError(
+                    "identity_override must be an EndpointContext, got "
+                    f"{type(identity_override).__name__}"
+                )
 
         self.api_key = api_key
         self.project_id = project_id

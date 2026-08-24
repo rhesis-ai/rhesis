@@ -104,6 +104,18 @@ def test_build_endpoint_context_prefers_identity_override():
     assert manager._build_endpoint_context() is override
 
 
+def test_identity_override_rejects_wrong_type():
+    """A non-EndpointContext identity_override fails fast at construction."""
+    with pytest.raises(TypeError, match="EndpointContext"):
+        ConnectorManager(
+            api_key="test-api-key",
+            project_id="test-project",
+            environment="development",
+            base_url="http://localhost:8080",
+            identity_override={"organization_id": "local-org", "user_id": "local-user"},
+        )
+
+
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
 @patch("asyncio.get_running_loop")
 def test_initialize(mock_get_loop, mock_ws_class, manager):
