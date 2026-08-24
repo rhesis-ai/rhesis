@@ -51,7 +51,7 @@ import { type Organization } from '../utils/api-client/interfaces/organization';
 import { type UserSettings } from '../utils/api-client/interfaces/user';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
-import { getServerBranding } from '../config/branding';
+import { getServerBranding, type BrandFont } from '../config/branding';
 import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
@@ -93,6 +93,16 @@ const THEME_MODE_STYLE = (['dark', 'light'] as const)
 html[data-theme-mode='${mode}'],html[data-theme-mode='${mode}'] body{background-color:${BACKGROUND_DEFAULT[mode]}}`
   )
   .join('\n');
+
+function buildFontFaceCss(font: BrandFont): string {
+  const weights = ['300', '400', '700'];
+  return weights
+    .map(
+      w =>
+        `@font-face{font-family:"${font.family}";font-weight:${w};font-style:normal;font-display:swap;src:url("/brand-fonts/${font.slug}-${w}.ttf") format("truetype")}`
+    )
+    .join('\n');
+}
 
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(
@@ -445,6 +455,21 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           id="rhesis-theme-mode-paint"
           dangerouslySetInnerHTML={{ __html: THEME_MODE_STYLE }}
         />
+        {deploymentBranding.font?.source === 'google' && (
+          <link
+            rel="stylesheet"
+            href={deploymentBranding.font.googleHref}
+            crossOrigin="anonymous"
+          />
+        )}
+        {deploymentBranding.font?.source === 'custom' && (
+          <style
+            id="rhesis-brand-font"
+            dangerouslySetInnerHTML={{
+              __html: buildFontFaceCss(deploymentBranding.font),
+            }}
+          />
+        )}
       </head>
       <body suppressHydrationWarning>
         <ThemeContextProvider
@@ -453,6 +478,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           brandColors={{
             primary: deploymentBranding.primaryColor,
             secondary: deploymentBranding.secondaryColor,
+            fontFamily: deploymentBranding.font?.family,
           }}
         >
           <LayoutContent

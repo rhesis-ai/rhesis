@@ -23,10 +23,11 @@ import {
 } from './brand-palette';
 export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION, FAB_GROUP_GAP };
 
-/** Deployment brand colours (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`). */
+/** Deployment brand overrides (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`, `BRAND_FONT_FAMILY`). */
 export interface BrandColors {
   primary?: string;
   secondary?: string;
+  fontFamily?: string;
 }
 
 /**
@@ -37,8 +38,13 @@ export interface BrandColors {
  * its own. When a colour is omitted every token below is the literal Figma
  * value, so the default Rhesis theme is unaffected by this parameter existing.
  */
+const DEFAULT_FONT = 'Be Vietnam Pro';
+
 const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
   const gs = mode === 'light' ? GREYSCALE.light : GREYSCALE.dark;
+  const ff = brand.fontFamily
+    ? `"${brand.fontFamily}", "${DEFAULT_FONT}", sans-serif`
+    : `"${DEFAULT_FONT}", sans-serif`;
   const brandColor = brand.primary;
   const brandPrimary = brandColor
     ? deriveBrandPrimary(brandColor, mode)
@@ -149,95 +155,94 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       circular: '50%',
     },
     typography: {
-      fontFamily:
-        '"Be Vietnam Pro", "Roboto", "Helvetica", "Arial", sans-serif',
+      fontFamily: ff,
       fontFamilyCode:
         '"SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace',
       h1: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 800,
         fontSize: '3rem', // 48px
         lineHeight: '57.6px',
         color: gs.title,
       },
       h2: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 800,
         fontSize: '2.5rem', // 40px
         lineHeight: '48px',
         color: gs.title,
       },
       h3: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 800,
         fontSize: '2.0625rem', // 33px
         lineHeight: '39.6px',
         color: gs.title,
       },
       h4: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 700,
         fontSize: '1.75rem', // 28px – Figma H4/Bold
         lineHeight: '33.6px',
         color: gs.title,
       },
       h5: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 700,
         fontSize: '1.4375rem', // 23px
         lineHeight: '27.6px',
         color: gs.title,
       },
       h6: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 600,
         fontSize: '1.25rem', // 20px
         lineHeight: '24px',
         color: gs.title,
       },
       body1: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '1rem', // 16px
         lineHeight: '24px',
         color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
       },
       body2: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.875rem', // 14px
         lineHeight: '22px',
         color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
       },
       button: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 600,
         textTransform: 'none' as const,
         fontSize: '0.875rem', // 14px
       },
       caption: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.75rem', // 12px
         lineHeight: '18px',
         color: gs.subtitle,
       },
       subtitle1: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 500,
         fontSize: '1rem',
         lineHeight: 1.75,
         color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
       },
       subtitle2: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 500,
         fontSize: '0.875rem',
         lineHeight: 1.57,
         color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
       },
       overline: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 600,
         fontSize: '0.75rem',
         lineHeight: '18px',
@@ -247,35 +252,35 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       },
       // ── Figma-aligned custom variants ──────────────────────────────────
       bodyLReg: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '1rem', // 16px
         lineHeight: '24px',
         color: gs.body,
       },
       bodyMReg: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.875rem', // 14px
         lineHeight: '22px',
         color: gs.body,
       },
       bodyMBold: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 700,
         fontSize: '0.875rem', // 14px
         lineHeight: '22px',
         color: gs.body,
       },
       bodySReg: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.75rem', // 12px
         lineHeight: '18px',
         color: gs.body,
       },
       captionBold: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 600,
         fontSize: '0.75rem', // 12px
         lineHeight: '18px',
@@ -283,21 +288,21 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       },
       // ── Legacy custom variants (kept for backwards-compat) ──────────────
       chartLabel: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.75rem',
         lineHeight: 1.5,
         color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
       },
       chartTick: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.625rem',
         lineHeight: 1.4,
         color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
       },
       helperText: {
-        fontFamily: '"Be Vietnam Pro", sans-serif',
+        fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.875rem',
         lineHeight: 1.43,
@@ -374,7 +379,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       MuiButton: {
         styleOverrides: {
           root: {
-            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontFamily: ff,
             fontWeight: 600,
             borderRadius: 8,
             '&.MuiButton-containedPrimary': {
@@ -454,7 +459,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       MuiChip: {
         styleOverrides: {
           root: {
-            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontFamily: ff,
             fontWeight: 500,
             // Tags and interactive chips stay rectangular; use GridBadge for pill badges.
             borderRadius: 4,
@@ -511,7 +516,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       MuiTooltip: {
         styleOverrides: {
           tooltip: {
-            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontFamily: ff,
             fontSize: '0.75rem', // 12px
             lineHeight: 1.4,
             padding: '6px 10px',
@@ -537,7 +542,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         styleOverrides: {
           root: {
             borderBottom: `1px solid ${mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
-            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontFamily: ff,
             fontSize: '0.875rem', // 14px
             color:
               mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
