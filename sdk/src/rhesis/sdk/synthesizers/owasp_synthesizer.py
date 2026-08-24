@@ -155,10 +155,15 @@ class OWASPSynthesizer(TestSetSynthesizer):
     def _get_synthesizer_name(self) -> str:
         return "OWASPSynthesizer"
 
-    def generate(self, num_tests: int = 10, **kwargs: Any) -> TestSet:
+    def generate(
+        self,
+        num_tests: int = 10,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+        **kwargs: Any,
+    ) -> TestSet:
         """Generate the test set, then stamp multi-turn metadata (the base class
         always sets test_set_type=SINGLE_TURN), mirroring MultiTurnSynthesizer.generate."""
-        test_set = super().generate(num_tests=num_tests, **kwargs)
+        test_set = super().generate(num_tests=num_tests, on_progress=on_progress, **kwargs)
         if self.test_type == TestType.MULTI_TURN:
             stamp_multi_turn(test_set)
         return test_set
@@ -167,7 +172,12 @@ class OWASPSynthesizer(TestSetSynthesizer):
     # Core generation — one pass per section
     # ------------------------------------------------------------------
 
-    def _generate_without_sources(self, num_tests: int = 10, **kwargs: Any) -> List[Dict[str, Any]]:
+    def _generate_without_sources(
+        self,
+        num_tests: int = 10,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
         """Distribute *num_tests* across all selected sections and generate."""
         sections = self._get_sections()
         if not sections:
@@ -186,11 +196,11 @@ class OWASPSynthesizer(TestSetSynthesizer):
                 section.name,
             )
             context = self._build_section_context(section, **kwargs)
-            # _generate_with_retry (TestSetSynthesizer) drives both single- and
-            # multi-turn generation; _generate_batch below branches on
-            # self.test_type, so multi-turn gets the same batch-size-reduction
-            # and consecutive-failure handling as single-turn for free.
-            tests = self._generate_with_retry(n, **context)
+            offset = len(all_tests)
+            tests = self._generate_with_retry(
+                n, on_progress=on_progress, progress_offset=offset,
+                progress_total=num_tests, **context,
+            )
             for t in tests:
                 # Trust the computed topic, not the LLM's echo of it (schema
                 # field "topic" in FlatTest/FlatMultiTurnTests) -- the prompt

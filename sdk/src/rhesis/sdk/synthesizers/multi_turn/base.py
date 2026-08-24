@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel, Field
@@ -173,7 +173,11 @@ class MultiTurnSynthesizer:
                     "test_type": TestType.MULTI_TURN.value,
                 }
 
-    def generate(self, num_tests: int = 5) -> TestSet:
+    def generate(
+        self,
+        num_tests: int = 5,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+    ) -> TestSet:
         num_batches = num_tests // self.batch_size
 
         if num_batches == 0:
@@ -196,6 +200,8 @@ class MultiTurnSynthesizer:
                     self.last_error,
                 )
             all_tests.extend(batch_tests)
+            if on_progress:
+                on_progress(len(all_tests), num_tests)
 
         if not all_tests:
             reason = f": {self.last_error}" if self.last_error else ""
