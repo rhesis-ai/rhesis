@@ -67,6 +67,8 @@ export interface BrandingProps {
   iconUrl?: string;
   /** `BRAND_PRODUCT_NAME`, for alt text and labels. */
   productName?: string;
+  /** `BRAND_FONT_FAMILY` — the CSS font-family name for white-label deployments. */
+  fontFamily?: string;
   homeUrl?: string;
 }
 
