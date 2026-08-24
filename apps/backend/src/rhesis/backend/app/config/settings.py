@@ -211,6 +211,9 @@ class AuthSettings(BaseSettings):
     google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
     github_client_id: str | None = Field(default=None, alias="GH_CLIENT_ID")
     github_client_secret: str | None = Field(default=None, alias="GH_CLIENT_SECRET")
+    default_sso_organization: str | None = Field(
+        default=None, alias="AUTH_DEFAULT_SSO_ORGANIZATION"
+    )
     session_secret_key: str = Field(alias="SESSION_SECRET_KEY")
     jwt_secret_key: str | None = Field(default=None, alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")

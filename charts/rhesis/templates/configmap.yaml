@@ -64,6 +64,7 @@ data:
   # -------------------------------------------------------------------------
   AUTH_BLOCK_DISPOSABLE_EMAILS: {{ .Values.config.authBlockDisposableEmails | quote }}
   AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS: {{ .Values.config.authDisposableEmailExtraDomains | quote }}
+  AUTH_DEFAULT_SSO_ORGANIZATION: {{ .Values.config.authDefaultSsoOrganization | quote }}
 
   # -------------------------------------------------------------------------
   # AI model configuration

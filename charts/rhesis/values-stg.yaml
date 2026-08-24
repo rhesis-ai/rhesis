@@ -46,6 +46,7 @@ config:
   # community list's false-positive rate could be measured; enforcing since 2026-08-21.
   authBlockDisposableEmails: "enforce"
   authDisposableEmailExtraDomains: ""
+  authDefaultSsoOrganization: ""
 
   # GCP
   vertexAiProject: "playground-437609"

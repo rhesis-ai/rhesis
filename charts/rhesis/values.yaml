@@ -97,6 +97,9 @@ config:
   # merged on top of the community blocklist.
   authBlockDisposableEmails: "log"
   authDisposableEmailExtraDomains: ""
+  # Org slug or UUID resolved when no ?org= param is on the login URL.
+  # Empty means no default; the login page shows the base provider list.
+  authDefaultSsoOrganization: ""
 
   # Usage quota enforcement. Off by default so self-hosted deployments have no
   # limits; Rhesis cloud overrides this to true in its per-env values files.

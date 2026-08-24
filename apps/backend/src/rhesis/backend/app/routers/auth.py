@@ -57,6 +57,7 @@ from rhesis.backend.app.auth.user_utils import (
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
+    get_auth_settings,
     get_frontend_settings,
     get_telemetry_settings,
 )
@@ -298,14 +299,18 @@ def get_providers(
     policy = get_password_policy()
 
     organization = None
-    if org:
+    effective_org = org if org is not None else get_auth_settings().default_sso_organization
+    if effective_org:
         # Failures in org lookup are non-fatal: enrichers run with
         # organization=None and produce a base provider list.
         try:
-            organization = _resolve_org_by_id_or_slug(db, org)
+            organization = _resolve_org_by_id_or_slug(db, effective_org)
         except Exception as exc:
             logger.warning(
-                "Unexpected error resolving org %r for /auth/providers: %s", org, exc, exc_info=True
+                "Unexpected error resolving org %r for /auth/providers: %s",
+                effective_org,
+                exc,
+                exc_info=True,
             )
 
     providers = apply_enrichers(providers, organization)
