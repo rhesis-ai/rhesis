@@ -169,7 +169,7 @@ def _default_trust_store_is_usable() -> bool:
     return bool(paths.capath and os.path.isdir(paths.capath))
 
 
-def _fallback_ssl_context() -> ssl.SSLContext | None:
+def _fallback_ssl_context(url: str) -> ssl.SSLContext | None:
     """A certifi-backed context, but only when the interpreter has no trust store of its own.
 
     Some builds ship a CA path that does not exist -- a python.org macOS install whose
@@ -178,8 +178,13 @@ def _fallback_ssl_context() -> ssl.SSLContext | None:
     connector alone fails TLS and it reads like a platform outage.
 
     Returns ``None`` whenever the default store works, so healthy machines keep their system and
-    corporate roots and a genuine verification error still surfaces.
+    corporate roots and a genuine verification error still surfaces. Also ``None`` for a plain
+    ``ws://`` URL: there is no TLS to verify, and ``websockets`` raises ``ValueError`` on an
+    ``ssl`` argument for a non-TLS URI, which would break local development on exactly the
+    interpreters this is meant to rescue.
     """
+    if not url.lower().startswith("wss://"):
+        return None
     if _default_trust_store_is_usable():
         return None
     try:
@@ -420,7 +425,7 @@ class WebSocketConnection:
         logger.debug(f"Attempting WebSocket connection to {self.url}")
         # Omit the kwarg entirely when the default store works, so healthy machines keep
         # websockets' own context untouched.
-        ssl_context = _fallback_ssl_context()
+        ssl_context = _fallback_ssl_context(self.url)
         extra = {"ssl": ssl_context} if ssl_context else {}
         async with websockets.connect(
             self.url,
