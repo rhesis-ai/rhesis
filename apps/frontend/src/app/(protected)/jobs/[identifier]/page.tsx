@@ -46,7 +46,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
       <Typography variant="caption" color="text.secondary" display="block">
         {label}
       </Typography>
-      <Typography variant="body2">{value}</Typography>
+      <Typography variant="body2" component="div">{value}</Typography>
     </Box>
   );
 }
