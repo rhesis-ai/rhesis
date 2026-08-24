@@ -32,6 +32,8 @@ def execute_tests_sequentially(
     tests: List,
     reference_test_run_id: str = None,
     trace_id: str = None,
+    on_progress=None,
+    on_emit=None,
 ) -> Dict[str, Any]:
     """Execute test cases sequentially, one after another.
 
@@ -42,6 +44,8 @@ def execute_tests_sequentially(
         tests: List of test models to execute
         reference_test_run_id: Optional previous test run ID for re-scoring
         trace_id: Optional trace ID for trace-based evaluation
+        on_progress: Optional callback(current, total) to update job progress
+        on_emit: Optional callback(message) to write activity log entries
     """
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
 
@@ -163,12 +167,20 @@ def execute_tests_sequentially(
             results.append(result)
 
             logger.info(f"Test {i}/{len(tests)} completed successfully")
+            if on_progress:
+                on_progress(i, len(tests))
+            if on_emit:
+                on_emit(f"Test {i}/{len(tests)} completed")
 
         except Exception as e:
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
             # Create failure result using shared utility
             failure_result = create_failure_result(str(test.id), e)
             results.append(failure_result)
+            if on_progress:
+                on_progress(i, len(tests))
+            if on_emit:
+                on_emit(f"Test {i}/{len(tests)} failed")
 
     end_time = datetime.now(timezone.utc)
     execution_time = (end_time - start_time).total_seconds()

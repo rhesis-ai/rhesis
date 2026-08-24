@@ -152,7 +152,16 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
             # total_tests is already on the run (create_test_run counts the
             # test set up front), so this is known before execution starts.
             total_tests = (test_run.attributes or {}).get("total_tests", 0)
-            self.emit(f"Starting execution of {total_tests} tests")
+            self.set_progress(0, total_tests)
+
+            test_set_name = getattr(test_config.test_set, "name", None)
+            endpoint_name = getattr(test_config.endpoint, "name", None)
+            context_parts = [f"{total_tests} tests"]
+            if test_set_name:
+                context_parts.append(f"from '{test_set_name}'")
+            if endpoint_name:
+                context_parts.append(f"against '{endpoint_name}'")
+            self.emit(f"Executing {' '.join(context_parts)}")
 
             # Execute test cases (parallel or sequential)
             result = execute_test_cases(
@@ -160,8 +169,10 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 test_config,
                 test_run,
                 reference_test_run_id=reference_test_run_id,
+                on_progress=self.set_progress,
+                on_emit=self.emit,
             )
-            self.emit(f"Execution finished: {result.get('total_tests', 0)} tests")
+            self.emit(f"Execution complete")
 
             # Accrue TEST_EXECUTIONS for the count actually processed by this
             # run -- result["total_tests"] is computed once at the start of

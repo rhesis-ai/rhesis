@@ -467,6 +467,30 @@ class BaseJob(Task):
 
         emit(event)
 
+    def set_progress(self, current: int, total: int) -> None:
+        """Update this job's progress counters on the ``job`` row.
+
+        The progress bar in the Jobs list/detail reads these columns.
+        Safe to call at high frequency; each call opens its own session.
+        """
+        try:
+            from rhesis.backend.jobs import tracking
+
+            celery_task_id = getattr(self.request, "id", None)
+            if not celery_task_id:
+                return
+            org_id, user_id, project_id = self.get_tenant_context()
+            tracking.set_progress(
+                celery_task_id,
+                org_id or "",
+                user_id or "",
+                project_id or "",
+                current=current,
+                total=total,
+            )
+        except Exception as exc:
+            logger.warning(f"set_progress failed: {exc}")
+
     def emit(self, message: str, level: str = "info", *, context: Optional[dict] = None) -> None:
         """Write a user-facing line to this job's activity log.
 

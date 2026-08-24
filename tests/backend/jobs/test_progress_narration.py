@@ -8,6 +8,7 @@ Mocking follows each module's own existing test harness
 (test_owasp_test_set_task.py, test_garak.py) rather than inventing a new one.
 """
 
+import asyncio
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
@@ -51,6 +52,7 @@ class TestTestSetGenerationNarration:
             ),
             patch.object(generate_and_save_test_set, "update_state"),
             patch.object(generate_and_save_test_set, "emit") as mock_emit,
+            patch.object(generate_and_save_test_set, "set_progress") as mock_progress,
             patch(
                 "rhesis.backend.jobs.test_set._resolve_generation_model",
                 return_value="fake-model",
@@ -72,9 +74,13 @@ class TestTestSetGenerationNarration:
 
         messages = [call.args[0] for call in mock_emit.call_args_list]
         assert messages == [
-            "Generating 5 tests",
+            "Generating 5 single turn tests using fake-model",
             "Generated 5 of 5 tests",
             "Saved 5 tests to test set",
+        ]
+        assert mock_progress.call_args_list == [
+            ((0, 5),),
+            ((5, 5),),
         ]
 
 
@@ -94,6 +100,7 @@ class TestOwaspTestSetGenerationNarration:
             ),
             patch.object(generate_and_save_owasp_test_set, "update_state"),
             patch.object(generate_and_save_owasp_test_set, "emit") as mock_emit,
+            patch.object(generate_and_save_owasp_test_set, "set_progress") as mock_progress,
             patch(
                 "rhesis.backend.jobs.test_set._resolve_generation_model",
                 return_value="fake-model",
@@ -117,9 +124,13 @@ class TestOwaspTestSetGenerationNarration:
 
         messages = [call.args[0] for call in mock_emit.call_args_list]
         assert messages == [
-            "Generating 3 tests",
+            "Generating 3 OWASP LLM tests using fake-model",
             "Generated 3 of 3 tests",
             "Saved 3 tests to test set",
+        ]
+        assert mock_progress.call_args_list == [
+            ((0, 3),),
+            ((3, 3),),
         ]
 
 
@@ -205,3 +216,115 @@ class TestGarakSyncNarration:
         ]
 
 
+@pytest.mark.unit
+class TestSequentialExecutionNarration:
+    """The sequential runner calls on_progress and on_emit after each test."""
+
+    def test_reports_per_test_progress_and_narration(self):
+        from rhesis.backend.jobs.execution.sequential import execute_tests_sequentially
+
+        mock_session = MagicMock()
+        mock_config = MagicMock()
+        mock_config.id = "cfg-1"
+        mock_config.organization_id = "org-1"
+        mock_config.user_id = "user-1"
+        mock_config.endpoint_id = "ep-1"
+        mock_config.attributes = {}
+
+        mock_run = MagicMock()
+        mock_run.id = "run-1"
+        mock_run.organization_id = "org-1"
+        mock_run.user_id = "user-1"
+        mock_run.attributes = {"task_id": "task-1"}
+
+        tests = [MagicMock(id=f"t{i}") for i in range(3)]
+
+        progress_calls = []
+        emit_calls = []
+
+        async def _fake_execute(**kwargs):
+            return {"test_id": kwargs["test_id"], "status": "succeeded"}
+
+        with (
+            patch(
+                "rhesis.backend.jobs.execution.sequential.execute_test",
+                side_effect=_fake_execute,
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.update_test_run_start",
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.trigger_results_collection",
+                return_value=MagicMock(id="collect-1"),
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.is_task_revoked",
+                return_value=False,
+            ),
+        ):
+            execute_tests_sequentially(
+                mock_session,
+                mock_config,
+                mock_run,
+                tests,
+                on_progress=lambda c, t: progress_calls.append((c, t)),
+                on_emit=lambda m: emit_calls.append(m),
+            )
+
+        assert progress_calls == [(1, 3), (2, 3), (3, 3)]
+        assert emit_calls == [
+            "Test 1/3 completed",
+            "Test 2/3 completed",
+            "Test 3/3 completed",
+        ]
+
+    def test_reports_failure_narration(self):
+        from rhesis.backend.jobs.execution.sequential import execute_tests_sequentially
+
+        mock_session = MagicMock()
+        mock_config = MagicMock()
+        mock_config.id = "cfg-1"
+        mock_config.organization_id = "org-1"
+        mock_config.user_id = "user-1"
+        mock_config.endpoint_id = "ep-1"
+        mock_config.attributes = {}
+
+        mock_run = MagicMock()
+        mock_run.id = "run-1"
+        mock_run.organization_id = "org-1"
+        mock_run.user_id = "user-1"
+        mock_run.attributes = {"task_id": "task-1"}
+
+        tests = [MagicMock(id="t1")]
+
+        emit_calls = []
+
+        async def _fail(**kwargs):
+            raise RuntimeError("boom")
+
+        with (
+            patch(
+                "rhesis.backend.jobs.execution.sequential.execute_test",
+                side_effect=_fail,
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.update_test_run_start",
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.trigger_results_collection",
+                return_value=MagicMock(id="collect-1"),
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.is_task_revoked",
+                return_value=False,
+            ),
+        ):
+            execute_tests_sequentially(
+                mock_session,
+                mock_config,
+                mock_run,
+                tests,
+                on_emit=lambda m: emit_calls.append(m),
+            )
+
+        assert emit_calls == ["Test 1/1 failed"]

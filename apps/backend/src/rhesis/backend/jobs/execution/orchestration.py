@@ -28,6 +28,8 @@ def execute_test_cases(
     test_run: TestRun,
     reference_test_run_id: str = None,
     trace_id: str = None,
+    on_progress=None,
+    on_emit=None,
 ) -> Dict[str, Any]:
     """Execute test cases based on the configured execution mode.
 
@@ -37,6 +39,8 @@ def execute_test_cases(
         test_run: Test run model
         reference_test_run_id: Optional previous test run ID for re-scoring
         trace_id: Optional trace ID for trace-based evaluation
+        on_progress: Optional callback(current, total) to update job progress
+        on_emit: Optional callback(message) to write activity log entries
     """
 
     test_set = get_test_set(session, str(test_config.test_set_id), str(test_config.organization_id))
@@ -50,6 +54,10 @@ def execute_test_cases(
     execution_mode = get_execution_mode(test_config)
     logger.info(f"Executing test configuration {test_config.id} in {execution_mode.value} mode")
 
+    mode_label = "sequential" if execution_mode == ExecutionMode.SEQUENTIAL else "batch"
+    if on_emit:
+        on_emit(f"Execution mode: {mode_label}, {len(tests)} tests")
+
     if execution_mode == ExecutionMode.SEQUENTIAL:
         return execute_tests_sequentially(
             session,
@@ -58,6 +66,8 @@ def execute_test_cases(
             tests,
             reference_test_run_id=reference_test_run_id,
             trace_id=trace_id,
+            on_progress=on_progress,
+            on_emit=on_emit,
         )
     else:
         return execute_tests_as_batch(
@@ -67,4 +77,6 @@ def execute_test_cases(
             tests,
             reference_test_run_id=reference_test_run_id,
             trace_id=trace_id,
+            on_progress=on_progress,
+            on_emit=on_emit,
         )

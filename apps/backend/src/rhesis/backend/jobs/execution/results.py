@@ -78,10 +78,22 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
                 db, test_run, test_run_id, completion_time
             )
 
-            self.emit(
-                f"Results persisted: {summary_data.get('tests_passed', 0)} passed, "
-                f"{summary_data.get('tests_failed', 0)} failed"
-            )
+            passed = summary_data.get("tests_passed", 0)
+            failed = summary_data.get("tests_failed", 0)
+            errors = summary_data.get("execution_errors", 0)
+            total = summary_data.get("total_tests", 0)
+            exec_time = summary_data.get("execution_time")
+
+            parts = [f"{passed} passed", f"{failed} failed"]
+            if errors:
+                parts.append(f"{errors} errors")
+            if total > 0:
+                rate = round(passed / total * 100)
+                parts.append(f"{rate}% pass rate")
+            summary_line = f"Results: {', '.join(parts)}"
+            if exec_time:
+                summary_line += f" in {exec_time}"
+            self.emit(summary_line)
             self.log_with_context("info", f"Test run update completed for: {test_run_id}")
 
             return summary_data

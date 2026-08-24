@@ -498,7 +498,13 @@ def generate_and_save_test_set(
     try:
         # Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
-        self.emit(f"Generating {num_tests} tests")
+        self.set_progress(0, num_tests)
+        gen_parts = [f"Generating {num_tests}"]
+        if test_type:
+            gen_parts.append(test_type.lower().replace("-", " "))
+        gen_parts.append("tests")
+        gen_parts.append(f"using {model_info}")
+        self.emit(" ".join(gen_parts))
         self.log_with_context(
             "info",
             "Creating synthesizer",
@@ -555,6 +561,7 @@ def generate_and_save_test_set(
             requested_tests=num_tests,
             generation_time_seconds=round(gen_elapsed, 1),
         )
+        self.set_progress(len(test_set.tests), num_tests)
         self.emit(f"Generated {len(test_set.tests)} of {num_tests} tests")
 
         # Note: Source IDs are already embedded in test metadata via SourceSpecification
@@ -727,7 +734,8 @@ def generate_and_save_owasp_test_set(
 
     try:
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
-        self.emit(f"Generating {num_tests} tests")
+        self.set_progress(0, num_tests)
+        self.emit(f"Generating {num_tests} OWASP {framework.upper()} tests using {model_info}")
 
         # Imported lazily for the same fork-safety reason as ConfigSynthesizer above.
         from rhesis.sdk.synthesizers import OWASPSynthesizer
@@ -759,6 +767,7 @@ def generate_and_save_owasp_test_set(
             requested_tests=num_tests,
             generation_time_seconds=round(gen_elapsed, 1),
         )
+        self.set_progress(len(test_set.tests), num_tests)
         self.emit(f"Generated {len(test_set.tests)} of {num_tests} tests")
 
         self.update_state(state="PROGRESS", meta={"status": "Saving to database"})

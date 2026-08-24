@@ -150,6 +150,8 @@ def execute_tests_as_batch(
     tests: List[Test],
     reference_test_run_id: Optional[str] = None,
     trace_id: Optional[str] = None,
+    on_progress=None,
+    on_emit=None,
 ) -> Dict[str, Any]:
     """Three-phase batch execution: pre-fetch, asyncio.gather, trigger results."""
     from rhesis.backend.jobs.execution.shared import (
@@ -204,6 +206,17 @@ def execute_tests_as_batch(
     # (e.g. invocation exceptions, timeouts).  Must run before trigger_results_collection
     # so the DB count includes those rows.
     _persist_failed_results(ctx, results)
+
+    succeeded = sum(1 for r in results if r.get("status") == "succeeded")
+    failed = sum(1 for r in results if r.get("status") == "failed")
+    cancelled = sum(1 for r in results if r.get("status") == "cancelled")
+    if on_progress:
+        on_progress(total_tests, total_tests)
+    if on_emit:
+        parts = [f"{succeeded} succeeded", f"{failed} failed"]
+        if cancelled:
+            parts.append(f"{cancelled} cancelled")
+        on_emit(f"Batch complete: {', '.join(parts)}")
 
     # Phase 3: Trigger results collection.
     wall_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
