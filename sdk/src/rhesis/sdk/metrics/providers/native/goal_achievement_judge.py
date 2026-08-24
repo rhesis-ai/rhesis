@@ -407,25 +407,31 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         behaviors = cls._contract_behaviors(contract)
         normalized = [v.behavior.strip().lower() for v in verdicts]
         claimed: Dict[int, int] = {}  # behaviour index -> verdict index
-        used: set = set()
+        # Verdict indices already claimed, by either pass. Named for what it holds (not what
+        # loop it came from): pass 2's fallback candidate for behaviour b_index is always
+        # verdicts[b_index] -- positional, by definition -- so checking "is verdict index
+        # b_index already claimed" is exactly `b_index in used_verdict_indices`, even though
+        # b_index there is a behaviour index. The two index spaces coincide only because pass
+        # 2 never looks anywhere but position b_index; this is not a coincidence to be wary of.
+        used_verdict_indices: set = set()
 
         # Pass 1: a verdict that echoes the behaviour text is authoritative, wherever it sits.
         for b_index, (_kind, text) in enumerate(behaviors):
             key = text.strip().lower()
             for v_index, v_key in enumerate(normalized):
-                if v_index not in used and v_key == key:
+                if v_index not in used_verdict_indices and v_key == key:
                     claimed[b_index] = v_index
-                    used.add(v_index)
+                    used_verdict_indices.add(v_index)
                     break
 
         # Pass 2: fall back to position only for behaviours still unmatched, and only onto a
         # same-index verdict that nothing claimed and whose kind agrees.
         for b_index, (kind, _text) in enumerate(behaviors):
-            if b_index in claimed or b_index >= len(verdicts) or b_index in used:
+            if b_index in claimed or b_index >= len(verdicts) or b_index in used_verdict_indices:
                 continue
             if verdicts[b_index].kind == kind:
                 claimed[b_index] = b_index
-                used.add(b_index)
+                used_verdict_indices.add(b_index)
 
         aligned: List[BehaviorVerdict] = []
 

@@ -279,6 +279,42 @@ class TestVerdictAlignment:
 
         verdicts = {v["behavior"]: v for v in details["behavior_verdicts"]}
         assert verdicts["Second prohibition"]["complied"] is False
+
+    def test_positional_fallback_never_reuses_a_verdict_claimed_out_of_order(self):
+        """A verdict index consumed by an out-of-order text match must stay unavailable to
+        positional fallback, even when that verdict index numerically coincides with an
+        earlier, unrelated behaviour's own position.
+
+        Regression guard for confusing "behaviour index" with "verdict index" in the
+        used-verdict tracking: three behaviours, but the model returns only two verdicts, and
+        the first one names the THIRD behaviour's text (echoed out of order). Position 0 is
+        then claimed by behaviour 2, not behaviour 0 -- if fallback ever checked the wrong
+        index space, behaviour 0 could steal that same verdict, giving two behaviours the same
+        underlying evidence.
+        """
+        contract = {
+            "required_behavior": [],
+            "prohibited_behavior": ["First prohibition", "Second prohibition", "Third prohibition"],
+        }
+        response = {
+            "verdicts": [
+                _verdict("Third prohibition", "prohibited", True),  # out-of-order text match
+                _verdict("irrelevant", "prohibited", False),
+            ],
+            "reason": "Two of three judged",
+            "confidence": 0.7,
+        }
+
+        judge, _ = _judge(response)
+        details = judge.evaluate(_conversation(), contract=contract).details
+
+        verdicts = {v["behavior"]: v for v in details["behavior_verdicts"]}
+        assert verdicts["Third prohibition"]["complied"] is True
+        assert verdicts["Second prohibition"]["complied"] is False
+        # First prohibition must get NO verdict, not a reused copy of Third's.
+        first = verdicts["First prohibition"]
+        assert first["complied"] is False
+        assert "no verdict" in first["evidence"]
         assert verdicts["Second prohibition"]["evidence"] == "ev"
         assert "no verdict" in verdicts["First prohibition"]["evidence"]
 
