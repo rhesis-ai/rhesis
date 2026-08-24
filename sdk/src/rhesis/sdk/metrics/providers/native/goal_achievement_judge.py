@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
-from rhesis.sdk.metrics.constants import ThresholdOperator
+from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE, ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
 from rhesis.sdk.metrics.providers.native.conversational_judge import (
@@ -582,7 +582,9 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         )
 
         try:
-            raw = await self.model.a_generate(prompt, schema=ContractComplianceResponse)
+            raw = await self.model.a_generate(
+                prompt, schema=ContractComplianceResponse, temperature=JUDGE_TEMPERATURE
+            )
             response = ContractComplianceResponse(**raw)  # type: ignore[arg-type]
         except Exception as e:
             return self._handle_evaluation_error(e, details, self.min_score)
