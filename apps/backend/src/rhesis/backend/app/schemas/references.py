@@ -14,11 +14,11 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, ConfigDict
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import TagRead
 
 
-class StatusReference(Base):
+class StatusReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -28,7 +28,7 @@ class StatusReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ProjectReference(Base):
+class ProjectReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -42,7 +42,7 @@ class ProjectReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class OrganizationReference(Base):
+class OrganizationReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -53,7 +53,7 @@ class OrganizationReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TypeLookupReference(Base):
+class TypeLookupReference(Base, ServerIdentity):
     id: UUID4
     description: Optional[str] = None
     type_name: Optional[str] = None
@@ -64,7 +64,7 @@ class TypeLookupReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class CategoryReference(Base):
+class CategoryReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -76,7 +76,7 @@ class CategoryReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TopicReference(Base):
+class TopicReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -87,7 +87,7 @@ class TopicReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class RequirementReference(Base):
+class RequirementReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None
@@ -100,7 +100,7 @@ class RequirementReference(Base):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PromptReference(Base):
+class PromptReference(Base, ServerIdentity):
     id: UUID4
     content: Optional[str] = None
     expected_response: Optional[str] = None

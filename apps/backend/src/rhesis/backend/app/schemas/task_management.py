@@ -4,9 +4,9 @@ from typing import Dict, List, Optional
 from pydantic import UUID4, BaseModel, ConfigDict
 
 from rhesis.backend.app.auth.capabilities import ResourceType
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 from .affordances import WithPermittedActions
-from .base import Base
 from .references import (
     StatusReference,
     TypeLookupReference,
@@ -58,7 +58,7 @@ class TaskUpdate(BaseModel):
     task_metadata: Optional[Dict] = None
 
 
-class Task(Base, WithPermittedActions):
+class Task(Base, WithPermittedActions, ServerIdentity):
     """Schema for Task with relationships and auto-generated fields.
 
     ``permitted_actions`` (server-resolved object-level affordances) is filled

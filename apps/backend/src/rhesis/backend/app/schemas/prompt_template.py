@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas.base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import Tag
 
 
@@ -30,5 +30,5 @@ class PromptTemplateUpdate(PromptTemplateBase):
     language_code: Optional[str] = None
 
 
-class PromptTemplate(PromptTemplateBase):
+class PromptTemplate(PromptTemplateBase, ServerIdentity):
     pass

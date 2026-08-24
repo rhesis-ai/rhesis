@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # Tag schemas
@@ -40,11 +40,11 @@ class EntityType(str, Enum):
     TRACE = "Trace"
 
 
-class TagRead(Base):
+class TagRead(Base, ServerIdentity):
     id: UUID4
     name: str
     icon_unicode: Optional[str] = None
 
 
-class Tag(TagBase):
+class Tag(TagBase, ServerIdentity):
     pass

@@ -9,7 +9,8 @@ from typing import Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
-from .base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
+
 from .references import StatusReference, TypeLookupReference
 from .status import Status
 from .type_lookup import TypeLookup
@@ -72,7 +73,7 @@ class ModelUpdate(ModelBaseFields):
     assignee_id: Optional[UUID4] = None
 
 
-class ModelRead(ModelBaseFields):
+class ModelRead(ModelBaseFields, ServerIdentity):
     """Schema for reading Model (excludes API key for security)"""
 
     id: UUID4
@@ -89,7 +90,7 @@ class ModelRead(ModelBaseFields):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Model(ModelBase):
+class Model(ModelBase, ServerIdentity):
     """Complete Model schema with relationships (includes key - internal use only)"""
 
     id: UUID4

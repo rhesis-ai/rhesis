@@ -70,6 +70,7 @@ def test_delete_by_id(mock_request, test_entity):
 
 @patch("requests.request")
 def test_push_with_id(mock_request, test_entity):
+    """id addresses the resource in the URL and is left out of the body — the backend owns it."""
     test_entity.push()
     mock_request.assert_called_once_with(
         method="PUT",
@@ -78,7 +79,7 @@ def test_push_with_id(mock_request, test_entity):
             "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
-        json={"name": "Test", "description": "Test", "id": 1},
+        json={"name": "Test", "description": "Test"},
         params=None,
     )
 

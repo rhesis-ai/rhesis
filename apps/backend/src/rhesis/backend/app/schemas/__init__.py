@@ -1,3 +1,5 @@
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
+
 from .architect import (
     ArchitectMessage,
     ArchitectMessageCreate,
@@ -5,14 +7,6 @@ from .architect import (
     ArchitectSessionCreate,
     ArchitectSessionDetail,
     ArchitectSessionUpdate,
-)
-from .base import Base
-from .requirement import (
-    Requirement,
-    RequirementBase,
-    RequirementCreate,
-    RequirementDetail,
-    RequirementUpdate,
 )
 from .category import Category, CategoryBase, CategoryCreate, CategoryDetail, CategoryUpdate
 from .chunk import Chunk, ChunkBase, ChunkCreate
@@ -100,6 +94,13 @@ from .prompt_template import (
     PromptTemplateCreate,
     PromptTemplateUpdate,
 )
+from .requirement import (
+    Requirement,
+    RequirementBase,
+    RequirementCreate,
+    RequirementDetail,
+    RequirementUpdate,
+)
 from .source import Source, SourceBase, SourceCreate, SourceUpdate, SourceWithContent
 from .status import Status, StatusBase, StatusCreate, StatusDetail, StatusUpdate
 from .tag import Tag, TagBase, TagCreate, TagUpdate
@@ -171,6 +172,7 @@ from .user import User, UserBase, UserCreate, UserUpdate
 
 __all__ = [
     "Base",
+    "ServerIdentity",
     "ArchitectSession",
     "ArchitectSessionCreate",
     "ArchitectSessionUpdate",

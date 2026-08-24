@@ -4,7 +4,8 @@ from typing import List, Optional
 from pydantic import UUID4
 
 from rhesis.backend.app.models import SubscriptionPlan
-from rhesis.backend.app.schemas import Base, Tag
+from rhesis.backend.app.schemas import Tag
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # Risk schemas
@@ -33,5 +34,5 @@ class SubscriptionUpdate(SubscriptionBase):
     is_active: Optional[bool] = None
 
 
-class Subscription(SubscriptionBase):
+class Subscription(SubscriptionBase, ServerIdentity):
     pass

@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # Topic schemas
@@ -24,7 +24,7 @@ class TopicUpdate(TopicBase):
     name: Optional[str] = None
 
 
-class Topic(TopicBase):
+class Topic(TopicBase, ServerIdentity):
     pass
 
 

@@ -3,7 +3,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import UUID4, Field
 
-from rhesis.backend.app.schemas.base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 class EmbeddingBase(Base):
@@ -38,7 +38,7 @@ class EmbeddingUpdate(EmbeddingBase):
     status_id: Optional[UUID4] = None
 
 
-class Embedding(EmbeddingBase):
+class Embedding(EmbeddingBase, ServerIdentity):
     embedding: Optional[List[float]] = None
 
 

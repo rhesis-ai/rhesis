@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, ConfigDict
 
-from .base import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 class ArchitectMessageBase(Base):
@@ -22,7 +22,7 @@ class ArchitectMessageCreate(ArchitectMessageBase):
     session_id: Optional[UUID4] = None
 
 
-class ArchitectMessage(ArchitectMessageBase):
+class ArchitectMessage(ArchitectMessageBase, ServerIdentity):
     session_id: UUID4
 
     model_config = ConfigDict(from_attributes=True)
@@ -49,7 +49,7 @@ class ArchitectSessionUpdate(ArchitectSessionBase):
     agent_state: Optional[Dict[str, Any]] = None
 
 
-class ArchitectSession(ArchitectSessionBase):
+class ArchitectSession(ArchitectSessionBase, ServerIdentity):
     project_id: Optional[UUID4] = None
     plan_data: Optional[Dict[str, Any]] = None
     agent_state: Optional[Dict[str, Any]] = None

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import User
@@ -55,7 +55,7 @@ class SourceUpdate(SourceBase):
 
 
 # Schema for returning a Source (content field is deferred in the model for performance)
-class Source(SourceBase):
+class Source(SourceBase, ServerIdentity):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]

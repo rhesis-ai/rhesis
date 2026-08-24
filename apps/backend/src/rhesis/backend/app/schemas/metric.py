@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import UUID4, ConfigDict, Field, field_validator, model_validator
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
 from rhesis.backend.app.schemas.references import RequirementReference
 from rhesis.backend.app.schemas.tag import Tag
@@ -92,7 +92,7 @@ class MetricUpdate(MetricBase):
         return v
 
 
-class Metric(MetricBase):
+class Metric(MetricBase, ServerIdentity):
     id: UUID4
     tags: Optional[List[Tag]] = []
     # Override string fields with relationship objects for response
@@ -102,7 +102,7 @@ class Metric(MetricBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ModelReference(Base):
+class ModelReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
     description: Optional[str] = None

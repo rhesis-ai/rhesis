@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import (
     RequirementReference,
     CategoryReference,
@@ -15,7 +15,7 @@ from rhesis.backend.app.schemas.references import (
 from rhesis.backend.app.schemas.user import UserReference
 
 
-class TestTag(Base):
+class TestTag(Base, ServerIdentity):
     id: UUID4
     name: str
 
@@ -91,7 +91,7 @@ class TestUpdate(TestBase):
         return validate_test_config_content(v)
 
 
-class Test(TestBase):
+class Test(TestBase, ServerIdentity):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]

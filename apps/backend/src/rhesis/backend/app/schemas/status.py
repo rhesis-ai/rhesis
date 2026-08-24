@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 # Status schemas
@@ -22,7 +22,7 @@ class StatusUpdate(StatusBase):
     name: Optional[str] = None
 
 
-class Status(StatusBase):
+class Status(StatusBase, ServerIdentity):
     pass
 
 

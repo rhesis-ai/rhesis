@@ -3,7 +3,7 @@ from typing import ClassVar, List, Optional, Set
 
 from pydantic import UUID4
 
-from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
 class TokenBase(Base):
@@ -51,7 +51,7 @@ class TokenUpdate(TokenBase):
 
 
 # For list and detail views - excludes the actual token value
-class TokenRead(TokenBase):
+class TokenRead(TokenBase, ServerIdentity):
     id: UUID4
     token_obfuscated: Optional[str] = None
     last_used_at: Optional[datetime] = None
@@ -70,7 +70,7 @@ class TokenInfoResponse(Base):
 
 
 # Special response schema for token creation that includes the actual token value
-class TokenCreateResponse(Base):
+class TokenCreateResponse(Base, ServerIdentity):
     id: UUID4  # Add ID field for consistency
     access_token: str
     token_obfuscated: str
