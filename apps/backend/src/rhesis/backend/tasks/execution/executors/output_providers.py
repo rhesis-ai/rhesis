@@ -204,6 +204,17 @@ def resolve_multi_turn_contract(
     live execution paths (here, and ``batch/invocation.py``'s ``_run_multi_turn``) so there is
     one place that decides what "usable" means, not two that could drift.
 
+    ``ensure_contract`` mutates ``test.test_metadata`` but does not commit -- by design, so it
+    works for the ephemeral, unpersisted ``test`` objects trial execution passes in (see its
+    own docstring). For a real ``Test`` row, that mutation still lands: every caller of this
+    function runs inside a request or Celery task scoped by ``get_tenant_db_session`` /
+    ``get_db_with_tenant_variables`` (the in-place execute endpoint, and the sequential/batch
+    Celery tasks), and that scope commits deferred writes on exit regardless of whether a
+    ``TestResult`` row is created. This function must not add its own commit: with several
+    calls possibly composing inside one request or task, a mid-flight commit here could land
+    ahead of unrelated pending writes on the same session and break the ordering that
+    ``get_db_with_tenant_variables`` is responsible for.
+
     Returns ``(contract, usable)``:
       - ``contract`` is a plain dict ready for ``PenelopeAgent.execute_test(contract=...)``,
         or ``None`` when there is nothing usable to pass -- Penelope then falls back to

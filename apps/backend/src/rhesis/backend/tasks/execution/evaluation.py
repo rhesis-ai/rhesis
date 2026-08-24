@@ -273,11 +273,18 @@ def evaluate_multi_turn_metrics(
     # differently from the live run that originally produced it.
     instructions = test_config.get("instructions") or ""
 
-    # Re-scoring reuses whatever contract this test was already interpreted with -- it must
-    # not re-interpret, or the same stored trace could score differently between two
-    # re-score runs depending on when each one happened to run relative to a test edit.
-    # Absent (test predates evaluation contracts, or has never executed live) falls through
-    # to legacy goal-based scoring, unchanged from before contracts existed.
+    # Re-scoring reuses whatever contract is currently stored -- it must not re-interpret here,
+    # or two back-to-back re-scores with no intervening change could disagree for no reason.
+    # That guarantee doesn't extend across an intervening test edit: like `goal`/`instructions`
+    # two lines up, which also read the test's CURRENT `test_configuration` rather than a
+    # snapshot from when this trace was produced, the contract reflects the test's current
+    # definition, not the one active when the trace was generated. Re-score has always meant
+    # "score this trace against the test as it reads today", for both fields; the contract
+    # doesn't change that. A trace's own point-in-time understanding isn't preserved anywhere
+    # today, so keeping this consistent with `goal`/`instructions` was the choice here.
+    #
+    # Absent (test predates evaluation contracts, or has never executed live) falls through to
+    # legacy goal-based scoring, unchanged from before contracts existed.
     stored_contract = read_contract(getattr(test, "test_metadata", None))
     contract_dict: Optional[Dict[str, Any]] = None
     if stored_contract.interpreted_from:
