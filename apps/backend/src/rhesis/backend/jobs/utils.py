@@ -46,29 +46,19 @@ def get_test_run_by_config(
 def get_test_run_by_task_id(
     db: Session, task_id: str, organization_id: str = None
 ) -> Optional[Any]:
-    """
-    Get a test run by task ID from attributes.
-    This is used to find test runs created by a specific Celery task,
-    which is important for handling task retries correctly.
+    """Find the test run whose ``attributes->>'task_id'`` equals *task_id*.
 
-    Args:
-        db: Database session
-        task_id: Celery task ID
-
-    Returns:
-        Test run with matching task_id in attributes, or None if not found
+    Uses a SQL-level JSONB filter instead of loading rows into Python.
     """
+    from rhesis.backend.app.models.test_run import TestRun
+
     try:
-        # Get all test runs and filter by task_id in attributes
-        # Note: This is not the most efficient approach, but since we expect
-        # few test runs per task, it's acceptable for now
-        test_runs = get_test_runs(db, limit=100, organization_id=organization_id)
-
-        for test_run in test_runs:
-            if test_run.attributes and test_run.attributes.get("task_id") == task_id:
-                return test_run
-
-        return None
+        query = db.query(TestRun).filter(
+            TestRun.attributes["task_id"].astext == task_id
+        )
+        if organization_id:
+            query = query.filter(TestRun.organization_id == organization_id)
+        return query.first()
     except Exception:
         return None
 

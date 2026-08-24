@@ -29,14 +29,25 @@ _worker_role: str | None = None
 _usage_attribution_tokens: dict = {}
 
 
-def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
+def _update_test_run_status(
+    task_id: str,
+    new_status: RunStatus,
+    error_message: str = None,
+    test_run_id: str = None,
+):
     try:
+        from uuid import UUID
+
+        from rhesis.backend.app.crud.test_run import get_test_run
         from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
         from rhesis.backend.jobs.execution.run import update_test_run_status
         from rhesis.backend.jobs.utils import get_test_run_by_task_id
 
         with SessionLocal() as db:
-            test_run = get_test_run_by_task_id(db, task_id)
+            if test_run_id:
+                test_run = get_test_run(db, UUID(test_run_id))
+            else:
+                test_run = get_test_run_by_task_id(db, task_id)
             if test_run:
                 org_id = str(test_run.organization_id) if test_run.organization_id else ""
                 user_id = (
@@ -302,6 +313,7 @@ def handle_task_failure(
             task_id,
             RunStatus.FAILED,
             str(exception) if exception else "Task failed or worker crashed",
+            test_run_id=(kwargs or {}).get("test_run_id"),
         )
 
 
@@ -328,7 +340,12 @@ def handle_task_revoked(sender=None, request=None, **kw):
                 f"Task revoked caught for {task_name} (ID: {task_id}). "
                 f"Setting TestRun to Cancelled."
             )
-            _update_test_run_status(task_id, RunStatus.CANCELLED)
+            task_kwargs = getattr(request, "kwargs", None) or {}
+            _update_test_run_status(
+                task_id,
+                RunStatus.CANCELLED,
+                test_run_id=task_kwargs.get("test_run_id"),
+            )
 
         # A signal rather than a BaseJob hook because revocation can land on a
         # task that never started, so no hook of ours would ever run for it.

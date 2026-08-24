@@ -30,7 +30,7 @@ wants, and the retention sweep hard-deletes rather than soft-deletes so rows do
 not accumulate invisibly behind the soft-delete filter.
 
 Revision ID: d2c3b4a5e6f7
-Revises: 3f5954f6c374
+Revises: 88430978b358
 Create Date: 2026-08-17
 
 """
@@ -41,7 +41,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "d2c3b4a5e6f7"
-down_revision: Union[str, None] = "3f5954f6c374"
+down_revision: Union[str, None] = "88430978b358"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
