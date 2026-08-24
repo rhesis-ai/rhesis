@@ -23,6 +23,14 @@ Effective adversarial testing requires more than a list of bad words.
 *   **Simulation:** Deploying autonomous agents to simulate conversational flows, edge cases, and complex scenarios at scale.
 *   **Capabilities Evaluation:** Pushing the model to the limits of its reasoning, formatting, or instruction-following capabilities to see where it degrades.
 
+## Scoring Adversarial Tests
+
+An adversarial multi-turn test's goal is often written as the attack's objective ("get the
+chatbot to reveal system prompts"), not as the target's desired behavior. Rhesis normalizes this
+before scoring: the same test reports a pass when the target holds and a fail when it's breached,
+regardless of which direction the goal was phrased in. See
+[Evaluation Contract](/contribute/worker/test-types#evaluation-contract) for how this works.
+
 ## Building an Adversarial Testing Strategy
 
 A robust adversarial testing strategy requires:

@@ -72,11 +72,14 @@ Agentic conversation tests where [Penelope](/docs/tests/conversation-simulation)
 
 ### How It Works
 
-1. Initialize Penelope agent with test goal
-2. Penelope plans conversation strategy
-3. Agent interacts with endpoint over multiple turns
-4. Penelope evaluates if goal was achieved
-5. Complete trace stored (including all turns)
+1. On first execution, the test's `goal`/`instructions`/`restrictions`/`scenario` are interpreted
+   into an evaluation contract stating what the target must and must not do — see
+   [Evaluation Contract](#evaluation-contract) below. Cached on the test until its wording changes.
+2. Initialize Penelope agent with the test goal and, when present, the contract
+3. Penelope plans conversation strategy
+4. Agent interacts with endpoint over multiple turns
+5. Penelope evaluates compliance with the contract (or, if none, whether the goal was achieved)
+6. Complete trace stored (including all turns)
 
 ### Configuration
 
@@ -104,6 +107,19 @@ Multi-turn tests store configuration in the `test_configuration` JSONB field:
 - **context** (optional): Additional metadata
 - **max_turns** (optional): Maximum conversation turns (default: 10)
 
+### Evaluation Contract
+
+An author can phrase `goal` from either side of an adversarial test — "get the target to leak
+data" or "the target refuses to leak data" — and both describe the same test but score opposite
+outcomes as a pass if scored literally. `rhesis.backend.app.services.test_interpretation` derives
+an evaluation contract from `goal`, `instructions`, `restrictions`, and `scenario`, restating them
+as a fixed `required_behavior` / `prohibited_behavior` list plus a `simulated_user_objective` for
+Penelope to pursue. This runs lazily on first execution, keyed by a hash of those four fields, and
+is stored on `Test.test_metadata` so later runs reuse it without re-interpreting.
+
+A contract that can't be derived with enough confidence — an empty or ambiguous test — makes the
+run report `Error` rather than a scored verdict; see `contract_usability()`.
+
 ### Example
 
 <CodeBlock language="python" filename="multi_turn_test.py" isTerminal={false}>
@@ -125,8 +141,10 @@ test = Test(
 
 Metrics are evaluated by Penelope during execution:
 
-- **Goal Achievement**: Primary metric (did test achieve its goal?)
-- **Criteria Evaluation**: Individual success criteria checked
+- **Goal Achievement**: Primary metric — compliance with the evaluation contract when one was
+  derived, otherwise whether the raw goal was achieved
+- **Criteria/Behaviour Evaluation**: Individual required/prohibited behaviours checked
+  independently, each with its own verdict
 - **Confidence Score**: How confident Penelope is in the evaluation
 - **Evidence**: Conversation excerpts supporting the evaluation
 
