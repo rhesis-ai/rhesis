@@ -150,7 +150,10 @@ export function normalizeProductName(value: string | undefined | null): string {
 const MAX_FONT_FAMILY_LENGTH = 80;
 
 function slugifyFont(family: string): string {
-  return family.toLowerCase().replace(/\s+/g, '-');
+  return family
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 /**
