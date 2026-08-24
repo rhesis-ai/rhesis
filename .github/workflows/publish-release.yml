@@ -59,17 +59,22 @@ jobs:
         run: |
           # $GITHUB_SHA (the release branch tip) is what actually got validated on
           # stg. If main has picked up any other change to kubernetes/clusters/prd/**
-          # since the release branch was cut — e.g. an unrelated PR merged in the
-          # meantime — this write-back would carry it into prd unvalidated. Fail
-          # instead of silently promoting it. The release branch hasn't merged into
-          # main yet at this point in the workflow, so fetch its tip explicitly.
+          # or kubernetes/bootstrap/prd-base.yaml since the release branch was cut —
+          # e.g. an unrelated PR merged in the meantime — this write-back would carry
+          # it into prd unvalidated. Fail instead of silently promoting it. prd-base.yaml
+          # is included even though it's outside the synced tree: it's still a prd
+          # Application manifest in the FILES array below, so a non-targetRevision edit
+          # to it (path, repoURL, syncPolicy) deserves the same gate as any child.
+          # The release branch hasn't merged into main yet at this point in the
+          # workflow, so fetch its tip explicitly.
           git fetch --depth=1 origin "$GITHUB_SHA"
           UNEXPECTED=$(git diff "$GITHUB_SHA" HEAD -- kubernetes/clusters/prd \
+            kubernetes/bootstrap/prd-base.yaml \
             | grep -E '^[+-][^+-]' \
             | grep -v 'targetRevision:' || true)
           if [ -n "$UNEXPECTED" ]; then
             echo "main has diverged from the release commit ($GITHUB_SHA) with changes"
-            echo "to kubernetes/clusters/prd beyond targetRevision pins:"
+            echo "to kubernetes/clusters/prd or kubernetes/bootstrap/prd-base.yaml beyond targetRevision pins:"
             echo "$UNEXPECTED"
             echo "Refusing to promote — these changes were not validated on stg as part of this release."
             exit 1
@@ -177,18 +182,21 @@ jobs:
           # goes missing. ArgoCD reports a non-existent app as PermissionDenied — the
           # same signature as a real permission problem — which is exactly what turned
           # a missing prd-base into a confusing auth-failure diagnosis during v0.13.0.
-          # Route the get through retry_argocd so a transient blip gets retried instead
-          # of immediately being mistaken for "missing", then only fall into create for
-          # that specific PermissionDenied signature. Any other failure (TLS, bad token,
-          # connectivity) is a real problem, not a missing app — print it and fail
-          # instead of guessing.
+          # Routing the get through retry_argocd only helps network-level failures
+          # (timeouts, connection blips): retry_argocd fast-exits on "permission denied"
+          # by design, same as everywhere else it's used, so the missing-app case still
+          # gets no retry — retrying it wouldn't help anyway, since neither a genuinely
+          # missing app nor a real permission problem resolves itself in 30s. We only
+          # fall into create for that specific PermissionDenied signature; any other
+          # failure (TLS, bad token, connectivity exhausted after retries) is a real
+          # problem, not a missing app — print it and fail instead of guessing.
           # Guarded rather than --upsert: upsert would reset targetRevision to the
           # committed value and automated sync could fire on it before the pin below.
           if ! GET_OUTPUT=$(retry_argocd argocd app get prd-base \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web 2>&1); then
             echo "$GET_OUTPUT"
             if echo "$GET_OUTPUT" | grep -qi "permission denied"; then
-              echo "prd-base not found — creating it from kubernetes/bootstrap/prd-base.yaml"
+              echo "PermissionDenied on app get; attempting create (may be a missing app or a real RBAC issue) from kubernetes/bootstrap/prd-base.yaml"
               retry_argocd argocd app create -f kubernetes/bootstrap/prd-base.yaml \
                 --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
             else
