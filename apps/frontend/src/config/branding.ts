@@ -149,6 +149,10 @@ export function normalizeProductName(value: string | undefined | null): string {
 
 const MAX_FONT_FAMILY_LENGTH = 80;
 
+/** Letters, digits, spaces, hyphens. Rejects quotes, angle brackets, braces,
+ *  and other characters that could break CSS or HTML injection boundaries. */
+const SAFE_FONT_FAMILY_PATTERN = /^[a-zA-Z0-9 -]+$/;
+
 function slugifyFont(family: string): string {
   return family
     .toLowerCase()
@@ -160,7 +164,7 @@ function slugifyFont(family: string): string {
  * Validates a `BRAND_FONT_BASE_URL` — https:// or root-relative directory,
  * stripped of a trailing slash so callers can append `/{file}` directly.
  */
-function normalizeBaseUrl(
+export function normalizeBaseUrl(
   value: string | undefined | null
 ): string | undefined {
   const trimmed = value?.trim().replace(/\/+$/, '');
@@ -218,6 +222,13 @@ function normalizeBrandFont(): BrandFont | undefined {
   if (family.length > MAX_FONT_FAMILY_LENGTH) {
     console.warn(
       `[branding] Ignoring BRAND_FONT_FAMILY: ${family.length} characters exceeds the ${MAX_FONT_FAMILY_LENGTH}-character limit.`
+    );
+    return undefined;
+  }
+
+  if (!SAFE_FONT_FAMILY_PATTERN.test(family)) {
+    console.warn(
+      `[branding] Ignoring BRAND_FONT_FAMILY: "${family}" contains characters outside [a-zA-Z0-9 -].`
     );
     return undefined;
   }
