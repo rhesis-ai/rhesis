@@ -298,10 +298,23 @@ describe('getServerBranding', () => {
       expect(warn).toHaveBeenCalled();
     });
 
-    it('slugifies family names with special characters', () => {
-      process.env.BRAND_FONT_FAMILY = 'Noto Sans (Display)';
+    it('slugifies family names with hyphens', () => {
+      process.env.BRAND_FONT_FAMILY = 'IBM Plex Sans';
 
-      expect(getServerBranding().font?.slug).toBe('noto-sans-display');
+      expect(getServerBranding().font?.slug).toBe('ibm-plex-sans');
+    });
+
+    it.each([
+      ['Noto Sans (Display)', 'parentheses'],
+      ['Font "Name"', 'double quotes'],
+      ["Font 'Name'", 'single quotes'],
+      ['Font</style>', 'angle brackets'],
+      ['Font{Name}', 'curly braces'],
+    ])('rejects %s (%s) with unsafe characters', family => {
+      process.env.BRAND_FONT_FAMILY = family;
+
+      expect(getServerBranding().font).toBeUndefined();
+      expect(warn).toHaveBeenCalled();
     });
   });
 });
