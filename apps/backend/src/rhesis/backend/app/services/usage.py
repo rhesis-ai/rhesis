@@ -154,6 +154,13 @@ def increment_usage(
     tenant context never resolved) -- silently skipping is correct here:
     there is no organization to attribute the usage to, and casting an
     empty string to ``uuid`` would raise.
+
+    After committing, checks whether this accrual just crossed 80% of the
+    resource's limit or its ceiling, and notifies the org owner if so --
+    see ``usage_notifications.notify_flow_crossing``, which swallows every
+    exception. That is required, not defensive: this runs after the commit
+    above, and ``accrue_usage``'s bare ``except`` would retry the whole
+    task, re-accruing a counter that already landed.
     """
     if amount <= 0 or not org_id:
         return
@@ -175,9 +182,16 @@ def increment_usage(
                 "updated_at": func.now(),
             },
         )
+        .returning(Usage.__table__.c.used)
     )
-    db.execute(stmt)
+    new_used = db.execute(stmt).scalar_one()
     db.commit()
+
+    # Local import: usage_notifications imports this module at module scope
+    # (for _STOCK_COUNTERS), so a module-scope import here would be circular.
+    from rhesis.backend.app.services.usage_notifications import notify_flow_crossing
+
+    notify_flow_crossing(db, org_id, resource, previous_used=new_used - amount, new_used=new_used)
 
 
 def _count_org_rows(db: Session, model, org_id: str, *, exclude_deleted: bool) -> int:

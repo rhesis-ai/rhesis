@@ -17,6 +17,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 
 export default function EndpointsPage() {
   const { status } = useSession();
@@ -48,11 +49,15 @@ export default function EndpointsPage() {
     setCreateDrawerOpen(true);
   }, []);
 
+  const invalidateUsage = useInvalidateUsage();
+
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
     setCreateProjectId(undefined);
     queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
-  }, [queryClient]);
+    // Endpoints are a stock resource, so the cached /usage count is now stale.
+    invalidateUsage();
+  }, [queryClient, invalidateUsage]);
 
   if (isSessionLoading(status)) {
     return (

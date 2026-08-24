@@ -26,6 +26,20 @@ jest.mock('@/components/common/UserAvatar', () => ({
   UserAvatar: () => <div data-testid="user-avatar" />,
 }));
 
+const mockUnreadBySection: { current: Record<string, number> } = {
+  current: {},
+};
+jest.mock('@/contexts/NotificationsContext', () => ({
+  useNotifications: () => ({
+    unreadBySection: mockUnreadBySection.current,
+    markSectionRead: jest.fn(),
+    markOneRead: jest.fn(),
+    highlightedIds: () => [],
+    clearHighlight: jest.fn(),
+    registerViewing: () => () => {},
+  }),
+}));
+
 jest.mock('@/components/common/ThemeAwareLogo', () => ({
   __esModule: true,
   default: () => <div data-testid="theme-logo" />,
@@ -42,6 +56,28 @@ jest.mock('@/components/providers/ThemeProvider', () => ({
   }),
 }));
 
+const mockUsageResources: {
+  current: Record<
+    string,
+    {
+      used: number;
+      limit: number | null;
+      ceiling: number | null;
+      kind: 'stock' | 'flow';
+      period_start: string;
+      period_end: string;
+    }
+  >;
+} = { current: {} };
+jest.mock('@/contexts/UsageContext', () => ({
+  useUsage: () => ({
+    resources: mockUsageResources.current,
+    edition: 'community',
+    loading: false,
+    error: null,
+  }),
+}));
+
 // ── imports (after mocks) ──────────────────────────────────────────────────
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -49,6 +85,7 @@ import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import type { NavigationItem } from '@/types/navigation';
+import { QuotaResource } from '@/constants/quota';
 
 // ── helper ────────────────────────────────────────────────────────────────
 function setupMocks({
@@ -79,6 +116,8 @@ describe('Sidebar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRouterPush.mockClear();
+    mockUnreadBySection.current = {};
+    mockUsageResources.current = {};
   });
 
   it('renders without crashing', () => {
@@ -181,6 +220,30 @@ describe('Sidebar', () => {
       ).toBeInTheDocument();
     });
 
+    it('fills a usage row bar to how much of the limit is used', () => {
+      mockUsageResources.current = {
+        [QuotaResource.PROJECTS]: {
+          used: 1,
+          limit: 1,
+          ceiling: 1,
+          kind: 'stock',
+          period_start: '2026-08-01',
+          period_end: '2026-08-31',
+        },
+      };
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+      fireEvent.click(screen.getByText('Acme Corp'));
+
+      expect(screen.getByText('1 of 1')).toBeInTheDocument();
+      const fill = screen.getByTestId('usage-row-fill');
+      expect(getComputedStyle(fill).width).toBe('100%');
+    });
+
     it('navigates to org settings when Org Settings is clicked', () => {
       setupMocks();
       (useNavigationItems as jest.Mock).mockReturnValue({
@@ -221,5 +284,18 @@ describe('Sidebar', () => {
     });
     render(<Sidebar />);
     expect(screen.getByText('User')).toBeInTheDocument();
+  });
+
+  it('badges the avatar with the total unread count, so notifications are visible without opening the menu', () => {
+    mockUnreadBySection.current = { 'test-runs': 2, usage: 1 };
+    setupMocks();
+    render(<Sidebar />);
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('does not badge the avatar when nothing is unread', () => {
+    setupMocks();
+    render(<Sidebar />);
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
   });
 });

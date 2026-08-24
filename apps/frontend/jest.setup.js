@@ -22,6 +22,11 @@ if (hasWindow) {
 global.TextEncoder = global.TextEncoder || require('util').TextEncoder;
 global.TextDecoder = global.TextDecoder || require('util').TextDecoder;
 
+// jsdom has no ReadableStream; Node's own (stream/web) is what a real
+// fetch Response.body would be, so this is a polyfill, not a mock.
+global.ReadableStream =
+  global.ReadableStream || require('stream/web').ReadableStream;
+
 // Mock Next.js router
 jest.mock('next/router', () => ({
   useRouter() {

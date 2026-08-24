@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.services.test_generation_pipeline import (
     _fetch_db_context,
@@ -663,6 +665,106 @@ class TestPipelineStream:
         assert "error" in types
         assert "test" not in types
         assert types[-1] == "done"
+
+    async def test_llm_resolution_failure_reports_error_instead_of_raising(self):
+        """A resolution failure (e.g. a misconfigured model) used to propagate
+        straight out of the generator with no event ever emitted, since this
+        was the one call in the whole function outside every other
+        try/except. It must now surface as a normal error event."""
+        user = _make_user()
+        mock_db = MagicMock()
+
+        with patch(
+            "rhesis.backend.app.services.test_generation_pipeline._resolve_config_llm",
+            side_effect=RuntimeError("model unreachable"),
+        ):
+            events = await _collect_ndjson(
+                test_generation_pipeline_stream(
+                    db=mock_db,
+                    user=user,
+                    prompt="test",
+                    organization_id=str(uuid.uuid4()),
+                )
+            )
+
+        types = [e["type"] for e in events]
+        error_events = [e for e in events if e["type"] == "error"]
+        assert error_events, "resolution failure must yield an error event, not raise"
+        assert error_events[0]["phase"] == "config"
+        assert "model unreachable" in error_events[0]["message"]
+        assert "test" not in types
+        assert types[-1] == "done"
+
+    async def test_db_context_failure_reports_error_instead_of_raising(self):
+        """_fetch_db_context (e.g. a deleted/inaccessible project) sat right
+        after _resolve_config_llm but outside its try/except -- it must be
+        caught by the same block, not just the LLM-resolution call."""
+        user = _make_user()
+        mock_db = MagicMock()
+        llm = _streaming_llm()
+
+        with (
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline._resolve_config_llm",
+                return_value=llm,
+            ),
+            patch(
+                "rhesis.backend.app.services.test_generation_pipeline._fetch_db_context",
+                side_effect=ValueError("Project with id p-1 not found or not accessible"),
+            ),
+        ):
+            events = await _collect_ndjson(
+                test_generation_pipeline_stream(
+                    db=mock_db,
+                    user=user,
+                    prompt="test",
+                    organization_id=str(uuid.uuid4()),
+                    project_id="p-1",
+                )
+            )
+
+        types = [e["type"] for e in events]
+        error_events = [e for e in events if e["type"] == "error"]
+        assert error_events, "db-context failure must yield an error event, not raise"
+        assert error_events[0]["phase"] == "config"
+        assert "not found or not accessible" in error_events[0]["message"]
+        assert "test" not in types
+        assert types[-1] == "done"
+
+    async def test_exhausted_model_tokens_quota_gets_organization_subject_copy(self):
+        """A QuotaExceededError raised at resolution time (the pre-call token
+        gate in user_model_utils.py) must read like every other quota
+        message in the app, not the exception's own technical string."""
+        user = _make_user()
+        mock_db = MagicMock()
+        verdict = QuotaVerdict(
+            resource=QuotaResource.MODEL_TOKENS,
+            used=51_080,
+            limit=1_000,
+            allowed=False,
+            over_limit=True,
+            kind="flow",
+            period_end="2026-09-01",
+        )
+
+        with patch(
+            "rhesis.backend.app.services.test_generation_pipeline._resolve_config_llm",
+            side_effect=QuotaExceededError(verdict),
+        ):
+            events = await _collect_ndjson(
+                test_generation_pipeline_stream(
+                    db=mock_db,
+                    user=user,
+                    prompt="test",
+                    organization_id=str(uuid.uuid4()),
+                )
+            )
+
+        error_events = [e for e in events if e["type"] == "error"]
+        assert error_events
+        message = error_events[0]["message"]
+        assert message == "Your organization is at its model tokens limit for this period."
+        assert "QuotaExceededError" not in message
 
     async def test_test_generation_failure_reports_error(self):
         """If test generation raises, error event is emitted but pipeline finishes."""

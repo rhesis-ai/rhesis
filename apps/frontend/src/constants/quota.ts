@@ -53,3 +53,15 @@ export const QUOTA_RESOURCE_ORDER: readonly QuotaResource[] = [
   QuotaResource.PROJECTS,
   QuotaResource.ENDPOINTS,
 ];
+
+/**
+ * Utilization at or above this fraction of `limit` puts a resource in the
+ * `approaching` zone (see `utils/quota.ts:classifyZone`). One shared
+ * constant -- it used to live separately in `QuotaBanner` and
+ * `UsageOverviewTab` and was about to gain a third and fourth copy with the
+ * brand-row badge and org-menu block.
+ */
+export const WARNING_THRESHOLD = 0.8;
+
+/** Where every "Upgrade" affordance in the app links to. */
+export const UPGRADE_URL = 'https://rhesis.ai/editions';

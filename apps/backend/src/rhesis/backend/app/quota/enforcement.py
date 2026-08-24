@@ -26,9 +26,14 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.usage import Usage
-from rhesis.backend.app.quota import QuotaRegistry, QuotaResource
+from rhesis.backend.app.quota import QuotaRegistry, QuotaResource, resource_label
 from rhesis.backend.app.scope import bypass_tenant_filter
-from rhesis.backend.app.services.usage import _STOCK_COUNTERS, _current_period
+from rhesis.backend.app.services.usage import (
+    _STOCK_COUNTERS,
+    FLOW_KIND,
+    STOCK_KIND,
+    _current_period,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,15 @@ class QuotaVerdict:
         *allowed*. ``over_limit and allowed`` is exactly the soft-overage
         grace band: past the advertised limit but not yet at the hard
         ceiling. ``over_limit`` is always ``False`` when *limit* is ``None``.
+    :param kind: ``"flow"`` or ``"stock"`` -- same split as
+        :func:`~rhesis.backend.app.services.usage.get_usage_summary`, so a
+        402 body can be classified identically to a `GET /usage` row
+        without the frontend re-deriving the split.
+    :param period_end: ISO date the current billing period ends, so a
+        blocked flow resource can be told when it resets without a second
+        round trip to `GET /usage`. ``None`` for a stock resource: seats,
+        projects and endpoints are live counts that never reset, so a
+        period end would be a meaningless date on the wire.
     """
 
     resource: QuotaResource
@@ -51,6 +65,8 @@ class QuotaVerdict:
     limit: Optional[int]
     allowed: bool
     over_limit: bool
+    kind: str
+    period_end: Optional[str]
 
 
 class QuotaExceededError(Exception):
@@ -86,7 +102,7 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
     must build the response itself instead of letting the exception
     propagate there (see the note on :class:`QuotaExceededError`).
     """
-    resource_display = verdict.resource.value.replace("_", " ")
+    resource_display = resource_label(verdict.resource)
     is_stock = verdict.resource in _STOCK_COUNTERS
     suffix = "" if is_stock else " for this period"
     return {
@@ -94,8 +110,40 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
         "resource": verdict.resource.value,
         "used": verdict.used,
         "limit": verdict.limit,
-        "message": f"You've reached your {resource_display} limit{suffix}.",
+        "kind": verdict.kind,
+        "period_end": verdict.period_end,
+        "message": f"Your organization is at its {resource_display} limit{suffix}.",
     }
+
+
+def stream_error_message(e: Exception) -> str:
+    """Turn an exception caught mid-stream into a plain string, for a
+    streaming pipeline emitting a ``{"type": "error", "message": ...}``
+    NDJSON event rather than a structured 402 body.
+
+    Why every streaming generator needs this: a ``StreamingResponse``
+    sends its 200 OK before pulling the first item out of the generator.
+    Anything raised before the first ``yield`` -- most notably the
+    MODEL_TOKENS pre-call gate in ``user_model_utils.py`` raising
+    :class:`QuotaExceededError`, but any resolution failure has the same
+    shape -- used to propagate straight out with no clean 402 left to
+    send; the stream just aborted with no event ever reaching the
+    frontend, which reads as a request that hangs forever with no
+    explanation. Wrapping that setup code in one try/except per
+    generator and yielding an event built from this function's return
+    value is the fix; see ``test_generation_pipeline_stream`` and
+    ``suggestion_pipeline_stream`` for the two current call sites.
+
+    A :class:`QuotaExceededError` gets the same organization-subject copy
+    every other quota surface uses instead of its own technical
+    ``__str__`` ("Quota exceeded for model_tokens: ..."); anything else
+    falls back to its own message -- these pipelines show the underlying
+    LLM/provider error verbatim by design, so a user can see *why*
+    generation failed (a rate limit, an invalid key, and so on).
+    """
+    if isinstance(e, QuotaExceededError):
+        return quota_exceeded_response_body(e.verdict)["message"]
+    return str(e)
 
 
 def _read_usage(db: Session, org_id: str, resource: QuotaResource) -> int:
@@ -147,10 +195,20 @@ def check_quota(
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
     used = _read_usage(db, org_id, resource)
+    is_stock = resource in _STOCK_COUNTERS
+    kind = STOCK_KIND if is_stock else FLOW_KIND
+    # Stock resources never reset, so they carry no period end -- see QuotaVerdict.
+    period_end = None if is_stock else _current_period()[1].isoformat()
 
     if limit is None:
         return QuotaVerdict(
-            resource=resource, used=used, limit=None, allowed=True, over_limit=False
+            resource=resource,
+            used=used,
+            limit=None,
+            allowed=True,
+            over_limit=False,
+            kind=kind,
+            period_end=period_end,
         )
 
     ceiling = policy.ceiling_for(limit)
@@ -160,6 +218,8 @@ def check_quota(
         limit=limit,
         allowed=used < ceiling,
         over_limit=used >= limit,
+        kind=kind,
+        period_end=period_end,
     )
 
 

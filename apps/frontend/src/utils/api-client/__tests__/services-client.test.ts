@@ -1,4 +1,5 @@
 import { ServicesClient } from '../services-client';
+import type { TestPipelineRequest } from '../interfaces/test-set';
 
 const BASE_URL = 'http://localhost/api/backend';
 
@@ -20,6 +21,33 @@ function makeFetch(
   } as unknown as Response);
 }
 
+/** A streaming response whose body yields the given NDJSON lines then closes. */
+function makeNdjsonStream(lines: string[]) {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      lines.forEach(line => controller.enqueue(encoder.encode(`${line}\n`)));
+      controller.close();
+    },
+  });
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    body,
+  } as unknown as Response);
+}
+
+/** A streaming response whose body never yields anything and never closes --
+ * simulates a stalled connection (e.g. the underlying model call hangs). */
+function makeStalledStream() {
+  const body = new ReadableStream<Uint8Array>({ start() {} });
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    body,
+  } as unknown as Response);
+}
+
 describe('ServicesClient', () => {
   let client: ServicesClient;
   let fetchMock: jest.Mock;
@@ -30,7 +58,13 @@ describe('ServicesClient', () => {
     global.fetch = fetchMock;
   });
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+    // Always restored, not just on the happy path: a failed assertion in
+    // the stall test would otherwise leak fake timers into every test
+    // that runs after it in this file.
+    jest.useRealTimers();
+  });
 
   it('gets GitHub contents with URL-encoded repo_url param', async () => {
     fetchMock.mockResolvedValue(makeFetch('readme content'));
@@ -91,6 +125,71 @@ describe('ServicesClient', () => {
     expect(JSON.parse(opts.body)).toMatchObject({
       task_id: 'task-id',
       tool_id: 'tool-id',
+    });
+  });
+
+  describe('generateTestPipelineStream', () => {
+    const request: TestPipelineRequest = { prompt: 'Test the login flow' };
+
+    it('parses each NDJSON line as an event', async () => {
+      fetchMock.mockResolvedValue(
+        makeNdjsonStream([
+          '{"type":"config_done","total":1}',
+          '{"type":"done"}',
+        ])
+      );
+      const onEvent = jest.fn();
+
+      await client.generateTestPipelineStream(request, { onEvent });
+
+      expect(onEvent).toHaveBeenCalledWith({ type: 'config_done', total: 1 });
+      expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
+    });
+
+    it('rejects instead of hanging forever when the stream stalls', async () => {
+      jest.useFakeTimers();
+      fetchMock.mockResolvedValue(makeStalledStream());
+      const onEvent = jest.fn();
+
+      const result = client.generateTestPipelineStream(request, { onEvent });
+      const assertion = expect(result).rejects.toThrow(/Stream stalled/);
+      await jest.advanceTimersByTimeAsync(150_000);
+      await assertion;
+
+      expect(onEvent).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a 402 as a quota error, not the raw response body', async () => {
+      fetchMock.mockResolvedValue(
+        makeFetch(
+          {
+            error: 'quota_exceeded',
+            resource: 'test_generation',
+            used: 5,
+            limit: 5,
+            kind: 'flow',
+            period_end: '2026-09-01',
+            message:
+              'Your organization is at its test generation limit for this period.',
+          },
+          402
+        )
+      );
+      const onEvent = jest.fn();
+
+      let caught: (Error & { status?: number; data?: unknown }) | undefined;
+      try {
+        await client.generateTestPipelineStream(request, { onEvent });
+      } catch (e) {
+        caught = e as Error & { status?: number; data?: unknown };
+      }
+
+      expect(caught).toBeDefined();
+      expect(caught?.status).toBe(402);
+      expect(caught?.data).toMatchObject({ error: 'quota_exceeded' });
+      expect(caught?.message).toBe(
+        'API error: 402 - Your organization is at its test generation limit for this period.'
+      );
     });
   });
 });

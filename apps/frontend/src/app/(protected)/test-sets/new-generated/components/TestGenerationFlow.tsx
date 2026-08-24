@@ -34,6 +34,8 @@ import TestConfigurationConfirmation from './TestConfigurationConfirmation';
 import { TEMPLATES } from '@/config/test-templates';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { QuotaResource } from '@/constants/quota';
+import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
@@ -338,6 +340,9 @@ export default function TestGenerationFlow() {
     setDescription('');
   }, []);
 
+  const generationQuota = useQuotaGate(QuotaResource.TEST_GENERATION);
+  const asQuotaError = useQuotaErrorHandler();
+
   const handlePipelineEvent = useCallback(
     (event: TestPipelineEvent) => {
       switch (event.type) {
@@ -390,6 +395,17 @@ export default function TestGenerationFlow() {
       const templateId = sessionStorage.getItem('selectedTemplateId');
       if (!templateId) return;
 
+      // Preview generation streams through the same pipeline the final
+      // submit gates on, but it never surfaces its own error: a hang or a
+      // silently-swallowed failure mid-stream left the skeleton loaders
+      // stuck forever with no toast. Blocking here, before the stream ever
+      // opens, is the same check handleGenerate already makes.
+      if (generationQuota.message) {
+        sessionStorage.removeItem('selectedTemplateId');
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
+
       try {
         const template = TEMPLATES.find(t => t.id === templateId);
         if (!template) {
@@ -422,20 +438,32 @@ export default function TestGenerationFlow() {
       } catch (e) {
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
-        show(getApiErrorMessage(e, 'Failed to load template'), {
-          severity: 'error',
-        });
+        // Backs up the preflight: usage can change between render and submit.
+        show(
+          asQuotaError(e)?.message ??
+            getApiErrorMessage(e, 'Failed to load template'),
+          {
+            severity: 'error',
+          }
+        );
       }
     };
 
     initializeFromTemplate();
     // selectedProjectId, selectedSources, testType, selectedModelId intentionally excluded - template init runs once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, handlePipelineEvent]);
+  }, [show, handlePipelineEvent, asQuotaError, generationQuota.message]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
     async (desc: string, sources: SourceData[]) => {
+      // Same check handleGenerate makes before the final submit -- without
+      // it, a user already over quota reaches the streaming pipeline, which
+      // has no quota enforcement of its own and can hang with no error.
+      if (generationQuota.message) {
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
       setDescription(desc);
       setSelectedSources(sources);
       setSelectedSourceIds(sources.map(s => s.id));
@@ -483,18 +511,33 @@ export default function TestGenerationFlow() {
           { onEvent: handlePipelineEvent }
         );
       } catch (error) {
-        show(getApiErrorMessage(error, 'Failed to generate configuration'), {
-          severity: 'error',
-        });
+        // Backs up the preflight: usage can change between render and submit.
+        show(
+          asQuotaError(error)?.message ??
+            getApiErrorMessage(error, 'Failed to generate configuration'),
+          { severity: 'error' }
+        );
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
       }
     },
-    [show, testType, selectedProjectId, selectedModelId, handlePipelineEvent]
+    [
+      show,
+      testType,
+      selectedProjectId,
+      selectedModelId,
+      handlePipelineEvent,
+      asQuotaError,
+      generationQuota.message,
+    ]
   );
 
   // Generate test samples
   const generateSamples = useCallback(async () => {
+    if (generationQuota.message) {
+      show(generationQuota.message, { severity: 'error' });
+      return;
+    }
     setTestSamples([]);
     setIsLoadingSamples(true);
 
@@ -532,8 +575,13 @@ export default function TestGenerationFlow() {
         },
         { onEvent: handlePipelineEvent }
       );
-    } catch (_error) {
-      show('Failed to regenerate samples', { severity: 'error' });
+    } catch (error) {
+      // Backs up the preflight: usage can change between render and submit.
+      show(
+        asQuotaError(error)?.message ??
+          getApiErrorMessage(error, 'Failed to regenerate samples'),
+        { severity: 'error' }
+      );
       setIsLoadingSamples(false);
     }
   }, [
@@ -545,6 +593,8 @@ export default function TestGenerationFlow() {
     selectedModelId,
     handlePipelineEvent,
     show,
+    asQuotaError,
+    generationQuota.message,
   ]);
 
   // Regenerate sample with feedback
@@ -553,6 +603,11 @@ export default function TestGenerationFlow() {
       // Find the sample
       const sample = testSamples.find(s => s.id === sampleId);
       if (!sample) return;
+
+      if (generationQuota.message) {
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
 
       setRegeneratingSampleId(sampleId);
 
@@ -648,8 +703,13 @@ export default function TestGenerationFlow() {
         }
 
         show('Sample regenerated successfully', { severity: 'success' });
-      } catch (_error) {
-        show('Failed to regenerate sample', { severity: 'error' });
+      } catch (error) {
+        // Backs up the preflight: usage can change between render and submit.
+        show(
+          asQuotaError(error)?.message ??
+            getApiErrorMessage(error, 'Failed to regenerate sample'),
+          { severity: 'error' }
+        );
       } finally {
         setRegeneratingSampleId(null);
       }
@@ -663,6 +723,8 @@ export default function TestGenerationFlow() {
       testSamples,
       testType,
       show,
+      asQuotaError,
+      generationQuota.message,
     ]
   );
 
@@ -699,6 +761,10 @@ export default function TestGenerationFlow() {
 
   const handleSendMessage = useCallback(
     async (message: string) => {
+      if (generationQuota.message) {
+        show(generationQuota.message, { severity: 'error' });
+        return;
+      }
       const chipStates: Array<{
         label: string;
         description: string;
@@ -780,10 +846,13 @@ export default function TestGenerationFlow() {
           timestamp: new Date(),
         };
         setChatMessages(prev => [...prev, assistantMessage]);
-      } catch (_error) {
-        show(getApiErrorMessage(_error, 'Failed to refine test generation'), {
-          severity: 'error',
-        });
+      } catch (error) {
+        // Backs up the preflight: usage can change between render and submit.
+        show(
+          asQuotaError(error)?.message ??
+            getApiErrorMessage(error, 'Failed to refine test generation'),
+          { severity: 'error' }
+        );
       } finally {
         setIsGenerating(false);
         setIsLoadingConfig(false);
@@ -800,6 +869,8 @@ export default function TestGenerationFlow() {
       chatMessages,
       testType,
       handlePipelineEvent,
+      asQuotaError,
+      generationQuota.message,
     ]
   );
 
@@ -823,6 +894,11 @@ export default function TestGenerationFlow() {
   );
 
   const handleLoadMoreSamples = useCallback(async () => {
+    if (generationQuota.message) {
+      show(generationQuota.message, { severity: 'error' });
+      return;
+    }
+
     setIsLoadingMore(true);
     try {
       const apiFactory = new ApiClientFactory();
@@ -852,8 +928,13 @@ export default function TestGenerationFlow() {
       );
 
       setTestSamples(prev => [...prev, ...newSamples]);
-    } catch (_error) {
-      show('Failed to load more samples', { severity: 'error' });
+    } catch (error) {
+      // Backs up the preflight: usage can change between render and submit.
+      show(
+        asQuotaError(error)?.message ??
+          getApiErrorMessage(error, 'Failed to load more samples'),
+        { severity: 'error' }
+      );
     } finally {
       setIsLoadingMore(false);
     }
@@ -865,6 +946,8 @@ export default function TestGenerationFlow() {
     project,
     testType,
     show,
+    asQuotaError,
+    generationQuota.message,
   ]);
 
   // Final generation
@@ -873,6 +956,13 @@ export default function TestGenerationFlow() {
       show('A project must be selected before generating a test set.', {
         severity: 'error',
       });
+      return;
+    }
+    // Toast rather than an inline notice: this is a full-page flow with no
+    // drawer error slot. Sentence and recourse joined, no link -- a snackbar
+    // auto-dismisses, so a link in one is a trap.
+    if (generationQuota.message) {
+      show(generationQuota.message, { severity: 'error' });
       return;
     }
     setIsFinishing(true);
@@ -946,14 +1036,19 @@ export default function TestGenerationFlow() {
 
       // Redirect to the newly created test set's detail page
       router.push(`/test-sets/${response.test_set_id}`);
-    } catch (_error) {
-      show('Failed to start test generation. Please try again.', {
-        severity: 'error',
-      });
+    } catch (error) {
+      // Backs up the preflight: usage can change between render and submit.
+      show(
+        asQuotaError(error)?.message ??
+          'Failed to start test generation. Please try again.',
+        { severity: 'error' }
+      );
     } finally {
       setIsFinishing(false);
     }
   }, [
+    asQuotaError,
+    generationQuota.message,
     configChips.requirement,
     configChips.topics,
     configChips.category,

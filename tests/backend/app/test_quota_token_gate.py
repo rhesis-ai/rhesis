@@ -35,6 +35,8 @@ def _always_blocks(db, organization_id):
             limit=1,
             allowed=False,
             over_limit=True,
+            kind="flow",
+            period_end="2024-01-31",
         )
     )
 

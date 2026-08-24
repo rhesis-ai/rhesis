@@ -31,6 +31,7 @@ from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreE
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -90,12 +91,16 @@ def create_endpoint(
         if active_status:
             endpoint.status_id = active_status.id
 
-    return crud.create_endpoint(
+    new_endpoint = crud.create_endpoint(
         db=db,
         endpoint=endpoint,
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    notify_stock_crossing(db, _quota_gate, QuotaResource.ENDPOINTS)
+
+    return new_endpoint
 
 
 @router.get("/", response_model=list[schemas.EndpointDetail])

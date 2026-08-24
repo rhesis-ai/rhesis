@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { QuotaResource } from '@/constants/quota';
+import { useQuotaGate } from '@/hooks/useQuotaGate';
 import EndpointForm, { type EndpointFormHandle } from './EndpointForm';
 
 interface EndpointCreateDrawerProps {
@@ -23,6 +25,8 @@ export default function EndpointCreateDrawer({
     canSubmit: false,
   });
 
+  const endpointQuota = useQuotaGate(QuotaResource.ENDPOINTS);
+
   const handleCreated = useCallback(() => {
     onCreated?.();
     onClose();
@@ -37,8 +41,12 @@ export default function EndpointCreateDrawer({
       onSave={() => formRef.current?.submit()}
       saveButtonText="Create endpoint"
       saveDataTour="create-endpoint-save"
-      saveDisabled={!submitState.canSubmit}
+      saveDisabled={!submitState.canSubmit || endpointQuota.exhausted}
       loading={submitState.isSubmitting}
+      // The gate goes on the submit, never on the FAB that opens this drawer:
+      // a disabled FAB leaves the explanation nowhere to live. The form's own
+      // 402 handling covers the case where usage changes mid-edit.
+      error={endpointQuota.notice}
     >
       {open ? (
         <EndpointForm

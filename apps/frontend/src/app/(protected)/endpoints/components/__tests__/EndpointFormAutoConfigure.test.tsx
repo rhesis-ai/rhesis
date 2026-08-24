@@ -21,8 +21,9 @@ jest.mock(
   }
 );
 
+const mockRouterPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush, replace: jest.fn() }),
   // Supply a project identifier so project_id is pre-filled and step 0 is valid
   useParams: () => ({ identifier: 'proj-1' }),
 }));
@@ -51,8 +52,9 @@ jest.mock('@monaco-editor/react', () => {
   return { __esModule: true, default: MockEditor };
 });
 
+const mockNotificationsShow = jest.fn();
 jest.mock('@/components/common/NotificationContext', () => ({
-  useNotifications: () => ({ show: jest.fn() }),
+  useNotifications: () => ({ show: mockNotificationsShow }),
 }));
 
 jest.mock('@/contexts/OnboardingContext', () => ({
@@ -74,8 +76,9 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
+const mockCreateEndpoint = jest.fn();
 jest.mock('@/actions/endpoints', () => ({
-  createEndpoint: jest.fn(),
+  createEndpoint: (...args: unknown[]) => mockCreateEndpoint(...args),
 }));
 
 jest.mock('@/actions/endpoints/auto-configure', () => ({
@@ -164,5 +167,75 @@ describe('EndpointForm — Body step auto-configure', () => {
 
     // Auth token should now be visible in the Connection tab
     expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
+  });
+});
+
+describe('EndpointForm — submit result handling', () => {
+  beforeEach(() => {
+    mockCreateEndpoint.mockReset();
+    mockNotificationsShow.mockClear();
+    mockRouterPush.mockClear();
+  });
+
+  async function fillRequiredFieldsAndSubmit(
+    user: ReturnType<typeof userEvent.setup>
+  ) {
+    await waitFor(() =>
+      expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
+    );
+    await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
+    await user.click(screen.getByRole('tab', { name: /connection/i }));
+    await user.type(
+      screen.getByLabelText(/endpoint url/i),
+      'https://api.example.com'
+    );
+    await user.click(screen.getByRole('button', { name: /save endpoint/i }));
+  }
+
+  it('shows success and navigates when createEndpoint succeeds', async () => {
+    mockCreateEndpoint.mockResolvedValue({
+      success: true,
+      data: { id: 'ep-1' },
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<EndpointForm />);
+
+    await fillRequiredFieldsAndSubmit(user);
+
+    await waitFor(() =>
+      expect(mockNotificationsShow).toHaveBeenCalledWith(
+        'Endpoint created successfully!',
+        expect.objectContaining({ severity: 'success' })
+      )
+    );
+    expect(mockRouterPush).toHaveBeenCalledWith('/projects/proj-1');
+  });
+
+  it('shows the backend error and does not navigate when the org is over its endpoints quota', async () => {
+    // createEndpoint never throws on a business failure -- it returns
+    // {success: false, error}. Both callers used to ignore that and show
+    // "created successfully" regardless.
+    mockCreateEndpoint.mockResolvedValue({
+      success: false,
+      error:
+        'API error: 402 - Your organization is at its endpoints limit (1 of 1).',
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<EndpointForm />);
+
+    await fillRequiredFieldsAndSubmit(user);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'Your organization is at its endpoints limit (1 of 1).'
+        )
+      ).toBeInTheDocument()
+    );
+    expect(mockNotificationsShow).not.toHaveBeenCalledWith(
+      'Endpoint created successfully!',
+      expect.anything()
+    );
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 });

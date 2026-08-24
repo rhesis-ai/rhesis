@@ -464,6 +464,19 @@ export default function SuggestionsDialog({
                 break;
               }
 
+              // ── Pipeline-level failure before any suggestion could be
+              // produced (e.g. quota exhaustion during model resolution) --
+              // distinct from the per-item `error` field on output/evaluation
+              // events, which reports one row failing while the rest of the
+              // pipeline keeps going.
+              case 'error': {
+                setTestGenStatus('idle');
+                setOutputsStatus('idle');
+                setMetricsStatus('idle');
+                setError(event.message);
+                break;
+              }
+
               case 'done': {
                 break;
               }

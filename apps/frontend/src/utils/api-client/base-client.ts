@@ -34,6 +34,13 @@ export interface ApiErrorData {
    * for type-shape parity with the backend response, not because it's ever
    * actually null here. */
   limit?: number | null;
+  /** `'flow'` or `'stock'`, on a 402 quota-exceeded body -- same split as
+   * `UsageResourceItem.kind`, so the gate copy can be classified without a
+   * second lookup against `/usage`. */
+  kind?: 'flow' | 'stock';
+  /** ISO date the current billing period ends, on a 402 quota-exceeded
+   * body -- lets a blocked flow resource say when it resets. */
+  period_end?: string;
   [key: string]: unknown;
 }
 
@@ -102,7 +109,7 @@ export function formatApiErrorDetail(detail: unknown): string {
   return '';
 }
 
-function parseApiErrorResponse(errorData: ApiErrorData): string {
+export function parseApiErrorResponse(errorData: ApiErrorData): string {
   if (errorData.detail) {
     const formatted = formatApiErrorDetail(errorData.detail);
     if (formatted) {

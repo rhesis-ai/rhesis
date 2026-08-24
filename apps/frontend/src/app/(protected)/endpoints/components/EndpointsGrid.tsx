@@ -38,8 +38,8 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useDeleteEndpoint } from '@/hooks/useEndpoints';
 import { getProjectIcon } from './endpoint-icon-utils';
-import { useQueryClient } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
@@ -123,7 +123,7 @@ export default function EndpointsGrid({
   const notifications = useNotifications();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
-  const queryClient = useQueryClient();
+  const deleteEndpoint = useDeleteEndpoint();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
@@ -260,25 +260,14 @@ export default function EndpointsGrid({
     }
   }, [status]);
 
-  const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
-  }, [queryClient]);
-
   const handleDeleteEndpoints = async () => {
     if (!isAuthenticated(status) || !pendingDeleteId) return;
-    const idsToDelete = [pendingDeleteId];
 
     try {
       setDeleting(true);
-      const endpointsClient = new ApiClientFactory().getEndpointsClient();
-
-      await Promise.all(
-        idsToDelete.map(id => endpointsClient.deleteEndpoint(id))
-      );
-
+      await deleteEndpoint.mutateAsync(pendingDeleteId);
       setPendingDeleteId(null);
       setDeleteDialogOpen(false);
-      handleRefresh();
     } catch {
       notifications.show('Failed to delete endpoints', { severity: 'error' });
     } finally {

@@ -26,6 +26,7 @@ import {
 import ProjectEditDrawer from './edit-drawer';
 import ProjectDetailTabs from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
+import { useDeleteProject } from '@/hooks/useEndpoints';
 
 interface ClientWrapperProps {
   project: Project;
@@ -119,6 +120,8 @@ export default function ClientWrapper({
     [projectId, notifications, currentProject, syncProject]
   );
 
+  const deleteProject = useDeleteProject();
+
   const handleDeleteConfirm = async () => {
     // The FAB is guarded at render time, but activeProject can resolve after this
     // page rendered — a session with no active-project cookie and a single project
@@ -133,9 +136,7 @@ export default function ClientWrapper({
     }
     setIsDeleting(true);
     try {
-      const apiFactory = new ApiClientFactory();
-      const projectsClient = apiFactory.getProjectsClient();
-      await projectsClient.deleteProject(projectId);
+      await deleteProject(projectId);
       // Unmount the detail body on this same render: the tabs below fire their
       // own project-scoped requests, and the refresh and navigation each take a
       // round trip. Without this the user watches the deleted project's tabs
