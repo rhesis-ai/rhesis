@@ -67,6 +67,11 @@ async def lifespan(app: FastAPI):
     # Only the client is checked here. The workflow itself is built per turn, because its
     # shape depends on the trip brief - there is no single graph to validate up front.
     build_chat_client()
+    # Dial out the connector now that uvicorn's loop is running. @endpoint registered at
+    # import time, which uvicorn does before asyncio.run(), so the connection was deferred
+    # and the Playground would never see this app. No-op under DisabledClient.
+    rhesis_client.start_connector()
+
     _startup_validated = True
     logger.info("Travel Agent ready: trip_coordinator + 6 research specialists")
 

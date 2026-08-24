@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -206,3 +207,19 @@ def test_an_unknown_attribute_still_raises() -> None:
     assert "app" in reg_advisor.__all__
     with pytest.raises(AttributeError):
         reg_advisor.no_such_thing
+
+
+def test_lifespan_starts_the_connector(monkeypatch):
+    """The lifespan dials the connector, which is what puts this app in the Playground.
+
+    ``@endpoint`` registers at import time, and uvicorn imports the app module from
+    ``uvicorn.main.run`` before ``asyncio.run``, so the connection is deferred with only a
+    warning. Nothing else picks it up, so dropping this call silently unregisters the agent.
+    """
+    fake_client = Mock()
+    monkeypatch.setattr(app_module, "rhesis_client", fake_client)
+
+    with TestClient(app_module.app):
+        pass
+
+    fake_client.start_connector.assert_called_once()

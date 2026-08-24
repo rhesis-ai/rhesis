@@ -73,6 +73,11 @@ async def lifespan(_app: FastAPI):
     except RuntimeError as exc:
         logger.warning("Agent not built at startup: %s", exc)
 
+    # Dial out the connector now that uvicorn's loop is running. @endpoint registered at
+    # import time, which uvicorn does before asyncio.run(), so the connection was deferred
+    # and the Playground would never see this app. No-op under DisabledClient.
+    rhesis_client.start_connector()
+
     _startup_validated = True
     yield
     _startup_validated = False

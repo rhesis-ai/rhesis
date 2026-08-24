@@ -68,24 +68,25 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
     :param tracing_cls: The ``RhesisTracing`` class of the integration to trace through.
     """
     # Initialise the Rhesis client so ``@endpoint`` has a registered default client to attach
-    # traces to. ``RhesisClient.__init__`` calls ``_register_default_client`` as a side effect —
-    # the local variable is never passed anywhere; ``@endpoint`` resolves it via
-    # ``get_default_client()`` at decorate time. Gate on both credentials: ``RhesisClient``
-    # eagerly installs OTEL providers and would export against an unknown project scope without
-    # ``RHESIS_PROJECT_ID``. ``DisabledClient`` keeps telemetry off when either is missing.
+    # traces to — ``RhesisClient.__init__`` calls ``_register_default_client`` as a side effect,
+    # so ``@endpoint`` finds it without being handed it. The lifespan needs the client itself to
+    # start the connector, so keep the reference rather than reaching back for the decorator
+    # module's global. Gate on both credentials: ``RhesisClient`` eagerly installs OTEL providers
+    # and would export against an unknown project scope without ``RHESIS_PROJECT_ID``.
+    # ``DisabledClient`` keeps telemetry off when either is missing.
     #
     # This must precede ``tracing_cls(...)``: the native integration reuses the provider the
     # client installs, which is what makes Haystack spans nest under the ``@endpoint`` span and
     # flush with it.
     tracing_configured = bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
     if tracing_configured:
-        RhesisClient.from_environment()
+        client = RhesisClient.from_environment()
     else:
         logger.info(
             "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
             "Traces will NOT be shipped to the backend."
         )
-        DisabledClient()
+        client = DisabledClient()
 
     # The served path never opens a turn span: @endpoint already owns the conversation turn root.
     # This is here to enable Haystack tracing and to carry the conversation id onto its spans.
@@ -100,6 +101,12 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
 
         # Build the shared pipeline + generator once so per-turn requests reuse it.
         get_default_pipeline()
+
+        # Dial out the connector now that uvicorn's loop is running. @endpoint registered the
+        # function at import time, which uvicorn does before asyncio.run() -- so the connection
+        # was deferred and the Playground would never see this app.
+        client.start_connector()
+
         state["startup_validated"] = True
         logger.info("Visit-Prep ready: coordinator + history + summary + critic specialists")
         yield
