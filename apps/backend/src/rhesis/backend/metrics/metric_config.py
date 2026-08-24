@@ -98,6 +98,26 @@ def build_metric_evaluate_params(
     return kwargs
 
 
+#: Generic fallback for a numeric metric row that never had a threshold set.
+_DEFAULT_NUMERIC_THRESHOLD = 0.5
+
+
+def _default_threshold_for(metric: MetricModel) -> float:
+    """Threshold to use when the DB row doesn't set one.
+
+    Goal achievement gets its own default from the SDK. Using the generic 0.5 here meant a
+    re-score disagreed with the live run that produced the same conversation, since a live run
+    builds its judge through Penelope and got 0.7. Same conversation, two verdicts at 0.6.
+    """
+    from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
+        DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+    )
+
+    if (getattr(metric, "class_name", "") or "") == "GoalAchievementJudge":
+        return DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
+    return _DEFAULT_NUMERIC_THRESHOLD
+
+
 def metric_model_to_config(metric: MetricModel) -> MetricConfig:
     """Convert a Metric database model to a MetricConfig."""
     common_fields = [
@@ -124,7 +144,9 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
         config["categories"] = metric.categories
         config["passing_categories"] = metric.passing_categories
     else:
-        config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
+        config["threshold"] = (
+            metric.threshold if metric.threshold is not None else _default_threshold_for(metric)
+        )
         config["threshold_operator"] = metric.threshold_operator
         if metric.min_score is not None:
             config["min_score"] = metric.min_score

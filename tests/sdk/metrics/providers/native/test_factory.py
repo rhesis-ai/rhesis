@@ -5,7 +5,10 @@ import pytest
 from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
 from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
 from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
-from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
+from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
+    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+    GoalAchievementJudge,
+)
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 
 
@@ -241,7 +244,9 @@ class TestFactoryCreateGoalAchievementJudge:
         # Should have defaults
         assert metric.min_score == 0.0
         assert metric.max_score == 1.0
-        assert metric.threshold == 0.5
+        # Goal achievement has its own default rather than the generic midpoint, so a live run
+        # and a re-score of the same conversation agree.
+        assert metric.threshold == DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
 
     def test_create_goal_achievement_judge_with_custom_params(self, factory):
         """Test creating GoalAchievementJudge with custom parameters."""

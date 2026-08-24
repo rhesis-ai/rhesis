@@ -10,6 +10,10 @@ import math
 import os
 from typing import Optional
 
+from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
+    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD as _SDK_GOAL_ACHIEVEMENT_THRESHOLD,
+)
+
 
 class PenelopeConfig:
     """
@@ -53,7 +57,10 @@ class PenelopeConfig:
     DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_turns
     DEFAULT_EARLY_STOP_THRESHOLD = 0.8  # Fraction of max_turns before early stop
     DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD = 0.3  # Score below which goal is impossible
-    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD = 0.7  # Score above which goal is achieved
+    # Taken from the SDK rather than repeated here: the backend's re-score path reads the same
+    # constant, and when these were separate literals they drifted (0.7 here, 0.5 there), so a
+    # conversation scoring 0.6 was Fail on the live run and Pass when re-scored.
+    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD = _SDK_GOAL_ACHIEVEMENT_THRESHOLD
 
     # Default values
     _log_level: Optional[str] = None

@@ -24,6 +24,17 @@ logger = logging.getLogger(__name__)
 
 BehaviorKind = Literal["required", "prohibited"]
 
+#: Score at or above which a goal counts as achieved, when nothing configures one explicitly.
+#: The single source of truth for this number. Three places used to pick their own default and
+#: disagree: a live Penelope run scored at 0.7, while a re-score fell back to the generic
+#: midpoint of 0.5, so the same conversation scoring 0.6 was Fail live and Pass on re-score.
+#: Deliberately not the generic midpoint: "did this conversation achieve its goal" wants a
+#: clearer majority than "just over half".
+#:
+#: Only affects goal-based scoring. Contract-based scoring asserts every behaviour it lists, so
+#: one violation fails regardless of any threshold (see ``_a_evaluate_contract``).
+DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD = 0.7
+
 
 def _is_scorable_contract(contract: Optional[Mapping[str, Any]]) -> bool:
     """Whether a contract carries at least one behaviour to judge.
@@ -232,7 +243,10 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             evaluation_examples=evaluation_examples,
             min_score=min_score,
             max_score=max_score,
-            threshold=threshold,
+            # Falls back to the goal-achievement default rather than letting
+            # set_score_parameters pick the generic midpoint, which is what made the live and
+            # re-score paths disagree. See DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD.
+            threshold=threshold if threshold is not None else DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
             threshold_operator=threshold_operator,
             name=name or "goal_achievement",
             description=description or "Evaluates how well a conversation achieves its stated goal",
