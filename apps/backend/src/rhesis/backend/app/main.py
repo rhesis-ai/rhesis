@@ -336,8 +336,14 @@ def _validate_test_identity_override(db) -> None:
         raise RuntimeError(
             f"RHESIS_TEST_ORGANIZATION_ID={organization_id} does not match any local organization."
         )
-    if not db.query(models.User).filter(models.User.id == user_id).first():
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
         raise RuntimeError(f"RHESIS_TEST_USER_ID={user_id} does not match any local user.")
+    if str(user.organization_id) != organization_id:
+        raise RuntimeError(
+            f"RHESIS_TEST_USER_ID={user_id} belongs to organization {user.organization_id}, "
+            f"not RHESIS_TEST_ORGANIZATION_ID={organization_id}."
+        )
 
 
 @asynccontextmanager

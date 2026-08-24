@@ -43,3 +43,27 @@ def test_raises_for_unknown_user_id(test_db, test_org_id, monkeypatch):
 
     with pytest.raises(RuntimeError, match="RHESIS_TEST_USER_ID"):
         _validate_test_identity_override(test_db)
+
+
+def test_raises_for_user_in_a_different_organization(test_db, test_org_id, monkeypatch):
+    """A user that exists but belongs to a different org must not pass."""
+    from rhesis.backend.app import models
+
+    other_org = models.Organization(name=f"other-org-{uuid.uuid4().hex[:8]}")
+    test_db.add(other_org)
+    test_db.flush()
+
+    other_user = models.User(
+        email=f"other-{uuid.uuid4().hex[:8]}@rhesis-test.com",
+        name="Other Org User",
+        is_active=True,
+        organization_id=other_org.id,
+    )
+    test_db.add(other_user)
+    test_db.flush()
+
+    monkeypatch.setenv("RHESIS_TEST_ORGANIZATION_ID", test_org_id)
+    monkeypatch.setenv("RHESIS_TEST_USER_ID", str(other_user.id))
+
+    with pytest.raises(RuntimeError, match="belongs to organization"):
+        _validate_test_identity_override(test_db)
