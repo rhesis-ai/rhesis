@@ -340,7 +340,10 @@ const nextConfig = {
   },
 
   async rewrites() {
-    const fontBase = process.env.BRAND_FONT_BASE_URL?.trim()?.replace(/\/+$/, '');
+    const fontBase = process.env.BRAND_FONT_BASE_URL?.trim()?.replace(
+      /\/+$/,
+      ''
+    );
     if (!fontBase) return [];
     return [
       {
