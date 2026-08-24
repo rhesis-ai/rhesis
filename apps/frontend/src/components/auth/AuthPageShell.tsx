@@ -7,10 +7,10 @@ import BrandMark from '@/components/common/BrandMark';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import BackgroundDecoration from './BackgroundDecoration';
 import {
-  AUTH_FONT_DISPLAY,
   AUTH_FONT_MONO,
-  AUTH_FONT_SANS,
   AUTH_SHAPE,
+  authFontDisplay,
+  authFontSans,
   getAuthTokens,
 } from './authTokens';
 import { scaledVh } from '@/styles/viewport-scaling';
@@ -91,6 +91,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
   // server-resolved branding is available here without a second env read.
   const { branding } = useNavigationItems();
   const productName = branding?.productName ?? 'Rhesis AI';
+  const brandFont = branding?.fontFamily;
   const isRebranded = productName !== 'Rhesis AI';
   // A rebranded sign-in page must not send its users to rhesis.ai, and there is
   // no configured homepage to send them to instead — so the wordmark stops
@@ -105,7 +106,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
         flexDirection: 'column',
         bgcolor: t.ground,
         color: t.body,
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: authFontSans(brandFont),
         position: 'relative',
         overflowX: 'hidden',
       }}
@@ -149,7 +150,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
           />
           <Typography
             sx={{
-              fontFamily: AUTH_FONT_DISPLAY,
+              fontFamily: authFontDisplay(brandFont),
               fontSize: 20,
               fontWeight: 800,
               letterSpacing: '-0.01em',

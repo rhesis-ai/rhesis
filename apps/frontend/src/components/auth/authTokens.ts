@@ -20,6 +20,24 @@ export const AUTH_FONT_MONO = '"Geist Mono", "Sometype Mono", monospace';
 /** Sora stays the wordmark face, matching the website navbar. */
 export const AUTH_FONT_DISPLAY = '"Sora", "Be Vietnam Pro", sans-serif';
 
+/**
+ * Returns the sans-serif font stack with a brand font prepended when one is
+ * configured. The brand font replaces Geist as the primary face, with Geist
+ * and Be Vietnam Pro as fallbacks.
+ */
+export function authFontSans(brandFontFamily?: string): string {
+  return brandFontFamily
+    ? `"${brandFontFamily}", ${AUTH_FONT_SANS}`
+    : AUTH_FONT_SANS;
+}
+
+/** Display stack with brand font prepended when configured. */
+export function authFontDisplay(brandFontFamily?: string): string {
+  return brandFontFamily
+    ? `"${brandFontFamily}", ${AUTH_FONT_DISPLAY}`
+    : AUTH_FONT_DISPLAY;
+}
+
 export interface AuthTokens {
   /** Page background behind the wash/aurora. */
   ground: string;

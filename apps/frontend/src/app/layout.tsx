@@ -372,6 +372,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     logo: <ThemeAwareLogo productName={deploymentBranding.productName} />,
     iconUrl: deploymentBranding.faviconUrl,
     productName: deploymentBranding.productName,
+    fontFamily: deploymentBranding.font?.family,
     homeUrl: '/architect',
   };
   // Empty when `API_BASE_URL` is unset or blank — whichever of Helm,

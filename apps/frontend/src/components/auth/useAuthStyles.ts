@@ -2,9 +2,10 @@
 
 import { useMemo } from 'react';
 import { useTheme, type SxProps, type Theme } from '@mui/material/styles';
+import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import {
-  AUTH_FONT_SANS,
   AUTH_SHAPE,
+  authFontSans,
   getAuthTokens,
   type AuthTokens,
 } from './authTokens';
@@ -38,26 +39,29 @@ export interface AuthStyles {
  */
 export function useAuthStyles(): AuthStyles {
   const { mode, brandColor } = useTheme().palette;
+  const { branding } = useNavigationItems();
+  const brandFont = branding?.fontFamily;
 
   return useMemo(() => {
     const t = getAuthTokens(mode, brandColor);
+    const fontSans = authFontSans(brandFont);
 
     return {
       tokens: t,
       heading: {
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: fontSans,
         fontSize: 24,
         fontWeight: 700,
         letterSpacing: '-0.02em',
         color: t.ink,
       },
       subheading: {
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: fontSans,
         fontSize: 14,
         color: t.muted,
       },
       body: {
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: fontSans,
         fontSize: 14,
         lineHeight: 1.55,
         color: t.body,
@@ -65,7 +69,7 @@ export function useAuthStyles(): AuthStyles {
       primaryButton: {
         height: AUTH_SHAPE.buttonHeight,
         borderRadius: AUTH_SHAPE.button,
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: fontSans,
         fontSize: 15,
         fontWeight: 700,
         textTransform: 'none',
@@ -77,7 +81,7 @@ export function useAuthStyles(): AuthStyles {
       outlinedButton: {
         height: AUTH_SHAPE.buttonHeight,
         borderRadius: AUTH_SHAPE.button,
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: fontSans,
         fontSize: 15,
         fontWeight: 600,
         textTransform: 'none',
@@ -94,7 +98,7 @@ export function useAuthStyles(): AuthStyles {
         '& .MuiOutlinedInput-root': {
           borderRadius: AUTH_SHAPE.input,
           bgcolor: t.field,
-          fontFamily: AUTH_FONT_SANS,
+          fontFamily: fontSans,
           color: t.ink,
           '& fieldset': { borderColor: t.fieldBorder },
           '&:hover fieldset': { borderColor: t.muted },
@@ -104,18 +108,18 @@ export function useAuthStyles(): AuthStyles {
           },
         },
         '& .MuiInputLabel-root': {
-          fontFamily: AUTH_FONT_SANS,
+          fontFamily: fontSans,
           color: t.muted,
           '&.Mui-focused': { color: t.accent },
         },
         '& .MuiFormHelperText-root': { color: t.muted },
       },
       quietLink: {
-        fontFamily: AUTH_FONT_SANS,
+        fontFamily: fontSans,
         fontSize: 13,
         color: t.muted,
         textDecoration: 'none',
       },
     };
-  }, [mode, brandColor]);
+  }, [mode, brandColor, brandFont]);
 }
