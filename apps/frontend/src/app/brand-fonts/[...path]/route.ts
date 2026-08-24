@@ -3,6 +3,12 @@ import { normalizeBaseUrl } from '@/config/branding';
 
 const FONT_TIMEOUT_MS = 10_000;
 
+const FONT_CONTENT_TYPES: Record<string, string> = {
+  '.ttf': 'font/ttf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
 /**
  * Proxies `/brand-fonts/{file}` to the validated `BRAND_FONT_BASE_URL` at
  * request time. This replaces the earlier `rewrites()` approach whose
@@ -40,7 +46,10 @@ export async function GET(
     return NextResponse.json({ error: 'Not a font file' }, { status: 400 });
   }
 
-  const upstream = `${fontBase}/${filePath}`;
+  const upstream = new URL(
+    `${fontBase}/${filePath}`,
+    request.nextUrl.origin
+  ).toString();
 
   try {
     const response = await fetch(upstream, {
@@ -58,7 +67,10 @@ export async function GET(
     return new NextResponse(body, {
       status: 200,
       headers: {
-        'Content-Type': response.headers.get('content-type') ?? 'font/ttf',
+        'Content-Type':
+          response.headers.get('content-type') ??
+          FONT_CONTENT_TYPES[filePath.slice(filePath.lastIndexOf('.')).toLowerCase()] ??
+          'application/octet-stream',
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
