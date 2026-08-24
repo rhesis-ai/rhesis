@@ -91,28 +91,34 @@ def _acquire_migration_advisory_lock(connectable):
 
     deadline = time.monotonic() + MIGRATION_LOCK_TIMEOUT_SECONDS
     waited = False
-    while True:
-        if _try_acquire_migration_advisory_lock(lock_connection):
-            if waited:
-                logger.info("Migration advisory lock acquired")
-            return lock_connection
+    try:
+        while True:
+            if _try_acquire_migration_advisory_lock(lock_connection):
+                if waited:
+                    logger.info("Migration advisory lock acquired")
+                return lock_connection
 
-        if not waited:
-            waited = True
-            logger.warning(
-                "Another replica is running migrations; waiting up to %ss "
-                "for the migration advisory lock",
-                MIGRATION_LOCK_TIMEOUT_SECONDS,
-            )
-        if time.monotonic() >= deadline:
-            lock_connection.close()
-            raise RuntimeError(
-                "Timed out waiting for the migration advisory lock "
-                f"({MIGRATION_LOCK_TIMEOUT_SECONDS}s). Another upgrade may be "
-                "stuck; inspect pg_locks for the holder or raise "
-                "ALEMBIC_LOCK_TIMEOUT."
-            )
-        time.sleep(LOCK_POLL_INTERVAL_SECONDS)
+            if not waited:
+                waited = True
+                logger.warning(
+                    "Another replica is running migrations; waiting up to %ss "
+                    "for the migration advisory lock",
+                    MIGRATION_LOCK_TIMEOUT_SECONDS,
+                )
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    "Timed out waiting for the migration advisory lock "
+                    f"({MIGRATION_LOCK_TIMEOUT_SECONDS}s). Another upgrade may be "
+                    "stuck; inspect pg_locks for the holder or raise "
+                    "ALEMBIC_LOCK_TIMEOUT."
+                )
+            time.sleep(LOCK_POLL_INTERVAL_SECONDS)
+    except BaseException:
+        # Any failure while polling (e.g. the connection dropping mid-poll)
+        # must not leak the dedicated lock connection; the timeout path raises
+        # through here as well.
+        lock_connection.close()
+        raise
 
 
 def _release_migration_advisory_lock(lock_connection):
@@ -124,6 +130,13 @@ def _release_migration_advisory_lock(lock_connection):
             text("SELECT pg_advisory_unlock(:key)"),
             {"key": MIGRATION_ADVISORY_LOCK_KEY},
         )
+    except Exception:
+        # This runs in a ``finally`` after the migration itself: when the same
+        # database problem failed the migration, the unlock fails too, and a
+        # propagating unlock error would replace the original migration error.
+        # Closing the connection releases the session-scoped lock anyway, so
+        # the explicit unlock is belt-and-suspenders only.
+        logger.warning("Failed to release migration advisory lock", exc_info=True)
     finally:
         lock_connection.close()
 
