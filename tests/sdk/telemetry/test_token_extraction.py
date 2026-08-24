@@ -24,6 +24,32 @@ class TestExtractTokenUsage:
         usage = {"input_tokens": 50, "output_tokens": 20}
         assert extract_token_usage(usage) == (50, 20, 70)
 
+    def test_anthropic_usage_object_keeps_cache_tokens(self):
+        """A native Usage object goes through attribute extraction; cache keys must survive it."""
+
+        class Usage:
+            input_tokens = 50
+            output_tokens = 20
+            total_tokens = None
+            cache_creation_input_tokens = 1000
+            cache_read_input_tokens = 4000
+
+        # Pre-fix, common_attrs dropped the cache keys while input/output made
+        # usage_dict truthy, so the object never reached model_dump().
+        assert extract_token_usage(Usage()) == (50, 20, 5070)
+
+    def test_explicit_total_is_honored_with_cache_tokens(self):
+        """An explicit provider total is used as-is: cache tokens are already inside it."""
+        usage = {
+            "input_tokens": 50,
+            "output_tokens": 20,
+            "total_tokens": 70,
+            "cache_creation_input_tokens": 1000,
+            "cache_read_input_tokens": 4000,
+        }
+        # Recomputing here would double-count cache tokens (5150 != 70).
+        assert extract_token_usage(usage) == (50, 20, 70)
+
     def test_gemini_format(self):
         usage = {"prompt_token_count": 15, "candidates_token_count": 25}
         assert extract_token_usage(usage) == (15, 25, 40)
