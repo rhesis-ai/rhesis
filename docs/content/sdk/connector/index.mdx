@@ -66,7 +66,34 @@ if __name__ == "__main__":
     client.connect()`}
 </CodeBlock>
 
-If you already have a running event loop (e.g. in an async REPL or Jupyter), do not call `connect()`. Run the connector as a task in that loop instead.
+If you already have a running event loop, do not call `connect()` — it raises. Call
+`client.start_connector()` instead, from wherever that loop starts.
+
+For a web app this is not optional. `@endpoint` registers your function when the module is
+*imported*, and uvicorn imports it before it creates the event loop, so the connector has no loop
+to dial from and defers the connection. Nothing retries afterwards: the SDK logs a warning and your
+endpoint never reaches the platform. Start it from a FastAPI `lifespan`:
+
+<CodeBlock filename="app.py" language="python">
+{`from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from rhesis.sdk import RhesisClient, endpoint
+
+client = RhesisClient.from_environment()
+
+@endpoint()
+async def chat(input: str, conversation_id: str = None) -> dict:
+    return {"output": "Echo: " + input, "conversation_id": conversation_id or "default"}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # The loop exists by now, so the connector can dial out.
+    client.start_connector()
+    yield
+
+app = FastAPI(lifespan=lifespan)`}
+</CodeBlock>
 
 ## Platform context with `EndpointContext`
 

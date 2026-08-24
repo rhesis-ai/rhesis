@@ -14,12 +14,16 @@ the SDK handles registration, mapping, and synchronization automatically.
 
 ## How It Works
 
-The SDK connector establishes a WebSocket connection to the Rhesis backend. When
-your application starts, the SDK:
+The SDK connector establishes a WebSocket connection to the Rhesis backend:
 
-1. Discovers all functions decorated with `@endpoint`
-2. Registers them as endpoints in your Rhesis project
-3. Keeps the connection alive for remote invocation during tests
+1. Importing your module discovers all functions decorated with `@endpoint`
+2. Starting the connector opens the WebSocket and registers them as endpoints in your project
+3. The connection is kept alive for remote invocation during tests
+
+Step 2 needs a running event loop. A script gets one from `client.connect()`; a web app must call
+`client.start_connector()` from its startup hook, because the module is imported before the loop
+exists. Skip it and the SDK logs a warning and your endpoint never appears in the dashboard — see
+[Running the connector](/sdk/connector#running-the-connector).
 
 When Rhesis runs tests against an SDK endpoint, it sends the test input over the
 WebSocket connection, the SDK calls your function locally, and returns the result

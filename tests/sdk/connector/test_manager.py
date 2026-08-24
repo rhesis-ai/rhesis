@@ -1,6 +1,7 @@
 """Tests for ConnectorManager."""
 
 import inspect
+import logging
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -137,6 +138,36 @@ def test_initialize(mock_get_loop, mock_ws_class, manager):
     assert manager._connection is not None
     mock_ws_class.assert_called_once()
     mock_create_task.assert_called_once()
+
+
+@patch("rhesis.sdk.connector.manager.WebSocketConnection")
+@patch("asyncio.get_running_loop", side_effect=RuntimeError("no running event loop"))
+def test_initialize_without_event_loop_warns(mock_get_loop, mock_ws_class, manager, caplog):
+    """No loop at registration time leaves the connector offline, and says so.
+
+    This is the web-server case: uvicorn imports the app module from ``uvicorn.main.run``, before
+    ``asyncio.run``, so ``@endpoint`` registers with no loop. Nothing re-checks afterwards, so a
+    quiet log here is indistinguishable from a working connector.
+    """
+    mock_ws_instance = Mock()
+    mock_ws_instance.connect = AsyncMock()
+    mock_ws_class.return_value = mock_ws_instance
+
+    mock_create_task, _mock_task = _make_create_task_mock()
+
+    with caplog.at_level(logging.WARNING, logger="rhesis.sdk.connector.manager"):
+        with patch("asyncio.create_task", mock_create_task):
+            manager.initialize()
+
+    mock_create_task.assert_not_called()
+    assert manager._initialized
+    assert manager._connection is not None
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1, "the deferred connection must warn exactly once"
+    message = warnings[0].getMessage()
+    assert "start_connector()" in message
+    assert "connect()" in message
 
 
 @patch("asyncio.get_running_loop")

@@ -120,7 +120,15 @@ class ConnectorManager:
             asyncio.get_running_loop()
             asyncio.create_task(self._connection.connect())
         except RuntimeError:
-            logger.debug("No event loop running, connection will be established later")
+            # Nothing re-checks this later, so the connector stays offline until someone starts
+            # it from inside a loop. Warn rather than debug: a web server registers endpoints at
+            # import time, which uvicorn does before asyncio.run(), and a silent miss here looks
+            # exactly like success -- the endpoint never reaches the platform.
+            logger.warning(
+                "Connector registered with no running event loop, so it is not connected. "
+                "Web apps: call client.start_connector() from a startup hook "
+                "(FastAPI lifespan). Sync scripts: call client.connect()."
+            )
 
         self._initialized = True
         msg = "Connector initialized"

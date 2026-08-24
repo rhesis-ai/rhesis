@@ -337,6 +337,18 @@ class RhesisClient:
             self._connector_manager.initialize()
         return self._connector_manager
 
+    def start_connector(self) -> None:
+        """Start the connector's WebSocket from inside an already-running event loop.
+
+        Registration normally dials out on its own, but only when a loop is already running.
+        Under a web server it usually is not: uvicorn imports the app module from
+        ``uvicorn.main.run`` -- before ``asyncio.run`` -- so the ``@endpoint`` decorators run
+        with no loop and the connection is deferred. Call this from a startup hook (FastAPI
+        ``lifespan``) to pick it up; without it the app never appears in the platform and the
+        playground cannot reach it. Idempotent, and a no-op if no loop is running.
+        """
+        self._ensure_connector()._ensure_connection()
+
     def register_endpoint(self, name: str, func, metadata: dict) -> None:
         """
         Register a function as a remotely callable endpoint.
