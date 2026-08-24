@@ -119,6 +119,11 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
             "candidates_token_count",
             "total_token_count",
             "generated_tokens",
+            # Anthropic cache tokens: without these the object-to-dict path
+            # drops them whenever input/output tokens make usage_dict truthy,
+            # so a native Usage object never reaches model_dump().
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
         ]
         for attr in common_attrs:
             if hasattr(usage, attr):
@@ -182,8 +187,26 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
         ],
     )
 
+    # Anthropic cache tokens (billed separately but part of actual usage)
+    cache_creation_tokens = get_first_value(
+        usage,
+        [
+            "cache_creation_input_tokens",
+            "cacheCreationInputTokens",  # camelCase variant
+        ],
+    )
+    cache_read_tokens = get_first_value(
+        usage,
+        [
+            "cache_read_input_tokens",
+            "cacheReadInputTokens",  # camelCase variant
+        ],
+    )
+
     # Calculate total if not explicitly provided
-    if not total_tokens and (input_tokens or output_tokens):
-        total_tokens = input_tokens + output_tokens
+    if not total_tokens and (input_tokens or output_tokens or cache_creation_tokens or cache_read_tokens):
+        total_tokens = (
+            input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
+        )
 
     return input_tokens, output_tokens, total_tokens
