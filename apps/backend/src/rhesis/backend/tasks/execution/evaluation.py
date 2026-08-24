@@ -275,19 +275,36 @@ def evaluate_multi_turn_metrics(
 
     # Re-scoring reuses whatever contract is currently stored -- it must not re-interpret here,
     # or two back-to-back re-scores with no intervening change could disagree for no reason.
-    # That guarantee doesn't extend across an intervening test edit: like `goal`/`instructions`
-    # two lines up, which also read the test's CURRENT `test_configuration` rather than a
-    # snapshot from when this trace was produced, the contract reflects the test's current
-    # definition, not the one active when the trace was generated. Re-score has always meant
-    # "score this trace against the test as it reads today", for both fields; the contract
-    # doesn't change that. A trace's own point-in-time understanding isn't preserved anywhere
-    # today, so keeping this consistent with `goal`/`instructions` was the choice here.
+    # Like `goal`/`instructions` two lines up, this reads the test's CURRENT definition rather
+    # than a snapshot from when the trace was produced: a trace's own point-in-time
+    # understanding isn't preserved anywhere today, and re-score has always meant "score this
+    # trace against the test as it reads today" for those two fields, so the contract follows
+    # the same rule rather than becoming the one field that freezes at execution time.
     #
-    # Absent (test predates evaluation contracts, or has never executed live) falls through to
-    # legacy goal-based scoring, unchanged from before contracts existed.
+    # That said, the stored contract can itself be BEHIND the test's current wording: unlike
+    # `goal`/`instructions`, which are read live and can never be stale, the contract is a
+    # cached derivative that only gets refreshed by a live run's `ensure_contract` call. An
+    # edit with no live run afterward leaves the old contract sitting on the test, describing
+    # wording that no longer exists. Scoring against it would silently apply criteria the
+    # author no longer wrote. `is_current_for` is the same freshness check `ensure_contract`
+    # uses before deciding whether to re-interpret; re-score can't re-interpret (see above), so
+    # a stale contract here can only mean Error, never a fallback to legacy scoring -- that
+    # fallback is the exact bug this whole mechanism exists to prevent.
+    #
+    # Absent entirely (test predates evaluation contracts, or has never executed live) falls
+    # through to legacy goal-based scoring, unchanged from before contracts existed.
     stored_contract = read_contract(getattr(test, "test_metadata", None))
     contract_dict: Optional[Dict[str, Any]] = None
     if stored_contract.interpreted_from:
+        if not stored_contract.is_current_for(test_config):
+            logger.warning(
+                "Test %s's stored evaluation contract is stale for its current wording; "
+                "discarding all multi-turn metrics rather than scoring against criteria the "
+                "test no longer states. Run the test live, or POST /{test_id}/interpretation"
+                "?force=true, to refresh it before re-scoring.",
+                test.id,
+            )
+            return {}
         usable, reason = contract_usability(stored_contract)
         if not usable:
             logger.warning(
