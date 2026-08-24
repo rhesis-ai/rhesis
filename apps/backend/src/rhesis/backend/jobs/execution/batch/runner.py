@@ -76,14 +76,28 @@ async def _run_gather(
     semaphore: asyncio.Semaphore,
     penelope_agent: Any,
     evaluator: Any,
+    on_progress: Any = None,
+    progress_base: int = 0,
+    progress_total: int = 0,
 ) -> List[Dict[str, Any]]:
     """Fan out test_ids as asyncio Tasks and gather results."""
-    tasks = [
-        asyncio.create_task(
-            _execute_single_test(ctx, test_id, semaphore, penelope_agent, evaluator)
-        )
-        for test_id in test_ids
-    ]
+    completed_count = 0
+
+    async def _tracked(test_id: str) -> Dict[str, Any]:
+        nonlocal completed_count
+        try:
+            return await _execute_single_test(
+                ctx, test_id, semaphore, penelope_agent, evaluator,
+            )
+        finally:
+            completed_count += 1
+            if on_progress and progress_total:
+                try:
+                    on_progress(progress_base + completed_count, progress_total)
+                except Exception:
+                    pass
+
+    tasks = [asyncio.create_task(_tracked(test_id)) for test_id in test_ids]
     watchdog = asyncio.create_task(_cancellation_watchdog(ctx.celery_task_id, tasks))
     try:
         raw = await asyncio.gather(*tasks, return_exceptions=True)
@@ -120,6 +134,7 @@ async def _run_gather(
 async def run_batch(
     ctx: ExecutionContext,
     test_ids: List[str],
+    on_progress: Any = None,
 ) -> List[Dict[str, Any]]:
     """Async entry point: run all tests with semaphore-gated concurrency.
 
@@ -182,7 +197,11 @@ async def run_batch(
     ctx.test_data_snapshot = test_data_snapshot
 
     # --- Main pass ---
-    results = await _run_gather(ctx, test_ids, semaphore, penelope_agent, evaluator)
+    total = len(test_ids)
+    results = await _run_gather(
+        ctx, test_ids, semaphore, penelope_agent, evaluator,
+        on_progress=on_progress, progress_base=0, progress_total=total,
+    )
 
     # --- Recovery pass passes ---
     if ctx.recovery_rounds > 0:

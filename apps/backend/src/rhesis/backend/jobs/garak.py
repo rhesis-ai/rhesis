@@ -81,6 +81,7 @@ def import_garak_probes_task(
         for test_set in result["test_sets"]:
             test_set["test_set_id"] = str(test_set["test_set_id"])
 
+    self.set_progress(result["total_tests"], result["total_tests"])
     self.emit(
         f"Garak import complete: {result['total_test_sets']} test sets, "
         f"{result['total_tests']} tests"
@@ -137,6 +138,8 @@ def sync_garak_test_set_task(
         sync_service = GarakSyncService(db)
         result = sync_service.sync_test_set(test_set_id, org_id, user_id)
 
+    total = result.added + result.removed + result.unchanged
+    self.set_progress(total, total)
     self.emit(
         f"Sync complete: {result.added} added, {result.removed} removed, "
         f"{result.unchanged} unchanged"

@@ -79,7 +79,6 @@ class TestTestSetGenerationNarration:
             "Saved 5 tests to test set",
         ]
         assert mock_progress.call_args_list == [
-            ((0, 5),),
             ((5, 5),),
         ]
 
@@ -129,7 +128,6 @@ class TestOwaspTestSetGenerationNarration:
             "Saved 3 tests to test set",
         ]
         assert mock_progress.call_args_list == [
-            ((0, 3),),
             ((3, 3),),
         ]
 
