@@ -59,6 +59,16 @@ class TestOutput:
     execution_time: float = 0.0  # ms; 0 for stored outputs
     metrics: Dict[str, Any] = field(default_factory=dict)  # Pre-evaluated (Penelope)
     source: str = "live"  # "live" | "test_result" | "trace"
+    # False only for a live multi-turn run whose evaluation contract could not be interpreted
+    # confidently. The conversation is then not run at all (nothing it produced could be
+    # scored), so this arrives with an empty `metrics` and an error `response`.
+    #
+    # Still a separate field rather than inferred from `metrics` being falsy: that already
+    # means "this is stored/trace output, evaluate externally", and callers fork on it, so an
+    # unusable-contract run would otherwise be routed into full external re-evaluation
+    # instead of Error. Callers must short-circuit to Error when this is False -- see
+    # `executors.runners.MultiTurnRunner.run`.
+    contract_usable: bool = True
 
 
 class OutputProvider(ABC):
@@ -184,6 +194,48 @@ class SingleTurnOutput(OutputProvider):
             return []
 
 
+def resolve_multi_turn_contract(
+    db, test, user_id: Optional[str]
+) -> tuple[Optional[Dict[str, Any]], bool]:
+    """Resolve and validate the evaluation contract for a multi-turn test.
+
+    Interprets lazily (on first call for this test's current wording) and reuses the cached
+    result otherwise -- see ``services/test_interpretation.ensure_contract``. Shared by both
+    live execution paths (here, and ``batch/invocation.py``'s ``_run_multi_turn``) so there is
+    one place that decides what "usable" means, not two that could drift.
+
+    Returns ``(contract, usable)``:
+      - ``contract`` is a plain dict ready for ``PenelopeAgent.execute_test(contract=...)``,
+        or ``None`` when there is nothing usable to pass -- Penelope then falls back to
+        scoring the raw ``goal`` exactly as it did before evaluation contracts existed.
+      - ``usable`` is False when the test could not be interpreted confidently enough to
+        score. Callers must then discard whatever metrics the run produces: a low-confidence
+        or uninterpretable test must report Error, never a Pass/Fail nobody should trust.
+
+    "Nothing to interpret" and "interpretation failed" are deliberately different answers.
+    A config with no ``goal`` was never a candidate for interpretation, so it returns
+    ``(None, True)`` and scores the legacy way -- matching what the re-score path in
+    ``evaluation.py`` does with a test that has no stored contract. Only an actual
+    interpretation attempt that came back unusable returns ``(None, False)``. Conflating the
+    two made a test report Error for the sole reason that it had nothing to interpret.
+    """
+    from rhesis.backend.app.services.test_interpretation import (
+        contract_usability,
+        ensure_contract,
+        is_multi_turn_config,
+    )
+
+    if not is_multi_turn_config(getattr(test, "test_configuration", None) or {}):
+        return None, True
+
+    evaluation_contract = ensure_contract(db, test, user_id=user_id)
+    usable, reason = contract_usability(evaluation_contract)
+    if not usable:
+        logger.warning("[MultiTurn] Test %s has no usable evaluation contract: %s", test.id, reason)
+        return None, False
+    return evaluation_contract.model_dump(mode="json", exclude_none=True), True
+
+
 class MultiTurnOutput(OutputProvider):
     """Live output for multi-turn tests -- runs the Penelope conversation agent.
 
@@ -217,6 +269,29 @@ class MultiTurnOutput(OutputProvider):
         context = test_config.get("context")
         max_turns = test_config.get("max_turns") or 10
         min_turns = test_config.get("min_turns")
+
+        contract, contract_usable = resolve_multi_turn_contract(db, test, user_id)
+
+        # Nothing this run could produce would be scoreable, so don't run it. Every verdict
+        # would be discarded downstream anyway; conducting the full conversation first would
+        # bill the org for target calls and judge tokens with a guaranteed-Error outcome.
+        if not contract_usable:
+            logger.info(
+                "[MultiTurn] Skipping conversation for test %s: evaluation contract is not "
+                "usable, so no verdict from this run could be trusted",
+                test.id,
+            )
+            return TestOutput(
+                response={
+                    "status": "error",
+                    "error": (
+                        "The test could not be interpreted well enough to score, so it was not run."
+                    ),
+                },
+                execution_time=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
+                metrics={},
+                contract_usable=False,
+            )
 
         # Load files attached to the test (reuse SingleTurnOutput's static method)
         input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
@@ -258,17 +333,19 @@ class MultiTurnOutput(OutputProvider):
             max_turns=max_turns,
             min_turns=min_turns,
             files=input_files if input_files else None,
+            contract=contract,
         )
         execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
         trace = penelope_result.model_dump(mode="json")
-        metrics = trace.pop("metrics", {})
+        penelope_metrics = trace.pop("metrics", {})
 
-        # Penelope evaluates metrics internally -> return them with the output
+        # Penelope evaluates metrics internally -> return them with the output.
         return TestOutput(
             response=trace,
             execution_time=execution_time,
-            metrics=metrics,
+            metrics=penelope_metrics,
+            contract_usable=True,
         )
 
 

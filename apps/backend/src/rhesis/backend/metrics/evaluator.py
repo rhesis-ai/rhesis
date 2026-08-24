@@ -106,6 +106,8 @@ class MetricEvaluator:
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        instructions: Optional[str] = None,
+        contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends.
@@ -120,6 +122,12 @@ class MetricEvaluator:
             conversation_history: Optional conversation history.
             metadata: Optional metadata dict.
             tool_calls: Optional list of tool calls made by the endpoint.
+            instructions: Optional test instructions. Only consumed by
+                ``GoalAchievementJudge``; other metrics ignore it (see
+                ``build_metric_evaluate_params``).
+            contract: Optional evaluation contract (see
+                ``app/schemas/evaluation_contract.py``). Likewise only consumed by
+                ``GoalAchievementJudge``.
 
         Returns:
             Dictionary containing scores and details for each metric.
@@ -158,6 +166,8 @@ class MetricEvaluator:
                 conversation_history=conversation_history,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                instructions=instructions,
+                contract=contract,
             )
             results.update(backend_results)
 
@@ -176,8 +186,13 @@ class MetricEvaluator:
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        instructions: Optional[str] = None,
+        contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Async version of evaluate — dispatches backends concurrently."""
+        """Async version of evaluate — dispatches backends concurrently.
+
+        See ``evaluate`` for ``instructions``/``contract``.
+        """
         if not metrics:
             logger.warning("No metrics provided for async evaluation")
             return {}
@@ -201,6 +216,8 @@ class MetricEvaluator:
                 conversation_history=conversation_history,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                instructions=instructions,
+                contract=contract,
             )
 
         backend_results = await asyncio.gather(

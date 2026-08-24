@@ -372,3 +372,142 @@ class TestMultiTurnRunnerWithProvider:
         }
         assert eval_kwargs["model"] == "gpt-4"
         assert metrics == {"relevance": {"score": 0.7}}
+
+
+class TestMultiTurnRunnerContractUsability:
+    """A test whose evaluation contract wasn't usable must report Error, never a Pass/Fail
+    nobody should trust -- see TestOutput.contract_usable's docstring. The runner bails before
+    the metric fork, so no metric is evaluated at all rather than being computed and dropped."""
+
+    @pytest.mark.asyncio
+    async def test_discards_penelope_metrics_when_contract_is_unusable(self):
+        mock_provider = MagicMock()
+        mock_provider.get_output = AsyncMock(
+            return_value=TestOutput(
+                response={CONVERSATION_SUMMARY_KEY: []},
+                execution_time=1000,
+                metrics={"goal_achievement": {"is_successful": True, "score": 1.0}},
+                source="live",
+                contract_usable=False,
+            )
+        )
+
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Test"}
+
+        with patch(
+            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={},
+        ) as mock_evaluate:
+            runner = MultiTurnRunner()
+            _, _, metrics = await runner.run(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                output_provider=mock_provider,
+            )
+
+        assert metrics == {}
+        # The point of bailing early: an unscoreable run must not pay for metric evaluation.
+        mock_evaluate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_discards_additional_metrics_too_not_just_the_goal_metric(self):
+        """A non-goal metric configured on the same test must not mask the discarded verdict."""
+        mock_provider = MagicMock()
+        mock_provider.get_output = AsyncMock(
+            return_value=TestOutput(
+                response={CONVERSATION_SUMMARY_KEY: []},
+                execution_time=1000,
+                metrics={"goal_achievement": {"is_successful": True, "score": 1.0}},
+                source="live",
+                contract_usable=False,
+            )
+        )
+
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Test"}
+
+        with patch(
+            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={"Tone Judge": {"is_successful": True, "score": 0.9}},
+        ):
+            runner = MultiTurnRunner()
+            _, _, metrics = await runner.run(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                output_provider=mock_provider,
+            )
+
+        assert metrics == {}
+
+    @pytest.mark.asyncio
+    async def test_usable_contract_keeps_metrics(self):
+        """Sanity check: the default (contract_usable=True) path is unaffected."""
+        mock_provider = MagicMock()
+        mock_provider.get_output = AsyncMock(
+            return_value=TestOutput(
+                response={CONVERSATION_SUMMARY_KEY: []},
+                execution_time=1000,
+                metrics={"goal_achievement": {"is_successful": True, "score": 1.0}},
+                source="live",
+                contract_usable=True,
+            )
+        )
+
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Test"}
+
+        with patch(
+            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={},
+        ):
+            runner = MultiTurnRunner()
+            _, _, metrics = await runner.run(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                output_provider=mock_provider,
+            )
+
+        assert metrics == {"goal_achievement": {"is_successful": True, "score": 1.0}}
+
+    @pytest.mark.asyncio
+    async def test_discards_stored_output_re_evaluation_when_unusable(self):
+        """The stored/re-score branch (empty output.metrics) is also subject to the discard."""
+        mock_provider = MagicMock()
+        mock_provider.get_output = AsyncMock(
+            return_value=TestOutput(
+                response={CONVERSATION_SUMMARY_KEY: []},
+                execution_time=0,
+                metrics={},
+                source="test_result",
+                contract_usable=False,
+            )
+        )
+
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Test"}
+
+        with patch(
+            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={"goal_achievement": {"is_successful": True, "score": 1.0}},
+        ):
+            runner = MultiTurnRunner()
+            _, _, metrics = await runner.run(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                output_provider=mock_provider,
+            )
+
+        assert metrics == {}

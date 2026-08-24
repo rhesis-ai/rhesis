@@ -41,6 +41,44 @@ METRIC_MAX_RETRIES = 3
 METRIC_RETRY_MIN_WAIT = 1
 METRIC_RETRY_MAX_WAIT = 10
 
+# GoalAchievementJudge detail fields worth surfacing alongside score/reason/is_successful.
+# Without this, MetricResultBuilder's fixed field list drops them, so a re-scored run loses
+# the per-item breakdown that the live run displayed.
+#
+# Note this does NOT fix the "0/0 criteria" display on a re-scored *legacy* goal-based run.
+# The count fields the metrics card reads for those (`criteria_met`/`criteria_total`) are
+# derived by Penelope in `context.py:_flatten_metric_result`, not returned by the SDK judge,
+# so they are never present in `result.details` and cannot be copied here. Only the
+# contract-based keys below (`behaviors_*`) carry their own counts and therefore survive a
+# re-score.
+#
+# Deliberately NOT `**result.details`: `_get_base_details(prompt)` puts the entire rendered
+# evaluation prompt in `details["prompt"]`, and that must not be echoed into stored
+# test_metrics (size, and it discloses internal prompt text). Metric-agnostic on purpose --
+# it simply copies whichever of these keys a result happens to carry, so it costs nothing
+# for metrics that don't have them.
+_GOAL_ACHIEVEMENT_EXTRA_KEYS = (
+    # Legacy goal-based scoring (GoalAchievementScoreResponse)
+    "criteria_evaluations",
+    "all_criteria_met",
+    "confidence",
+    "turn_count",
+    # Contract-based scoring (ContractComplianceResponse / _a_evaluate_contract)
+    "behavior_verdicts",
+    "behaviors_total",
+    "behaviors_complied",
+    "behaviors_violated",
+    "violated_behaviors",
+    "adversarial",
+    "contract",
+)
+
+
+def _extract_goal_achievement_extra(details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Curated, size-bounded subset of a result's details worth storing alongside it."""
+    extra = {key: details[key] for key in _GOAL_ACHIEVEMENT_EXTRA_KEYS if key in details}
+    return extra or None
+
 
 class LocalStrategy:
     """Evaluates metrics locally via the SDK MetricFactory.
@@ -79,6 +117,8 @@ class LocalStrategy:
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Evaluate all local strategy configs in parallel."""
         metric_tasks = prepare_metrics(
@@ -100,6 +140,8 @@ class LocalStrategy:
             conversation_history=conversation_history,
             metadata=metadata,
             tool_calls=tool_calls,
+            instructions=instructions,
+            contract=contract,
         )
 
     async def a_evaluate(
@@ -114,6 +156,8 @@ class LocalStrategy:
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Async evaluate using asyncio.gather over metric.a_evaluate().
 
@@ -157,6 +201,8 @@ class LocalStrategy:
                     conversation_history=conversation_history,
                     metadata=metadata,
                     tool_calls=tool_calls,
+                    instructions=instructions,
+                    contract=contract,
                 )
 
         coros = [
@@ -198,6 +244,8 @@ class LocalStrategy:
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """Evaluate a single metric with retry for transient errors."""
         last_exc: Optional[Exception] = None
@@ -212,6 +260,8 @@ class LocalStrategy:
                     conversation_history=conversation_history,
                     metadata=metadata,
                     tool_calls=tool_calls,
+                    instructions=instructions,
+                    contract=contract,
                 )
                 result = await metric.a_evaluate(**kwargs)
                 description = metric_config.description or f"{class_name} evaluation metric"
@@ -243,6 +293,7 @@ class LocalStrategy:
                     description=description,
                     threshold=metric_config.threshold,
                     reference_score=metric_config.reference_score,
+                    extra=_extract_goal_achievement_extra(result.details),
                 )
             except (TimeoutError, ConnectionError, OSError) as e:
                 last_exc = e
@@ -323,6 +374,8 @@ class LocalStrategy:
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]]:
         future_to_metric: Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]] = {}
 
@@ -343,6 +396,8 @@ class LocalStrategy:
                 conversation_history=conversation_history,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                instructions=instructions,
+                contract=contract,
             )
             future_to_metric[future] = (unique_key, class_name, metric_config, backend)
 
@@ -464,6 +519,8 @@ class LocalStrategy:
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> MetricResult:
         @retry(
             retry=retry_if_exception_type((TimeoutError, ConnectionError, OSError)),
@@ -484,6 +541,8 @@ class LocalStrategy:
                 conversation_history=conversation_history,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                instructions=instructions,
+                contract=contract,
             )
 
         try:
@@ -510,6 +569,8 @@ class LocalStrategy:
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> MetricResult:
         logger.debug(f"Evaluating metric '{metric.name}'")
         kwargs = build_metric_evaluate_params(
@@ -521,6 +582,8 @@ class LocalStrategy:
             conversation_history=conversation_history,
             metadata=metadata,
             tool_calls=tool_calls,
+            instructions=instructions,
+            contract=contract,
         )
         logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
         return metric.evaluate(**kwargs)
@@ -569,6 +632,7 @@ class LocalStrategy:
                 description=description,
                 threshold=metric_config.threshold,
                 reference_score=metric_config.reference_score,
+                extra=_extract_goal_achievement_extra(result.details),
             )
 
         except Exception as exc:
@@ -608,6 +672,8 @@ class LocalStrategy:
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         if not metric_tasks:
             logger.warning("No metrics to evaluate")
@@ -632,6 +698,8 @@ class LocalStrategy:
                 conversation_history=conversation_history,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                instructions=instructions,
+                contract=contract,
             )
 
             self._collect_metric_results(

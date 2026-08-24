@@ -29,13 +29,24 @@ class MetricResultBuilder:
     error_message: Optional[str] = None  # output key "error" for API
     error_type: Optional[str] = None
     duration_ms: Optional[float] = None
+    # Metric-specific fields merged flat into to_dict() (e.g. GoalAchievementJudge's
+    # per-behaviour verdicts). Not a fixed field of its own: which keys exist depends on
+    # which metric produced the result. Flat rather than nested under a generic "details" so
+    # the frontend and re-score paths read them the same way regardless of whether the
+    # result came from a live Penelope run or standalone re-evaluation.
+    extra: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict, omitting None optional fields except core result fields."""
         _always_include = {"score", "is_successful"}
-        d = {k: v for k, v in asdict(self).items() if v is not None or k in _always_include}
+        fields = {k: v for k, v in asdict(self).items() if k != "extra"}
+        d = {k: v for k, v in fields.items() if v is not None or k in _always_include}
         if "error_message" in d:
             d["error"] = d.pop("error_message")
+        # extra never overrides a core field computed above -- score/is_successful/reason
+        # are deliberate, and a metric's own detail dict must not be able to clobber them.
+        for key, value in (self.extra or {}).items():
+            d.setdefault(key, value)
         return d
 
     @classmethod
@@ -52,6 +63,7 @@ class MetricResultBuilder:
         threshold: Optional[float] = None,
         reference_score: Optional[Union[float, str]] = None,
         duration_ms: Optional[float] = None,
+        extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Build a success result dict."""
         return cls(
@@ -65,6 +77,7 @@ class MetricResultBuilder:
             threshold=threshold,
             reference_score=reference_score,
             duration_ms=duration_ms,
+            extra=extra,
         ).to_dict()
 
     @classmethod

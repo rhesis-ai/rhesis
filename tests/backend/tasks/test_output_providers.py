@@ -28,7 +28,10 @@ from rhesis.backend.tasks.execution.executors.output_providers import (
     TestResultOutput,
     TraceOutput,
     get_provider_metadata,
+    resolve_multi_turn_contract,
 )
+
+_INTERPRETATION_SERVICE = "rhesis.backend.app.services.test_interpretation"
 
 # ============================================================================
 # TestOutput dataclass tests
@@ -330,6 +333,71 @@ class TestSingleTurnOutputParamsInjection:
 # ============================================================================
 
 
+# resolve_multi_turn_contract calls the real interpretation service, which without this
+# would resolve a real default model and make a live LLM call from what should be a pure
+# unit test (confirmed: ~8s and a genuine network call in this environment). Every
+# TestMultiTurnOutput test patches it at its call site inside output_providers.py.
+_RESOLVE_CONTRACT = (
+    "rhesis.backend.tasks.execution.executors.output_providers.resolve_multi_turn_contract"
+)
+
+
+class TestResolveMultiTurnContract:
+    """Tests for resolve_multi_turn_contract -- shared by the live and batch paths."""
+
+    def test_usable_contract_is_returned_as_a_plain_dict(self):
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Do the thing"}
+        mock_contract = MagicMock()
+        mock_contract.model_dump.return_value = {"prohibited_behavior": ["X"]}
+
+        with (
+            patch(f"{_INTERPRETATION_SERVICE}.ensure_contract", return_value=mock_contract),
+            patch(f"{_INTERPRETATION_SERVICE}.contract_usability", return_value=(True, "")),
+        ):
+            contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
+
+        assert usable is True
+        assert contract == {"prohibited_behavior": ["X"]}
+
+    def test_unusable_contract_returns_none_and_false(self):
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Something ambiguous"}
+
+        with (
+            patch(f"{_INTERPRETATION_SERVICE}.ensure_contract", return_value=MagicMock()),
+            patch(
+                f"{_INTERPRETATION_SERVICE}.contract_usability",
+                return_value=(False, "too ambiguous"),
+            ),
+        ):
+            contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
+
+        assert contract is None
+        assert usable is False
+
+    @pytest.mark.parametrize("config", [{}, None, {"instructions": "no goal key"}])
+    def test_nothing_to_interpret_falls_back_to_goal_scoring(self, config):
+        """A config with no ``goal`` was never interpretable, which is not a failure.
+
+        It must score the legacy way -- the same thing the re-score path does with a test
+        that has no stored contract -- rather than reporting Error for the sole reason that
+        there was nothing to interpret.
+        """
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = config
+
+        with patch(f"{_INTERPRETATION_SERVICE}.ensure_contract") as ensure:
+            contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
+
+        assert contract is None
+        assert usable is True
+        ensure.assert_not_called()  # nothing to interpret means no interpreter call at all
+
+
 class TestMultiTurnOutput:
     """Tests for the MultiTurnOutput provider."""
 
@@ -362,6 +430,7 @@ class TestMultiTurnOutput:
 
         # Both imports are lazy (inside get_output); patch at their source modules
         with (
+            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
             patch(
                 "rhesis.penelope.PenelopeAgent",
                 mock_agent_class,
@@ -381,6 +450,7 @@ class TestMultiTurnOutput:
 
         assert isinstance(output, TestOutput)
         assert output.metrics == {"goal_achieved": True}
+        assert output.contract_usable is True
         # Metrics should be popped from response
         assert "metrics" not in output.response
         assert output.source == "live"
@@ -405,6 +475,7 @@ class TestMultiTurnOutput:
 
         # Both imports are lazy (inside get_output); patch at their source modules
         with (
+            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
             patch(
                 "rhesis.penelope.PenelopeAgent",
                 mock_agent_class,
@@ -424,6 +495,77 @@ class TestMultiTurnOutput:
 
         # When model is None, PenelopeAgent() is called with no args
         mock_agent_class.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_resolved_contract_is_passed_to_penelope(self):
+        """The contract resolve_multi_turn_contract returns must reach execute_test."""
+        mock_penelope_result = MagicMock()
+        mock_penelope_result.model_dump.return_value = {
+            CONVERSATION_SUMMARY_KEY: [],
+            "metrics": {"goal_achievement": {"is_successful": True}},
+        }
+        mock_agent_class = MagicMock()
+        mock_agent_instance = MagicMock()
+        mock_agent_instance.execute_test.return_value = mock_penelope_result
+        mock_agent_class.return_value = mock_agent_instance
+
+        mock_test = MagicMock()
+        mock_test.test_configuration = {"goal": "Test goal"}
+        resolved_contract = {"prohibited_behavior": ["Disclose PII"]}
+
+        with (
+            patch(_RESOLVE_CONTRACT, return_value=(resolved_contract, True)),
+            patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
+            patch(
+                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
+            ),
+        ):
+            provider = MultiTurnOutput(model=MagicMock())
+            output = await provider.get_output(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                user_id="user-1",
+            )
+
+        assert mock_agent_instance.execute_test.call_args.kwargs["contract"] == resolved_contract
+        assert output.contract_usable is True
+
+    @pytest.mark.asyncio
+    async def test_unusable_contract_does_not_run_the_conversation(self):
+        """Nothing this run produced could be scored, so it must not be run at all.
+
+        Every verdict would be discarded downstream, so conducting the conversation first
+        would only bill the org for target calls and judge tokens on a guaranteed Error.
+        """
+        mock_agent_class = MagicMock()
+        mock_agent_instance = MagicMock()
+        mock_agent_class.return_value = mock_agent_instance
+
+        mock_test = MagicMock()
+        mock_test.test_configuration = {"goal": "Test goal"}
+
+        with (
+            patch(_RESOLVE_CONTRACT, return_value=(None, False)),
+            patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
+            patch(
+                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
+            ),
+        ):
+            provider = MultiTurnOutput(model=MagicMock())
+            output = await provider.get_output(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                user_id="user-1",
+            )
+
+        mock_agent_instance.execute_test.assert_not_called()
+        assert output.contract_usable is False
+        assert output.metrics == {}
+        assert output.response["status"] == "error"
 
     @pytest.mark.asyncio
     async def test_string_model_is_stamped_before_penelope_receives_it(self):
@@ -455,6 +597,7 @@ class TestMultiTurnOutput:
         stamped_model.usage_metered = True
 
         with (
+            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
             patch(
                 "rhesis.backend.app.utils.user_model_utils.ensure_language_model",
                 return_value=stamped_model,

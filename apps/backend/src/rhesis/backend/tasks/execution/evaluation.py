@@ -257,6 +257,8 @@ def evaluate_multi_turn_metrics(
     Returns:
         Dictionary of metric evaluation results
     """
+    from rhesis.backend.app.schemas.evaluation_contract import read_contract
+    from rhesis.backend.app.services.test_interpretation import contract_usability
     from rhesis.backend.tasks.execution.executors.data import (
         get_test_metrics,
     )
@@ -266,6 +268,29 @@ def evaluate_multi_turn_metrics(
 
     test_config = test.test_configuration or {}
     goal = test_config.get("goal", "")
+    # GoalAchievementJudge's prompt has a mandatory-instructions block a live run always
+    # includes; omitting it here would let a re-score score the same conversation
+    # differently from the live run that originally produced it.
+    instructions = test_config.get("instructions") or ""
+
+    # Re-scoring reuses whatever contract this test was already interpreted with -- it must
+    # not re-interpret, or the same stored trace could score differently between two
+    # re-score runs depending on when each one happened to run relative to a test edit.
+    # Absent (test predates evaluation contracts, or has never executed live) falls through
+    # to legacy goal-based scoring, unchanged from before contracts existed.
+    stored_contract = read_contract(getattr(test, "test_metadata", None))
+    contract_dict: Optional[Dict[str, Any]] = None
+    if stored_contract.interpreted_from:
+        usable, reason = contract_usability(stored_contract)
+        if not usable:
+            logger.warning(
+                "Test %s has no usable evaluation contract; discarding all multi-turn "
+                "metrics rather than reporting an untrustworthy verdict: %s",
+                test.id,
+                reason,
+            )
+            return {}
+        contract_dict = stored_contract.model_dump(mode="json", exclude_none=True)
 
     # Resolve metrics (execution-time > test set > requirement)
     metrics = get_test_metrics(
@@ -316,6 +341,8 @@ def evaluate_multi_turn_metrics(
             context=_collect_conversation_context(conversation_summary),
             metrics=metric_configs,
             conversation_history=conversation_history,
+            instructions=instructions,
+            contract=contract_dict,
         )
     except Exception as e:
         logger.warning(f"Error evaluating multi-turn metrics: {str(e)}")
