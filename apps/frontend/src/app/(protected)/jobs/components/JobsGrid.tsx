@@ -122,19 +122,33 @@ function ProgressCell({ job }: { job: Job }) {
     );
   }
 
-  // Without a total there is no percentage to show, so show the count rather
-  // than a bar stuck at an arbitrary width.
   if (!total) {
     return <Typography variant="body2">{current}</Typography>;
   }
 
   const pct = Math.min(100, Math.round((current / total) * 100));
+  const done = current >= total;
+
   return (
-    <Box sx={{ width: '100%' }}>
-      <Typography variant="caption" color="text.secondary">
-        {current} / {total}
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+      {!done && (
+        <LinearProgress
+          variant="determinate"
+          value={pct}
+          sx={theme => ({
+            flex: 1,
+            height: theme.spacing(0.75),
+            borderRadius: theme.shape.borderRadius,
+            bgcolor: 'action.hover',
+            '& .MuiLinearProgress-bar': {
+              borderRadius: theme.shape.borderRadius,
+            },
+          })}
+        />
+      )}
+      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+        {current}/{total}
       </Typography>
-      <LinearProgress variant="determinate" value={pct} />
     </Box>
   );
 }
@@ -193,6 +207,8 @@ export default function JobsGrid() {
     return base ? `(${base}) and ${activeClause}` : activeClause;
   }, [searchQuery, effectiveFilters, statusPill]);
 
+  const LIVE_POLL_MS = 3000;
+
   const {
     data: jobsData,
     isLoading: loading,
@@ -207,6 +223,7 @@ export default function JobsGrid() {
     ),
     errorFallbackMessage: 'Failed to load jobs',
     enabled: isAuthenticated(sessionStatus),
+    staleTime: 0,
     queryFn: () => {
       const client = new ApiClientFactory().getJobsClient();
       return client.getJobs({
@@ -217,6 +234,8 @@ export default function JobsGrid() {
         $filter: filterString,
       });
     },
+    refetchInterval: query =>
+      query.state.data?.data.some(j => !j.is_terminal) ? LIVE_POLL_MS : false,
   });
 
   const jobs = jobsData?.data ?? [];
