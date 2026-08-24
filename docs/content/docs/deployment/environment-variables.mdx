@@ -58,6 +58,18 @@ One difference between the two colours: the built-in secondary uses a different 
 lighten/darken ramp instead, so secondary buttons brighten on hover within your own hue rather than
 shifting to another colour.
 
+### Custom font
+
+| Variable | Description | Default |
+|---|---|---|
+| `BRAND_FONT_FAMILY` | CSS font-family name, e.g. `Inria Sans`. Replaces the built-in Be Vietnam Pro typeface across all UI text | *(unset — Be Vietnam Pro)* |
+| `BRAND_FONT_BASE_URL` | Base URL for self-hosted font files (https:// or root-relative). The app loads `\{base\}/\{slug\}-300.ttf`, `-400.ttf` and `-700.ttf`, where the slug is the lowercased, hyphenated family name | *(unset — Google Fonts)* |
+
+When only `BRAND_FONT_FAMILY` is set, the font is loaded from Google Fonts. Add
+`BRAND_FONT_BASE_URL` for deployments that cannot reach Google (air-gapped, on-prem) or prefer to
+serve the files themselves. Name the .ttf files `\{slug\}-\{weight\}.ttf` (e.g. `inria-sans-300.ttf`,
+`inria-sans-400.ttf`, `inria-sans-700.ttf`).
+
 Setting `BRAND_PRODUCT_NAME` also drops the Rhesis tagline from the page description and stops the
 sign-in wordmark linking to rhesis.ai.
 

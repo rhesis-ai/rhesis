@@ -27,6 +27,20 @@ const MAX_PRODUCT_NAME_LENGTH = 60;
  * 3-digit form would silently widen what deployments can put in a values file. */
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
+/** Font weights loaded for brand fonts: light, regular, bold. */
+const FONT_WEIGHTS = ['300', '400', '700'] as const;
+
+export interface BrandFont {
+  family: string;
+  source: 'google' | 'custom';
+  /** Google Fonts stylesheet URL (source === 'google'). */
+  googleHref?: string;
+  /** Base URL for self-hosted .ttf files (source === 'custom'). */
+  baseUrl?: string;
+  /** Slug used to build filenames: "Inria Sans" → "inria-sans". */
+  slug: string;
+}
+
 export interface Branding {
   /** Undefined means "use the built-in Rhesis palette", not "no colour". */
   primaryColor?: string;
@@ -38,6 +52,8 @@ export interface Branding {
   /** True when `productName` is the Rhesis default, so callers can keep
    * Rhesis-specific copy (the marketing description) out of a branded build. */
   isDefaultProductName: boolean;
+  /** Custom font override. Undefined means "use Be Vietnam Pro". */
+  font?: BrandFont;
 }
 
 /**
@@ -131,6 +147,96 @@ export function normalizeProductName(value: string | undefined | null): string {
   return trimmed;
 }
 
+const MAX_FONT_FAMILY_LENGTH = 80;
+
+function slugifyFont(family: string): string {
+  return family
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * Validates a `BRAND_FONT_BASE_URL` — https:// or root-relative directory,
+ * stripped of a trailing slash so callers can append `/{file}` directly.
+ */
+function normalizeBaseUrl(
+  value: string | undefined | null
+): string | undefined {
+  const trimmed = value?.trim().replace(/\/+$/, '');
+  if (!trimmed) return undefined;
+
+  if (trimmed.startsWith('/')) {
+    if (/^\/[/\\]/.test(trimmed)) {
+      console.warn(
+        `[branding] Ignoring BRAND_FONT_BASE_URL "${trimmed}": protocol-relative URLs are not allowed.`
+      );
+      return undefined;
+    }
+    return trimmed;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    console.warn(
+      `[branding] Ignoring BRAND_FONT_BASE_URL "${trimmed}": not a valid URL.`
+    );
+    return undefined;
+  }
+
+  if (parsed.protocol !== 'https:') {
+    console.warn(
+      `[branding] Ignoring BRAND_FONT_BASE_URL "${trimmed}": only https:// URLs and root-relative paths are allowed.`
+    );
+    return undefined;
+  }
+
+  return parsed.toString().replace(/\/+$/, '');
+}
+
+function buildGoogleFontsHref(family: string): string {
+  const weights = FONT_WEIGHTS.join(';');
+  const encoded = encodeURIComponent(family);
+  return `https://fonts.googleapis.com/css2?family=${encoded}:wght@${weights}&display=swap`;
+}
+
+/**
+ * Reads `BRAND_FONT_FAMILY` (required) and `BRAND_FONT_BASE_URL` (optional)
+ * from the environment.
+ *
+ * When only the family is set, the font is loaded from Google Fonts. When a
+ * base URL is also provided, `@font-face` rules are generated from
+ * `{baseUrl}/{slug}-{weight}.ttf` instead — for air-gapped or self-hosted
+ * deployments that can't reach Google.
+ */
+function normalizeBrandFont(): BrandFont | undefined {
+  const family = process.env.BRAND_FONT_FAMILY?.trim();
+  if (!family) return undefined;
+
+  if (family.length > MAX_FONT_FAMILY_LENGTH) {
+    console.warn(
+      `[branding] Ignoring BRAND_FONT_FAMILY: ${family.length} characters exceeds the ${MAX_FONT_FAMILY_LENGTH}-character limit.`
+    );
+    return undefined;
+  }
+
+  const slug = slugifyFont(family);
+  const baseUrl = normalizeBaseUrl(process.env.BRAND_FONT_BASE_URL);
+
+  if (baseUrl) {
+    return { family, source: 'custom', baseUrl, slug };
+  }
+
+  return {
+    family,
+    source: 'google',
+    googleHref: buildGoogleFontsHref(family),
+    slug,
+  };
+}
+
 /**
  * Reads branding from the environment. Server-side only — the env vars carry no
  * `NEXT_PUBLIC_` prefix, so in a client bundle every read compiles to
@@ -148,5 +254,6 @@ export function getServerBranding(): Branding {
     faviconUrl: normalizeFaviconUrl(process.env.BRAND_FAVICON_URL),
     productName,
     isDefaultProductName: productName === DEFAULT_PRODUCT_NAME,
+    font: normalizeBrandFont(),
   };
 }

@@ -120,15 +120,17 @@ export default function ThemeContextProvider({
   // otherwise rebuild the whole theme on every render.
   const brandPrimary = brandColors?.primary;
   const brandSecondary = brandColors?.secondary;
+  const brandFont = brandColors?.fontFamily;
   const theme = React.useMemo(
     () =>
       createTheme(
         getDesignTokens(mode, {
           primary: brandPrimary,
           secondary: brandSecondary,
+          fontFamily: brandFont,
         })
       ),
-    [mode, brandPrimary, brandSecondary]
+    [mode, brandPrimary, brandSecondary, brandFont]
   );
 
   return (
