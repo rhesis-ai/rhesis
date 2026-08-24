@@ -22,11 +22,13 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.schemas.evaluation_contract import EvaluationContractStatus
 from rhesis.backend.app.services.test import (
     bulk_create_tests,
     extract_test_from_conversation,
     resolve_test_entity_names,
 )
+from rhesis.backend.app.services.test_interpretation import contract_status, ensure_contract
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
@@ -278,6 +280,60 @@ def read_test(
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     return db_test
+
+
+@router.get(
+    "/{test_id}/interpretation",
+    response_model=EvaluationContractStatus,
+    **capability(Permission.Test.READ),
+)
+def read_test_interpretation(
+    test_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get how this test's goal and restrictions were interpreted for scoring.
+
+    A pure read -- it never interprets, so opening the review panel costs nothing. Use POST to
+    derive or refresh the interpretation.
+    """
+    organization_id, user_id = tenant_context
+    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+    return contract_status(db_test)
+
+
+@router.post(
+    "/{test_id}/interpretation",
+    response_model=EvaluationContractStatus,
+    **capability(Permission.Test.UPDATE),
+)
+def interpret_test(
+    test_id: UUID,
+    force: bool = Query(
+        False,
+        description="Re-interpret even when the stored interpretation matches the current wording",
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Derive (or refresh) how this test will be interpreted for scoring.
+
+    Costs an LLM call, so it is a POST behind an explicit action rather than a side effect of
+    reading the test. Without ``force`` this is a no-op when the stored interpretation already
+    matches the current wording.
+    """
+    organization_id, user_id = tenant_context
+    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    ensure_contract(db, db_test, user_id=str(current_user.id), force=force)
+    db.commit()
+    return contract_status(db_test)
 
 
 @router.put("/{test_id}", response_model=schemas.Test)
