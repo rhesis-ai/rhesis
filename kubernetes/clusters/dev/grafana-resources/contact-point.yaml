@@ -1,0 +1,19 @@
+# Discord only for dev — no need to spam email for a dev-cluster alert.
+# To bring email back, delete this patch (and the matching one in stg/grafana-resources)
+# and remove it from kustomization.yaml's patches list.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaContactPoint
+metadata:
+  name: default-notifications
+  namespace: monitoring
+spec:
+  receivers:
+    - type: discord
+      settings:
+        use_discord_username: true
+      valuesFrom:
+        - targetPath: url
+          valueFrom:
+            secretKeyRef:
+              name: grafana-discord-webhook
+              key: url
