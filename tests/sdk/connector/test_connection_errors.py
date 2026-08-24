@@ -1,13 +1,17 @@
 """Tests for WebSocket connection error handling and retry logic."""
 
 import asyncio
+import ssl
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import certifi
 import pytest
 from websockets.exceptions import InvalidStatus
 
 from rhesis.sdk.connector.connection import (
     WebSocketConnection,
+    _default_trust_store_is_usable,
+    _fallback_ssl_context,
     classify_websocket_error,
 )
 from rhesis.sdk.connector.types import ConnectionState, RetryConfig
@@ -152,6 +156,105 @@ class TestErrorClassification:
         assert is_retryable
         assert "Connection error" in message
 
+    def test_classify_ssl_cert_error_is_permanent(self):
+        """A trust-store failure must not be retried -- it can never succeed.
+
+        The message carries no HTTP status and none of the TRANSIENT_KEYWORDS, so without an
+        explicit rule it falls through to the retryable default and loops forever.
+        """
+        error = ssl.SSLCertVerificationError(
+            1,
+            "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: "
+            "unable to get local issuer certificate (_ssl.c:1028)",
+        )
+        is_retryable, message = classify_websocket_error(error)
+
+        assert not is_retryable
+        assert "TLS certificate verification failed" in message
+        assert "SSL_CERT_FILE" in message
+
+
+class TestTrustStoreFallback:
+    """The connector must still verify TLS on interpreters with no usable CA bundle."""
+
+    def _paths(self, cafile, capath):
+        return ssl.DefaultVerifyPaths(
+            cafile=cafile,
+            capath=capath,
+            openssl_cafile_env="SSL_CERT_FILE",
+            openssl_cafile="/nonexistent/cert.pem",
+            openssl_capath_env="SSL_CERT_DIR",
+            openssl_capath="/nonexistent/certs",
+        )
+
+    def test_healthy_store_builds_no_context(self, monkeypatch):
+        """A working default store is left alone, so system and corporate roots still apply."""
+        monkeypatch.setattr(
+            ssl, "get_default_verify_paths", lambda: self._paths("/etc/ssl/cert.pem", None)
+        )
+        assert _default_trust_store_is_usable() is True
+        assert _fallback_ssl_context() is None
+
+    def test_capath_directory_counts_as_usable(self, monkeypatch, tmp_path):
+        """A cafile-less interpreter is still fine when it has a real capath directory."""
+        monkeypatch.setattr(
+            ssl, "get_default_verify_paths", lambda: self._paths(None, str(tmp_path))
+        )
+        assert _default_trust_store_is_usable() is True
+        assert _fallback_ssl_context() is None
+
+    def test_unusable_store_falls_back_to_certifi(self, monkeypatch):
+        """No cafile and no capath directory -- the python.org-without-certificates case."""
+        monkeypatch.setattr(
+            ssl, "get_default_verify_paths", lambda: self._paths(None, "/nonexistent/certs")
+        )
+        assert _default_trust_store_is_usable() is False
+
+        built = {}
+        real_create = ssl.create_default_context
+
+        def spy(*args, **kwargs):
+            built.update(kwargs)
+            return real_create(*args, **kwargs)
+
+        monkeypatch.setattr(ssl, "create_default_context", spy)
+
+        context = _fallback_ssl_context()
+
+        assert isinstance(context, ssl.SSLContext)
+        assert built["cafile"] == certifi.where()
+
+    @pytest.mark.asyncio
+    async def test_connect_omits_ssl_kwarg_on_healthy_store(self, monkeypatch):
+        """The kwarg is absent entirely when no fallback is needed, not passed as None."""
+        monkeypatch.setattr("rhesis.sdk.connector.connection._fallback_ssl_context", lambda: None)
+        connection = WebSocketConnection(
+            url="wss://test.example.com/ws", headers={}, on_message=AsyncMock()
+        )
+        with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
+            mock_connect.side_effect = RuntimeError("stop here")
+            with pytest.raises(RuntimeError, match="stop here"):
+                await connection._attempt_single_connection()
+
+        assert "ssl" not in mock_connect.call_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_connect_passes_fallback_context(self, monkeypatch):
+        """When a fallback context exists it reaches websockets.connect."""
+        sentinel = ssl.create_default_context()
+        monkeypatch.setattr(
+            "rhesis.sdk.connector.connection._fallback_ssl_context", lambda: sentinel
+        )
+        connection = WebSocketConnection(
+            url="wss://test.example.com/ws", headers={}, on_message=AsyncMock()
+        )
+        with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
+            mock_connect.side_effect = RuntimeError("stop here")
+            with pytest.raises(RuntimeError, match="stop here"):
+                await connection._attempt_single_connection()
+
+        assert mock_connect.call_args.kwargs["ssl"] is sentinel
+
 
 class TestWebSocketConnectionRetry:
     """Test WebSocket connection retry logic."""
@@ -216,6 +319,26 @@ class TestWebSocketConnectionRetry:
             assert "Authorization failed" in call_args
 
             # Cleanup
+            await connection.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_ssl_cert_error_no_retry(self, connection, mock_on_connection_failed):
+        """A TLS trust failure stops the maintenance loop instead of retrying for minutes."""
+        with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
+            mock_connect.side_effect = ssl.SSLCertVerificationError(
+                1, "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"
+            )
+
+            await connection.connect()
+            await asyncio.sleep(0.2)
+
+            assert mock_connect.call_count == 1
+            assert connection.state == ConnectionState.FAILED
+            assert mock_on_connection_failed.called
+            assert (
+                "TLS certificate verification failed" in (mock_on_connection_failed.call_args[0][0])
+            )
+
             await connection.disconnect()
 
     @pytest.mark.asyncio
