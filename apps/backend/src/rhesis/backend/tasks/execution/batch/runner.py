@@ -345,8 +345,7 @@ async def _execute_single_test(
                 # otherwise evaluate configured metrics against the empty error output.
                 metrics_results = {}
                 logger.info(
-                    f"[BATCH] Test {test_id} reported as Error: evaluation contract "
-                    "was not usable"
+                    f"[BATCH] Test {test_id} reported as Error: evaluation contract was not usable"
                 )
             elif has_http_error_in_result(output):
                 # Discard Penelope goal metrics when the first target call was HTTP error.
