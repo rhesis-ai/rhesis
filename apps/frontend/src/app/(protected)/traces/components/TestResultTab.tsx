@@ -334,9 +334,7 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
                   {testResult.test_output.goal_achieved !== undefined && (
                     <Chip
                       label={
-                        testResult.test_output.goal_achieved
-                          ? 'Goal Achieved'
-                          : 'Goal Not Achieved'
+                        testResult.test_output.goal_achieved ? 'Pass' : 'Fail'
                       }
                       size="small"
                       color={

@@ -15,6 +15,7 @@ import {
 } from './interfaces/tests';
 import { TestSet } from './interfaces/test-set';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
+import type { EvaluationContractStatus } from './interfaces/evaluation-contract';
 
 // Default pagination settings
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -198,6 +199,30 @@ export class TestsClient extends BaseApiClient {
         method: 'POST',
         body: JSON.stringify(request),
       }
+    );
+  }
+
+  /** Read how a test was interpreted for scoring. Never triggers an interpretation. */
+  async getTestInterpretation(
+    testId: string
+  ): Promise<EvaluationContractStatus> {
+    return this.fetch<EvaluationContractStatus>(
+      `${API_ENDPOINTS.tests}/${testId}/interpretation`
+    );
+  }
+
+  /**
+   * Derive or refresh a test's interpretation. Costs an LLM call, so it is only invoked from an
+   * explicit user action. Without `force` this is a no-op when the stored reading is current.
+   */
+  async interpretTest(
+    testId: string,
+    options: { force?: boolean } = {}
+  ): Promise<EvaluationContractStatus> {
+    const query = options.force ? '?force=true' : '';
+    return this.fetch<EvaluationContractStatus>(
+      `${API_ENDPOINTS.tests}/${testId}/interpretation${query}`,
+      { method: 'POST' }
     );
   }
 

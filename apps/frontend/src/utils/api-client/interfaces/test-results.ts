@@ -58,11 +58,42 @@ export interface CriterionEvaluation {
   relevant_turns: number[];
 }
 
+/**
+ * One required/prohibited behaviour from a test's evaluation contract, and whether the
+ * target complied with it. Present only when the goal metric used contract-based scoring
+ * (see schemas/evaluation_contract.py) rather than scoring the raw goal text directly.
+ */
+export interface BehaviorVerdict {
+  behavior: string;
+  kind: 'required' | 'prohibited';
+  complied: boolean;
+  evidence: string;
+  relevant_turns: number[];
+}
+
 export interface GoalEvaluation {
   all_criteria_met: boolean;
   reason: string;
   evidence: string[];
   criteria_evaluations: CriterionEvaluation[];
+  /** Whether the interpreted contract read this test as adversarial. Contract-scored only. */
+  adversarial?: boolean;
+  /** Per-behaviour verdicts. Present only for contract-based scoring. */
+  behavior_verdicts?: BehaviorVerdict[];
+  behaviors_total?: number;
+  behaviors_complied?: number;
+  behaviors_violated?: number;
+  violated_behaviors?: string[];
+  /**
+   * The evaluation contract used to score this run, echoed alongside the verdicts (see
+   * schemas/evaluation_contract.py). Present only for contract-based scoring.
+   */
+  contract?: {
+    adversarial: boolean;
+    required_behavior: string[];
+    prohibited_behavior: string[];
+    simulated_user_objective: string;
+  };
 }
 
 export interface TestOutput {
