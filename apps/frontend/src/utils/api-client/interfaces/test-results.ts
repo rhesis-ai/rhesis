@@ -121,6 +121,13 @@ export interface TestOutput {
   };
   // Status field for multi-turn tests
   status?: 'success' | 'failure' | 'timeout' | 'error';
+  /**
+   * Why a multi-turn result has no metrics and reports Error -- e.g. the test's evaluation
+   * contract is stale or too ambiguous to score against. Set by the backend's
+   * evaluate_multi_turn_metrics (re-score) or resolve_multi_turn_contract (live, when the
+   * conversation was never run). Not an HTTP error field.
+   */
+  error?: string;
 }
 
 // Test Reviews interfaces

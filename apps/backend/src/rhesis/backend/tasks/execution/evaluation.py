@@ -37,6 +37,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _record_discard_reason(stored_output: Dict[str, Any], reason: str) -> None:
+    """Attach a user-facing reason to the trace being re-scored, for a discard the UI must
+    explain rather than just leave as an unexplained Error status.
+
+    ``stored_output`` is the same dict object that becomes the persisted ``test_output`` --
+    ``MultiTurnRunner.run()`` passes it straight through to ``create_test_result_record`` --
+    so mutating it here is how the reason reaches storage without widening this function's
+    return type to a tuple, which every caller (including tests) would then need to unpack.
+
+    Uses the same ``error`` key as the live path's synthetic response when a contract is
+    unusable before the conversation even runs (``output_providers.resolve_multi_turn_contract``
+    callers): one field, one meaning, wherever a multi-turn result ends up Error because of the
+    evaluation contract. Safe alongside ``response_extractor``'s HTTP-error detection, which
+    additionally requires ``status_code >= 400`` -- an ``error`` string alone doesn't trip it.
+    """
+    stored_output["error"] = reason
+
+
 def _scope_values(mc: Any) -> List[str]:
     """Return a metric config's declared scopes as plain strings.
 
@@ -297,13 +315,18 @@ def evaluate_multi_turn_metrics(
     contract_dict: Optional[Dict[str, Any]] = None
     if stored_contract.interpreted_from:
         if not stored_contract.is_current_for(test_config):
+            reason = (
+                "This test's evaluation contract is out of date -- it no longer matches the "
+                "test's current wording. Run the test live, or refresh interpretation, before "
+                "re-scoring."
+            )
             logger.warning(
                 "Test %s's stored evaluation contract is stale for its current wording; "
                 "discarding all multi-turn metrics rather than scoring against criteria the "
-                "test no longer states. Run the test live, or POST /{test_id}/interpretation"
-                "?force=true, to refresh it before re-scoring.",
+                "test no longer states.",
                 test.id,
             )
+            _record_discard_reason(stored_output, reason)
             return {}
         usable, reason = contract_usability(stored_contract)
         if not usable:
@@ -313,6 +336,7 @@ def evaluate_multi_turn_metrics(
                 test.id,
                 reason,
             )
+            _record_discard_reason(stored_output, reason)
             return {}
         contract_dict = stored_contract.model_dump(mode="json", exclude_none=True)
 

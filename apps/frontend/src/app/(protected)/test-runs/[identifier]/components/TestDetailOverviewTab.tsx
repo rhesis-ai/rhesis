@@ -161,8 +161,12 @@ export default function TestDetailOverviewTab({
 
   const responseContent = useMemo(() => {
     if (isMultiTurn) {
+      // goal_evaluation.reason is absent when no metric ran at all -- e.g. the evaluation
+      // contract was stale or too ambiguous to score against (see TestOutput.error). Prefer
+      // that explanation over a generic "no reasoning" dead end.
       return (
         test.test_output?.goal_evaluation?.reason ||
+        test.test_output?.error ||
         'No evaluation reasoning available'
       );
     }

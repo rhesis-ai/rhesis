@@ -712,6 +712,7 @@ class TestEvaluateMultiTurnMetricsContract:
             contract_version=CONTRACT_VERSION,
         )
         test = self._test_with_contract(config, stale_contract)
+        stored_output = {CONVERSATION_SUMMARY_KEY: []}
 
         with (
             patch(
@@ -724,7 +725,7 @@ class TestEvaluateMultiTurnMetricsContract:
             ),
         ):
             result = evaluate_multi_turn_metrics(
-                stored_output={CONVERSATION_SUMMARY_KEY: []},
+                stored_output=stored_output,
                 test=test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -733,6 +734,9 @@ class TestEvaluateMultiTurnMetricsContract:
             )
 
         assert result == {}
+        # The reason must reach the persisted trace, not just the logs -- MultiTurnRunner.run
+        # passes this same dict straight through to create_test_result_record as test_output.
+        assert "out of date" in stored_output["error"]
 
     def test_current_usable_contract_is_passed_through(self):
         """A contract matching the test's current wording is used, not discarded."""
@@ -744,6 +748,7 @@ class TestEvaluateMultiTurnMetricsContract:
             contract_version=CONTRACT_VERSION,
         )
         test = self._test_with_contract(config, current_contract)
+        stored_output = {CONVERSATION_SUMMARY_KEY: []}
 
         mock_evaluator_instance = MagicMock()
         mock_evaluator_instance.evaluate.return_value = {
@@ -765,7 +770,7 @@ class TestEvaluateMultiTurnMetricsContract:
             ),
         ):
             result = evaluate_multi_turn_metrics(
-                stored_output={CONVERSATION_SUMMARY_KEY: []},
+                stored_output=stored_output,
                 test=test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -775,6 +780,7 @@ class TestEvaluateMultiTurnMetricsContract:
 
         assert result == {"goal_achievement": {"is_successful": True, "score": 1.0}}
         assert mock_evaluator_instance.evaluate.call_args.kwargs["contract"] is not None
+        assert "error" not in stored_output
 
     def test_current_but_low_confidence_contract_discards_all_metrics(self):
         """Freshness alone isn't enough -- an ambiguous-but-current contract still must not
@@ -788,6 +794,7 @@ class TestEvaluateMultiTurnMetricsContract:
             contract_version=CONTRACT_VERSION,
         )
         test = self._test_with_contract(config, ambiguous_contract)
+        stored_output = {CONVERSATION_SUMMARY_KEY: []}
 
         with (
             patch(
@@ -800,7 +807,7 @@ class TestEvaluateMultiTurnMetricsContract:
             ),
         ):
             result = evaluate_multi_turn_metrics(
-                stored_output={CONVERSATION_SUMMARY_KEY: []},
+                stored_output=stored_output,
                 test=test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -809,3 +816,6 @@ class TestEvaluateMultiTurnMetricsContract:
             )
 
         assert result == {}
+        # contract_usability's own reason string is already user-facing (see its docstring);
+        # reused verbatim rather than replaced with a generic message.
+        assert "ambiguous" in stored_output["error"]
