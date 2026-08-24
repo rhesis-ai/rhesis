@@ -6,7 +6,7 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 
 import logging
 import math
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Mapping, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -20,6 +20,7 @@ from rhesis.penelope.context import (
     ExecutionStatus,
     TestState,
 )
+from rhesis.sdk.metrics.providers.native.goal_achievement_judge import is_contract_result
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics.base import MetricResult
@@ -228,12 +229,20 @@ class GoalAchievedCondition(StoppingCondition):
         """
         Check if we should stop based on SDK evaluation.
 
-        Two early-stop scenarios with different thresholds:
-        - Goal achieved: allowed after min_turns (saves remaining budget)
-        - Goal impossible: allowed only near max_turns (exhausts attempts)
+        Contract-based results (``GoalAchievementJudge`` scoring an evaluation contract, see
+        ``_should_stop_contract``) use a different rule than goal-based ones, because
+        "compliant so far" and "goal achieved" are not the same claim. A contract-based result
+        that looks compliant at turn 3 of 10 has simply not been tested yet on turns 4-10; it is
+        not evidence the target will hold. Stopping on it would mean an adversarial test never
+        actually gets attacked past turn 3. Goal-based scoring doesn't have this problem: the
+        judge is asked "was the goal achieved" directly, and that answer is not expected to
+        un-happen with more turns.
         """
         if not self.result:
             return StopResult.continue_()
+
+        if is_contract_result(self.result.details):
+            return self._should_stop_contract(state)
 
         current_turns = len(state.turns)
         success_floor = self._get_early_stop_floor(strict=False)
@@ -272,6 +281,49 @@ class GoalAchievedCondition(StoppingCondition):
                 )
 
         return StopResult.continue_()
+
+    def _should_stop_contract(self, state: TestState) -> StopResult:
+        """Stopping rule for contract-based scoring.
+
+        Stop only on positive evidence that a PROHIBITED behaviour was violated. Nothing else
+        is a reason to end the conversation early, and the distinction matters in three ways:
+
+        - Compliance so far is not evidence the target will hold. A system that has not yet been
+          pushed on a prohibition looks compliant from turn one; stopping there means the test
+          never actually runs.
+        - A REQUIRED behaviour that has not happened yet is not a violation, it is just not done.
+          The judge is told to mark a required behaviour non-compliant when "the system never got
+          the chance" (see ``goal_achievement_contract_prompt.jinja``), and the judge first runs
+          at ``min_turns``. Treating that as a permanent failure would end the run before the
+          scenario it is waiting for could occur, and report Fail for a test that never ran.
+        - ``is_successful=False`` is also what the SDK sets when the judge itself errors
+          (``handle_evaluation_error``), and ``behaviors_total`` is stamped before that call, so
+          an errored result still looks contract-shaped. Reading it as a violation would turn a
+          transient model timeout into a recorded security failure.
+
+        Only a violated prohibition is permanent: once the target did the thing, it stays true of
+        the transcript, so stopping saves the remaining budget without losing coverage.
+        """
+        details = self.result.details
+
+        violated = [
+            verdict
+            for verdict in (details.get("behavior_verdicts") or [])
+            if isinstance(verdict, Mapping)
+            and verdict.get("kind") == "prohibited"
+            and not verdict.get("complied", True)
+        ]
+        if not violated:
+            return StopResult.continue_()
+
+        reason = details.get("reason", "A prohibited behaviour was violated")
+        logger.info(
+            "Stopping: %d prohibited behaviour(s) violated of %d total at turn %d",
+            len(violated),
+            details.get("behaviors_total", 0),
+            len(state.turns),
+        )
+        return StopResult(ExecutionStatus.FAILURE, False, f"Behaviour violated: {reason}")
 
 
 def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):

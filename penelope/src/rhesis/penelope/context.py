@@ -8,7 +8,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -432,6 +432,10 @@ class TestContext:
     max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
     files: List[FileAttachment] = field(default_factory=list)
+    #: Normalized reading of this test (what the target must/must not do, what the simulated
+    #: user is pursuing). See schemas/evaluation_contract.py on the backend. Absent means
+    #: goal-based scoring, exactly as before evaluation contracts existed.
+    contract: Optional[Mapping[str, Any]] = None
 
 
 @dataclass
@@ -853,7 +857,12 @@ class TestState:
         Returns:
             Simplified metric dictionary with summary fields only
         """
-        # Essential fields for metrics overview
+        # Essential fields for metrics overview. Mirrors criteria_met/criteria_total for
+        # contract-based scoring: the SDK judge already computes these three as top-level
+        # detail keys (unlike criteria_met/criteria_total, which Penelope derives itself
+        # below), so they only need whitelisting here. The full per-behaviour breakdown
+        # (behavior_verdicts, violated_behaviors, contract) stays out of the summary and is
+        # read from test_output.goal_evaluation instead, same as criteria_evaluations is.
         summary_fields = {
             "score",
             "confidence",
@@ -867,6 +876,10 @@ class TestState:
             "threshold",
             "threshold_operator",
             "score_type",
+            "adversarial",
+            "behaviors_total",
+            "behaviors_complied",
+            "behaviors_violated",
         }
 
         # Create summary by including only essential fields
