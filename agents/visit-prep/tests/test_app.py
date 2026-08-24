@@ -57,17 +57,28 @@ def test_lifespan_starts_the_connector(monkeypatch):
     ``uvicorn.main.run`` before ``asyncio.run``, so the connection is deferred with only a
     warning. Nothing else picks it up, so dropping this call silently unregisters the agent.
     """
-    app_mod = _import_app_with_rhesis_disabled(monkeypatch)
+    monkeypatch.setenv("RHESIS_API_KEY", "")
+    monkeypatch.setenv("RHESIS_PROJECT_ID", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
 
+    import rhesis.sdk.decorators._state as decorator_state
     import visit_prep.app_factory as factory
     import visit_prep.session as session
+    from rhesis.sdk.telemetry.integrations.haystack import RhesisTracing
 
     monkeypatch.setattr(session, "get_default_pipeline", lambda: None)
+
+    # Build the app through the factory so the lifespan closes over this client, and register it
+    # as the default so @endpoint resolves one. A Mock reports a truthy ``is_disabled``, which is
+    # what makes the decorator skip its own wiring.
     fake_client = Mock()
-    monkeypatch.setattr(factory, "get_default_client", lambda: fake_client)
+    monkeypatch.setattr(factory, "DisabledClient", lambda *_a, **_k: fake_client)
+    monkeypatch.setattr(decorator_state, "_default_client", fake_client)
+
+    app = factory.create_app(RhesisTracing)
 
     async def drive_lifespan():
-        async with app_mod.app.router.lifespan_context(app_mod.app):
+        async with app.router.lifespan_context(app):
             pass
 
     asyncio.run(drive_lifespan())
