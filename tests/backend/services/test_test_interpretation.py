@@ -192,10 +192,24 @@ class TestContractUsability:
         assert not usable
         assert "ambiguous" in reason and "0.40" in reason
 
-    def test_confidence_exactly_at_the_floor_is_usable(self):
+    def test_confidence_exactly_at_the_floor_is_unusable(self):
+        """The interpreter prompt tells the model to set confidence "at or below 0.5" exactly
+        when it could plausibly read the test either way. Confidence == MIN_CONFIDENCE is
+        therefore a self-reported coin flip, not a pass -- it must not be scored."""
         contract = EvaluationContract(
             prohibited_behavior=["Disclose PII"],
             confidence=MIN_CONFIDENCE,
+            interpreted_from="d",
+            contract_version=CONTRACT_VERSION,
+        )
+        usable, reason = contract_usability(contract)
+        assert not usable
+        assert "ambiguous" in reason
+
+    def test_confidence_just_above_the_floor_is_usable(self):
+        contract = EvaluationContract(
+            prohibited_behavior=["Disclose PII"],
+            confidence=MIN_CONFIDENCE + 0.01,
             interpreted_from="d",
             contract_version=CONTRACT_VERSION,
         )

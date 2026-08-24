@@ -133,7 +133,11 @@ def contract_usability(contract: EvaluationContract) -> Tuple[bool, str]:
             "No required or prohibited behaviour could be identified for the target. "
             "State what the target must or must not do in the goal or restrictions."
         )
-    if contract.confidence < MIN_CONFIDENCE:
+    # <=, not <: the interpreter prompt tells the model to set confidence "at or below 0.5"
+    # precisely when it could plausibly read the test either way (see
+    # test_interpretation.jinja2, rule 8). A strict `<` would treat that self-reported coin
+    # flip as usable.
+    if contract.confidence <= MIN_CONFIDENCE:
         return False, (
             f"The test's wording was ambiguous (interpretation confidence "
             f"{contract.confidence:.2f}). Rephrase the goal or restrictions to say plainly what "
