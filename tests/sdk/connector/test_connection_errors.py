@@ -193,7 +193,7 @@ class TestTrustStoreFallback:
             ssl, "get_default_verify_paths", lambda: self._paths("/etc/ssl/cert.pem", None)
         )
         assert _default_trust_store_is_usable() is True
-        assert _fallback_ssl_context() is None
+        assert _fallback_ssl_context("wss://test.example.com/ws") is None
 
     def test_capath_directory_counts_as_usable(self, monkeypatch, tmp_path):
         """A cafile-less interpreter is still fine when it has a real capath directory."""
@@ -201,7 +201,7 @@ class TestTrustStoreFallback:
             ssl, "get_default_verify_paths", lambda: self._paths(None, str(tmp_path))
         )
         assert _default_trust_store_is_usable() is True
-        assert _fallback_ssl_context() is None
+        assert _fallback_ssl_context("wss://test.example.com/ws") is None
 
     def test_unusable_store_falls_back_to_certifi(self, monkeypatch):
         """No cafile and no capath directory -- the python.org-without-certificates case."""
@@ -219,15 +219,31 @@ class TestTrustStoreFallback:
 
         monkeypatch.setattr(ssl, "create_default_context", spy)
 
-        context = _fallback_ssl_context()
+        context = _fallback_ssl_context("wss://test.example.com/ws")
 
         assert isinstance(context, ssl.SSLContext)
         assert built["cafile"] == certifi.where()
 
+    def test_plain_ws_url_never_gets_a_context(self, monkeypatch):
+        """A ws:// URL must not receive an ssl kwarg, even with no usable trust store.
+
+        websockets raises ValueError on an ssl argument for a non-TLS URI, and that ValueError
+        classifies as retryable -- so it would put local development against
+        ws://localhost:8080 into the exact infinite retry loop this change exists to remove,
+        on precisely the interpreters the certifi fallback is meant to rescue.
+        """
+        monkeypatch.setattr(
+            ssl, "get_default_verify_paths", lambda: self._paths(None, "/nonexistent/certs")
+        )
+        assert _default_trust_store_is_usable() is False
+        assert _fallback_ssl_context("ws://localhost:8080/connector/ws") is None
+
     @pytest.mark.asyncio
     async def test_connect_omits_ssl_kwarg_on_healthy_store(self, monkeypatch):
         """The kwarg is absent entirely when no fallback is needed, not passed as None."""
-        monkeypatch.setattr("rhesis.sdk.connector.connection._fallback_ssl_context", lambda: None)
+        monkeypatch.setattr(
+            "rhesis.sdk.connector.connection._fallback_ssl_context", lambda _url: None
+        )
         connection = WebSocketConnection(
             url="wss://test.example.com/ws", headers={}, on_message=AsyncMock()
         )
@@ -243,7 +259,7 @@ class TestTrustStoreFallback:
         """When a fallback context exists it reaches websockets.connect."""
         sentinel = ssl.create_default_context()
         monkeypatch.setattr(
-            "rhesis.sdk.connector.connection._fallback_ssl_context", lambda: sentinel
+            "rhesis.sdk.connector.connection._fallback_ssl_context", lambda _url: sentinel
         )
         connection = WebSocketConnection(
             url="wss://test.example.com/ws", headers={}, on_message=AsyncMock()
