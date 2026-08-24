@@ -340,15 +340,28 @@ const nextConfig = {
   },
 
   async rewrites() {
-    const fontBase = process.env.BRAND_FONT_BASE_URL?.trim()?.replace(
-      /\/+$/,
-      ''
-    );
-    if (!fontBase) return [];
+    const family = process.env.BRAND_FONT_FAMILY?.trim();
+    if (!family) return [];
+
+    const raw = process.env.BRAND_FONT_BASE_URL?.trim()?.replace(/\/+$/, '');
+    if (!raw) return [];
+
+    // Same safety checks as normalizeBaseUrl() in branding.ts — only https://
+    // and safe root-relative paths are proxied.
+    if (raw.startsWith('/')) {
+      if (/^\/[/\\]/.test(raw)) return [];
+    } else {
+      try {
+        if (new URL(raw).protocol !== 'https:') return [];
+      } catch {
+        return [];
+      }
+    }
+
     return [
       {
         source: '/brand-fonts/:path*',
-        destination: `${fontBase}/:path*`,
+        destination: `${raw}/:path*`,
       },
     ];
   },

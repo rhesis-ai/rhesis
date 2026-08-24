@@ -131,6 +131,8 @@ describe('getServerBranding', () => {
     secondary: process.env.BRAND_SECONDARY_COLOR,
     favicon: process.env.BRAND_FAVICON_URL,
     product: process.env.BRAND_PRODUCT_NAME,
+    fontFamily: process.env.BRAND_FONT_FAMILY,
+    fontBaseUrl: process.env.BRAND_FONT_BASE_URL,
   };
 
   // Assigning `undefined` to a process.env key stores the *string* "undefined"
@@ -146,6 +148,8 @@ describe('getServerBranding', () => {
     restore('BRAND_SECONDARY_COLOR', original.secondary);
     restore('BRAND_FAVICON_URL', original.favicon);
     restore('BRAND_PRODUCT_NAME', original.product);
+    restore('BRAND_FONT_FAMILY', original.fontFamily);
+    restore('BRAND_FONT_BASE_URL', original.fontBaseUrl);
   });
 
   it('reads every variable from the environment', () => {
@@ -160,6 +164,7 @@ describe('getServerBranding', () => {
       faviconUrl: 'https://example.com/fav.png',
       productName: 'Acme',
       isDefaultProductName: false,
+      font: undefined,
     });
   });
 
@@ -195,6 +200,7 @@ describe('getServerBranding', () => {
       faviconUrl: DEFAULT_FAVICON_URL,
       productName: DEFAULT_PRODUCT_NAME,
       isDefaultProductName: true,
+      font: undefined,
     });
   });
 
@@ -203,5 +209,99 @@ describe('getServerBranding', () => {
     // to what it already was.
     process.env.BRAND_PRODUCT_NAME = 'Rhesis AI';
     expect(getServerBranding().isDefaultProductName).toBe(true);
+  });
+
+  describe('font', () => {
+    let warn: jest.SpyInstance;
+
+    beforeEach(() => {
+      warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      delete process.env.BRAND_FONT_FAMILY;
+      delete process.env.BRAND_FONT_BASE_URL;
+    });
+
+    afterEach(() => {
+      warn.mockRestore();
+    });
+
+    it('returns google source with correct href when only family is set', () => {
+      process.env.BRAND_FONT_FAMILY = 'Inria Sans';
+
+      const font = getServerBranding().font;
+      expect(font).toEqual({
+        family: 'Inria Sans',
+        source: 'google',
+        googleHref:
+          'https://fonts.googleapis.com/css2?family=Inria%20Sans:wght@300;400;700&display=swap',
+        slug: 'inria-sans',
+      });
+    });
+
+    it('returns custom source when family and base URL are set', () => {
+      process.env.BRAND_FONT_FAMILY = 'Inria Sans';
+      process.env.BRAND_FONT_BASE_URL = 'https://gitea.example.com/fonts';
+
+      const font = getServerBranding().font;
+      expect(font).toEqual({
+        family: 'Inria Sans',
+        source: 'custom',
+        baseUrl: 'https://gitea.example.com/fonts',
+        slug: 'inria-sans',
+      });
+    });
+
+    it('strips trailing slashes from the base URL', () => {
+      process.env.BRAND_FONT_FAMILY = 'Fira Code';
+      process.env.BRAND_FONT_BASE_URL = 'https://cdn.example.com/fonts///';
+
+      expect(getServerBranding().font?.baseUrl).toBe(
+        'https://cdn.example.com/fonts'
+      );
+    });
+
+    it('accepts root-relative base URL', () => {
+      process.env.BRAND_FONT_FAMILY = 'Fira Code';
+      process.env.BRAND_FONT_BASE_URL = '/static/fonts';
+
+      const font = getServerBranding().font;
+      expect(font?.source).toBe('custom');
+      expect(font?.baseUrl).toBe('/static/fonts');
+    });
+
+    it('ignores invalid base URL and falls back to google', () => {
+      process.env.BRAND_FONT_FAMILY = 'Fira Code';
+      process.env.BRAND_FONT_BASE_URL = 'http://insecure.example.com/fonts';
+
+      const font = getServerBranding().font;
+      expect(font?.source).toBe('google');
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('rejects protocol-relative base URL', () => {
+      process.env.BRAND_FONT_FAMILY = 'Fira Code';
+      process.env.BRAND_FONT_BASE_URL = '//cdn.example.com/fonts';
+
+      const font = getServerBranding().font;
+      expect(font?.source).toBe('google');
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('returns undefined when family is unset', () => {
+      expect(getServerBranding().font).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('rejects an overlong family name', () => {
+      process.env.BRAND_FONT_FAMILY = 'A'.repeat(81);
+
+      expect(getServerBranding().font).toBeUndefined();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('slugifies family names with special characters', () => {
+      process.env.BRAND_FONT_FAMILY = 'Noto Sans (Display)';
+
+      expect(getServerBranding().font?.slug).toBe('noto-sans-display');
+    });
   });
 });

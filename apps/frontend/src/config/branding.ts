@@ -27,7 +27,7 @@ const MAX_PRODUCT_NAME_LENGTH = 60;
  * 3-digit form would silently widen what deployments can put in a values file. */
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
-/** Font weights the theme uses: light, regular, bold. */
+/** Font weights loaded for brand fonts: light, regular, bold. */
 const FONT_WEIGHTS = ['300', '400', '700'] as const;
 
 export interface BrandFont {
