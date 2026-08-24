@@ -21,9 +21,8 @@ class PromptLoader:
     Example:
         >>> loader = PromptLoader()
         >>> prompt = loader.render_template(
-        ...     "goal_evaluation.j2",
+        ...     "system_prompt.j2",
         ...     goal="Test authentication",
-        ...     conversation="User: Hello\\nAssistant: Hi!"
         ... )
     """
 
@@ -86,7 +85,7 @@ class PromptLoader:
         Load a Jinja2 template by name.
 
         Args:
-            template_name: Name of the template file (e.g., "goal_evaluation.j2")
+            template_name: Name of the template file (e.g., "system_prompt.j2")
 
         Returns:
             Jinja2 Template object

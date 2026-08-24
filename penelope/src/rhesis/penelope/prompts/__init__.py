@@ -15,7 +15,6 @@ from rhesis.penelope.prompts.agent.turn_prompts import (
     SUBSEQUENT_TURN_PROMPT,
 )
 from rhesis.penelope.prompts.base import PromptTemplate, TemplateFormat
-from rhesis.penelope.prompts.evaluation.goal_evaluation import GOAL_EVALUATION_PROMPT
 from rhesis.penelope.prompts.loader import PromptLoader, get_loader, render_template
 from rhesis.penelope.prompts.system.system_assembly_jinja import (
     SYSTEM_PROMPT_TEMPLATE,
@@ -44,8 +43,6 @@ __all__ = [
     "FIRST_TURN_PROMPT",
     "SUBSEQUENT_TURN_PROMPT",
     "DEFAULT_INSTRUCTIONS_TEMPLATE",
-    # Evaluation
-    "GOAL_EVALUATION_PROMPT",
     # Tools
     "ANALYZE_TOOL_DESCRIPTION",
     "EXTRACT_TOOL_DESCRIPTION",

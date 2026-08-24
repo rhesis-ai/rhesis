@@ -18,17 +18,14 @@ prompts/
 ├── base.py                             # PromptTemplate base class (supports Jinja2)
 ├── loader.py                           # Jinja2 template loader
 ├── templates/                          # Jinja2 template files (.j2)
-│   ├── goal_evaluation.j2              # Goal evaluation template
 │   └── system_prompt.j2                # System prompt template
 ├── system/                             # System-level prompts
 │   ├── core_instructions.py            # Penelope's identity and behavior
 │   ├── system_assembly.py              # Python-based system prompt assembly
 │   └── system_assembly_jinja.py        # Jinja2-based system prompt assembly
-├── agent/                              # Agent execution prompts
-│   ├── turn_prompts.py                 # Turn-by-turn guidance
-│   └── default_instructions.py         # Default test instructions
-└── evaluation/                         # Evaluation prompts
-    └── goal_evaluation.py              # Goal achievement evaluation (Jinja2)
+└── agent/                              # Agent execution prompts
+    ├── turn_prompts.py                 # Turn-by-turn guidance
+    └── default_instructions.py         # Default test instructions
 ```
 
 ## Usage
@@ -40,7 +37,6 @@ from rhesis.penelope.prompts import (
     FIRST_TURN_PROMPT,
     SUBSEQUENT_TURN_PROMPT,
     DEFAULT_INSTRUCTIONS_TEMPLATE,
-    GOAL_EVALUATION_PROMPT,
     get_system_prompt,
 )
 ```
@@ -104,20 +100,20 @@ rendered = template.render(var1="value1", var2="value2")
 # Direct template rendering
 from rhesis.penelope.prompts import render_template
 
-result = render_template("goal_evaluation.j2", goal="Test goal", conversation="...")
+result = render_template("system_prompt.j2", goal="Test goal")
 ```
 
 ### Accessing Metadata
 
 ```python
 # Check version
-print(GOAL_EVALUATION_PROMPT.version)  # "2.0.0"
+print(SYSTEM_PROMPT_TEMPLATE.version)  # "2.0.0"
 
 # Check name
 print(FIRST_TURN_PROMPT.name)  # "first_turn"
 
 # View changelog
-print(GOAL_EVALUATION_PROMPT.metadata["changelog"])
+print(SYSTEM_PROMPT_TEMPLATE.metadata["changelog"])
 ```
 
 ## Prompt Catalog
@@ -138,11 +134,8 @@ print(GOAL_EVALUATION_PROMPT.metadata["changelog"])
 | `SUBSEQUENT_TURN_PROMPT` | 1.0.0 | Python | Guides subsequent turns |
 | `DEFAULT_INSTRUCTIONS_TEMPLATE` | 1.0.0 | Python | Generates default instructions from goal |
 
-### Evaluation Prompts
-
-| Prompt | Version | Format | Purpose |
-|--------|---------|--------|---------|
-| `GOAL_EVALUATION_PROMPT` | 3.0.0 | Jinja2 File | Evaluates goal achievement (criterion-by-criterion) |
+Goal achievement is evaluated by the SDK's `GoalAchievementJudge`, not by a prompt in this
+package. An earlier `GOAL_EVALUATION_PROMPT` here was superseded by it and has been removed.
 
 ## Adding New Prompts
 
