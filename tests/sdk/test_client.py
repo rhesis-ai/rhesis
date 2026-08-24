@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
@@ -355,6 +355,48 @@ async def test_connect_raises_when_event_loop_running(monkeypatch):
         client.connect()
 
     importlib.reload(rhesis.sdk.clients.rhesis)
+
+
+@pytest.mark.asyncio
+async def test_start_connector_connects_inside_running_loop(monkeypatch):
+    """start_connector() dials the socket from a loop that already exists.
+
+    This is the call a web app makes from its startup hook, after @endpoint registered at import
+    time with no loop available.
+    """
+    import importlib
+
+    import rhesis.sdk.clients.rhesis
+
+    monkeypatch.setenv("RHESIS_API_KEY", "test_key")
+    monkeypatch.setenv("RHESIS_BASE_URL", "http://localhost:8080")
+    monkeypatch.setenv("RHESIS_PROJECT_ID", "test_project")
+    importlib.reload(rhesis.sdk.clients.rhesis)
+
+    from rhesis.sdk.clients.rhesis import RhesisClient
+
+    client = RhesisClient.from_environment()
+
+    manager = MagicMock()
+    client._connector_manager = manager
+
+    client.start_connector()
+    manager._ensure_connection.assert_called_once()
+
+    # Idempotent: the manager's own guard is what suppresses a second dial, so the client must
+    # keep delegating rather than tracking state itself.
+    client.start_connector()
+    assert manager._ensure_connection.call_count == 2
+
+    importlib.reload(rhesis.sdk.clients.rhesis)
+
+
+def test_start_connector_is_noop_on_disabled_client():
+    """DisabledClient absorbs start_connector() via __getattr__, so apps need no guard."""
+    from rhesis.sdk.clients.rhesis import DisabledClient
+
+    client = DisabledClient()
+    assert client.start_connector() is None
 
 
 def test_disabled_client_connect_returns_immediately():
