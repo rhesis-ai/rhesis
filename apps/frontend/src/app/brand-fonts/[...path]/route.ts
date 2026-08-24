@@ -69,7 +69,9 @@ export async function GET(
       headers: {
         'Content-Type':
           response.headers.get('content-type') ??
-          FONT_CONTENT_TYPES[filePath.slice(filePath.lastIndexOf('.')).toLowerCase()] ??
+          FONT_CONTENT_TYPES[
+            filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
+          ] ??
           'application/octet-stream',
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
