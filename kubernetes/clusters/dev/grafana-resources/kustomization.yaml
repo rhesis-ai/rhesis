@@ -15,6 +15,10 @@ resources:
   # base/grafana-resources/grafana-instance.yaml.
   - grafana-google-oidc-credentials.yaml
 
+patches:
+  # Drop the email receiver for dev — Discord alone is enough here.
+  - path: contact-point.yaml
+
 configMapGenerator:
   - name: grafana-config
     literals:
