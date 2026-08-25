@@ -4,24 +4,14 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
-import { buildMetricODataFilter } from '@/utils/odata-filter';
-import {
-  METRICS_SELECT,
-  METRICS_SORT_BY,
-  METRICS_SORT_ORDER,
-} from './metrics-constants';
-import { useCanWithStatus } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { useDirectoryList } from '@/hooks/useDirectoryList';
 import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
+import { metricsDirectory } from './directory';
 
 import MetricsDirectoryTab, {
   type FilterState,
@@ -74,29 +64,49 @@ export default function MetricsClientComponent({
 }: MetricsClientProps) {
   const searchParams = useSearchParams();
   const notifications = useNotifications();
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Metric.READ
-  );
 
   const assignMode = searchParams.get('assignMode') === 'true';
+
+  // Filter state
+  const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
+
+  const {
+    data: metrics,
+    setData: setMetrics,
+    totalCount,
+    isLoading,
+    error,
+    page,
+    rowsPerPage,
+    onPageChange: handlePageChange,
+    onRowsPerPageChange: handleRowsPerPageChange,
+    refresh: handleRefresh,
+    ready,
+    gateNode,
+  } = useDirectoryList(metricsDirectory, {
+    filters,
+    initialData,
+    initialTotalCount,
+    onError: () => {
+      notifications.show('Failed to load metrics data', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    },
+  });
 
   // Options come from the reference tables, not the metrics on screen: that
   // list is server-paginated and server-filtered, so deriving from it hides
   // values on later pages and drops the rest as soon as a filter is applied.
-  const lookupEnabled = !permsLoading && canRead;
   const { data: backendTypes = NO_TYPE_LOOKUPS } = useTypeLookups(
     "type_name eq 'BackendType'",
-    lookupEnabled
+    ready
   );
   const { data: metricTypes = NO_TYPE_LOOKUPS } = useTypeLookups(
     "type_name eq 'MetricType'",
-    lookupEnabled
+    ready
   );
-  const { data: allRequirements = NO_REQUIREMENTS } =
-    useRequirements(lookupEnabled);
-
-  // Filter state
-  const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
+  const { data: allRequirements = NO_REQUIREMENTS } = useRequirements(ready);
 
   const filterOptions = React.useMemo<FilterOptions>(
     () => ({
@@ -116,60 +126,7 @@ export default function MetricsClientComponent({
     [backendTypes, metricTypes, allRequirements]
   );
 
-  const filterFingerprint = React.useMemo(
-    () =>
-      JSON.stringify([
-        filters.search,
-        filters.backend,
-        filters.type,
-        filters.scoreType,
-        filters.metricScope,
-        filters.requirement,
-      ]),
-    [filters]
-  );
-
-  const {
-    data: metrics,
-    setData: setMetrics,
-    totalCount,
-    isLoading,
-    error,
-    page,
-    rowsPerPage,
-    onPageChange: handlePageChange,
-    onRowsPerPageChange: handleRowsPerPageChange,
-    refresh: handleRefresh,
-  } = usePaginatedList<MetricDetail>({
-    fetchPage: ({ skip, limit }) => {
-      const metricsClient = new MetricsClient();
-      const odataFilter = buildMetricODataFilter(filters);
-      return metricsClient.getMetrics({
-        skip,
-        limit,
-        sort_by: METRICS_SORT_BY,
-        sort_order: METRICS_SORT_ORDER,
-        $filter: odataFilter,
-        $select: METRICS_SELECT,
-        ...(filters.metricScope.length > 0 && {
-          metric_scope: filters.metricScope.join(','),
-        }),
-      });
-    },
-    filterFingerprint,
-    initialData,
-    initialTotalCount,
-    enabled: !permsLoading && canRead,
-    onError: () => {
-      notifications.show('Failed to load metrics data', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
-    },
-  });
-
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="metrics" />;
+  if (!ready) return gateNode;
 
   return (
     <ErrorBoundary>

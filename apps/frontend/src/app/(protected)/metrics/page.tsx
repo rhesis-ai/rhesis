@@ -1,15 +1,11 @@
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
+import { emptyFilters, directoryListParams } from '@/utils/directory';
 import { Capability } from '@/constants/capabilities';
 import MetricsClientComponent from './components/MetricsClient';
 import type { UUID } from 'crypto';
-import {
-  METRICS_SELECT,
-  DEFAULT_METRICS_PAGE_SIZE,
-  METRICS_SORT_BY,
-  METRICS_SORT_ORDER,
-} from './components/metrics-constants';
+import { metricsDirectory } from './components/directory';
 
 /**
  * Server component: fetches the first page of metrics before rendering so
@@ -29,13 +25,14 @@ export default async function MetricsPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Metric.READ,
     () =>
-      client.getMetrics({
-        skip: 0,
-        limit: DEFAULT_METRICS_PAGE_SIZE,
-        sort_by: METRICS_SORT_BY,
-        sort_order: METRICS_SORT_ORDER,
-        $select: METRICS_SELECT,
-      })
+      client.getMetrics(
+        directoryListParams(metricsDirectory, {
+          page: 1,
+          pageSize: metricsDirectory.defaultPageSize,
+          sort: metricsDirectory.defaultSort,
+          filters: emptyFilters(metricsDirectory),
+        })
+      )
   );
 
   return (
