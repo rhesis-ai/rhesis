@@ -10,6 +10,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -62,7 +63,7 @@ def create_test_configuration(
     if not test_configuration.organization_id:
         test_configuration.organization_id = current_user.organization_id
 
-    return crud.create_test_configuration(
+    return test_configuration_crud.create_test_configuration(
         db=db,
         test_configuration=test_configuration,
         organization_id=organization_id,
@@ -90,7 +91,7 @@ def read_test_configurations(
 ):
     """Get all test configurations with their related objects"""
     organization_id, user_id = tenant_context
-    results = crud.get_test_configurations(
+    results = test_configuration_crud.get_test_configurations(
         db,
         skip=skip,
         limit=limit,
@@ -115,7 +116,7 @@ def read_test_configuration(
 ):
     """Get a specific test configuration by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_test_configuration = crud.get_test_configuration(
+    db_test_configuration = test_configuration_crud.get_test_configuration(
         db,
         test_configuration_id=test_configuration_id,
         organization_id=organization_id,
@@ -136,7 +137,7 @@ def update_test_configuration(
 ):
     """Update an existing test configuration."""
     organization_id, user_id = tenant_context
-    db_test_configuration = crud.get_test_configuration(
+    db_test_configuration = test_configuration_crud.get_test_configuration(
         db,
         test_configuration_id=test_configuration_id,
         organization_id=organization_id,
@@ -145,7 +146,7 @@ def update_test_configuration(
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    return crud.update_test_configuration(
+    return test_configuration_crud.update_test_configuration(
         db=db,
         test_configuration_id=test_configuration_id,
         test_configuration=test_configuration,
@@ -163,7 +164,7 @@ def delete_test_configuration(
 ):
     """Delete a test configuration"""
     organization_id, user_id = tenant_context
-    db_test_configuration = crud.get_test_configuration(
+    db_test_configuration = test_configuration_crud.get_test_configuration(
         db,
         test_configuration_id=test_configuration_id,
         organization_id=organization_id,
@@ -196,7 +197,7 @@ def execute_test_configuration_endpoint(
     try:
         organization_id, user_id = tenant_context
         # Verify the test configuration exists
-        db_test_configuration = crud.get_test_configuration(
+        db_test_configuration = test_configuration_crud.get_test_configuration(
             db,
             test_configuration_id=test_configuration_id,
             organization_id=organization_id,

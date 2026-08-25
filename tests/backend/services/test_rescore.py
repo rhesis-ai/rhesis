@@ -159,7 +159,7 @@ class TestRescoreTestRunService:
                 return_value=mock_ref_run,
             ),
             patch(
-                "rhesis.backend.app.services.test_run.crud.create_test_configuration",
+                "rhesis.backend.app.services.test_run.test_configuration_crud.create_test_configuration",
                 return_value=mock_new_config,
             ) as mock_create_config,
             # launch_job is imported locally inside rescore_test_run
@@ -229,7 +229,7 @@ class TestRescoreTestRunService:
                 return_value=mock_ref_run,
             ),
             patch(
-                "rhesis.backend.app.services.test_run.crud.create_test_configuration",
+                "rhesis.backend.app.services.test_run.test_configuration_crud.create_test_configuration",
                 return_value=mock_new_config,
             ) as mock_create_config,
             # launch_job is imported locally inside rescore_test_run

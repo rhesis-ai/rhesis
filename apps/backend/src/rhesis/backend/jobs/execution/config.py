@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 
 
@@ -12,7 +12,7 @@ def get_test_configuration(
     session: Session, test_configuration_id: str, organization_id: str = None
 ) -> TestConfiguration:
     """Retrieve and validate test configuration."""
-    test_config = crud.get_test_configuration(
+    test_config = test_configuration_crud.get_test_configuration(
         session, test_configuration_id=UUID(test_configuration_id), organization_id=organization_id
     )
 

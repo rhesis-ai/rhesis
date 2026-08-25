@@ -977,7 +977,8 @@ def _create_test_configuration(
     Returns:
         Test configuration ID as string
     """
-    from rhesis.backend.app import crud, schemas
+    from rhesis.backend.app import schemas
+    from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 
     logger.debug(
         f"Creating test configuration for test_set_id={test_set_id}, "
@@ -1031,7 +1032,7 @@ def _create_test_configuration(
     logger.debug(f"Test configuration schema created: {test_config}")
 
     # Create the test configuration
-    db_test_config = crud.create_test_configuration(
+    db_test_config = test_configuration_crud.create_test_configuration(
         db=db, test_configuration=test_config, organization_id=organization_id, user_id=user_id
     )
     # Access the ID immediately while we're still in the same transaction context
@@ -1053,7 +1054,7 @@ def _submit_test_configuration_for_execution(
     Returns:
         Tuple of (celery_result, test_run_id_str)
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import test_configuration as test_configuration_crud
     from rhesis.backend.jobs import launch_job
     from rhesis.backend.jobs.execution.run import create_test_run
     from rhesis.backend.jobs.test_configuration import execute_test_configuration
@@ -1063,7 +1064,7 @@ def _submit_test_configuration_for_execution(
     )
 
     # Look up the test configuration to create the test run
-    db_test_config = crud.get_test_configuration(
+    db_test_config = test_configuration_crud.get_test_configuration(
         db,
         test_configuration_id=uuid.UUID(test_config_id),
         organization_id=str(current_user.organization_id),

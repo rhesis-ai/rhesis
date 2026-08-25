@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.crud import prompt as prompt_crud
+from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
@@ -239,7 +240,7 @@ def rescore_test_run(
         organization_id=current_user.organization_id,
         attributes=attributes,
     )
-    db_new_config = crud.create_test_configuration(
+    db_new_config = test_configuration_crud.create_test_configuration(
         db=db,
         test_configuration=new_config,
         organization_id=org_id,

@@ -42,7 +42,7 @@ class TestExecuteDispatchTaskId:
 
         with (
             patch(
-                "rhesis.backend.app.routers.test_configuration.crud.get_test_configuration",
+                "rhesis.backend.app.routers.test_configuration.test_configuration_crud.get_test_configuration",
                 return_value=MagicMock(),
             ),
             patch(
