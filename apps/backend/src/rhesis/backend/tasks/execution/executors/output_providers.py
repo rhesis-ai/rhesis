@@ -21,7 +21,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     pass
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
@@ -363,7 +363,7 @@ class MultiTurnOutput(OutputProvider):
 class TestResultOutput(OutputProvider):
     """Stored output from a previous TestResult -- works for any test type.
 
-    Uses crud.get_test_results() with OData filter for multi-tenant safe lookup.
+    Uses test_result_crud.get_test_results() with OData filter for multi-tenant safe lookup.
     """
 
     def __init__(self, reference_test_run_id: str):
@@ -385,7 +385,7 @@ class TestResultOutput(OutputProvider):
 
         # Reuse existing CRUD with OData filter (multi-tenant safe)
         filter_str = f"test_run_id eq {self.reference_test_run_id} and test_id eq {test_id}"
-        results = crud.get_test_results(
+        results = test_result_crud.get_test_results(
             db,
             limit=1,
             filter=filter_str,

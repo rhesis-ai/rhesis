@@ -7,7 +7,8 @@ and the storage of evaluation results in TestResult.test_metrics.
 
 import pytest
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.metric import (
     create_metric,
     delete_metric,
@@ -302,7 +303,7 @@ class TestDatabaseIntegration:
         test_db.refresh(test_result)
 
         # Retrieve via CRUD
-        retrieved_result = crud.get_test_result(test_db, test_result.id, test_org_id)
+        retrieved_result = test_result_crud.get_test_result(test_db, test_result.id, test_org_id)
 
         assert retrieved_result is not None
         assert retrieved_result.test_metrics is not None

@@ -17,8 +17,9 @@ from faker import Faker
 from rhesis.telemetry.schemas import SpanKind, StatusCode
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.telemetry import create_trace_spans
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
@@ -89,7 +90,9 @@ class TestTraceLinkingTiming:
             test_output={},
         )
 
-        return crud.create_test_result(db, test_result_data, organization_id=organization_id)
+        return test_result_crud.create_test_result(
+            db, test_result_data, organization_id=organization_id
+        )
 
     @pytest.mark.asyncio
     async def test_batch_processor_delay_simulation(

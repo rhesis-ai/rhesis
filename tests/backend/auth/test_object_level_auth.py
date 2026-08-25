@@ -198,10 +198,10 @@ class TestUpdateTestResultObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_result.crud.get_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
             return_value=result,
         ), patch(
-            "rhesis.backend.app.routers.test_result.crud.update_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.update_test_result",
             return_value=result,
         ):
             resp = client.put(
@@ -216,7 +216,7 @@ class TestUpdateTestResultObjectAuth:
         client = _client(caller_id=_OTHER_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_result.crud.get_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
             return_value=result,
         ):
             resp = client.put(
@@ -230,7 +230,7 @@ class TestUpdateTestResultObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_result.crud.get_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
             return_value=None,
         ):
             resp = client.put(
@@ -252,10 +252,10 @@ class TestDeleteTestResultObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_result.crud.get_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
             return_value=result,
         ), patch(
-            "rhesis.backend.app.routers.test_result.crud.delete_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.delete_test_result",
             return_value=result,
         ):
             resp = client.delete(f"/test_results/{_RESOURCE_ID}")
@@ -267,7 +267,7 @@ class TestDeleteTestResultObjectAuth:
         client = _client(caller_id=_OTHER_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_result.crud.get_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
             return_value=result,
         ):
             resp = client.delete(f"/test_results/{_RESOURCE_ID}")
@@ -278,7 +278,7 @@ class TestDeleteTestResultObjectAuth:
         client = _client(caller_id=_CREATOR_ID)
 
         with patch(
-            "rhesis.backend.app.routers.test_result.crud.get_test_result",
+            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
             return_value=None,
         ):
             resp = client.delete(f"/test_results/{_RESOURCE_ID}")

@@ -11,9 +11,10 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.crud import file as file_crud
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
@@ -71,7 +72,7 @@ def check_existing_result(
         f"test_configuration_id eq {test_config_id} and "
         f"test_run_id eq {test_run_id} and test_id eq {test_id}"
     )
-    existing_results = crud.get_test_results(
+    existing_results = test_result_crud.get_test_results(
         db, limit=1, filter=filter_str, organization_id=organization_id, user_id=user_id
     )
 
@@ -305,7 +306,7 @@ def create_test_result_record(
     }
 
     try:
-        result = crud.create_test_result(
+        result = test_result_crud.create_test_result(
             db,
             schemas.TestResultCreate(**test_result_data),
             organization_id=organization_id,

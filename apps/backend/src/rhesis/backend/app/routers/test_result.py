@@ -8,13 +8,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import file as file_crud
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -92,7 +93,7 @@ def create_test_result(
             )
             test_result.status_id = status.id
 
-    return crud.create_test_result(
+    return test_result_crud.create_test_result(
         db=db, test_result=test_result, organization_id=organization_id, user_id=user_id
     )
 
@@ -117,7 +118,7 @@ def read_test_results(
 ):
     """Get all test results"""
     organization_id, user_id = tenant_context
-    results = crud.get_test_results(
+    results = test_result_crud.get_test_results(
         db,
         skip=skip,
         limit=limit,
@@ -143,7 +144,7 @@ def read_test_result(
 ):
     """Get a specific test result by ID"""
     organization_id, user_id = tenant_context
-    db_test_result = crud.get_test_result(
+    db_test_result = test_result_crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
@@ -173,7 +174,7 @@ def update_test_result(
     automatically updated based on whether all metrics passed.
     """
     organization_id, user_id = tenant_context
-    db_test_result = crud.get_test_result(
+    db_test_result = test_result_crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
@@ -208,7 +209,7 @@ def update_test_result(
             )
             test_result.status_id = status.id
 
-    return crud.update_test_result(
+    return test_result_crud.update_test_result(
         db=db,
         test_result_id=test_result_id,
         test_result=test_result,
@@ -227,7 +228,7 @@ def delete_test_result(
 ):
     """Delete a test result. Only the creator may delete their own result."""
     organization_id, user_id = tenant_context
-    db_test_result = crud.get_test_result(
+    db_test_result = test_result_crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
@@ -240,7 +241,7 @@ def delete_test_result(
     ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
-    return crud.delete_test_result(
+    return test_result_crud.delete_test_result(
         db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
 
@@ -272,7 +273,7 @@ def add_review(
     organization_id, user_id = tenant_context
 
     # Get the test result
-    db_test_result = crud.get_test_result(
+    db_test_result = test_result_crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
@@ -373,7 +374,7 @@ def update_review(
     organization_id, user_id = tenant_context
 
     # Get the test result
-    db_test_result = crud.get_test_result(
+    db_test_result = test_result_crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
@@ -496,7 +497,7 @@ def delete_review(
     organization_id, user_id = tenant_context
 
     # Get the test result
-    db_test_result = crud.get_test_result(
+    db_test_result = test_result_crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
