@@ -293,7 +293,7 @@ export default function JobDetailPage() {
             {job.entity_type && job.entity_id && (
               <Grid size={{ xs: 6, sm: 3 }}>
                 <Field
-                  label="Subject"
+                  label="Entity"
                   value={
                     isValidEntityType(job.entity_type) ? (
                       <Link
