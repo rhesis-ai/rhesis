@@ -49,7 +49,7 @@ def _load_org(db: Session, organization_id) -> Organization | None:
     ``Organization`` is exempt from the ambient tenant auto-filter (it is
     queried before any tenant context exists), so a direct ``id`` lookup is
     the correct pattern here -- mirroring ``feature_gates._load_org`` and
-    ``crud.get_organization``. Callers pass the authenticated user's own
+    ``crud.organization.get_organization``. Callers pass the authenticated user's own
     ``organization_id``, which keeps access org-scoped.
 
     Soft-deleted orgs are still excluded despite the plain ``db.query(...)``:
