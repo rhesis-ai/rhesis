@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import tool as tool_crud
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
@@ -114,7 +114,7 @@ def get_rest_client(
         ToolConfigurationError: If tool not found, deleted, or provider unsupported.
     """
     try:
-        tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+        tool = tool_crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     except ItemDeletedException:
         raise ToolConfigurationError(
             f"Tool '{tool_id}' has been deleted. Please re-import the source."

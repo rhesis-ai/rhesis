@@ -18,7 +18,8 @@ from typing import Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import tool as tool_crud
+from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
@@ -91,7 +92,7 @@ def resolve_provider(
     """
     if tool_id is not None:
         try:
-            tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+            tool = tool_crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
         except ItemDeletedException:
             raise ToolConfigurationError(
                 f"Tool '{tool_id}' has been deleted. Please re-import the source."
@@ -100,7 +101,7 @@ def resolve_provider(
             raise ToolConfigurationError(f"Tool '{tool_id}' not found.")
         return tool.tool_provider_type.type_value
 
-    provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
+    provider_type = type_lookup_crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
     if not provider_type:
         raise ToolConfigurationError(f"Provider type '{provider_type_id}' not found.")
     return provider_type.type_value

@@ -35,7 +35,11 @@ class TestBuildClient:
         ):
             client = build_client(
                 "jira",
-                {"JIRA_URL": "https://example.atlassian.net", "JIRA_USERNAME": "n", "JIRA_API_TOKEN": "t"},
+                {
+                    "JIRA_URL": "https://example.atlassian.net",
+                    "JIRA_USERNAME": "n",
+                    "JIRA_API_TOKEN": "t",
+                },
             )
         assert isinstance(client, JiraRestClient)
 
@@ -46,7 +50,11 @@ class TestBuildClient:
         ):
             client = build_client(
                 "confluence",
-                {"CONFLUENCE_URL": "https://example.atlassian.net", "CONFLUENCE_USERNAME": "n", "CONFLUENCE_API_TOKEN": "t"},
+                {
+                    "CONFLUENCE_URL": "https://example.atlassian.net",
+                    "CONFLUENCE_USERNAME": "n",
+                    "CONFLUENCE_API_TOKEN": "t",
+                },
             )
         assert isinstance(client, ConfluenceRestClient)
 
@@ -70,36 +78,28 @@ class TestGetRestClient:
         db = Mock(spec=Session)
         org_id = str(uuid.uuid4())
         tool_id = str(uuid.uuid4())
-        with patch(
-            "rhesis.backend.app.services.tool.rest.config.crud"
-        ) as mock_crud:
-            mock_crud.get_tool.return_value = self._tool("github", '{"X": "y"}')
+        with patch("rhesis.backend.app.services.tool.rest.config.tool_crud") as mock_tool_crud:
+            mock_tool_crud.get_tool.return_value = self._tool("github", '{"X": "y"}')
             client = get_rest_client(db, tool_id, org_id)
         assert isinstance(client, GitHubRestClient)
 
     def test_tool_not_found_raises(self):
         db = Mock(spec=Session)
-        with patch(
-            "rhesis.backend.app.services.tool.rest.config.crud"
-        ) as mock_crud:
-            mock_crud.get_tool.return_value = None
+        with patch("rhesis.backend.app.services.tool.rest.config.tool_crud") as mock_tool_crud:
+            mock_tool_crud.get_tool.return_value = None
             with pytest.raises(ToolConfigurationError, match="not found"):
                 get_rest_client(db, str(uuid.uuid4()), str(uuid.uuid4()))
 
     def test_deleted_tool_raises(self):
         db = Mock(spec=Session)
-        with patch(
-            "rhesis.backend.app.services.tool.rest.config.crud"
-        ) as mock_crud:
-            mock_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
+        with patch("rhesis.backend.app.services.tool.rest.config.tool_crud") as mock_tool_crud:
+            mock_tool_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
             with pytest.raises(ToolConfigurationError, match="has been deleted"):
                 get_rest_client(db, str(uuid.uuid4()), str(uuid.uuid4()))
 
     def test_invalid_credentials_json_raises(self):
         db = Mock(spec=Session)
-        with patch(
-            "rhesis.backend.app.services.tool.rest.config.crud"
-        ) as mock_crud:
-            mock_crud.get_tool.return_value = self._tool(credentials="not json{")
+        with patch("rhesis.backend.app.services.tool.rest.config.tool_crud") as mock_tool_crud:
+            mock_tool_crud.get_tool.return_value = self._tool(credentials="not json{")
             with pytest.raises(ToolConfigurationError, match="Invalid credentials"):
                 get_rest_client(db, str(uuid.uuid4()), str(uuid.uuid4()))

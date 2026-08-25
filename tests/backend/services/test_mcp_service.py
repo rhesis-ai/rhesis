@@ -175,8 +175,8 @@ class TestGetMCPClientByToolId:
     """Test client creation from tool ID"""
 
     @patch("rhesis.backend.app.services.tool.mcp.config.MCPClientFactory")
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_create_client_standard_provider(self, mock_crud, mock_factory):
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    def test_create_client_standard_provider(self, mock_tool_crud, mock_factory):
         """Test successfully create client for standard provider"""
         # Setup mocks
         tool_id = str(uuid.uuid4())
@@ -188,7 +188,7 @@ class TestGetMCPClientByToolId:
         mock_tool.credentials = '{"NOTION_TOKEN": "test_token"}'
         mock_tool.tool_metadata = None
 
-        mock_crud.get_tool.return_value = mock_tool
+        mock_tool_crud.get_tool.return_value = mock_tool
 
         mock_factory_instance = Mock()
         mock_client = Mock()
@@ -197,35 +197,33 @@ class TestGetMCPClientByToolId:
 
         # Execute
         db = Mock()
-        client, provider_name, project_context = _get_mcp_tool_config(
-            db, tool_id, org_id, user_id
-        )
+        client, provider_name, project_context = _get_mcp_tool_config(db, tool_id, org_id, user_id)
 
         # Assert
         assert client == mock_client
         assert provider_name == "notion"
         assert project_context is None
-        mock_crud.get_tool.assert_called_once_with(db, uuid.UUID(tool_id), org_id, user_id)
+        mock_tool_crud.get_tool.assert_called_once_with(db, uuid.UUID(tool_id), org_id, user_id)
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials={"NOTION_TOKEN": "test_token"}
         )
         mock_factory_instance.create_client.assert_called_once_with("notion")
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_raises_when_tool_not_found(self, mock_crud):
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    def test_raises_when_tool_not_found(self, mock_tool_crud):
         """Test raises ToolConfigurationError when tool not found"""
         tool_id = str(uuid.uuid4())
         org_id = str(uuid.uuid4())
 
-        mock_crud.get_tool.return_value = None
+        mock_tool_crud.get_tool.return_value = None
 
         with pytest.raises(ToolConfigurationError) as exc_info:
             _get_mcp_tool_config(Mock(), tool_id, org_id)
 
         assert "not found" in str(exc_info.value).lower()
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_raises_when_credentials_invalid_json(self, mock_crud):
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    def test_raises_when_credentials_invalid_json(self, mock_tool_crud):
         """Test raises ToolConfigurationError when credentials JSON is invalid"""
         tool_id = str(uuid.uuid4())
         org_id = str(uuid.uuid4())
@@ -234,7 +232,7 @@ class TestGetMCPClientByToolId:
         mock_tool.tool_provider_type.type_value = "notion"
         mock_tool.credentials = "invalid json{"
 
-        mock_crud.get_tool.return_value = mock_tool
+        mock_tool_crud.get_tool.return_value = mock_tool
 
         with pytest.raises(ToolConfigurationError) as exc_info:
             _get_mcp_tool_config(Mock(), tool_id, org_id)
@@ -242,8 +240,8 @@ class TestGetMCPClientByToolId:
         assert "Invalid credentials format" in str(exc_info.value)
 
     @patch("rhesis.backend.app.services.tool.mcp.config.MCPClientFactory")
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_create_client_gitlab_returns_project_context(self, mock_crud, mock_factory):
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    def test_create_client_gitlab_returns_project_context(self, mock_tool_crud, mock_factory):
         """GitLab tools return project scope context from metadata."""
         tool_id = str(uuid.uuid4())
         org_id = str(uuid.uuid4())
@@ -252,16 +250,14 @@ class TestGetMCPClientByToolId:
         mock_tool.tool_provider_type.type_value = "gitlab"
         mock_tool.credentials = '{"GITLAB_PERSONAL_ACCESS_TOKEN": "test_token"}'
         mock_tool.tool_metadata = {"project": {"namespace": "group/project"}}
-        mock_crud.get_tool.return_value = mock_tool
+        mock_tool_crud.get_tool.return_value = mock_tool
 
         mock_factory_instance = Mock()
         mock_client = Mock()
         mock_factory_instance.create_client.return_value = mock_client
         mock_factory.from_provider.return_value = mock_factory_instance
 
-        client, provider_name, project_context = _get_mcp_tool_config(
-            Mock(), tool_id, org_id
-        )
+        client, provider_name, project_context = _get_mcp_tool_config(Mock(), tool_id, org_id)
 
         assert client == mock_client
         assert provider_name == "gitlab"
@@ -274,8 +270,8 @@ class TestGetMCPClientFromParams:
     """Test client creation from parameters"""
 
     @patch("rhesis.backend.app.services.tool.mcp.config.MCPClientFactory")
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_create_client_standard_provider(self, mock_crud, mock_factory):
+    @patch("rhesis.backend.app.services.tool.mcp.config.type_lookup_crud")
+    def test_create_client_standard_provider(self, mock_type_lookup_crud, mock_factory):
         """Test successfully create client for standard provider"""
         provider_type_id = uuid.uuid4()
         org_id = str(uuid.uuid4())
@@ -283,7 +279,7 @@ class TestGetMCPClientFromParams:
 
         mock_provider_type = Mock()
         mock_provider_type.type_value = "notion"
-        mock_crud.get_type_lookup.return_value = mock_provider_type
+        mock_type_lookup_crud.get_type_lookup.return_value = mock_provider_type
 
         mock_factory_instance = Mock()
         mock_client = Mock()
@@ -304,18 +300,20 @@ class TestGetMCPClientFromParams:
         assert client == mock_client
         assert provider_name == "notion"
         assert project_context is None
-        mock_crud.get_type_lookup.assert_called_once_with(db, provider_type_id, org_id, None)
+        mock_type_lookup_crud.get_type_lookup.assert_called_once_with(
+            db, provider_type_id, org_id, None
+        )
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials=credentials
         )
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_raises_when_provider_type_not_found(self, mock_crud):
+    @patch("rhesis.backend.app.services.tool.mcp.config.type_lookup_crud")
+    def test_raises_when_provider_type_not_found(self, mock_type_lookup_crud):
         """Test raises ValueError when provider type not found"""
         provider_type_id = uuid.uuid4()
         org_id = str(uuid.uuid4())
 
-        mock_crud.get_type_lookup.return_value = None
+        mock_type_lookup_crud.get_type_lookup.return_value = None
 
         with pytest.raises(ValueError) as exc_info:
             _get_mcp_client_from_params(provider_type_id, {}, Mock(), org_id)
@@ -329,14 +327,15 @@ class TestGetMCPClientFromParams:
 class TestQueryMCP:
     """Test query_mcp function"""
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    @patch("rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers",
-           return_value=[])
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    @patch(
+        "rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers", return_value=[]
+    )
     @patch("rhesis.backend.app.services.tool.mcp.operations.MCPAgent")
     @patch("rhesis.backend.app.services.tool.mcp.operations._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.tool.mcp.operations.jinja_env")
     async def test_query_with_default_prompt(
-        self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
+        self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_tool_crud
     ):
         """Test successfully execute query with default prompt"""
         tool_id = "test-tool-id"
@@ -378,13 +377,14 @@ class TestQueryMCP:
             event_handlers=[],
         )
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    @patch("rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers",
-           return_value=[])
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    @patch(
+        "rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers", return_value=[]
+    )
     @patch("rhesis.backend.app.services.tool.mcp.operations.MCPAgent")
     @patch("rhesis.backend.app.services.tool.mcp.operations._get_mcp_tool_config")
     async def test_query_with_custom_prompt(
-        self, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
+        self, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_tool_crud
     ):
         """Test successfully execute query with custom system_prompt"""
         tool_id = "test-tool-id"
@@ -420,14 +420,15 @@ class TestQueryMCP:
             event_handlers=[],
         )
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    @patch("rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers",
-           return_value=[])
+    @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
+    @patch(
+        "rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers", return_value=[]
+    )
     @patch("rhesis.backend.app.services.tool.mcp.operations.MCPAgent")
     @patch("rhesis.backend.app.services.tool.mcp.operations._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.tool.mcp.operations.jinja_env")
     async def test_query_with_custom_max_iterations(
-        self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
+        self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_tool_crud
     ):
         """Test successfully execute query with custom max_iterations"""
         tool_id = "test-tool-id"

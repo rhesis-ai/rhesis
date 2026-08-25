@@ -42,14 +42,14 @@ class TestCreateJiraTicketFromTask:
 
         with (
             patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
-            patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.tool_crud") as mock_tool_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=mock_jira_client,
             ),
         ):
             mock_task_crud.get_task.return_value = mock_task
-            mock_crud.get_tool.return_value = mock_tool
+            mock_tool_crud.get_tool.return_value = mock_tool
 
             result = await create_jira_ticket_from_task(task_id, tool_id, db, "org", "user")
 
@@ -103,14 +103,14 @@ class TestCreateJiraTicketFromTask:
 
         with (
             patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
-            patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.tool_crud") as mock_tool_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=Mock(spec=JiraRestClient),
             ),
         ):
             mock_task_crud.get_task.return_value = mock_task
-            mock_crud.get_tool.return_value = mock_tool
+            mock_tool_crud.get_tool.return_value = mock_tool
 
             with pytest.raises(ValueError, match="not configured with a space_key"):
                 await create_jira_ticket_from_task(task_id, tool_id, db, "org", "user")
@@ -127,14 +127,14 @@ class TestCreateJiraTicketFromTask:
 
         with (
             patch("rhesis.backend.app.services.tool.rest.jira.task_crud") as mock_task_crud,
-            patch("rhesis.backend.app.services.tool.rest.jira.crud") as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.jira.tool_crud") as mock_tool_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.config.get_rest_client",
                 return_value=Mock(spec=JiraRestClient),
             ),
         ):
             mock_task_crud.get_task.return_value = mock_task
-            mock_crud.get_tool.return_value = mock_tool
+            mock_tool_crud.get_tool.return_value = mock_tool
 
             with pytest.raises(ValueError, match="not configured with a space_key"):
                 await create_jira_ticket_from_task(task_id, tool_id, db, "org", "user")
