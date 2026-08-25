@@ -6,7 +6,8 @@ entry points reuse the same Celery runner and Redis pub/sub channel.
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import architect as architect_crud
 
 
 def start_session_with_message(
@@ -26,7 +27,7 @@ def start_session_with_message(
     session_id = str(db_session.id)
     project_id = str(db_session.project_id) if db_session.project_id else None
 
-    crud.create_architect_message(
+    architect_crud.create_architect_message(
         db=db,
         message=schemas.ArchitectMessageCreate(
             session_id=db_session.id,

@@ -55,11 +55,12 @@ async def prepare_and_load_session(
     contains conversation_history, mode, plan_data, agent_state, and
     session_has_title.
     """
-    from rhesis.backend.app import crud, schemas
+    from rhesis.backend.app import schemas
+    from rhesis.backend.app.crud import architect as architect_crud
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         if session_id:
-            db_session = crud.get_architect_session_detail(
+            db_session = architect_crud.get_architect_session_detail(
                 db,
                 session_id=UUID(session_id),
                 organization_id=organization_id,
@@ -69,7 +70,7 @@ async def prepare_and_load_session(
                 raise ValueError(f"Session {session_id} not found")
             resolved_session_id = session_id
         else:
-            db_session = crud.create_architect_session(
+            db_session = architect_crud.create_architect_session(
                 db=db,
                 session=schemas.ArchitectSessionCreate(
                     title=message[:100].strip() if message else None,
@@ -81,7 +82,7 @@ async def prepare_and_load_session(
             resolved_session_id = str(db_session.id)
 
         if persist_user_message:
-            crud.create_architect_message(
+            architect_crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(
                     session_id=resolved_session_id,
@@ -234,10 +235,11 @@ async def _handle_auto_resume(
     if not user_message.startswith(ARCHITECT_RESUME_PREFIX):
         return
 
-    from rhesis.backend.app import crud, schemas
+    from rhesis.backend.app import schemas
+    from rhesis.backend.app.crud import architect as architect_crud
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
-        crud.create_architect_message(
+        architect_crud.create_architect_message(
             db=db,
             message=schemas.ArchitectMessageCreate(
                 session_id=session_id,
@@ -281,14 +283,15 @@ async def persist_state(
     Also stamps the conversation's root trace_id on ``agent_state`` so
     subsequent turns can reuse it for coherent multi-turn tracing.
     """
-    from rhesis.backend.app import crud, schemas
+    from rhesis.backend.app import schemas
+    from rhesis.backend.app.crud import architect as architect_crud
     from rhesis.telemetry.context import get_root_trace_id
 
     snapshot = agent.dump_state()
     root_trace_id = get_root_trace_id()
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
-        crud.create_architect_message(
+        architect_crud.create_architect_message(
             db=db,
             message=schemas.ArchitectMessageCreate(
                 session_id=session_id,
@@ -321,7 +324,7 @@ async def persist_state(
         if not session_has_title and user_message:
             title_update["title"] = user_message[:100].strip()
 
-        crud.update_architect_session(
+        architect_crud.update_architect_session(
             db=db,
             session_id=UUID(session_id),
             session=schemas.ArchitectSessionUpdate(
