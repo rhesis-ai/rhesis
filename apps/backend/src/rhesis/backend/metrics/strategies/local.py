@@ -345,11 +345,26 @@ class LocalStrategy:
     def _generate_unique_metric_keys(
         self, metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]]
     ) -> Tuple[List[str], Dict[str, Any]]:
-        metric_keys = []
-        used_keys: set = set()
-        results: Dict[str, Any] = {}
+        # Suffixes are assigned in a stable order (name, class_name, id) rather
+        # than the caller's iteration order, which is not guaranteed stable
+        # across runs. Otherwise two duplicate-named metrics could swap which
+        # one gets the bare key and which gets "_1" from one run to the next,
+        # breaking the verdict matrix's assumption that a metric key identifies
+        # the same metric across the run's lifetime.
+        def _stable_sort_key(index: int) -> Tuple[str, str, str]:
+            _, _, metric_config, _ = metric_tasks[index]
+            return (
+                metric_config.name or "",
+                metric_config.class_name or "",
+                str(metric_config.id or ""),
+            )
 
-        for class_name, metric, metric_config, backend in metric_tasks:
+        order = sorted(range(len(metric_tasks)), key=_stable_sort_key)
+
+        used_keys: set = set()
+        assigned: Dict[int, str] = {}
+        for index in order:
+            class_name, metric, metric_config, backend = metric_tasks[index]
             metric_name = metric_config.name
             base_key = metric_name if metric_name and metric_name.strip() else class_name
 
@@ -360,8 +375,10 @@ class LocalStrategy:
                 counter += 1
 
             used_keys.add(unique_key)
-            metric_keys.append(unique_key)
-            results[unique_key] = None  # pre-populate to track incomplete metrics
+            assigned[index] = unique_key
+
+        metric_keys = [assigned[index] for index in range(len(metric_tasks))]
+        results: Dict[str, Any] = {key: None for key in metric_keys}
 
         return metric_keys, results
 
