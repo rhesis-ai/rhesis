@@ -6,8 +6,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import topic as topic_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -40,7 +41,9 @@ def create_topic(
 ):
     """Create a new topic."""
     organization_id, user_id = tenant_context
-    return crud.create_topic(db=db, topic=topic, organization_id=organization_id, user_id=user_id)
+    return topic_crud.create_topic(
+        db=db, topic=topic, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.get("/", response_model=list[schemas.TopicDetail])
@@ -66,7 +69,7 @@ def read_topics(
     organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
-    results = crud.get_topics(
+    results = topic_crud.get_topics(
         db=db,
         skip=skip,
         limit=limit,
@@ -91,7 +94,7 @@ def read_topic(
 ):
     """Get a topic by ID."""
     organization_id, user_id = tenant_context
-    db_topic = crud.get_topic(
+    db_topic = topic_crud.get_topic(
         db, topic_id=topic_id, organization_id=organization_id, user_id=user_id
     )
     if db_topic is None:
@@ -108,7 +111,7 @@ def delete_topic(
 ):
     """Delete a topic by ID."""
     organization_id, user_id = tenant_context
-    db_topic = crud.delete_topic(
+    db_topic = topic_crud.delete_topic(
         db, topic_id=topic_id, organization_id=organization_id, user_id=user_id
     )
     if db_topic is None:
@@ -131,7 +134,7 @@ def update_topic(
 ):
     """Update a topic by ID."""
     organization_id, user_id = tenant_context
-    db_topic = crud.update_topic(
+    db_topic = topic_crud.update_topic(
         db, topic_id=topic_id, topic=topic, organization_id=organization_id, user_id=user_id
     )
     if db_topic is None:

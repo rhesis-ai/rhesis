@@ -657,11 +657,11 @@ class TestTaskManagementSecuritySimplified:
         )
 
         # Create a status in organization1
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import status as status_crud
         from rhesis.backend.app.schemas.status import StatusCreate
 
         status_data = StatusCreate(name=f"Test Status {unique_id}")
-        status = crud.create_status(
+        status = status_crud.create_status(
             test_db, status_data, organization_id=str(organization1.id), user_id=str(user1.id)
         )
 

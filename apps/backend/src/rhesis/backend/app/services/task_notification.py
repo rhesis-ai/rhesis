@@ -8,7 +8,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.crud import get_status, get_type_lookup
+from rhesis.backend.app.crud import get_type_lookup
+from rhesis.backend.app.crud import status as status_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.services.notification import RenderedNotification, notify
@@ -45,7 +46,7 @@ def send_task_assignment_notification(
         creator = user_crud.get_user(db, task.user_id) if task.user_id else None
 
         # Get status details
-        status = get_status(db, task.status_id) if task.status_id else None
+        status = status_crud.get_status(db, task.status_id) if task.status_id else None
 
         # Get priority details
         priority = get_type_lookup(db, task.priority_id) if task.priority_id else None

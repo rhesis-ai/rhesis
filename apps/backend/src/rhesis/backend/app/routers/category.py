@@ -6,8 +6,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import category as category_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -42,7 +43,7 @@ def create_category(
 ):
     """Create a new category."""
     organization_id, user_id = tenant_context
-    return crud.create_category(
+    return category_crud.create_category(
         db=db, category=category, organization_id=organization_id, user_id=user_id
     )
 
@@ -70,7 +71,7 @@ def read_categories(
     organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
-    results = crud.get_categories(
+    results = category_crud.get_categories(
         db=db,
         skip=skip,
         limit=limit,
@@ -95,7 +96,7 @@ def read_category(
 ):
     """Get a category by ID."""
     organization_id, user_id = tenant_context
-    db_category = crud.get_category(
+    db_category = category_crud.get_category(
         db, category_id=category_id, organization_id=organization_id, user_id=user_id
     )
     if db_category is None:
@@ -118,7 +119,7 @@ def update_category(
 ):
     """Update a category by ID."""
     organization_id, user_id = tenant_context
-    db_category = crud.update_category(
+    db_category = category_crud.update_category(
         db,
         category_id=category_id,
         category=category,
@@ -139,7 +140,7 @@ def delete_category(
 ):
     """Delete a category by ID."""
     organization_id, user_id = tenant_context
-    db_category = crud.delete_category(
+    db_category = category_crud.delete_category(
         db, category_id=category_id, organization_id=organization_id, user_id=user_id
     )
     if db_category is None:

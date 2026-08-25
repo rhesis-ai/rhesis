@@ -3,8 +3,9 @@ import uuid
 from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import status as status_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -36,7 +37,7 @@ def create_status(
 ):
     """Create a new status."""
     organization_id, user_id = tenant_context
-    return crud.create_status(
+    return status_crud.create_status(
         db=db, status=status, organization_id=organization_id, user_id=user_id
     )
 
@@ -59,7 +60,7 @@ def read_statuses(
     organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
-    return crud.get_statuses(
+    return status_crud.get_statuses(
         db=db,
         skip=skip,
         limit=limit,
@@ -80,7 +81,7 @@ def read_status(
 ):
     """Get a status by ID."""
     organization_id, user_id = tenant_context
-    db_status = crud.get_status(
+    db_status = status_crud.get_status(
         db, status_id=status_id, organization_id=organization_id, user_id=user_id
     )
     if db_status is None:
@@ -97,7 +98,7 @@ def delete_status(
 ):
     """Delete a status by ID."""
     organization_id, user_id = tenant_context
-    db_status = crud.delete_status(
+    db_status = status_crud.delete_status(
         db, status_id=status_id, organization_id=organization_id, user_id=user_id
     )
     if db_status is None:
@@ -115,7 +116,7 @@ def update_status(
 ):
     """Update a status by ID."""
     organization_id, user_id = tenant_context
-    db_status = crud.update_status(
+    db_status = status_crud.update_status(
         db, status_id=status_id, status=status, organization_id=organization_id, user_id=user_id
     )
     if db_status is None:
