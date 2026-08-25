@@ -5,6 +5,7 @@ const meta: MetaRecord = {
   "tests-generation": "Test Generation",
   "import-from-file": "Import from File",
   "import-from-garak": "Import from Garak",
+  "generate-owasp": "Generate from OWASP",
 };
 
 export default meta;
