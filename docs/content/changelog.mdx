@@ -34,6 +34,176 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - **Penelope target**: `HaystackTarget` for multi-turn conversation simulation against a Haystack
   pipeline or agent.
 
+## [0.13.0] - 2026-08-20
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.13.0**
+- **Frontend 0.13.0**
+- **SDK 0.13.0**
+- **Polyphemus 0.6.0**
+
+### Summary
+
+**OWASP LLM Top 10** test generation lands end to end — synthesizer, UI, and seeded judge metrics. Long-running jobs now report back through **in-app notifications**. Usage quotas move from display-only to **enforced**, with self-hosted instances exempt. The **Behavior** entity is renamed **Requirement** across the stack, and the UI supports **white-labeling**.
+
+### Featured Capabilities
+
+**OWASP LLM Top 10 generation**
+
+- **Synthesizer**: `OWASPSynthesizer` generates single-turn and multi-turn adversarial tests from the OWASP report, tagged by category
+- **UI**: OWASP generation and Garak import merged into one security test drawer, with category descriptions and metric filtering
+- **Judging**: 20 seeded OWASP metrics with calibrated rubrics and multi-turn context collection
+
+See [Synthesizers](/sdk/synthesizers).
+
+**In-app notifications**
+
+Websocket-driven alerts when background work finishes — test set generation, Garak imports, test run executions, task assignments, and Architect plans. Sidebar badges and highlighted grid rows show what's new.
+
+**Usage quotas enforced**
+
+Limits now block instead of only informing: test executions, test generations, seats, projects, endpoints, and hosted-model tokens. Paid tiers get a 25% overage grace band, and an exhausted quota returns `402 Payment Required`. Self-hosted deployments still track usage but are never blocked — `USAGE_QUOTAS_ENABLED` defaults to off.
+
+**Behavior is now Requirement**
+
+The Behavior entity is renamed to Requirement everywhere: database, API, SDK, and UI. `/behaviors` routes redirect to `/requirements`.
+
+See [Requirements](/docs/requirements).
+
+### Backend Highlights
+- OWASP test set generation with report caching and automatic tagging
+- Websocket notifications for completed background tasks
+- Project-scoped token exchange (RFC 8693) and disposable email blocking
+- Error masking with `error_id` tracking, plus credential redaction in logs
+- Explicit `include()` eager loading, replacing reflection-based resolution
+- `crud/__init__.py` split into domain submodules
+- Removed the legacy `/stats` endpoints and the unused `UseCase`, `Risk`, `ResponsePattern`, and `TestContext` models
+
+### Frontend Highlights
+- White-labeling: brand colors, favicon, and product name applied across the app
+- Unified security test drawer (OWASP generation + Garak import)
+- Notification badges and quota banners at 80% utilization
+- Platform API key drawer on the Models page
+- Behavior → Requirement rename with redirects
+- Removed 38 unused files and 19 unused dependencies
+
+### SDK Highlights
+- `OWASPSynthesizer` for single-turn and multi-turn generation
+- `Insights` entity replaces the removed `stats()` methods
+- `set_default_usage_callback()` for process-wide token tracking
+- Telemetry primitives moved to the lightweight `rhesis.telemetry` package
+- Fixed sync/async deadlocks in `run_sync` and the streaming fallback
+
+### Polyphemus Highlights
+- Deployment moved from Cloud Run to Kubernetes, managed by ArgoCD
+- Configuration read from Helm ConfigMaps instead of GitHub Secrets
+
+## [0.12.0] - 2026-08-06
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.12.0**
+- **Frontend 0.12.0**
+- **SDK 0.12.0**
+- **Polyphemus 0.5.0**
+
+### Summary
+
+This release adds **usage accounting** across the platform, with a **Usage dashboard** for admins. Insights moves onto a flat query API backed by database views, so it loads faster. Enterprise licensing gets signed license tokens. N+1 queries are fixed across 12 entities. The SDK adds token usage callbacks and drops the vendored adaptive-testing package (breaking).
+
+### Featured Capabilities
+
+**Usage accounting and dashboard**
+
+- **Metering**: flow resources (test executions, tracing spans, test generation, model tokens) and stock resources (seats, projects, endpoints)
+- **API**: `GET /usage` and `GET /usage/history`, restricted to organization owners and admins via `usage:read`
+- **Dashboard**: `/organizations/usage` with a current-period snapshot and a 3/6/12-month timeline
+- **Tiers**: limits and entitlements driven by `tier_config.yaml`, so changing them doesn't need a license re-mint
+
+**Faster Insights**
+
+The Insights page and the Test Run Stats tab now query a flat `/insights/query` endpoint backed by new `v_metric_stats` and `v_test_stats` database views, instead of assembling results from several calls.
+
+**Enterprise licensing (EE)**
+
+Ed25519-signed JWT license tokens with an authoritative provider and verification tooling. Team invitations now detect SSO-enabled organizations and route invitees to their own identity provider sign-in page.
+
+### Backend Highlights
+- Usage metering, `/usage` endpoints, and the YAML-driven tier catalog
+- Flat Insights query API with a drill-down IDs endpoint
+- Redis init failures now retry on a 30-second cooldown instead of latching permanently
+- N+1 fixes across 12 entities; non-awaiting async routes moved to the threadpool
+- All 11 transactional emails redesigned on one Jinja2 layout, with strict autoescaping
+- Self-hosted telemetry is now opt-in (`OTEL_RHESIS_TELEMETRY_ENABLED`)
+- **Breaking**: removed the `Dimension` and `Demographic` tables, schemas, and endpoints
+
+### Frontend Highlights
+- Usage page with Resources and Timeline tabs
+- Redesigned login and auth pages, with self-hosted Geist fonts
+- Server-driven pagination for Metrics and Behaviors
+- Summarize FAB on test run detail; Creator column on Explorer sessions
+- Fixed Explorer session deletion, 504s on slow LLM calls, and several test result drawer bugs
+
+### SDK Highlights
+- Token usage tracking via an `on_usage` callback, normalized across providers
+- Default 300s request timeout on LiteLLM, Native, Polyphemus, and Proxy calls
+- `RhesisClient` disables itself when `RHESIS_API_KEY` or `RHESIS_PROJECT_ID` is missing
+- **Breaking**: removed the vendored `rhesis.sdk.adaptive_testing` package — Explorer is server-side only
+- **Breaking**: non-admin API tokens calling `/usage` now receive a 403
+
+### Polyphemus Highlights
+- OWASP Synthesizer integration for report-based generation
+- `vllm` upgrade; deployment flag renamed to `--structured-outputs-backend`
+
+## [0.11.0] - 2026-07-23
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.11.0**
+- **Frontend 0.11.0**
+- **SDK 0.11.0**
+
+### Summary
+
+Garak probe import and sync move to **background tasks**, so large probe sets no longer time out or freeze the UI. A new **Annotations review hub** collects human review in one place. Insights gets Architect-powered summarization plus time range and test run filters.
+
+### Featured Capabilities
+
+**Asynchronous Garak import and sync**
+
+Importing or syncing a large Garak probe set used to block the backend event loop and the UI. Both now run as background tasks with progress feedback.
+
+See [Import from Garak](/docs/test-sets/import-from-garak).
+
+**Annotations review hub**
+
+A human review interface in the Improve section: list views, search, filtering, resolution actions, and deep links to test results and traces.
+
+See [Annotations](/docs/annotations).
+
+### Backend Highlights
+- Garak probe import and sync as background tasks
+- Bulk soft-delete endpoints for tests
+- Insights summarization via the Architect (Telemachus) agent
+- Scoped `QueryBuilder` eager loads and several N+1 fixes
+- `DB_ENCRYPTION_KEY` now required; the plaintext fallback is gone
+- Feature gating by explicit flags instead of environment name
+
+### Frontend Highlights
+- Annotations review hub
+- JSON-aware rendering in the test result drawer and the Playground
+- Time range and test run filters on Insights
+- App version shown in the support drawer
+- Removed the deprecated `@mui/lab` dependency
+
+### SDK Highlights
+- Fixed a crash in `GarakDetectorMetric.evaluate()` with Garak v0.14+ generator results
+- Fixed `prompt_loader` skill reference resolution on cloud deployments
+
 ## [0.10.0] - 2026-07-09
 
 ### Platform Release
