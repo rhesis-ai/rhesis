@@ -1,6 +1,7 @@
 """Tests for EventPublisher."""
 
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -242,9 +243,7 @@ class TestGetPublisher:
         try:
             # Reset singleton and set configured URL
             publisher_module._publisher = None
-            mock_get_redis_settings.return_value = MagicMock(
-                broker_url="redis://configured:6379/0"
-            )
+            mock_get_redis_settings.return_value = MagicMock(broker_url="redis://configured:6379/0")
 
             publisher = get_publisher()
             assert publisher._redis_url == "redis://configured:6379/0"
@@ -265,3 +264,56 @@ class TestGetPublisher:
 
         result = get_publisher()
         assert result is mock_instance
+
+
+@pytest.mark.unit
+class TestGetPublisherThreadSafety:
+    """get_publisher is a lazy singleton reached from more than one thread.
+
+    TestRunSink flushes its coalesced ticks from threading.Timer threads, one
+    per test run, so two runs closing a window together both land here. An
+    unguarded check-then-set builds two EventPublisher instances, and with
+    them two Redis connection pools -- the loser is dropped with its
+    connections already open.
+    """
+
+    def test_concurrent_callers_get_one_instance(self):
+        import threading as _threading
+
+        from rhesis.backend.app.services.websocket import publisher as publisher_module
+
+        original = publisher_module._publisher
+        publisher_module._publisher = None
+
+        constructed = []
+        real_cls = publisher_module.EventPublisher
+
+        def _slow_init(broker_url):
+            # Widen the race window so an unguarded check-then-set loses it.
+            time.sleep(0.05)
+            instance = real_cls.__new__(real_cls)
+            constructed.append(instance)
+            return instance
+
+        results = []
+        barrier = _threading.Barrier(8)
+
+        def _worker():
+            barrier.wait()
+            results.append(publisher_module.get_publisher())
+
+        try:
+            with patch.object(publisher_module, "EventPublisher", side_effect=_slow_init):
+                threads = [_threading.Thread(target=_worker) for _ in range(8)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+
+            assert len(constructed) == 1, (
+                f"EventPublisher built {len(constructed)} times; the singleton raced"
+            )
+            assert len(results) == 8
+            assert all(r is results[0] for r in results)
+        finally:
+            publisher_module._publisher = original

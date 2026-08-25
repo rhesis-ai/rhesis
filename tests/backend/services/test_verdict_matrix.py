@@ -827,3 +827,52 @@ class TestIsNewer:
         assert _is_newer(None, dated) is False
         assert _is_newer(dated, None) is True
         assert _is_newer(None, None) is False
+
+
+class TestResultStatusNormalization:
+    """Outcome bucketing uses the shared TEST_RESULT_STATUS_* vocabularies.
+
+    Matching only the three TestResultStatus enum values would report a row
+    carrying any of the wider accepted names -- "Completed", "Success",
+    "Done" -- as never executed, which silently undercounts tests_executed,
+    skews pass_rate, and leaves those columns rendering as pending forever.
+    """
+
+    @pytest.mark.parametrize(
+        "status_name,expected",
+        [
+            ("Pass", "passed"),
+            ("Passed", "passed"),
+            ("Completed", "passed"),
+            ("Complete", "passed"),
+            ("Success", "passed"),
+            ("Successful", "passed"),
+            ("Finished", "passed"),
+            ("Done", "passed"),
+            ("Fail", "failed"),
+            ("Failed", "failed"),
+            ("Error", "error"),
+            ("Aborted", "error"),
+            ("Cancelled", "error"),
+            # Ran but has no verdict yet -- not a terminal outcome.
+            ("Pending", "pending"),
+            ("Review", "pending"),
+            # Unknown names are errors, not silently pending: a column that
+            # will never resolve must not keep animating as in-flight.
+            ("Some Unknown Status", "error"),
+            ("", "error"),
+            (None, "error"),
+        ],
+    )
+    def test_status_names_bucket_correctly(self, status_name, expected):
+        from rhesis.backend.app.crud.test_run import _classify_result_status
+
+        assert _classify_result_status(status_name) == expected
+
+    def test_agrees_with_the_shared_passed_vocabulary(self):
+        """Guards against the two lists drifting apart later."""
+        from rhesis.backend.app.constants import TEST_RESULT_STATUS_PASSED
+        from rhesis.backend.app.crud.test_run import _classify_result_status
+
+        for name in TEST_RESULT_STATUS_PASSED:
+            assert _classify_result_status(name) == "passed", name

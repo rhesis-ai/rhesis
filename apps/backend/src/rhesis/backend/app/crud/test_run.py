@@ -457,6 +457,37 @@ def get_metric_verdicts_for_run(
     return query.all()
 
 
+# Result statuses that mean "ran, but has no verdict yet" rather than a
+# terminal outcome. Everything outside the passed/failed vocabularies is an
+# error for grid purposes -- an aborted or cancelled test will never resolve,
+# so it must not keep rendering as pending forever.
+_UNRESOLVED_RESULT_STATUSES = frozenset(["pending", "review"])
+
+
+def _classify_result_status(status_name: Optional[str]) -> str:
+    """Bucket a test result's status name for the verdict grid.
+
+    Uses the shared TEST_RESULT_STATUS_* vocabularies rather than matching
+    the three TestResultStatus enum values: ``v_test_result_stats`` and
+    ``categorize_test_result_status`` both accept a much wider set (
+    "Completed", "Success", "Done", ...), and rows carrying those exist.
+    Matching only Pass/Fail/Error would report them as never executed.
+    """
+    from rhesis.backend.app.constants import (
+        TEST_RESULT_STATUS_FAILED,
+        TEST_RESULT_STATUS_PASSED,
+    )
+
+    normalized = (status_name or "").lower()
+    if normalized in TEST_RESULT_STATUS_PASSED:
+        return "passed"
+    if normalized in TEST_RESULT_STATUS_FAILED:
+        return "failed"
+    if normalized in _UNRESOLVED_RESULT_STATUSES:
+        return "pending"
+    return "error"
+
+
 def get_test_outcomes_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
 ) -> Dict[str, str]:
@@ -485,8 +516,7 @@ def get_test_outcomes_for_run(
         if key not in latest or created_at > latest[key][0]:
             latest[key] = (created_at, status_name)
 
-    outcome_by_status = {"pass": "passed", "fail": "failed", "error": "error"}
     return {
-        test_id: outcome_by_status.get((status_name or "").lower(), "pending")
+        test_id: _classify_result_status(status_name)
         for test_id, (_, status_name) in latest.items()
     }
