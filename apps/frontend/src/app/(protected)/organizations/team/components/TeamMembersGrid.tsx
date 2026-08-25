@@ -39,14 +39,14 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
+import { listParams } from '@/utils/list';
 import {
   EMPTY_TEAM_FILTERS,
   hasActiveTeamFilters,
   countActiveTeamFilters,
-  teamDirectory,
+  teamList,
   type TeamFilters,
-} from './directory';
+} from './list';
 import TeamFilterDrawer from './TeamFilterDrawer';
 import MemberAccessDrawer from './MemberAccessDrawer';
 import { useCan } from '@/components/common/Can';
@@ -115,17 +115,17 @@ export default function TeamMembersGrid({
     refresh,
   } = usePaginatedList<User>({
     fetchPage: ({ skip, limit }) =>
-      teamDirectory.list(
+      teamList.list(
         new ApiClientFactory(),
-        directoryListParams(teamDirectory, {
+        listParams(teamList, {
           page: skip / limit + 1,
           pageSize: limit,
-          sort: teamDirectory.defaultSort,
+          sort: teamList.defaultSort,
           filters,
         })
       ),
     filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: teamDirectory.defaultPageSize,
+    defaultPageSize: teamList.defaultPageSize,
     enabled: isAuthenticated(status),
     onError: () => setError('Failed to load team members. Please try again.'),
   });

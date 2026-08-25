@@ -1,7 +1,7 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 
 /** `value` is a `PresenceFilterValue` ('all'/'with'/'without') at every call site. */
 function presenceClause(
@@ -49,16 +49,14 @@ const TESTS_FILTERS = {
  * `initialData` would show the unfiltered list first, then swap -- worse
  * than the existing client-only loading state for that path.
  */
-export const testsDirectory = defineDirectory<TestDetail, typeof TESTS_FILTERS>(
-  {
-    title: 'Tests',
-    resource: 'tests',
-    capability: Capability.Test.READ,
-    defaultPageSize: 25,
-    filters: TESTS_FILTERS,
-    list: (factory: ApiClientFactory, params) => {
-      const { $filter, ...rest } = params;
-      return factory.getTestsClient().getTests({ ...rest, filter: $filter });
-    },
-  }
-);
+export const testsList = defineList<TestDetail, typeof TESTS_FILTERS>({
+  title: 'Tests',
+  resource: 'tests',
+  capability: Capability.Test.READ,
+  defaultPageSize: 25,
+  filters: TESTS_FILTERS,
+  list: (factory: ApiClientFactory, params) => {
+    const { $filter, ...rest } = params;
+    return factory.getTestsClient().getTests({ ...rest, filter: $filter });
+  },
+});

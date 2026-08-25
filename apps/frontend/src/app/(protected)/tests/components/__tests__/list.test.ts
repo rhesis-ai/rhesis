@@ -1,17 +1,15 @@
-import { emptyFilters, buildDirectoryFilter } from '@/utils/directory';
-import { testsDirectory } from '../directory';
+import { emptyFilters, buildListFilter } from '@/utils/list';
+import { testsList } from '../list';
 
-const empty = emptyFilters(testsDirectory);
+const empty = emptyFilters(testsList);
 
-describe('testsDirectory filters', () => {
+describe('testsList filters', () => {
   it('contributes nothing when no filter is active', () => {
-    expect(buildDirectoryFilter(testsDirectory, empty)).toBeUndefined();
+    expect(buildListFilter(testsList, empty)).toBeUndefined();
   });
 
   it('ORs the quick search across prompt/requirement/topic/category plus a tags match, matching the old builder', () => {
-    expect(
-      buildDirectoryFilter(testsDirectory, { ...empty, search: 'abc' })
-    ).toBe(
+    expect(buildListFilter(testsList, { ...empty, search: 'abc' })).toBe(
       "(contains(tolower(prompt/content),tolower('abc')) or " +
         "contains(tolower(requirement/name),tolower('abc')) or " +
         "contains(tolower(topic/name),tolower('abc')) or " +
@@ -22,37 +20,37 @@ describe('testsDirectory filters', () => {
 
   it('maps testType/requirement/category/topic to their columns, case-insensitively', () => {
     expect(
-      buildDirectoryFilter(testsDirectory, {
+      buildListFilter(testsList, {
         ...empty,
         testType: 'Single-Turn',
       })
     ).toBe("tolower(test_type/type_value) eq tolower('Single-Turn')");
-    expect(
-      buildDirectoryFilter(testsDirectory, { ...empty, requirement: 'Req A' })
-    ).toBe("tolower(requirement/name) eq tolower('Req A')");
-    expect(
-      buildDirectoryFilter(testsDirectory, { ...empty, category: 'Bias' })
-    ).toBe("tolower(category/name) eq tolower('Bias')");
-    expect(
-      buildDirectoryFilter(testsDirectory, { ...empty, topic: 'Safety' })
-    ).toBe("tolower(topic/name) eq tolower('Safety')");
+    expect(buildListFilter(testsList, { ...empty, requirement: 'Req A' })).toBe(
+      "tolower(requirement/name) eq tolower('Req A')"
+    );
+    expect(buildListFilter(testsList, { ...empty, category: 'Bias' })).toBe(
+      "tolower(category/name) eq tolower('Bias')"
+    );
+    expect(buildListFilter(testsList, { ...empty, topic: 'Safety' })).toBe(
+      "tolower(topic/name) eq tolower('Safety')"
+    );
   });
 
   it('maps presence filters to the matching relationship, matching the old builder', () => {
     expect(
-      buildDirectoryFilter(testsDirectory, {
+      buildListFilter(testsList, {
         ...empty,
         tagsPresence: 'with',
       })
     ).toBe('_tags_relationship/any()');
     expect(
-      buildDirectoryFilter(testsDirectory, {
+      buildListFilter(testsList, {
         ...empty,
         commentsPresence: 'without',
       })
     ).toBe('not comments/any()');
     expect(
-      buildDirectoryFilter(testsDirectory, {
+      buildListFilter(testsList, {
         ...empty,
         tasksPresence: 'with',
       })
@@ -60,7 +58,7 @@ describe('testsDirectory filters', () => {
   });
 
   it('ANDs an extra clause in for the Insights failed-tests deep link', () => {
-    expect(buildDirectoryFilter(testsDirectory, empty, ["id eq 'abc'"])).toBe(
+    expect(buildListFilter(testsList, empty, ["id eq 'abc'"])).toBe(
       "id eq 'abc'"
     );
   });

@@ -1,17 +1,15 @@
-import { emptyFilters, buildDirectoryFilter } from '@/utils/directory';
-import { experimentsDirectory } from '../directory';
+import { emptyFilters, buildListFilter } from '@/utils/list';
+import { experimentsList } from '../list';
 
-const empty = emptyFilters(experimentsDirectory);
+const empty = emptyFilters(experimentsList);
 
-describe('experimentsDirectory filters', () => {
+describe('experimentsList filters', () => {
   it('contributes nothing when no filter is active', () => {
-    expect(buildDirectoryFilter(experimentsDirectory, empty)).toBeUndefined();
+    expect(buildListFilter(experimentsList, empty)).toBeUndefined();
   });
 
   it('ORs the quick search across name/description/visibility/project name, matching the old builder', () => {
-    expect(
-      buildDirectoryFilter(experimentsDirectory, { ...empty, search: 'abc' })
-    ).toBe(
+    expect(buildListFilter(experimentsList, { ...empty, search: 'abc' })).toBe(
       "(contains(tolower(name),tolower('abc')) or " +
         "contains(tolower(description),tolower('abc')) or " +
         "contains(tolower(visibility),tolower('abc')) or " +
@@ -21,7 +19,7 @@ describe('experimentsDirectory filters', () => {
 
   it('maps visibility to an exact case-insensitive match', () => {
     expect(
-      buildDirectoryFilter(experimentsDirectory, {
+      buildListFilter(experimentsList, {
         ...empty,
         visibility: 'shared',
       })

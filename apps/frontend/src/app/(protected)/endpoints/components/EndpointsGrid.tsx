@@ -26,9 +26,9 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
+import { listParams } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
-import { endpointsDirectory } from './directory';
+import { endpointsList } from './list';
 import EndpointFilterDrawer, {
   type EndpointFilters,
   EMPTY_ENDPOINT_FILTERS,
@@ -177,21 +177,21 @@ export default function EndpointsGrid({
     refresh,
   } = usePaginatedList<Endpoint>({
     fetchPage: ({ skip, limit }) =>
-      endpointsDirectory.list(
+      endpointsList.list(
         new ApiClientFactory(),
-        directoryListParams(
-          endpointsDirectory,
+        listParams(
+          endpointsList,
           {
             page: skip / limit + 1,
             pageSize: limit,
-            sort: endpointsDirectory.defaultSort,
+            sort: endpointsList.defaultSort,
             filters,
           },
           extraODataClauses
         )
       ),
     filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: endpointsDirectory.defaultPageSize,
+    defaultPageSize: endpointsList.defaultPageSize,
     initialData,
     initialTotalCount,
     enabled: isAuthenticated(status),

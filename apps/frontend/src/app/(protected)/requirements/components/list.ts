@@ -1,6 +1,6 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 
 const REQUIREMENTS_FILTERS = {
   search: {
@@ -29,7 +29,7 @@ const REQUIREMENTS_FILTERS = {
   },
 } as const;
 
-export const requirementsDirectory = defineDirectory({
+export const requirementsList = defineList({
   title: 'Requirements',
   resource: 'requirements',
   capability: Capability.Requirement.READ,

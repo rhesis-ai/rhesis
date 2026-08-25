@@ -28,8 +28,8 @@ import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
-import { tasksDirectory } from './directory';
+import { listParams } from '@/utils/list';
+import { tasksList } from './list';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import TaskFilterDrawer, {
   type TaskFilters,
@@ -188,17 +188,17 @@ export default function TasksGrid({
     refresh,
   } = usePaginatedList<Task>({
     fetchPage: ({ skip, limit }) =>
-      tasksDirectory.list(
+      tasksList.list(
         new ApiClientFactory(),
-        directoryListParams(tasksDirectory, {
+        listParams(tasksList, {
           page: skip / limit + 1,
           pageSize: limit,
-          sort: tasksDirectory.defaultSort,
+          sort: tasksList.defaultSort,
           filters,
         })
       ),
     filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: tasksDirectory.defaultPageSize,
+    defaultPageSize: tasksList.defaultPageSize,
     enabled: isAuthenticated(status),
     onError: () => setErrorDismissed(false),
   });

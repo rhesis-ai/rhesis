@@ -5,10 +5,10 @@ import { Alert, Paper } from '@mui/material';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, directoryListParams } from '@/utils/directory';
+import { emptyFilters, listParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import ExperimentsClientWrapper from './components/ExperimentsClientWrapper';
-import { experimentsDirectory } from './components/directory';
+import { experimentsList } from './components/list';
 
 /**
  * Server-rendered shell for the Experiments index page.
@@ -40,13 +40,13 @@ export default async function ExperimentsPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Experiment.READ,
     () =>
-      experimentsDirectory.list(
+      experimentsList.list(
         factory,
-        directoryListParams(experimentsDirectory, {
+        listParams(experimentsList, {
           page: 1,
-          pageSize: experimentsDirectory.defaultPageSize,
-          sort: experimentsDirectory.defaultSort,
-          filters: emptyFilters(experimentsDirectory),
+          pageSize: experimentsList.defaultPageSize,
+          sort: experimentsList.defaultSort,
+          filters: emptyFilters(experimentsList),
         })
       )
   );

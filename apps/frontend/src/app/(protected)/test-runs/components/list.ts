@@ -1,7 +1,7 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
 
 /** `value` is a `PresenceFilterValue` ('all'/'with'/'without') at every call site. */
@@ -65,25 +65,24 @@ const TEST_RUNS_FILTERS = {
   reviews: { kind: 'raw', toOData: () => undefined },
 } as const;
 
-export const testRunsDirectory = defineDirectory<
-  TestRunDetail,
-  typeof TEST_RUNS_FILTERS
->({
-  title: 'Test Runs',
-  resource: 'test runs',
-  capability: Capability.TestRun.READ,
-  defaultPageSize: 50,
-  filters: TEST_RUNS_FILTERS,
-  extraParams: filters => ({
-    ...(filters.runKind === 'tests' ? { has_experiment: false } : {}),
-    ...(filters.runKind === 'experiments' ? { has_experiment: true } : {}),
-    ...(filters.reviews === 'with' ? { has_reviews: true } : {}),
-    ...(filters.reviews === 'without' ? { has_reviews: false } : {}),
-  }),
-  list: (factory: ApiClientFactory, params) => {
-    const { $filter, ...rest } = params;
-    return factory
-      .getTestRunsClient()
-      .getTestRuns({ ...rest, filter: $filter });
-  },
-});
+export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
+  {
+    title: 'Test Runs',
+    resource: 'test runs',
+    capability: Capability.TestRun.READ,
+    defaultPageSize: 50,
+    filters: TEST_RUNS_FILTERS,
+    extraParams: filters => ({
+      ...(filters.runKind === 'tests' ? { has_experiment: false } : {}),
+      ...(filters.runKind === 'experiments' ? { has_experiment: true } : {}),
+      ...(filters.reviews === 'with' ? { has_reviews: true } : {}),
+      ...(filters.reviews === 'without' ? { has_reviews: false } : {}),
+    }),
+    list: (factory: ApiClientFactory, params) => {
+      const { $filter, ...rest } = params;
+      return factory
+        .getTestRunsClient()
+        .getTestRuns({ ...rest, filter: $filter });
+    },
+  }
+);

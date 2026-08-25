@@ -1,7 +1,7 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
 import { escapeODataValue } from '@/utils/odata-filter';
-import { defineDirectory, type FiltersOf } from '@/utils/directory';
+import { defineList, type FiltersOf } from '@/utils/list';
 
 /** Tag applied to OWASP metrics by the tag_owasp_metrics_and_behaviors migration. */
 export const OWASP_METRIC_TAG_NAME = 'OWASP';
@@ -13,7 +13,7 @@ export const OWASP_METRIC_TAG_NAME = 'OWASP';
 export const OWASP_METRIC_FILTER_VALUE = 'owasp';
 
 /**
- * OData $select expression for the metrics directory list -- trims the
+ * OData $select expression for the metrics list -- trims the
  * response to only the fields the grid/filters render. Shared between the
  * server component (initial page fetch) and the client component
  * (subsequent pagination/filter fetches) so both request the same shape.
@@ -47,7 +47,7 @@ const METRICS_FILTERS = {
   metricScope: { kind: 'raw', multi: true },
 } as const;
 
-export const metricsDirectory = defineDirectory({
+export const metricsList = defineList({
   title: 'Metrics',
   resource: 'metrics',
   capability: Capability.Metric.READ,

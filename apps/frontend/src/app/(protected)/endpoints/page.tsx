@@ -1,9 +1,9 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, directoryListParams } from '@/utils/directory';
+import { emptyFilters, listParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import EndpointsPageClient from './components/EndpointsPageClient';
-import { endpointsDirectory } from './components/directory';
+import { endpointsList } from './components/list';
 
 /**
  * Server component: fetches the first page of endpoints before rendering so
@@ -17,11 +17,11 @@ export default async function EndpointsPage() {
     Capability.Endpoint.READ,
     () =>
       client.getEndpoints(
-        directoryListParams(endpointsDirectory, {
+        listParams(endpointsList, {
           page: 1,
-          pageSize: endpointsDirectory.defaultPageSize,
-          sort: endpointsDirectory.defaultSort,
-          filters: emptyFilters(endpointsDirectory),
+          pageSize: endpointsList.defaultPageSize,
+          sort: endpointsList.defaultSort,
+          filters: emptyFilters(endpointsList),
         })
       )
   );

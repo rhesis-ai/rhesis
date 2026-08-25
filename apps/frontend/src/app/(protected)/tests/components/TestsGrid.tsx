@@ -49,9 +49,9 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
+import { listParams } from '@/utils/list';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
-import { testsDirectory } from './directory';
+import { testsList } from './list';
 import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
@@ -283,10 +283,10 @@ export default function TestsTable({
     refresh,
   } = usePaginatedList<TestDetail>({
     fetchPage: ({ skip, limit }) =>
-      testsDirectory.list(
+      testsList.list(
         new ApiClientFactory(),
-        directoryListParams(
-          testsDirectory,
+        listParams(
+          testsList,
           {
             page: skip / limit + 1,
             pageSize: limit,
@@ -297,7 +297,7 @@ export default function TestsTable({
         )
       ),
     filterFingerprint: JSON.stringify({ filters, sort, insightsIdFilter }),
-    defaultPageSize: testsDirectory.defaultPageSize,
+    defaultPageSize: testsList.defaultPageSize,
     enabled: isAuthenticated(status) && insightsFilterReady,
     onError: () => setErrorDismissed(false),
   });

@@ -1,6 +1,6 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 
 const EXPERIMENTS_FILTERS = {
   search: {
@@ -16,7 +16,7 @@ const EXPERIMENTS_FILTERS = {
  * `$filter`) -- adapted here rather than changing the client, since other
  * callers of `listExperiments` still expect its own shape.
  */
-export const experimentsDirectory = defineDirectory({
+export const experimentsList = defineList({
   title: 'Experiments',
   resource: 'experiments',
   capability: Capability.Experiment.READ,

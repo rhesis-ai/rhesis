@@ -63,9 +63,9 @@ import { Capability } from '@/constants/capabilities';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
+import { listParams } from '@/utils/list';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
-import { testRunsDirectory } from './directory';
+import { testRunsList } from './list';
 import TestRunFilterDrawer, {
   type TestRunFilters,
   EMPTY_TEST_RUN_FILTERS,
@@ -256,9 +256,9 @@ function TestRunsGrid({
     refresh,
   } = usePaginatedList<TestRunDetail>({
     fetchPage: ({ skip, limit }) =>
-      testRunsDirectory.list(
+      testRunsList.list(
         new ApiClientFactory(),
-        directoryListParams(testRunsDirectory, {
+        listParams(testRunsList, {
           page: skip / limit + 1,
           pageSize: limit,
           sort,
@@ -266,7 +266,7 @@ function TestRunsGrid({
         })
       ),
     filterFingerprint: JSON.stringify({ filters, sort }),
-    defaultPageSize: testRunsDirectory.defaultPageSize,
+    defaultPageSize: testRunsList.defaultPageSize,
     enabled: isAuthenticated(status),
     onError: () => setErrorDismissed(false),
   });

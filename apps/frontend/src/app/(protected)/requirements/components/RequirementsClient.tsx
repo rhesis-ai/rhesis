@@ -37,8 +37,8 @@ import RequirementFilterDrawer, {
   hasActiveRequirementFilters,
   countActiveRequirementFilters,
 } from './RequirementFilterDrawer';
-import { useDirectoryList } from '@/hooks/useDirectoryList';
-import { requirementsDirectory } from './directory';
+import { useList } from '@/hooks/useList';
+import { requirementsList } from './list';
 
 interface RequirementsClientProps {
   organizationId: UUID;
@@ -122,7 +122,7 @@ export default function RequirementsClient({
     refresh: handleRefresh,
     ready,
     gateNode,
-  } = useDirectoryList(requirementsDirectory, {
+  } = useList(requirementsList, {
     filters,
     initialData,
     initialTotalCount,
@@ -146,7 +146,7 @@ export default function RequirementsClient({
 
   /**
    * Inserts a requirement into the current page in name order (matching the
-   * directory's default sort) rather than relying on a re-fetch to reveal
+   * list's default sort) rather than relying on a re-fetch to reveal
    * it. A re-fetch of the current page can't be trusted to surface a
    * just-created item -- with server-side pagination, its name may sort
    * outside whatever page the user happens to be viewing.

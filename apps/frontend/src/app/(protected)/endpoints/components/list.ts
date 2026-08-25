@@ -1,6 +1,6 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 
 const ENDPOINTS_FILTERS = {
   search: {
@@ -12,7 +12,7 @@ const ENDPOINTS_FILTERS = {
   status: { kind: 'enum', column: 'status/name' },
 } as const;
 
-export const endpointsDirectory = defineDirectory({
+export const endpointsList = defineList({
   title: 'Endpoints',
   resource: 'endpoints',
   capability: Capability.Endpoint.READ,

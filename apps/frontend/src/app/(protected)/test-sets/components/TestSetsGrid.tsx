@@ -19,9 +19,9 @@ import {
 import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
+import { listParams } from '@/utils/list';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
-import { testSetsDirectory } from './directory';
+import { testSetsList } from './list';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import {
@@ -261,9 +261,9 @@ export default function TestSetsGrid({
     refresh,
   } = usePaginatedList<TestSet>({
     fetchPage: ({ skip, limit }) =>
-      testSetsDirectory.list(
+      testSetsList.list(
         new ApiClientFactory(),
-        directoryListParams(testSetsDirectory, {
+        listParams(testSetsList, {
           page: skip / limit + 1,
           pageSize: limit,
           sort,
@@ -271,7 +271,7 @@ export default function TestSetsGrid({
         })
       ),
     filterFingerprint: JSON.stringify({ filters, sort }),
-    defaultPageSize: testSetsDirectory.defaultPageSize,
+    defaultPageSize: testSetsList.defaultPageSize,
     enabled: isAuthenticated(status),
     onError: () => setErrorDismissed(false),
   });

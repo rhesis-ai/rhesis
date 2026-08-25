@@ -9,9 +9,9 @@ import type { RequirementOption } from '@/utils/api-client/interfaces/requiremen
 import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
-import { useDirectoryList } from '@/hooks/useDirectoryList';
+import { useList } from '@/hooks/useList';
 import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
-import { metricsDirectory } from './directory';
+import { metricsList } from './list';
 
 import MetricsDirectoryTab, {
   type FilterState,
@@ -83,7 +83,7 @@ export default function MetricsClientComponent({
     refresh: handleRefresh,
     ready,
     gateNode,
-  } = useDirectoryList(metricsDirectory, {
+  } = useList(metricsList, {
     filters,
     initialData,
     initialTotalCount,

@@ -5,11 +5,11 @@ import type {
 } from '@/utils/api-client/interfaces/pagination';
 
 /**
- * A directory (list) page's filter/sort/fetch behavior, declared once.
+ * A list page's filter/sort/fetch behavior, declared once.
  *
- * What every directory page repeats -- the per-entity OData `$filter` builder,
+ * What every list page repeats -- the per-entity OData `$filter` builder,
  * the API list params, and the active-filter count -- is derived from this
- * object by `src/utils/directory/{odata,params}.ts`.
+ * object by `src/utils/list/{odata,params}.ts`.
  */
 
 // ── Filter specs ──────────────────────────────────────────────────────────────
@@ -94,23 +94,23 @@ export type FiltersOf<S extends FilterSpecMap> = {
 
 // ── Descriptor ────────────────────────────────────────────────────────────────
 
-export interface DirectorySort {
+export interface ListSort {
   by: string;
   order: 'asc' | 'desc';
 }
 
-/** A directory page's page/sort/filter state, as held by client-side state. */
-export interface DirectoryState<S extends FilterSpecMap> {
+/** A list page's page/sort/filter state, as held by client-side state. */
+export interface ListState<S extends FilterSpecMap> {
   /** 1-indexed. */
   page: number;
   pageSize: number;
-  sort: DirectorySort;
+  sort: ListSort;
   filters: FiltersOf<S>;
 }
 
-export type DirectoryListParams = PaginationParams & Record<string, unknown>;
+export type ListParams = PaginationParams & Record<string, unknown>;
 
-export interface DirectoryDescriptor<T, S extends FilterSpecMap> {
+export interface ListDescriptor<T, S extends FilterSpecMap> {
   title: string;
   description?: string;
   /** Noun used in the `AccessDenied` message, e.g. `endpoints`. */
@@ -119,11 +119,11 @@ export interface DirectoryDescriptor<T, S extends FilterSpecMap> {
   capability: string | readonly [string, string];
   createCapability?: string;
   defaultPageSize: number;
-  defaultSort: DirectorySort;
+  defaultSort: ListSort;
   filters: S;
   list: (
     factory: ApiClientFactory,
-    params: DirectoryListParams
+    params: ListParams
   ) => Promise<PaginatedResponse<T>>;
   /**
    * Query params derived from filters that aren't OData -- Test Runs'
@@ -133,16 +133,16 @@ export interface DirectoryDescriptor<T, S extends FilterSpecMap> {
 }
 
 type DescriptorInput<T, S extends FilterSpecMap> = Omit<
-  DirectoryDescriptor<T, S>,
+  ListDescriptor<T, S>,
   'defaultSort'
-> & { defaultSort?: DirectorySort };
+> & { defaultSort?: ListSort };
 
 /** Every list endpoint sorts newest-first unless the descriptor says otherwise. */
-const DEFAULT_SORT: DirectorySort = { by: 'created_at', order: 'desc' };
+const DEFAULT_SORT: ListSort = { by: 'created_at', order: 'desc' };
 
-export function defineDirectory<T, const S extends FilterSpecMap>(
+export function defineList<T, const S extends FilterSpecMap>(
   descriptor: DescriptorInput<T, S>
-): DirectoryDescriptor<T, S> {
+): ListDescriptor<T, S> {
   return { defaultSort: DEFAULT_SORT, ...descriptor };
 }
 
@@ -159,7 +159,7 @@ export function isMultiValued(spec: FilterSpec): boolean {
 
 /** All filters cleared -- the baseline a filter drawer resets to. */
 export function emptyFilters<S extends FilterSpecMap>(
-  descriptor: DirectoryDescriptor<unknown, S>
+  descriptor: ListDescriptor<unknown, S>
 ): FiltersOf<S> {
   const out: Record<string, string | string[]> = {};
   for (const [key, spec] of Object.entries(descriptor.filters)) {

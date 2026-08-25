@@ -1,16 +1,16 @@
-import { emptyFilters, buildDirectoryFilter } from '@/utils/directory';
-import { testSetsDirectory } from '../directory';
+import { emptyFilters, buildListFilter } from '@/utils/list';
+import { testSetsList } from '../list';
 
-const empty = emptyFilters(testSetsDirectory);
+const empty = emptyFilters(testSetsList);
 
-describe('testSetsDirectory filters', () => {
+describe('testSetsList filters', () => {
   it('contributes nothing when no filter is active', () => {
-    expect(buildDirectoryFilter(testSetsDirectory, empty)).toBeUndefined();
+    expect(buildListFilter(testSetsList, empty)).toBeUndefined();
   });
 
   it('ORs the quick search across name/creator/type plus a tags match, matching the old builder', () => {
     expect(
-      buildDirectoryFilter(testSetsDirectory, {
+      buildListFilter(testSetsList, {
         ...empty,
         search: 'regression',
       })
@@ -24,7 +24,7 @@ describe('testSetsDirectory filters', () => {
 
   it('maps testSetType to test_set_type/type_value, case-insensitively', () => {
     expect(
-      buildDirectoryFilter(testSetsDirectory, {
+      buildListFilter(testSetsList, {
         ...empty,
         testSetType: 'manual',
       })
@@ -32,37 +32,35 @@ describe('testSetsDirectory filters', () => {
   });
 
   it('matches status/creator with contains, matching the old builder', () => {
-    expect(
-      buildDirectoryFilter(testSetsDirectory, { ...empty, status: 'Ready' })
-    ).toBe("contains(tolower(status/name),tolower('Ready'))");
-    expect(
-      buildDirectoryFilter(testSetsDirectory, { ...empty, creator: 'alice' })
-    ).toBe("contains(tolower(user/name),tolower('alice'))");
+    expect(buildListFilter(testSetsList, { ...empty, status: 'Ready' })).toBe(
+      "contains(tolower(status/name),tolower('Ready'))"
+    );
+    expect(buildListFilter(testSetsList, { ...empty, creator: 'alice' })).toBe(
+      "contains(tolower(user/name),tolower('alice'))"
+    );
   });
 
   it('matches tag with a tags-relationship contains', () => {
-    expect(
-      buildDirectoryFilter(testSetsDirectory, { ...empty, tag: 'important' })
-    ).toBe(
+    expect(buildListFilter(testSetsList, { ...empty, tag: 'important' })).toBe(
       "_tags_relationship/any(x: contains(tolower(x/tag/name),tolower('important')))"
     );
   });
 
   it('maps presence filters to the matching relationship, matching the old builder', () => {
     expect(
-      buildDirectoryFilter(testSetsDirectory, {
+      buildListFilter(testSetsList, {
         ...empty,
         tagsPresence: 'with',
       })
     ).toBe('_tags_relationship/any()');
     expect(
-      buildDirectoryFilter(testSetsDirectory, {
+      buildListFilter(testSetsList, {
         ...empty,
         commentsPresence: 'without',
       })
     ).toBe('not comments/any()');
     expect(
-      buildDirectoryFilter(testSetsDirectory, {
+      buildListFilter(testSetsList, {
         ...empty,
         tasksPresence: 'with',
       })

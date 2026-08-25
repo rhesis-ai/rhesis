@@ -41,8 +41,8 @@ import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
-import { experimentsDirectory } from './directory';
+import { listParams } from '@/utils/list';
+import { experimentsList } from './list';
 import CreateExperimentDialog from './CreateExperimentDialog';
 import { formatDate } from '@/utils/date';
 
@@ -183,17 +183,17 @@ export default function ExperimentsClientWrapper({
     refresh,
   } = usePaginatedList<ExperimentRead>({
     fetchPage: ({ skip, limit }) =>
-      experimentsDirectory.list(
+      experimentsList.list(
         new ApiClientFactory(),
-        directoryListParams(experimentsDirectory, {
+        listParams(experimentsList, {
           page: skip / limit + 1,
           pageSize: limit,
-          sort: experimentsDirectory.defaultSort,
+          sort: experimentsList.defaultSort,
           filters,
         })
       ),
     filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: experimentsDirectory.defaultPageSize,
+    defaultPageSize: experimentsList.defaultPageSize,
     initialData,
     initialTotalCount,
     onError: () =>

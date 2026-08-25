@@ -1,6 +1,6 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
 
 const SOURCES_FILTERS = {
@@ -27,7 +27,7 @@ const SOURCES_FILTERS = {
   },
 } as const;
 
-export const sourcesDirectory = defineDirectory({
+export const sourcesList = defineList({
   title: 'Knowledge',
   resource: 'knowledge sources',
   capability: Capability.Source.READ,

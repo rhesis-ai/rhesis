@@ -34,9 +34,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { directoryListParams } from '@/utils/directory';
+import { listParams } from '@/utils/list';
 import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
-import { sourcesDirectory } from './directory';
+import { sourcesList } from './list';
 import { ChatIcon, MenuBookIcon } from '@/components/icons';
 import { formatFileSize, getFileExtension } from '@/constants/knowledge';
 import { formatDate } from '@/utils/date';
@@ -170,9 +170,9 @@ export default function SourcesGrid({
     refresh,
   } = usePaginatedList<Source>({
     fetchPage: ({ skip, limit }) =>
-      sourcesDirectory.list(
+      sourcesList.list(
         new ApiClientFactory(),
-        directoryListParams(sourcesDirectory, {
+        listParams(sourcesList, {
           page: skip / limit + 1,
           pageSize: limit,
           sort,
@@ -180,7 +180,7 @@ export default function SourcesGrid({
         })
       ),
     filterFingerprint: JSON.stringify({ filters, sort }),
-    defaultPageSize: sourcesDirectory.defaultPageSize,
+    defaultPageSize: sourcesList.defaultPageSize,
     initialData,
     initialTotalCount,
     enabled: isAuthenticated(status),

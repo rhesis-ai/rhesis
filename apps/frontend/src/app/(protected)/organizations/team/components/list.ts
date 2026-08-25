@@ -1,6 +1,6 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
 import {
   memberJoinStatusActiveODataFilter,
@@ -90,13 +90,13 @@ const TEAM_FILTERS = {
 };
 
 /**
- * Not wired through `useDirectoryList`/`useDirectoryAuthGate`: today's team grid has no
+ * Not wired through `useList`/`useListAuthGate`: today's team grid has no
  * independent read gate of its own (only Organization.READ, checked one level up by
  * `organizations/settings/page.tsx`), and adding one here would be a new restriction, not a
- * port. `capability` is still declared for documentation/typing; only `list`/`directoryListParams`
+ * port. `capability` is still declared for documentation/typing; only `list`/`listParams`
  * are actually used, via `usePaginatedList` directly in `TeamMembersGrid`.
  */
-export const teamDirectory = defineDirectory({
+export const teamList = defineList({
   title: 'Team',
   resource: 'team members',
   capability: Capability.Member.READ,

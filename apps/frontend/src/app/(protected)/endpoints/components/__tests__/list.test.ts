@@ -1,17 +1,15 @@
-import { emptyFilters, buildDirectoryFilter } from '@/utils/directory';
-import { endpointsDirectory } from '../directory';
+import { emptyFilters, buildListFilter } from '@/utils/list';
+import { endpointsList } from '../list';
 
-const empty = emptyFilters(endpointsDirectory);
+const empty = emptyFilters(endpointsList);
 
-describe('endpointsDirectory filters', () => {
+describe('endpointsList filters', () => {
   it('contributes nothing when no filter is active', () => {
-    expect(buildDirectoryFilter(endpointsDirectory, empty)).toBeUndefined();
+    expect(buildListFilter(endpointsList, empty)).toBeUndefined();
   });
 
   it('ORs the quick search across name/environment/connection_type/description, matching the old builder', () => {
-    expect(
-      buildDirectoryFilter(endpointsDirectory, { ...empty, search: 'abc' })
-    ).toBe(
+    expect(buildListFilter(endpointsList, { ...empty, search: 'abc' })).toBe(
       "(contains(tolower(name),tolower('abc')) or " +
         "contains(tolower(environment),tolower('abc')) or " +
         "contains(tolower(connection_type),tolower('abc')) or " +
@@ -21,7 +19,7 @@ describe('endpointsDirectory filters', () => {
 
   it('maps connectionType to the connection_type column, case-insensitively', () => {
     expect(
-      buildDirectoryFilter(endpointsDirectory, {
+      buildListFilter(endpointsList, {
         ...empty,
         connectionType: 'REST',
       })
@@ -29,14 +27,14 @@ describe('endpointsDirectory filters', () => {
   });
 
   it('maps status to status/name', () => {
-    expect(
-      buildDirectoryFilter(endpointsDirectory, { ...empty, status: 'Active' })
-    ).toBe("tolower(status/name) eq tolower('Active')");
+    expect(buildListFilter(endpointsList, { ...empty, status: 'Active' })).toBe(
+      "tolower(status/name) eq tolower('Active')"
+    );
   });
 
   it('leaves environment as-is (no field remap)', () => {
     expect(
-      buildDirectoryFilter(endpointsDirectory, {
+      buildListFilter(endpointsList, {
         ...empty,
         environment: 'production',
       })
@@ -44,11 +42,11 @@ describe('endpointsDirectory filters', () => {
   });
 
   it('ANDs an extra project-scoping clause in for the embedded (Project > Endpoints) grid', () => {
+    expect(buildListFilter(endpointsList, empty, ["project_id eq 'p-1'"])).toBe(
+      "project_id eq 'p-1'"
+    );
     expect(
-      buildDirectoryFilter(endpointsDirectory, empty, ["project_id eq 'p-1'"])
-    ).toBe("project_id eq 'p-1'");
-    expect(
-      buildDirectoryFilter(endpointsDirectory, { ...empty, status: 'Active' }, [
+      buildListFilter(endpointsList, { ...empty, status: 'Active' }, [
         "project_id eq 'p-1'",
       ])
     ).toBe("project_id eq 'p-1' and tolower(status/name) eq tolower('Active')");

@@ -1,6 +1,6 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
-import { defineDirectory } from '@/utils/directory';
+import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
 
 function containsClause(column: string, value: string): string | undefined {
@@ -55,7 +55,7 @@ const TEST_SETS_FILTERS = {
   },
 } as const;
 
-export const testSetsDirectory = defineDirectory({
+export const testSetsList = defineList({
   title: 'Test Sets',
   resource: 'test sets',
   capability: Capability.TestSet.READ,
