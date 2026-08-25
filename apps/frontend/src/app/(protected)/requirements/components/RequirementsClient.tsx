@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -29,10 +28,8 @@ import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-en
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
 import RequirementFilterDrawer, {
   type RequirementFilters,
   type MetricFilter,
@@ -40,9 +37,8 @@ import RequirementFilterDrawer, {
   hasActiveRequirementFilters,
   countActiveRequirementFilters,
 } from './RequirementFilterDrawer';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { buildRequirementODataFilter } from '@/utils/odata-filter';
+import { useDirectoryList } from '@/hooks/useDirectoryList';
+import { requirementsDirectory } from './directory';
 
 interface RequirementsClientProps {
   organizationId: UUID;
@@ -60,10 +56,6 @@ export default function RequirementsClient({
 }: RequirementsClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const { status: sessionStatus } = useSession();
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Requirement.READ
-  );
   const canCreateRequirement = useCan(Capability.Requirement.CREATE);
 
   // Accumulate tag names seen across page navigations for the filter drawer
@@ -107,10 +99,12 @@ export default function RequirementsClient({
     EMPTY_REQUIREMENT_FILTERS
   );
 
-  // Reset to page 0 whenever filters change
-  const filterFingerprint = React.useMemo(
-    () =>
-      JSON.stringify([searchQuery, metricCountFilter, drawerFilters.tagNames]),
+  const filters = React.useMemo(
+    () => ({
+      search: searchQuery,
+      metricCount: metricCountFilter,
+      tagNames: drawerFilters.tagNames,
+    }),
     [searchQuery, metricCountFilter, drawerFilters.tagNames]
   );
 
@@ -126,26 +120,12 @@ export default function RequirementsClient({
     onPageChange: setPage,
     onRowsPerPageChange: handleRowsPerPageChange,
     refresh: handleRefresh,
-  } = usePaginatedList<RequirementWithMetrics>({
-    fetchPage: ({ skip, limit }) => {
-      const requirementClient = new RequirementClient();
-      const odataFilter = buildRequirementODataFilter({
-        search: searchQuery,
-        metricCount: metricCountFilter,
-        tagNames: drawerFilters.tagNames,
-      });
-      return requirementClient.getRequirementsPage({
-        skip,
-        limit,
-        sort_by: 'name',
-        sort_order: 'asc',
-        $filter: odataFilter,
-      });
-    },
-    filterFingerprint,
+    ready,
+    gateNode,
+  } = useDirectoryList(requirementsDirectory, {
+    filters,
     initialData,
     initialTotalCount,
-    enabled: !permsLoading && canRead,
     onData: data => {
       data.forEach(requirement => {
         (requirement.tags ?? []).forEach(tag =>
@@ -534,24 +514,7 @@ export default function RequirementsClient({
     );
   }
 
-  // Auth error state
-  if (!isAuthenticated(sessionStatus)) {
-    return (
-      <PageLayout title="Requirements" breadcrumbs={[]}>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Session expired. Please refresh the page or log in again.
-        </Alert>
-        <EntityEmptyState
-          icon={PsychologyIcon}
-          title="Authentication required"
-          description="Please log in to view and manage your requirements."
-        />
-      </PageLayout>
-    );
-  }
-
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="requirements" />;
+  if (!ready) return gateNode;
 
   return (
     <PageLayout

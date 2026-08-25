@@ -1,9 +1,10 @@
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
+import { emptyFilters, directoryListParams } from '@/utils/directory';
 import { Capability } from '@/constants/capabilities';
 import RequirementsClient from './components/RequirementsClient';
-import { DEFAULT_REQUIREMENTS_PAGE_SIZE } from './components/requirements-constants';
+import { requirementsDirectory } from './components/directory';
 import type { UUID } from 'crypto';
 
 /**
@@ -25,12 +26,14 @@ export default async function RequirementsPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Requirement.READ,
     () =>
-      client.getRequirementsPage({
-        skip: 0,
-        limit: DEFAULT_REQUIREMENTS_PAGE_SIZE,
-        sort_by: 'name',
-        sort_order: 'asc',
-      })
+      client.getRequirementsPage(
+        directoryListParams(requirementsDirectory, {
+          page: 1,
+          pageSize: requirementsDirectory.defaultPageSize,
+          sort: requirementsDirectory.defaultSort,
+          filters: emptyFilters(requirementsDirectory),
+        })
+      )
   );
 
   return (
