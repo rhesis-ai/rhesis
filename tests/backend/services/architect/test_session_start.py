@@ -37,7 +37,7 @@ class TestStartSessionWithMessage:
 
         with (
             patch(
-                "rhesis.backend.app.services.architect.session_start.crud"
+                "rhesis.backend.app.services.architect.session_start.architect_crud"
             ) as mock_crud,
             patch(
                 "rhesis.backend.tasks.architect.architect_chat_task"

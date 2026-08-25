@@ -49,7 +49,7 @@ class TestLoadSessionTraceId:
     is best-effort and must not break the chat path."""
 
     @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
-    @patch("rhesis.backend.app.crud.get_architect_session")
+    @patch("rhesis.backend.app.crud.architect.get_architect_session")
     def test_returns_stored_trace_id(self, mock_get_session, mock_db_ctx):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
         mock_get_session.return_value = _make_session_row({"conversation_trace_id": "abc123"})
@@ -59,7 +59,7 @@ class TestLoadSessionTraceId:
         assert result == "abc123"
 
     @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
-    @patch("rhesis.backend.app.crud.get_architect_session")
+    @patch("rhesis.backend.app.crud.architect.get_architect_session")
     def test_forwards_project_id_to_db_factory(self, mock_get_session, mock_db_ctx):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
         mock_get_session.return_value = _make_session_row({"conversation_trace_id": "x"})
@@ -69,7 +69,7 @@ class TestLoadSessionTraceId:
         mock_db_ctx.assert_called_once_with("org", "user", "proj-1")
 
     @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
-    @patch("rhesis.backend.app.crud.get_architect_session")
+    @patch("rhesis.backend.app.crud.architect.get_architect_session")
     def test_returns_none_when_no_trace_id_in_state(self, mock_get_session, mock_db_ctx):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
         mock_get_session.return_value = _make_session_row({"mode": "discovery"})
@@ -79,7 +79,7 @@ class TestLoadSessionTraceId:
         assert result is None
 
     @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
-    @patch("rhesis.backend.app.crud.get_architect_session")
+    @patch("rhesis.backend.app.crud.architect.get_architect_session")
     def test_returns_none_when_agent_state_null(self, mock_get_session, mock_db_ctx):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
         mock_get_session.return_value = _make_session_row(None)
@@ -89,7 +89,7 @@ class TestLoadSessionTraceId:
         assert result is None
 
     @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
-    @patch("rhesis.backend.app.crud.get_architect_session")
+    @patch("rhesis.backend.app.crud.architect.get_architect_session")
     def test_returns_none_when_session_missing(self, mock_get_session, mock_db_ctx):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
         mock_get_session.return_value = None
@@ -139,8 +139,8 @@ async def test_persist_state_stamps_root_trace_id_on_agent_state():
         patch(
             "rhesis.backend.app.services.architect.runner.get_db_with_tenant_variables"
         ) as mock_db_ctx,
-        patch("rhesis.backend.app.crud.create_architect_message"),
-        patch("rhesis.backend.app.crud.update_architect_session") as mock_update,
+        patch("rhesis.backend.app.crud.architect.create_architect_message"),
+        patch("rhesis.backend.app.crud.architect.update_architect_session") as mock_update,
     ):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
 
@@ -180,8 +180,8 @@ async def test_persist_state_omits_trace_id_when_tracing_disabled():
         patch(
             "rhesis.backend.app.services.architect.runner.get_db_with_tenant_variables"
         ) as mock_db_ctx,
-        patch("rhesis.backend.app.crud.create_architect_message"),
-        patch("rhesis.backend.app.crud.update_architect_session") as mock_update,
+        patch("rhesis.backend.app.crud.architect.create_architect_message"),
+        patch("rhesis.backend.app.crud.architect.update_architect_session") as mock_update,
     ):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
 
@@ -224,8 +224,8 @@ async def test_persist_state_stores_carried_tool_results():
         patch(
             "rhesis.backend.app.services.architect.runner.get_db_with_tenant_variables"
         ) as mock_db_ctx,
-        patch("rhesis.backend.app.crud.create_architect_message"),
-        patch("rhesis.backend.app.crud.update_architect_session") as mock_update,
+        patch("rhesis.backend.app.crud.architect.create_architect_message"),
+        patch("rhesis.backend.app.crud.architect.update_architect_session") as mock_update,
     ):
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
 

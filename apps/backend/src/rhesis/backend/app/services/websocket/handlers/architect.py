@@ -72,12 +72,13 @@ async def handle_architect_message(
     try:
         from uuid import UUID
 
-        from rhesis.backend.app import crud, schemas
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.crud import architect as architect_crud
 
         with get_db_with_tenant_variables(
             str(user.organization_id), str(user.id), client_project_id
         ) as db:
-            db_session = crud.get_architect_session(
+            db_session = architect_crud.get_architect_session(
                 db,
                 session_id=UUID(session_id),
                 organization_id=str(user.organization_id),
@@ -128,7 +129,7 @@ async def handle_architect_message(
                 )
                 return
 
-            crud.create_architect_message(
+            architect_crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(
                     session_id=session_id,

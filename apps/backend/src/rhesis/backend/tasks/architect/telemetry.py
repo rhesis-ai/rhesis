@@ -66,11 +66,11 @@ def _load_session_trace_id(
     if not session_id or not organization_id:
         return None
     try:
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import architect as architect_crud
         from rhesis.backend.app.database import get_db_with_tenant_variables
 
         with get_db_with_tenant_variables(organization_id, user_id or "", project_id or "") as db:
-            session_row = crud.get_architect_session(
+            session_row = architect_crud.get_architect_session(
                 db,
                 session_id=UUID(session_id),
                 organization_id=organization_id,

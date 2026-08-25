@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import architect as architect_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -36,7 +37,7 @@ def create_session(
     organization_id, user_id = tenant_context
     initial_message = (session.initial_message or "").strip() or None
 
-    db_session = crud.create_architect_session(
+    db_session = architect_crud.create_architect_session(
         db=db,
         session=session,
         organization_id=organization_id,
@@ -73,7 +74,7 @@ def list_sessions(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    return crud.get_architect_sessions(
+    return architect_crud.get_architect_sessions(
         db=db,
         skip=skip,
         limit=limit,
@@ -93,7 +94,7 @@ def get_session(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_session = crud.get_architect_session_detail(
+    db_session = architect_crud.get_architect_session_detail(
         db,
         session_id=session_id,
         organization_id=organization_id,
@@ -113,7 +114,7 @@ def update_session(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_session = crud.update_architect_session(
+    db_session = architect_crud.update_architect_session(
         db=db,
         session_id=session_id,
         session=session,
@@ -133,7 +134,7 @@ def delete_session(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_session = crud.delete_architect_session(
+    db_session = architect_crud.delete_architect_session(
         db=db,
         session_id=session_id,
         organization_id=organization_id,
@@ -158,7 +159,7 @@ def get_messages(
 ):
     organization_id, user_id = tenant_context
     # Verify session exists and belongs to user
-    db_session = crud.get_architect_session(
+    db_session = architect_crud.get_architect_session(
         db,
         session_id=session_id,
         organization_id=organization_id,
@@ -166,7 +167,7 @@ def get_messages(
     )
     if db_session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    return crud.get_architect_messages(
+    return architect_crud.get_architect_messages(
         db=db,
         session_id=session_id,
         skip=skip,

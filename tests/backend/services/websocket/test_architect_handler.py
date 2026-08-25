@@ -129,7 +129,7 @@ class TestArchitectHandlerSuccess:
             with (
                 patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
                 patch(
-                    "rhesis.backend.app.crud",
+                    "rhesis.backend.app.crud.architect",
                     mock_crud,
                 ),
                 patch(
@@ -198,7 +198,7 @@ class TestArchitectHandlerSuccess:
 
             with (
                 patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
-                patch("rhesis.backend.app.crud", mock_crud),
+                patch("rhesis.backend.app.crud.architect", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
                     "rhesis.backend.tasks.architect.architect_chat_task",
@@ -235,7 +235,7 @@ class TestArchitectHandlerSuccess:
 
             with (
                 patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
-                patch("rhesis.backend.app.crud", mock_crud),
+                patch("rhesis.backend.app.crud.architect", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
                     "rhesis.backend.tasks.architect.architect_chat_task",
@@ -275,7 +275,7 @@ class TestArchitectHandlerSuccess:
             with (
                 patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
                 patch(
-                    "rhesis.backend.app.crud",
+                    "rhesis.backend.app.crud.architect",
                     mock_crud,
                 ),
                 patch(
@@ -314,7 +314,7 @@ class TestArchitectHandlerSuccess:
             mock_task = MagicMock()
 
             with (
-                patch("rhesis.backend.app.crud", mock_crud),
+                patch("rhesis.backend.app.crud.architect", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch("rhesis.backend.tasks.architect.architect_chat_task", mock_task),
             ):
