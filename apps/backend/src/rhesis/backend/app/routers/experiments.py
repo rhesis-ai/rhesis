@@ -24,6 +24,7 @@ from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import experiment as experiment_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.crud.test_run import get_test_runs
 from rhesis.backend.app.dependencies import (
@@ -81,7 +82,7 @@ def list_experiments(
     belonging to other users are excluded.
     """
     organization_id, user_id = tenant_context
-    rows = crud.get_experiments(
+    rows = experiment_crud.get_experiments(
         db,
         skip=skip,
         limit=limit,
