@@ -6,12 +6,14 @@ import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
 import TestRunsGrid from './components/TestRunsGrid';
 import RunDrawer from '@/components/common/RunDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -25,6 +27,8 @@ export default function TestRunsPage() {
   );
   const canCreateTestRun = useCan(Capability.TestRun.CREATE);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
+  const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
+    useBulkActionsBridge();
 
   useDocumentTitle('Test Runs');
 
@@ -64,6 +68,20 @@ export default function TestRunsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
+            {bulkActionsVisible && (
+              <Can capability={Capability.TestRun.DELETE}>
+                <Fab
+                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  tooltip="Delete Test Runs"
+                  aria-label="Delete Test Runs"
+                  onClick={onBulkDelete}
+                  sx={{
+                    bgcolor: 'error.main',
+                    '&:hover': { bgcolor: 'error.dark' },
+                  }}
+                />
+              </Can>
+            )}
             <Can capability={Capability.TestRun.CREATE}>
               <Fab
                 icon={<FabAddIcon />}
@@ -78,6 +96,7 @@ export default function TestRunsPage() {
           <TestRunsGrid
             canCreate={canCreateTestRun}
             onCreateClick={() => setCreateDrawerOpen(true)}
+            onBulkActionsChange={handleBulkActionsChange}
           />
         </Box>
       </PageLayout>

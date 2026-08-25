@@ -4,12 +4,15 @@ import React, { useState, useCallback, useContext, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
-import { useBulkDelete } from '@/hooks/useBulkDelete';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import ListIcon from '@mui/icons-material/List';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
 import {
@@ -83,6 +86,7 @@ type RunKindFilter = 'all' | 'tests' | 'experiments';
 interface TestRunsGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 function formatReviewTooltip(reviewed: number, corrected: number): string {
@@ -113,6 +117,8 @@ interface TestRunsToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
@@ -123,6 +129,8 @@ const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function TestRunsUnifiedToolbar() {
@@ -134,6 +142,8 @@ function TestRunsUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TestRunsToolbarContext);
 
   return (
@@ -153,6 +163,11 @@ function TestRunsUnifiedToolbar() {
       }
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select test runs"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -164,7 +179,11 @@ function TestRunsUnifiedToolbar() {
 
 // ── Grid component ────────────────────────────────────────────────────────────
 
-function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
+function TestRunsGrid({
+  canCreate,
+  onCreateClick,
+  onBulkActionsChange,
+}: TestRunsGridProps) {
   const { status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -190,6 +209,8 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
 
   // ── Bulk selection + delete ──────────────────────────────────────────────────
   const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
     selectedRows,
     handleSelectionChange,
     pendingDeleteId,
@@ -206,6 +227,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     itemLabelPlural: 'test runs',
     getSkippedCount: response => response.forbidden_ids.length,
     skippedReason: 'not yours to delete',
+    onBulkActionsChange,
   });
 
   // ── Grid state (pagination, filter, sort) ─────────────────────────────────
@@ -714,20 +736,6 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     [setPaginationModel]
   );
 
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: 'Delete',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => requestDelete(),
-      },
-    ];
-  }, [selectedRows.length, requestDelete]);
-
   const runKindToolbar = useMemo(
     () => (
       <ButtonGroup size="small" variant="outlined">
@@ -789,6 +797,8 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             openFilterDrawer: () => setFilterDrawerOpen(true),
             hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
             activeFilterCount: countActiveTestRunFilters(drawerFilters),
+            checkboxSelectionMode,
+            setCheckboxSelectionMode,
           }}
         >
           {error && (
@@ -810,31 +820,34 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             sortModel={sortModel}
             onSortModelChange={handleSortModelChange}
             serverSideFiltering={true}
-            onRowClick={handleRowClick}
+            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
             getRowClassName={params =>
               testRunHighlights.includes(String(params.id))
                 ? HIGHLIGHTED_ROW_CLASS
                 : ''
             }
-            getRowUrl={row => `/test-runs/${row.id}`}
+            getRowUrl={
+              checkboxSelectionMode ? undefined : row => `/test-runs/${row.id}`
+            }
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             gridToolbarExtra={runKindToolbar}
-            actionButtons={getActionButtons()}
             disablePaperWrapper={true}
             showToolbar={true}
             toolbarSlot={TestRunsUnifiedToolbar}
             persistState
             storageKey="test-runs-grid-v2"
             sx={rowActionsHoverSx}
-            checkboxSelection
-            disableRowSelectionOnClick
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
             isRowSelectable={(params: GridRowParams) =>
               can(params.row as unknown as TestRun, Capability.TestRun.DELETE)
             }
-            rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={handleSelectionChange}
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
+            }
           />
 
           <DeleteModal
