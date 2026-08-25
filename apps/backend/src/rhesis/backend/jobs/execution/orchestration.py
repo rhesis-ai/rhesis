@@ -30,6 +30,7 @@ def execute_test_cases(
     trace_id: str = None,
     on_progress=None,
     on_emit=None,
+    on_test_phase=None,
 ) -> Dict[str, Any]:
     """Execute test cases based on the configured execution mode.
 
@@ -41,6 +42,9 @@ def execute_test_cases(
         trace_id: Optional trace ID for trace-based evaluation
         on_progress: Optional callback(current, total) to update job progress
         on_emit: Optional callback(message) to write activity log entries
+        on_test_phase: Optional callback(test_id, phase) for "generating" /
+            "evaluating" transitions, batch mode only (see sequential.py for
+            why the sequential path only ever reports "generating")
     """
 
     test_set = get_test_set(session, str(test_config.test_set_id), str(test_config.organization_id))
@@ -68,6 +72,7 @@ def execute_test_cases(
             trace_id=trace_id,
             on_progress=on_progress,
             on_emit=on_emit,
+            on_test_phase=on_test_phase,
         )
     else:
         return execute_tests_as_batch(
@@ -79,4 +84,5 @@ def execute_test_cases(
             trace_id=trace_id,
             on_progress=on_progress,
             on_emit=on_emit,
+            on_test_phase=on_test_phase,
         )
