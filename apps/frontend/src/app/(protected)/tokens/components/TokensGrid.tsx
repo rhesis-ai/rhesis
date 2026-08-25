@@ -6,6 +6,7 @@ import {
   GridPaginationModel,
   type GridRenderCellParams,
   type GridColDef,
+  type GridRowSelectionModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -100,11 +101,14 @@ interface TokensGridProps {
     tokenId: string,
     expiresInDays: number | null
   ) => Promise<void>;
-  onDeleteToken: (tokenId: string) => Promise<void>;
+  onDeleteToken: (tokenId: string) => void;
   loading: boolean;
   totalCount: number;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
+  selectedRows: GridRowSelectionModel;
+  onSelectionChange: (model: GridRowSelectionModel) => void;
+  actionButtons: React.ComponentProps<typeof BaseDataGrid>['actionButtons'];
 }
 
 export default function TokensGrid({
@@ -118,6 +122,9 @@ export default function TokensGrid({
     page: 0,
     pageSize: 10,
   },
+  selectedRows,
+  onSelectionChange,
+  actionButtons,
 }: TokensGridProps) {
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
@@ -240,9 +247,14 @@ export default function TokensGrid({
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
         toolbarSlot={TokensUnifiedToolbar}
+        actionButtons={actionButtons}
         persistState
         storageKey="tokens-grid"
         sx={rowActionsHoverSx}
+        checkboxSelection
+        disableRowSelectionOnClick
+        rowSelectionModel={selectedRows}
+        onRowSelectionModelChange={onSelectionChange}
       />
       <RefreshTokenModal
         open={refreshModalOpen}

@@ -6,8 +6,14 @@ import { useNotifications } from '@/components/common/NotificationContext';
 interface UseBulkDeleteOptions<TResp> {
   /** Calls the entity's `DELETE .../bulk` client method. */
   bulkDeleteFn: (ids: string[]) => Promise<TResp>;
-  /** Invalidated after a successful delete so the grid refetches. */
-  queryKey: QueryKey;
+  /** Invalidated after a successful delete so the grid refetches. Omit for
+   * grids that don't fetch through react-query (e.g. Tokens) and use
+   * `onSuccess` instead. */
+  queryKey?: QueryKey;
+  /** Called after a successful delete, in addition to any queryKey
+   * invalidation -- for grids that manage their own data fetch/refetch
+   * outside react-query. */
+  onSuccess?: () => void;
   itemLabelSingular: string;
   itemLabelPlural: string;
   /**
@@ -30,6 +36,7 @@ interface UseBulkDeleteOptions<TResp> {
 export function useBulkDelete<TResp = void>({
   bulkDeleteFn,
   queryKey,
+  onSuccess,
   itemLabelSingular,
   itemLabelPlural,
   getSkippedCount,
@@ -102,7 +109,10 @@ export function useBulkDelete<TResp = void>({
       }
 
       setSelectedRows([]);
-      queryClient.invalidateQueries({ queryKey });
+      if (queryKey) {
+        queryClient.invalidateQueries({ queryKey });
+      }
+      onSuccess?.();
     } catch {
       notifications.show(`Failed to delete ${itemLabelPlural}`, {
         severity: 'error',
@@ -125,6 +135,7 @@ export function useBulkDelete<TResp = void>({
     notifications,
     queryClient,
     queryKey,
+    onSuccess,
   ]);
 
   return {
