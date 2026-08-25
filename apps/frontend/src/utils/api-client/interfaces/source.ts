@@ -57,3 +57,8 @@ export interface SourcesQueryParams extends PaginationParams {
   $filter?: string;
   source_type_id?: UUID;
 }
+
+export interface SourceBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+}

@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from './config';
 import { readActiveProjectId } from '../active-project';
 import {
   Source,
+  SourceBulkDeleteResponse,
   SourceCreate,
   SourceUpdate,
   SourcesQueryParams,
@@ -117,6 +118,16 @@ export class SourcesClient extends BaseApiClient {
     return this.fetch<void>(`${API_ENDPOINTS.sources}/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteSources(
+    sourceIds: string[]
+  ): Promise<SourceBulkDeleteResponse> {
+    return this.bulkDelete<SourceBulkDeleteResponse>(
+      API_ENDPOINTS.sources,
+      'source_ids',
+      sourceIds
+    );
   }
 
   async uploadSource(
