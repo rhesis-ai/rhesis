@@ -4,6 +4,7 @@ import {
   AutoConfigureRequest,
   AutoConfigureResult,
   Endpoint,
+  EndpointBulkDeleteResponse,
   EndpointTestRequest,
 } from './interfaces/endpoint';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -57,6 +58,16 @@ export class EndpointsClient extends BaseApiClient {
     return this.fetch(`${API_ENDPOINTS.endpoints}/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteEndpoints(
+    endpointIds: string[]
+  ): Promise<EndpointBulkDeleteResponse> {
+    return this.bulkDelete<EndpointBulkDeleteResponse>(
+      API_ENDPOINTS.endpoints,
+      'endpoint_ids',
+      endpointIds
+    );
   }
 
   async invokeEndpoint(
