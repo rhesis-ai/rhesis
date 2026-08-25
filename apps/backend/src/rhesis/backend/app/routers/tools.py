@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import tool as tool_crud
+from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.dependencies import (
     get_project_context,
     get_tenant_context,
@@ -262,7 +264,9 @@ def create_tool(
     """
     organization_id, user_id = tenant_context
 
-    provider_type = crud.get_type_lookup(db, tool.tool_provider_type_id, organization_id, user_id)
+    provider_type = type_lookup_crud.get_type_lookup(
+        db, tool.tool_provider_type_id, organization_id, user_id
+    )
     if provider_type:
         if provider_type.type_value == "jira":
             if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
@@ -288,7 +292,7 @@ def create_tool(
             _validate_azure_devops_project(tool.tool_metadata)
             tool = tool.model_copy(update={"credentials": prepared_credentials})
 
-    return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
+    return tool_crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
 
 @router.get("/", response_model=List[schemas.ToolDetail])
@@ -310,7 +314,7 @@ def read_tools(
     Note: credentials is excluded from the response for security.
     """
     organization_id, user_id = tenant_context
-    tools = crud.get_tools(
+    tools = tool_crud.get_tools(
         db=db,
         skip=skip,
         limit=limit,
@@ -336,7 +340,9 @@ def read_tool(
     Note: credentials is excluded from the response for security.
     """
     organization_id, user_id = tenant_context
-    tool = crud.get_tool(db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id)
+    tool = tool_crud.get_tool(
+        db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
+    )
     if tool is None:
         raise HTTPException(status_code=404, detail="Tool not found")
     return tool
@@ -358,7 +364,7 @@ def update_tool(
     """
     organization_id, user_id = tenant_context
 
-    existing_tool = crud.get_tool(
+    existing_tool = tool_crud.get_tool(
         db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
     )
     if not existing_tool:
@@ -369,7 +375,9 @@ def update_tool(
         if tool.tool_provider_type_id is not None
         else existing_tool.tool_provider_type_id
     )
-    provider_type = crud.get_type_lookup(db, effective_provider_type_id, organization_id, user_id)
+    provider_type = type_lookup_crud.get_type_lookup(
+        db, effective_provider_type_id, organization_id, user_id
+    )
 
     _validate_provider_type_switch(existing_tool, tool, provider_type)
 
@@ -423,7 +431,7 @@ def update_tool(
             _validate_azure_devops_credentials(merged_credentials)
             tool = tool.model_copy(update={"credentials": merged_credentials})
 
-    db_tool = crud.update_tool(
+    db_tool = tool_crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
     )
     if db_tool is None:
@@ -512,7 +520,7 @@ async def test_tool_connection(
         effective_metadata = request.tool_metadata
 
         if request.tool_id and request.credentials is not None:
-            existing_tool = crud.get_tool(
+            existing_tool = tool_crud.get_tool(
                 db=db,
                 tool_id=uuid.UUID(request.tool_id),
                 organization_id=organization_id,
@@ -631,7 +639,7 @@ def delete_tool(
     Delete a tool (soft delete).
     """
     organization_id, user_id = tenant_context
-    db_tool = crud.delete_tool(
+    db_tool = tool_crud.delete_tool(
         db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
     )
     if db_tool is None:

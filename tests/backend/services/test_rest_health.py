@@ -29,13 +29,13 @@ class TestRunRestHealthCheck:
         mock_client.health_check = AsyncMock(return_value=_OK)
 
         with (
-            patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.health.tool_crud") as mock_tool_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.health.build_client",
                 return_value=mock_client,
             ) as mock_build,
         ):
-            mock_crud.get_tool.return_value = tool
+            mock_tool_crud.get_tool.return_value = tool
             result = await run_rest_health_check(
                 db, "org", tool_id=str(uuid.uuid4()), user_id="user"
             )
@@ -52,13 +52,15 @@ class TestRunRestHealthCheck:
         mock_client.health_check = AsyncMock(return_value=_OK)
 
         with (
-            patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud,
+            patch(
+                "rhesis.backend.app.services.tool.rest.health.type_lookup_crud"
+            ) as mock_type_lookup_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.health.build_client",
                 return_value=mock_client,
             ) as mock_build,
         ):
-            mock_crud.get_type_lookup.return_value = provider_type
+            mock_type_lookup_crud.get_type_lookup.return_value = provider_type
             result = await run_rest_health_check(
                 db,
                 "org",
@@ -82,13 +84,13 @@ class TestRunRestHealthCheck:
         scope_metadata = {"repository": {"owner": "o", "repo": "r2"}}
 
         with (
-            patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud,
+            patch("rhesis.backend.app.services.tool.rest.health.tool_crud") as mock_tool_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.health.build_client",
                 return_value=mock_client,
             ),
         ):
-            mock_crud.get_tool.return_value = tool
+            mock_tool_crud.get_tool.return_value = tool
             await run_rest_health_check(
                 db,
                 "org",
@@ -101,22 +103,24 @@ class TestRunRestHealthCheck:
 
     async def test_tool_not_found_raises(self):
         db = Mock(spec=Session)
-        with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:
-            mock_crud.get_tool.return_value = None
+        with patch("rhesis.backend.app.services.tool.rest.health.tool_crud") as mock_tool_crud:
+            mock_tool_crud.get_tool.return_value = None
             with pytest.raises(ToolConfigurationError, match="not found"):
                 await run_rest_health_check(db, "org", tool_id=str(uuid.uuid4()))
 
     async def test_deleted_tool_raises(self):
         db = Mock(spec=Session)
-        with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:
-            mock_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
+        with patch("rhesis.backend.app.services.tool.rest.health.tool_crud") as mock_tool_crud:
+            mock_tool_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
             with pytest.raises(ToolConfigurationError, match="has been deleted"):
                 await run_rest_health_check(db, "org", tool_id=str(uuid.uuid4()))
 
     async def test_unknown_provider_type_raises(self):
         db = Mock(spec=Session)
-        with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:
-            mock_crud.get_type_lookup.return_value = None
+        with patch(
+            "rhesis.backend.app.services.tool.rest.health.type_lookup_crud"
+        ) as mock_type_lookup_crud:
+            mock_type_lookup_crud.get_type_lookup.return_value = None
             with pytest.raises(ToolConfigurationError, match="not found"):
                 await run_rest_health_check(
                     db, "org", provider_type_id=uuid.uuid4(), credentials={}

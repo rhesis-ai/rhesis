@@ -6,7 +6,8 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import tool as tool_crud
+from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
@@ -30,7 +31,7 @@ async def run_rest_health_check(
     metadata = tool_metadata
     if tool_id is not None:
         try:
-            tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+            tool = tool_crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
         except ItemDeletedException:
             raise ToolConfigurationError(f"Tool '{tool_id}' has been deleted.")
         if not tool:
@@ -44,7 +45,9 @@ async def run_rest_health_check(
         if metadata is None:
             metadata = tool.tool_metadata
     else:
-        provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
+        provider_type = type_lookup_crud.get_type_lookup(
+            db, provider_type_id, organization_id, user_id
+        )
         if not provider_type:
             raise ToolConfigurationError(f"Provider type '{provider_type_id}' not found.")
         provider = provider_type.type_value

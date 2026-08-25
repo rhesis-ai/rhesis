@@ -6,7 +6,8 @@ from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import tool as tool_crud
+from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp import MCPClientFactory
@@ -61,7 +62,7 @@ def _get_mcp_tool_config(
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Return MCP client, provider name, and optional provider scope context."""
     try:
-        tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+        tool = tool_crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     except ItemDeletedException:
         raise ToolConfigurationError(
             f"Tool '{tool_id}' has been deleted. Please re-import the source."
@@ -99,7 +100,7 @@ def _get_mcp_client_from_params(
     tool_metadata: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Build an MCP client from unsaved credentials (connection test before save)."""
-    provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
+    provider_type = type_lookup_crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
 
     if not provider_type:
         raise ValueError(

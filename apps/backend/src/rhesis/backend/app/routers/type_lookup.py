@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -35,7 +36,7 @@ def create_type_lookup(
 ):
     """Create a new type lookup."""
     organization_id, user_id = tenant_context
-    return crud.create_type_lookup(
+    return type_lookup_crud.create_type_lookup(
         db=db, type_lookup=type_lookup, organization_id=organization_id, user_id=user_id
     )
 
@@ -55,7 +56,7 @@ def read_type_lookups(
 ):
     """Get all type lookups with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_type_lookups(
+    return type_lookup_crud.get_type_lookups(
         db=db,
         skip=skip,
         limit=limit,
@@ -76,7 +77,7 @@ def read_type_lookup(
 ):
     """Get a type lookup by ID."""
     organization_id, user_id = tenant_context
-    db_type_lookup = crud.get_type_lookup(
+    db_type_lookup = type_lookup_crud.get_type_lookup(
         db, type_lookup_id=type_lookup_id, organization_id=organization_id, user_id=user_id
     )
     if db_type_lookup is None:
@@ -93,7 +94,7 @@ def delete_type_lookup(
 ):
     """Delete a type lookup by ID."""
     organization_id, user_id = tenant_context
-    db_type_lookup = crud.delete_type_lookup(
+    db_type_lookup = type_lookup_crud.delete_type_lookup(
         db, type_lookup_id=type_lookup_id, organization_id=organization_id, user_id=user_id
     )
     if db_type_lookup is None:
@@ -111,7 +112,7 @@ def update_type_lookup(
 ):
     """Update a type lookup by ID."""
     organization_id, user_id = tenant_context
-    db_type_lookup = crud.update_type_lookup(
+    db_type_lookup = type_lookup_crud.update_type_lookup(
         db,
         type_lookup_id=type_lookup_id,
         type_lookup=type_lookup,

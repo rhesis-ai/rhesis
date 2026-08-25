@@ -8,8 +8,9 @@ from typing import Any, Dict, List
 import httpx
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import schemas
 from rhesis.backend.app.crud import task as task_crud
+from rhesis.backend.app.crud import tool as tool_crud
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
 
 logger = logging.getLogger(__name__)
@@ -164,7 +165,7 @@ async def create_jira_ticket_from_task(
     if not isinstance(client, JiraRestClient):
         raise ValueError(f"Tool '{tool_id}' is not a Jira integration")
 
-    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+    tool = tool_crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
         raise ValueError("Jira tool is not configured with a space_key")
 

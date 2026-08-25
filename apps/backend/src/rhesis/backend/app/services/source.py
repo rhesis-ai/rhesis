@@ -6,8 +6,9 @@ from typing import Optional
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.crud import source as source_crud
+from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.services.chunking import auto_chunk_source
 from rhesis.backend.app.services.handlers import get_source_handler
 
@@ -30,7 +31,7 @@ def get_source_type_by_value(
     Returns:
         TypeLookup: The source type, or None if not found
     """
-    return crud.get_type_lookup_by_name_and_value(
+    return type_lookup_crud.get_type_lookup_by_name_and_value(
         db, type_name="SourceType", type_value=source_type_value, organization_id=organization_id
     )
 
@@ -178,7 +179,7 @@ def validate_source_for_extraction(
         raise ValueError("Source has no type specified")
 
     # Get source type details
-    source_type = crud.get_type_lookup(
+    source_type = type_lookup_crud.get_type_lookup(
         db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
     )
     if not source_type:
@@ -214,7 +215,7 @@ async def extract_source_content(
     db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
 
     # Get source type to determine handler
-    source_type = crud.get_type_lookup(
+    source_type = type_lookup_crud.get_type_lookup(
         db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
     )
     if not source_type:
@@ -268,7 +269,7 @@ async def get_source_file_content(
     db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
 
     # Get source type to determine handler
-    source_type = crud.get_type_lookup(
+    source_type = type_lookup_crud.get_type_lookup(
         db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
     )
     if not source_type:
