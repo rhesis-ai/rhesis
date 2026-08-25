@@ -742,6 +742,7 @@ def execute_test_set_on_endpoint(
         RuntimeError: For execution errors
     """
     from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import endpoint as endpoint_crud
 
     logger.info(
         f"Starting test set execution for identifier: {test_set_identifier} "
@@ -765,7 +766,7 @@ def execute_test_set_on_endpoint(
 
     # Verify endpoint exists
     logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-    db_endpoint = crud.get_endpoint(
+    db_endpoint = endpoint_crud.get_endpoint(
         db,
         endpoint_id=endpoint_id,
         organization_id=str(current_user.organization_id),

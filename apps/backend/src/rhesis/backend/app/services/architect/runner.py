@@ -363,10 +363,10 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
         name = endpoint_id
         description = ""
         try:
-            from rhesis.backend.app import crud
+            from rhesis.backend.app.crud import endpoint as endpoint_crud
 
             with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-                ep = crud.get_endpoint(
+                ep = endpoint_crud.get_endpoint(
                     db, endpoint_id, organization_id=org_id, user_id=user_id, project_id=project_id
                 )
                 if ep:

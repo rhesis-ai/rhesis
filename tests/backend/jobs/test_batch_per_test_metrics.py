@@ -208,7 +208,7 @@ class TestPrefetchMetricResolution:
                 return_value=test_set,
             ),
             patch(
-                "rhesis.backend.app.crud.get_endpoint",
+                "rhesis.backend.app.crud.endpoint.get_endpoint",
                 return_value=endpoint,
             ),
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
@@ -294,7 +294,7 @@ class TestPrefetchMetricResolution:
                 return_value=test_set,
             ),
             patch(
-                "rhesis.backend.app.crud.get_endpoint",
+                "rhesis.backend.app.crud.endpoint.get_endpoint",
                 return_value=endpoint,
             ),
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
@@ -412,7 +412,7 @@ class TestPrefetchFallthroughToPerTest:
                 return_value=test_set,
             ),
             patch(
-                "rhesis.backend.app.crud.get_endpoint",
+                "rhesis.backend.app.crud.endpoint.get_endpoint",
                 return_value=endpoint,
             ),
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),

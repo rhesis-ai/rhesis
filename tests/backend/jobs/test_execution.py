@@ -253,7 +253,7 @@ class TestBackendEndpointTargetStateless:
                 return_value=mock_endpoint_service,
             ),
             patch(
-                "rhesis.backend.jobs.execution.penelope_target.crud.get_endpoint",
+                "rhesis.backend.jobs.execution.penelope_target.endpoint_crud.get_endpoint",
                 return_value=mock_endpoint,
             ),
         ):
@@ -491,7 +491,7 @@ class TestBackendEndpointTargetConversationContext:
                 return_value=mock_endpoint_service,
             ),
             patch(
-                "rhesis.backend.jobs.execution.penelope_target.crud.get_endpoint"
+                "rhesis.backend.jobs.execution.penelope_target.endpoint_crud.get_endpoint"
             ) as mock_get_endpoint,
         ):
             # Mock endpoint exists
@@ -544,7 +544,7 @@ class TestBackendEndpointTargetConversationContext:
                 return_value=mock_endpoint_service,
             ),
             patch(
-                "rhesis.backend.jobs.execution.penelope_target.crud.get_endpoint"
+                "rhesis.backend.jobs.execution.penelope_target.endpoint_crud.get_endpoint"
             ) as mock_get_endpoint,
         ):
             # Mock endpoint exists
@@ -598,7 +598,7 @@ class TestBackendEndpointTargetConversationContext:
                 return_value=mock_endpoint_service,
             ),
             patch(
-                "rhesis.backend.jobs.execution.penelope_target.crud.get_endpoint"
+                "rhesis.backend.jobs.execution.penelope_target.endpoint_crud.get_endpoint"
             ) as mock_get_endpoint,
         ):
             # Mock endpoint exists
