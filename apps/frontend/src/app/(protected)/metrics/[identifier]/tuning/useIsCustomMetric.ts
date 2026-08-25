@@ -13,17 +13,13 @@ import type { UUID } from 'crypto';
  * on a `rhesis` metric (the detail page serves those too) and every call it
  * made would come back 400.
  *
- * Fails closed: false while loading, on error, and whenever `enabled` is false,
- * so the tab never flashes in for a metric that cannot use it.
+ * Fails closed: false while loading and on error, so the tab never flashes in
+ * for a metric that cannot use it.
  */
-export function useIsCustomMetric(metricId: string, enabled: boolean): boolean {
+export function useIsCustomMetric(metricId: string): boolean {
   const [isCustom, setIsCustom] = useState(false);
 
   useEffect(() => {
-    // Skip the request entirely when the feature is off, which is every
-    // deployment -- otherwise viewing any metric costs an extra fetch for a tab
-    // nobody can see.
-    if (!enabled) return;
     let cancelled = false;
 
     const check = async () => {
@@ -44,7 +40,7 @@ export function useIsCustomMetric(metricId: string, enabled: boolean): boolean {
     return () => {
       cancelled = true;
     };
-  }, [metricId, enabled]);
+  }, [metricId]);
 
   return isCustom;
 }

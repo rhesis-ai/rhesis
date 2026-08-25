@@ -4,12 +4,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
-  Chip,
   CircularProgress,
+  Grid,
   IconButton,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   GridColDef,
   GridColumnGroupingModel,
@@ -19,13 +20,19 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import SectionCard from '@/components/common/SectionCard';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
-import { BetaBadge } from '@/components/common/BetaBadge';
-import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import GridBadge from '@/components/common/GridBadge';
+import SummaryCard from '@/components/common/SummaryCard';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
   AddIcon,
+  CancelIcon,
+  CheckCircleIcon,
   PlayArrowIcon,
   ThumbDownFilledIcon,
   ThumbDownIcon,
@@ -62,20 +69,30 @@ const ERRORED_HINT =
 const NO_AGREEMENT_HINT =
   'Agreement is the share of judged cases you accepted. Nothing has been judged yet, so there is no share to report — a set nobody has looked at is not a set the metric got right.';
 
-/** Renders long free text on one line with the full value in a tooltip. */
-function TruncatedCell({ params }: { params: GridRenderCellParams }) {
-  const value = typeof params.value === 'string' ? params.value : '';
+/** Two-line clamp for free text in a grid cell, as the test run grids use. */
+const CELL_TEXT_SX = {
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical' as const,
+};
+
+/** Renders long free text clamped to two lines, in full in a tooltip. */
+function TextCell({ value }: { value: string }) {
+  if (!value) return <span>—</span>;
   return (
-    <Box
-      title={value}
-      sx={{
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {value || '—'}
-    </Box>
+    <Tooltip title={value} enterDelay={500}>
+      <Typography variant="body2" sx={CELL_TEXT_SX}>
+        {value}
+      </Typography>
+    </Tooltip>
+  );
+}
+
+function TruncatedCell({ params }: { params: GridRenderCellParams }) {
+  return (
+    <TextCell value={typeof params.value === 'string' ? params.value : ''} />
   );
 }
 
@@ -94,46 +111,42 @@ function MetricVerdictCell({
   params: GridRenderCellParams;
   scoreType: ScoreType;
 }) {
+  const theme = useTheme();
   const result = params.row.result as MetricTuningCase['result'];
   if (!result) return <span>—</span>;
+
+  const tinted = (label: string, tone: 'success' | 'error' | 'warning') => (
+    <GridBadge
+      label={label}
+      sx={{
+        bgcolor: alpha(theme.palette[tone].main, 0.12),
+        color: `${tone}.dark`,
+      }}
+    />
+  );
+
   if (result.error) {
     return (
       <Tooltip title={result.error}>
-        <Chip label="Error" size="small" color="warning" variant="outlined" />
+        <Box component="span" sx={{ display: 'inline-flex' }}>
+          {tinted('Error', 'warning')}
+        </Box>
       </Tooltip>
     );
   }
   if (!result.verdict) return <span>—</span>;
+  // Untinted, so a numeric 0.8 is not painted red for being below 1.
   if (scoreType !== 'binary') {
-    return <Chip label={result.verdict} size="small" variant="outlined" />;
+    return <GridBadge label={result.verdict} />;
   }
   const isPass = result.verdict.toLowerCase() === 'pass';
-  return (
-    <Chip
-      label={result.verdict}
-      size="small"
-      variant="outlined"
-      color={isPass ? 'success' : 'error'}
-    />
-  );
+  return tinted(result.verdict, isPass ? 'success' : 'error');
 }
 
 /** The metric's own reasoning for the verdict it gave — what to edit against. */
 function MetricReasoningCell({ params }: { params: GridRenderCellParams }) {
   const result = params.row.result as MetricTuningCase['result'];
-  const value = result?.reasoning ?? '';
-  return (
-    <Box
-      title={value}
-      sx={{
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {value || '—'}
-    </Box>
-  );
+  return <TextCell value={result?.reasoning ?? ''} />;
 }
 
 /**
@@ -257,40 +270,78 @@ function InvalidatedMark() {
  * it is.
  *
  * The denominator is the whole point. Unreviewed and errored cases are counted
- * out of the ratio and reported beside it: counting either one in produces a
- * plausible figure meaning something other than what its reader thinks — a set
- * nobody looked at reading as perfect, or a flaky provider reading as a bad
- * metric. The judged count sits next to the number for the same reason, so
- * three out of three does not read like a solved problem.
+ * out of the ratio and reported in their own tile: counting either one in
+ * produces a plausible figure meaning something other than what its reader
+ * thinks — a set nobody looked at reading as perfect, or a flaky provider
+ * reading as a bad metric. The judged count sits under the number for the same
+ * reason, so three out of three does not read like a solved problem.
  */
 function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
-  const { ratio, judged, unreviewed, errored } = agreement;
+  const { ratio, judged, accepted, rejected, unreviewed, errored } = agreement;
   const total = judged + unreviewed + errored;
+  const percent = ratio === null ? null : Math.round(ratio * 100);
 
-  const qualifiers = [
-    judged > 0
-      ? `over ${judged} of ${total} ${total === 1 ? 'case' : 'cases'} judged`
-      : 'nothing judged yet',
+  const outstanding = [
     unreviewed > 0 ? `${unreviewed} unreviewed` : null,
     errored > 0 ? `${errored} the metric could not be reached on` : null,
   ].filter(Boolean);
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
-      <Typography variant="body2" color="text.secondary">
-        Agreement
-      </Typography>
-      <Typography
-        variant="h6"
-        component="span"
-        title={ratio === null ? NO_AGREEMENT_HINT : undefined}
-      >
-        {ratio === null ? '—' : `${Math.round(ratio * 100)}%`}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {qualifiers.join(' · ')}
-      </Typography>
-    </Box>
+    <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Box title={percent === null ? NO_AGREEMENT_HINT : undefined}>
+          <SummaryCard
+            title="Agreement"
+            value={percent === null ? '—' : `${percent}%`}
+            subtitle={
+              percent === null
+                ? 'Nothing judged yet'
+                : `${accepted} of ${judged} ${judged === 1 ? 'case' : 'cases'} accepted`
+            }
+            icon={
+              percent === null ? (
+                <TuneIcon />
+              ) : percent > 66 ? (
+                <CheckCircleIcon />
+              ) : percent >= 33 ? (
+                <WarningAmberIcon />
+              ) : (
+                <CancelIcon />
+              )
+            }
+            color={
+              percent === null
+                ? 'info'
+                : percent > 66
+                  ? 'success'
+                  : percent >= 33
+                    ? 'warning'
+                    : 'error'
+            }
+          />
+        </Box>
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <SummaryCard
+          title="Rejected"
+          value={rejected}
+          subtitle={`of ${judged} judged`}
+          icon={<CancelIcon />}
+          color="error"
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <SummaryCard
+          title="Cases"
+          value={total}
+          subtitle={
+            outstanding.length > 0 ? outstanding.join(' · ') : 'All judged'
+          }
+          icon={<TuneIcon />}
+          color="primary"
+        />
+      </Grid>
+    </Grid>
   );
 }
 
@@ -364,6 +415,10 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
   const [run, setRun] = useState<MetricTuningRun | null>(null);
   const [starting, setStarting] = useState(false);
   const [acceptingRest, setAcceptingRest] = useState(false);
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 25,
+  });
 
   const fetchCases = useCallback(async () => {
     setLoading(true);
@@ -595,6 +650,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         headerName: 'Input',
         flex: 1,
         minWidth: 180,
+        disableColumnMenu: true,
         renderCell: params => <TruncatedCell params={params} />,
       },
       {
@@ -602,6 +658,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         headerName: 'Output',
         flex: 2,
         minWidth: 220,
+        disableColumnMenu: true,
         renderCell: params => <TruncatedCell params={params} />,
       },
     ];
@@ -611,6 +668,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         headerName: 'Reference answer',
         flex: 1,
         minWidth: 160,
+        disableColumnMenu: true,
         renderCell: params => <TruncatedCell params={params} />,
       });
     }
@@ -623,6 +681,9 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         width: 140,
         // Reads the nested `result`, which no single field sorts by.
         sortable: false,
+        disableColumnMenu: true,
+        align: 'center',
+        headerAlign: 'center',
         renderCell: params => (
           <MetricVerdictCell params={params} scoreType={scoreType} />
         ),
@@ -634,6 +695,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
           flex: 1.5,
           minWidth: 180,
           sortable: false,
+          disableColumnMenu: true,
           renderCell: params => <MetricReasoningCell params={params} />,
         });
       }
@@ -647,6 +709,9 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
             width: 120,
             // The cell reads `outcome`, `review` and `result` together.
             sortable: false,
+            disableColumnMenu: true,
+            align: 'center',
+            headerAlign: 'center',
             renderCell: params => (
               <ReviewCell
                 params={params}
@@ -716,12 +781,9 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
     c => c.outcome === 'unreviewed' && Boolean(c.result?.verdict)
   );
 
-  // The badge sits in `actions`, not `subtitle`: SectionCard wraps the subtitle
-  // in a <Typography> (a <p>), and Chip renders a <div>.
   const isRunning = run?.status === 'running';
   const actions = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-      <BetaBadge />
       {canEdit && cases.length > 0 && (
         <Button
           variant="outlined"
@@ -782,8 +844,12 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
               columnGroupingModel={columnGroupingModel}
               loading={loading}
               getRowId={row => String(row.id)}
+              paginationModel={paginationModel}
+              onPaginationModelChange={setPaginationModel}
+              pageSizeOptions={[10, 25, 50, 100]}
               showToolbar={false}
               disableMultipleRowSelection
+              sx={rowActionsHoverSx}
             />
           </>
         )}
