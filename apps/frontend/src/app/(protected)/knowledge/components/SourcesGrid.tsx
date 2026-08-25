@@ -1,10 +1,17 @@
 'use client';
 
-import React, { useState, useCallback, useContext, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
-  GridFilterModel,
   GridRowParams,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -26,7 +33,10 @@ import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
-import { combineSourceFiltersToOData } from '@/utils/odata-filter';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { directoryListParams } from '@/utils/directory';
+import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { sourcesDirectory } from './directory';
 import { ChatIcon, MenuBookIcon } from '@/components/icons';
 import { formatFileSize, getFileExtension } from '@/constants/knowledge';
 import { formatDate } from '@/utils/date';
@@ -36,13 +46,10 @@ import SourceFilterDrawer, {
   hasActiveSourceFilters,
   countActiveSourceFilters,
 } from './SourceFilterDrawer';
-import { sourceKeys } from '@/constants/query-keys';
 import {
   useBulkDelete,
   type BulkDeleteActionsState,
 } from '@/hooks/useBulkDelete';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -51,6 +58,11 @@ interface SourcesGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: Source[];
+  initialTotalCount?: number;
+  /** Bumped by the page after an upload/import succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 interface SourcesToolbarState {
@@ -112,6 +124,9 @@ export default function SourcesGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
+  initialData,
+  initialTotalCount,
+  refreshTrigger,
 }: SourcesGridProps) {
   const router = useRouter();
   const { status } = useSession();
@@ -123,6 +138,53 @@ export default function SourcesGrid({
   const [drawerFilters, setDrawerFilters] =
     useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
+
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      sourceType: drawerFilters.sourceType,
+      creator: drawerFilters.creator,
+      tag: drawerFilters.tag,
+    }),
+    [searchQuery, drawerFilters]
+  );
+
+  const sort = useMemo(
+    () => ({
+      by: sortModel[0]?.field || 'created_at',
+      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
+    }),
+    [sortModel]
+  );
+
+  const {
+    data: sources,
+    totalCount,
+    isLoading: loading,
+    error,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<Source>({
+    fetchPage: ({ skip, limit }) =>
+      sourcesDirectory.list(
+        new ApiClientFactory(),
+        directoryListParams(sourcesDirectory, {
+          page: skip / limit + 1,
+          pageSize: limit,
+          sort,
+          filters,
+        })
+      ),
+    filterFingerprint: JSON.stringify({ filters, sort }),
+    defaultPageSize: sourcesDirectory.defaultPageSize,
+    initialData,
+    initialTotalCount,
+    enabled: isAuthenticated(status),
+  });
 
   const {
     checkboxSelectionMode,
@@ -138,93 +200,37 @@ export default function SourcesGrid({
   } = useBulkDelete({
     bulkDeleteFn: (ids: string[]) =>
       new ApiClientFactory().getSourcesClient().bulkDeleteSources(ids),
-    queryKey: sourceKeys.all(),
+    onSuccess: refresh,
     itemLabelSingular: 'source',
     itemLabelPlural: 'sources',
     onBulkActionsChange,
   });
 
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    sortModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-    handleSortModelChange,
-  } = useGridState({
-    searchQuery,
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) => {
-        const DRAWER_FIELDS = ['source_type.type_value', 'user.name', 'tags'];
-        const otherItems = prev.items.filter(
-          item => !DRAWER_FIELDS.includes(item.field ?? '')
-        );
-        const drawerItems: typeof prev.items = [];
-        if (drawerFilters.sourceType) {
-          drawerItems.push({
-            id: 'source_type.type_value',
-            field: 'source_type.type_value',
-            operator: 'equals',
-            value: drawerFilters.sourceType,
-          });
-        }
-        if (drawerFilters.creator) {
-          drawerItems.push({
-            id: 'user.name',
-            field: 'user.name',
-            operator: 'contains',
-            value: drawerFilters.creator,
-          });
-        }
-        if (drawerFilters.tag) {
-          drawerItems.push({
-            id: 'tags',
-            field: 'tags',
-            operator: 'contains',
-            value: drawerFilters.tag,
-          });
-        }
-        const newItems = [...otherItems, ...drawerItems];
-        return { ...prev, items: newItems };
-      },
-      [drawerFilters]
-    ),
-  });
-
-  const filterString = combineSourceFiltersToOData(filterModel);
-  const sortField = sortModel[0]?.field || 'created_at';
-  const sortOrder = (sortModel[0]?.sort || 'desc') as 'asc' | 'desc';
-
-  const {
-    data: sourcesData,
-    isLoading: loading,
-    errorMessage: error,
-  } = useGridQuery({
-    queryKey: sourceKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      sortField,
-      sortOrder
-    ),
-    errorFallbackMessage: 'Failed to load knowledge sources',
-    queryFn: () => {
-      const client = new ApiClientFactory().getSourcesClient();
-      return client.getSources({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: sortField,
-        sort_order: sortOrder,
-        ...(filterString && { $filter: filterString }),
-      });
+  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (model.pageSize !== pageSize) {
+        onRowsPerPageChange(model.pageSize);
+      } else {
+        onPageChange(model.page);
+      }
     },
-    enabled: isAuthenticated(status),
-  });
+    [pageSize, onPageChange, onRowsPerPageChange]
+  );
+  const handleSortModelChange = useCallback((model: GridSortModel) => {
+    setSortModel(model);
+  }, []);
 
-  const sources = sourcesData?.data ?? [];
-  const totalCount = sourcesData?.pagination.totalCount ?? 0;
+  const isFirstRefreshTrigger = useRef(true);
+  useEffect(() => {
+    if (isFirstRefreshTrigger.current) {
+      isFirstRefreshTrigger.current = false;
+      return;
+    }
+    refresh();
+    // Only refreshTrigger (bumped by the page after an upload/import) should re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
@@ -488,14 +494,11 @@ export default function SourcesGrid({
     );
   }
 
-  const filtersActive =
-    filterModel.items.length > 0 ||
-    !!searchQuery ||
-    hasActiveSourceFilters(drawerFilters);
+  const filtersActive = !!searchQuery || hasActiveSourceFilters(drawerFilters);
 
   return (
     <GridStateGate
-      data={sourcesData}
+      data={loading ? null : {}}
       error={error}
       isEmpty={totalCount === 0 && !filtersActive}
       emptyState={
@@ -519,12 +522,9 @@ export default function SourcesGrid({
             showToolbar={true}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
-            filterModel={gridFilterModel}
-            onFilterModelChange={handleFilterModelChange}
             sortModel={sortModel}
             onSortModelChange={handleSortModelChange}
             serverSidePagination={true}
-            serverSideFiltering={true}
             sortingMode="server"
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
