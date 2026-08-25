@@ -4,7 +4,9 @@ Tests the two run endpoints:
 - POST /metrics/{metric_id}/tuning/run
 - GET  /metrics/{metric_id}/tuning/run
 
-plus what a run leaves behind on the case list.
+plus what a run leaves behind on the case list, and the agreement the run
+endpoint reports over it -- which is derived from the stored reviews on every
+read rather than written down anywhere.
 
 The metric invocation is stubbed throughout, which is what makes these
 deterministic and free of LLM calls. Celery is stubbed too: this codebase tests
@@ -1006,6 +1008,196 @@ class TestRunsAndStandingReviews:
         assert [review["comment"] for review in _stored_reviews(test_db, rejected["id"])] == [
             REVIEW_COMMENT
         ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestAgreement:
+    """The one number for the whole set, read off GET /tuning/run.
+
+    Agreement is the share of judged cases the reviewer accepted. Nothing is
+    compared for equality — there is no stored expected verdict to compare
+    against (ADR-0005) — so every one of these goes through a real review.
+
+    The denominator is what these are actually about. Counting unreviewed cases
+    as accepted, or errored ones as rejected, both produce a plausible figure
+    that means something other than what its reader thinks.
+    """
+
+    def _agreement(self, client: TestClient, metric_id) -> dict:
+        response = client.get(f"/metrics/{metric_id}/tuning/run")
+        assert response.status_code == status.HTTP_200_OK, response.text
+        return response.json()["agreement"]
+
+    def test_agreement_is_accepted_over_accepted_plus_rejected(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        kept = _create_case(authenticated_client, tuning_metric.id)
+        wrong = _create_case(authenticated_client, tuning_metric.id, input="The second one")
+        _run(
+            test_db,
+            tuning_metric,
+            test_org_id,
+            by_input={
+                CASE_INPUT: {"score": 1.0, "reason": "fine"},
+                "The second one": {"score": 0.0, "reason": "toxic"},
+            },
+        )
+        _review(authenticated_client, tuning_metric.id, kept["id"], "accepted")
+        _review(authenticated_client, tuning_metric.id, wrong["id"], "rejected", REVIEW_COMMENT)
+
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+
+        assert agreement["ratio"] == 0.5
+        assert agreement["judged"] == 2
+        assert agreement["accepted"] == 1
+        assert agreement["rejected"] == 1
+
+    def test_the_judged_count_travels_with_the_ratio(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """Three out of three must not read like a solved problem."""
+        for index in range(3):
+            _create_case(authenticated_client, tuning_metric.id, input=f"Case {index}")
+        _run(
+            test_db,
+            tuning_metric,
+            test_org_id,
+            *[{"score": 1.0, "reason": "fine"}] * 3,
+        )
+        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/reviews/accept-rest")
+
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+
+        assert agreement["ratio"] == 1.0
+        assert agreement["judged"] == 3
+
+    def test_a_set_nobody_has_reviewed_has_no_agreement_rather_than_full_agreement(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "fine"})
+
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+
+        assert agreement["ratio"] is None
+        assert agreement["judged"] == 0
+        assert agreement["unreviewed"] == 1
+
+    def test_unreviewed_cases_are_left_out_of_the_ratio_and_reported_beside_it(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """Counting them in is what makes a set nobody looked at report itself perfect."""
+        judged = _create_case(authenticated_client, tuning_metric.id)
+        _create_case(authenticated_client, tuning_metric.id, input="The second one")
+        _create_case(authenticated_client, tuning_metric.id, input="The third one")
+        _run(
+            test_db,
+            tuning_metric,
+            test_org_id,
+            *[{"score": 0.0, "reason": "toxic"}] * 3,
+        )
+        _review(authenticated_client, tuning_metric.id, judged["id"], "rejected", REVIEW_COMMENT)
+
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+
+        assert agreement["ratio"] == 0.0
+        assert agreement["judged"] == 1
+        assert agreement["unreviewed"] == 2
+        assert agreement["accepted"] == 0
+
+    def test_errored_cases_are_reported_apart_rather_than_read_as_disagreement(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """A flaky provider must never drag the number down."""
+        reached = _create_case(authenticated_client, tuning_metric.id)
+        _create_case(authenticated_client, tuning_metric.id, input="The second one")
+        _run(
+            test_db,
+            tuning_metric,
+            test_org_id,
+            by_input={
+                CASE_INPUT: {"score": 1.0, "reason": "fine"},
+                "The second one": RuntimeError("provider unreachable"),
+            },
+        )
+        _review(authenticated_client, tuning_metric.id, reached["id"], "accepted")
+
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+
+        assert agreement["ratio"] == 1.0
+        assert agreement["judged"] == 1
+        assert agreement["errored"] == 1
+        assert agreement["rejected"] == 0
+        assert agreement["unreviewed"] == 0
+
+    def test_a_metric_that_has_never_been_run_has_no_agreement(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """One shape either way, so the tab has nothing to branch on."""
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+
+        assert agreement["ratio"] is None
+        assert agreement["judged"] == 0
+
+    def test_a_review_a_re_run_invalidated_stops_counting_at_once(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """Nothing is cached, so the drop shows on the next read rather than the
+        next write. A held-over number is the shortcut this rules out."""
+        case = _create_case(authenticated_client, numeric_metric.id)
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
+        _review(authenticated_client, numeric_metric.id, case["id"], "accepted")
+        assert self._agreement(authenticated_client, numeric_metric.id)["ratio"] == 1.0
+
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.2, "reason": "off topic now"})
+
+        agreement = self._agreement(authenticated_client, numeric_metric.id)
+        assert agreement["ratio"] is None
+        assert agreement["judged"] == 0
+        assert agreement["unreviewed"] == 1
+
+    def test_a_review_that_survived_a_re_run_keeps_counting(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """The other half of the same rule: ordinary drift is not a change."""
+        case = _create_case(authenticated_client, numeric_metric.id)
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
+        _review(authenticated_client, numeric_metric.id, case["id"], "accepted")
+
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.81, "reason": "still relevant"})
+
+        agreement = self._agreement(authenticated_client, numeric_metric.id)
+        assert agreement["ratio"] == 1.0
+        assert agreement["judged"] == 1
 
 
 @pytest.mark.integration

@@ -67,6 +67,27 @@ export interface MetricTuningCase {
 export type TuningRunStatus = 'never_run' | 'running' | 'completed' | 'failed';
 
 /**
+ * How much of what the metric said the reviewer accepted — the one number to
+ * watch while editing an evaluation prompt.
+ *
+ * `ratio` is null when nothing has been judged, never 1 — a set nobody has
+ * looked at has no agreement rather than a perfect one. Unreviewed and errored
+ * cases are counted out of it and reported beside it instead.
+ */
+export interface MetricTuningAgreement {
+  /** accepted / (accepted + rejected), or null when nothing has been judged. */
+  ratio: number | null;
+  /** The denominator. Never show the ratio without it. */
+  judged: number;
+  accepted: number;
+  rejected: number;
+  /** Left out of the ratio, never counted as accepted. */
+  unreviewed: number;
+  /** The metric call failed — left out too, and reported apart. */
+  errored: number;
+}
+
+/**
  * A metric's latest tuning run. Only the latest is kept — a new run overwrites
  * the previous one.
  */
@@ -81,6 +102,11 @@ export interface MetricTuningRun {
   errored_cases: number;
   /** Why the run as a whole failed. One case failing does not fail a run. */
   error: string | null;
+  /**
+   * Recomputed from the stored reviews on every read, so a review recorded
+   * between runs moves it without a run.
+   */
+  agreement: MetricTuningAgreement;
 }
 
 export interface MetricTuningCaseCreate {
