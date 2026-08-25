@@ -6,11 +6,12 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
+from rhesis.backend.app.crud import organization as organization_crud
 from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.dependencies import (
     get_db_session,
@@ -50,7 +51,9 @@ def create_organization(
 ):
     # owner_id and user_id are always set server-side from the authenticated caller —
     # the client-supplied values are ignored so the onboarding flow cannot forge ownership.
-    return crud.create_organization(db=db, organization=organization, owner_user_id=current_user.id)
+    return organization_crud.create_organization(
+        db=db, organization=organization, owner_user_id=current_user.id
+    )
 
 
 @router.get("/", response_model=list[schemas.Organization])
@@ -69,7 +72,7 @@ def read_organizations(
     """Get all organizations with their related objects"""
     try:
         organization_id, user_id = tenant_context
-        return crud.get_organizations(
+        return organization_crud.get_organizations(
             db=db,
             skip=skip,
             limit=limit,
@@ -92,7 +95,7 @@ def read_organization(
 ):
     try:
         tenant_organization_id, user_id = tenant_context
-        db_organization = crud.get_organization(
+        db_organization = organization_crud.get_organization(
             db,
             organization_id=organization_id,
             tenant_organization_id=tenant_organization_id,
@@ -115,7 +118,7 @@ def update_organization(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    db_organization = crud.update_organization(
+    db_organization = organization_crud.update_organization(
         db, organization_id=organization_id, organization=organization
     )
     if db_organization is None:
@@ -135,7 +138,7 @@ def initialize_organization_data(
 ):
     """Load initial data for an organization if onboarding is not complete."""
     try:
-        org = crud.get_organization(db, organization_id=organization_id)
+        org = organization_crud.get_organization(db, organization_id=organization_id)
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
 
@@ -271,7 +274,7 @@ def rollback_organization_data(
     """Rollback initial data for an organization."""
     try:
         print(f"Rolling back initial data for organization {organization_id}")
-        org = crud.get_organization(db, organization_id=organization_id)
+        org = organization_crud.get_organization(db, organization_id=organization_id)
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
 

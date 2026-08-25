@@ -30,8 +30,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import organization as organization_crud
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.comment import add_emoji_reaction, remove_emoji_reaction
@@ -57,7 +58,7 @@ class TestCRUDTransactionManagement:
         org_create = schemas.OrganizationCreate(**org_data)
 
         # Create organization
-        result = crud.create_organization(test_db, org_create)
+        result = organization_crud.create_organization(test_db, org_create)
 
         # Verify organization was created and persisted
         assert result is not None
@@ -84,7 +85,7 @@ class TestCRUDTransactionManagement:
         # Mock db.add to raise an exception to test rollback
         with patch.object(test_db, "add", side_effect=IntegrityError("", "", "")):
             with pytest.raises(IntegrityError):
-                crud.create_organization(test_db, org_create)
+                organization_crud.create_organization(test_db, org_create)
 
         # Verify no organization was created (transaction rolled back)
         final_count = test_db.query(models.Organization).count()
@@ -328,7 +329,7 @@ class TestCRUDTransactionManagement:
         org_data1["user_id"] = str(authenticated_user.id)
         org_create1 = schemas.OrganizationCreate(**org_data1)
 
-        result1 = crud.create_organization(test_db, org_create1)
+        result1 = organization_crud.create_organization(test_db, org_create1)
         assert result1 is not None
 
         # Create second organization
@@ -338,7 +339,7 @@ class TestCRUDTransactionManagement:
         org_data2["user_id"] = str(authenticated_user.id)
         org_create2 = schemas.OrganizationCreate(**org_data2)
 
-        result2 = crud.create_organization(test_db, org_create2)
+        result2 = organization_crud.create_organization(test_db, org_create2)
         assert result2 is not None
 
         # Verify both organizations exist independently
@@ -366,7 +367,7 @@ class TestCRUDTransactionManagement:
         org_data1["user_id"] = str(authenticated_user.id)
         org_create1 = schemas.OrganizationCreate(**org_data1)
 
-        result1 = crud.create_organization(test_db, org_create1)
+        result1 = organization_crud.create_organization(test_db, org_create1)
         assert result1 is not None
 
         # Try to create second organization with exception
@@ -378,7 +379,7 @@ class TestCRUDTransactionManagement:
 
         with patch.object(test_db, "add", side_effect=IntegrityError("", "", "")):
             with pytest.raises(IntegrityError):
-                crud.create_organization(test_db, org_create2)
+                organization_crud.create_organization(test_db, org_create2)
 
         # Verify first organization still exists (not affected by second failure)
         db_org1 = (

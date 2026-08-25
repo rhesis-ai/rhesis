@@ -18,8 +18,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 # Import backend modules
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.crud import organization as organization_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import create_token
 from rhesis.backend.app.database import get_database_url
@@ -64,7 +65,7 @@ def create_test_organization(db: Session, name: str = "Test Organization") -> mo
         is_onboarding_complete=False,  # Will be set to True after initial data load
     )
 
-    organization = crud.create_organization(db, org_data)
+    organization = organization_crud.create_organization(db, org_data)
     print(f"✅ Created test organization: {organization.name} (ID: {organization.id})")
 
     return organization
