@@ -333,8 +333,11 @@ class TestSetSynthesizer(ABC):
         if remaining > 0:
             offset = len(all_test_cases)
             sequential_tests = self._generate_with_retry(
-                remaining, on_progress=on_progress, progress_offset=offset,
-                progress_total=num_tests, **template_context,
+                remaining,
+                on_progress=on_progress,
+                progress_offset=offset,
+                progress_total=num_tests,
+                **template_context,
             )
             all_test_cases.extend(sequential_tests)
 
@@ -546,9 +549,7 @@ class TestSetSynthesizer(ABC):
                 num_tests, on_progress=on_progress, **kwargs
             )
         else:
-            tests = self._generate_without_sources(
-                num_tests, on_progress=on_progress, **kwargs
-            )
+            tests = self._generate_without_sources(num_tests, on_progress=on_progress, **kwargs)
 
         logger.info(
             "[Synthesizer] Test generation phase complete: %d tests in %.1fs, creating TestSet...",

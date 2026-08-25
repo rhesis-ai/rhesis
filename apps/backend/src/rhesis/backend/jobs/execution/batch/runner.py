@@ -94,7 +94,11 @@ async def _run_gather(
         result: Dict[str, Any] = {}
         try:
             result = await _execute_single_test(
-                ctx, test_id, semaphore, penelope_agent, evaluator,
+                ctx,
+                test_id,
+                semaphore,
+                penelope_agent,
+                evaluator,
                 on_emit=on_emit,
             )
             status = result.get("status", "completed")
@@ -219,8 +223,14 @@ async def run_batch(
     # --- Main pass ---
     total = len(test_ids)
     results = await _run_gather(
-        ctx, test_ids, semaphore, penelope_agent, evaluator,
-        on_progress=on_progress, progress_base=0, progress_total=total,
+        ctx,
+        test_ids,
+        semaphore,
+        penelope_agent,
+        evaluator,
+        on_progress=on_progress,
+        progress_base=0,
+        progress_total=total,
         on_emit=on_emit,
     )
 
@@ -374,6 +384,7 @@ async def _execute_single_test(
                     from rhesis.backend.app.utils.response_extractor import (
                         get_http_error_status_code,
                     )
+
                     code = get_http_error_status_code(output)
                     on_emit(f"  Endpoint returned HTTP {code}, skipping metrics")
             elif evaluator and ctx.get_metric_configs_for_test(test_id):

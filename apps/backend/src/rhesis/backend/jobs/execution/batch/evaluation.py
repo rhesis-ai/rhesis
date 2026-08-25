@@ -57,7 +57,11 @@ async def evaluate_metrics(
         if is_multi_turn:
             metrics_results.update(
                 await _evaluate_multi_turn_metrics(
-                    ctx, evaluator, test, output, test_metric_configs,
+                    ctx,
+                    evaluator,
+                    test,
+                    output,
+                    test_metric_configs,
                     on_metric_complete=on_metric_complete,
                 )
             )

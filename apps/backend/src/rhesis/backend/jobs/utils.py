@@ -53,9 +53,7 @@ def get_test_run_by_task_id(
     from rhesis.backend.app.models.test_run import TestRun
 
     try:
-        query = db.query(TestRun).filter(
-            TestRun.attributes["task_id"].astext == task_id
-        )
+        query = db.query(TestRun).filter(TestRun.attributes["task_id"].astext == task_id)
         if organization_id:
             query = query.filter(TestRun.organization_id == organization_id)
         return query.first()

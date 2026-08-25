@@ -52,7 +52,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
       <Typography variant="caption" color="text.secondary" display="block">
         {label}
       </Typography>
-      <Typography variant="body2" component="div">{value}</Typography>
+      <Typography variant="body2" component="div">
+        {value}
+      </Typography>
     </Box>
   );
 }
@@ -80,12 +82,8 @@ export default function JobDetailPage() {
 
   const enabled = isAuthenticated(sessionStatus) && canRead && jobId !== '';
 
-  const {
-    isConnected,
-    subscribe,
-    subscribeToChannel,
-    unsubscribeFromChannel,
-  } = useWebSocketContext();
+  const { isConnected, subscribe, subscribeToChannel, unsubscribeFromChannel } =
+    useWebSocketContext();
 
   const channel = `job:${jobId}`;
 
@@ -267,10 +265,7 @@ export default function JobDetailPage() {
               <Field label="Type" value={job.job_type} />
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}>
-              <Field
-                label="Started by"
-                value={job.user_display_name ?? '—'}
-              />
+              <Field label="Started by" value={job.user_display_name ?? '—'} />
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}>
               <Field label="Queued" value={formatTimestamp(job.queued_at)} />

@@ -198,8 +198,11 @@ class OWASPSynthesizer(TestSetSynthesizer):
             context = self._build_section_context(section, **kwargs)
             offset = len(all_tests)
             tests = self._generate_with_retry(
-                n, on_progress=on_progress, progress_offset=offset,
-                progress_total=num_tests, **context,
+                n,
+                on_progress=on_progress,
+                progress_offset=offset,
+                progress_total=num_tests,
+                **context,
             )
             for t in tests:
                 # Trust the computed topic, not the LLM's echo of it (schema

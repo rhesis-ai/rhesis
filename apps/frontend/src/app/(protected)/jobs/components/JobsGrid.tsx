@@ -146,7 +146,11 @@ function ProgressCell({ job }: { job: Job }) {
           })}
         />
       )}
-      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ whiteSpace: 'nowrap' }}
+      >
         {current}/{total}
       </Typography>
     </Box>
