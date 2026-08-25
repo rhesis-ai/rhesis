@@ -3,7 +3,7 @@ Metric evaluation for batch tests.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.response_extractor import (
@@ -27,6 +27,7 @@ async def evaluate_metrics(
     expected_response: str,
     is_multi_turn: bool,
     penelope_metrics: Dict[str, Any],
+    on_emit: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """Run async metric evaluation, returning merged results."""
     # HTTP errors are not model answers; do not score metrics against them.
@@ -37,13 +38,23 @@ async def evaluate_metrics(
         )
         return {}
 
+    on_metric_complete = None
+    if on_emit:
+
+        def on_metric_complete(metric_key: str, result: Dict[str, Any]) -> None:
+            passed = result.get("is_successful")
+            score = result.get("score", "?")
+            label = "passed" if passed else ("failed" if passed is False else "scored")
+            on_emit(f"  {metric_key}: {label} ({score})")
+
     metrics_results = dict(penelope_metrics)
     test_metric_configs = ctx.get_metric_configs_for_test(test_id)
     try:
         if is_multi_turn:
             metrics_results.update(
                 await _evaluate_multi_turn_metrics(
-                    ctx, evaluator, test, output, test_metric_configs
+                    ctx, evaluator, test, output, test_metric_configs,
+                    on_metric_complete=on_metric_complete,
                 )
             )
         else:
@@ -56,6 +67,7 @@ async def evaluate_metrics(
                     prompt_content,
                     expected_response,
                     test_metric_configs,
+                    on_metric_complete=on_metric_complete,
                 )
             )
     except Exception as e:
@@ -69,6 +81,7 @@ async def _evaluate_multi_turn_metrics(
     test: Test,
     output: Dict[str, Any],
     metric_configs: list,
+    on_metric_complete: Any = None,
 ) -> Dict[str, Any]:
     from rhesis.backend.jobs.execution.constants import CONVERSATION_SUMMARY_KEY
     from rhesis.backend.jobs.execution.evaluation import (
@@ -110,6 +123,7 @@ async def _evaluate_multi_turn_metrics(
         context=_collect_conversation_context(conversation_summary),
         metrics=filtered_configs,
         conversation_history=conversation_history,
+        on_metric_complete=on_metric_complete,
     )
 
 
@@ -121,6 +135,7 @@ async def _evaluate_single_turn_metrics(
     prompt_content: str,
     expected_response: str,
     metric_configs: list,
+    on_metric_complete: Any = None,
 ) -> Dict[str, Any]:
     from rhesis.backend.app.utils.response_extractor import (
         extract_response_with_fallback,
@@ -157,6 +172,7 @@ async def _evaluate_single_turn_metrics(
         metrics=metric_configs,
         metadata=metadata,
         tool_calls=tool_calls,
+        on_metric_complete=on_metric_complete,
     )
 
 

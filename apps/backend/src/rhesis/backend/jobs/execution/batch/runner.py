@@ -79,21 +79,37 @@ async def _run_gather(
     on_progress: Any = None,
     progress_base: int = 0,
     progress_total: int = 0,
+    on_emit: Any = None,
 ) -> List[Dict[str, Any]]:
     """Fan out test_ids as asyncio Tasks and gather results."""
     completed_count = 0
 
     async def _tracked(test_id: str) -> Dict[str, Any]:
         nonlocal completed_count
+        td = ctx.test_data.get(test_id)
+        test_obj = td.get("test") if td else None
+        cat_obj = getattr(test_obj, "category", None)
+        category = getattr(cat_obj, "name", None) or ""
+        status = "failed"
         try:
-            return await _execute_single_test(
+            result = await _execute_single_test(
                 ctx, test_id, semaphore, penelope_agent, evaluator,
+                on_emit=on_emit,
             )
+            status = result.get("status", "completed")
+            return result
         finally:
             completed_count += 1
+            current = progress_base + completed_count
             if on_progress and progress_total:
                 try:
-                    on_progress(progress_base + completed_count, progress_total)
+                    on_progress(current, progress_total)
+                except Exception:
+                    pass
+            if on_emit and progress_total:
+                try:
+                    label = f" — {category}" if category else ""
+                    on_emit(f"Test {current}/{progress_total} {status}{label}")
                 except Exception:
                     pass
 
@@ -135,6 +151,7 @@ async def run_batch(
     ctx: ExecutionContext,
     test_ids: List[str],
     on_progress: Any = None,
+    on_emit: Any = None,
 ) -> List[Dict[str, Any]]:
     """Async entry point: run all tests with semaphore-gated concurrency.
 
@@ -201,6 +218,7 @@ async def run_batch(
     results = await _run_gather(
         ctx, test_ids, semaphore, penelope_agent, evaluator,
         on_progress=on_progress, progress_base=0, progress_total=total,
+        on_emit=on_emit,
     )
 
     # --- Recovery pass passes ---
@@ -265,6 +283,7 @@ async def _execute_single_test(
     semaphore: asyncio.Semaphore,
     penelope_agent: Any = None,
     evaluator: Any = None,
+    on_emit: Any = None,
 ) -> Dict[str, Any]:
     """Unified coroutine for both single-turn and multi-turn tests."""
     async with semaphore:
@@ -360,6 +379,7 @@ async def _execute_single_test(
                     expected_response,
                     is_multi_turn,
                     penelope_metrics,
+                    on_emit=on_emit,
                 )
             else:
                 metrics_results = dict(penelope_metrics)

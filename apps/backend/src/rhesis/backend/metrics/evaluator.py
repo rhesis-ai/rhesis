@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
-from rhesis.backend.metrics.strategies.base import MetricStrategy
+from rhesis.backend.metrics.strategies.base import MetricStrategy, OnMetricComplete
 from rhesis.backend.metrics.strategies.connector import (
     ConnectorMetricSender,
     ConnectorStrategy,
@@ -188,6 +188,7 @@ class MetricEvaluator:
         tool_calls: Optional[List[Dict[str, Any]]] = None,
         instructions: Optional[str] = None,
         contract: Optional[Dict[str, Any]] = None,
+        on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
         """Async version of evaluate — dispatches backends concurrently.
 
@@ -218,6 +219,7 @@ class MetricEvaluator:
                 tool_calls=tool_calls,
                 instructions=instructions,
                 contract=contract,
+                on_metric_complete=on_metric_complete,
             )
 
         backend_results = await asyncio.gather(

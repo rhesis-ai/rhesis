@@ -6,9 +6,11 @@ allowing MetricEvaluator to dispatch to different strategies (local, sdk, etc.)
 without being coupled to their concrete implementations.
 """
 
-from typing import Any, Dict, List, Protocol
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 
 from rhesis.sdk.metrics import MetricConfig
+
+OnMetricComplete = Optional[Callable[[str, Dict[str, Any]], None]]
 
 
 class MetricStrategy(Protocol):
@@ -60,6 +62,7 @@ class MetricStrategy(Protocol):
         tool_calls: List[Dict[str, Any]] | None = None,
         instructions: str | None = None,
         contract: Dict[str, Any] | None = None,
+        on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
         """Async version of evaluate using asyncio.gather instead of threads."""
         ...

@@ -345,3 +345,145 @@ class TestSequentialExecutionNarration:
             )
 
         assert emit_calls == ["Test 1/1 failed"]
+
+
+@pytest.mark.unit
+class TestMetricLevelNarration:
+    """evaluate_metrics wraps on_emit into per-metric feedback."""
+
+    def test_emits_per_metric_result(self):
+        from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
+
+        ctx = MagicMock()
+        ctx.get_metric_configs_for_test.return_value = ["cfg"]
+
+        evaluator = MagicMock()
+
+        async def _fake_a_evaluate(**kwargs):
+            cb = kwargs.get("on_metric_complete")
+            if cb:
+                cb("Toxicity", {"is_successful": True, "score": 0.95})
+                cb("Relevance", {"is_successful": False, "score": 0.3})
+                cb("Coherence", {"is_successful": None, "score": 0.7})
+            return {"Toxicity": {}, "Relevance": {}, "Coherence": {}}
+
+        evaluator.a_evaluate = _fake_a_evaluate
+
+        test = MagicMock()
+        test.test_configuration = {}
+        test.test_metadata = {}
+
+        emit_calls = []
+
+        async def _fake_single_turn(_ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None):
+            return await ev.a_evaluate(
+                input_text=_prompt, output_text="resp", expected_output=_expected,
+                context=[], metrics=_configs, on_metric_complete=on_metric_complete,
+            )
+
+        with patch(
+            "rhesis.backend.jobs.execution.batch.evaluation._evaluate_single_turn_metrics",
+            side_effect=_fake_single_turn,
+        ):
+            result = asyncio.run(
+                evaluate_metrics(
+                    ctx, evaluator, test, "t1",
+                    {"response": "hello"}, "prompt", "expected",
+                    False, {},
+                    on_emit=lambda m: emit_calls.append(m),
+                )
+            )
+
+        assert len(emit_calls) == 3
+        assert "Toxicity: passed (0.95)" in emit_calls[0]
+        assert "Relevance: failed (0.3)" in emit_calls[1]
+        assert "Coherence: scored (0.7)" in emit_calls[2]
+
+    def test_no_emit_without_callback(self):
+        from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
+
+        ctx = MagicMock()
+        ctx.get_metric_configs_for_test.return_value = ["cfg"]
+
+        evaluator = MagicMock()
+
+        async def _fake_a_evaluate(**kwargs):
+            assert kwargs.get("on_metric_complete") is None
+            return {}
+
+        evaluator.a_evaluate = _fake_a_evaluate
+
+        test = MagicMock()
+        test.test_configuration = {}
+        test.test_metadata = {}
+
+        async def _fake_single_turn(_ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None):
+            return await ev.a_evaluate(
+                input_text=_prompt, output_text="resp", expected_output=_expected,
+                context=[], metrics=_configs, on_metric_complete=on_metric_complete,
+            )
+
+        with patch(
+            "rhesis.backend.jobs.execution.batch.evaluation._evaluate_single_turn_metrics",
+            side_effect=_fake_single_turn,
+        ):
+            result = asyncio.run(
+                evaluate_metrics(
+                    ctx, evaluator, test, "t1",
+                    {"response": "hello"}, "prompt", "expected",
+                    False, {},
+                )
+            )
+        assert result == {}
+
+
+@pytest.mark.unit
+class TestBatchExecutionNarration:
+    """The batch runner calls on_emit after each test completes."""
+
+    def test_reports_per_test_narration(self):
+        from rhesis.backend.jobs.execution.batch.runner import run_batch
+
+        ctx = MagicMock()
+        ctx.batch_concurrency = 4
+        ctx.per_test_timeout = 60
+        ctx.recovery_rounds = 0
+        ctx.celery_task_id = None
+
+        cat1 = MagicMock()
+        cat1.name = "Prompt Injection"
+        test1 = MagicMock()
+        test1.category = cat1
+        cat2 = MagicMock()
+        cat2.name = "Data Leakage"
+        test2 = MagicMock()
+        test2.category = cat2
+        ctx.test_data = {
+            "t1": {"test": test1},
+            "t2": {"test": test2},
+        }
+
+        emit_calls = []
+        progress_calls = []
+
+        async def _fake_single(ctx, test_id, semaphore, agent, evaluator, on_emit=None):
+            return {"test_id": test_id, "status": "succeeded", "execution_time": 10}
+
+        with patch(
+            "rhesis.backend.jobs.execution.batch.runner._execute_single_test",
+            side_effect=_fake_single,
+        ):
+            results = asyncio.run(
+                run_batch(
+                    ctx,
+                    ["t1", "t2"],
+                    on_progress=lambda c, t: progress_calls.append((c, t)),
+                    on_emit=lambda m: emit_calls.append(m),
+                )
+            )
+
+        assert len(results) == 2
+        assert progress_calls == [(1, 2), (2, 2)]
+        assert emit_calls[0].startswith("Test 1/2 succeeded")
+        assert emit_calls[1].startswith("Test 2/2 succeeded")
+        assert any("Prompt Injection" in m or "Data Leakage" in m for m in emit_calls)
