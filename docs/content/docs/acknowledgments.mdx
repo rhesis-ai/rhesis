@@ -5,7 +5,7 @@ description: Third-party software acknowledgments and attributions
 
 # Acknowledgments
 
-Rhesis includes and depends on the open-source projects below. Thanks to their developers and maintainers.
+Rhesis includes and depends on the open-source projects below, and uses the standards and reports listed at the end. Thanks to their developers, maintainers, and authors.
 
 ## Evaluation Frameworks
 
@@ -63,9 +63,26 @@ Rhesis optionally uses the Transformers library for machine learning model integ
 - **License**: Apache License 2.0
 - **Copyright**: Copyright 2018 The Hugging Face team
 
+## Standards and Reports
+
+### OWASP Top 10 - LLM and Agentic AI
+
+Rhesis generates security test sets from the published OWASP Top 10 reports. The report is downloaded at generation time and its risk-section text is used as context for the generator, so the tests follow the report rather than a hardcoded attack list. The seeded OWASP judge metrics quote the reports in their rubrics.
+
+- **Website**: [owasp.org](https://owasp.org)
+- **Project**: [genai.owasp.org](https://genai.owasp.org)
+- **Reports**: OWASP Top 10 for Large Language Model Applications v2025, OWASP Top 10 for Agentic AI
+- **License**: Creative Commons Attribution-ShareAlike 4.0 International
+- **Copyright**: Copyright © 2003-2025 The OWASP® Foundation, Inc.
+
+OWASP® is a registered trademark of the OWASP Foundation. The OWASP Foundation is not affiliated with any technology company, and its material is used here under the license above — Rhesis is neither affiliated with nor endorsed by the OWASP Foundation.
+
 ## License Information
 
 The full text of the Apache License, Version 2.0 is available at:
 [apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
+
+The full text of the Creative Commons Attribution-ShareAlike 4.0 International license is available at:
+[creativecommons.org/licenses/by-sa/4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 For complete attribution details, see the [NOTICE](https://github.com/rhesis-ai/rhesis/blob/main/NOTICE) file in the repository root.
