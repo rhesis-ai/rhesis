@@ -372,6 +372,8 @@ def sync_test_set(
             current_user=current_user,
             db=db,
             test_set_id=test_set_id,
+            entity_type="TestSet",
+            entity_id=test_set_id,
         )
 
         return GarakSyncTaskResponse(
