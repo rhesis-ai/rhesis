@@ -14,7 +14,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
@@ -134,7 +134,7 @@ class BackendEndpointTarget(Target):
     def _load_endpoint_metadata(self) -> None:
         """Load endpoint metadata for descriptions and documentation."""
         try:
-            endpoint = crud.get_endpoint(
+            endpoint = endpoint_crud.get_endpoint(
                 self.db,
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
@@ -183,7 +183,7 @@ class BackendEndpointTarget(Target):
             return False, "Database session is None and no pre-fetched endpoint provided"
 
         try:
-            endpoint = crud.get_endpoint(
+            endpoint = endpoint_crud.get_endpoint(
                 self.db,
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,

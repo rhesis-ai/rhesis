@@ -7,7 +7,8 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.enums import (
     EndpointConfigSource,
@@ -221,7 +222,9 @@ async def sync_sdk_endpoints(
                     },
                 )
 
-                endpoint = crud.create_endpoint(db, endpoint_data, organization_id, user_id)
+                endpoint = endpoint_crud.create_endpoint(
+                    db, endpoint_data, organization_id, user_id
+                )
                 db.flush()  # Flush to get endpoint ID but don't commit yet
 
                 # Generate mappings for new endpoint

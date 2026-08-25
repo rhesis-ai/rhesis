@@ -5,7 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud.explorer import (
     get_test_set_metrics,
     set_test_set_default_endpoint,
@@ -67,7 +68,7 @@ def get_explorer_settings(
     endpoint_ref = None
     endpoint_id = parse_explorer_test_set_attributes(test_set.attributes).default_endpoint_id
     if endpoint_id is not None:
-        endpoint = crud.get_endpoint(
+        endpoint = endpoint_crud.get_endpoint(
             db=db,
             endpoint_id=endpoint_id,
             organization_id=organization_id,
@@ -94,7 +95,7 @@ def update_explorer_settings(
         raise ValueError("Test set is not configured for Explorer")
 
     if default_endpoint_id is not None:
-        endpoint = crud.get_endpoint(
+        endpoint = endpoint_crud.get_endpoint(
             db=db,
             endpoint_id=default_endpoint_id,
             organization_id=organization_id,

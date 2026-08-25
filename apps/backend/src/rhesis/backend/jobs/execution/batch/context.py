@@ -138,7 +138,7 @@ def prefetch_execution_context(
     trace_id: Optional[str] = None,
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
-    from rhesis.backend.app.crud import get_endpoint
+    from rhesis.backend.app.crud import endpoint as endpoint_crud
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.models.requirement import Requirement
@@ -160,7 +160,7 @@ def prefetch_execution_context(
     # immediately instead of retrying against a row that will never come back.
     test_set = get_test_set(session, str(test_config.test_set_id), organization_id)
 
-    endpoint = get_endpoint(
+    endpoint = endpoint_crud.get_endpoint(
         session,
         test_config.endpoint_id,
         organization_id,

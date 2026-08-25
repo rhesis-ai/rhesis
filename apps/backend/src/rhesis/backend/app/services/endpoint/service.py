@@ -403,11 +403,13 @@ class EndpointService:
         project_id: str = None,
     ) -> Endpoint:
         """Fetch an endpoint by ID, applying organization and project security filtering."""
-        from rhesis.backend.app.crud import get_endpoint
+        from rhesis.backend.app.crud import endpoint as endpoint_crud
         from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
         try:
-            endpoint = get_endpoint(db, endpoint_id, organization_id, None, project_id=project_id)
+            endpoint = endpoint_crud.get_endpoint(
+                db, endpoint_id, organization_id, None, project_id=project_id
+            )
         except ItemDeletedException:
             raise HTTPException(status_code=410, detail="Endpoint has been deleted")
         if not endpoint:

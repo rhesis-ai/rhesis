@@ -12,6 +12,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -474,7 +475,7 @@ async def execute_test_endpoint(
         validate_user_evaluation_model(db, current_user)
 
         # Validate endpoint exists
-        db_endpoint = crud.get_endpoint(
+        db_endpoint = endpoint_crud.get_endpoint(
             db,
             endpoint_id=request.endpoint_id,
             organization_id=organization_id,

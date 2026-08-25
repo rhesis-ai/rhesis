@@ -13,6 +13,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY
+from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
@@ -1040,7 +1041,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                 skip = 0
                 page_size = 100
                 while True:
-                    batch = crud.get_endpoints(
+                    batch = endpoint_crud.get_endpoints(
                         db=db,
                         organization_id=organization_id,
                         user_id=user_id,

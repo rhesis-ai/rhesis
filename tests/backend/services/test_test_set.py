@@ -244,7 +244,7 @@ class TestTestSetExecution:
         # Mock all the dependencies
         with (
             patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
-            patch("rhesis.backend.app.crud.get_endpoint") as mock_get_endpoint,
+            patch("rhesis.backend.app.crud.endpoint.get_endpoint") as mock_get_endpoint,
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access"
             ) as mock_validate_access,
@@ -361,7 +361,7 @@ class TestTestSetExecution:
         # Mock dependencies
         with (
             patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
-            patch("rhesis.backend.app.crud.get_endpoint") as mock_get_endpoint,
+            patch("rhesis.backend.app.crud.endpoint.get_endpoint") as mock_get_endpoint,
         ):
             mock_resolve_test_set.return_value = test_set
             mock_get_endpoint.return_value = None
@@ -455,7 +455,7 @@ class TestTestSetExecution:
 
         with (
             patch("rhesis.backend.app.crud.resolve_test_set", return_value=test_set),
-            patch("rhesis.backend.app.crud.get_endpoint", return_value=endpoint),
+            patch("rhesis.backend.app.crud.endpoint.get_endpoint", return_value=endpoint),
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access",
                 return_value=None,
@@ -535,7 +535,7 @@ class TestTestSetExecution:
         # Mock all the dependencies
         with (
             patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
-            patch("rhesis.backend.app.crud.get_endpoint") as mock_get_endpoint,
+            patch("rhesis.backend.app.crud.endpoint.get_endpoint") as mock_get_endpoint,
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access"
             ) as mock_validate_access,

@@ -70,10 +70,10 @@ class TestEndpointService:
         self, test_db: Session, db_endpoint_minimal: Endpoint
     ):
         """A soft-deleted endpoint must surface as 410, not a bare 404."""
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import endpoint as endpoint_crud
 
         organization_id = str(db_endpoint_minimal.organization_id)
-        crud.delete_endpoint(
+        endpoint_crud.delete_endpoint(
             test_db,
             db_endpoint_minimal.id,
             organization_id=organization_id,

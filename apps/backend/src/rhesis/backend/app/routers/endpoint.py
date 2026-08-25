@@ -7,7 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -92,7 +92,7 @@ def create_endpoint(
         if active_status:
             endpoint.status_id = active_status.id
 
-    new_endpoint = crud.create_endpoint(
+    new_endpoint = endpoint_crud.create_endpoint(
         db=db,
         endpoint=endpoint,
         organization_id=organization_id,
@@ -124,7 +124,7 @@ def read_endpoints(
 ):
     """Get all endpoints with their related objects"""
     organization_id, user_id = tenant_context
-    results = crud.get_endpoints(
+    results = endpoint_crud.get_endpoints(
         db=db,
         skip=skip,
         limit=limit,
@@ -276,7 +276,7 @@ async def test_endpoint_mapping(
     frontend test unsaved mapping edits without the auth token ever reaching the browser.
     """
     organization_id, user_id = tenant_context
-    endpoint = crud.get_endpoint(
+    endpoint = endpoint_crud.get_endpoint(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if not endpoint:
@@ -304,7 +304,7 @@ def read_endpoint(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.get_endpoint(
+    db_endpoint = endpoint_crud.get_endpoint(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if db_endpoint is None:
@@ -320,7 +320,7 @@ def delete_endpoint(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.delete_endpoint(
+    db_endpoint = endpoint_crud.delete_endpoint(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if db_endpoint is None:
@@ -337,7 +337,7 @@ def update_endpoint(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_endpoint = crud.update_endpoint(
+    db_endpoint = endpoint_crud.update_endpoint(
         db,
         endpoint_id=endpoint_id,
         endpoint=endpoint,
@@ -434,7 +434,7 @@ def explore_endpoint_route(
     """
     organization_id, user_id = tenant_context
 
-    db_endpoint = crud.get_endpoint(
+    db_endpoint = endpoint_crud.get_endpoint(
         db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
     )
     if db_endpoint is None:
