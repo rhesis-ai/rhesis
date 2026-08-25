@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Paper, Alert } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import TokensGrid, {
   TokensToolbarContext,
   type TokenStatusFilter,
@@ -133,6 +133,8 @@ export default function TokensPageClient() {
   };
 
   const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
     selectedRows,
     handleSelectionChange,
     pendingDeleteId,
@@ -149,19 +151,10 @@ export default function TokensPageClient() {
     itemLabelPlural: 'tokens',
   });
 
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: 'Delete',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => requestDelete(),
-      },
-    ];
-  }, [selectedRows.length, requestDelete]);
+  // No separate page here to bridge to -- the FabGroup below is already in
+  // the same component as useBulkDelete, so it reads this directly instead
+  // of going through useBulkActionsBridge/onBulkActionsChange.
+  const bulkActionsVisible = checkboxSelectionMode && selectedRows.length > 0;
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
@@ -231,8 +224,16 @@ export default function TokensPageClient() {
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters: hasActiveTokenFilters(drawerFilters),
       activeFilterCount: countActiveTokenFilters(drawerFilters),
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
     }),
-    [search, statusFilter, drawerFilters]
+    [
+      search,
+      statusFilter,
+      drawerFilters,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
+    ]
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -247,6 +248,20 @@ export default function TokensPageClient() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
+          {bulkActionsVisible && (
+            <Can capability={Capability.Token.MANAGE}>
+              <Fab
+                icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                tooltip="Delete Tokens"
+                aria-label="Delete Tokens"
+                onClick={() => requestDelete()}
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': { bgcolor: 'error.dark' },
+                }}
+              />
+            </Can>
+          )}
           <Can capability={Capability.Token.MANAGE}>
             <Fab
               icon={<FabAddIcon />}
@@ -309,9 +324,9 @@ export default function TokensPageClient() {
               totalCount={filteredTokens.length}
               paginationModel={paginationModel}
               onPaginationModelChange={setPaginationModel}
+              checkboxSelectionMode={checkboxSelectionMode}
               selectedRows={selectedRows}
               onSelectionChange={handleSelectionChange}
-              actionButtons={getActionButtons()}
             />
           </TokensToolbarContext.Provider>
         </Paper>

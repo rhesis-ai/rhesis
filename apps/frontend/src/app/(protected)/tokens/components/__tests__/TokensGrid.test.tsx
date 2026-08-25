@@ -98,9 +98,9 @@ describe('TokensGrid', () => {
         onRefreshToken={onRefreshToken}
         onDeleteToken={onDeleteToken}
         totalCount={0}
+        checkboxSelectionMode={false}
         selectedRows={[]}
         onSelectionChange={onSelectionChange}
-        actionButtons={[]}
       />
     );
     // BaseDataGrid is mocked to render a <table>; loading state is handled
@@ -116,9 +116,9 @@ describe('TokensGrid', () => {
         onRefreshToken={onRefreshToken}
         onDeleteToken={onDeleteToken}
         totalCount={2}
+        checkboxSelectionMode={false}
         selectedRows={[]}
         onSelectionChange={onSelectionChange}
-        actionButtons={[]}
       />
     );
     expect(screen.getByText('Token t1')).toBeInTheDocument();
