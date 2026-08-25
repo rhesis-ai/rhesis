@@ -716,6 +716,7 @@ def bulk_delete_by_ids(
     item_ids: List[uuid.UUID],
     organization_id: str = None,
     user_id: str = None,
+    owner_attr: Optional[str] = None,
     on_deleted: Optional[Callable[[List[uuid.UUID]], None]] = None,
 ) -> Dict[str, List[str]]:
     """
@@ -734,6 +735,13 @@ def bulk_delete_by_ids(
         item_ids: IDs of items to delete
         organization_id: Organization ID for tenant filtering
         user_id: User ID for visibility filtering
+        owner_attr: When set, additionally restricts deletion to rows where
+            this column equals ``user_id`` -- for models with an owner-only
+            (":own") delete rule that a ``visibility`` column can't express
+            (e.g. TestRun: no visibility column, but only the creator may
+            delete it). Ids that exist and are visible but fail this check
+            are reported in "forbidden_ids" rather than silently skipped or
+            deleted.
         on_deleted: Optional callback invoked once, after commit, with the
             list of ids actually deleted. Use this for bespoke post-delete
             side effects that should run once per batch rather than once per
@@ -741,14 +749,18 @@ def bulk_delete_by_ids(
             *distinct* affected test sets, not by each deleted test).
 
     Returns:
-        Dict with "deleted_ids" and "not_found_ids" (both lists of str ids).
+        Dict with "deleted_ids" and "not_found_ids" (both lists of str ids),
+        plus "forbidden_ids" when ``owner_attr`` is given.
     """
     from rhesis.backend.app.services import cascade as cascade_service
 
     if not item_ids:
-        return {"deleted_ids": [], "not_found_ids": []}
+        result = {"deleted_ids": [], "not_found_ids": []}
+        if owner_attr:
+            result["forbidden_ids"] = []
+        return result
 
-    existing_ids = {
+    visible_ids = {
         row.id
         for row in QueryBuilder(db, model)
         .with_organization_filter(organization_id)
@@ -756,8 +768,23 @@ def bulk_delete_by_ids(
         .with_custom_filter(lambda q: q.filter(model.id.in_(item_ids)))
         .all()
     }
-    deleted_ids = [i for i in item_ids if i in existing_ids]
-    not_found_ids = [i for i in item_ids if i not in existing_ids]
+    not_found_ids = [i for i in item_ids if i not in visible_ids]
+
+    forbidden_ids = None
+    if owner_attr:
+        owned_ids = {
+            row.id
+            for row in QueryBuilder(db, model)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter(user_id)
+            .with_custom_filter(lambda q: q.filter(model.id.in_(item_ids)))
+            .with_custom_filter(lambda q: q.filter(getattr(model, owner_attr) == user_id))
+            .all()
+        }
+        deleted_ids = [i for i in item_ids if i in owned_ids]
+        forbidden_ids = [i for i in item_ids if i in visible_ids and i not in owned_ids]
+    else:
+        deleted_ids = [i for i in item_ids if i in visible_ids]
 
     if deleted_ids:
         try:
@@ -780,10 +807,13 @@ def bulk_delete_by_ids(
         if on_deleted:
             on_deleted(deleted_ids)
 
-    return {
+    result = {
         "deleted_ids": [str(i) for i in deleted_ids],
         "not_found_ids": [str(i) for i in not_found_ids],
     }
+    if owner_attr:
+        result["forbidden_ids"] = [str(i) for i in forbidden_ids]
+    return result
 
 
 def get_deleted_items(

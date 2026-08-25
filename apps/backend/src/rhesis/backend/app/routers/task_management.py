@@ -272,6 +272,38 @@ def update_task(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.delete("/bulk", response_model=schemas.TaskBulkDeleteResponse)
+def bulk_delete_tasks(
+    request: schemas.TaskBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user=Depends(require_current_user_or_token),
+):
+    """Delete multiple tasks at once.
+
+    Only the creator of a task may delete it -- ids that exist but belong to
+    someone else land in "forbidden_ids", not silently skipped or deleted,
+    same rule as the single-item delete route below.
+
+    Registered before /{task_id} below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{task_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id = str(current_user.organization_id)
+    user_id = str(current_user.id)
+    result = task_crud.bulk_delete_tasks(
+        db=db,
+        task_ids=request.task_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    track_feature_usage(
+        feature_name="task", action="bulk_deleted", count=len(result["deleted_ids"])
+    )
+
+    return result
+
+
 @router.delete("/{task_id}")
 def delete_task(
     task_id: uuid.UUID,

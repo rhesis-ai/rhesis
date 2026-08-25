@@ -28,12 +28,13 @@ leaves no orphaned reference behind.
 
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete_by_ids,
     create_item,
     delete_item,
     get_item_detail,
@@ -152,3 +153,25 @@ def delete_task(db: Session, task_id: uuid.UUID, organization_id: str, user_id: 
     """Delete a task"""
     result = delete_item(db, models.Task, task_id, organization_id=organization_id, user_id=user_id)
     return result is not None
+
+
+def bulk_delete_tasks(
+    db: Session,
+    task_ids: List[uuid.UUID],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, List[str]]:
+    """
+    Soft delete multiple tasks in one transaction, enforcing the same owner-only
+    rule as the single-item delete route: only the creator may delete their task.
+    Ids that exist but belong to someone else are reported in "forbidden_ids"
+    rather than silently skipped or deleted.
+    """
+    return bulk_delete_by_ids(
+        db,
+        models.Task,
+        task_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+        owner_attr="user_id",
+    )

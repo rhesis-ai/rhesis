@@ -211,6 +211,47 @@ def update_test_run(
     )
 
 
+@router.delete("/bulk", response_model=schemas.TestRunBulkDeleteResponse)
+def bulk_delete_test_runs(
+    request: schemas.TestRunBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple test runs at once.
+
+    Only the creator of a test run may delete it -- ids that exist but belong
+    to someone else land in "forbidden_ids", not silently skipped or deleted,
+    same rule as the single-item delete route below. Active runs (Queued or
+    Progress) among the ones actually deleted have their Celery task revoked.
+
+    Registered before /{test_run_id} below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{test_run_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    from rhesis.backend.celery.core import app as celery_app
+
+    organization_id, user_id = tenant_context
+    active_statuses = {RunStatus.QUEUED.value, RunStatus.PROGRESS.value}
+    task_ids_by_run = test_run_crud.get_test_run_task_ids(
+        db, request.test_run_ids, organization_id=organization_id, user_id=user_id
+    )
+
+    result = test_run_crud.bulk_delete_test_runs(
+        db=db,
+        test_run_ids=request.test_run_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    for deleted_id in result["deleted_ids"]:
+        status_name, task_id = task_ids_by_run.get(UUID(deleted_id), (None, None))
+        if status_name in active_statuses and task_id:
+            celery_app.control.revoke(task_id)
+
+    return result
+
+
 @router.delete("/{test_run_id}", response_model=schemas.TestRun)
 def delete_test_run(
     test_run_id: UUID,

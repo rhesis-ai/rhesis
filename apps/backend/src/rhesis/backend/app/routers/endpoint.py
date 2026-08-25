@@ -11,6 +11,7 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.database import no_project_scope_hint
 from rhesis.backend.app.dependencies import (
     get_endpoint_service,
@@ -233,6 +234,28 @@ def get_endpoint_schema(endpoint_service: EndpointService = Depends(get_endpoint
         Dict containing the input and output schema definitions
     """
     return endpoint_service.get_schema()
+
+
+@router.delete("/bulk", response_model=schemas.EndpointBulkDeleteResponse)
+def bulk_delete_endpoints(
+    request: schemas.EndpointBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple endpoints at once.
+
+    Registered before /{endpoint_id} below -- FastAPI matches routes in
+    registration order, so a literal /bulk path must come first or a
+    /{endpoint_id}-shaped route would swallow it (treating "bulk" as an id).
+    """
+    organization_id, user_id = tenant_context
+    return endpoint_crud.bulk_delete_endpoints(
+        db=db,
+        endpoint_ids=request.endpoint_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 # --- Routes with path parameters must come AFTER static routes ---
