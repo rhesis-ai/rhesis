@@ -13,6 +13,10 @@ hides its own rows.
 Package façade -- callers import from here, not from the submodules.
 """
 
+from rhesis.backend.app.services.metric_tuning.agreement import (
+    agreement_over,
+    get_agreement,
+)
 from rhesis.backend.app.services.metric_tuning.cases import (
     create_tuning_case,
     delete_tuning_case,
@@ -62,11 +66,13 @@ __all__ = [
     "ReviewCommentRequired",
     "TuningRunInFlight",
     "accept_remaining",
+    "agreement_over",
     "case_outcome",
     "create_tuning_case",
     "delete_tuning_case",
     "execute_tuning_run",
     "fail_tuning_run",
+    "get_agreement",
     "get_or_create_tuning_test_set",
     "get_tuning_case",
     "get_tuning_run",

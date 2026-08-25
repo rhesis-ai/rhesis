@@ -46,6 +46,7 @@ from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningReviewCreate,
     MetricTuningRun,
 )
+from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningRunSummary
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.services.metric_tuning.invoke import MetricModelNotConfigured
 from rhesis.backend.app.services.metric_tuning.reviews import (
@@ -99,6 +100,25 @@ def _resolve_case_or_raise(
     if db_test is None:
         raise HTTPException(status_code=404, detail="Tuning case not found")
     return db_test
+
+
+def _run_response(
+    db: Session,
+    metric: models.Metric,
+    organization_id: str,
+    summary: MetricTuningRunSummary,
+) -> MetricTuningRun:
+    """The stored run summary plus the agreement, which is never stored.
+
+    Read here on every request rather than written when a run finishes: a review
+    recorded between runs -- or one a run has just invalidated -- has to move the
+    number straight away.
+    """
+    # Set after construction rather than passed in: the stored summary allows
+    # extra keys, so spreading it beside a keyword risks colliding with one.
+    run = MetricTuningRun(**summary.model_dump(mode="json"))
+    run.agreement = service.get_agreement(db, metric, organization_id)
+    return run
 
 
 @router.get("/{metric_id}/tuning/cases", response_model=List[MetricTuningCase])
@@ -226,7 +246,7 @@ def read_tuning_run(
     organization_id, user_id = tenant_context
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
     summary = service.get_tuning_run(db, metric, organization_id)
-    return MetricTuningRun(**summary.model_dump(mode="json"))
+    return _run_response(db, metric, organization_id, summary)
 
 
 # Marked update rather than left to the POST-means-create convention: starting a
@@ -278,4 +298,4 @@ def start_tuning_run(
             status_code=503, detail="The run could not be queued. Please try again."
         ) from e
 
-    return MetricTuningRun(**summary.model_dump(mode="json"))
+    return _run_response(db, metric, organization_id, summary)

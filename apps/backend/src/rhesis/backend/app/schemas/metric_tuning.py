@@ -140,6 +140,34 @@ class MetricTuningCase(MetricTuningCaseBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TuningAgreement(BaseModel):
+    """How much of what the metric said the reviewer accepted.
+
+    This is the one number an author watches while editing an evaluation prompt:
+    change the wording, run again, see whether it went up.
+
+    ``ratio`` is ``None`` when nothing has been judged, never ``1.0`` -- a set
+    nobody has looked at has no agreement rather than a perfect one. It is
+    computed from the stored reviews on every read and never written down, so a
+    review a run has just invalidated stops counting immediately.
+
+    ``judged`` travels with the ratio because a ratio without its denominator is
+    not a measurement: three out of three should not read like a solved problem.
+    """
+
+    # accepted / (accepted + rejected). None when nothing has been judged.
+    ratio: Optional[float] = None
+    # The denominator -- accepted plus rejected, and nothing else.
+    judged: int = 0
+    accepted: int = 0
+    rejected: int = 0
+    # Left out of the ratio and reported beside it, never counted as accepted.
+    unreviewed: int = 0
+    # The metric call failed. Left out too, and kept apart from the verdicts so a
+    # flaky provider never reads as a bad metric.
+    errored: int = 0
+
+
 class MetricTuningRun(BaseModel):
     """The state of a metric's latest tuning run.
 
@@ -164,6 +192,11 @@ class MetricTuningRun(BaseModel):
     errored_cases: int = 0
     # Why the run as a whole failed. A single case failing does not fail a run.
     error: Optional[str] = None
+    # Not part of the run at all -- reviews are written between runs and change
+    # this without one. It travels with the run because that is the one thing the
+    # tab already re-reads while a run is going, and the number has to move as the
+    # cases land. Derived on every read; see ``TuningAgreement``.
+    agreement: TuningAgreement = TuningAgreement()
 
 
 __all__ = [
@@ -174,6 +207,7 @@ __all__ = [
     "MetricTuningReview",
     "MetricTuningReviewCreate",
     "MetricTuningRun",
+    "TuningAgreement",
     "ReviewDecision",
     "TuningCaseOutcome",
     "UnreviewedReason",

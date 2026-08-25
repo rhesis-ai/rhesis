@@ -38,6 +38,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { UUID } from 'crypto';
 import type { ScoreType } from '@/utils/api-client/interfaces/metric';
 import type {
+  MetricTuningAgreement,
   MetricTuningCase,
   MetricTuningCaseCreate,
   MetricTuningRun,
@@ -57,6 +58,9 @@ const INVALIDATED_HINT =
 
 const ERRORED_HINT =
   'The metric call failed for this case, so there is no verdict to judge.';
+
+const NO_AGREEMENT_HINT =
+  'Agreement is the share of judged cases you accepted. Nothing has been judged yet, so there is no share to report — a set nobody has looked at is not a set the metric got right.';
 
 /** Renders long free text on one line with the full value in a tooltip. */
 function TruncatedCell({ params }: { params: GridRenderCellParams }) {
@@ -245,6 +249,48 @@ function InvalidatedMark() {
         aria-label="Review invalidated"
       />
     </Tooltip>
+  );
+}
+
+/**
+ * The metric's agreement, and the counts that stop it being read as more than
+ * it is.
+ *
+ * The denominator is the whole point. Unreviewed and errored cases are counted
+ * out of the ratio and reported beside it: counting either one in produces a
+ * plausible figure meaning something other than what its reader thinks — a set
+ * nobody looked at reading as perfect, or a flaky provider reading as a bad
+ * metric. The judged count sits next to the number for the same reason, so
+ * three out of three does not read like a solved problem.
+ */
+function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
+  const { ratio, judged, unreviewed, errored } = agreement;
+  const total = judged + unreviewed + errored;
+
+  const qualifiers = [
+    judged > 0
+      ? `over ${judged} of ${total} ${total === 1 ? 'case' : 'cases'} judged`
+      : 'nothing judged yet',
+    unreviewed > 0 ? `${unreviewed} unreviewed` : null,
+    errored > 0 ? `${errored} the metric could not be reached on` : null,
+  ].filter(Boolean);
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+      <Typography variant="body2" color="text.secondary">
+        Agreement
+      </Typography>
+      <Typography
+        variant="h6"
+        component="span"
+        title={ratio === null ? NO_AGREEMENT_HINT : undefined}
+      >
+        {ratio === null ? '—' : `${Math.round(ratio * 100)}%`}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {qualifiers.join(' · ')}
+      </Typography>
+    </Box>
   );
 }
 
@@ -443,6 +489,18 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
     [metricId, notifications]
   );
 
+  // Agreement is derived from the reviews, so judging a case moves it without a
+  // run. Re-read rather than recomputed here: one fold, on the server, is what
+  // stops the number and the rows it is folded from ever disagreeing.
+  const refreshRun = useCallback(async () => {
+    try {
+      const client = new ApiClientFactory().getMetricTuningClient();
+      setRun(await client.getTuningRun(metricId));
+    } catch {
+      // The line keeps its last value; the next review or poll corrects it.
+    }
+  }, [metricId]);
+
   /** Swaps in the case the review endpoint returns, leaving the rest alone. */
   const replaceCase = useCallback((updated: MetricTuningCase) => {
     setCases(prev =>
@@ -459,6 +517,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
             decision: 'accepted',
           })
         );
+        await refreshRun();
       } catch (error) {
         notifications.show(
           error instanceof Error
@@ -468,7 +527,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         );
       }
     },
-    [metricId, notifications, replaceCase]
+    [metricId, notifications, refreshRun, replaceCase]
   );
 
   // Throws on failure so the dialog keeps the comment on screen — a rejection
@@ -483,8 +542,9 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
           comment,
         })
       );
+      await refreshRun();
     },
-    [metricId, rejecting, replaceCase]
+    [metricId, refreshRun, rejecting, replaceCase]
   );
 
   const handleAcceptRest = useCallback(async () => {
@@ -492,6 +552,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
     try {
       const client = new ApiClientFactory().getMetricTuningClient();
       setCases(await client.acceptRemainingTuningCases(metricId));
+      await refreshRun();
       notifications.show('Accepted every case left unreviewed', {
         severity: 'success',
         autoHideDuration: 4000,
@@ -506,7 +567,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
     } finally {
       setAcceptingRest(false);
     }
-  }, [metricId, notifications]);
+  }, [metricId, notifications, refreshRun]);
 
   const openAdd = useCallback(() => {
     setEditing(null);
@@ -707,6 +768,13 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
           />
         ) : (
           <>
+            {/* Nothing while a run is going: until the worker has cleared the
+                last run's results, the number is the previous run's, and one
+                sitting above a progress line reads as this run's. The progress
+                line says what is happening instead. */}
+            {hasResults && run && !isRunning && (
+              <AgreementSummary agreement={run.agreement} />
+            )}
             <RunSummary run={run} />
             <BaseDataGrid
               rows={cases as unknown as GridRowModel[]}

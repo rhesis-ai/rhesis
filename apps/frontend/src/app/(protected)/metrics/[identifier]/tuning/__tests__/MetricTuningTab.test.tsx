@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MetricTuningTab from '../MetricTuningTab';
 import type {
+  MetricTuningAgreement,
   MetricTuningCase,
   MetricTuningRun,
 } from '@/utils/api-client/interfaces/metric-tuning';
@@ -78,6 +79,20 @@ const BINARY_METRIC = {
   ground_truth_required: false,
 };
 
+/** Nothing judged: no ratio at all, which is not the same as a ratio of 1. */
+const NO_AGREEMENT: MetricTuningAgreement = {
+  ratio: null,
+  judged: 0,
+  accepted: 0,
+  rejected: 0,
+  unreviewed: 0,
+  errored: 0,
+};
+
+const agreement = (
+  fields: Partial<MetricTuningAgreement>
+): MetricTuningAgreement => ({ ...NO_AGREEMENT, ...fields });
+
 const NEVER_RUN: MetricTuningRun = {
   status: 'never_run',
   started_at: null,
@@ -86,6 +101,7 @@ const NEVER_RUN: MetricTuningRun = {
   completed_cases: 0,
   errored_cases: 0,
   error: null,
+  agreement: NO_AGREEMENT,
 };
 
 describe('MetricTuningTab', () => {
@@ -238,6 +254,7 @@ describe('MetricTuningTab — runs', () => {
     completed_cases: 1,
     errored_cases: 0,
     error: null,
+    agreement: NO_AGREEMENT,
   };
 
   const COMPLETED: MetricTuningRun = {
@@ -248,6 +265,7 @@ describe('MetricTuningTab — runs', () => {
     completed_cases: 1,
     errored_cases: 0,
     error: null,
+    agreement: NO_AGREEMENT,
   };
 
   const SCORED_CASE: MetricTuningCase = {
@@ -708,5 +726,129 @@ describe('MetricTuningTab — reviewing', () => {
     expect(
       screen.getByRole('button', { name: /accept the rest/i })
     ).toBeDisabled();
+  });
+});
+
+describe('MetricTuningTab — agreement', () => {
+  /** A finished run whose agreement is whatever the test needs it to be. */
+  const runWith = (
+    fields: Partial<MetricTuningAgreement>
+  ): MetricTuningRun => ({
+    ...NEVER_RUN,
+    status: 'completed',
+    started_at: '2026-08-13T10:00:00Z',
+    completed_at: '2026-08-13T10:01:00Z',
+    total_cases: 3,
+    completed_cases: 3,
+    agreement: agreement(fields),
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(BINARY_METRIC);
+    mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
+    mockGetTuningRun.mockResolvedValue(NEVER_RUN);
+  });
+
+  it('shows the number and the count it was computed over', async () => {
+    mockGetTuningRun.mockResolvedValue(
+      runWith({ ratio: 0.6667, judged: 3, accepted: 2, rejected: 1 })
+    );
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText('67%')).toBeInTheDocument();
+    // The denominator travels with it: three out of three must not read like a
+    // solved problem.
+    expect(screen.getByText(/over 3 of 3 cases judged/i)).toBeInTheDocument();
+  });
+
+  it('reports no agreement rather than full agreement when nothing is judged', async () => {
+    mockGetTuningRun.mockResolvedValue(runWith({ unreviewed: 3 }));
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText(/nothing judged yet/i)).toBeInTheDocument();
+    expect(screen.queryByText('100%')).not.toBeInTheDocument();
+    expect(
+      screen.getByTitle(/nothing has been judged yet/i)
+    ).toBeInTheDocument();
+  });
+
+  it('counts unreviewed cases out of the ratio and reports them beside it', async () => {
+    mockGetTuningRun.mockResolvedValue(
+      runWith({ ratio: 1, judged: 1, accepted: 1, unreviewed: 2 })
+    );
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText('100%')).toBeInTheDocument();
+    expect(screen.getByText(/over 1 of 3 cases judged/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 unreviewed/i)).toBeInTheDocument();
+  });
+
+  it('reports errored cases apart, so a flaky provider is visibly one', async () => {
+    mockGetTuningRun.mockResolvedValue(
+      runWith({ ratio: 1, judged: 1, accepted: 1, errored: 2 })
+    );
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText('100%')).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 the metric could not be reached on/i)
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about agreement before the metric has been run', async () => {
+    mockGetTuningCases.mockResolvedValue([CASE]);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await screen.findByText('How are you?');
+    expect(screen.queryByText('Agreement')).not.toBeInTheDocument();
+  });
+
+  it('re-reads the agreement after a review, since judging a case moves it', async () => {
+    mockGetTuningRun
+      .mockResolvedValueOnce(runWith({ unreviewed: 1 }))
+      .mockResolvedValue(runWith({ ratio: 1, judged: 1, accepted: 1 }));
+    mockReviewTuningCase.mockResolvedValue({
+      ...JUDGEABLE_CASE,
+      outcome: 'accepted',
+      unreviewed_reason: null,
+      review: {
+        decision: 'accepted',
+        comment: null,
+        verdict: 'pass',
+        reviewed_at: '2026-08-14T09:00:00Z',
+      },
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await screen.findByText(/nothing judged yet/i);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /accept this verdict/i })
+    );
+
+    expect(await screen.findByText('100%')).toBeInTheDocument();
+  });
+
+  it('shows no number while a run is going, since it is about to change', async () => {
+    // Until the worker clears the last run's results this is the *previous*
+    // run's number, and one sitting above a progress line reads as this run's.
+    mockGetTuningRun.mockResolvedValue({
+      ...runWith({ ratio: 1, judged: 3, accepted: 3 }),
+      status: 'running',
+      completed_at: null,
+      completed_cases: 1,
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText(/1 done/i)).toBeInTheDocument();
+    expect(screen.queryByText('Agreement')).not.toBeInTheDocument();
+    expect(screen.queryByText('100%')).not.toBeInTheDocument();
   });
 });
