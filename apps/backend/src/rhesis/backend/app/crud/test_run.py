@@ -372,6 +372,11 @@ def get_test_run_task_ids(
     single-item delete route does per-run. Deciding which status counts as
     "active" is left to the caller (RunStatus lives in tasks/, which this
     module must not import -- see AGENTS.md's tasks-layout rule).
+
+    Scoped to ``user_id``'s own runs, matching bulk_delete_test_runs's
+    owner_attr check: the caller only ever consults this for ids that end up
+    in "deleted_ids", so fetching runs that would land in "forbidden_ids"
+    (visible in-org but not owned) would just be discarded work.
     """
     rows = (
         QueryBuilder(db, models.TestRun)
@@ -379,6 +384,7 @@ def get_test_run_task_ids(
         .with_visibility_filter(user_id)
         .with_related(include(models.TestRun.status))
         .with_custom_filter(lambda q: q.filter(models.TestRun.id.in_(test_run_ids)))
+        .with_custom_filter(lambda q: q.filter(models.TestRun.user_id == user_id))
         .all()
     )
     return {

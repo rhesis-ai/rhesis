@@ -290,12 +290,18 @@ def bulk_delete_tasks(
     """
     organization_id = str(current_user.organization_id)
     user_id = str(current_user.id)
-    return task_crud.bulk_delete_tasks(
+    result = task_crud.bulk_delete_tasks(
         db=db,
         task_ids=request.task_ids,
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    track_feature_usage(
+        feature_name="task", action="bulk_deleted", count=len(result["deleted_ids"])
+    )
+
+    return result
 
 
 @router.delete("/{task_id}")
