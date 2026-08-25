@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud import task as task_crud
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.metric import create_metric, get_metric
 from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.crud.token import (
@@ -198,7 +199,7 @@ class TestCrudOrganizationFiltering:
         test_db.commit()
 
         # User from org1 should be able to access the test result
-        result_org1 = crud.get_test_result(
+        result_org1 = test_result_crud.get_test_result(
             test_db, test_result.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None
@@ -206,7 +207,7 @@ class TestCrudOrganizationFiltering:
         assert str(result_org1.organization_id) == str(org1.id)
 
         # User from org2 should NOT be able to access the test result
-        result_org2 = crud.get_test_result(
+        result_org2 = test_result_crud.get_test_result(
             test_db, test_result.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None
@@ -609,7 +610,7 @@ class TestCrudParameterValidation:
         crud_functions = [
             ("get_task", task_crud.get_task),
             ("get_test", crud.get_test),
-            ("get_test_result", crud.get_test_result),
+            ("get_test_result", test_result_crud.get_test_result),
             ("get_test_run", get_test_run),
             ("get_endpoint", crud.get_endpoint),
             ("get_prompt", crud.get_prompt),

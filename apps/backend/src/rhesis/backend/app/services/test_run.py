@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
 
@@ -39,7 +40,7 @@ def get_test_results_for_test_run(
     limit = 100  # Use maximum allowed limit
 
     while True:
-        test_results_batch = crud.get_test_results(
+        test_results_batch = test_result_crud.get_test_results(
             db, skip=skip, limit=limit, filter=filter_str, organization_id=organization_id
         )
         if not test_results_batch:

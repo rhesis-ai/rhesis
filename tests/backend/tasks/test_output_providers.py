@@ -653,7 +653,7 @@ class TestTestResultOutput:
         mock_result.test_output = {"output": "stored response"}
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
+            "rhesis.backend.tasks.execution.executors.output_providers.test_result_crud.get_test_results",
             return_value=[mock_result],
         ):
             provider = TestResultOutput(reference_test_run_id=run_id)
@@ -675,7 +675,7 @@ class TestTestResultOutput:
         run_id = str(uuid4())
         test_id = str(uuid4())
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
+            "rhesis.backend.tasks.execution.executors.output_providers.test_result_crud.get_test_results",
             return_value=[],
         ):
             provider = TestResultOutput(reference_test_run_id=run_id)
@@ -695,7 +695,7 @@ class TestTestResultOutput:
         mock_result.test_output = None
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
+            "rhesis.backend.tasks.execution.executors.output_providers.test_result_crud.get_test_results",
             return_value=[mock_result],
         ):
             provider = TestResultOutput(reference_test_run_id=run_id)
@@ -714,7 +714,7 @@ class TestTestResultOutput:
         mock_result.test_output = {"output": "ok"}
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
+            "rhesis.backend.tasks.execution.executors.output_providers.test_result_crud.get_test_results",
             return_value=[mock_result],
         ) as mock_get:
             provider = TestResultOutput(reference_test_run_id=run_id)
