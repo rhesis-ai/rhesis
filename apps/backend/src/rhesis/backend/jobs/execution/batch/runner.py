@@ -91,6 +91,7 @@ async def _run_gather(
         cat_obj = getattr(test_obj, "category", None)
         category = getattr(cat_obj, "name", None) or ""
         status = "failed"
+        result: Dict[str, Any] = {}
         try:
             result = await _execute_single_test(
                 ctx, test_id, semaphore, penelope_agent, evaluator,

@@ -203,6 +203,7 @@ def launch_job(
             db.commit()
         except Exception as exc:
             logger.warning(f"Could not commit job row before dispatch: {exc}", exc_info=True)
+            job_id = None
 
     if job_id is not None and trace_id is not None:
         # Only for a tracked job (a real row exists to attach the entry to)
