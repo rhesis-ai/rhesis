@@ -36,6 +36,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
+    MetricTuningCaseResult,
     MetricTuningRunSummary,
     TuningRunStatus,
 )
@@ -1180,6 +1181,47 @@ class TestAgreement:
         assert agreement["ratio"] is None
         assert agreement["judged"] == 0
         assert agreement["unreviewed"] == 1
+
+    def test_a_run_that_died_before_reaching_a_case_leaves_it_out_of_the_ratio(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """A failed run is not two runs' numbers averaged together.
+
+        A run clears every case up front and refills them one at a time, so a
+        worker that died halfway leaves the cases it never reached carrying no
+        verdict at all. Those read as unreviewed and the denominator says so --
+        the ratio is only ever over the cases this run actually scored.
+        """
+        reached = _create_case(authenticated_client, tuning_metric.id)
+        missed = _create_case(authenticated_client, tuning_metric.id, input="The second one")
+        _run(test_db, tuning_metric, test_org_id, *[{"score": 1.0, "reason": "fine"}] * 2)
+        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/reviews/accept-rest")
+        assert self._agreement(authenticated_client, tuning_metric.id)["judged"] == 2
+
+        # What a worker that died after the first case leaves behind.
+        test_db.expire_all()
+        db_test = (
+            test_db.query(models.Test).filter(models.Test.id == uuid.UUID(missed["id"])).first()
+        )
+        crud_metric_tuning.set_case_result(test_db, db_test, MetricTuningCaseResult())
+        service.fail_tuning_run(test_db, tuning_metric, test_org_id, "the worker went away.")
+
+        agreement = self._agreement(authenticated_client, tuning_metric.id)
+        assert agreement["ratio"] == 1.0
+        assert agreement["judged"] == 1
+        assert agreement["accepted"] == 1
+        assert agreement["unreviewed"] == 1
+        # The case it did reach is untouched, and the review on the one it missed
+        # is still in storage waiting for a verdict to be about again.
+        assert (
+            _cases_by_id(authenticated_client, tuning_metric.id)[reached["id"]]["outcome"]
+            == "accepted"
+        )
+        assert len(_stored_reviews(test_db, missed["id"])) == 1
 
     def test_a_review_that_survived_a_re_run_keeps_counting(
         self,

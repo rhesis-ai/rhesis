@@ -128,6 +128,33 @@ def get_tuning_cases(
     )
 
 
+def get_tuning_case_metadata(
+    db: Session, test_set_id: uuid.UUID, organization_id: str
+) -> List[Optional[dict]]:
+    """The ``test_metadata`` of every case in a tuning set, and nothing else.
+
+    The agreement fold reads only this. Going through ``get_tuning_cases`` would
+    eager-load the prompt beside it -- the whole case payload, one blob per case
+    -- to count four outcomes, on an endpoint the tuning tab polls on a timer.
+
+    Unordered on purpose: the caller tallies these, so the sort ``get_tuning_cases``
+    needs to keep the grid from reshuffling would be work for nothing here.
+    """
+    return [
+        row[0]
+        for row in db.query(models.Test.test_metadata)
+        .join(
+            test_test_set_association,
+            models.Test.id == test_test_set_association.c.test_id,
+        )
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.organization_id == organization_id,
+        )
+        .all()
+    ]
+
+
 def get_tuning_case(
     db: Session, test_set_id: uuid.UUID, test_id: uuid.UUID, organization_id: str
 ) -> Optional[models.Test]:
