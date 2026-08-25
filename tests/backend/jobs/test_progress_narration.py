@@ -42,7 +42,14 @@ class TestTestSetGenerationNarration:
         fake_sdk_test_set = MagicMock()
         fake_sdk_test_set.tests = [MagicMock() for _ in range(5)]
         mock_synthesizer = MagicMock()
-        mock_synthesizer.generate.return_value = fake_sdk_test_set
+
+        def _fake_generate(num_tests, on_progress=None):
+            if on_progress:
+                on_progress(3, 5)
+                on_progress(5, 5)
+            return fake_sdk_test_set
+
+        mock_synthesizer.generate.side_effect = _fake_generate
 
         with (
             patch.object(
@@ -75,10 +82,14 @@ class TestTestSetGenerationNarration:
         messages = [call.args[0] for call in mock_emit.call_args_list]
         assert messages == [
             "Generating 5 single turn tests using fake-model",
+            "Generated 3 of 5 tests",
             "Generated 5 of 5 tests",
             "Saved 5 tests to test set",
         ]
         assert mock_progress.call_args_list == [
+            ((0, 5),),
+            ((3, 5),),
+            ((5, 5),),
             ((5, 5),),
         ]
 
@@ -89,7 +100,13 @@ class TestOwaspTestSetGenerationNarration:
         fake_sdk_test_set = MagicMock()
         fake_sdk_test_set.tests = [MagicMock() for _ in range(3)]
         mock_synthesizer = MagicMock()
-        mock_synthesizer.generate.return_value = fake_sdk_test_set
+
+        def _fake_generate(num_tests, on_progress=None):
+            if on_progress:
+                on_progress(3, 3)
+            return fake_sdk_test_set
+
+        mock_synthesizer.generate.side_effect = _fake_generate
 
         with (
             patch.object(
@@ -128,6 +145,8 @@ class TestOwaspTestSetGenerationNarration:
             "Saved 3 tests to test set",
         ]
         assert mock_progress.call_args_list == [
+            ((0, 3),),
+            ((3, 3),),
             ((3, 3),),
         ]
 

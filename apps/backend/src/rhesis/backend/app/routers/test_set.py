@@ -175,6 +175,8 @@ def generate_test_set(
                 current_user=current_user,
                 db=db,
                 celery_task_id=placeholder_task_id,
+                entity_type="TestSet",
+                entity_id=str(db_test_set.id),
                 config=request.config.model_dump(),
                 num_tests=request.num_tests,
                 batch_size=request.batch_size,

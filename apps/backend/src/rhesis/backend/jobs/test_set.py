@@ -498,6 +498,7 @@ def generate_and_save_test_set(
     try:
         # Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.set_progress(0, num_tests)
         gen_parts = [f"Generating {num_tests}"]
         if test_type:
             gen_parts.append(test_type.lower().replace("-", " "))
@@ -549,8 +550,12 @@ def generate_and_save_test_set(
 
         import time
 
+        def _progress_and_emit(current, total):
+            self.set_progress(current, total)
+            self.emit(f"Generated {current} of {total} tests")
+
         gen_start = time.time()
-        test_set = synthesizer.generate(num_tests=num_tests, on_progress=self.set_progress)
+        test_set = synthesizer.generate(num_tests=num_tests, on_progress=_progress_and_emit)
         gen_elapsed = time.time() - gen_start
 
         self.log_with_context(
@@ -561,7 +566,6 @@ def generate_and_save_test_set(
             generation_time_seconds=round(gen_elapsed, 1),
         )
         self.set_progress(len(test_set.tests), num_tests)
-        self.emit(f"Generated {len(test_set.tests)} of {num_tests} tests")
 
         # Note: Source IDs are already embedded in test metadata via SourceSpecification
         # The SDK automatically propagates metadata from SourceSpecification to generated tests
@@ -733,6 +737,7 @@ def generate_and_save_owasp_test_set(
 
     try:
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.set_progress(0, num_tests)
         self.emit(f"Generating {num_tests} OWASP {framework.upper()} tests using {model_info}")
 
         # Imported lazily for the same fork-safety reason as ConfigSynthesizer above.
@@ -754,8 +759,12 @@ def generate_and_save_owasp_test_set(
 
         import time
 
+        def _progress_and_emit(current, total):
+            self.set_progress(current, total)
+            self.emit(f"Generated {current} of {total} tests")
+
         gen_start = time.time()
-        test_set = synthesizer.generate(num_tests=num_tests, on_progress=self.set_progress)
+        test_set = synthesizer.generate(num_tests=num_tests, on_progress=_progress_and_emit)
         gen_elapsed = time.time() - gen_start
 
         self.log_with_context(
@@ -766,7 +775,6 @@ def generate_and_save_owasp_test_set(
             generation_time_seconds=round(gen_elapsed, 1),
         )
         self.set_progress(len(test_set.tests), num_tests)
-        self.emit(f"Generated {len(test_set.tests)} of {num_tests} tests")
 
         self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
 

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,6 +31,11 @@ import { jobKeys } from '@/constants/query-keys';
 import type { Job } from '@/utils/api-client/interfaces/job';
 import { JOB_STATUS_COLOR, JOB_STATUS_LABEL } from '@/constants/jobs';
 import { BORDER_RADIUS } from '@/styles/theme';
+import {
+  getEntityDisplayName,
+  getEntityPath,
+  isValidEntityType,
+} from '@/utils/entity-helpers';
 import ActivityLogViewer from './components/ActivityLogViewer';
 
 /**
@@ -288,7 +294,19 @@ export default function JobDetailPage() {
               <Grid size={{ xs: 6, sm: 3 }}>
                 <Field
                   label="Subject"
-                  value={`${job.entity_type} ${job.entity_id.slice(0, 8)}`}
+                  value={
+                    isValidEntityType(job.entity_type) ? (
+                      <Link
+                        href={`/${getEntityPath(job.entity_type)}/${job.entity_id}`}
+                        style={{ color: 'inherit' }}
+                      >
+                        {getEntityDisplayName(job.entity_type)}{' '}
+                        {job.entity_id.slice(0, 8)}
+                      </Link>
+                    ) : (
+                      `${job.entity_type} ${job.entity_id.slice(0, 8)}`
+                    )
+                  }
                 />
               </Grid>
             )}
