@@ -145,6 +145,8 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                         f"Test run {test_run.id} committed to database",
                     )
 
+            self.set_entity("TestRun", str(test_run.id))
+
             # Extract re-scoring params from configuration attributes
             config_attrs = test_config.attributes or {}
             reference_test_run_id = config_attrs.get("reference_test_run_id")

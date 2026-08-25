@@ -491,6 +491,31 @@ class BaseJob(Task):
         except Exception as exc:
             logger.warning(f"set_progress failed: {exc}")
 
+    def set_entity(self, entity_type: str, entity_id: str) -> None:
+        """Link this job to the entity it produced (e.g. a TestSet created mid-task).
+
+        For jobs whose entity exists at dispatch time, pass entity_type/entity_id
+        to launch_job instead. This method covers the case where the entity is
+        created inside the task body.
+        """
+        try:
+            from rhesis.backend.jobs import tracking
+
+            celery_task_id = getattr(self.request, "id", None)
+            if not celery_task_id:
+                return
+            org_id, user_id, project_id = self.get_tenant_context()
+            tracking.set_entity(
+                celery_task_id,
+                org_id or "",
+                user_id or "",
+                project_id or "",
+                entity_type=entity_type,
+                entity_id=entity_id,
+            )
+        except Exception as exc:
+            logger.warning(f"set_entity failed: {exc}")
+
     def emit(self, message: str, level: str = "info", *, context: Optional[dict] = None) -> None:
         """Write a user-facing line to this job's activity log.
 

@@ -594,6 +594,7 @@ def generate_and_save_test_set(
                 extra_metadata=metadata,
             )
 
+        self.set_entity("TestSet", str(db_test_set.id))
         self.emit(f"Saved {len(test_set.tests)} tests to test set")
 
         # Build and return result
@@ -791,6 +792,7 @@ def generate_and_save_owasp_test_set(
                 "owasp_report_url": report_url,
             },
         )
+        self.set_entity("TestSet", str(db_test_set.id))
         self.emit(f"Saved {len(test_set.tests)} tests to test set")
 
         # From here on, the test set is already saved. A failure below must

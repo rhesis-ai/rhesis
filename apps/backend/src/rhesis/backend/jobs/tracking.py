@@ -237,3 +237,21 @@ def set_progress(
     if total is not None:
         changes["progress_total"] = total
     _update_by_celery_id(celery_task_id, organization_id, user_id, project_id, changes)
+
+
+def set_entity(
+    celery_task_id: str,
+    organization_id: str,
+    user_id: str,
+    project_id: str,
+    *,
+    entity_type: str,
+    entity_id: str,
+) -> None:
+    _update_by_celery_id(
+        celery_task_id,
+        organization_id,
+        user_id,
+        project_id,
+        {"entity_type": entity_type, "entity_id": entity_id},
+    )
