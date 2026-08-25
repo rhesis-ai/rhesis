@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Dict
 
@@ -9,6 +10,8 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.jobs.enums import RunStatus
+
+logger = logging.getLogger(__name__)
 
 
 class TestExecutionError(Exception):
@@ -85,6 +88,36 @@ def create_test_run(
         organization_id=str(test_config.organization_id),
         user_id=str(executor_user_id) if executor_user_id else str(test_config.user_id or ""),
     )
+
+    # Freeze the verdict grid's frame (requirements, metric rows, column
+    # count) before any test runs -- see jobs/execution/metric_plan.py.
+    # Best-effort: a run whose plan could not be built still dispatches, and
+    # get_verdict_matrix rebuilds a grid from recorded results instead.
+    if test_config.test_set_id and test_config.test_set is not None:
+        from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
+
+        # SAVEPOINT, not a bare try: the plan runs several queries, and a DB
+        # error in any of them (statement timeout, serialization failure)
+        # aborts the surrounding transaction. Swallowing that without
+        # rolling back would turn a skippable snapshot into an
+        # InFailedSqlTransaction on the create_test_run below.
+        nested = session.begin_nested()
+        try:
+            snapshot.attributes["metric_plan"] = build_metric_plan(
+                session,
+                test_config,
+                test_config.test_set,
+                organization_id=str(test_config.organization_id),
+                user_id=str(executor_user_id) if executor_user_id else None,
+            )
+            nested.commit()
+        except Exception:
+            nested.rollback()
+            snapshot.attributes.pop("metric_plan", None)
+            logger.warning(
+                f"Failed to build metric plan for test configuration {test_config.id}",
+                exc_info=True,
+            )
 
     test_run_data = {
         "test_configuration_id": test_config.id,
