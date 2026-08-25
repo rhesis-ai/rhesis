@@ -8,17 +8,11 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { testKeys } from '@/constants/query-keys';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import {
   GridColDef,
   GridRowParams,
   GridRowSelectionModel,
-  GridPaginationModel,
-  GridFilterModel,
   GridRenderCellParams,
   GridSortModel,
   GridToolbarColumnsButton,
@@ -54,7 +48,10 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { directoryListParams } from '@/utils/directory';
+import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { testsDirectory } from './directory';
 import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
@@ -73,12 +70,7 @@ import {
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
-import {
-  applyTestDrawerFiltersToModel,
-  buildTestIdsODataFilter,
-  combineODataFilterExpressions,
-} from './test-filter-model';
-import { gridSortToApiParams } from '@/utils/grid-sort';
+import { buildTestIdsODataFilter } from './test-filter-model';
 import {
   formatInsightsFailedTestsBanner,
   type InsightsFailedTestsFilter,
@@ -204,7 +196,6 @@ export default function TestsTable({
   const isMounted = useRef(true);
   const canEditTest = useCan(Capability.Test.UPDATE);
   const canDeleteTest = useCan(Capability.Test.DELETE);
-  const queryClient = useQueryClient();
   const { status } = useSession();
 
   // Search + tab filter — managed here, shared to toolbar via context
@@ -212,26 +203,8 @@ export default function TestsTable({
   const [typeFilter, setTypeFilter] = useState('all');
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
-
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    sortModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-    handleSortModelChange,
-  } = useGridState({
-    searchQuery,
-    typeFilter,
-    typeFilterField: 'test_type.type_value',
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) =>
-        applyTestDrawerFiltersToModel(prev, drawerFilters),
-      [drawerFilters]
-    ),
-  });
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
+  const [errorDismissed, setErrorDismissed] = useState(false);
 
   // Component state
   const [checkboxSelectionMode, setCheckboxSelectionMode] = useState(false);
@@ -266,46 +239,90 @@ export default function TestsTable({
     ? []
     : (insightsFailedTestIds ?? null);
 
-  const gridFilterString = combineTestFiltersToOData(filterModel);
   const insightsIdFilter =
     insightsFailedFilter && resolvedInsightsFailedTestIds !== null
       ? buildTestIdsODataFilter(resolvedInsightsFailedTestIds)
       : '';
-  const filterString = combineODataFilterExpressions(
-    gridFilterString,
-    insightsIdFilter
+
+  // A pill click wins over the drawer's own testType value, matching the old
+  // useGridState behavior (pill applied after drawer filters).
+  const effectiveTestType =
+    typeFilter !== 'all' ? typeFilter : drawerFilters.testType;
+
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      testType: effectiveTestType,
+      requirement: drawerFilters.requirement,
+      category: drawerFilters.category,
+      topic: drawerFilters.topic,
+      tagsPresence: drawerFilters.tags,
+      commentsPresence: drawerFilters.comments,
+      tasksPresence: drawerFilters.tasks,
+    }),
+    [searchQuery, effectiveTestType, drawerFilters]
   );
-  const { sort_by, sort_order } = gridSortToApiParams(sortModel);
+
+  const sort = useMemo(
+    () => ({
+      by: sortModel[0]?.field || 'created_at',
+      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
+    }),
+    [sortModel]
+  );
 
   const {
-    data: testsData,
+    data: tests,
+    totalCount,
     isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: testKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      sort_by,
-      sort_order
-    ),
-    errorFallbackMessage: 'Failed to load tests',
-    queryFn: () => {
-      const testsClient = new ApiClientFactory().getTestsClient();
-      return testsClient.getTests({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by,
-        sort_order,
-        ...(filterString && { filter: filterString }),
-      });
-    },
+    error: rawError,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<TestDetail>({
+    fetchPage: ({ skip, limit }) =>
+      testsDirectory.list(
+        new ApiClientFactory(),
+        directoryListParams(
+          testsDirectory,
+          {
+            page: skip / limit + 1,
+            pageSize: limit,
+            sort,
+            filters,
+          },
+          insightsIdFilter ? [insightsIdFilter] : []
+        )
+      ),
+    filterFingerprint: JSON.stringify({ filters, sort, insightsIdFilter }),
+    defaultPageSize: testsDirectory.defaultPageSize,
     enabled: isAuthenticated(status) && insightsFilterReady,
+    onError: () => setErrorDismissed(false),
   });
 
-  const tests = testsData?.data ?? [];
-  const totalCount = testsData?.pagination.totalCount ?? 0;
+  useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
+
+  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (model.pageSize !== pageSize) {
+        onRowsPerPageChange(model.pageSize);
+      } else {
+        onPageChange(model.page);
+      }
+    },
+    [pageSize, onPageChange, onRowsPerPageChange]
+  );
+  const handleSortModelChange = useCallback((model: GridSortModel) => {
+    setSortModel(model);
+  }, []);
 
   // Compute whether selected tests have mixed types
   const selectedTestTypes = useMemo(() => {
@@ -691,7 +708,7 @@ export default function TestsTable({
 
       setPendingDeleteId(null);
       setSelectedRows([]);
-      queryClient.invalidateQueries({ queryKey: testKeys.all() });
+      refresh();
     } catch (_error) {
       notifications.show('Failed to delete tests', {
         severity: 'error',
@@ -701,7 +718,7 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, selectedRows, notifications, queryClient]);
+  }, [pendingDeleteId, selectedRows, notifications, refresh]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -726,14 +743,14 @@ export default function TestsTable({
   }, []);
 
   const handleTestSaved = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: testKeys.all() });
-    if (paginationModel.page > 0) {
-      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    if (page > 0) {
+      onPageChange(0);
+    } else {
+      refresh();
     }
-  }, [queryClient, paginationModel.page]);
+  }, [page, onPageChange, refresh]);
 
   const filtersActive =
-    filterModel.items.length > 0 ||
     !!searchQuery ||
     hasActiveTestFilters(drawerFilters) ||
     !!insightsFailedFilter;
@@ -771,7 +788,7 @@ export default function TestsTable({
 
   return (
     <GridStateGate
-      data={testsData}
+      data={loading ? null : {}}
       error={error}
       isEmpty={totalCount === 0 && !filtersActive}
       emptyState={
@@ -840,9 +857,6 @@ export default function TestsTable({
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
-            serverSideFiltering={true}
-            filterModel={gridFilterModel}
-            onFilterModelChange={handleFilterModelChange}
             sortingMode="server"
             sortModel={sortModel}
             onSortModelChange={handleSortModelChange}
