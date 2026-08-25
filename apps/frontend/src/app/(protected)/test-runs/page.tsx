@@ -4,8 +4,6 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
-import { useQueryClient } from '@tanstack/react-query';
-import { testRunKeys } from '@/constants/query-keys';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
@@ -21,12 +19,12 @@ import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TestRunsPage() {
   const { status } = useSession();
-  const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestRun.READ
   );
   const canCreateTestRun = useCan(Capability.TestRun.CREATE);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
   const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
     useBulkActionsBridge();
 
@@ -34,8 +32,8 @@ export default function TestRunsPage() {
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-  }, [queryClient]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   if (isSessionLoading(status)) {
     return (
@@ -97,6 +95,7 @@ export default function TestRunsPage() {
             canCreate={canCreateTestRun}
             onCreateClick={() => setCreateDrawerOpen(true)}
             onBulkActionsChange={handleBulkActionsChange}
+            refreshTrigger={refreshTrigger}
           />
         </Box>
       </PageLayout>
