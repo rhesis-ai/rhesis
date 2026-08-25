@@ -67,8 +67,8 @@ def get_agreement(db: Session, metric: models.Metric, organization_id: str) -> T
     if not test_set:
         return TuningAgreement()
 
-    cases = crud_metric_tuning.get_tuning_cases(db, test_set.id, organization_id)
+    # Metadata only. The fold reads nothing else, and this endpoint is polled.
+    stored = crud_metric_tuning.get_tuning_case_metadata(db, test_set.id, organization_id)
     return agreement_over(
-        case_outcome(metric, parse_metric_tuning_case_metadata(db_test.test_metadata))[0]
-        for db_test in cases
+        case_outcome(metric, parse_metric_tuning_case_metadata(raw))[0] for raw in stored
     )
