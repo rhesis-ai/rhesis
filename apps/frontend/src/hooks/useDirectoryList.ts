@@ -1,5 +1,6 @@
 'use client';
 
+import type { GridPaginationModel } from '@mui/x-data-grid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   directoryListParams,
@@ -59,5 +60,14 @@ export function useDirectoryList<T, S extends FilterSpecMap>(
     ...list,
     ready: gate.ready,
     gateNode: gate.ready ? null : gate.node,
+    /** Spread onto `<BaseDataGrid>` alongside `rowCount`/`loading`/`serverSidePagination`. */
+    paginationModel: { page: list.page, pageSize: list.rowsPerPage },
+    onPaginationModelChange: (model: GridPaginationModel) => {
+      if (model.pageSize !== list.rowsPerPage) {
+        list.onRowsPerPageChange(model.pageSize);
+      } else {
+        list.onPageChange(model.page);
+      }
+    },
   };
 }
