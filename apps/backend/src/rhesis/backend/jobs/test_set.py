@@ -1,0 +1,858 @@
+import logging
+from typing import Any, List, Optional, Union
+
+from rhesis.backend.app import crud
+from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import user as user_crud
+from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.models.enums import NotificationEventType
+from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
+from rhesis.backend.app.services.test import bulk_create_tests
+from rhesis.backend.app.services.test_set import (
+    bulk_create_test_set,
+    generate_test_set_attributes,
+    load_defaults,
+)
+from rhesis.backend.app.services.usage import dispatch_accrual
+from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+from rhesis.backend.app.utils.query_utils import QueryBuilder
+from rhesis.backend.app.utils.user_model_utils import (
+    get_generation_model_with_override,
+)
+from rhesis.backend.celery.core import app
+from rhesis.backend.jobs.base import (
+    BaseJob,
+    EmailEnabledJob,
+    email_notification,
+    in_app_notification,
+)
+from rhesis.backend.notifications.email.template_service import EmailTemplate
+
+# SDK components (BaseLLM, ConfigSynthesizer, MultiTurnSynthesizer) are
+# imported lazily inside task functions to avoid pulling litellm → gRPC
+# into the Celery main process before forking (gRPC is not fork-safe).
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
+@app.task(
+    base=BaseJob,
+    name="rhesis.backend.jobs.count_test_sets",
+    bind=True,
+    display_name="Test Set Count",
+)
+# with_tenant_context decorator removed - tenant context now passed directly
+def count_test_sets(self):
+    """
+    Task that counts the total number of test sets in the database.
+
+    This task gets tenant context passed directly and uses get_db_with_tenant_variables
+    for explicit tenant context.
+    """
+    # Access context using the new utility method
+    org_id, user_id, project_id = self.get_tenant_context()
+
+    self.log_with_context("info", "Starting count_test_sets task")
+
+    try:
+        # Update task state to show progress
+        self.update_state(state="PROGRESS", meta={"status": "Counting test sets"})
+        self.log_with_context("info", "Starting database queries")
+
+        # Use tenant-aware database session with explicit organization_id and user_id
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
+            # Get all test sets with the proper tenant context
+            test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
+            total_count = len(test_sets)
+            self.log_with_context("info", "Total test sets counted", total_count=total_count)
+
+            # Get counts by visibility
+            org_visible_count = (
+                db.query(TestSet).filter(TestSet.visibility == "organization").count()
+            )
+            user_only_count = db.query(TestSet).filter(TestSet.visibility == "user").count()
+
+            published_count = db.query(TestSet).filter(TestSet.is_published).count()
+            unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
+
+        self.log_with_context(
+            "info",
+            "Visibility counts retrieved",
+            organization_count=org_visible_count,
+            user_only_count=user_only_count,
+        )
+        self.log_with_context(
+            "info",
+            "Published status counts retrieved",
+            published_count=published_count,
+            unpublished_count=unpublished_count,
+        )
+
+        result = {
+            "total_count": total_count,
+            "by_visibility": {"organization": org_visible_count, "user": user_only_count},
+            "by_status": {"published": published_count, "unpublished": unpublished_count},
+            "organization_id": org_id,
+            "user_id": user_id,
+        }
+
+        self.log_with_context(
+            "info",
+            "Task completed successfully",
+            total_count=total_count,
+            org_visible_count=org_visible_count,
+            user_only_count=user_only_count,
+        )
+        return result
+
+    except Exception as e:
+        self.log_with_context("error", "Task failed", error=str(e))
+        # The task will be automatically retried due to BaseJob settings
+        raise
+
+
+# Helper functions for test set generation and saving
+
+
+def _save_test_set_to_database(
+    self,
+    test_set,
+    org_id: str,
+    user_id: str,
+    custom_name: str = None,
+    extra_metadata: Optional[dict] = None,
+):
+    """Save the generated test set directly to the database.
+
+    Args:
+        test_set: The SDK TestSet with generated tests
+        org_id: Organization ID
+        user_id: User ID
+        custom_name: Optional custom name to use instead of auto-generated name
+
+    Note:
+        Source IDs are automatically embedded in test metadata via SourceSpecification.
+        The SDK propagates metadata from SourceSpecification to each generated test,
+        so no manual mapping is needed.
+    """
+    if not test_set.tests:
+        raise ValueError("No tests to save. Please add tests to the test set first.")
+
+    # Convert SDK Test objects/dicts to TestData format
+    from rhesis.backend.app.schemas.test_set import TestData
+
+    converted_tests = []
+    for test in test_set.tests:
+        # Get dict from test (handles both dict and Pydantic model)
+        if isinstance(test, dict):
+            test_dict = test.copy()
+        else:
+            test_dict = test.model_dump(exclude={"id", "endpoint"})
+
+        # Ensure required string fields have values (TestData requires non-None)
+        test_dict["requirement"] = test_dict.get("requirement") or ""
+        test_dict["category"] = test_dict.get("category") or ""
+        test_dict["topic"] = test_dict.get("topic") or ""
+
+        converted_tests.append(TestData(**test_dict))
+
+    if test_set.test_set_type:
+        test_set_type_str = TestSetType.get_value(TestSetType.from_string(test_set.test_set_type))
+    else:
+        test_set_type_str = TestSetType.SINGLE_TURN.value
+
+    merged_metadata = {**(test_set.metadata or {}), **(extra_metadata or {})}
+    test_set_data = {
+        "name": custom_name if custom_name else test_set.name,
+        "description": test_set.description,
+        "short_description": test_set.short_description,
+        "test_set_type": test_set_type_str,
+        "metadata": merged_metadata,
+        "tests": converted_tests,
+    }
+
+    with self.get_db_session() as db:
+        db_test_set = bulk_create_test_set(
+            db=db,
+            test_set_data=test_set_data,
+            organization_id=org_id,
+            user_id=user_id,
+            test_set_type=test_set.test_set_type,  # ConfigSynthesizer generates single-turn tests
+        )
+
+        # Note: We don't set the SDK test_set.id because:
+        # 1. The database auto-generates the ID
+        # 2. The SDK TestSet is just used for generation, not as a database entity
+        # 3. We'll use the db_test_set.id for our return result instead
+
+    self.log_with_context(
+        "info",
+        "Test set saved successfully to database",
+        test_set_id=str(db_test_set.id),
+        test_set_name=db_test_set.name,
+    )
+
+    return db_test_set
+
+
+def _resolve_generation_model(
+    self, org_id: str, user_id: str, project_id: str = "", model_id: Optional[str] = None
+) -> Union[str, Any]:
+    """Fetch the generation model for this task run.
+
+    Uses model_id as an explicit override when provided; otherwise returns the
+    user's configured default. project_id is required so project-scoped models
+    are visible to the ORM auto-filter.
+    """
+    with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
+        user = user_crud.get_user(db, user_id=user_id)
+        if not user:
+            raise ValueError(f"User not found: {user_id}")
+
+        model = get_generation_model_with_override(db, user, model_id=model_id)
+        self.log_with_context(
+            "info",
+            "Resolved generation model",
+            model_type=type(model).__name__ if not isinstance(model, str) else "string",
+        )
+        return model
+
+
+def _build_task_result(
+    self,
+    db_test_set,
+    num_tests: int,
+    synthesizer,
+    log_kwargs: dict,
+    batch_size: int,
+    org_id: str,
+    user_id: str,
+    tests_generated: int,
+) -> dict:
+    """Build the comprehensive task result dictionary.
+
+    *tests_generated* is passed in rather than read off
+    ``db_test_set.tests``. Both save helpers return the ORM row *after*
+    their ``with self.get_db_session()`` block has closed, so the instance
+    is detached and the relationship is not loaded: touching it here raised
+    ``DetachedInstanceError`` and failed the whole task after the tests had
+    already been written, leaving generation marked failed with a full set
+    of tests behind it. The caller already holds the SDK test set, whose
+    ``tests`` is a plain list, so the count needs no session at all.
+    """
+    return {
+        "test_set_id": str(db_test_set.id),
+        "test_set_name": db_test_set.name,
+        "description": db_test_set.description,
+        "short_description": db_test_set.short_description,
+        "num_tests_generated": tests_generated,
+        "num_tests_requested": num_tests,
+        "synthesizer_class": synthesizer.__class__.__name__,
+        "synthesizer_params": log_kwargs,  # Safe parameters for logging
+        "batch_size": batch_size,
+        "metadata": db_test_set.attributes.get("metadata", {}) if db_test_set.attributes else {},
+        "organization_id": org_id,
+        "user_id": user_id,
+        "save_successful": True,
+    }
+
+
+def _attach_tests_to_existing_test_set(
+    self,
+    sdk_test_set,
+    test_set_id: str,
+    org_id: str,
+    user_id: str,
+    extra_metadata: Optional[dict] = None,
+):
+    """Attach generated tests to a pre-created TestSet row.
+
+    Used when the router has already created the TestSet row up front so the
+    frontend can redirect immediately.  This function:
+    1. Converts SDK Test objects to TestData schemas
+    2. Bulk-creates tests and links them to the existing test set
+    3. Recomputes the test set's attributes from its tests
+    4. Stamps generation.status = 'completed'
+
+    Args:
+        sdk_test_set: The SDK TestSet containing generated tests
+        test_set_id: UUID string of the pre-created TestSet row
+        org_id: Organization UUID string
+        user_id: User UUID string
+        extra_metadata: Optional additional metadata to merge
+
+    Returns:
+        The updated TestSet ORM model
+    """
+    if not sdk_test_set.tests:
+        raise ValueError("No tests to save. Please add tests to the test set first.")
+
+    from rhesis.backend.app.schemas.test_set import TestData
+
+    # Resolve test_set_type string
+    if sdk_test_set.test_set_type:
+        test_set_type_value = TestSetType.get_value(
+            TestSetType.from_string(sdk_test_set.test_set_type)
+        )
+    else:
+        test_set_type_value = TestSetType.SINGLE_TURN.value
+
+    converted_tests = []
+    for test in sdk_test_set.tests:
+        if isinstance(test, dict):
+            test_dict = test.copy()
+        else:
+            test_dict = test.model_dump(exclude={"id", "endpoint"})
+        test_dict["requirement"] = test_dict.get("requirement") or ""
+        test_dict["category"] = test_dict.get("category") or ""
+        test_dict["topic"] = test_dict.get("topic") or ""
+        converted_tests.append(TestData(**test_dict))
+
+    defaults = load_defaults()
+
+    import uuid as _uuid
+
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    test_set_uuid = _uuid.UUID(test_set_id)
+    with self.get_db_session() as db:
+        with bypass_tenant_filter():
+            # ItemDeletedException is in BaseTask.dont_autoretry_for, so a
+            # soft-deleted row fails this task immediately instead of retrying
+            # against a row that will never come back.
+            test_set_query = QueryBuilder(db, TestSet).with_deleted().filter_by_id(test_set_uuid)
+            db_test_set = _check_and_raise_if_deleted(test_set_query, TestSet, test_set_uuid, False)
+        if db_test_set is None:
+            raise ValueError(f"TestSet with id {test_set_id!r} not found in database")
+
+        bulk_create_tests(
+            db=db,
+            tests_data=converted_tests,
+            organization_id=org_id,
+            user_id=user_id,
+            test_set_id=test_set_id,
+            test_type_value=test_set_type_value,
+        )
+
+        db.refresh(db_test_set)
+
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        license_type = get_or_create_type_lookup(
+            db=db,
+            type_name="LicenseType",
+            type_value=defaults["test_set"]["license_type"],
+            organization_id=org_id,
+            user_id=user_id,
+        )
+
+        new_attributes = generate_test_set_attributes(
+            db=db,
+            test_set=db_test_set,
+            defaults=defaults,
+            license_type=license_type,
+        )
+
+        # Preserve and update generation metadata
+        existing_generation = (
+            (db_test_set.attributes or {}).get("metadata", {}).get("generation", {})
+        )
+        merged_generation = {**existing_generation, "status": "completed"}
+        new_attributes.setdefault("metadata", {})["generation"] = merged_generation
+
+        if extra_metadata:
+            new_attributes["metadata"] = {**new_attributes.get("metadata", {}), **extra_metadata}
+
+        db_test_set.attributes = new_attributes
+
+    self.log_with_context(
+        "info",
+        "Tests attached to existing test set successfully",
+        test_set_id=str(db_test_set.id),
+        tests_attached=len(sdk_test_set.tests),
+    )
+    return db_test_set
+
+
+def _mark_test_set_generation_failed(
+    self,
+    test_set_id: str,
+    org_id: str,
+    user_id: str,
+    error_message: str,
+) -> None:
+    """Update the pre-created TestSet to mark generation as failed."""
+    import uuid as _uuid
+
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    test_set_uuid = _uuid.UUID(test_set_id)
+    try:
+        with self.get_db_session() as db:
+            with bypass_tenant_filter():
+                db_test_set = db.query(TestSet).filter(TestSet.id == test_set_uuid).first()
+            if db_test_set is None:
+                return
+            attrs = dict(db_test_set.attributes or {})
+            metadata = dict(attrs.get("metadata", {}))
+            generation = dict(metadata.get("generation", {}))
+            generation["status"] = "failed"
+            generation["error"] = error_message
+            metadata["generation"] = generation
+            attrs["metadata"] = metadata
+            db_test_set.attributes = attrs
+    except Exception as mark_err:
+        self.log_with_context(
+            "warning",
+            "Could not mark test set generation as failed",
+            test_set_id=test_set_id,
+            error=str(mark_err),
+        )
+
+
+@in_app_notification(NotificationEventType.TestSet.GENERATION_COMPLETED)
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="Test Set Generation Complete: {task_name} - {status}",
+)
+@app.task(
+    base=EmailEnabledJob,
+    name="rhesis.backend.jobs.generate_and_save_test_set",
+    bind=True,
+    display_name="Generate and Save Test Set",
+)
+def generate_and_save_test_set(
+    self,
+    config: dict,
+    num_tests: int,
+    batch_size: int = 20,
+    sources: Optional[List[dict]] = None,
+    name: Optional[str] = None,
+    test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
+    metadata: Optional[dict] = None,
+    model_id: Optional[str] = None,
+    test_set_id: Optional[str] = None,
+):
+    """
+    Generate and save test set using ConfigSynthesizer.
+
+    When ``test_set_id`` is supplied the row already exists (created by the router
+    so the frontend can redirect immediately).  In that case the task attaches the
+    generated tests to the existing row and marks generation.status = 'completed'.
+    On failure it marks generation.status = 'failed'.
+
+    When ``test_set_id`` is *not* supplied (legacy callers such as Garak import)
+    the task creates a new row as before.
+
+    Args:
+        config: GenerationConfig as dict (will be converted to GenerationConfig)
+        num_tests: Number of tests to generate
+        batch_size: Batch size for generation (default: 20)
+        sources: Optional list of SourceData dicts with IDs
+        name: Optional custom name for test set
+        metadata: Optional extra metadata dict to merge
+        model_id: Optional model UUID to override the user's default generation model
+        test_set_id: Optional UUID of a pre-created TestSet row
+
+    Returns:
+        dict: Information about the generated and saved test set including ID and metadata
+    """
+    org_id, user_id, project_id = self.get_tenant_context()
+
+    # Parse config
+    generation_config = GenerationConfig(**config)
+
+    # Log the parameters (safely, without exposing sensitive data)
+    log_kwargs = {k: v for k, v in config.items() if not k.lower().endswith("_key")}
+
+    # Get SDK source specifications (with embedded source IDs)
+    source_specifications = []
+
+    if sources:
+        with self.get_db_session() as db:
+            from rhesis.backend.app.services.generation import get_source_specifications
+
+            source_specifications = get_source_specifications(
+                sources=[SourceData(**s) for s in sources],
+                db=db,
+                organization_id=org_id,
+                user_id=user_id,
+            )
+
+    model = _resolve_generation_model(self, org_id, user_id, project_id or "", model_id)
+
+    # Determine model info for logging
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+
+    self.log_with_context(
+        "info",
+        "Starting generate_and_save_test_set task",
+        num_tests=num_tests,
+        model=model_info,
+        synthesizer_params=list(log_kwargs.keys()),
+    )
+
+    try:
+        # Generate test set
+        self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.set_progress(0, num_tests)
+        gen_parts = [f"Generating {num_tests}"]
+        if test_type:
+            gen_parts.append(test_type.lower().replace("-", " "))
+        gen_parts.append("tests")
+        gen_parts.append(f"using {model_info}")
+        self.emit(" ".join(gen_parts))
+        self.log_with_context(
+            "info",
+            "Creating synthesizer",
+            test_type=test_type,
+            batch_size=batch_size,
+            num_tests=num_tests,
+            has_sources=bool(source_specifications),
+            num_sources=len(source_specifications),
+        )
+
+        # Normalize test_type to canonical Title-Case form, accepting snake_case from clients
+        resolved_type = TestSetType.from_string(test_type) if test_type else None
+        if resolved_type is None:
+            valid = [t.value for t in TestSetType]
+            raise ValueError(f"Unsupported test_type {test_type!r}. Valid values: {valid}")
+        test_type = resolved_type.value
+
+        from rhesis.sdk.synthesizers import ConfigSynthesizer, MultiTurnSynthesizer
+
+        # Create synthesizer with full config
+        if test_type == TestSetType.SINGLE_TURN.value:
+            synthesizer = ConfigSynthesizer(
+                config=generation_config,
+                batch_size=batch_size,
+                model=model,
+                sources=source_specifications if source_specifications else None,
+            )
+        elif test_type == TestSetType.MULTI_TURN.value:
+            synthesizer = MultiTurnSynthesizer(
+                config=generation_config,
+                model=model,
+            )
+        else:
+            raise ValueError(f"Unsupported test_type {test_type!r}")
+
+        self.log_with_context(
+            "info",
+            "Starting synthesizer.generate() - this may take a while for large test counts",
+            num_tests=num_tests,
+            batch_size=batch_size,
+            estimated_batches=(num_tests + batch_size - 1) // batch_size,
+        )
+
+        import time
+
+        def _progress_and_emit(current, total):
+            self.set_progress(current, total)
+            self.emit(f"Generated {current} of {total} tests")
+
+        gen_start = time.time()
+        test_set = synthesizer.generate(num_tests=num_tests, on_progress=_progress_and_emit)
+        gen_elapsed = time.time() - gen_start
+
+        self.log_with_context(
+            "info",
+            "Test set generated",
+            actual_tests_generated=len(test_set.tests),
+            requested_tests=num_tests,
+            generation_time_seconds=round(gen_elapsed, 1),
+        )
+        self.set_progress(len(test_set.tests), num_tests)
+
+        # Note: Source IDs are already embedded in test metadata via SourceSpecification
+        # The SDK automatically propagates metadata from SourceSpecification to generated tests
+
+        # Save to database
+        self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
+
+        if test_set_id:
+            # Attach tests to the pre-created row
+            db_test_set = _attach_tests_to_existing_test_set(
+                self,
+                test_set,
+                test_set_id=test_set_id,
+                org_id=org_id,
+                user_id=user_id,
+                extra_metadata=metadata,
+            )
+        else:
+            # Legacy path: create a new row (used by Garak import and direct callers)
+            db_test_set = _save_test_set_to_database(
+                self,
+                test_set,
+                org_id,
+                user_id,
+                custom_name=name,
+                extra_metadata=metadata,
+            )
+
+        self.set_entity("TestSet", str(db_test_set.id))
+        self.emit(f"Saved {len(test_set.tests)} tests to test set")
+
+        # Build and return result
+        result = _build_task_result(
+            self,
+            db_test_set,
+            num_tests,
+            synthesizer,
+            log_kwargs,
+            batch_size,
+            org_id,
+            user_id,
+            tests_generated=len(test_set.tests),
+        )
+
+        # No session needed here any more -- the accrual is queued and the
+        # worker task opens its own. dispatch_accrual no-ops on a count of
+        # zero, so the guard that used to protect the session checkout is
+        # gone too.
+        dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
+
+        self.log_with_context(
+            "info",
+            "Task completed successfully",
+            test_set_id=str(db_test_set.id),
+            tests_generated=len(test_set.tests),
+        )
+
+        return result
+
+    except ValueError as e:
+        error_msg = str(e)
+        error_msg_lower = error_msg.lower()
+
+        if test_set_id:
+            _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, error_msg)
+
+        # Check for various model configuration issues. Deliberately not matching on
+        # a bare "model" -- nearly every LLM-related error mentions "model" somewhere,
+        # so that keyword mislabeled transient failures (e.g. a scaled-to-zero
+        # Polyphemus instance timing out) as "check your Models settings".
+        if any(
+            keyword in error_msg_lower
+            for keyword in [
+                "api_key",
+                "not set",
+                "not configured",
+                "api key",
+                "authentication",
+                "provider",
+                "not supported",
+                "not found",
+                "invalid",
+            ]
+        ):
+            self.log_with_context("error", "User model configuration error", error=error_msg)
+            raise ValueError(
+                f"Cannot generate tests due to a problem with your configured model: {error_msg}. "
+                "Please check your model settings in the Models page."
+            )
+        # Other configuration errors
+        self.log_with_context("error", "Configuration error", error=error_msg)
+        raise ValueError(f"Test set generation failed: {error_msg}")
+    except Exception as e:
+        error_msg = str(e)
+        self.log_with_context("error", "Task failed", error=error_msg)
+        if test_set_id:
+            _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, error_msg)
+        # The task will be automatically retried due to BaseJob settings
+        raise Exception(f"Test set generation and save failed: {error_msg}")
+
+
+@in_app_notification(NotificationEventType.TestSet.GENERATION_COMPLETED)
+@email_notification(
+    template=EmailTemplate.TASK_COMPLETION,
+    subject_template="OWASP Test Set Generation Complete: {task_name} - {status}",
+)
+@app.task(
+    base=EmailEnabledJob,
+    name="rhesis.backend.jobs.generate_and_save_owasp_test_set",
+    bind=True,
+    display_name="Generate and Save OWASP Test Set",
+)
+def generate_and_save_owasp_test_set(
+    self,
+    framework: str,
+    purpose: str,
+    categories: Optional[List[str]] = None,
+    num_tests: int = 20,
+    batch_size: int = 10,
+    name: Optional[str] = None,
+    model_id: Optional[str] = None,
+    test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
+):
+    """
+    Generate and save a test set using the SDK's OWASPSynthesizer.
+
+    Downloads the OWASP Top 10 report for ``framework`` and generates
+    adversarial test cases tailored to ``purpose`` for each selected risk
+    category.
+
+    Args:
+        framework: "llm" or "agentic" - which OWASP report to generate from.
+        purpose: What the system under test does, e.g. "customer service
+            chatbot for a bank".
+        categories: Optional list of category ids to restrict generation to
+            (e.g. ["llm01", "llm07"]). Defaults to every category in the report.
+        num_tests: Number of tests to generate, spread evenly across categories.
+        batch_size: Max attacks generated per LLM call per category.
+        name: Optional custom name for the test set.
+        model_id: Optional model UUID to override the user's default generation model.
+        test_type: "Single-Turn" (default) or "Multi-Turn" - whether to generate
+            one-shot attack prompts or multi-turn conversational attacks.
+
+    Returns:
+        dict: Information about the generated and saved test set.
+    """
+    org_id, user_id, project_id = self.get_tenant_context()
+
+    from rhesis.backend.app.services.owasp import (
+        OWASP_FRAMEWORKS,
+        load_owasp_content_cache,
+        save_owasp_content_cache,
+    )
+
+    framework_info = OWASP_FRAMEWORKS[framework]
+    report_url = framework_info["report_url"]
+    requirement = framework_info["requirement"]
+
+    model = _resolve_generation_model(self, org_id, user_id, project_id or "", model_id)
+    model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
+
+    self.log_with_context(
+        "info",
+        "Starting generate_and_save_owasp_test_set task",
+        framework=framework,
+        num_tests=num_tests,
+        model=model_info,
+        test_type=test_type,
+    )
+
+    try:
+        self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.set_progress(0, num_tests)
+        self.emit(f"Generating {num_tests} OWASP {framework.upper()} tests using {model_info}")
+
+        # Imported lazily for the same fork-safety reason as ConfigSynthesizer above.
+        from rhesis.sdk.synthesizers import OWASPSynthesizer
+
+        synthesizer = OWASPSynthesizer(
+            purpose=purpose,
+            report_url=report_url,
+            categories=categories,
+            batch_size=batch_size,
+            model=model,
+            requirement=requirement,
+            test_type=test_type,
+            # Shared content cache: parse each report's PDF at most once per framework.
+            cache_key=framework,
+            cache_loader=load_owasp_content_cache,
+            cache_writer=save_owasp_content_cache,
+        )
+
+        import time
+
+        def _progress_and_emit(current, total):
+            self.set_progress(current, total)
+            self.emit(f"Generated {current} of {total} tests")
+
+        gen_start = time.time()
+        test_set = synthesizer.generate(num_tests=num_tests, on_progress=_progress_and_emit)
+        gen_elapsed = time.time() - gen_start
+
+        self.log_with_context(
+            "info",
+            "OWASP test set generated",
+            actual_tests_generated=len(test_set.tests),
+            requested_tests=num_tests,
+            generation_time_seconds=round(gen_elapsed, 1),
+        )
+        self.set_progress(len(test_set.tests), num_tests)
+
+        self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
+
+        test_set_name = name or f"{requirement}: {purpose[:60]}"
+        db_test_set = _save_test_set_to_database(
+            self,
+            test_set,
+            org_id,
+            user_id,
+            custom_name=test_set_name,
+            extra_metadata={
+                "source": "owasp",
+                "owasp_framework": framework,
+                "owasp_report_url": report_url,
+            },
+        )
+        self.set_entity("TestSet", str(db_test_set.id))
+        self.emit(f"Saved {len(test_set.tests)} tests to test set")
+
+        # From here on, the test set is already saved. A failure below must
+        # not reach the `except Exception` at the bottom of this function --
+        # it re-raises, and Celery's `autoretry_for = (Exception,)`
+        # (tasks/base.py) retries the whole task, re-running generation and
+        # re-saving for a save that already succeeded. This try/except
+        # isolates post-save work so a failure here falls back to a minimal
+        # result instead of triggering that retry.
+        try:
+            result = _build_task_result(
+                self,
+                db_test_set,
+                num_tests,
+                synthesizer,
+                {"framework": framework, "purpose": purpose, "categories": categories},
+                batch_size,
+                org_id,
+                user_id,
+                tests_generated=len(test_set.tests),
+            )
+
+            # No session needed here any more -- the accrual is queued and the
+            # worker task opens its own. dispatch_accrual no-ops on a count of
+            # zero, so the guard that used to protect the session checkout is
+            # gone too.
+            dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
+
+            self.log_with_context(
+                "info",
+                "Task completed successfully",
+                test_set_id=str(db_test_set.id),
+                tests_generated=len(test_set.tests),
+            )
+
+            return result
+        except Exception as post_save_error:
+            self.log_with_context(
+                "error",
+                "Result building failed after test set was already saved; "
+                "returning minimal result instead of retrying (retrying would "
+                "re-run generation and create a duplicate test set)",
+                test_set_id=str(db_test_set.id),
+                error=str(post_save_error),
+            )
+            return {
+                "test_set_id": str(db_test_set.id),
+                "num_tests_generated": len(test_set.tests),
+                "num_tests_requested": num_tests,
+                "organization_id": org_id,
+                "user_id": user_id,
+                "save_successful": True,
+                "result_build_error": str(post_save_error),
+            }
+
+    except ValueError as e:
+        error_msg = str(e)
+        self.log_with_context("error", "User model configuration error", error=error_msg)
+        raise ValueError(f"OWASP test set generation failed: {error_msg}")
+    except Exception as e:
+        error_msg = str(e)
+        self.log_with_context("error", "Task failed", error=error_msg)
+        raise Exception(f"OWASP test set generation failed: {error_msg}")

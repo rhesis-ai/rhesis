@@ -38,8 +38,8 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.endpoint.explore import run_exploration_task
+from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.endpoint.explore import run_exploration_task
 
 logger = logging.getLogger(__name__)
 
@@ -428,7 +428,7 @@ def explore_endpoint_route(
 ):
     """Launch an async Penelope exploration of an endpoint.
 
-    Returns a ``task_id`` that can be polled via ``GET /jobs/{task_id}``
+    Returns a ``task_id`` that can be polled via ``GET /jobs/by-celery-id/{task_id}``
     until status is ``SUCCESS``.  The ``result`` field then contains the
     exploration findings.
     """
@@ -440,7 +440,7 @@ def explore_endpoint_route(
     if db_endpoint is None:
         raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
 
-    task_result = task_launcher(
+    task_result = launch_job(
         run_exploration_task,
         current_user=current_user,
         db=db,
@@ -458,6 +458,6 @@ def explore_endpoint_route(
         task_id=str(task_result.id),
         message=(
             f"Endpoint exploration started using {strategy_label}. "
-            "Poll GET /jobs/{{task_id}} until status is SUCCESS."
+            "Poll GET /jobs/by-celery-id/{{task_id}} until status is SUCCESS."
         ),
     )

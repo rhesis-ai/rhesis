@@ -13,7 +13,7 @@ app = Celery("rhesis")
 app.conf.update(CELERY_CONFIG)
 
 # Auto-discover tasks
-app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
+app.autodiscover_tasks(["rhesis.backend.jobs"], force=True)
 
 _web_overrides_applied = False
 

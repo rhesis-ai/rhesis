@@ -13,6 +13,12 @@ export const testRunKeys = createEntityKeys('test-runs');
 export const endpointKeys = createEntityKeys('endpoints');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
+export const jobKeys = {
+  ...createEntityKeys('jobs'),
+  /** A job's log entries, keyed by cursor so a poll does not clobber earlier pages. */
+  activity: (id: string, afterSequence?: number) =>
+    ['jobs', 'activity', id, afterSequence ?? null] as const,
+};
 export const annotationKeys = createEntityKeys('annotations');
 export const experimentKeys = createEntityKeys('experiments');
 export const modelKeys = createEntityKeys('models');

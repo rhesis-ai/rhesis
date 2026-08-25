@@ -394,7 +394,7 @@ def get_experiment_results(
     # stale/incomplete ``attributes.passed_tests`` / ``failed_tests``
     # counters that get written during execution and don't reflect later
     # metric- or turn-override recalculations.
-    from rhesis.backend.tasks.execution.result_processor import (
+    from rhesis.backend.jobs.execution.result_processor import (
         get_review_statistics_for_runs,
         get_test_statistics_for_runs,
         inject_review_counts_into_serialized_runs,

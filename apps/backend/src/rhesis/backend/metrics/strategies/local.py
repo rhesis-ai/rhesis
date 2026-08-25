@@ -26,6 +26,7 @@ from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+from rhesis.backend.metrics.strategies.base import OnMetricComplete
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
@@ -158,6 +159,7 @@ class LocalStrategy:
         tool_calls: List[Dict[str, Any]] | None = None,
         instructions: str | None = None,
         contract: Dict[str, Any] | None = None,
+        on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
         """Async evaluate using asyncio.gather over metric.a_evaluate().
 
@@ -188,7 +190,7 @@ class LocalStrategy:
             backend: str,
         ) -> Tuple[str, Dict[str, Any]]:
             async with sem:
-                return await self._a_eval_one_with_retry(
+                key, result = await self._a_eval_one_with_retry(
                     unique_key,
                     class_name,
                     metric,
@@ -204,6 +206,12 @@ class LocalStrategy:
                     instructions=instructions,
                     contract=contract,
                 )
+                if on_metric_complete:
+                    try:
+                        on_metric_complete(key, result)
+                    except Exception:
+                        pass
+                return key, result
 
         coros = [
             _eval_one(key, cn, m, mc, b) for (cn, m, mc, b), key in zip(metric_tasks, metric_keys)

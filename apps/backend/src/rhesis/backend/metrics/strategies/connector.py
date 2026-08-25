@@ -15,6 +15,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+from rhesis.backend.metrics.strategies.base import OnMetricComplete
 from rhesis.sdk.metrics import MetricConfig
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,7 @@ class ConnectorStrategy:
         tool_calls: List[Dict[str, Any]] | None = None,
         instructions: str | None = None,
         contract: Dict[str, Any] | None = None,
+        on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
         """Async evaluate — dispatches all connector calls concurrently via asyncio.gather.
 
@@ -154,7 +156,13 @@ class ConnectorStrategy:
                     error_type=type(e).__name__,
                     threshold=threshold,
                 )
-            return metric_name or class_name, result
+            key = metric_name or class_name
+            if on_metric_complete:
+                try:
+                    on_metric_complete(key, result)
+                except Exception:
+                    pass
+            return key, result
 
         pairs = await asyncio.gather(*(_call_one(c) for c in configs))
         return dict(pairs)

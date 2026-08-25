@@ -12,8 +12,8 @@ from uuid import uuid4
 
 import pytest
 
-from rhesis.backend.tasks.execution.executors.output_providers import SingleTurnOutput
-from rhesis.backend.tasks.execution.executors.results import (
+from rhesis.backend.jobs.execution.executors.output_providers import SingleTurnOutput
+from rhesis.backend.jobs.execution.executors.results import (
     _is_safe_attachment_storage_path,
     _store_output_files,
 )
@@ -54,14 +54,14 @@ class TestSingleTurnOutputWithFiles:
             # Mock endpoint service
             mock_result = {"output": "test response"}
             with patch(
-                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service"
+                "rhesis.backend.jobs.execution.executors.output_providers.get_endpoint_service"
             ) as mock_get_svc:
                 mock_svc = AsyncMock()
                 mock_svc.invoke_endpoint.return_value = mock_result
                 mock_get_svc.return_value = mock_svc
 
                 with patch(
-                    "rhesis.backend.tasks.execution.executors"
+                    "rhesis.backend.jobs.execution.executors"
                     ".output_providers.process_endpoint_result",
                     return_value=mock_result,
                 ):
@@ -93,14 +93,14 @@ class TestSingleTurnOutputWithFiles:
         with patch.object(SingleTurnOutput, "_load_input_files", return_value=[]):
             mock_result = {"output": "test response"}
             with patch(
-                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service"
+                "rhesis.backend.jobs.execution.executors.output_providers.get_endpoint_service"
             ) as mock_get_svc:
                 mock_svc = AsyncMock()
                 mock_svc.invoke_endpoint.return_value = mock_result
                 mock_get_svc.return_value = mock_svc
 
                 with patch(
-                    "rhesis.backend.tasks.execution.executors"
+                    "rhesis.backend.jobs.execution.executors"
                     ".output_providers.process_endpoint_result",
                     return_value=mock_result,
                 ):
@@ -155,7 +155,7 @@ class TestOutputFileCapture:
 
         with (
             patch(
-                "rhesis.backend.tasks.execution.executors.results.file_crud"
+                "rhesis.backend.jobs.execution.executors.results.file_crud"
             ) as mock_file_crud,
             patch(
                 "rhesis.backend.app.services.storage_service.StorageService",
@@ -182,7 +182,7 @@ class TestOutputFileCapture:
         """When processed_result has no 'output_files', no File records created."""
         db = MagicMock()
 
-        with patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud:
+        with patch("rhesis.backend.jobs.execution.executors.results.file_crud") as mock_file_crud:
             # Empty list
             _store_output_files(db, uuid4(), [], str(uuid4()), str(uuid4()))
             mock_file_crud.create_file.assert_not_called()
@@ -198,7 +198,7 @@ class TestOutputFileCapture:
             }
         ]
 
-        with patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud:
+        with patch("rhesis.backend.jobs.execution.executors.results.file_crud") as mock_file_crud:
             # Should not raise
             _store_output_files(db, uuid4(), output_files, str(uuid4()), str(uuid4()))
             mock_file_crud.create_file.assert_not_called()
@@ -207,7 +207,7 @@ class TestOutputFileCapture:
         """Non-list output_files value is skipped."""
         db = MagicMock()
 
-        with patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud:
+        with patch("rhesis.backend.jobs.execution.executors.results.file_crud") as mock_file_crud:
             _store_output_files(db, uuid4(), "not a list", str(uuid4()), str(uuid4()))
             mock_file_crud.create_file.assert_not_called()
 
@@ -309,7 +309,7 @@ class TestStoreOutputFilesPathA:
         user_id = str(uuid4())
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.file_crud"
+            "rhesis.backend.jobs.execution.executors.results.file_crud"
         ) as mock_file_crud:
             _store_output_files(
                 db,
@@ -337,7 +337,7 @@ class TestStoreOutputFilesPathA:
 
         payload = self._good_payload(other_org, result_id)
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.file_crud"
+            "rhesis.backend.jobs.execution.executors.results.file_crud"
         ) as mock_file_crud:
             _store_output_files(db, result_id, [payload], org_id, user_id)
             mock_file_crud.create_file.assert_not_called()
@@ -353,7 +353,7 @@ class TestStoreOutputFilesPathA:
             f"attachments/{org_id}/TestResult/{result_id}/../../other-org/private.bin"
         )
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.file_crud"
+            "rhesis.backend.jobs.execution.executors.results.file_crud"
         ) as mock_file_crud:
             _store_output_files(db, result_id, [payload], org_id, user_id)
             mock_file_crud.create_file.assert_not_called()
@@ -367,7 +367,7 @@ class TestStoreOutputFilesPathA:
         payload = self._good_payload(org_id, result_id)
         payload["storage_path"] = "/etc/passwd"
         with patch(
-            "rhesis.backend.tasks.execution.executors.results.file_crud"
+            "rhesis.backend.jobs.execution.executors.results.file_crud"
         ) as mock_file_crud:
             _store_output_files(db, result_id, [payload], org_id, user_id)
             mock_file_crud.create_file.assert_not_called()

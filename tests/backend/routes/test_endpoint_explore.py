@@ -48,7 +48,7 @@ class TestExploreEndpointHappy:
 
         with (
             patch("rhesis.backend.app.routers.endpoint.crud") as mock_crud,
-            patch("rhesis.backend.app.routers.endpoint.task_launcher", return_value=mock_async_result),
+            patch("rhesis.backend.app.routers.endpoint.launch_job", return_value=mock_async_result),
         ):
             mock_crud.get_endpoint.return_value = mock_ep
 
@@ -69,7 +69,7 @@ class TestExploreEndpointHappy:
 
         with (
             patch("rhesis.backend.app.routers.endpoint.crud") as mock_crud,
-            patch("rhesis.backend.app.routers.endpoint.task_launcher", return_value=mock_async_result),
+            patch("rhesis.backend.app.routers.endpoint.launch_job", return_value=mock_async_result),
         ):
             mock_crud.get_endpoint.return_value = mock_ep
 

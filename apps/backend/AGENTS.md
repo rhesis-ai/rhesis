@@ -9,7 +9,7 @@ See root `AGENTS.md` for repo-wide rules (commits, PRs, testing overview, tech s
   `routers/`, `services/` (business logic), `auth/`, `scope.py`/`models/scope_events.py` (tenant
   scope), `features/` (feature gating)
 - `alembic/` — DB migrations
-- `tasks/` — Celery background tasks (`execution/`, `telemetry/`)
+- `jobs/` — Celery background tasks (`execution/`, `telemetry/`)
 - `metrics/` — evaluation metrics (DeepEval, RAGAS, native providers)
 
 ## Imports
@@ -42,13 +42,17 @@ set_explorer_test_outputs`. Reaching through the parent (`from rhesis.backend.ap
 `crud.explorer.foo()`) raises `AttributeError` unless some other module happens to have imported the
 submodule already, which makes it work by accident.
 
-## Tasks layout
+## Jobs layout
 
-`tasks/` is Celery orchestration only — no business logic. Anything reusable outside a Celery
+`jobs/` is Celery orchestration only — no business logic. Anything reusable outside a Celery
 context (model resolution, response parsing, error detection) belongs in `app/services/` or
-`app/utils/`; `tasks/` depends on those, never the reverse. Importing anything under
-`rhesis.backend.tasks` builds the whole Celery app first (`tasks/__init__.py` eagerly imports every
-task module), so a `services/` import from `tasks/` silently drags all of that in.
+`app/utils/`; `jobs/` depends on those, never the reverse. Importing anything under
+`rhesis.backend.jobs` builds the whole Celery app first (`jobs/__init__.py` eagerly imports every
+task module), so a `services/` import from `jobs/` silently drags all of that in.
+
+A "task" in this codebase is a human to-do (the `task` table, the Tasks screen). Background work is
+a "job". Celery's own vocabulary — `@app.task`, `AsyncResult`, `self.request.id` — is framework API
+and stays as-is; it is confined to `jobs/`.
 
 Use `app/utils/` over `app/services/<domain>/` when more than one unrelated service needs the
 helper — e.g. `app/utils/response_extractor.py` is used by explorer's invocation *and* by metric
@@ -159,11 +163,11 @@ request session.
 
 `bind_scope_to_session` callers (sessions they own outright):
 
-- `tasks/execution/batch/context.py`
+- `jobs/execution/batch/context.py`
 - `celery/signals.py`
-- `tasks/telemetry/evaluate.py`
-- `tasks/telemetry/post_ingest.py`
-- `tasks/execution/executors/data.py`
+- `jobs/telemetry/evaluate.py`
+- `jobs/telemetry/post_ingest.py`
+- `jobs/execution/executors/data.py`
 - `routers/parameters.py`
 - `services/telemetry/conversation_linking.py`
 - `services/websocket/handlers/architect.py`

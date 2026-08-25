@@ -13,13 +13,13 @@ from celery.signals import (
     worker_shutdown,
 )
 
-import rhesis.backend.tasks.architect.monitor  # noqa: F401
+import rhesis.backend.jobs.architect.monitor  # noqa: F401
+from rhesis.backend.jobs.enums import RunStatus
 from rhesis.backend.logging import set_logger
-from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger("celery.signals")
 
-_EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.tasks.execute_test_configuration"
+_EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.jobs.execute_test_configuration"
 # Set in celeryd_init from the worker node name (e.g. main@host → MAIN).
 _worker_role: str | None = None
 
@@ -29,14 +29,25 @@ _worker_role: str | None = None
 _usage_attribution_tokens: dict = {}
 
 
-def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
+def _update_test_run_status(
+    task_id: str,
+    new_status: RunStatus,
+    error_message: str = None,
+    test_run_id: str = None,
+):
     try:
+        from uuid import UUID
+
+        from rhesis.backend.app.crud.test_run import get_test_run
         from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
-        from rhesis.backend.tasks.execution.run import update_test_run_status
-        from rhesis.backend.tasks.utils import get_test_run_by_task_id
+        from rhesis.backend.jobs.execution.run import update_test_run_status
+        from rhesis.backend.jobs.utils import get_test_run_by_task_id
 
         with SessionLocal() as db:
-            test_run = get_test_run_by_task_id(db, task_id)
+            if test_run_id:
+                test_run = get_test_run(db, UUID(test_run_id))
+            else:
+                test_run = get_test_run_by_task_id(db, task_id)
             if test_run:
                 org_id = str(test_run.organization_id) if test_run.organization_id else ""
                 user_id = (
@@ -50,7 +61,7 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                 bind_scope_to_session(db, org_id, user_id, project_id)
 
                 if new_status == RunStatus.FAILED:
-                    from rhesis.backend.tasks.utils import update_test_run_with_error
+                    from rhesis.backend.jobs.utils import update_test_run_with_error
 
                     update_test_run_with_error(db, test_run, error_message or "Unknown error")
                 else:
@@ -101,7 +112,7 @@ def _task_organization_id(task, task_kwargs):
     At this point the attribute is still unset, so reading it would leave
     every Celery task unattributed -- which is most of the token spend.
 
-    Mirrors ``BaseTask.before_start``'s own precedence, including kwargs
+    Mirrors ``BaseJob.before_start``'s own precedence, including kwargs
     winning over headers, so attribution matches what the task body will see
     a moment later rather than disagreeing with it on retries.
     """
@@ -126,8 +137,8 @@ def bind_usage_attribution_for_task(task_id=None, task=None, kwargs=None, **_):
     constructor means a task that calls an LLM accrues correctly without
     knowing that usage accounting exists.
 
-    A signal rather than ``BaseTask.before_start`` because not every task
-    subclasses ``BaseTask`` -- ``tasks.usage.accrue_usage`` itself is a plain
+    A signal rather than ``BaseJob.before_start`` because not every task
+    subclasses ``BaseJob`` -- ``tasks.usage.accrue_usage`` itself is a plain
     ``@app.task``, and the next one someone writes might be too. The cost of
     that choice is that the org has to be dug out of the raw message here;
     see :func:`_task_organization_id`.
@@ -160,6 +171,52 @@ def clear_usage_attribution_for_task(task_id=None, **kwargs):
     token = _usage_attribution_tokens.pop(task_id, None)
     if token is not None:
         reset_usage_org(token)
+
+
+# Detach tokens from attach_trace_context_for_task, keyed by task id. Same
+# dict-per-task-id shape as _usage_attribution_tokens, and for the same
+# reason: pool types that interleave tasks in one process need prerun/postrun
+# pairs that cannot cross-talk.
+_trace_context_tokens: dict = {}
+
+
+@task_prerun.connect
+def attach_trace_context_for_task(task_id=None, task=None, **_):
+    """Make the dispatching request's trace context current for this task.
+
+    Mirrors ``bind_usage_attribution_for_task`` above -- a signal rather than
+    ``BaseJob.before_start`` for the same reason: not every task subclasses
+    ``BaseJob``. Reads the raw message headers directly rather than
+    ``task.request.headers``, since ``before_start`` (which copies headers
+    onto the request) has not run yet at ``task_prerun`` time.
+
+    A task with no ``traceparent`` header (e.g. one dispatched outside
+    ``launch_job``) gets nothing attached here; ``events.correlation``'s
+    fallback still gives it valid, if unlinked, ids when something emits.
+    """
+    from rhesis.backend.events.correlation import attach_from_headers
+
+    if not task_id:
+        logger.warning("task_prerun without a task_id; trace context will not attach")
+        return
+
+    headers = getattr(getattr(task, "request", None), "headers", None) or {}
+    token = attach_from_headers(headers)
+    if token is not None:
+        _trace_context_tokens[task_id] = token
+
+
+@task_postrun.connect
+def detach_trace_context_for_task(task_id=None, **kwargs):
+    """Undo ``attach_trace_context_for_task``. Load-bearing for the same
+    reason as ``clear_usage_attribution_for_task``: a binding left in place
+    on a reused worker thread would misattribute the next task's spans and
+    events to this one's trace.
+    """
+    from rhesis.backend.events.correlation import detach
+
+    token = _trace_context_tokens.pop(task_id, None)
+    detach(token)
 
 
 @celeryd_init.connect
@@ -256,6 +313,7 @@ def handle_task_failure(
             task_id,
             RunStatus.FAILED,
             str(exception) if exception else "Task failed or worker crashed",
+            test_run_id=(kwargs or {}).get("test_run_id"),
         )
 
 
@@ -282,4 +340,67 @@ def handle_task_revoked(sender=None, request=None, **kw):
                 f"Task revoked caught for {task_name} (ID: {task_id}). "
                 f"Setting TestRun to Cancelled."
             )
-            _update_test_run_status(task_id, RunStatus.CANCELLED)
+            task_kwargs = getattr(request, "kwargs", None) or {}
+            _update_test_run_status(
+                task_id,
+                RunStatus.CANCELLED,
+                test_run_id=task_kwargs.get("test_run_id"),
+            )
+
+        # A signal rather than a BaseJob hook because revocation can land on a
+        # task that never started, so no hook of ours would ever run for it.
+        # The tenant triple comes off the message headers for the same reason:
+        # before_start has not copied them onto the request yet.
+        headers = getattr(request, "headers", None) or {}
+        _mark_job_cancelled(task_id, task_name, headers)
+
+
+def _mark_job_cancelled(task_id: str, task_name: str, headers: dict) -> None:
+    from rhesis.backend.jobs import tracking
+
+    try:
+        tracking.mark_cancelled(
+            task_id,
+            headers.get("organization_id") or "",
+            headers.get("user_id") or "",
+            headers.get("project_id") or "",
+        )
+    except Exception as exc:
+        logger.warning(f"Could not mark job {task_id} cancelled: {exc}", exc_info=True)
+
+    # Separate try/except, matching BaseJob._advance_job_row: the activity
+    # log narrative must not affect (or be affected by) the job row update
+    # above. No pre-check for whether a job row exists -- unlike JobQueued,
+    # which fires on every dispatch including untracked high-frequency
+    # types, a revoke only ever targets something a user chose to cancel,
+    # so an orphaned entry here would be a rare edge case, not routine noise.
+    try:
+        from datetime import datetime, timezone
+
+        from rhesis.backend.events import emit
+        from rhesis.backend.events.correlation import resolve_ids
+        from rhesis.backend.events.types import JobCancelled
+        from rhesis.backend.jobs.tracking import job_type_for
+
+        org_id = headers.get("organization_id")
+        if not org_id:
+            return
+
+        # One-shot extraction from the message headers, not the ambient
+        # context: task_prerun never ran for a task revoked before it
+        # started, so there is nothing attached to read instead.
+        trace_id, span_id = resolve_ids(headers)
+        emit(
+            JobCancelled(
+                occurred_at=datetime.now(timezone.utc),
+                organization_id=org_id,
+                project_id=headers.get("project_id"),
+                user_id=headers.get("user_id"),
+                trace_id=trace_id,
+                span_id=span_id,
+                celery_task_id=task_id,
+                source=job_type_for(task_name or ""),
+            )
+        )
+    except Exception as exc:
+        logger.warning(f"Could not emit JobCancelled for {task_id}: {exc}", exc_info=True)

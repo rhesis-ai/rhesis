@@ -51,9 +51,9 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_generation_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.embedding.graph import compute_test_set_graph_task
-from rhesis.backend.tasks.test_set import generate_and_save_test_set
+from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.embedding.graph import compute_test_set_graph_task
+from rhesis.backend.jobs.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
 
@@ -170,11 +170,13 @@ def generate_test_set(
         # If launch fails (broker down, serialisation error, etc.) mark the row
         # as failed immediately so it never stays stuck at 'in_progress'.
         try:
-            task_result = task_launcher(
+            task_result = launch_job(
                 generate_and_save_test_set,
                 current_user=current_user,
                 db=db,
-                task_id=placeholder_task_id,
+                celery_task_id=placeholder_task_id,
+                entity_type="TestSet",
+                entity_id=str(db_test_set.id),
                 config=request.config.model_dump(),
                 num_tests=request.num_tests,
                 batch_size=request.batch_size,

@@ -100,12 +100,12 @@ INFO:     127.0.0.1:35500 - "GET /debug/redis HTTP/1.1" 200 OK`}
 [2024-01-15 10:30:01,789: INFO/MainProcess] celery@worker-pod ready.
 
 # Task processing
-[2024-01-15 10:30:15,234: INFO/MainProcess] Received task: rhesis.backend.tasks.execute_test[task-id-123]
-[2024-01-15 10:30:15,456: INFO/ForkPoolWorker-1] Task rhesis.backend.tasks.execute_test[task-id-123] succeeded in 2.34s
-[2024-01-15 10:30:16,789: INFO/MainProcess] Received task: rhesis.backend.tasks.collect_results[summary-task-456]
+[2024-01-15 10:30:15,234: INFO/MainProcess] Received task: rhesis.backend.jobs.execute_test[task-id-123]
+[2024-01-15 10:30:15,456: INFO/ForkPoolWorker-1] Task rhesis.backend.jobs.execute_test[task-id-123] succeeded in 2.34s
+[2024-01-15 10:30:16,789: INFO/MainProcess] Received task: rhesis.backend.jobs.collect_results[summary-task-456]
 
 # Errors
-[2024-01-15 10:30:20,123: ERROR/ForkPoolWorker-2] Task rhesis.backend.tasks.execute_test[task-id-789] raised unexpected: ConnectionError('Redis connection failed')
+[2024-01-15 10:30:20,123: ERROR/ForkPoolWorker-2] Task rhesis.backend.jobs.execute_test[task-id-789] raised unexpected: ConnectionError('Redis connection failed')
 [2024-01-15 10:30:22,000: INFO/ForkPoolWorker-1] [BATCH] Starting: 12 tests, concurrency=4, timeout=300s`}
 </CodeBlock>
 
@@ -120,7 +120,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@app.task(base=BaseTask)
+@app.task(base=BaseJob)
 def my_task(self):
     logger.info(f"Starting task for organization: {self.request.organization_id}")
     try:
@@ -296,7 +296,7 @@ WARNING: Health check took 8.5 seconds (timeout: 10)`}
 
 #### Task Errors
 <CodeBlock language="bash" isTerminal={true}>
-{`[ERROR/ForkPoolWorker-1] Task rhesis.backend.tasks.execute_test[...] raised unexpected: Exception('Task failed')`}
+{`[ERROR/ForkPoolWorker-1] Task rhesis.backend.jobs.execute_test[...] raised unexpected: Exception('Task failed')`}
 </CodeBlock>
 **Action**: Check task code, input parameters, database connectivity
 

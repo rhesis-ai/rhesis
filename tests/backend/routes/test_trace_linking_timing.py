@@ -72,7 +72,7 @@ class TestTraceLinkingTiming:
         """Create a test result in the database"""
         from rhesis.backend.app import schemas
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from rhesis.backend.tasks.enums import ResultStatus
+        from rhesis.backend.jobs.enums import ResultStatus
 
         # Create status
         status = get_or_create_status(

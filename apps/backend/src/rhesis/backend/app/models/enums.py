@@ -60,6 +60,37 @@ class EmbeddingOrigin(str, Enum):
     IMPORTED = "imported"
 
 
+class JobStatus(str, Enum):
+    """Lifecycle of a background job.
+
+    Distinct from :class:`~rhesis.backend.jobs.enums.RunStatus`, which
+    describes a *test run* and carries states (``Partial``) that make no sense
+    for a job in general.
+
+    ``CANCELLING`` is a request the job has not acknowledged yet. Celery's
+    ``revoke`` only stops a job that has not started, and the workers run a
+    thread pool where ``terminate=True`` would signal the whole process, so
+    stopping a running job means the job itself noticing the request at a
+    checkpoint and exiting. Until it does, the job is still running.
+    """
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    CANCELLING = "cancelling"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+    @classmethod
+    def terminal(cls) -> frozenset["JobStatus"]:
+        """States a job never leaves."""
+        return frozenset({cls.COMPLETED, cls.FAILED, cls.CANCELLED})
+
+    @property
+    def is_terminal(self) -> bool:
+        return self in self.terminal()
+
+
 class NotificationSection(str, Enum):
     """Sidebar section a notification's badge count belongs to.
 

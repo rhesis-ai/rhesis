@@ -239,8 +239,8 @@ def build_enrichment_chain(
     """
     from celery import chain
 
-    from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
-    from rhesis.backend.tasks.telemetry.evaluate import evaluate_turn_trace_metrics
+    from rhesis.backend.jobs.telemetry.enrich import enrich_trace_async
+    from rhesis.backend.jobs.telemetry.evaluate import evaluate_turn_trace_metrics
 
     return chain(
         enrich_trace_async.si(trace_id, project_id, organization_id),

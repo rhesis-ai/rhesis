@@ -26,10 +26,10 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.enums import RunStatus
-from rhesis.backend.tasks.execution.run import create_test_run, update_test_run_status
-from rhesis.backend.tasks.test_configuration import execute_test_configuration
+from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.enums import RunStatus
+from rhesis.backend.jobs.execution.run import create_test_run, update_test_run_status
+from rhesis.backend.jobs.test_configuration import execute_test_configuration
 
 router = RhesisRouter(
     prefix="/test_configurations",
@@ -245,13 +245,15 @@ def execute_test_configuration_endpoint(
         # Dispatch the task using the same pre-generated ID so Celery
         # registers it under the known UUID.
         try:
-            task = task_launcher(
+            task = launch_job(
                 execute_test_configuration,
                 str(test_configuration_id),
                 test_run_id=str(test_run.id),
                 current_user=current_user,
-                task_id=celery_task_id,
+                celery_task_id=celery_task_id,
                 db=db,
+                entity_type="TestRun",
+                entity_id=str(test_run.id),
             )
         except Exception as exc:
             # Mark the queued test run as failed so it doesn't stay stuck. The

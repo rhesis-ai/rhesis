@@ -29,7 +29,7 @@ Decorate a task with `@email_notification`, choosing a template. Without the dec
 sent.
 
 <CodeBlock filename="task.py" language="python">
-{`from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
+{`from rhesis.backend.jobs.base import BaseJob, with_tenant_context, email_notification
 from rhesis.backend.notifications import EmailTemplate
 from rhesis.backend.worker import app
 
@@ -37,7 +37,7 @@ from rhesis.backend.worker import app
     template=EmailTemplate.TASK_COMPLETION,
     subject_template="Task Complete: {task_name} - {status.title()}",
 )
-@app.task(base=BaseTask, name="your.user.facing.task", bind=True)
+@app.task(base=BaseJob, name="your.user.facing.task", bind=True)
 @with_tenant_context
 def user_facing_task(self, params, db=None):
     return {"result": "success", "test_run_id": "optional-for-links"}`}
@@ -49,13 +49,14 @@ Templates: `EmailTemplate.TASK_COMPLETION` (generic) or `EmailTemplate.TEST_EXEC
 Current usage:
 
 - `collect_results` — `TEST_EXECUTION_SUMMARY`
-- `email_notification_test` — `TASK_COMPLETION`
+- `generate_and_save_test_set` — `TASK_COMPLETION`
+- `import_garak_probes`, `sync_garak_test_set` — `TASK_COMPLETION`
 - per-test execution and utility tasks — no decorator
 
 Parallel test execution runs an async batch inside one Celery task (not a Celery `chord`). When the
 batch finishes, `trigger_results_collection` schedules `collect_results` with the result list, so
-the summary email path is the same as for sequential runs. See `tasks/execution/shared.py` and
-`tasks/execution/results.py`.
+the summary email path is the same as for sequential runs. See `jobs/execution/shared.py` and
+`jobs/execution/results.py`.
 
 ## Template variables
 
@@ -74,7 +75,7 @@ Anything the task returns is merged in, so a summary template can use extra fiel
 
 <CodeBlock filename="template-variables.py" language="python">
 {`@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
-@app.task(base=BaseTask, bind=True)
+@app.task(base=BaseJob, bind=True)
 def test_task(self):
     return {
         'total_tests': 10,
@@ -89,7 +90,7 @@ def test_task(self):
 
 `EmailService` (`notifications/email/service.py`, exported as the `email_service` singleton from
 `rhesis.backend.notifications`) loads SMTP config from the environment and renders Jinja2 templates.
-On success or permanent failure, `BaseTask` (in its `on_success` / `on_failure` hooks) loads the
+On success or permanent failure, `BaseJob` (in its `on_success` / `on_failure` hooks) loads the
 task owner from the database, renders the template with the task's return values and timing, and
 calls `email_service.send_email(...)`. Users with placeholder addresses (`*@placeholder.rhesis.ai`)
 are skipped, and send errors are logged without failing the task.

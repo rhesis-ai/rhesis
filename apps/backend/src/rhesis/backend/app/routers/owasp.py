@@ -28,8 +28,8 @@ from rhesis.backend.app.schemas.owasp import (
     OwaspGenerateResponse,
 )
 from rhesis.backend.app.services.owasp import OWASP_FRAMEWORKS, list_category_summaries
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.test_set import generate_and_save_owasp_test_set
+from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.test_set import generate_and_save_owasp_test_set
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ async def generate_test_set(
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
     `GET /tasks/{task_id}`.
     """
-    task_result = task_launcher(
+    task_result = launch_job(
         generate_and_save_owasp_test_set,
         current_user=current_user,
         db=db,

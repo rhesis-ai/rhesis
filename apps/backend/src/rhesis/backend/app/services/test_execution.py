@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.utils.user_model_utils import get_evaluation_model, get_execution_model
-from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
-from rhesis.backend.tasks.execution.executors.metrics import determine_status_from_metrics
-from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
+from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
+from rhesis.backend.jobs.execution.executors.metrics import determine_status_from_metrics
+from rhesis.backend.jobs.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ async def execute_test_in_place(
 
     # Determine test type
     from rhesis.backend.app.constants import TestType
-    from rhesis.backend.tasks.execution.modes import get_test_type
+    from rhesis.backend.jobs.execution.modes import get_test_type
 
     test_type = get_test_type(test)
     is_multi_turn = test_type == TestType.MULTI_TURN

@@ -65,9 +65,9 @@ from celery import Celery
 # Task-name prefix -> queue. Mirrors task_routes in celery/config.py so that
 # event-derived metrics can be attributed to the right queue.
 ROUTE_PREFIXES = (
-    ("rhesis.backend.tasks.execution.", "execution"),
-    ("rhesis.backend.tasks.telemetry.", "telemetry"),
-    ("rhesis.backend.tasks.architect.", "architect"),
+    ("rhesis.backend.jobs.execution.", "execution"),
+    ("rhesis.backend.jobs.telemetry.", "telemetry"),
+    ("rhesis.backend.jobs.architect.", "architect"),
 )
 DEFAULT_QUEUES = ["celery", "execution", "telemetry", "architect"]
 
@@ -85,7 +85,7 @@ def short_name(task_name):
     """Trim the common module prefix for compact display."""
     if not task_name:
         return "?"
-    return task_name.replace("rhesis.backend.tasks.", "")
+    return task_name.replace("rhesis.backend.jobs.", "")
 
 
 def pct(values, p):

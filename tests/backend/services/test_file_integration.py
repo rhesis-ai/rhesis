@@ -12,10 +12,10 @@ from uuid import uuid4
 
 import pytest
 
-from rhesis.backend.tasks.execution.executors.output_providers import (
+from rhesis.backend.jobs.execution.executors.output_providers import (
     SingleTurnOutput,
 )
-from rhesis.backend.tasks.execution.executors.results import (
+from rhesis.backend.jobs.execution.executors.results import (
     _store_output_files,
 )
 
@@ -42,14 +42,14 @@ class TestFileExecutionIntegration:
         with patch.object(SingleTurnOutput, "_load_input_files", return_value=file_entries):
             mock_result = {"output": "response with file processed"}
             with patch(
-                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service"
+                "rhesis.backend.jobs.execution.executors.output_providers.get_endpoint_service"
             ) as mock_get_svc:
                 mock_svc = AsyncMock()
                 mock_svc.invoke_endpoint.return_value = mock_result
                 mock_get_svc.return_value = mock_svc
 
                 with patch(
-                    "rhesis.backend.tasks.execution.executors."
+                    "rhesis.backend.jobs.execution.executors."
                     "output_providers.process_endpoint_result",
                     return_value=mock_result,
                 ):
@@ -99,7 +99,7 @@ class TestFileExecutionIntegration:
         ]
 
         with (
-            patch("rhesis.backend.tasks.execution.executors.results.file_crud") as mock_file_crud,
+            patch("rhesis.backend.jobs.execution.executors.results.file_crud") as mock_file_crud,
             patch(
                 "rhesis.backend.app.services.storage_service.StorageService.put_object_bytes",
                 return_value=("attachments/org/TestResult/rid/fid/original.png", "deadbeef"),
@@ -149,14 +149,14 @@ class TestFileExecutionIntegration:
         with patch.object(SingleTurnOutput, "_load_input_files", return_value=[]):
             mock_result = {"output": "plain text response"}
             with patch(
-                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service"
+                "rhesis.backend.jobs.execution.executors.output_providers.get_endpoint_service"
             ) as mock_get_svc:
                 mock_svc = AsyncMock()
                 mock_svc.invoke_endpoint.return_value = mock_result
                 mock_get_svc.return_value = mock_svc
 
                 with patch(
-                    "rhesis.backend.tasks.execution.executors."
+                    "rhesis.backend.jobs.execution.executors."
                     "output_providers.process_endpoint_result",
                     return_value=mock_result,
                 ):

@@ -36,7 +36,7 @@ def notify(
     """Persist *rendered* for its recipient and push it over their websocket.
 
     Publishing never raises -- a Redis failure must not fail the caller,
-    matching how ``BaseTask._send_task_completion_email`` never breaks task
+    matching how ``BaseJob._send_task_completion_email`` never breaks task
     completion on email failure.
     """
     # Normalize before the lookup, not after. Both an enum member and a plain

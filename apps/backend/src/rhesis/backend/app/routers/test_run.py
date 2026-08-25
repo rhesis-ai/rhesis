@@ -29,7 +29,7 @@ from rhesis.backend.app.services.test_run import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.jobs.enums import RunStatus
 
 
 router = RhesisRouter(
@@ -115,7 +115,7 @@ def read_test_runs(
     # runs grid pass-rate column) don't rely on the stale
     # ``attributes.completed_tests`` / ``failed_tests`` counters. Aggregated in
     # a single query to avoid the N+1 cost of one stats query per run.
-    from rhesis.backend.tasks.execution.result_processor import (
+    from rhesis.backend.jobs.execution.result_processor import (
         get_review_statistics_for_runs,
         get_test_statistics_for_runs,
         inject_review_counts_into_serialized_runs,
@@ -313,7 +313,7 @@ def cancel_test_run(
     waiting for the worker to acknowledge.
     """
     from rhesis.backend.celery.core import app as celery_app
-    from rhesis.backend.tasks.execution.run import update_test_run_status
+    from rhesis.backend.jobs.execution.run import update_test_run_status
 
     organization_id, user_id = tenant_context
     db_test_run = test_run_crud.get_test_run(

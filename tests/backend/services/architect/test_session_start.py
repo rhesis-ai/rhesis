@@ -40,7 +40,7 @@ class TestStartSessionWithMessage:
                 "rhesis.backend.app.services.architect.session_start.architect_crud"
             ) as mock_crud,
             patch(
-                "rhesis.backend.tasks.architect.architect_chat_task"
+                "rhesis.backend.jobs.architect.architect_chat_task"
             ) as mock_task,
         ):
             start_session_with_message(

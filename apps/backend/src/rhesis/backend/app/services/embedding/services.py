@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.async_service import AsyncService
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.embedding import generate_embedding_task
+from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.embedding import generate_embedding_task
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class EmbeddingService(AsyncService):
         user_id = str(kwargs["user_id"])
         organization_id = str(kwargs["organization_id"])
 
-        task_launcher(
+        launch_job(
             generate_embedding_task,
             entity_id=entity_id,
             entity_type=entity_type,

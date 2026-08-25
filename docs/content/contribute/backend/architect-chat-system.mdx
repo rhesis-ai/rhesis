@@ -74,8 +74,8 @@ Endpoint exploration publishes this event from `run_exploration_task` through `p
 
 The main worker entrypoint is:
 
-- `apps/backend/src/rhesis/backend/tasks/architect/chat.py`
-- task name: `rhesis.backend.tasks.architect.architect_chat_task`
+- `apps/backend/src/rhesis/backend/jobs/architect/chat.py`
+- task name: `rhesis.backend.jobs.architect.architect_chat_task`
 
 For each user message, the task:
 
@@ -101,7 +101,7 @@ This prevents confirmation loops and enables resumed execution after async jobs 
 
 When the agent calls `await_task`, pending IDs are registered in Redis via:
 
-- `apps/backend/src/rhesis/backend/tasks/architect/monitor.py`
+- `apps/backend/src/rhesis/backend/jobs/architect/monitor.py`
 
 Completion is event-driven through Celery `task_postrun` rather than polling. Once all awaited tasks complete, the monitor re-dispatches `architect_chat_task` with a synthetic `[TASK_COMPLETED]` message so the agent can continue the same session.
 

@@ -143,7 +143,7 @@ async def handle_architect_message(
             )
 
         # Dispatch Celery task
-        from rhesis.backend.tasks.architect import architect_chat_task
+        from rhesis.backend.jobs.architect import architect_chat_task
 
         task_headers = {
             "organization_id": str(user.organization_id),

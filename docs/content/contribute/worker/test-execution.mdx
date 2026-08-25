@@ -73,7 +73,7 @@ See [Execution Modes](/contribute/worker/execution-modes) for details.
 All executors must implement the `BaseTestExecutor` interface:
 
 <CodeBlock language="python" filename="custom_executor.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
+{`from rhesis.backend.jobs.execution.executors.base import BaseTestExecutor
 
 class CustomTestExecutor(BaseTestExecutor):
     def execute(
@@ -108,7 +108,7 @@ All executors must return a dictionary with:
 ### Running a Test
 
 <CodeBlock language="python" filename="run_test.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.test_execution import execute_test
+{`from rhesis.backend.jobs.execution.test_execution import execute_test
 
 # Execute test (automatically routes to correct executor)
 result = execute_test(
@@ -128,7 +128,7 @@ print(f"Metrics: {result['metrics']}")`}
 ### Using Executors Directly
 
 <CodeBlock language="python" filename="direct_executor.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.executors import (
+{`from rhesis.backend.jobs.execution.executors import (
     create_executor,
     SingleTurnTestExecutor,
     MultiTurnTestExecutor,
@@ -151,7 +151,7 @@ result = executor.execute(db, test_config_id, ...)`}
 
 <CodeBlock language="python" filename="executors/image_test_executor.py" isTerminal={false}>
 {`# executors/image_test_executor.py
-from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
+from rhesis.backend.jobs.execution.executors.base import BaseTestExecutor
 
 class ImageTestExecutor(BaseTestExecutor):
     def execute(self, ...):
@@ -175,8 +175,8 @@ def create_executor(test: Test) -> BaseTestExecutor:
 
 3. **Add Test Type Enum**
 
-<CodeBlock language="python" filename="tasks/enums.py" isTerminal={false}>
-{`# tasks/enums.py
+<CodeBlock language="python" filename="jobs/enums.py" isTerminal={false}>
+{`# jobs/enums.py
 class TestType(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
@@ -198,7 +198,7 @@ The parallel path uses an internal async batch runner rather than Celery chord f
 The test execution code is located in the backend repository but is primarily executed by workers:
 
 <CodeBlock language="text" isTerminal={false}>
-{`apps/backend/src/rhesis/backend/tasks/execution/
+{`apps/backend/src/rhesis/backend/jobs/execution/
 ├── executors/
 │   ├── __init__.py
 │   ├── base.py                    # BaseTestExecutor ABC

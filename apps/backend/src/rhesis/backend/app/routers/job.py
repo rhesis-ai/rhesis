@@ -1,168 +1,192 @@
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from celery.result import AsyncResult
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import schemas
+from rhesis.backend.app import models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import (
-    get_tenant_db_session,
-)
-from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
+from rhesis.backend.app.crud import job as job_crud
+from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.celery.core import app as celery_app
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.example_task import email_notification_test
 
 router = RhesisRouter(
     prefix="/jobs",
-    tags=["tasks"],
+    tags=["jobs"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
     resource="job",
 )
 
 
-async def list_tasks(
-    current_user: schemas.User = Depends(require_current_user_or_token),
-) -> Dict[str, List[str]]:
-    """List all registered Celery tasks."""
-    # Filter out internal Celery tasks (those starting with "celery.")
-    user_tasks = [
-        task_name for task_name in celery_app.tasks.keys() if not task_name.startswith("celery.")
-    ]
-    return {"tasks": sorted(user_tasks)}
+def _celery_status(celery_task_id: str) -> Dict[str, Any]:
+    """Read a Celery task's live state from the result backend.
+
+    ``AsyncResult`` has no ``.error`` attribute -- on failure the exception
+    itself is what ``.result`` holds, which is also why "result" is suppressed
+    on failure rather than shown alongside "error".
+    """
+    result = AsyncResult(celery_task_id, app=celery_app)
+    failed = result.failed()
+    return {
+        "task_id": celery_task_id,
+        "status": result.status,
+        "result": result.result if result.ready() and not failed else None,
+        "error": str(result.result) if failed else None,
+    }
 
 
-async def list_active_tasks(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """List all currently running tasks."""
-    inspector = celery_app.control.inspect()
-    active = inspector.active()
-    scheduled = inspector.scheduled()
-    reserved = inspector.reserved()
-
-    return {"active": active, "scheduled": scheduled, "reserved": reserved}
+def _resolve_job(db: Session, job_id: uuid.UUID, organization_id: str, user_id: str) -> models.Job:
+    job = job_crud.get_job(db, job_id, organization_id=organization_id, user_id=user_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
-async def get_stats(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """Get statistics about the Celery workers and tasks."""
-    inspector = celery_app.control.inspect()
-    stats = inspector.stats()
-    registered = inspector.registered()
-
-    return {"stats": stats, "registered_tasks": registered, "total_tasks": len(celery_app.tasks)}
-
-
-async def test_email_notifications(
-    message: str = "Test email notification",
+@router.get("/", response_model=list[schemas.Job])
+@with_count_header(model=models.Job)
+def read_jobs(
+    response: Response,
+    skip: int = 0,
+    limit: int = 50,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
-    """
-    Test the email notification system by running a simple task that will send
-    an email upon completion.
-
-    This endpoint is useful for verifying that:
-    1. SMTP configuration is working in the worker
-    2. Email notifications are being sent on task completion
-    3. The email template and content are correct
-    """
-    # Use task_launcher to handle context
-    result = task_launcher(
-        email_notification_test, test_message=message, current_user=current_user, db=db
+    """List background jobs, newest first."""
+    organization_id, user_id = tenant_context
+    return job_crud.get_jobs(
+        db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
-    return {
-        "task_id": result.id,
-        "message": (
-            "Email notification test task submitted. You should receive an email when it completes."
-        ),
-        "user_email": current_user.email if hasattr(current_user, "email") else None,
-    }
 
-
-async def create_task(
-    task_name: str,
-    payload: Dict[Any, Any],
+@router.get("/by-celery-id/{celery_task_id}")
+def get_job_by_celery_id(
+    celery_task_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
+    """Get a job's live Celery status by the task id it was dispatched under.
+
+    The ownership check is a single indexed read against ``job.celery_task_id``,
+    so it covers every job type. It replaces a stopgap that could only verify
+    test-execution tasks, because a ``TestRun`` row was the only place a task id
+    was recorded before the ``job`` table existed.
     """
-    Submit a new task to Celery.
+    organization_id, _ = tenant_context
+    job = job_crud.get_job_by_celery_task_id(
+        db, str(celery_task_id), organization_id=organization_id
+    )
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
 
-    Uses task_launcher to automatically add context from current user.
-    """
-    try:
-        # Get the task by name
-        task_path = f"rhesis.backend.tasks.{task_name}"
-        if task_path not in celery_app.tasks:
-            raise HTTPException(status_code=404, detail=f"Task {task_name} not found")
-
-        task = celery_app.tasks[task_path]
-
-        # Use task_launcher to handle context
-        result = task_launcher(task, current_user=current_user, db=db, **payload)
-
-        return {"task_id": result.id}
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=f"Task {task_name} not found") from e
+    return _celery_status(str(celery_task_id))
 
 
-@router.get("/{task_id}")
-async def get_task_status(
-    task_id: uuid.UUID, current_user: schemas.User = Depends(require_current_user_or_token)
-):
-    """Get the status of a background task (e.g. test set generation)."""
-    result = AsyncResult(str(task_id), app=celery_app)
-    return {
-        "task_id": str(task_id),
-        "status": result.status,
-        "result": result.result if result.ready() else None,
-        "error": str(result.error) if result.failed() else None,
-    }
-
-
-async def revoke_task(
+@router.get("/{task_id}", deprecated=True)
+def get_task_status(
     task_id: uuid.UUID,
-    terminate: bool = False,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: schemas.User = Depends(require_current_user_or_token),
 ):
-    """Revoke a task (prevent it from being executed if not already running)."""
-    celery_app.control.revoke(task_id, terminate=terminate)
-    return {"message": f"Task {task_id} revoked"}
+    """Deprecated alias for ``GET /jobs/by-celery-id/{celery_task_id}``.
+
+    Several routers document this path as their polling target. Kept working so
+    they keep working, and so ``GET /jobs/{id}`` can later be reclaimed for a
+    job UUID.
+    """
+    return get_job_by_celery_id(
+        task_id, db=db, tenant_context=tenant_context, current_user=current_user
+    )
 
 
-async def health_check(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """Check if the Celery workers are running and responding."""
-    try:
-        inspector = celery_app.control.inspect()
-        stats = inspector.stats()
-    except Exception as e:
-        raise internal_error(e, context="Celery health check", status_code=503) from e
+@router.get("/detail/{job_id}", response_model=schemas.Job)
+def read_job(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
+    """Get one job by its own id.
 
-    if not stats:
-        raise PublicHTTPException(status_code=503, detail="No Celery workers available")
-    return {
-        "status": "healthy",
-        "workers": len(stats),
-        "tasks_registered": len(celery_app.tasks),
-    }
+    Under ``/detail/`` rather than ``/{job_id}`` because the deprecated alias
+    above still owns the bare path. Both move once that alias is dropped.
+    """
+    organization_id, user_id = tenant_context
+    return _resolve_job(db, job_id, organization_id, user_id)
 
 
-async def get_workers_status(current_user: schemas.User = Depends(require_current_user_or_token)):
-    """Get detailed status of all Celery workers and their tasks."""
-    inspector = celery_app.control.inspect()
+@router.get("/detail/{job_id}/activity", response_model=schemas.JobActivity)
+def read_job_activity(
+    job_id: uuid.UUID,
+    after_sequence: int | None = Query(
+        None, description="Return only entries after this sequence number"
+    ),
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
+    """Get a job's log entries, oldest first, from an optional cursor."""
+    organization_id, user_id = tenant_context
+    _resolve_job(db, job_id, organization_id, user_id)
 
-    try:
-        return {
-            "active": inspector.active() or {},
-            "reserved": inspector.reserved() or {},
-            "registered_tasks": inspector.registered() or {},
-            "stats": inspector.stats() or {},
-            "total_tasks": len(celery_app.tasks),
-            "ping": inspector.ping() or {},
-        }
-    except Exception as e:
-        raise internal_error(e, context="collecting Celery worker status", status_code=503) from e
+    entries = job_crud.get_job_activity(db, job_id, after_sequence=after_sequence, limit=limit)
+    next_after = entries[-1].sequence if entries else after_sequence
+    return schemas.JobActivity(entries=entries, next_after_sequence=next_after)
+
+
+@router.post(
+    "/detail/{job_id}/cancel",
+    response_model=schemas.Job,
+    **capability(Permission.Job.CANCEL),
+)
+def cancel_job(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: schemas.User = Depends(require_current_user_or_token),
+):
+    """Ask a job to stop.
+
+    Two steps, and neither alone is enough. ``revoke`` stops a job that has not
+    started; it cannot stop a running one, because the workers use a thread pool
+    where ``terminate=True`` would signal the whole process rather than the
+    thread. So the row also moves to ``cancelling``, which is the request a
+    running job checks for and acts on at its next checkpoint.
+
+    That means the response says "cancelling", not "cancelled". Claiming the
+    work had stopped would be a lie until the job acknowledges.
+    """
+    organization_id, user_id = tenant_context
+    job = _resolve_job(db, job_id, organization_id, user_id)
+
+    if not schemas.Job.model_validate(job).cancellable:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot cancel a job with status '{job.status}'",
+        )
+
+    if job.celery_task_id:
+        celery_app.control.revoke(job.celery_task_id)
+
+    job_crud.request_cancel(db, job)
+    db.commit()
+    db.refresh(job)
+    return job

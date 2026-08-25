@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
   models: '/models',
   comments: '/comments',
   tasks: '/tasks',
+  jobs: '/jobs',
   annotations: '/annotations',
   sources: '/sources',
   tools: '/tools',

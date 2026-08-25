@@ -5,7 +5,7 @@ dependency injection) with mocked dependencies, so no HTTP client/DB fixture
 harness is needed. The underlying business logic (GarakImporter,
 GarakSyncService, the Celery tasks themselves) is covered by dedicated unit
 tests elsewhere; this file only verifies the router's dispatch wiring:
-- import/sync launch the right Celery task via task_launcher and return 202
+- import/sync launch the right Celery task via launch_job and return 202
   task-response shapes
 - import/sync pass only probe *identifiers* to the task (module/class or
   test_set_id) and never ship probe data (prompts) through the Celery broker —
@@ -55,7 +55,7 @@ class TestImportProbesDispatch:
         current_user = MagicMock(id=uuid4(), organization_id=uuid4())
         mock_db = MagicMock()
 
-        with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
+        with patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-abc-123")
 
             response = import_probes(
@@ -93,7 +93,7 @@ class TestImportProbesDispatch:
         )
         current_user = MagicMock(id=uuid4(), organization_id=uuid4())
 
-        with patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher:
+        with patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-abc-123")
 
             import_probes(
@@ -120,7 +120,7 @@ class TestSyncTestSetDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
         ):
             mock_sync_cls.return_value.resolve_sync_target.return_value = {"dan": ["Dan_11_0"]}
             mock_launcher.return_value = MagicMock(id="task-xyz-789")
@@ -192,7 +192,7 @@ class TestGenerateDynamicProbeDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
         ):
             mock_generator_cls.return_value.build.return_value = (
                 MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
@@ -216,7 +216,7 @@ class TestGenerateDynamicProbeDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
         ):
             mock_generator_cls.return_value.build.return_value = (
                 MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),

@@ -41,9 +41,9 @@ from rhesis.backend.app.services.garak import (
     GarakTaxonomy,
 )
 from rhesis.backend.app.services.garak.taxonomy import resolve_requirement
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.garak import import_garak_probes_task, sync_garak_test_set_task
-from rhesis.backend.tasks.test_set import generate_and_save_test_set
+from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs.garak import import_garak_probes_task, sync_garak_test_set_task
+from rhesis.backend.jobs.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +272,7 @@ def import_probes(
     appropriate Garak detector metrics. Some Garak probes produce thousands of
     prompts, so this runs as a background task rather than blocking the
     request — returns HTTP 202 Accepted with a `task_id` that can be polled
-    via `GET /jobs/{task_id}`.
+    via `GET /jobs/by-celery-id/{task_id}`.
     """
     # Dispatch only the probe identifiers — the task extracts the selected
     # probes itself in the background. We deliberately do NOT ship probe
@@ -283,7 +283,7 @@ def import_probes(
     # test/prompt row writes the import does anyway. (The synchronous
     # preview endpoints still reuse the warm cache — there blocking the
     # request thread on enumeration is what we must avoid.)
-    task_result = task_launcher(
+    task_result = launch_job(
         import_garak_probes_task,
         current_user=current_user,
         db=db,
@@ -353,7 +353,7 @@ def sync_test_set(
     Updates the test set to include new probes and remove deprecated ones.
     Some Garak probes produce thousands of prompts, so this runs as a
     background task rather than blocking the request — returns HTTP 202
-    Accepted with a `task_id` that can be polled via `GET /jobs/{task_id}`.
+    Accepted with a `task_id` that can be polled via `GET /jobs/by-celery-id/{task_id}`.
     """
     try:
         organization_id, _ = tenant_context
@@ -367,11 +367,13 @@ def sync_test_set(
         # (prompts) through the Celery broker (see import_probes for why).
         sync_service.resolve_sync_target(test_set_id, organization_id)
 
-        task_result = task_launcher(
+        task_result = launch_job(
             sync_garak_test_set_task,
             current_user=current_user,
             db=db,
             test_set_id=test_set_id,
+            entity_type="TestSet",
+            entity_id=test_set_id,
         )
 
         return GarakSyncTaskResponse(
@@ -407,7 +409,7 @@ def generate_dynamic_probe(
     set. All garak metadata is preserved on the resulting test set.
 
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
-    `GET /jobs/{task_id}`.
+    `GET /jobs/by-celery-id/{task_id}`.
     """
     module_name = request.module_name
     class_name = request.class_name
@@ -441,7 +443,7 @@ def generate_dynamic_probe(
 
     test_set_name = request.name or f"Garak Dynamic: {probe_info.full_name}"
 
-    task_result = task_launcher(
+    task_result = launch_job(
         generate_and_save_test_set,
         current_user=current_user,
         db=db,

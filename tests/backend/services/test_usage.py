@@ -63,7 +63,7 @@ class TestDispatchAccrual:
     def fake_delay(self, monkeypatch):
         recorded = []
         monkeypatch.setattr(
-            "rhesis.backend.tasks.usage.accrue_usage.delay",
+            "rhesis.backend.jobs.usage.accrue_usage.delay",
             lambda *args: recorded.append(args),
         )
         return recorded
@@ -98,7 +98,7 @@ class TestDispatchAccrual:
         def boom(*args):
             raise RuntimeError("broker unreachable")
 
-        monkeypatch.setattr("rhesis.backend.tasks.usage.accrue_usage.delay", boom)
+        monkeypatch.setattr("rhesis.backend.jobs.usage.accrue_usage.delay", boom)
 
         dispatch_accrual("org-1", QuotaResource.TRACING_SPANS, 5)  # must not raise
 

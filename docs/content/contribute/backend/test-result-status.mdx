@@ -44,7 +44,7 @@ Two metrics with `is_successful: true` and one `false` yields status `Fail`. All
 
 ## Determination logic
 
-`determine_status_from_metrics` (`tasks/execution/executors/metrics.py`) and `create_test_result_record` (`tasks/execution/executors/results.py`) apply the same rule:
+`determine_status_from_metrics` (`jobs/execution/executors/metrics.py`) and `create_test_result_record` (`jobs/execution/executors/results.py`) apply the same rule:
 
 <CodeBlock filename="status-determination.py" language="python">
 {`if has_http_error_in_result(processed_result):

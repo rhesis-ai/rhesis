@@ -136,7 +136,7 @@ class TestArchitectHandlerSuccess:
                     "rhesis.backend.app.schemas",
                 ),
                 patch(
-                    "rhesis.backend.tasks.architect.architect_chat_task",
+                    "rhesis.backend.jobs.architect.architect_chat_task",
                     mock_task,
                 ),
             ):
@@ -201,7 +201,7 @@ class TestArchitectHandlerSuccess:
                 patch("rhesis.backend.app.crud.architect", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
-                    "rhesis.backend.tasks.architect.architect_chat_task",
+                    "rhesis.backend.jobs.architect.architect_chat_task",
                     mock_task,
                 ),
             ):
@@ -238,7 +238,7 @@ class TestArchitectHandlerSuccess:
                 patch("rhesis.backend.app.crud.architect", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
-                    "rhesis.backend.tasks.architect.architect_chat_task",
+                    "rhesis.backend.jobs.architect.architect_chat_task",
                     mock_task,
                 ),
             ):
@@ -282,7 +282,7 @@ class TestArchitectHandlerSuccess:
                     "rhesis.backend.app.schemas",
                 ),
                 patch(
-                    "rhesis.backend.tasks.architect.architect_chat_task",
+                    "rhesis.backend.jobs.architect.architect_chat_task",
                     mock_task,
                 ),
             ):
@@ -316,7 +316,7 @@ class TestArchitectHandlerSuccess:
             with (
                 patch("rhesis.backend.app.crud.architect", mock_crud),
                 patch("rhesis.backend.app.schemas"),
-                patch("rhesis.backend.tasks.architect.architect_chat_task", mock_task),
+                patch("rhesis.backend.jobs.architect.architect_chat_task", mock_task),
             ):
                 await handle_architect_message(mock_manager, "conn-1", mock_user, message)
 

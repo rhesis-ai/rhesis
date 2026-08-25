@@ -42,7 +42,11 @@ router = RhesisRouter(prefix="/recycle", tags=["recycle"], resource="recycle")
 # would keep updating invisibly (the ORM soft-delete filter hides it from
 # GET /usage's SELECT while accrual still lands on it). There is no
 # legitimate soft-delete/restore workflow for a counter row.
-RECYCLE_EXCLUDED_TABLES = frozenset({"usage"})
+# job/activity_log are append-only bookkeeping about what the platform did.
+# Restoring a swept job row or log entry is not a workflow anyone wants, and
+# the retention sweep hard-deletes them rather than soft-deleting precisely so
+# they do not accumulate invisibly.
+RECYCLE_EXCLUDED_TABLES = frozenset({"usage", "job", "activity_log"})
 
 
 def get_all_models() -> Dict[str, type]:

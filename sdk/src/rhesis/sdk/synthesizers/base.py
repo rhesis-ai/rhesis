@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel
 
@@ -118,7 +118,10 @@ class TestSetSynthesizer(ABC):
         return tests_per_chunk
 
     def _generate_with_sources(
-        self, num_tests: int, **kwargs: Any
+        self,
+        num_tests: int,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+        **kwargs: Any,
     ) -> tuple[List[Dict[str, Any]], dict[str, Any]]:
         from rhesis.sdk.services.chunker import (
             ChunkingService,
@@ -195,8 +198,13 @@ class TestSetSynthesizer(ABC):
                 chunk.source.name,
             )
 
+            def _chunk_progress(current: int, total: int) -> None:
+                if on_progress:
+                    on_progress(len(all_test_cases) + current, num_tests)
+
             result = self._generate_without_sources(
                 num_tests=tests_per_chunk[i],
+                on_progress=_chunk_progress,
                 **kwargs,
                 source=chunk.content,
             )
@@ -274,7 +282,12 @@ class TestSetSynthesizer(ABC):
             for flat in flat_tests
         ]
 
-    def _generate_without_sources(self, num_tests: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
+    def _generate_without_sources(
+        self,
+        num_tests: int = 5,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
         """
         Generate test cases using model.generate_batch for parallel execution
         when num_tests > batch_size, with sequential retry on failures.
@@ -283,6 +296,7 @@ class TestSetSynthesizer(ABC):
 
         Args:
             num_tests: Total number of test cases to generate. Defaults to 5.
+            on_progress: Optional callback ``(current, total)`` for live progress.
             **kwargs: Additional keyword arguments for test set generation
 
         Returns:
@@ -307,6 +321,8 @@ class TestSetSynthesizer(ABC):
         try:
             batch_tests = self._generate_parallel_batches(num_tests, **template_context)
             all_test_cases.extend(batch_tests)
+            if on_progress:
+                on_progress(len(all_test_cases), num_tests)
         except Exception:
             logger.exception(
                 "[Synthesizer] Parallel batch generation failed, "
@@ -315,7 +331,14 @@ class TestSetSynthesizer(ABC):
 
         remaining = num_tests - len(all_test_cases)
         if remaining > 0:
-            sequential_tests = self._generate_with_retry(remaining, **template_context)
+            offset = len(all_test_cases)
+            sequential_tests = self._generate_with_retry(
+                remaining,
+                on_progress=on_progress,
+                progress_offset=offset,
+                progress_total=num_tests,
+                **template_context,
+            )
             all_test_cases.extend(sequential_tests)
 
         total_elapsed = time.time() - generation_start
@@ -333,12 +356,20 @@ class TestSetSynthesizer(ABC):
 
         return all_test_cases
 
-    def _generate_with_retry(self, num_tests: int, **template_context: Any) -> List[Dict[str, Any]]:
+    def _generate_with_retry(
+        self,
+        num_tests: int,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+        progress_offset: int = 0,
+        progress_total: Optional[int] = None,
+        **template_context: Any,
+    ) -> List[Dict[str, Any]]:
         """Generate tests sequentially with batch size reduction on failure."""
         all_test_cases: List[Dict[str, Any]] = []
         remaining = num_tests
         current_batch_size = self.batch_size
         consecutive_failures = 0
+        total = progress_total if progress_total is not None else num_tests
 
         while remaining > 0:
             if consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
@@ -368,6 +399,8 @@ class TestSetSynthesizer(ABC):
                 all_test_cases.extend(tests)
                 remaining -= len(tests)
                 consecutive_failures = 0
+                if on_progress:
+                    on_progress(progress_offset + len(all_test_cases), total)
                 logger.info(
                     "[Synthesizer] Batch succeeded: %d tests (remaining=%d)",
                     len(tests),
@@ -487,8 +520,19 @@ class TestSetSynthesizer(ABC):
 
         return self._process_batch_response(response, num_tests, batch_index=0)
 
-    def generate(self, num_tests: int = 5, **kwargs: Any) -> TestSet:
-        """Generate test cases."""
+    def generate(
+        self,
+        num_tests: int = 5,
+        on_progress: Optional[Callable[[int, int], None]] = None,
+        **kwargs: Any,
+    ) -> TestSet:
+        """Generate test cases.
+
+        Args:
+            num_tests: Number of tests to generate.
+            on_progress: Optional callback ``(current, total)`` invoked after
+                each batch completes so callers can report live progress.
+        """
         logger.info(
             "[Synthesizer] generate() called: num_tests=%d, synthesizer=%s, "
             "has_sources=%s, model=%s",
@@ -501,9 +545,11 @@ class TestSetSynthesizer(ABC):
 
         test_set_metadata = {}
         if self.sources is not None:
-            tests, test_set_metadata = self._generate_with_sources(num_tests, **kwargs)
+            tests, test_set_metadata = self._generate_with_sources(
+                num_tests, on_progress=on_progress, **kwargs
+            )
         else:
-            tests = self._generate_without_sources(num_tests, **kwargs)
+            tests = self._generate_without_sources(num_tests, on_progress=on_progress, **kwargs)
 
         logger.info(
             "[Synthesizer] Test generation phase complete: %d tests in %.1fs, creating TestSet...",

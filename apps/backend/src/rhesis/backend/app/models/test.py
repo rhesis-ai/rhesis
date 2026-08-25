@@ -122,7 +122,7 @@ class Test(
         - Multi-turn: Uses test_configuration (goal, instructions, scenario, etc.)
         """
         from rhesis.backend.app.constants import TestType
-        from rhesis.backend.tasks.execution.modes import get_test_type
+        from rhesis.backend.jobs.execution.modes import get_test_type
 
         from .category import Category
         from .requirement import Requirement

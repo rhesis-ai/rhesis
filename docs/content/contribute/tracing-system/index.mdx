@@ -112,7 +112,7 @@ The SDK uses **two independent channels**:
 | File | Purpose |
 |------|---------|
 | `apps/backend/.../routers/telemetry.py` | Ingestion (`POST /telemetry/traces`) and query endpoints |
-| `apps/backend/.../tasks/telemetry/post_ingest.py` | `post_ingest_link` — linking + enrichment dispatch |
+| `apps/backend/.../jobs/telemetry/post_ingest.py` | `post_ingest_link` — linking + enrichment dispatch |
 | `apps/backend/.../services/telemetry/linking_service.py` | `TraceLinkingService` |
 | `apps/backend/.../services/telemetry/enrichment/` | Cost/anomaly enrichment (`core.py`, `processor.py`) |
 | `apps/backend/.../models/trace.py` | `Trace` SQLAlchemy model |

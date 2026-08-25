@@ -116,8 +116,8 @@ Set in test configuration attributes:
 Or programmatically:
 
 <CodeBlock language="python" filename="set_execution_mode.py" isTerminal={false}>
-{`from rhesis.backend.tasks.execution.modes import set_execution_mode
-from rhesis.backend.tasks.enums import ExecutionMode
+{`from rhesis.backend.jobs.execution.modes import set_execution_mode
+from rhesis.backend.jobs.enums import ExecutionMode
 
 success = set_execution_mode(
     db=db,

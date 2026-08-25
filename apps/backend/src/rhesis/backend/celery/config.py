@@ -1,3 +1,5 @@
+from celery.schedules import crontab
+
 from rhesis.backend.app.config.settings import get_redis_settings
 
 redis_settings = get_redis_settings()
@@ -46,9 +48,9 @@ CELERY_CONFIG = {
     },
     # Task execution settings
     "task_routes": {
-        "rhesis.backend.tasks.execution.*": {"queue": "execution"},
-        "rhesis.backend.tasks.telemetry.*": {"queue": "telemetry"},
-        "rhesis.backend.tasks.architect.*": {"queue": "architect"},
+        "rhesis.backend.jobs.execution.*": {"queue": "execution"},
+        "rhesis.backend.jobs.telemetry.*": {"queue": "telemetry"},
+        "rhesis.backend.jobs.architect.*": {"queue": "architect"},
     },
     # Worker settings
     "worker_prefetch_multiplier": 1,
@@ -70,16 +72,16 @@ CELERY_CONFIG = {
     "task_eager_propagates": False,
     # Task annotations
     "task_annotations": {
-        "rhesis.backend.tasks.execute_test_configuration": {
+        "rhesis.backend.jobs.execute_test_configuration": {
             "soft_time_limit": 3600,
             "time_limit": 3900,
         },
-        "rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics": {
+        "rhesis.backend.jobs.telemetry.evaluate.evaluate_turn_trace_metrics": {
             "max_retries": 3,
             "soft_time_limit": 300,
             "time_limit": 360,
         },
-        "rhesis.backend.tasks.telemetry.evaluate.evaluate_conversation_trace_metrics": {
+        "rhesis.backend.jobs.telemetry.evaluate.evaluate_conversation_trace_metrics": {
             "max_retries": 3,
             "soft_time_limit": 600,
             "time_limit": 660,
@@ -87,17 +89,28 @@ CELERY_CONFIG = {
     },
     # Task discovery
     "include": [
-        "rhesis.backend.tasks.test_configuration",
-        "rhesis.backend.tasks.embedding.generate",
-        "rhesis.backend.tasks.embedding.graph",
-        "rhesis.backend.tasks.example_task",
-        "rhesis.backend.tasks.test_set",
-        "rhesis.backend.tasks.execution.results",
-        "rhesis.backend.tasks.telemetry.enrich",
-        "rhesis.backend.tasks.architect.chat",
-        "rhesis.backend.tasks.telemetry.evaluate",
-        "rhesis.backend.tasks.telemetry.post_ingest",
+        "rhesis.backend.jobs.test_configuration",
+        "rhesis.backend.jobs.embedding.generate",
+        "rhesis.backend.jobs.embedding.graph",
+        "rhesis.backend.jobs.test_set",
+        "rhesis.backend.jobs.execution.results",
+        "rhesis.backend.jobs.telemetry.enrich",
+        "rhesis.backend.jobs.architect.chat",
+        "rhesis.backend.jobs.telemetry.evaluate",
+        "rhesis.backend.jobs.telemetry.post_ingest",
+        "rhesis.backend.jobs.retention",
     ],
+    # Requires a `celery beat` process actually running against this app --
+    # not deployed anywhere yet (see jobs/retention.py's own docstring for
+    # why the task itself is still a no-op until JOB_RETENTION_ENABLED=true).
+    # Runs at 03:00 UTC, off peak hours for every timezone this platform has
+    # users in today.
+    "beat_schedule": {
+        "job-retention-sweep": {
+            "task": "rhesis.backend.jobs.retention.sweep_expired_jobs",
+            "schedule": crontab(hour=3, minute=0),
+        },
+    },
 }
 
 # Web-context overrides: fail fast instead of blocking HTTP request threads.

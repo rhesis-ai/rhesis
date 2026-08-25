@@ -34,7 +34,7 @@ from rhesis.backend.app.services.source import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.tasks.embedding.graph import compute_source_graph_task
+from rhesis.backend.jobs.embedding.graph import compute_source_graph_task
 
 router = RhesisRouter(
     prefix="/sources",

@@ -216,8 +216,8 @@ requirement for sub-role M2M narrowing appears, the hybrid option (optional
 
 ## Non-HTTP enforcement surfaces
 
-**Celery.** Tasks are authorized at **enqueue time**, not execution time: the
-HTTP route that calls `.delay()` / `task_launcher()` is gated by the PEP
+**Celery.** Jobs are authorized at **enqueue time**, not execution time: the
+HTTP route that calls `.delay()` / `launch_job()` is gated by the PEP
 backstop, so a caller without permission never reaches the enqueue. When a
 route's action differs from its verb (e.g. executing a test configuration),
 give it an explicit `**capability()` so the gate is semantically correct.

@@ -48,8 +48,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import RunDrawer from '@/components/common/RunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
-// Tracks the persistent "a background job finished" badge/highlight -- distinct
-// from the toast system's useNotifications, which useBulkDelete owns internally.
 import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
 import {
   HIGHLIGHTED_ROW_CLASS,

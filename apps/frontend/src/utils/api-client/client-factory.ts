@@ -21,6 +21,7 @@ import { MetricsClient } from './metrics-client';
 import { ModelsClient } from './models-client';
 import { TagsClient } from './tags-client';
 import { CommentsClient } from './comments-client';
+import { JobsClient } from './jobs-client';
 import { TasksClient } from './tasks-client';
 import { AnnotationsClient } from './annotations-client';
 import { SourcesClient } from './sources-client';
@@ -49,6 +50,7 @@ export class ApiClientFactory {
   private tagsClient: TagsClient | null = null;
   private commentsClient: CommentsClient | null = null;
   private tasksClient: TasksClient | null = null;
+  private jobsClient: JobsClient | null = null;
   private annotationsClient: AnnotationsClient | null = null;
   private sourcesClient: SourcesClient | null = null;
   private recycleClient: RecycleClient | null = null;
@@ -228,6 +230,17 @@ export class ApiClientFactory {
       );
     }
     return this.tasksClient;
+  }
+
+  getJobsClient(): JobsClient {
+    if (!this.jobsClient) {
+      this.jobsClient = new JobsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
+    }
+    return this.jobsClient;
   }
 
   getAnnotationsClient(): AnnotationsClient {

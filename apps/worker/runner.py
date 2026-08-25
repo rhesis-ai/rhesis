@@ -9,13 +9,11 @@ Usage:
     python runner.py task_name --arg1=value1 --arg2=value2 --org=org_id --user=user_id
 
 Examples:
-    python runner.py rhesis.backend.tasks.echo --message="Hello World" --org=org123 --user=user456
-    python runner.py rhesis.backend.tasks.count_test_sets --org=org123 --user=user456
-    python runner.py rhesis.backend.tasks.process_data --data='{"key":"value"}' --org=org123 --user=user456
-    python runner.py rhesis.backend.tasks.execute_test_configuration --test_configuration_id="uuid-here" --org=org123 --user=user456
+    python runner.py rhesis.backend.jobs.count_test_sets --org=org123 --user=user456
+    python runner.py rhesis.backend.jobs.execute_test_configuration --test_configuration_id="uuid-here" --org=org123 --user=user456
     
     # For sequential execution, use longer timeout:
-    python runner.py rhesis.backend.tasks.execute_test_configuration --test_configuration_id="uuid-here" --org=org123 --user=user456 --timeout=300
+    python runner.py rhesis.backend.jobs.execute_test_configuration --test_configuration_id="uuid-here" --org=org123 --user=user456 --timeout=300
 """
 
 import argparse
@@ -25,14 +23,14 @@ import sys
 import time
 from typing import Optional
 
-from rhesis.backend.tasks import task_launcher
+from rhesis.backend.jobs import launch_job
 
-# Import the Celery app and task_launcher
+# Import the Celery app and launch_job
 from rhesis.backend.worker import app as celery_app
 
 
 class MockUser:
-    """Mock user object for task_launcher to extract context from."""
+    """Mock user object for launch_job to extract context from."""
     
     def __init__(self, user_id: str, organization_id: str):
         self.id = user_id
@@ -154,14 +152,14 @@ def run_task(task_name: str, organization_id: str, user_id: str,
         # For tasks with 'self' parameter, we need to apply the task differently
         if is_bound_task(task):
             print("Detected bound task (with 'self' parameter)")
-            # Use apply_async instead of direct call through task_launcher
+            # Use apply_async instead of direct call through launch_job
             result = task.apply_async(
                 kwargs=kwargs,
                 headers={'organization_id': organization_id, 'user_id': user_id}
             )
         else:
-            # Use the original task_launcher for non-bound tasks
-            result = task_launcher(task, current_user=mock_user, **kwargs)
+            # Use the original launch_job for non-bound tasks
+            result = launch_job(task, current_user=mock_user, **kwargs)
             
         print("\nTask submitted successfully!")
         print(f"Task ID: {result.id}")

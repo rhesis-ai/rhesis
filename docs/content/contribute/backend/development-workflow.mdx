@@ -49,7 +49,7 @@ New models usually need matching Pydantic schemas in `app/schemas/` and CRUD hel
 ## Adding endpoints and tasks
 
 - **Endpoints** — add or edit a router in `app/routers/` and register it in `app/routers/__init__.py`.
-- **Celery tasks** — add the task under `tasks/` and register it in `tasks/__init__.py`. Run a worker with `./rh dev worker` to exercise it (see [Background tasks](/contribute/backend/background-tasks)).
+- **Celery tasks** — add the job under `jobs/` and register it in `jobs/__init__.py`. Run a worker with `./rh dev worker` to exercise it (see [Background tasks](/contribute/backend/background-tasks)).
 
 ## Debugging
 

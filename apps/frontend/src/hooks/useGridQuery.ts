@@ -9,6 +9,11 @@ export interface UseGridQueryOptions<T> {
   enabled?: boolean;
   /** Override the app-wide staleTime (e.g. 0 for lists that must stay fresh). */
   staleTime?: number;
+  /** Poll interval in ms, or a function that inspects the query and returns ms/false. */
+  refetchInterval?:
+    | number
+    | false
+    | ((query: { state: { data: T | undefined } }) => number | false);
   /** Shown when the query fails with a non-Error rejection. */
   errorFallbackMessage?: string;
 }
@@ -25,6 +30,7 @@ export function useGridQuery<T>({
   queryFn,
   enabled = true,
   staleTime,
+  refetchInterval,
   errorFallbackMessage = 'Failed to load data',
 }: UseGridQueryOptions<T>) {
   const query = useQuery<T>({
@@ -33,6 +39,7 @@ export function useGridQuery<T>({
     enabled,
     placeholderData: keepPreviousData,
     ...(staleTime !== undefined ? { staleTime } : {}),
+    ...(refetchInterval !== undefined ? { refetchInterval } : {}),
   });
 
   const [dismissed, setDismissed] = useState(false);

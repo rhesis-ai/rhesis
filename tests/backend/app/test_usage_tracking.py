@@ -58,7 +58,7 @@ def fake_delay(monkeypatch):
     """Capture calls to accrue_usage.delay(...) without a broker."""
     recorded = []
     monkeypatch.setattr(
-        "rhesis.backend.tasks.usage.accrue_usage.delay",
+        "rhesis.backend.jobs.usage.accrue_usage.delay",
         lambda *args, **kwargs: recorded.append(args),
     )
     return recorded
@@ -196,7 +196,7 @@ class TestAccrueModelTokens:
         def boom(*args, **kwargs):
             raise RuntimeError("broker unreachable")
 
-        monkeypatch.setattr("rhesis.backend.tasks.usage.accrue_usage.delay", boom)
+        monkeypatch.setattr("rhesis.backend.jobs.usage.accrue_usage.delay", boom)
 
         with usage_attribution("org-1"):
             accrue_model_tokens(_usage(10), _model(True))  # must not raise
@@ -206,7 +206,7 @@ class TestAccrueModelTokens:
         SessionLocal() / DB call happens in the calling thread."""
         called = []
         monkeypatch.setattr("rhesis.backend.app.database.SessionLocal", lambda: called.append(True))
-        monkeypatch.setattr("rhesis.backend.tasks.usage.accrue_usage.delay", lambda *a, **k: None)
+        monkeypatch.setattr("rhesis.backend.jobs.usage.accrue_usage.delay", lambda *a, **k: None)
 
         with usage_attribution("org-1"):
             accrue_model_tokens(_usage(10), _model(True))
