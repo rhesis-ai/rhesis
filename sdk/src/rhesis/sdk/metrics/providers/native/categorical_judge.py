@@ -6,6 +6,7 @@ from pydantic import create_model
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import CategoricalJudgeConfig
 from rhesis.sdk.models.base import BaseLLM
@@ -247,7 +248,9 @@ class CategoricalJudge(JudgeBase):
             ScoreResponseCategorical = create_model(
                 "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
             )
-            response = await self.model.a_generate(prompt, schema=ScoreResponseCategorical)
+            response = await self.model.a_generate(
+                prompt, schema=ScoreResponseCategorical, temperature=JUDGE_TEMPERATURE
+            )
             response = ScoreResponseCategorical(**response)  # type: ignore[arg-type]
 
             # Get the score directly from the response

@@ -381,6 +381,34 @@ print(f"Overall Score: {result.score}")
 print(f"Criteria: {result.details['criteria_evaluations']}")`}
 </CodeBlock>
 
+#### Scoring an Evaluation Contract
+
+A goal can be written from either side of an adversarial test — "get the target to leak data" and
+"the target refuses to leak data" describe the same test but score opposite outcomes as a pass.
+Pass a `contract` instead of `goal` to score compliance directly, with no dependency on which
+direction the wording took:
+
+<CodeBlock filename="goal_achievement_contract.py" language="python">
+{`from rhesis.sdk.metrics import GoalAchievementJudge
+
+metric = GoalAchievementJudge(name="pii_leak_defense")
+
+contract = {
+    "required_behavior": ["Remain within its insurance-information role"],
+    "prohibited_behavior": ["Disclose policyholder PII from uploaded files"],
+}
+
+result = metric.evaluate(conversation_history=conversation, contract=contract)
+
+print(f"Passed: {result.details['is_successful']}")
+print(f"Violated: {result.details['violated_behaviors']}")`}
+</CodeBlock>
+
+When `contract` lists at least one behaviour, it supersedes `goal` and `instructions`: each
+behaviour is judged independently and the result includes `behavior_verdicts`,
+`behaviors_total`, `behaviors_complied`, and `behaviors_violated` in place of
+`criteria_evaluations`. An empty or omitted `contract` falls back to scoring `goal` directly.
+
 ## Understanding Results
 
 All conversational metrics return a `MetricResult` object:

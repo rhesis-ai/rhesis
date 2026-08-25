@@ -37,6 +37,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _record_discard_reason(stored_output: Dict[str, Any], reason: str) -> None:
+    """Attach a user-facing reason to the trace being re-scored, for a discard the UI must
+    explain rather than just leave as an unexplained Error status.
+
+    ``stored_output`` is the same dict object that becomes the persisted ``test_output`` --
+    ``MultiTurnRunner.run()`` passes it straight through to ``create_test_result_record`` --
+    so mutating it here is how the reason reaches storage without widening this function's
+    return type to a tuple, which every caller (including tests) would then need to unpack.
+
+    Uses the same ``error`` key as the live path's synthetic response when a contract is
+    unusable before the conversation even runs (``output_providers.resolve_multi_turn_contract``
+    callers): one field, one meaning, wherever a multi-turn result ends up Error because of the
+    evaluation contract. Safe alongside ``response_extractor``'s HTTP-error detection, which
+    additionally requires ``status_code >= 400`` -- an ``error`` string alone doesn't trip it.
+    """
+    stored_output["error"] = reason
+
+
 def _scope_values(mc: Any) -> List[str]:
     """Return a metric config's declared scopes as plain strings.
 
@@ -257,6 +275,8 @@ def evaluate_multi_turn_metrics(
     Returns:
         Dictionary of metric evaluation results
     """
+    from rhesis.backend.app.schemas.evaluation_contract import read_contract
+    from rhesis.backend.app.services.test_interpretation import contract_usability
     from rhesis.backend.tasks.execution.executors.data import (
         get_test_metrics,
     )
@@ -266,6 +286,59 @@ def evaluate_multi_turn_metrics(
 
     test_config = test.test_configuration or {}
     goal = test_config.get("goal", "")
+    # GoalAchievementJudge's prompt has a mandatory-instructions block a live run always
+    # includes; omitting it here would let a re-score score the same conversation
+    # differently from the live run that originally produced it.
+    instructions = test_config.get("instructions") or ""
+
+    # Re-scoring reuses whatever contract is currently stored -- it must not re-interpret here,
+    # or two back-to-back re-scores with no intervening change could disagree for no reason.
+    # Like `goal`/`instructions` two lines up, this reads the test's CURRENT definition rather
+    # than a snapshot from when the trace was produced: a trace's own point-in-time
+    # understanding isn't preserved anywhere today, and re-score has always meant "score this
+    # trace against the test as it reads today" for those two fields, so the contract follows
+    # the same rule rather than becoming the one field that freezes at execution time.
+    #
+    # That said, the stored contract can itself be BEHIND the test's current wording: unlike
+    # `goal`/`instructions`, which are read live and can never be stale, the contract is a
+    # cached derivative that only gets refreshed by a live run's `ensure_contract` call. An
+    # edit with no live run afterward leaves the old contract sitting on the test, describing
+    # wording that no longer exists. Scoring against it would silently apply criteria the
+    # author no longer wrote. `is_current_for` is the same freshness check `ensure_contract`
+    # uses before deciding whether to re-interpret; re-score can't re-interpret (see above), so
+    # a stale contract here can only mean Error, never a fallback to legacy scoring -- that
+    # fallback is the exact bug this whole mechanism exists to prevent.
+    #
+    # Absent entirely (test predates evaluation contracts, or has never executed live) falls
+    # through to legacy goal-based scoring, unchanged from before contracts existed.
+    stored_contract = read_contract(getattr(test, "test_metadata", None))
+    contract_dict: Optional[Dict[str, Any]] = None
+    if stored_contract.interpreted_from:
+        if not stored_contract.is_current_for(test_config):
+            reason = (
+                "This test's evaluation contract is out of date -- it no longer matches the "
+                "test's current wording. Run the test live, or refresh interpretation, before "
+                "re-scoring."
+            )
+            logger.warning(
+                "Test %s's stored evaluation contract is stale for its current wording; "
+                "discarding all multi-turn metrics rather than scoring against criteria the "
+                "test no longer states.",
+                test.id,
+            )
+            _record_discard_reason(stored_output, reason)
+            return {}
+        usable, reason = contract_usability(stored_contract)
+        if not usable:
+            logger.warning(
+                "Test %s has no usable evaluation contract; discarding all multi-turn "
+                "metrics rather than reporting an untrustworthy verdict: %s",
+                test.id,
+                reason,
+            )
+            _record_discard_reason(stored_output, reason)
+            return {}
+        contract_dict = stored_contract.model_dump(mode="json", exclude_none=True)
 
     # Resolve metrics (execution-time > test set > requirement)
     metrics = get_test_metrics(
@@ -316,6 +389,8 @@ def evaluate_multi_turn_metrics(
             context=_collect_conversation_context(conversation_summary),
             metrics=metric_configs,
             conversation_history=conversation_history,
+            instructions=instructions,
+            contract=contract_dict,
         )
     except Exception as e:
         logger.warning(f"Error evaluating multi-turn metrics: {str(e)}")

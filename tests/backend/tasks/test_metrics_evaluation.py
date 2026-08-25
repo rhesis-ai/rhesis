@@ -9,6 +9,12 @@ Covers:
 
 from unittest.mock import MagicMock, patch
 
+from rhesis.backend.app.schemas.evaluation_contract import (
+    CONTRACT_VERSION,
+    EvaluationContract,
+    authored_fields_digest,
+    store_contract,
+)
 from rhesis.backend.tasks.execution.constants import (
     CONVERSATION_SUMMARY_KEY,
     PENELOPE_MESSAGE_KEY,
@@ -169,7 +175,11 @@ class TestEvaluateSingleTurnMetrics:
         mock_evaluator = MagicMock()
         mock_evaluator.evaluate.return_value = {}
 
-        dict_metric = {"name": "conv", "class_name": "ConversationalJudge", "metric_scope": [MetricScope.MULTI_TURN]}
+        dict_metric = {
+            "name": "conv",
+            "class_name": "ConversationalJudge",
+            "metric_scope": [MetricScope.MULTI_TURN],
+        }
 
         result = evaluate_single_turn_metrics(
             metrics_evaluator=mock_evaluator,
@@ -670,3 +680,142 @@ class TestEvaluateMultiTurnMetrics:
 
         tc_list = conv.get_assistant_tool_calls()
         assert tc_list[0] == [{"name": "search", "arguments": {"q": "policy"}}]
+
+
+class TestEvaluateMultiTurnMetricsContract:
+    """Contract handling in the re-score path.
+
+    Unlike ``goal``/``instructions``, which are read live from ``test.test_configuration`` and
+    can never be stale, the stored contract is a cached derivative that only gets refreshed by
+    a live run's ``ensure_contract`` call. These tests pin down what happens when it's behind
+    the test's current wording, and that a stale or unusable contract discards every metric
+    rather than falling back to legacy goal-based scoring -- that fallback is the exact bug
+    evaluation contracts exist to prevent.
+    """
+
+    @staticmethod
+    def _test_with_contract(config, contract):
+        test = MagicMock()
+        test.test_configuration = config
+        test.test_metadata = store_contract(None, contract)
+        test.id = "test-1"
+        return test
+
+    def test_stale_contract_discards_all_metrics(self):
+        """A test edited after its last interpretation must not be scored against criteria
+        the author no longer wrote."""
+        config = {"goal": "Verify the chatbot refuses to leak PII"}
+        stale_contract = EvaluationContract(
+            prohibited_behavior=["Disclose PII"],
+            confidence=0.9,
+            interpreted_from=authored_fields_digest({"goal": "An entirely different goal"}),
+            contract_version=CONTRACT_VERSION,
+        )
+        test = self._test_with_contract(config, stale_contract)
+        stored_output = {CONVERSATION_SUMMARY_KEY: []}
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+        ):
+            result = evaluate_multi_turn_metrics(
+                stored_output=stored_output,
+                test=test,
+                db=MagicMock(),
+                organization_id="org-1",
+                user_id="user-1",
+                model="gpt-4",
+            )
+
+        assert result == {}
+        # The reason must reach the persisted trace, not just the logs -- MultiTurnRunner.run
+        # passes this same dict straight through to create_test_result_record as test_output.
+        assert "out of date" in stored_output["error"]
+
+    def test_current_usable_contract_is_passed_through(self):
+        """A contract matching the test's current wording is used, not discarded."""
+        config = {"goal": "Verify the chatbot refuses to leak PII"}
+        current_contract = EvaluationContract(
+            prohibited_behavior=["Disclose PII"],
+            confidence=0.9,
+            interpreted_from=authored_fields_digest(config),
+            contract_version=CONTRACT_VERSION,
+        )
+        test = self._test_with_contract(config, current_contract)
+        stored_output = {CONVERSATION_SUMMARY_KEY: []}
+
+        mock_evaluator_instance = MagicMock()
+        mock_evaluator_instance.evaluate.return_value = {
+            "goal_achievement": {"is_successful": True, "score": 1.0}
+        }
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.evaluation.MetricEvaluator",
+                return_value=mock_evaluator_instance,
+            ),
+        ):
+            result = evaluate_multi_turn_metrics(
+                stored_output=stored_output,
+                test=test,
+                db=MagicMock(),
+                organization_id="org-1",
+                user_id="user-1",
+                model="gpt-4",
+            )
+
+        assert result == {"goal_achievement": {"is_successful": True, "score": 1.0}}
+        assert mock_evaluator_instance.evaluate.call_args.kwargs["contract"] is not None
+        assert "error" not in stored_output
+
+    def test_current_but_low_confidence_contract_discards_all_metrics(self):
+        """Freshness alone isn't enough -- an ambiguous-but-current contract still must not
+        score. Existing contract_usability behavior; covered here alongside staleness so the
+        two failure modes aren't confused with each other."""
+        config = {"goal": "Verify the chatbot refuses to leak PII"}
+        ambiguous_contract = EvaluationContract(
+            prohibited_behavior=["Disclose PII"],
+            confidence=0.3,
+            interpreted_from=authored_fields_digest(config),
+            contract_version=CONTRACT_VERSION,
+        )
+        test = self._test_with_contract(config, ambiguous_contract)
+        stored_output = {CONVERSATION_SUMMARY_KEY: []}
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+        ):
+            result = evaluate_multi_turn_metrics(
+                stored_output=stored_output,
+                test=test,
+                db=MagicMock(),
+                organization_id="org-1",
+                user_id="user-1",
+                model="gpt-4",
+            )
+
+        assert result == {}
+        # contract_usability's own reason string is already user-facing (see its docstring);
+        # reused verbatim rather than replaced with a generic message.
+        assert "ambiguous" in stored_output["error"]

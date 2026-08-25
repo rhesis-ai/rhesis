@@ -6,6 +6,9 @@ import pytest
 
 from rhesis.sdk.metrics import ConversationHistory, GoalAchievementJudge
 from rhesis.sdk.metrics.base import MetricType, ScoreType
+from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
+    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+)
 from rhesis.sdk.models import BaseLLM
 
 
@@ -58,7 +61,9 @@ def test_goal_achievement_judge_initialization(mock_model):
     assert judge.score_type == ScoreType.NUMERIC
     assert judge.min_score == 0.0
     assert judge.max_score == 1.0
-    assert judge.threshold == 0.5
+    # Goal achievement has its own default rather than the generic midpoint, so a live run and
+    # a re-score of the same conversation agree. See DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD.
+    assert judge.threshold == DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
     # When evaluation_prompt is None, template uses conditional rendering for defaults
     assert judge.evaluation_prompt is None
     assert judge.evaluation_steps is None

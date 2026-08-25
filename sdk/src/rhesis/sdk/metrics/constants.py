@@ -31,3 +31,12 @@ THRESHOLD_OPERATOR_MAP = {
     "!=": operator.ne,
     "<>": operator.ne,
 }
+
+#: Sampling temperature for LLM-as-judge calls.
+#:
+#: Judges are measurement, not generation. The provider default (0.7 on the native provider) is
+#: right for synthesizers, which want varied tests, but it means the same conversation can score
+#: differently on two runs of the same metric, and a re-score can disagree with the live run that
+#: produced the trace. Every judge passes this explicitly rather than changing the provider
+#: default, which generation legitimately relies on.
+JUDGE_TEMPERATURE = 0.0

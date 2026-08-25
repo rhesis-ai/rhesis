@@ -6,6 +6,7 @@ system prompt for a test execution.
 """
 
 import logging
+from typing import List, Optional
 
 from rhesis.penelope.prompts.base import PromptTemplate, TemplateFormat
 
@@ -37,6 +38,9 @@ def get_system_prompt(
     files_info: str = "",
     min_turns: int = None,
     max_turns: int = None,
+    simulated_user_objective: Optional[str] = None,
+    contract_required_behavior: Optional[List[str]] = None,
+    contract_prohibited_behavior: Optional[List[str]] = None,
 ) -> str:
     """
     Construct the complete system prompt using Jinja2 templates.
@@ -51,6 +55,19 @@ def get_system_prompt(
         files_info: Pre-rendered file attachment information block
         min_turns: Minimum turns before early stopping is allowed
         max_turns: Maximum number of turns for this test
+        simulated_user_objective: When set, this is what Penelope itself pursues,
+            in place of ``goal``. Present only when an evaluation contract was
+            derived for this test -- see ``schemas/evaluation_contract.py``.
+            Without it ``goal`` is ambiguous: it is the assertion the target is
+            scored against, not necessarily something Penelope should try to
+            achieve (an adversarial goal reads "the target must not leak PII",
+            which is nonsense as Penelope's own objective).
+        contract_required_behavior: What the contract says the target must do,
+            shown to Penelope as context. Ignored unless
+            ``simulated_user_objective`` is also set.
+        contract_prohibited_behavior: What the contract says the target must
+            not do, shown to Penelope as context. Ignored unless
+            ``simulated_user_objective`` is also set.
 
     Returns:
         Complete system prompt rendered from Jinja2 template
@@ -74,6 +91,7 @@ def get_system_prompt(
     logger.info(f"Available tools length: {len(available_tools) if available_tools else 0} chars")
     logger.info(f"Files info length: {len(files_info) if files_info else 0} chars")
     logger.info(f"Turn budget: min_turns={min_turns}, max_turns={max_turns}")
+    logger.info(f"Has evaluation contract: {bool(simulated_user_objective)}")
 
     # Render the template
     rendered_prompt = SYSTEM_PROMPT_TEMPLATE.render(
@@ -87,6 +105,9 @@ def get_system_prompt(
         files_info=files_info if files_info else None,
         min_turns=min_turns,
         max_turns=max_turns,
+        simulated_user_objective=simulated_user_objective if simulated_user_objective else None,
+        contract_required_behavior=contract_required_behavior or None,
+        contract_prohibited_behavior=contract_prohibited_behavior or None,
     )
 
     logger.info("=== RENDERED PROMPT PREVIEW ===")

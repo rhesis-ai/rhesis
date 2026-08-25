@@ -68,6 +68,70 @@ class TestMetricResultBuilderSuccess:
         assert d["duration_ms"] == 150.5
 
 
+class TestMetricResultBuilderExtra:
+    """Tests for extra -- the merged-flat passthrough for metric-specific fields."""
+
+    def test_extra_fields_are_merged_flat(self):
+        d = MetricResultBuilder.success(
+            score=1.0,
+            reason="ok",
+            is_successful=True,
+            backend="rhesis",
+            name="GoalAchievement",
+            class_name="GoalAchievementJudge",
+            extra={"criteria_evaluations": [{"criterion": "x", "met": True}], "confidence": 0.9},
+        )
+        assert d["criteria_evaluations"] == [{"criterion": "x", "met": True}]
+        assert d["confidence"] == 0.9
+
+    def test_no_extra_omits_nothing_extra(self):
+        d = MetricResultBuilder.success(
+            score=1.0,
+            reason="ok",
+            is_successful=True,
+            backend="rhesis",
+            name="n",
+            class_name="c",
+        )
+        assert "extra" not in d
+
+    def test_empty_extra_dict_adds_nothing(self):
+        d = MetricResultBuilder.success(
+            score=1.0,
+            reason="ok",
+            is_successful=True,
+            backend="rhesis",
+            name="n",
+            class_name="c",
+            extra={},
+        )
+        assert "extra" not in d
+        assert set(d.keys()) == {
+            "score",
+            "reason",
+            "is_successful",
+            "backend",
+            "name",
+            "class_name",
+            "description",
+        }
+
+    def test_extra_cannot_override_a_core_field(self):
+        """A metric's own detail dict must not be able to clobber a deliberate core field."""
+        d = MetricResultBuilder.success(
+            score=1.0,
+            reason="the real reason",
+            is_successful=True,
+            backend="rhesis",
+            name="n",
+            class_name="c",
+            extra={"reason": "smuggled", "score": 0.0, "is_successful": False},
+        )
+        assert d["reason"] == "the real reason"
+        assert d["score"] == 1.0
+        assert d["is_successful"] is True
+
+
 class TestMetricResultBuilderError:
     """Tests for MetricResultBuilder.error()."""
 

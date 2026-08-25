@@ -123,12 +123,16 @@ def test_test_state_get_conversation_messages(sample_test_state):
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="send_message_to_target", arguments='{"message": "Hello"}'),
+                function=FunctionCall(
+                    name="send_message_to_target", arguments='{"message": "Hello"}'
+                ),
             )
         ],
     )
 
-    tool_msg = ToolMessage(tool_call_id="call_1", name="send_message_to_target", content='{"success": true}')
+    tool_msg = ToolMessage(
+        tool_call_id="call_1", name="send_message_to_target", content='{"success": true}'
+    )
 
     sample_test_state.add_execution(
         reasoning="Test reasoning",
@@ -168,7 +172,9 @@ def test_turn_properties():
             MessageToolCall(
                 id="call_1",
                 type="function",
-                function=FunctionCall(name="send_message_to_target", arguments='{"param": "value"}'),
+                function=FunctionCall(
+                    name="send_message_to_target", arguments='{"param": "value"}'
+                ),
             )
         ],
     )
@@ -206,7 +212,9 @@ def test_turn_properties_with_no_tool_calls():
     """Test Turn properties when no tool_calls are present."""
     assistant_msg = AssistantMessage(content="Test reasoning", tool_calls=None)
 
-    tool_msg = ToolMessage(tool_call_id="call_1", name="send_message_to_target", content='{"success": true}')
+    tool_msg = ToolMessage(
+        tool_call_id="call_1", name="send_message_to_target", content='{"success": true}'
+    )
 
     # Create a ToolExecution for the target interaction
     target_execution = ToolExecution(
@@ -230,20 +238,20 @@ def test_turn_properties_with_no_tool_calls():
 def test_test_result_creation():
     """Test TestResult initialization."""
     assistant_msg = AssistantMessage(
-            content="Test",
-            tool_calls=[
-                MessageToolCall(
-                    id="call_1",
-                    type="function",
+        content="Test",
+        tool_calls=[
+            MessageToolCall(
+                id="call_1",
+                type="function",
                 function=FunctionCall(name="send_message_to_target", arguments="{}"),
-                )
-            ],
+            )
+        ],
     )
-    
+
     tool_msg = ToolMessage(
         tool_call_id="call_1", name="send_message_to_target", content='{"success": true}'
     )
-    
+
     # Create a ToolExecution for the target interaction
     target_execution = ToolExecution(
         tool_name="send_message_to_target",
@@ -251,7 +259,7 @@ def test_test_result_creation():
         assistant_message=assistant_msg,
         tool_message=tool_msg,
     )
-    
+
     turn = Turn(
         turn_number=1,
         executions=[target_execution],
@@ -458,6 +466,50 @@ def test_generate_metrics_with_criteria_evaluations():
     assert goal_metric["criteria_met"] == 2
     assert goal_metric["criteria_total"] == 3
     assert goal_metric["score"] == 0.8
+
+
+def test_generate_metrics_summary_includes_contract_based_counts():
+    """The goal-metric summary whitelist must carry contract-based scoring's own count
+    fields (behaviors_total/complied/violated, adversarial) the same way it already carries
+    criteria_met/criteria_total for legacy scoring -- otherwise the summary panel used by
+    the metrics overview grid silently loses them for a live Penelope run, even though the
+    full test_output.goal_evaluation dict still has them."""
+    from rhesis.sdk.metrics.base import MetricResult
+
+    test_context = TestContext(
+        target_id="test", target_type="test", instructions="Test", goal="Test goal"
+    )
+    state = TestState(context=test_context)
+
+    metric_result = MetricResult(
+        score=0.0,
+        details={
+            "name": "goal_achievement",
+            "is_goal_achievement_metric": True,
+            "is_successful": False,
+            "adversarial": True,
+            "behaviors_total": 3,
+            "behaviors_complied": 2,
+            "behaviors_violated": 1,
+            "violated_behaviors": ["Disclose policyholder PII"],
+            "behavior_verdicts": [{"behavior": "Disclose policyholder PII", "complied": False}],
+            "contract": {"prohibited_behavior": ["Disclose policyholder PII"]},
+            "confidence": 0.9,
+        },
+    )
+    state.metric_results = [metric_result]
+
+    summary = state._generate_metrics(goal_achieved=False)["Goal Achievement"]
+
+    assert summary["adversarial"] is True
+    assert summary["behaviors_total"] == 3
+    assert summary["behaviors_complied"] == 2
+    assert summary["behaviors_violated"] == 1
+    # Per-item detail and the raw contract stay in test_output.goal_evaluation only --
+    # summarized here would duplicate what's already there and bloat every metrics response.
+    assert "behavior_verdicts" not in summary
+    assert "violated_behaviors" not in summary
+    assert "contract" not in summary
 
 
 def test_generate_metrics_without_criteria():

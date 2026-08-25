@@ -9,7 +9,7 @@ Following Anthropic's agent design principles:
 
 import logging
 import math
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from rhesis.penelope._file_compat import file_attr as _file_attr
 from rhesis.penelope.config import PenelopeConfig
@@ -37,6 +37,7 @@ from rhesis.penelope.utils import (
     display_test_result,
 )
 from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.providers.native.goal_achievement_judge import is_contract_result
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.targets import Target
@@ -432,6 +433,7 @@ class PenelopeAgent:
         max_turns: Optional[int],
         min_turns: Optional[int],
         files: Optional[List[Any]],
+        contract: Optional[Mapping[str, Any]] = None,
     ) -> TestContext:
         """Build the TestContext shared between sync and async entry points."""
         return TestContext(
@@ -446,6 +448,7 @@ class PenelopeAgent:
             min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
             files=files,
+            contract=contract,
         )
 
     @staticmethod
@@ -494,6 +497,7 @@ class PenelopeAgent:
         tools: List[Tool],
         max_turns: Optional[int],
         min_turns: Optional[int],
+        contract: Optional[Mapping[str, Any]] = None,
     ) -> str:
         """Assemble the full system prompt including tool docs and file info."""
         tool_docs = [f"### {tool.name}\n{tool.description}" for tool in tools]
@@ -501,6 +505,12 @@ class PenelopeAgent:
 
         context_str = str(context) if context else ""
         files_info = self._files_info_for_prompt(files)
+
+        # An evaluation contract, when present, tells Penelope what it should itself pursue
+        # (simulated_user_objective) instead of the raw goal -- see get_system_prompt's
+        # docstring for why the two can't be the same thing (goal is the assertion the target
+        # is scored against, which for an adversarial test reads as "the target must not X").
+        contract = contract or {}
 
         return get_system_prompt(
             instructions=instructions,
@@ -512,6 +522,9 @@ class PenelopeAgent:
             files_info=files_info,
             min_turns=min_turns,
             max_turns=max_turns if max_turns is not None else self.max_turns,
+            simulated_user_objective=contract.get("simulated_user_objective") or None,
+            contract_required_behavior=contract.get("required_behavior") or None,
+            contract_prohibited_behavior=contract.get("prohibited_behavior") or None,
         )
 
     def _compute_goal_eval_floor(
@@ -546,6 +559,7 @@ class PenelopeAgent:
         max_turns: Optional[int],
         min_turns: Optional[int],
         files: Optional[List[Any]],
+        contract: Optional[Mapping[str, Any]] = None,
         async_label: bool = False,
     ) -> tuple[TestState, List[Tool], str, List[StoppingCondition], int, str]:
         """Validate, instantiate state, tools, system prompt, and stop conditions.
@@ -576,6 +590,7 @@ class PenelopeAgent:
             max_turns=max_turns,
             min_turns=min_turns,
             files=files_list,
+            contract=contract,
         )
         state = TestState(context=test_context)
         tools = self._get_tools_for_test(target)
@@ -593,6 +608,7 @@ class PenelopeAgent:
             tools=tools,
             max_turns=max_turns,
             min_turns=min_turns,
+            contract=contract,
         )
         logger.info(f"=== {label}: System prompt created, length: {len(system_prompt)} chars ===")
 
@@ -616,15 +632,46 @@ class PenelopeAgent:
         if not stop_result.should_stop:
             return None
         logger.info(f"Stopping: {stop_result.reason}")
+        goal_achieved = self._resolve_goal_achieved(state, stop_result)
         result = state.to_result(
             stop_result.status,
-            stop_result.goal_achieved,
+            goal_achieved,
             target=target,
             model=self.model,
         )
         if self.verbose:
             display_test_result(result)
         return result
+
+    @staticmethod
+    def _last_goal_metric_result(state: TestState) -> Optional[MetricResult]:
+        """The most recent goal-achievement metric result, if any.
+
+        Mirrors the selection ``context.py``'s ``to_result`` uses for ``goal_evaluation``, so
+        the top-level ``goal_achieved`` flag agrees with what that field reports.
+        """
+        goal_results = [
+            r for r in state.metric_results if r.details.get("is_goal_achievement_metric", False)
+        ]
+        return goal_results[-1] if goal_results else None
+
+    @classmethod
+    def _resolve_goal_achieved(cls, state: TestState, stop_result: StopResult) -> bool:
+        """The ``goal_achieved`` flag for the final ``TestResult``.
+
+        For contract-based scoring the loop runs the full turn budget instead of stopping the
+        moment the target looks compliant (see ``GoalAchievedCondition._should_stop_contract``),
+        so a MaxTurns/Timeout/MaxToolExecutions stop can arrive with a passing verdict already on
+        record. Prefer that verdict over the terminating condition's own ``goal_achieved``, which
+        answers "why did the loop stop", not "did the test pass" -- ``MaxTurnsCondition`` in
+        particular always reports ``False`` regardless of outcome. Goal-based scoring is
+        unaffected: it always stops via ``GoalAchievedCondition`` itself, whose own
+        ``goal_achieved`` already matches its metric result.
+        """
+        last_goal_result = cls._last_goal_metric_result(state)
+        if last_goal_result is not None and is_contract_result(last_goal_result.details):
+            return bool(last_goal_result.details.get("is_successful", False))
+        return stop_result.goal_achieved
 
     @staticmethod
     def _insufficient_conversation_result() -> MetricResult:
@@ -655,6 +702,24 @@ class PenelopeAgent:
         if hasattr(metric, "is_goal_achievement_metric"):
             result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
 
+    @staticmethod
+    def _goal_metric_eval_kwargs(
+        state: TestState, goal: str, instructions: Optional[str]
+    ) -> Dict[str, Any]:
+        """Build the kwargs for one call to the goal metric's evaluate/a_evaluate.
+
+        ``contract`` is included only when one was derived for this test, matching how
+        ``instructions`` is already handled here: both are simply omitted rather than passed as
+        ``None`` when absent. ``goal_metric`` can be swapped for a custom metric
+        (``PenelopeAgent(goal_metric=...)``), and a custom metric that predates evaluation
+        contracts never receives the new kwarg unless a contract is actually in play, so it
+        keeps working exactly as it always has for every test that doesn't opt in.
+        """
+        kwargs: Dict[str, Any] = {"goal": goal, "instructions": instructions or ""}
+        if state.context.contract:
+            kwargs["contract"] = state.context.contract
+        return kwargs
+
     def _evaluate_metrics_sync(
         self,
         state: TestState,
@@ -674,10 +739,9 @@ class PenelopeAgent:
                 if len(conversation) < 1:
                     metric_result = self._insufficient_conversation_result()
                 else:
+                    eval_kwargs = self._goal_metric_eval_kwargs(state, goal, instructions)
                     metric_result = self.goal_metric.evaluate(
-                        conversation_history=conversation,
-                        goal=goal,
-                        instructions=instructions or "",
+                        conversation_history=conversation, **eval_kwargs
                     )
                 for condition in conditions:
                     condition.update_result(metric_result)
@@ -706,10 +770,9 @@ class PenelopeAgent:
                 if len(conversation) < 1:
                     metric_result = self._insufficient_conversation_result()
                 else:
+                    eval_kwargs = self._goal_metric_eval_kwargs(state, goal, instructions)
                     metric_result = await self.goal_metric.a_evaluate(
-                        conversation_history=conversation,
-                        goal=goal,
-                        instructions=instructions or "",
+                        conversation_history=conversation, **eval_kwargs
                     )
                 for condition in conditions:
                     condition.update_result(metric_result)
@@ -730,6 +793,7 @@ class PenelopeAgent:
         max_turns: Optional[int] = None,
         min_turns: Optional[int] = None,
         files: Optional[List[Any]] = None,
+        contract: Optional[Mapping[str, Any]] = None,
         on_tool_start: Optional[Any] = None,
         on_tool_end: Optional[Any] = None,
     ) -> TestResult:
@@ -768,6 +832,12 @@ class PenelopeAgent:
                 ``content_type``, and ``data`` (base64) for the playground /
                 legacy paths. When provided, Penelope can include these files
                 with messages sent to the target by setting ``include_files=True``.
+            contract: Optional evaluation contract -- a normalized reading of this test stating
+                what the target must and must not do, and what the simulated user is pushing
+                for. When present, it supersedes ``goal`` as Penelope's own objective and as
+                what the goal metric scores against; see
+                ``GoalAchievementJudge.evaluate``'s ``contract`` parameter. Without it, behavior
+                is unchanged from before evaluation contracts existed.
 
         Returns:
             TestResult with complete test execution details
@@ -835,6 +905,7 @@ class PenelopeAgent:
                 max_turns=max_turns,
                 min_turns=min_turns,
                 files=files,
+                contract=contract,
             )
         )
         self.executor.workflow_manager.reset_state()
@@ -866,6 +937,7 @@ class PenelopeAgent:
         max_turns: Optional[int] = None,
         min_turns: Optional[int] = None,
         files: Optional[List[Any]] = None,
+        contract: Optional[Mapping[str, Any]] = None,
         on_tool_start: Optional[Any] = None,
         on_tool_end: Optional[Any] = None,
     ) -> TestResult:
@@ -875,6 +947,8 @@ class PenelopeAgent:
         Used by the batch execution engine so multi-turn tests run as
         coroutines without blocking threads.  The sync execute_test()
         remains unchanged for backward compatibility.
+
+        See ``execute_test`` for the ``contract`` parameter.
         """
         state, tools, system_prompt, conditions, goal_eval_floor, instructions = (
             self._build_test_artifacts(
@@ -887,6 +961,7 @@ class PenelopeAgent:
                 max_turns=max_turns,
                 min_turns=min_turns,
                 files=files,
+                contract=contract,
                 async_label=True,
             )
         )

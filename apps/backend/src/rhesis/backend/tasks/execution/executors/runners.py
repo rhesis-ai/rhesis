@@ -394,6 +394,17 @@ class MultiTurnRunner(BaseRunner):
             )
             return execution_time, penelope_trace, {}
 
+        # An unusable evaluation contract means no verdict could be trusted, so the provider
+        # didn't run the conversation. Bail before the metric fork below: `metrics` is empty
+        # here, which that fork reads as "stored output, evaluate everything externally" --
+        # exactly the re-evaluation this run exists to avoid.
+        if not output.contract_usable:
+            logger.info(
+                "[MultiTurnRunner] Test %s reported as Error: evaluation contract was not usable",
+                test.id,
+            )
+            return execution_time, penelope_trace, {}
+
         # --- Entity 2: Evaluate metrics ---
         ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)
 

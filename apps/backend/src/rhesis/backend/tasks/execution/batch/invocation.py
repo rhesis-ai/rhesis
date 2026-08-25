@@ -50,6 +50,42 @@ async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional
     return None
 
 
+async def resolve_contract_lazy(
+    ctx: ExecutionContext, test_id: str
+) -> tuple[Optional[Dict[str, Any]], bool]:
+    """Resolve the evaluation contract for a batch multi-turn test.
+
+    ``ctx.test_data``'s ``test`` object was loaded in a session that has since closed (see
+    ``ExecutionContext``'s docstring), so it can't be mutated and persisted here. This opens
+    its own short-lived session and re-queries the row fresh -- the same pattern
+    ``load_input_files_lazy`` above uses -- then delegates to the same resolution and
+    usability rule the live (non-batch) path uses, so the two cannot drift apart. See
+    ``executors.output_providers.resolve_multi_turn_contract``.
+    """
+    from uuid import UUID
+
+    def _resolve():
+        from rhesis.backend.app import crud
+        from rhesis.backend.app.database import get_db_with_tenant_variables
+        from rhesis.backend.tasks.execution.executors.output_providers import (
+            resolve_multi_turn_contract,
+        )
+
+        with get_db_with_tenant_variables(
+            ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
+        ) as db:
+            test = crud.get_test(db, UUID(test_id), ctx.organization_id, ctx.user_id)
+            if test is None:
+                return None, False
+            return resolve_multi_turn_contract(db, test, ctx.user_id)
+
+    try:
+        return await asyncio.to_thread(_resolve)
+    except Exception as e:
+        logger.warning(f"[BATCH] Failed to resolve evaluation contract for {test_id}: {e}")
+        return None, False
+
+
 async def run_test(
     ctx: ExecutionContext,
     test: Test,
@@ -98,6 +134,29 @@ async def _run_multi_turn(
     max_turns = test_config_data.get("max_turns") or 10
     min_turns = test_config_data.get("min_turns")
 
+    contract, contract_usable = await resolve_contract_lazy(ctx, test_id)
+
+    # Resolved before the conversation, and before loading files, so an unscoreable test costs
+    # nothing. Everything this run could produce would be discarded downstream, so running it
+    # would only bill the org for target calls and judge tokens on a guaranteed Error.
+    if not contract_usable:
+        logger.info(
+            "[BATCH] Skipping conversation for test %s: evaluation contract is not usable, "
+            "so no verdict from this run could be trusted",
+            test_id,
+        )
+        return {
+            "output": {
+                "status": "error",
+                "error": (
+                    "The test could not be interpreted well enough to score, so it was not run."
+                ),
+            },
+            "penelope_metrics": {},
+            "deferred_traces": deferred_traces,
+            "contract_usable": False,
+        }
+
     input_files = await load_input_files_lazy(ctx, test_id)
 
     params = {}
@@ -127,6 +186,7 @@ async def _run_multi_turn(
         max_turns=max_turns,
         min_turns=min_turns,
         files=input_files if input_files else None,
+        contract=contract,
     )
 
     deferred_traces.extend(target._deferred_traces)
@@ -138,6 +198,7 @@ async def _run_multi_turn(
         "output": trace,
         "penelope_metrics": penelope_metrics,
         "deferred_traces": deferred_traces,
+        "contract_usable": True,
     }
 
 

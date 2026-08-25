@@ -41,6 +41,8 @@ def build_metric_evaluate_params(
     conversation_history: Optional[Any] = None,
     metadata: Optional[Dict[str, Any]] = None,
     tool_calls: Optional[List[Dict[str, Any]]] = None,
+    instructions: Optional[str] = None,
+    contract: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Build kwargs for metric.a_evaluate() from evaluation inputs using introspection.
@@ -58,6 +60,13 @@ def build_metric_evaluate_params(
         conversation_history: Optional conversation history for conversational metrics
         metadata: Optional metadata dict
         tool_calls: Optional list of tool calls
+        instructions: Optional test instructions -- only ``GoalAchievementJudge`` declares
+            this today. Without it, re-scoring a multi-turn test renders its prompt missing
+            the mandatory-instructions block a live run always includes, which can score the
+            same conversation differently depending on which path produced the verdict.
+        contract: Optional evaluation contract (see
+            ``app/schemas/evaluation_contract.py``) -- likewise only
+            ``GoalAchievementJudge`` declares this.
 
     Returns:
         Dict of kwargs to pass to metric.a_evaluate()
@@ -81,8 +90,32 @@ def build_metric_evaluate_params(
         kwargs["tool_calls"] = tool_calls
     if "goal" in params:
         kwargs["goal"] = input_text
+    if "instructions" in params and instructions is not None:
+        kwargs["instructions"] = instructions
+    if "contract" in params and contract is not None:
+        kwargs["contract"] = contract
 
     return kwargs
+
+
+#: Generic fallback for a numeric metric row that never had a threshold set.
+_DEFAULT_NUMERIC_THRESHOLD = 0.5
+
+
+def _default_threshold_for(metric: MetricModel) -> float:
+    """Threshold to use when the DB row doesn't set one.
+
+    Goal achievement gets its own default from the SDK. Using the generic 0.5 here meant a
+    re-score disagreed with the live run that produced the same conversation, since a live run
+    builds its judge through Penelope and got 0.7. Same conversation, two verdicts at 0.6.
+    """
+    from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
+        DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+    )
+
+    if (getattr(metric, "class_name", "") or "") == "GoalAchievementJudge":
+        return DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
+    return _DEFAULT_NUMERIC_THRESHOLD
 
 
 def metric_model_to_config(metric: MetricModel) -> MetricConfig:
@@ -111,7 +144,9 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
         config["categories"] = metric.categories
         config["passing_categories"] = metric.passing_categories
     else:
-        config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
+        config["threshold"] = (
+            metric.threshold if metric.threshold is not None else _default_threshold_for(metric)
+        )
         config["threshold_operator"] = metric.threshold_operator
         if metric.min_score is not None:
             config["min_score"] = metric.min_score

@@ -61,8 +61,15 @@ class ConnectorStrategy:
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        """Evaluate connector strategy configs via WebSocket RPC."""
+        """Evaluate connector strategy configs via WebSocket RPC.
+
+        ``instructions``/``contract`` are accepted for interface uniformity (see
+        ``MetricStrategy``) and dropped: they describe the goal-achievement judge, a native
+        metric that never dispatches through the connector.
+        """
         if not configs:
             return {}
 
@@ -93,8 +100,14 @@ class ConnectorStrategy:
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        """Async evaluate — dispatches all connector calls concurrently via asyncio.gather."""
+        """Async evaluate — dispatches all connector calls concurrently via asyncio.gather.
+
+        ``instructions``/``contract`` are accepted for interface uniformity and dropped --
+        see ``evaluate``'s docstring.
+        """
         if not configs:
             return {}
         if not self._connector_metric_sender:

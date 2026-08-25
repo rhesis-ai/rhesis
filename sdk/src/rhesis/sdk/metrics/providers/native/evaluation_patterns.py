@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult
-from rhesis.sdk.metrics.constants import ThresholdOperator
+from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE, ThresholdOperator
 
 
 class NumericEvaluationMixin:
@@ -110,7 +110,9 @@ class NumericEvaluationMixin:
             details.update(additional_details)
 
         try:
-            response = await self.model.a_generate(prompt, schema=response_schema)
+            response = await self.model.a_generate(
+                prompt, schema=response_schema, temperature=JUDGE_TEMPERATURE
+            )
             response = response_schema(**response)  # type: ignore[arg-type]
 
             if not hasattr(response, "score"):

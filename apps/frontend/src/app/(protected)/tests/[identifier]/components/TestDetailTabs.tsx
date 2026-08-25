@@ -13,6 +13,7 @@ import TestExecutionHistorySection from '@/components/tests/TestExecutionHistory
 import TestMetadataCard from './TestMetadataCard';
 import TestTechnicalCard from './TestTechnicalCard';
 import TestFormElementsCard from './TestFormElementsCard';
+import TestInterpretationCard from './TestInterpretationCard';
 
 const TAB_KEYS = ['basic', 'linked', 'history', 'tasks'] as const;
 
@@ -62,6 +63,7 @@ export default function TestDetailTabs({
       <DetailTabPanel value={activeTab} index={0} prefix="test-detail">
         <TestMetadataCard test={test} onUpdate={handleTestUpdate} />
         <TestTechnicalCard test={test} onUpdate={handleTestUpdate} />
+        <TestInterpretationCard test={test} />
         <TestFormElementsCard test={test} onUpdate={handleTestUpdate} />
       </DetailTabPanel>
 

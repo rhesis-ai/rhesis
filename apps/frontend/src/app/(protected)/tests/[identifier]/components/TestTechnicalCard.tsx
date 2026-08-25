@@ -170,7 +170,12 @@ export default function TestTechnicalCard({
       const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
 
+      // Spread the stored config first so keys this form doesn't render survive the save.
+      // Rebuilding the object from the fields below alone silently dropped anything else the
+      // config carried (context, and any key added later), so editing the goal quietly deleted
+      // unrelated configuration.
       const payload: MultiTurnTestConfig = {
+        ...(initialConfig ?? {}),
         goal: draft.goal.trim(),
         instructions: draft.instructions?.trim() || undefined,
         restrictions: draft.restrictions?.trim() || undefined,

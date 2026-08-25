@@ -318,6 +318,8 @@ async def _execute_single_test(
                 output = result.get("output", {})
                 penelope_metrics = result.get("penelope_metrics", {})
                 deferred_traces = result.get("deferred_traces", deferred_traces)
+                # Absent for single-turn tests, which have no evaluation contract concept.
+                contract_usable = result.get("contract_usable", True)
             except asyncio.TimeoutError:
                 logger.error(f"[BATCH] Test {test_id} timed out after {ctx.per_test_timeout}s")
                 return {
@@ -337,7 +339,15 @@ async def _execute_single_test(
                 }
 
             # --- Async metric evaluation ---
-            if has_http_error_in_result(output):
+            if not contract_usable:
+                # The conversation was never run (see invocation._run_multi_turn), so there is
+                # nothing to score. Checked before the evaluator branch below: that one would
+                # otherwise evaluate configured metrics against the empty error output.
+                metrics_results = {}
+                logger.info(
+                    f"[BATCH] Test {test_id} reported as Error: evaluation contract was not usable"
+                )
+            elif has_http_error_in_result(output):
                 # Discard Penelope goal metrics when the first target call was HTTP error.
                 metrics_results = {}
                 logger.info(f"[BATCH] HTTP error for test {test_id}; skipping metrics")

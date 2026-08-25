@@ -25,6 +25,7 @@ import {
   TableRow,
   TableCell,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RateReviewIcon from '@mui/icons-material/RateReview';
@@ -33,6 +34,7 @@ import {
   TestResultDetail,
   MetricResult,
   CriterionEvaluation,
+  BehaviorVerdict,
   Review,
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
@@ -261,18 +263,51 @@ export default function TestDetailMetricsTab({
       criteria_met?: number;
       criteria_total?: number;
       confidence?: number;
+      adversarial?: boolean;
+      behaviors_total?: number;
+      behaviors_complied?: number;
+      behaviors_violated?: number;
     };
 
     const goalEvaluation = test.test_output?.goal_evaluation;
+    const behaviorVerdicts = goalEvaluation?.behavior_verdicts || [];
+    const criteriaEvaluations = goalEvaluation?.criteria_evaluations || [];
+
+    // Behaviour verdicts (see schemas/evaluation_contract.py) are what every test is scored
+    // against going forward. Older stored results only have free-text criteria evaluations --
+    // shown the same way, just without the required/prohibited distinction. The index is part
+    // of the key because two entries can carry identical text, which would collide otherwise.
+    const usesBehaviors = behaviorVerdicts.length > 0;
+    const breakdownItems = usesBehaviors
+      ? behaviorVerdicts.map((v: BehaviorVerdict, index: number) => ({
+          key: `${index}-${v.behavior}`,
+          text: v.behavior,
+          complied: v.complied,
+          kind: v.kind,
+          evidence: v.evidence,
+        }))
+      : criteriaEvaluations.map((c: CriterionEvaluation, index: number) => ({
+          key: `${index}-${c.criterion}`,
+          text: c.criterion,
+          complied: c.met,
+          kind: undefined,
+          evidence: c.evidence,
+        }));
 
     return {
-      criteriaMet: goalMetric.criteria_met || 0,
-      criteriaTotal: goalMetric.criteria_total || 0,
       confidence: goalMetric.confidence || 0,
       isSuccessful: goalMetric.is_successful || false,
-      criteriaEvaluations: goalEvaluation?.criteria_evaluations || [],
       reason: goalMetric.reason || '',
       override: goalMetric.override,
+      adversarial: Boolean(goalMetric.adversarial),
+      // Label follows the data actually being shown -- an older result's criteria must not be
+      // counted out as "behaviours".
+      usesBehaviors,
+      progressMet:
+        goalMetric.behaviors_complied ?? goalMetric.criteria_met ?? 0,
+      progressTotal:
+        goalMetric.behaviors_total ?? goalMetric.criteria_total ?? 0,
+      breakdownItems,
     };
   }, [test, goalAchievementMetric]);
 
@@ -538,6 +573,15 @@ export default function TestDetailMetricsTab({
           const goalIsOverruled = !!goalAchievementData.override;
           const goalIsConfirmed = !!goalReview && !goalIsOverruled;
 
+          const progressLabel = goalAchievementData.usesBehaviors
+            ? 'Behaviour Compliance'
+            : 'Criteria Progress';
+          const progressMet = goalAchievementData.progressMet;
+          const progressTotal = goalAchievementData.progressTotal;
+          const progressNoun = goalAchievementData.usesBehaviors
+            ? 'behaviours'
+            : 'criteria';
+
           return (
             <Card
               sx={{
@@ -572,6 +616,14 @@ export default function TestDetailMetricsTab({
                     size="small"
                     variant="filled"
                   />
+                  {goalAchievementData.adversarial && (
+                    <Chip
+                      label="Adversarial"
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                    />
+                  )}
                   <Box sx={{ flexGrow: 1 }} />
                   {onReviewMetric && (
                     <Tooltip title={`Review ${goalMetricName}`}>
@@ -597,7 +649,7 @@ export default function TestDetailMetricsTab({
                 </Box>
 
                 <Grid container spacing={2}>
-                  {/* Criteria Progress */}
+                  {/* Criteria Progress / Behaviour Compliance */}
                   <Grid
                     size={{
                       xs: 12,
@@ -613,7 +665,7 @@ export default function TestDetailMetricsTab({
                         fontWeight: 600,
                       }}
                     >
-                      Criteria Progress
+                      {progressLabel}
                     </Typography>
                     <Box
                       sx={{
@@ -628,10 +680,8 @@ export default function TestDetailMetricsTab({
                         <LinearProgress
                           variant="determinate"
                           value={
-                            goalAchievementData.criteriaTotal > 0
-                              ? (goalAchievementData.criteriaMet /
-                                  goalAchievementData.criteriaTotal) *
-                                100
+                            progressTotal > 0
+                              ? (progressMet / progressTotal) * 100
                               : 0
                           }
                           sx={{
@@ -647,14 +697,13 @@ export default function TestDetailMetricsTab({
                         />
                       </Box>
                       <Typography variant="body2" fontWeight={600}>
-                        {goalAchievementData.criteriaMet}/
-                        {goalAchievementData.criteriaTotal}
+                        {progressMet}/{progressTotal}
                       </Typography>
                     </Box>
                     <Typography variant="caption" color="text.secondary">
-                      {goalAchievementData.criteriaTotal > 0
-                        ? `${((goalAchievementData.criteriaMet / goalAchievementData.criteriaTotal) * 100).toFixed(0)}% of criteria met`
-                        : 'No criteria'}
+                      {progressTotal > 0
+                        ? `${((progressMet / progressTotal) * 100).toFixed(0)}% of ${progressNoun} met`
+                        : `No ${progressNoun}`}
                     </Typography>
                   </Grid>
 
@@ -717,93 +766,110 @@ export default function TestDetailMetricsTab({
                     </Typography>
                   </Grid>
 
-                  {/* Criteria Breakdown */}
-                  {goalAchievementData.criteriaEvaluations &&
-                    goalAchievementData.criteriaEvaluations.length > 0 && (
-                      <Grid size={12}>
-                        <Divider sx={{ my: 2 }} />
-                        <Box
+                  {/* Behaviour Breakdown */}
+                  {goalAchievementData.breakdownItems.length > 0 && (
+                    <Grid size={12}>
+                      <Divider sx={{ my: 2 }} />
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setCriteriaExpanded(!criteriaExpanded)}
+                      >
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          fontWeight={600}
+                        >
+                          {goalAchievementData.usesBehaviors
+                            ? 'Behaviour Breakdown'
+                            : 'Criteria Breakdown'}{' '}
+                          ({goalAchievementData.breakdownItems.length})
+                        </Typography>
+                        <IconButton
+                          size="small"
                           sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            cursor: 'pointer',
+                            transform: criteriaExpanded
+                              ? 'rotate(180deg)'
+                              : 'rotate(0deg)',
+                            transition: theme.transitions.create('transform', {
+                              duration: theme.transitions.duration.shortest,
+                            }),
                           }}
-                          onClick={() => setCriteriaExpanded(!criteriaExpanded)}
                         >
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            fontWeight={600}
-                          >
-                            Criteria Breakdown (
-                            {goalAchievementData.criteriaEvaluations.length})
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            sx={{
-                              transform: criteriaExpanded
-                                ? 'rotate(180deg)'
-                                : 'rotate(0deg)',
-                              transition: theme.transitions.create(
-                                'transform',
-                                {
-                                  duration: theme.transitions.duration.shortest,
-                                }
-                              ),
-                            }}
-                          >
-                            <ExpandMoreIcon />
-                          </IconButton>
-                        </Box>
-                        <Collapse
-                          in={criteriaExpanded}
-                          timeout="auto"
-                          unmountOnExit
-                        >
-                          <List dense disablePadding sx={{ mt: 2 }}>
-                            {goalAchievementData.criteriaEvaluations.map(
-                              (criterion: CriterionEvaluation) => (
-                                <ListItem
-                                  key={criterion.criterion}
-                                  disablePadding
-                                  sx={{
-                                    py: 0.75,
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                  }}
-                                >
+                          <ExpandMoreIcon />
+                        </IconButton>
+                      </Box>
+                      <Collapse
+                        in={criteriaExpanded}
+                        timeout="auto"
+                        unmountOnExit
+                      >
+                        <List dense disablePadding sx={{ mt: 2 }}>
+                          {goalAchievementData.breakdownItems.map(item => (
+                            <ListItem
+                              key={item.key}
+                              disablePadding
+                              sx={{
+                                py: 0.75,
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  width: theme.spacing(0.75),
+                                  height: theme.spacing(0.75),
+                                  borderRadius: theme.shape.circular,
+                                  backgroundColor: item.complied
+                                    ? 'success.main'
+                                    : 'error.main',
+                                  mt: 0.75,
+                                  mr: 1.5,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <ListItemText
+                                primary={
                                   <Box
                                     sx={{
-                                      width: theme.spacing(0.75),
-                                      height: theme.spacing(0.75),
-                                      borderRadius: theme.shape.circular,
-                                      backgroundColor: criterion.met
-                                        ? 'success.main'
-                                        : 'error.main',
-                                      mt: 0.75,
-                                      mr: 1.5,
-                                      flexShrink: 0,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1,
                                     }}
-                                  />
-                                  <ListItemText
-                                    primary={
-                                      <Typography
-                                        variant="body2"
-                                        color="text.primary"
-                                      >
-                                        {criterion.criterion}
-                                      </Typography>
-                                    }
-                                    sx={{ m: 0 }}
-                                  />
-                                </ListItem>
-                              )
-                            )}
-                          </List>
-                        </Collapse>
-                      </Grid>
-                    )}
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      color="text.primary"
+                                    >
+                                      {item.text}
+                                    </Typography>
+                                    {item.kind && (
+                                      <Chip
+                                        label={
+                                          item.kind === 'required'
+                                            ? 'Must do'
+                                            : 'Must not do'
+                                        }
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ height: theme.spacing(2.25) }}
+                                      />
+                                    )}
+                                  </Box>
+                                }
+                                secondary={item.evidence || undefined}
+                                sx={{ m: 0 }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Collapse>
+                    </Grid>
+                  )}
 
                   {/* Collapsible Reason */}
                   {goalAchievementData.reason && (

@@ -14,6 +14,12 @@ from rhesis.sdk.metrics import MetricConfig
 class MetricStrategy(Protocol):
     """Strategy for evaluating metrics (local, sdk, etc.).
 
+    ``instructions``/``contract`` are passed to every strategy uniformly, same as
+    ``conversation_history``/``metadata``/``tool_calls`` -- only ``GoalAchievementJudge``
+    (a local/native metric) declares them, and ``build_metric_evaluate_params`` only
+    forwards a kwarg to a metric whose signature actually names it. A strategy that has no
+    use for them, like ``ConnectorStrategy``, accepts and drops them.
+
     Concrete implementations handle the specifics of each evaluation
     (parallel thread execution, RPC calls, remote APIs, etc.).  The evaluator
     only knows about this protocol and never imports the concrete classes.
@@ -35,6 +41,8 @@ class MetricStrategy(Protocol):
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Evaluate all configs for this strategy."""
         ...
@@ -50,6 +58,8 @@ class MetricStrategy(Protocol):
         conversation_history: Any = None,
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Async version of evaluate using asyncio.gather instead of threads."""
         ...
