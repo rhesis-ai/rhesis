@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { sourceKeys } from '@/constants/query-keys';
 import { Box, Alert } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -16,6 +17,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { MenuBookIcon } from '@/components/icons';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
@@ -30,6 +32,8 @@ export default function KnowledgeClientWrapper() {
   const queryClient = useQueryClient();
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [toolImportDrawerOpen, setToolImportDrawerOpen] = useState(false);
+  const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
+    useBulkActionsBridge();
 
   useDocumentTitle('Knowledge');
 
@@ -73,6 +77,20 @@ export default function KnowledgeClientWrapper() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
+            {bulkActionsVisible && (
+              <Can capability={Capability.Source.DELETE}>
+                <Fab
+                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  tooltip="Delete Sources"
+                  aria-label="Delete Sources"
+                  onClick={onBulkDelete}
+                  sx={{
+                    bgcolor: 'error.main',
+                    '&:hover': { bgcolor: 'error.dark' },
+                  }}
+                />
+              </Can>
+            )}
             <Can capability={Capability.Source.CREATE}>
               <Fab
                 icon={<UploadIcon />}
@@ -96,6 +114,7 @@ export default function KnowledgeClientWrapper() {
           <SourcesGrid
             canCreate={canCreateSource}
             onCreateClick={() => setUploadDrawerOpen(true)}
+            onBulkActionsChange={handleBulkActionsChange}
           />
         </Box>
       </PageLayout>

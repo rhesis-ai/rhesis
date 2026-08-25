@@ -22,7 +22,7 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
@@ -37,7 +37,10 @@ import SourceFilterDrawer, {
   countActiveSourceFilters,
 } from './SourceFilterDrawer';
 import { sourceKeys } from '@/constants/query-keys';
-import { useBulkDelete } from '@/hooks/useBulkDelete';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -47,6 +50,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 interface SourcesGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 interface SourcesToolbarState {
@@ -55,6 +59,8 @@ interface SourcesToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
@@ -63,6 +69,8 @@ const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function SourcesUnifiedToolbar() {
@@ -72,6 +80,8 @@ function SourcesUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(SourcesToolbarContext);
 
   return (
@@ -84,6 +94,11 @@ function SourcesUnifiedToolbar() {
       activeFilterCount={activeFilterCount}
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select sources"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -96,6 +111,7 @@ function SourcesUnifiedToolbar() {
 export default function SourcesGrid({
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: SourcesGridProps) {
   const router = useRouter();
   const { status } = useSession();
@@ -109,6 +125,8 @@ export default function SourcesGrid({
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
     selectedRows,
     handleSelectionChange,
     pendingDeleteId,
@@ -123,6 +141,7 @@ export default function SourcesGrid({
     queryKey: sourceKeys.all(),
     itemLabelSingular: 'source',
     itemLabelPlural: 'sources',
+    onBulkActionsChange,
   });
 
   const {
@@ -223,23 +242,16 @@ export default function SourcesGrid({
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
       activeFilterCount: countActiveSourceFilters(drawerFilters),
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
     }),
-    [searchQuery, drawerFilters]
+    [
+      searchQuery,
+      drawerFilters,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
+    ]
   );
-
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: 'Delete',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => requestDelete(),
-      },
-    ];
-  }, [selectedRows.length, requestDelete]);
 
   // Column definitions
   const columns: GridColDef[] = React.useMemo(() => {
@@ -517,15 +529,16 @@ export default function SourcesGrid({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             disablePaperWrapper={true}
-            onRowClick={handleRowClick}
+            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
             toolbarSlot={SourcesUnifiedToolbar}
-            actionButtons={getActionButtons()}
             persistState
             sx={rowActionsHoverSx}
-            checkboxSelection
-            disableRowSelectionOnClick
-            rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={handleSelectionChange}
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
+            }
           />
 
           <DeleteModal
