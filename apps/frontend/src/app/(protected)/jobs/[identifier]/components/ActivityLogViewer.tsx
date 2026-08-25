@@ -147,6 +147,18 @@ export default function ActivityLogViewer({
               >
                 {new Date(entry.created_at).toLocaleTimeString()}
               </Box>
+              <Typography
+                component="span"
+                variant="caption"
+                sx={{
+                  flexShrink: 0,
+                  textTransform: 'uppercase',
+                  fontFamily: 'inherit',
+                  fontWeight: 'fontWeightBold',
+                }}
+              >
+                {entry.level}
+              </Typography>
               <Box component="span" sx={{ whiteSpace: 'pre-wrap' }}>
                 {entry.message}
               </Box>
