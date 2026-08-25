@@ -17,8 +17,8 @@ import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
 import { Typography, Box, Alert, Avatar, Paper } from '@mui/material';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { combineTaskFiltersToOData } from '@/utils/odata-filter';
@@ -40,7 +40,10 @@ import {
   NotificationSection,
 } from '@/constants/notifications';
 import { taskKeys } from '@/constants/query-keys';
-import { useBulkDelete } from '@/hooks/useBulkDelete';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -50,6 +53,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 interface TasksGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 const STATUS_PILL_TABS = [
@@ -68,6 +72,8 @@ interface TasksToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const TasksToolbarContext = React.createContext<TasksToolbarState>({
@@ -78,6 +84,8 @@ const TasksToolbarContext = React.createContext<TasksToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function TasksUnifiedToolbar() {
@@ -89,6 +97,8 @@ function TasksUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TasksToolbarContext);
 
   return (
@@ -108,6 +118,11 @@ function TasksUnifiedToolbar() {
       }
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select tasks"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -120,6 +135,7 @@ function TasksUnifiedToolbar() {
 export default function TasksGrid({
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: TasksGridProps) {
   const router = useRouter();
   const { highlightedIds, clearHighlight } = useJobNotifications();
@@ -132,6 +148,8 @@ export default function TasksGrid({
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
 
   const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
     selectedRows,
     handleSelectionChange,
     pendingDeleteId,
@@ -148,6 +166,7 @@ export default function TasksGrid({
     itemLabelPlural: 'tasks',
     getSkippedCount: response => response.forbidden_ids.length,
     skippedReason: 'not yours to delete',
+    onBulkActionsChange,
   });
 
   const {
@@ -333,20 +352,6 @@ export default function TasksGrid({
     ];
   }, [router, requestDelete]);
 
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: 'Delete',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => requestDelete(),
-      },
-    ];
-  }, [selectedRows.length, requestDelete]);
-
   const filtersActive =
     filterModel.items.length > 0 ||
     !!searchQuery ||
@@ -377,6 +382,8 @@ export default function TasksGrid({
             openFilterDrawer: () => setFilterDrawerOpen(true),
             hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
             activeFilterCount: countActiveTaskFilters(drawerFilters),
+            checkboxSelectionMode,
+            setCheckboxSelectionMode,
           }}
         >
           <Box sx={{ position: 'relative' }}>
@@ -395,8 +402,8 @@ export default function TasksGrid({
               onPaginationModelChange={handlePaginationModelChange}
               filterModel={gridFilterModel}
               onFilterModelChange={handleFilterModelChange}
-              disableRowSelectionOnClick
-              onRowClick={handleRowClick}
+              disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+              onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
               getRowClassName={params =>
                 highlightedIds(NotificationSection.TASKS).includes(
                   String(params.id)
@@ -410,7 +417,6 @@ export default function TasksGrid({
               serverSideFiltering={true}
               showToolbar={true}
               toolbarSlot={TasksUnifiedToolbar}
-              actionButtons={getActionButtons()}
               disablePaperWrapper={true}
               persistState
               sx={{
@@ -419,12 +425,14 @@ export default function TasksGrid({
                   cursor: 'pointer',
                 },
               }}
-              checkboxSelection
+              checkboxSelection={checkboxSelectionMode}
               isRowSelectable={(params: GridRowParams) =>
                 can(params.row as unknown as Task, Capability.Task.DELETE)
               }
-              rowSelectionModel={selectedRows}
-              onRowSelectionModelChange={handleSelectionChange}
+              rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+              onRowSelectionModelChange={
+                checkboxSelectionMode ? handleSelectionChange : undefined
+              }
             />
 
             <DeleteModal
