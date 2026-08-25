@@ -21,9 +21,10 @@ the cascade to test results is driven by ``config/cascade_config.py`` inside
 
 import logging
 import uuid
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
@@ -390,4 +391,102 @@ def get_test_run_task_ids(
     return {
         row.id: (row.status.name if row.status else None, (row.attributes or {}).get("task_id"))
         for row in rows
+    }
+
+
+def get_ordered_tests_for_test_set(
+    db: Session, test_set_id: uuid.UUID, organization_id: str = None
+) -> List[Tuple[str, Optional[str], bool]]:
+    """Return ``[(test_id, requirement_id, is_multi_turn)]`` for a test set, ordered by test id.
+
+    Lean projection query (no ORM model hydration) used to snapshot the metric
+    plan's ``test_order`` at dispatch time, as the fallback column list for a
+    legacy test run with no stored plan, and (via ``is_multi_turn``) to apply
+    the same single-turn/multi-turn scope filtering the execution path uses.
+    """
+    from rhesis.backend.app.constants import TestType
+    from rhesis.backend.app.models.test import Test, test_test_set_association
+    from rhesis.backend.app.models.type_lookup import TypeLookup
+
+    query = (
+        db.query(Test.id, Test.requirement_id, TypeLookup.type_value)
+        .join(test_test_set_association, test_test_set_association.c.test_id == Test.id)
+        .outerjoin(TypeLookup, Test.test_type_id == TypeLookup.id)
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            Test.deleted_at.is_(None),
+        )
+    )
+    if organization_id:
+        query = query.filter(Test.organization_id == uuid.UUID(str(organization_id)))
+
+    rows = query.order_by(Test.id).all()
+    return [
+        (
+            str(test_id),
+            str(requirement_id) if requirement_id else None,
+            type_value == TestType.MULTI_TURN.value,
+        )
+        for test_id, requirement_id, type_value in rows
+    ]
+
+
+def get_metric_verdicts_for_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+) -> List[Row]:
+    """Return one row per (test, metric) evaluated in this run, from ``v_metric_stats``.
+
+    Projects the five columns the verdict grid reads rather than hydrating
+    ``MetricStatsView`` instances: the verdict-matrix endpoint is refetched
+    on every coalesced progress tick, per connected client, and a large run
+    is tens of thousands of rows -- ORM hydration there is pure overhead for
+    values that are read once and encoded into a string.
+    """
+    query = db.query(
+        models.MetricStatsView.test_id,
+        models.MetricStatsView.requirement_id,
+        models.MetricStatsView.metric_name,
+        models.MetricStatsView.effective_success,
+        models.MetricStatsView.has_override,
+        models.MetricStatsView.created_at,
+    ).filter(models.MetricStatsView.test_run_id == test_run_id)
+    if organization_id:
+        query = query.filter(
+            models.MetricStatsView.organization_id == uuid.UUID(str(organization_id))
+        )
+    return query.all()
+
+
+def get_test_outcomes_for_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+) -> Dict[str, str]:
+    """Map ``test_id`` to its most recent result's status for this run.
+
+    Reads ``status_name`` directly rather than ``v_test_result_stats.result``:
+    that computed column only distinguishes passed/failed/pending and folds
+    an "Error" status into pending (its CASE expression has no branch for
+    it), which would make an execution error indistinguishable from a test
+    that hasn't run yet.
+    """
+    query = db.query(
+        models.TestResultStatsView.test_id,
+        models.TestResultStatsView.status_name,
+        models.TestResultStatsView.created_at,
+    ).filter(models.TestResultStatsView.test_run_id == test_run_id)
+    if organization_id:
+        query = query.filter(
+            models.TestResultStatsView.organization_id == uuid.UUID(str(organization_id))
+        )
+    rows = query.all()
+
+    latest: Dict[str, Tuple[Any, str]] = {}
+    for test_id, status_name, created_at in rows:
+        key = str(test_id)
+        if key not in latest or created_at > latest[key][0]:
+            latest[key] = (created_at, status_name)
+
+    outcome_by_status = {"pass": "passed", "fail": "failed", "error": "error"}
+    return {
+        test_id: outcome_by_status.get((status_name or "").lower(), "pending")
+        for test_id, (_, status_name) in latest.items()
     }

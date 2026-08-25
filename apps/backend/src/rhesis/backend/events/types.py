@@ -20,7 +20,7 @@ test that can prove it works.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -102,3 +102,17 @@ class ActivityLogged(PlatformEvent):
     event_type: Literal["activity.logged"] = "activity.logged"
     level: Literal["info", "warning", "error"]
     message: str
+
+
+class TestRunProgressed(PlatformEvent):
+    """Coalesced grid tick -- counters and bounded in-flight ids only.
+
+    No per-verdict detail: the client refetches the verdict-matrix endpoint
+    on receipt instead of patching state from the payload. See TestRunSink.
+    """
+
+    event_type: Literal["test_run.progressed"] = "test_run.progressed"
+    completed: int
+    total: int
+    generating_test_ids: List[UUID] = Field(default_factory=list)
+    evaluating_test_ids: List[UUID] = Field(default_factory=list)

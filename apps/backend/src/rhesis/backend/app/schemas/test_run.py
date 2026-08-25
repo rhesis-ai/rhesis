@@ -96,6 +96,7 @@ class TestConfigurationReference(Base, ServerIdentity):
 
 class TestRunDetail(TestRun):
     id: UUID4
+    project_id: Optional[UUID4] = None
     counts: Optional[Dict[str, Any]] = None
     tags: Optional[List[TagRead]] = None
     status: Optional[StatusReference] = None

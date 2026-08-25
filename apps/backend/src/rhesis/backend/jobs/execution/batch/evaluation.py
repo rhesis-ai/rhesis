@@ -38,19 +38,10 @@ async def evaluate_metrics(
         )
         return {}
 
-    on_metric_complete = None
-    if on_emit:
-
-        def on_metric_complete(metric_key: str, result: Dict[str, Any]) -> None:
-            error = result.get("error")
-            if error:
-                on_emit(f"  {metric_key}: error ({error})")
-                return
-            passed = result.get("is_successful")
-            score = result.get("score", "?")
-            label = "passed" if passed else ("failed" if passed is False else "scored")
-            on_emit(f"  {metric_key}: {label} ({score})")
-
+    # No per-metric on_emit narration here: at 4-7 metrics/test this was
+    # producing ~28,000 ActivityLogged events (each opening its own DB
+    # session) for a single 4,000-test run. The batch-level progress line in
+    # runner.py's _tracked already narrates per-test completion.
     metrics_results = dict(penelope_metrics)
     test_metric_configs = ctx.get_metric_configs_for_test(test_id)
     try:
@@ -62,7 +53,6 @@ async def evaluate_metrics(
                     test,
                     output,
                     test_metric_configs,
-                    on_metric_complete=on_metric_complete,
                 )
             )
         else:
@@ -75,7 +65,6 @@ async def evaluate_metrics(
                     prompt_content,
                     expected_response,
                     test_metric_configs,
-                    on_metric_complete=on_metric_complete,
                 )
             )
     except Exception as e:

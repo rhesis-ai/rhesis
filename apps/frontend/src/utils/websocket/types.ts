@@ -65,6 +65,11 @@ export enum EventType {
   // replace polling with a live subscription.
   JOB_STATUS_CHANGED = 'job.status_changed',
   JOB_ACTIVITY_APPENDED = 'job.activity_appended',
+
+  // Test run live progress, published on a "test_run:{test_run_id}" channel.
+  // A coalesced tick telling the client to refetch the verdict-matrix
+  // endpoint, not a payload to patch state from.
+  TEST_RUN_PROGRESSED = 'test_run.progressed',
 }
 
 /**

@@ -173,6 +173,12 @@ from .test_run import (
     TestRunDetail,
     TestRunUpdate,
 )
+from .test_run_verdicts import (
+    VerdictKpis,
+    VerdictMatrix,
+    VerdictRequirement,
+    VerdictRow,
+)
 from .test_set import (
     ExplorerTestSetCreate,
     TestData,
@@ -302,6 +308,10 @@ __all__ = [
     "TestRunUpdate",
     "TestRunBulkDeleteRequest",
     "TestRunBulkDeleteResponse",
+    "VerdictKpis",
+    "VerdictMatrix",
+    "VerdictRequirement",
+    "VerdictRow",
     "Status",
     "StatusBase",
     "StatusCreate",

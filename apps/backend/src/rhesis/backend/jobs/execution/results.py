@@ -2,6 +2,7 @@
 Task for collecting and processing test execution results.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import UUID
@@ -13,6 +14,42 @@ from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import EmailEnabledJob, email_notification, in_app_notification
 from rhesis.backend.jobs.execution.result_processor import TestRunProcessor
 from rhesis.backend.notifications.email.template_service import EmailTemplate
+
+logger = logging.getLogger(__name__)
+
+
+def _emit_terminal_tick(task, test_run, org_id, user_id, project_id, total: int) -> None:
+    """Publish one last grid tick after the run's terminal status is written.
+
+    Every other tick comes from an in-flight phase transition, and the last
+    of those fires before this task runs -- so without this the final
+    coalesced publish still reports the run as in Progress, and a client
+    that stops refetching on ``is_terminal`` never learns the run finished.
+    """
+    try:
+        from rhesis.backend.events import emit
+        from rhesis.backend.events.correlation import resolve_ids
+        from rhesis.backend.events.types import TestRunProgressed
+
+        trace_id, span_id = resolve_ids()
+        emit(
+            TestRunProgressed(
+                occurred_at=datetime.now(timezone.utc),
+                organization_id=UUID(org_id),
+                project_id=UUID(project_id) if project_id else None,
+                user_id=UUID(user_id) if user_id else None,
+                trace_id=trace_id,
+                span_id=span_id,
+                celery_task_id=getattr(task.request, "id", None),
+                entity_type="test_run",
+                entity_id=test_run.id,
+                source="collect_results",
+                completed=total,
+                total=total,
+            )
+        )
+    except Exception:
+        logger.debug("Terminal TestRunProgressed emit failed", exc_info=True)
 
 
 @in_app_notification(NotificationEventType.TestRun.EXECUTION_COMPLETED)
@@ -94,6 +131,7 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
             if exec_time:
                 summary_line += f" in {exec_time}"
             self.emit(summary_line)
+            _emit_terminal_tick(self, test_run, org_id, user_id, project_id, total)
             self.log_with_context("info", f"Test run update completed for: {test_run_id}")
 
             return summary_data

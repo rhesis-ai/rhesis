@@ -152,6 +152,7 @@ def execute_tests_as_batch(
     trace_id: Optional[str] = None,
     on_progress=None,
     on_emit=None,
+    on_test_phase=None,
 ) -> Dict[str, Any]:
     """Three-phase batch execution: pre-fetch, asyncio.gather, trigger results."""
     from rhesis.backend.jobs.execution.shared import (
@@ -200,7 +201,15 @@ def execute_tests_as_batch(
 
     # Phase 2: Async execution (DB-free, uses deferred tracing).
     test_ids = [str(t.id) for t in tests if str(t.id) in ctx.test_data]
-    results = _run_async(run_batch(ctx, test_ids, on_progress=on_progress, on_emit=on_emit))
+    results = _run_async(
+        run_batch(
+            ctx,
+            test_ids,
+            on_progress=on_progress,
+            on_emit=on_emit,
+            on_test_phase=on_test_phase,
+        )
+    )
 
     # Write error TestResult rows for tests that failed without being persisted
     # (e.g. invocation exceptions, timeouts).  Must run before trigger_results_collection

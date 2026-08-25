@@ -28,7 +28,7 @@ from .requirement import Requirement
 from .source import Source
 
 # Import stats view models
-from .stats_views import TestResultStatsView, TestRunStatsView
+from .stats_views import MetricStatsView, TestResultStatsView, TestRunStatsView
 
 # Import models without dependencies first
 from .status import Status
@@ -104,6 +104,7 @@ __all__ = [
     "test_set_metric_association",
     "TestRunStatsView",
     "TestResultStatsView",
+    "MetricStatsView",
     "Usage",
 ]
 

@@ -34,6 +34,7 @@ def execute_tests_sequentially(
     trace_id: str = None,
     on_progress=None,
     on_emit=None,
+    on_test_phase=None,
 ) -> Dict[str, Any]:
     """Execute test cases sequentially, one after another.
 
@@ -46,6 +47,10 @@ def execute_tests_sequentially(
         trace_id: Optional trace ID for trace-based evaluation
         on_progress: Optional callback(current, total) to update job progress
         on_emit: Optional callback(message) to write activity log entries
+        on_test_phase: Optional callback(test_id, phase). Only ever reports
+            "generating", right before the test runs -- unlike the batch
+            path, there is no seam between invocation and evaluation here to
+            report "evaluating" from (execute_test does both in one call).
     """
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
 
@@ -144,6 +149,12 @@ def execute_tests_sequentially(
 
         logger.info(f"Executing test {i}/{len(tests)}: {test.id}")
 
+        if on_test_phase:
+            try:
+                on_test_phase(str(test.id), "generating")
+            except Exception:
+                logger.debug("on_test_phase(generating) failed", exc_info=True)
+
         try:
             import asyncio
 
@@ -181,6 +192,12 @@ def execute_tests_sequentially(
                 on_progress(i, len(tests))
             if on_emit:
                 on_emit(f"Test {i}/{len(tests)} failed")
+        finally:
+            if on_test_phase:
+                try:
+                    on_test_phase(str(test.id), "done")
+                except Exception:
+                    logger.debug("on_test_phase(done) failed", exc_info=True)
 
     end_time = datetime.now(timezone.utc)
     execution_time = (end_time - start_time).total_seconds()

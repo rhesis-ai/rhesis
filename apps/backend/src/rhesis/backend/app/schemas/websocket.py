@@ -79,6 +79,11 @@ class EventType(str, Enum):
     JOB_STATUS_CHANGED = "job.status_changed"  # job.status transitioned
     JOB_ACTIVITY_APPENDED = "job.activity_appended"  # a new activity_log row
 
+    # Test run live progress. Published by TestRunSink onto a
+    # "test_run:{test_run_id}" channel -- a coalesced tick telling the client
+    # to refetch the verdict-matrix endpoint, not a payload to patch state from.
+    TEST_RUN_PROGRESSED = "test_run.progressed"
+
 
 class WebSocketMessage(BaseModel):
     """WebSocket message schema.

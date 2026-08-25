@@ -7,13 +7,13 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.crud import test_run as test_run_crud
-from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys
+from rhesis.backend.app.crud import test_run as test_run_crud
+from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -21,6 +21,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource, TraceSummary
+from rhesis.backend.app.services import test_run as services_test_run
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
     rescore_test_run,
@@ -30,7 +31,6 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.jobs.enums import RunStatus
-
 
 router = RhesisRouter(
     prefix="/test_runs",
@@ -181,6 +181,29 @@ def get_test_run_metrics(
     return test_run_crud.get_test_run_metrics(
         db, test_run_id=test_run_id, organization_id=organization_id
     )
+
+
+@router.get("/{test_run_id}/verdict-matrix", response_model=schemas.VerdictMatrix)
+def get_verdict_matrix(
+    test_run_id: UUID,
+    columns: Optional[str] = Query(None),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get the encoded verdict grid (metric rows x test columns) for this test run.
+
+    Pass ``?columns=none`` to omit the test id column list -- the live
+    summary view only needs it on first load, not on every WebSocket-
+    triggered refetch.
+    """
+    organization_id, user_id = tenant_context
+    db_test_run = test_run_crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test_run is None:
+        raise HTTPException(status_code=404, detail="Test run not found")
+    return services_test_run.get_verdict_matrix(db, db_test_run, columns=columns)
 
 
 @router.put("/{test_run_id}", response_model=schemas.TestRun)

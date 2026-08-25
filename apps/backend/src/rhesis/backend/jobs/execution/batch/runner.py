@@ -80,12 +80,19 @@ async def _run_gather(
     progress_base: int = 0,
     progress_total: int = 0,
     on_emit: Any = None,
+    on_test_phase: Any = None,
 ) -> List[Dict[str, Any]]:
     """Fan out test_ids as asyncio Tasks and gather results."""
     completed_count = 0
+    last_emit_time = time.monotonic()
+    # At most ~20 progress lines per batch, or one every 2s, whichever comes
+    # first, plus always the last one. Emitting every single test completion
+    # was producing ~4,000 ActivityLogged events (each opening a DB session)
+    # for a single 4,000-test run.
+    emit_interval = max(1, progress_total // 20) if progress_total else 1
 
     async def _tracked(test_id: str) -> Dict[str, Any]:
-        nonlocal completed_count
+        nonlocal completed_count, last_emit_time
         td = ctx.test_data.get(test_id)
         test_obj = td.get("test") if td else None
         cat_obj = getattr(test_obj, "category", None)
@@ -100,6 +107,7 @@ async def _run_gather(
                 penelope_agent,
                 evaluator,
                 on_emit=on_emit,
+                on_test_phase=on_test_phase,
             )
             status = result.get("status", "completed")
             return result
@@ -112,13 +120,24 @@ async def _run_gather(
                 except Exception:
                     pass
             if on_emit and progress_total:
-                try:
-                    label = f" — {category}" if category else ""
-                    error = result.get("error", "") if isinstance(result, dict) else ""
-                    suffix = f": {error}" if error and status == "failed" else ""
-                    on_emit(f"Test {current}/{progress_total} {status}{label}{suffix}")
-                except Exception:
-                    pass
+                now = time.monotonic()
+                # Failures are never throttled -- they carry the error text,
+                # which is the whole reason to read the activity log, and
+                # they are rare enough not to reintroduce the volume problem.
+                if (
+                    status == "failed"
+                    or current % emit_interval == 0
+                    or current == progress_total
+                    or now - last_emit_time > 2.0
+                ):
+                    try:
+                        label = f" — {category}" if category else ""
+                        error = result.get("error", "") if isinstance(result, dict) else ""
+                        suffix = f": {error}" if error and status == "failed" else ""
+                        on_emit(f"Test {current}/{progress_total} {status}{label}{suffix}")
+                        last_emit_time = now
+                    except Exception:
+                        pass
 
     tasks = [asyncio.create_task(_tracked(test_id)) for test_id in test_ids]
     watchdog = asyncio.create_task(_cancellation_watchdog(ctx.celery_task_id, tasks))
@@ -159,6 +178,7 @@ async def run_batch(
     test_ids: List[str],
     on_progress: Any = None,
     on_emit: Any = None,
+    on_test_phase: Any = None,
 ) -> List[Dict[str, Any]]:
     """Async entry point: run all tests with semaphore-gated concurrency.
 
@@ -232,6 +252,7 @@ async def run_batch(
         progress_base=0,
         progress_total=total,
         on_emit=on_emit,
+        on_test_phase=on_test_phase,
     )
 
     # --- Recovery pass passes ---
@@ -256,8 +277,17 @@ async def run_batch(
                     logger.warning(f"[BATCH] Recovery pass: no snapshot data for {tid}, skipping")
                     retry_ids = [t for t in retry_ids if t != tid]
 
+            # on_test_phase is threaded through here (unlike on_progress /
+            # on_emit, which would double-count against progress_total) so
+            # the live grid keeps ticking through recovery instead of
+            # freezing on the last main-pass state.
             recovery_results = await _run_gather(
-                ctx, retry_ids, semaphore, penelope_agent, evaluator
+                ctx,
+                retry_ids,
+                semaphore,
+                penelope_agent,
+                evaluator,
+                on_test_phase=on_test_phase,
             )
 
             recovered = 0
@@ -297,15 +327,28 @@ async def _execute_single_test(
     penelope_agent: Any = None,
     evaluator: Any = None,
     on_emit: Any = None,
+    on_test_phase: Any = None,
 ) -> Dict[str, Any]:
     """Unified coroutine for both single-turn and multi-turn tests."""
     async with semaphore:
+        # Both short-circuits below still report "done": they are terminal
+        # for this test, and without it the grid's completed count would
+        # never reach total on a run with skipped or unprefetched tests.
+        def _report_done() -> None:
+            if on_test_phase:
+                try:
+                    on_test_phase(test_id, "done")
+                except Exception:
+                    logger.debug("on_test_phase(done) failed", exc_info=True)
+
         if test_id in ctx.existing_result_ids:
             logger.info(f"[BATCH] Skipping test {test_id}: result already exists")
+            _report_done()
             return {"test_id": test_id, "status": "skipped", "execution_time": 0}
 
         td = ctx.test_data.get(test_id)
         if not td:
+            _report_done()
             return {
                 "test_id": test_id,
                 "status": "failed",
@@ -318,6 +361,12 @@ async def _execute_single_test(
         expected_response = td["expected_response"]
 
         is_multi_turn = is_multi_turn_test(test)
+
+        if on_test_phase:
+            try:
+                on_test_phase(test_id, "generating")
+            except Exception:
+                logger.debug("on_test_phase(generating) failed", exc_info=True)
 
         test_execution_context = {
             "test_run_id": str(ctx.test_run.id),
@@ -350,6 +399,11 @@ async def _execute_single_test(
                 deferred_traces = result.get("deferred_traces", deferred_traces)
                 # Absent for single-turn tests, which have no evaluation contract concept.
                 contract_usable = result.get("contract_usable", True)
+                if on_test_phase:
+                    try:
+                        on_test_phase(test_id, "evaluating")
+                    except Exception:
+                        logger.debug("on_test_phase(evaluating) failed", exc_info=True)
             except asyncio.TimeoutError:
                 logger.error(f"[BATCH] Test {test_id} timed out after {ctx.per_test_timeout}s")
                 return {
@@ -438,6 +492,11 @@ async def _execute_single_test(
         finally:
             ctx.test_data.pop(test_id, None)
             ctx.input_files.pop(test_id, None)
+            if on_test_phase:
+                try:
+                    on_test_phase(test_id, "done")
+                except Exception:
+                    logger.debug("on_test_phase(done) failed", exc_info=True)
             deferred_traces.clear()
             output.clear()
             penelope_metrics.clear()

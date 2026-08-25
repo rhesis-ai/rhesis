@@ -2,7 +2,7 @@ import csv
 import logging
 import uuid
 from io import StringIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -10,10 +10,14 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.crud import prompt as prompt_crud
 from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
+from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
 
 logger = logging.getLogger(__name__)
+
+# Statuses a test run never leaves -- the grid stops refetching once here.
+_TERMINAL_RUN_STATUSES = {"Completed", "Partial", "Failed", "Cancelled"}
 
 
 def get_test_results_for_test_run(
@@ -274,3 +278,269 @@ def rescore_test_run(
         "reference_test_run_id": reference_test_run_id,
         "task_id": result.id,
     }
+
+
+def _is_newer(candidate: Any, incumbent: Any) -> bool:
+    """Whether ``candidate`` should displace ``incumbent`` as a cell's verdict.
+
+    An undated row never displaces a dated one (the view's ``created_at`` is
+    non-null in practice; this only decides the degenerate case rather than
+    letting it silently reorder results).
+    """
+    if candidate is None:
+        return False
+    if incumbent is None:
+        return True
+    return candidate >= incumbent
+
+
+def _fallback_plan_from_results(
+    db: Session, test_run: models.TestRun, organization_id: Optional[str]
+) -> Dict[str, Any]:
+    """Best-effort plan for a run dispatched before the metric-plan snapshot shipped.
+
+    Derives rows from metrics that were actually recorded rather than what
+    would be planned prospectively -- this module must not import ``jobs/``
+    (see ``apps/backend/AGENTS.md``'s layering rule), and the prospective
+    planner lives in ``jobs/execution/metric_plan.py``, run at dispatch time.
+    Not-applicable (scope-filtered) cells are not reconstructed: a legacy
+    run just never shows an ``X``, which is a fine degradation for runs old
+    enough to predate this feature.
+    """
+    test_config = test_run.test_configuration
+    test_set_id = test_config.test_set_id if test_config else None
+    ordered = (
+        test_run_crud.get_ordered_tests_for_test_set(db, test_set_id, organization_id)
+        if test_set_id
+        else []
+    )
+    test_order = [test_id for test_id, _, _ in ordered]
+    requirement_by_test = {test_id: req_id for test_id, req_id, _ in ordered}
+
+    tests_by_group: Dict[Optional[str], List[str]] = {}
+    for test_id, req_id, _ in ordered:
+        tests_by_group.setdefault(req_id, []).append(test_id)
+
+    verdict_rows = test_run_crud.get_metric_verdicts_for_run(
+        db, test_run.id, organization_id=organization_id
+    )
+
+    metrics_by_group: Dict[Optional[str], List[str]] = {}
+    cell_keys: Dict[str, Dict[str, str]] = {}
+    for row in verdict_rows:
+        test_id = str(row.test_id)
+        req_id = str(row.requirement_id) if row.requirement_id else requirement_by_test.get(test_id)
+        names = metrics_by_group.setdefault(req_id, [])
+        if row.metric_name not in names:
+            names.append(row.metric_name)
+        # A recorded row is its own evidence that the metric applied to this
+        # test, and the key it applied under is the name itself -- the
+        # runtime already resolved any suffix before writing the JSONB.
+        cell_keys.setdefault(test_id, {})[row.metric_name] = row.metric_name
+
+    requirement_ids = [req_id for req_id in metrics_by_group if req_id is not None]
+    requirement_names = _requirement_names_for_fallback(db, requirement_ids, organization_id)
+
+    # A test that produced no verdict row yet still needs its own group's
+    # metrics marked applicable, or every unexecuted column would read as
+    # not-applicable instead of pending.
+    for req_id, metric_names in metrics_by_group.items():
+        for test_id in tests_by_group.get(req_id, []):
+            per_test = cell_keys.setdefault(test_id, {})
+            for name in metric_names:
+                per_test.setdefault(name, name)
+
+    requirements_payload = [
+        {
+            "id": req_id,
+            "name": requirement_names.get(req_id, "Unassigned") if req_id else "Unassigned",
+            "metrics": [
+                {"key": name, "name": name, "id": None, "ambiguous": False}
+                for name in sorted(metric_names)
+            ],
+            "test_ids": tests_by_group.get(req_id, []),
+        }
+        for req_id, metric_names in metrics_by_group.items()
+    ]
+
+    return {
+        "source": "legacy",
+        "requirements": requirements_payload,
+        "test_order": test_order,
+        "cell_keys": cell_keys,
+    }
+
+
+def _requirement_names_for_fallback(
+    db: Session, requirement_ids: List[str], organization_id: Optional[str]
+) -> Dict[str, str]:
+    if not requirement_ids:
+        return {}
+    query = db.query(models.Requirement.id, models.Requirement.name).filter(
+        models.Requirement.id.in_([uuid.UUID(r) for r in requirement_ids])
+    )
+    if organization_id:
+        query = query.filter(models.Requirement.organization_id == uuid.UUID(str(organization_id)))
+    return {str(rid): name for rid, name in query.all()}
+
+
+def get_verdict_matrix(
+    db: Session,
+    test_run: models.TestRun,
+    columns: Optional[str] = None,
+) -> schemas.VerdictMatrix:
+    """Build the encoded verdict grid for a test run.
+
+    One row per (requirement, metric); each row's ``verdicts`` string has one
+    character per test in ``test_ids``' order: ``.`` pending, ``P`` passed,
+    ``F`` failed, ``S`` scored with no pass/fail threshold, ``E`` execution
+    error, ``X`` not applicable to that test.
+    """
+    org_id = str(test_run.organization_id) if test_run.organization_id else None
+    attributes = test_run.attributes or {}
+    plan = attributes.get("metric_plan")
+    if not plan:
+        plan = _fallback_plan_from_results(db, test_run, org_id)
+
+    test_order: List[str] = plan.get("test_order", [])
+    cell_keys: Dict[str, Dict[str, str]] = plan.get("cell_keys", {})
+
+    verdict_rows = test_run_crud.get_metric_verdicts_for_run(
+        db, test_run.id, organization_id=org_id
+    )
+    # Keep the newest row per (test, metric). A test can hold more than one
+    # test_result in a run (a rescore, or a duplicate persist), and
+    # get_test_outcomes_for_run already resolves to the latest -- letting an
+    # arbitrary row win here would show a stale verdict beside a current
+    # status for the same test.
+    verdict_index: Dict[Tuple[str, str], Tuple[Optional[bool], bool]] = {}
+    verdict_seen_at: Dict[Tuple[str, str], Any] = {}
+    for row in verdict_rows:
+        cell = (str(row.test_id), row.metric_name)
+        if cell in verdict_seen_at and not _is_newer(row.created_at, verdict_seen_at[cell]):
+            continue
+        verdict_seen_at[cell] = row.created_at
+        verdict_index[cell] = (row.effective_success, bool(row.has_override))
+
+    outcomes = test_run_crud.get_test_outcomes_for_run(db, test_run.id, organization_id=org_id)
+
+    requirements_payload: List[schemas.VerdictRequirement] = []
+    rows_payload: List[schemas.VerdictRow] = []
+
+    verdicts_resolved = 0
+    verdicts_planned = 0
+
+    for group in plan.get("requirements", []):
+        req_id = group.get("id")
+        metrics = group.get("metrics", [])
+        requirements_payload.append(
+            schemas.VerdictRequirement(
+                id=req_id,
+                name=group.get("name", "Unassigned"),
+                metric_keys=[m["key"] for m in metrics],
+            )
+        )
+
+        # A row belongs to one requirement, so every column outside that
+        # requirement's own tests is structurally not-applicable. Without
+        # this the row would claim the whole run's width and -- when another
+        # requirement carries a same-named metric -- read that requirement's
+        # verdicts as its own, since verdict_index is keyed on
+        # (test_id, jsonb_key) with no requirement dimension.
+        group_test_ids = set(group.get("test_ids", test_order))
+
+        for metric in metrics:
+            key = metric["key"]
+            name = metric["name"]
+            metric_ref = metric.get("id") or key
+            chars: List[str] = []
+            override_chars: List[str] = []
+            passed = failed = pending = 0
+
+            for test_id in test_order:
+                if test_id not in group_test_ids:
+                    chars.append("X")
+                    override_chars.append("0")
+                    continue
+
+                # Absent from cell_keys = scope-filtered out for this test.
+                actual_key = cell_keys.get(test_id, {}).get(metric_ref)
+                if actual_key is None:
+                    chars.append("X")
+                    override_chars.append("0")
+                    continue
+
+                verdicts_planned += 1
+                entry = verdict_index.get((test_id, actual_key))
+                if entry is not None:
+                    effective_success, has_override = entry
+                    verdicts_resolved += 1
+                    override_chars.append("1" if has_override else "0")
+                    if effective_success is True:
+                        chars.append("P")
+                        passed += 1
+                    elif effective_success is False:
+                        chars.append("F")
+                        failed += 1
+                    else:
+                        chars.append("S")
+                elif outcomes.get(test_id) == "error":
+                    chars.append("E")
+                    override_chars.append("0")
+                    verdicts_resolved += 1
+                else:
+                    chars.append(".")
+                    override_chars.append("0")
+                    pending += 1
+
+            rows_payload.append(
+                schemas.VerdictRow(
+                    requirement_id=req_id,
+                    metric_key=key,
+                    metric_name=name,
+                    metric_id=metric.get("id"),
+                    ambiguous=metric.get("ambiguous", False),
+                    verdicts="".join(chars),
+                    overrides="".join(override_chars),
+                    passed=passed,
+                    failed=failed,
+                    pending=pending,
+                )
+            )
+
+    tests_executed = sum(1 for test_id in test_order if test_id in outcomes)
+    passing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) == "passed")
+    failing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) in ("failed", "error"))
+    # Pass rate is over tests, not over metric verdicts, to agree with the
+    # number the runs list and the run header already show
+    # (result_processor.get_test_statistics_for_runs). A test with four of
+    # five metrics passing is a failed test, but an 80% verdict rate -- the
+    # Summary tab reporting the latter would contradict every other view of
+    # the same run. Per-metric pass counts stay on each row.
+    pass_rate = (
+        passing_tests / (passing_tests + failing_tests) if (passing_tests + failing_tests) else None
+    )
+
+    status_name = test_run.status.name if test_run.status else ""
+
+    return schemas.VerdictMatrix(
+        test_run_id=test_run.id,
+        project_id=test_run.project_id,
+        status=status_name,
+        is_terminal=status_name in _TERMINAL_RUN_STATUSES,
+        test_ids=None if columns == "none" else [uuid.UUID(tid) for tid in test_order],
+        test_status="".join(
+            {"passed": "P", "failed": "F", "error": "E"}.get(outcomes.get(tid, ""), ".")
+            for tid in test_order
+        ),
+        requirements=requirements_payload,
+        rows=rows_payload,
+        kpis=schemas.VerdictKpis(
+            pass_rate=pass_rate,
+            tests_executed=tests_executed,
+            tests_total=len(test_order),
+            verdicts_resolved=verdicts_resolved,
+            verdicts_planned=verdicts_planned,
+            failures=failing_tests,
+        ),
+    )

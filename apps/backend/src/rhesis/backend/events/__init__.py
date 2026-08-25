@@ -9,6 +9,7 @@ and are imported directly by callers that construct them.
 
 from rhesis.backend.events.dispatcher import emit, register_sink
 from rhesis.backend.events.sinks.activity_log import ActivityLogSink
+from rhesis.backend.events.sinks.test_run import TestRunSink
 from rhesis.backend.events.sinks.websocket import WebSocketSink
 
 __all__ = ["emit", "register_sink"]
@@ -18,3 +19,4 @@ __all__ = ["emit", "register_sink"]
 # FeatureName, exactly as SSO/API_CLIENTS/RBAC do today.
 register_sink(ActivityLogSink())
 register_sink(WebSocketSink())
+register_sink(TestRunSink())

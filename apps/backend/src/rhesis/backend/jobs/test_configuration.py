@@ -3,6 +3,7 @@ This module contains the main entry point for test configuration execution,
 with detailed implementation in the execution/ directory modules.
 """
 
+import logging
 from uuid import UUID
 
 from rhesis.backend.app.crud.test_run import get_test_run
@@ -25,6 +26,68 @@ from rhesis.backend.jobs.utils import (
     update_test_run_with_error,
     validate_task_parameters,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _make_on_test_phase(self, test_run, org_id, user_id, project_id, total_tests):
+    """Build the in-flight phase callback for the verdict grid's live columns.
+
+    Tracks generating/evaluating test ids locally (there is no shared
+    ExecutionContext between the batch and sequential paths) and emits a
+    TestRunProgressed tick on every transition -- cheap to call at this
+    frequency because TestRunSink coalesces publishes per test run at 500ms;
+    this call site is not where the volume reduction happens.
+    """
+    from datetime import datetime, timezone
+
+    generating_ids: set = set()
+    evaluating_ids: set = set()
+    # A set, not a counter: a recovery pass re-runs a test through the whole
+    # generating -> evaluating -> done cycle, and counting each "done" would
+    # push completed past total.
+    completed_ids: set = set()
+
+    def _on_test_phase(test_id: str, phase: str) -> None:
+        if phase == "generating":
+            generating_ids.add(test_id)
+            evaluating_ids.discard(test_id)
+        elif phase == "evaluating":
+            generating_ids.discard(test_id)
+            evaluating_ids.add(test_id)
+        elif phase == "done":
+            completed_ids.add(test_id)
+            generating_ids.discard(test_id)
+            evaluating_ids.discard(test_id)
+
+        try:
+            from rhesis.backend.events import emit
+            from rhesis.backend.events.correlation import resolve_ids
+            from rhesis.backend.events.types import TestRunProgressed
+
+            trace_id, span_id = resolve_ids()
+            emit(
+                TestRunProgressed(
+                    occurred_at=datetime.now(timezone.utc),
+                    organization_id=UUID(org_id),
+                    project_id=UUID(project_id) if project_id else None,
+                    user_id=UUID(user_id) if user_id else None,
+                    trace_id=trace_id,
+                    span_id=span_id,
+                    celery_task_id=getattr(self.request, "id", None),
+                    entity_type="test_run",
+                    entity_id=test_run.id,
+                    source="execute_test_configuration",
+                    completed=len(completed_ids),
+                    total=total_tests,
+                    generating_test_ids=[UUID(tid) for tid in generating_ids],
+                    evaluating_test_ids=[UUID(tid) for tid in evaluating_ids],
+                )
+            )
+        except Exception:
+            logger.debug("TestRunProgressed emit failed", exc_info=True)
+
+    return _on_test_phase
 
 
 @app.task(
@@ -166,6 +229,9 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
             self.emit(f"Executing {' '.join(context_parts)}")
 
             # Execute test cases (parallel or sequential)
+            on_test_phase = _make_on_test_phase(
+                self, test_run, org_id, user_id, project_id, total_tests
+            )
             result = execute_test_cases(
                 db,
                 test_config,
@@ -173,6 +239,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 reference_test_run_id=reference_test_run_id,
                 on_progress=self.set_progress,
                 on_emit=self.emit,
+                on_test_phase=on_test_phase,
             )
             self.emit(f"Execution complete")
 
