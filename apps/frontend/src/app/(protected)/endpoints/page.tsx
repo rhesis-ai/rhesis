@@ -7,8 +7,10 @@ import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
 import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -32,6 +34,8 @@ export default function EndpointsPage() {
   const [createProjectId, setCreateProjectId] = React.useState<
     string | undefined
   >();
+  const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
+    useBulkActionsBridge();
 
   useDocumentTitle('Endpoints');
 
@@ -90,6 +94,20 @@ export default function EndpointsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
+            {bulkActionsVisible && (
+              <Can capability={Capability.Endpoint.DELETE}>
+                <Fab
+                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  tooltip="Delete Endpoints"
+                  aria-label="Delete Endpoints"
+                  onClick={onBulkDelete}
+                  sx={{
+                    bgcolor: 'error.main',
+                    '&:hover': { bgcolor: 'error.dark' },
+                  }}
+                />
+              </Can>
+            )}
             <Can capability={Capability.Endpoint.CREATE}>
               <Fab
                 icon={<FabAddIcon />}
@@ -102,7 +120,11 @@ export default function EndpointsPage() {
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          <EndpointsGrid canCreate={canCreate} onCreateClick={handleCreate} />
+          <EndpointsGrid
+            canCreate={canCreate}
+            onCreateClick={handleCreate}
+            onBulkActionsChange={handleBulkActionsChange}
+          />
         </Box>
       </PageLayout>
 

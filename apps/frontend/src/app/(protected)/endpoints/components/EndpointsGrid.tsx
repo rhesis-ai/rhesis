@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Box, Typography, useTheme, Alert, Paper } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import {
   GridFilterModel,
   GridColDef,
@@ -40,7 +40,10 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getProjectIcon } from './endpoint-icon-utils';
 import { endpointKeys } from '@/constants/query-keys';
-import { useBulkDelete } from '@/hooks/useBulkDelete';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -60,6 +63,7 @@ interface EndpointsGridProps {
    */
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 interface EndpointsToolbarState {
@@ -68,6 +72,8 @@ interface EndpointsToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const DRAWER_FILTER_FIELDS = [
@@ -82,6 +88,8 @@ const EndpointsToolbarContext = React.createContext<EndpointsToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function EndpointsUnifiedToolbar() {
@@ -91,6 +99,8 @@ function EndpointsUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(EndpointsToolbarContext);
 
   return (
@@ -103,6 +113,11 @@ function EndpointsUnifiedToolbar() {
       activeFilterCount={activeFilterCount}
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select endpoints"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -116,6 +131,7 @@ export default function EndpointsGrid({
   projectId,
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: EndpointsGridProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -132,6 +148,8 @@ export default function EndpointsGrid({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
     selectedRows,
     handleSelectionChange,
     pendingDeleteId,
@@ -146,6 +164,7 @@ export default function EndpointsGrid({
     queryKey: endpointKeys.all(),
     itemLabelSingular: 'endpoint',
     itemLabelPlural: 'endpoints',
+    onBulkActionsChange,
   });
 
   const {
@@ -345,20 +364,6 @@ export default function EndpointsGrid({
     ];
   }, [projects, theme.typography.h5.fontSize, requestDelete, router]);
 
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: 'Delete',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => requestDelete(),
-      },
-    ];
-  }, [selectedRows.length, requestDelete]);
-
   const hasActiveDrawerFilters = hasActiveEndpointFilters(drawerFilters);
   const activeFilterCount = countActiveEndpointFilters(drawerFilters);
 
@@ -369,8 +374,16 @@ export default function EndpointsGrid({
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters,
       activeFilterCount,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
     }),
-    [searchQuery, hasActiveDrawerFilters, activeFilterCount]
+    [
+      searchQuery,
+      hasActiveDrawerFilters,
+      activeFilterCount,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
+    ]
   );
 
   // Only the top-level Endpoints page passes `onCreateClick` — that's when
@@ -393,7 +406,11 @@ export default function EndpointsGrid({
           loading={loading || loadingProjects}
           density="comfortable"
           linkPath={
-            projectId ? `/projects/${projectId}/endpoints` : '/endpoints'
+            checkboxSelectionMode
+              ? undefined
+              : projectId
+                ? `/projects/${projectId}/endpoints`
+                : '/endpoints'
           }
           linkField="id"
           serverSidePagination={true}
@@ -406,14 +423,15 @@ export default function EndpointsGrid({
           onFilterModelChange={handleFilterModelChange}
           toolbarSlot={EndpointsUnifiedToolbar}
           showToolbar={true}
-          actionButtons={getActionButtons()}
           disablePaperWrapper={true}
           persistState
           sx={rowActionsHoverSx}
-          checkboxSelection
-          disableRowSelectionOnClick
-          rowSelectionModel={selectedRows}
-          onRowSelectionModelChange={handleSelectionChange}
+          checkboxSelection={checkboxSelectionMode}
+          disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+          rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+          onRowSelectionModelChange={
+            checkboxSelectionMode ? handleSelectionChange : undefined
+          }
         />
 
         <DeleteModal
