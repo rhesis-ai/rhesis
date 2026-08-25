@@ -3,7 +3,12 @@ export const dynamic = 'force-dynamic';
 import * as React from 'react';
 import { Alert, Paper } from '@mui/material';
 import { auth } from '@/auth';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { prefetchList } from '@/utils/server-prefetch';
+import { emptyFilters, directoryListParams } from '@/utils/directory';
+import { Capability } from '@/constants/capabilities';
 import ExperimentsClientWrapper from './components/ExperimentsClientWrapper';
+import { experimentsDirectory } from './components/directory';
 
 /**
  * Server-rendered shell for the Experiments index page.
@@ -30,5 +35,26 @@ export default async function ExperimentsPage() {
     );
   }
 
-  return <ExperimentsClientWrapper />;
+  const factory = await createServerApiFactory();
+
+  const { initialData, initialTotalCount } = await prefetchList(
+    Capability.Experiment.READ,
+    () =>
+      experimentsDirectory.list(
+        factory,
+        directoryListParams(experimentsDirectory, {
+          page: 1,
+          pageSize: experimentsDirectory.defaultPageSize,
+          sort: experimentsDirectory.defaultSort,
+          filters: emptyFilters(experimentsDirectory),
+        })
+      )
+  );
+
+  return (
+    <ExperimentsClientWrapper
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+    />
+  );
 }
