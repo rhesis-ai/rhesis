@@ -9,10 +9,10 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
-import { EMPTY_TEAM_FILTERS, type TeamFilters } from '@/utils/odata-filter';
+import { EMPTY_TEAM_FILTERS, type TeamFilters } from './directory';
 
 export { EMPTY_TEAM_FILTERS, type TeamFilters };
-export { hasActiveTeamFilters } from '@/utils/odata-filter';
+export { hasActiveTeamFilters } from './directory';
 
 const MEMBER_STATUS_OPTIONS = [
   { label: 'Active', value: 'active' as const },
