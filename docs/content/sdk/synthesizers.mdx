@@ -134,9 +134,11 @@ for test in test_set.tests:
     print(test.metadata["owasp_category"], test.metadata["owasp_name"])`}
 </CodeBlock>
 
-`OWASPSynthesizer` always creates harmful single-turn tests. It spreads `num_tests`
-across the selected OWASP categories and tags each test with
-`metadata["owasp_category"]` and `metadata["owasp_name"]`.
+`OWASPSynthesizer` always creates harmful tests. It spreads `num_tests` across the
+selected OWASP categories and tags each test with `metadata["owasp_category"]` and
+`metadata["owasp_name"]`. Pass `test_type=TestType.MULTI_TURN`
+(`from rhesis.sdk.enums import TestType`) for conversational attacks instead of
+one-shot prompts.
 
 The synthesizer downloads the selected report when `generate()` first runs, splits
 the PDF into risk sections, and uses the official section text as generation
@@ -151,6 +153,7 @@ context. It does not use a hardcoded attack list.
 | `batch_size` | `10` | Maximum attacks generated per model call for each section |
 | `model` | Default Rhesis model | Model name or `BaseLLM` used for generation |
 | `requirement` | `"OWASP LLM Top 10"` | Requirement label stored on generated tests for analytics |
+| `test_type` | `TestType.SINGLE_TURN` | `SINGLE_TURN` generates one-shot prompts; `MULTI_TURN` generates conversational attacks |
 
 Use the Agentic Top 10 report by changing both the report and the requirement label:
 

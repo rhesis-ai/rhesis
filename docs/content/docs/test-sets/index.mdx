@@ -17,7 +17,7 @@ The [Test Sets page](https://app.rhesis.ai/test-sets) is the central place to ma
 From this page you can:
 
 - **Create** a new empty test set
-- **Import** tests from a file or from Garak (see below)
+- **Import** tests from a file or from Garak, or generate them from the OWASP Top 10 (see below)
 - **Execute** one or more test sets against an endpoint
 - **Delete** test sets you no longer need
 
@@ -40,6 +40,12 @@ Import tests from a **CSV**, **Excel**, **JSON**, or **JSONL** file. Rhesis anal
 Probes come in two types: **static** (prompts bundled with the probe) and **dynamic** (prompts generated at runtime by an LLM). Both are supported.
 
 [Import from Garak →](/docs/test-sets/import-from-garak)
+
+## Generating from the OWASP Top 10
+
+Rhesis generates security test sets from the OWASP Top 10 for LLM applications or for agentic AI. You pick the risk categories and describe the system under test; the report's own section text steers the attacks. Generated tests arrive linked to the seeded OWASP judge metrics.
+
+[Generate from OWASP →](/docs/test-sets/generate-owasp)
 
 ## Test Set Types
 

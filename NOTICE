@@ -2,6 +2,7 @@ Rhesis
 Copyright (c) 2025 Rhesis AI GmbH
 
 This product includes software developed by third parties.
+It also uses documents and standards published by third parties, listed below.
 
 ================================================================================
 garak - LLM Vulnerability Scanner
@@ -53,9 +54,27 @@ Copyright 2018 The Hugging Face team
 Licensed under the Apache License, Version 2.0
 
 ================================================================================
+OWASP Top 10 for Large Language Model Applications (v2025)
+OWASP Top 10 for Agentic AI
+https://genai.owasp.org
+--------------------------------------------------------------------------------
+Copyright (c) 2003-2025 The OWASP(R) Foundation, Inc.
+
+Licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+License
+
+Rhesis downloads these reports at runtime and uses their section text as context
+for generating security tests. OWASP(R) is a registered trademark of the OWASP
+Foundation. Rhesis is not affiliated with, nor endorsed by, the OWASP Foundation.
+
+================================================================================
 
 The full text of the Apache License, Version 2.0 is available at:
 http://www.apache.org/licenses/LICENSE-2.0
 
 The full text of the MIT License is available at:
 https://opensource.org/licenses/MIT
+
+The full text of the Creative Commons Attribution-ShareAlike 4.0 International
+License is available at:
+https://creativecommons.org/licenses/by-sa/4.0/
