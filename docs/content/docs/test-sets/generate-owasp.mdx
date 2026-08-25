@@ -23,13 +23,13 @@ Categories are read from the report itself, each with a short description taken 
 2. Choose **OWASP** in the source selector at the top of the drawer.
 3. Expand a report and check the risk categories to cover. Checking every category in a report covers that whole report.
 4. Under **Test Configuration**, fill in:
-   - **System under test** — what the target does, in at least 10 characters. Every attack is tailored to this description, so "Customer service chatbot for a retail bank with access to account balances and transfers" yields sharper tests than "chatbot".
+   - **System under test** — what the target does, in at least 10 characters, e.g. "Customer service chatbot for a retail bank with access to account balances and transfers". A fuller description gives the generator more to work with than "chatbot" does.
    - **Test Type** — **Single-Turn** for one-shot attack prompts, **Multi-Turn** for conversational attacks.
-   - **Number of Tests** — between 5 and 100, default 20, spread across the categories you selected. When you select categories from both reports, the count applies to each resulting test set.
+   - **Number of Tests** — between 5 and 100, default 20, counted per report and spread across the categories you selected in it.
 5. Optionally, under **Advanced Options**, set a **Test Set Name** and a **Generation Model**. The name defaults to the report label followed by your system description; the model defaults to your organization's generation model.
 6. Start the generation.
 
-Generation runs as a background task, one per report. The drawer confirms how many jobs started, and a notification arrives as each test set completes. The report itself is cached after the first download, so later generations skip the fetch.
+Generation runs in the background. The drawer confirms how many jobs started, and a notification arrives as each test set completes. The report itself is cached after the first download, so later generations skip the fetch.
 
 ## Evaluation
 
@@ -53,7 +53,7 @@ The OWASP option appears only for users whose role grants `owasp:create`. See [R
 
 ## Attribution
 
-The OWASP Top 10 reports are published by the OWASP® Foundation under the Creative Commons Attribution-ShareAlike 4.0 license. See [Acknowledgments](/docs/acknowledgments).
+The OWASP Top 10 reports are published by the OWASP® Foundation. See [Acknowledgments](/docs/acknowledgments) for the license and attribution.
 
 ## Next steps
 
