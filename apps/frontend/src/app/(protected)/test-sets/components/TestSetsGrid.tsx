@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState, useCallback, useContext, useMemo } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   GridColDef,
   GridRowParams,
@@ -34,10 +41,9 @@ import {
   HorizontalSplitIcon,
 } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PersonIcon from '@mui/icons-material/Person';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import RunDrawer from '@/components/common/RunDrawer';
@@ -76,6 +82,13 @@ import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-en
 interface TestSetsGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: TestSetsBulkActionsState) => void;
+}
+
+export interface TestSetsBulkActionsState {
+  visible: boolean;
+  onRun: () => void;
+  onDelete: () => void;
 }
 
 // ─── Toolbar context ────────────────────────────────────────────────────────────
@@ -88,6 +101,8 @@ interface TestSetsToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
@@ -98,6 +113,8 @@ const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 const PILL_TABS = TEST_TYPE_PILL_TABS;
@@ -111,6 +128,8 @@ function TestSetsUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TestSetsToolbarContext);
 
   return (
@@ -130,6 +149,11 @@ function TestSetsUnifiedToolbar() {
       }
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select test sets"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -173,6 +197,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 export default function TestSetsGrid({
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { status } = useSession();
@@ -193,7 +218,12 @@ export default function TestSetsGrid({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   // ── Bulk selection + delete ──────────────────────────────────────────────────
+  // TestSets has a second bulk action (Run), so it bridges to the page's
+  // FabGroup itself below instead of using useBulkDelete's built-in
+  // onBulkActionsChange, which only knows about delete.
   const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
     selectedRows,
     handleSelectionChange,
     pendingDeleteId,
@@ -328,27 +358,35 @@ export default function TestSetsGrid({
     [router]
   );
 
-  // ── Action buttons (selection-only) ─────────────────────────────────────────
+  // ── Bulk actions bridge (Run + Delete) to the page's FabGroup ───────────────
 
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
+  const showBulkActions = checkboxSelectionMode && selectedRows.length > 0;
+  const bulkHandlersRef = useRef({
+    onRun: () => setTestRunDrawerOpen(true),
+    onDelete: () => requestDelete(),
+  });
+  bulkHandlersRef.current = {
+    onRun: () => setTestRunDrawerOpen(true),
+    onDelete: () => requestDelete(),
+  };
 
-    return [
-      {
-        label: selectedRows.length > 1 ? 'Run Test Sets' : 'Run Test Set',
-        icon: <PlayArrowIcon />,
-        variant: 'contained' as const,
-        onClick: () => setTestRunDrawerOpen(true),
-      },
-      {
-        label: 'Delete Test Sets',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => requestDelete(),
-      },
-    ];
-  }, [selectedRows.length, requestDelete]);
+  useEffect(() => {
+    onBulkActionsChange?.({
+      visible: showBulkActions,
+      onRun: () => bulkHandlersRef.current.onRun(),
+      onDelete: () => bulkHandlersRef.current.onDelete(),
+    });
+  }, [showBulkActions, onBulkActionsChange]);
+
+  useEffect(() => {
+    return () => {
+      onBulkActionsChange?.({
+        visible: false,
+        onRun: () => {},
+        onDelete: () => {},
+      });
+    };
+  }, [onBulkActionsChange]);
 
   // ── Column definitions ───────────────────────────────────────────────────────
 
@@ -624,6 +662,8 @@ export default function TestSetsGrid({
             openFilterDrawer: () => setFilterDrawerOpen(true),
             hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
             activeFilterCount: countActiveTestSetFilters(drawerFilters),
+            checkboxSelectionMode,
+            setCheckboxSelectionMode,
           }}
         >
           {error && (
@@ -632,40 +672,29 @@ export default function TestSetsGrid({
             </Alert>
           )}
 
-          {selectedRows.length > 0 && (
-            <Box
-              sx={{
-                px: 2,
-                py: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                borderBottom: theme =>
-                  `1px solid ${theme.palette.greyscale.border}`,
-              }}
-            >
-              <Typography variant="subtitle1" color="primary">
-                {selectedRows.length} selected
-              </Typography>
-            </Box>
-          )}
-
           <BaseDataGrid
             columns={columns}
             rows={processedTestSets}
             loading={loading}
             getRowId={row => row.id}
             showToolbar={true}
-            onRowClick={handleRowClick}
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
+            }
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
             getRowClassName={params =>
               testSetHighlights.includes(String(params.id))
                 ? HIGHLIGHTED_ROW_CLASS
                 : ''
             }
-            getRowUrl={row => `/test-sets/${row.id}`}
+            getRowUrl={
+              checkboxSelectionMode ? undefined : row => `/test-sets/${row.id}`
+            }
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
-            actionButtons={getActionButtons()}
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
@@ -686,10 +715,6 @@ export default function TestSetsGrid({
               },
             }}
             sx={rowActionsHoverSx}
-            checkboxSelection
-            disableRowSelectionOnClick
-            rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={handleSelectionChange}
           />
 
           {/* Test Run Drawer */}
