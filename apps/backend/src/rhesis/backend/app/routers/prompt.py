@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import prompt as prompt_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -35,7 +36,7 @@ def create_prompt(
 ):
     """Create a new prompt."""
     organization_id, user_id = tenant_context
-    return crud.create_prompt(
+    return prompt_crud.create_prompt(
         db=db, prompt=prompt, organization_id=organization_id, user_id=user_id
     )
 
@@ -55,7 +56,7 @@ def read_prompts(
 ):
     """Get all prompts with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_prompts(
+    return prompt_crud.get_prompts(
         db=db,
         skip=skip,
         limit=limit,
@@ -75,7 +76,7 @@ def read_prompt(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_prompt = crud.get_prompt(
+    db_prompt = prompt_crud.get_prompt(
         db, prompt_id=prompt_id, organization_id=organization_id, user_id=user_id
     )
     if db_prompt is None:
@@ -93,7 +94,7 @@ def update_prompt(
 ):
     """Update a prompt"""
     organization_id, user_id = tenant_context
-    db_prompt = crud.update_prompt(
+    db_prompt = prompt_crud.update_prompt(
         db=db, prompt_id=prompt_id, prompt=prompt, organization_id=organization_id, user_id=user_id
     )
     if db_prompt is None:
@@ -110,7 +111,7 @@ def delete_prompt(
 ):
     """Delete a prompt"""
     organization_id, user_id = tenant_context
-    db_prompt = crud.delete_prompt(
+    db_prompt = prompt_crud.delete_prompt(
         db=db, prompt_id=prompt_id, organization_id=organization_id, user_id=user_id
     )
     if db_prompt is None:
