@@ -32,6 +32,7 @@ import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import { BetaBadge } from '@/components/common/BetaBadge';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import type {
   RequirementReference,
@@ -43,22 +44,6 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 /** Linked requirements come back with the status relationship at runtime. */
 type LinkedRequirementRow = RequirementReference & { status?: Status | null };
-
-/**
- * Experimental metric tuning tab, off unless explicitly turned on.
- *
- * Gated on the feature itself rather than on the environment: an `NODE_ENV`
- * check would scatter deployment assumptions through feature code and make the
- * same feature behave differently by accident depending on where it runs.
- *
- * Not a `FeatureName` from `src/constants/features.ts` — that system mirrors a
- * backend enum and is driven by `GET /features`, so adding one would need a
- * coordinated backend change. This is a local flag for an unfinished feature;
- * set `NEXT_PUBLIC_METRIC_TUNING=true` in `.env.local` to see the tab. The
- * value is inlined at build time, so it is absent from any deployment that does
- * not set it, and a misspelled value fails closed.
- */
-const TUNING_TAB_ENABLED = process.env.NEXT_PUBLIC_METRIC_TUNING === 'true';
 
 const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
 
@@ -77,14 +62,17 @@ export default function MetricDetailPageTabs() {
 
   const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
-  // The flag alone is not enough: this page also serves `rhesis` metrics, and
-  // the tuning routes refuse anything that is not custom.
-  const showTuning = useIsCustomMetric(metricId, TUNING_TAB_ENABLED);
+  // This page also serves `rhesis` metrics, and the tuning routes refuse
+  // anything that is not custom.
+  const showTuning = useIsCustomMetric(metricId);
 
   const navTabs = TAB_KEYS.filter(key => key !== 'tuning' || showTuning).map(
     (key, index) => ({
       key,
       label: NAV_LABELS[key],
+      // Beta belongs on the tab, not inside the panel: it qualifies the whole
+      // feature, and in the panel header it read as a label on the buttons.
+      ...(key === 'tuning' && { badge: <BetaBadge /> }),
       id: `metric-detail-tab-${index}`,
       'aria-controls': `metric-detail-tabpanel-${index}`,
     })

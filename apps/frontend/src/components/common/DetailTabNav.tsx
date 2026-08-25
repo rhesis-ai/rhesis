@@ -7,6 +7,9 @@ import type { SxProps, Theme } from '@mui/material/styles';
 export interface DetailTabNavItem {
   key: string;
   label: string;
+  /** Rendered beside the label, e.g. a BetaBadge. Kept out of the label's
+   * <span>, since Chip renders a <div> and a div inside a span is invalid. */
+  badge?: React.ReactNode;
   id?: string;
   'aria-controls'?: string;
 }
@@ -114,21 +117,31 @@ export function DetailTabNav({
               },
             }}
           >
-            <Typography
-              component="span"
+            <Box
               sx={{
-                fontSize: 18,
-                fontWeight: 700,
-                lineHeight: '25px',
-                color: theme =>
-                  selected
-                    ? theme.palette.greyscale.title
-                    : theme.palette.greyscale.subtitle,
-                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                minWidth: 0,
               }}
             >
-              {tab.label}
-            </Typography>
+              <Typography
+                component="span"
+                sx={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  lineHeight: '25px',
+                  color: theme =>
+                    selected
+                      ? theme.palette.greyscale.title
+                      : theme.palette.greyscale.subtitle,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tab.label}
+              </Typography>
+              {tab.badge}
+            </Box>
             {selected ? (
               <Box
                 aria-hidden
