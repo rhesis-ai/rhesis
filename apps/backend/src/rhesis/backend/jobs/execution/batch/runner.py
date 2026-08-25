@@ -109,7 +109,9 @@ async def _run_gather(
             if on_emit and progress_total:
                 try:
                     label = f" — {category}" if category else ""
-                    on_emit(f"Test {current}/{progress_total} {status}{label}")
+                    error = result.get("error", "") if isinstance(result, dict) else ""
+                    suffix = f": {error}" if error and status == "failed" else ""
+                    on_emit(f"Test {current}/{progress_total} {status}{label}{suffix}")
                 except Exception:
                     pass
 
@@ -365,9 +367,14 @@ async def _execute_single_test(
                     f"[BATCH] Test {test_id} reported as Error: evaluation contract was not usable"
                 )
             elif has_http_error_in_result(output):
-                # Discard Penelope goal metrics when the first target call was HTTP error.
                 metrics_results = {}
                 logger.info(f"[BATCH] HTTP error for test {test_id}; skipping metrics")
+                if on_emit:
+                    from rhesis.backend.app.utils.response_extractor import (
+                        get_http_error_status_code,
+                    )
+                    code = get_http_error_status_code(output)
+                    on_emit(f"  Endpoint returned HTTP {code}, skipping metrics")
             elif evaluator and ctx.get_metric_configs_for_test(test_id):
                 metrics_results = await evaluate_metrics(
                     ctx,

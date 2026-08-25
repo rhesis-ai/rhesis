@@ -42,6 +42,10 @@ async def evaluate_metrics(
     if on_emit:
 
         def on_metric_complete(metric_key: str, result: Dict[str, Any]) -> None:
+            error = result.get("error")
+            if error:
+                on_emit(f"  {metric_key}: error ({error})")
+                return
             passed = result.get("is_successful")
             score = result.get("score", "?")
             label = "passed" if passed else ("failed" if passed is False else "scored")
@@ -72,6 +76,8 @@ async def evaluate_metrics(
             )
     except Exception as e:
         logger.error(f"[BATCH] Metric eval failed for {test_id}: {e}", exc_info=True)
+        if on_emit:
+            on_emit(f"  Metric evaluation failed: {e}")
     return metrics_results
 
 
