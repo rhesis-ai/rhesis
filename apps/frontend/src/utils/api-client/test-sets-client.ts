@@ -7,6 +7,7 @@ import {
   TestSet,
   TestSetCreate,
   TestSetBulkAssociateRequest,
+  TestSetBulkDeleteResponse,
   GenerateTestsRequest,
   GenerateTestSetResponse,
   TestSetMetric,
@@ -284,6 +285,16 @@ export class TestSetsClient extends BaseApiClient {
     return this.fetch(`${API_ENDPOINTS.testSets}/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteTestSets(
+    testSetIds: string[]
+  ): Promise<TestSetBulkDeleteResponse> {
+    return this.bulkDelete<TestSetBulkDeleteResponse>(
+      API_ENDPOINTS.testSets,
+      'test_set_ids',
+      testSetIds
+    );
   }
 
   async executeTestSet(

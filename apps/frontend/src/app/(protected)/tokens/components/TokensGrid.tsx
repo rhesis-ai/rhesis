@@ -6,12 +6,14 @@ import {
   GridPaginationModel,
   type GridRenderCellParams,
   type GridColDef,
+  type GridRowSelectionModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { DeleteIcon } from '@/components/icons';
@@ -43,6 +45,8 @@ export interface TokensToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 export const TokensToolbarContext = React.createContext<TokensToolbarState>({
@@ -53,6 +57,8 @@ export const TokensToolbarContext = React.createContext<TokensToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function TokensUnifiedToolbar() {
@@ -64,6 +70,8 @@ function TokensUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TokensToolbarContext);
 
   return (
@@ -83,6 +91,11 @@ function TokensUnifiedToolbar() {
       }
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select tokens"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -100,11 +113,14 @@ interface TokensGridProps {
     tokenId: string,
     expiresInDays: number | null
   ) => Promise<void>;
-  onDeleteToken: (tokenId: string) => Promise<void>;
+  onDeleteToken: (tokenId: string) => void;
   loading: boolean;
   totalCount: number;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
+  checkboxSelectionMode: boolean;
+  selectedRows: GridRowSelectionModel;
+  onSelectionChange: (model: GridRowSelectionModel) => void;
 }
 
 export default function TokensGrid({
@@ -118,6 +134,9 @@ export default function TokensGrid({
     page: 0,
     pageSize: 10,
   },
+  checkboxSelectionMode,
+  selectedRows,
+  onSelectionChange,
 }: TokensGridProps) {
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
@@ -243,6 +262,12 @@ export default function TokensGrid({
         persistState
         storageKey="tokens-grid"
         sx={rowActionsHoverSx}
+        checkboxSelection={checkboxSelectionMode}
+        disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+        rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+        onRowSelectionModelChange={
+          checkboxSelectionMode ? onSelectionChange : undefined
+        }
       />
       <RefreshTokenModal
         open={refreshModalOpen}

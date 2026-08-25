@@ -4,16 +4,22 @@ import React, { useState, useCallback, useContext, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import ListIcon from '@mui/icons-material/List';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
 import {
   GridColDef,
   GridPaginationModel,
   GridFilterModel,
+  GridRowParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -80,6 +86,7 @@ type RunKindFilter = 'all' | 'tests' | 'experiments';
 interface TestRunsGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 function formatReviewTooltip(reviewed: number, corrected: number): string {
@@ -110,6 +117,8 @@ interface TestRunsToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
@@ -120,6 +129,8 @@ const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function TestRunsUnifiedToolbar() {
@@ -131,6 +142,8 @@ function TestRunsUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TestRunsToolbarContext);
 
   return (
@@ -150,6 +163,11 @@ function TestRunsUnifiedToolbar() {
       }
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select test runs"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -161,7 +179,11 @@ function TestRunsUnifiedToolbar() {
 
 // ── Grid component ────────────────────────────────────────────────────────────
 
-function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
+function TestRunsGrid({
+  canCreate,
+  onCreateClick,
+  onBulkActionsChange,
+}: TestRunsGridProps) {
   const { status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -180,13 +202,33 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
   );
 
   // ── Other UI state ─────────────────────────────────────────────────────────
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
+
+  // ── Bulk selection + delete ──────────────────────────────────────────────────
+  const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      new ApiClientFactory().getTestRunsClient().bulkDeleteTestRuns(ids),
+    queryKey: testRunKeys.all(),
+    itemLabelSingular: 'test run',
+    itemLabelPlural: 'test runs',
+    getSkippedCount: response => response.forbidden_ids.length,
+    skippedReason: 'not yours to delete',
+    onBulkActionsChange,
+  });
 
   // ── Grid state (pagination, filter, sort) ─────────────────────────────────
 
@@ -304,11 +346,6 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
 
   // ── Row action handlers ────────────────────────────────────────────────────
 
-  const handleRowDeleteAction = useCallback((id: string) => {
-    setPendingDeleteId(id);
-    setDeleteModalOpen(true);
-  }, []);
-
   const handleRowEditAction = useCallback(
     (id: string) => {
       router.push(`/test-runs/${id}`);
@@ -336,7 +373,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
       canEdit: row => can(row as unknown as TestRun, Capability.TestRun.UPDATE),
       onCancel: id => handleRowCancelAction(id),
       canCancel: isCancellableRun,
-      onDelete: id => handleRowDeleteAction(id),
+      onDelete: id => requestDelete(id),
       canDelete: row =>
         can(row as unknown as TestRun, Capability.TestRun.DELETE),
       width: 112,
@@ -647,7 +684,7 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     handleRowEditAction,
     handleRowCancelAction,
     isCancellableRun,
-    handleRowDeleteAction,
+    requestDelete,
   ]);
 
   // ── Row handlers ──────────────────────────────────────────────────────────
@@ -659,37 +696,6 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
     },
     [router, clearHighlight]
   );
-
-  // ── Delete handlers ───────────────────────────────────────────────────────
-
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!pendingDeleteId) return;
-
-    try {
-      setIsDeleting(true);
-      const clientFactory = new ApiClientFactory();
-      const testRunsClient = clientFactory.getTestRunsClient();
-
-      await testRunsClient.deleteTestRun(pendingDeleteId);
-
-      notifications.show('Successfully deleted test run', {
-        severity: 'success',
-      });
-
-      setPendingDeleteId(null);
-      queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-    } catch (_error) {
-      notifications.show('Failed to delete test run', { severity: 'error' });
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalOpen(false);
-    }
-  }, [pendingDeleteId, notifications, queryClient]);
-
-  const handleDeleteCancel = useCallback(() => {
-    setDeleteModalOpen(false);
-    setPendingDeleteId(null);
-  }, []);
 
   // ── Cancel handlers ───────────────────────────────────────────────────────
 
@@ -791,6 +797,8 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             openFilterDrawer: () => setFilterDrawerOpen(true),
             hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
             activeFilterCount: countActiveTestRunFilters(drawerFilters),
+            checkboxSelectionMode,
+            setCheckboxSelectionMode,
           }}
         >
           {error && (
@@ -812,13 +820,15 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             sortModel={sortModel}
             onSortModelChange={handleSortModelChange}
             serverSideFiltering={true}
-            onRowClick={handleRowClick}
+            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
             getRowClassName={params =>
               testRunHighlights.includes(String(params.id))
                 ? HIGHLIGHTED_ROW_CLASS
                 : ''
             }
-            getRowUrl={row => `/test-runs/${row.id}`}
+            getRowUrl={
+              checkboxSelectionMode ? undefined : row => `/test-runs/${row.id}`
+            }
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
@@ -829,15 +839,28 @@ function TestRunsGrid({ canCreate, onCreateClick }: TestRunsGridProps) {
             persistState
             storageKey="test-runs-grid-v2"
             sx={rowActionsHoverSx}
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+            isRowSelectable={(params: GridRowParams) =>
+              can(params.row as unknown as TestRun, Capability.TestRun.DELETE)
+            }
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
+            }
           />
 
           <DeleteModal
             open={deleteModalOpen}
-            onClose={handleDeleteCancel}
-            onConfirm={handleDeleteConfirm}
+            onClose={cancelDelete}
+            onConfirm={confirmDelete}
             isLoading={isDeleting}
-            title="Delete Test Run"
-            message="Are you sure you want to delete this test run? Related data will not be deleted."
+            title={pendingDeleteId ? 'Delete Test Run' : 'Delete Test Runs'}
+            message={
+              pendingDeleteId
+                ? 'Are you sure you want to delete this test run? Related data will not be deleted.'
+                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test run' : 'test runs'}? Related data will not be deleted.`
+            }
             itemType="test runs"
           />
 

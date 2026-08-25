@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Paper, Alert } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import TokensGrid, {
   TokensToolbarContext,
   type TokenStatusFilter,
   type TokensToolbarState,
 } from './TokensGrid';
+import { useBulkDelete } from '@/hooks/useBulkDelete';
 import CreateTokenDrawer from './CreateTokenDrawer';
 import TokenDisplay from './TokenDisplay';
 import TokenFilterDrawer, {
@@ -44,7 +46,6 @@ export default function TokensPageClient() {
   const [refreshedToken, setRefreshedToken] = useState<TokenResponse | null>(
     null
   );
-  const [deleteTokenId, setDeleteTokenId] = useState<string | null>(null);
 
   // Search & filter state
   const [search, setSearch] = useState('');
@@ -131,21 +132,29 @@ export default function TokensPageClient() {
     }
   };
 
-  const handleDeleteToken = async (tokenId: string) => {
-    setDeleteTokenId(tokenId);
-  };
+  const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      tokensClientRef.current.bulkDeleteTokens(ids),
+    onSuccess: loadTokens,
+    itemLabelSingular: 'token',
+    itemLabelPlural: 'tokens',
+  });
 
-  const confirmDelete = async () => {
-    if (!deleteTokenId) return;
-    try {
-      await tokensClientRef.current.deleteToken(deleteTokenId);
-      await loadTokens();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setDeleteTokenId(null);
-    }
-  };
+  // No separate page here to bridge to -- the FabGroup below is already in
+  // the same component as useBulkDelete, so it reads this directly instead
+  // of going through useBulkActionsBridge/onBulkActionsChange.
+  const bulkActionsVisible = checkboxSelectionMode && selectedRows.length > 0;
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
@@ -215,8 +224,16 @@ export default function TokensPageClient() {
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters: hasActiveTokenFilters(drawerFilters),
       activeFilterCount: countActiveTokenFilters(drawerFilters),
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
     }),
-    [search, statusFilter, drawerFilters]
+    [
+      search,
+      statusFilter,
+      drawerFilters,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
+    ]
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -231,6 +248,20 @@ export default function TokensPageClient() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
+          {bulkActionsVisible && (
+            <Can capability={Capability.Token.MANAGE}>
+              <Fab
+                icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                tooltip="Delete Tokens"
+                aria-label="Delete Tokens"
+                onClick={() => requestDelete()}
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': { bgcolor: 'error.dark' },
+                }}
+              />
+            </Can>
+          )}
           <Can capability={Capability.Token.MANAGE}>
             <Fab
               icon={<FabAddIcon />}
@@ -288,11 +319,14 @@ export default function TokensPageClient() {
             <TokensGrid
               tokens={filteredTokens}
               onRefreshToken={handleRefreshToken}
-              onDeleteToken={handleDeleteToken}
+              onDeleteToken={requestDelete}
               loading={loading}
               totalCount={filteredTokens.length}
               paginationModel={paginationModel}
               onPaginationModelChange={setPaginationModel}
+              checkboxSelectionMode={checkboxSelectionMode}
+              selectedRows={selectedRows}
+              onSelectionChange={handleSelectionChange}
             />
           </TokensToolbarContext.Provider>
         </Paper>
@@ -319,15 +353,23 @@ export default function TokensPageClient() {
       />
 
       <DeleteModal
-        open={deleteTokenId !== null}
-        onClose={() => setDeleteTokenId(null)}
+        open={deleteModalOpen}
+        onClose={cancelDelete}
         onConfirm={confirmDelete}
-        itemType="token"
-        itemName={tokens.find(t => t.id === deleteTokenId)?.name}
+        isLoading={isDeleting}
+        title={pendingDeleteId ? 'Delete Token' : 'Delete Tokens'}
+        itemType="tokens"
+        itemName={
+          pendingDeleteId
+            ? tokens.find(t => t.id === pendingDeleteId)?.name
+            : undefined
+        }
         message={
-          deleteTokenId && tokens.find(t => t.id === deleteTokenId)?.name
-            ? `Are you sure you want to delete the token "${tokens.find(t => t.id === deleteTokenId)?.name}"? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
-            : `Are you sure you want to delete this token? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
+          pendingDeleteId
+            ? tokens.find(t => t.id === pendingDeleteId)?.name
+              ? `Are you sure you want to delete the token "${tokens.find(t => t.id === pendingDeleteId)?.name}"? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
+              : `Are you sure you want to delete this token? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
+            : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'token' : 'tokens'}? This action cannot be undone, and any applications using ${selectedRows.length === 1 ? 'this token' : 'these tokens'} will no longer be able to authenticate.`
         }
       />
 

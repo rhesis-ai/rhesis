@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Box, Typography, useTheme, Alert, Paper } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import {
   GridFilterModel,
   GridColDef,
@@ -24,7 +25,6 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications } from '@/components/common/NotificationContext';
 import { buildEndpointListFilter } from '@/utils/odata-filter';
 import EndpointFilterDrawer, {
   type EndpointFilters,
@@ -38,9 +38,12 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { useDeleteEndpoint } from '@/hooks/useEndpoints';
 import { getProjectIcon } from './endpoint-icon-utils';
 import { endpointKeys } from '@/constants/query-keys';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -60,6 +63,7 @@ interface EndpointsGridProps {
    */
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 interface EndpointsToolbarState {
@@ -68,6 +72,8 @@ interface EndpointsToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const DRAWER_FILTER_FIELDS = [
@@ -82,6 +88,8 @@ const EndpointsToolbarContext = React.createContext<EndpointsToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function EndpointsUnifiedToolbar() {
@@ -91,6 +99,8 @@ function EndpointsUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(EndpointsToolbarContext);
 
   return (
@@ -103,6 +113,11 @@ function EndpointsUnifiedToolbar() {
       activeFilterCount={activeFilterCount}
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select endpoints"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -116,14 +131,13 @@ export default function EndpointsGrid({
   projectId,
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: EndpointsGridProps) {
   const theme = useTheme();
   const router = useRouter();
   const { status } = useSession();
-  const notifications = useNotifications();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
-  const deleteEndpoint = useDeleteEndpoint();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
@@ -131,10 +145,27 @@ export default function EndpointsGrid({
   );
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      new ApiClientFactory().getEndpointsClient().bulkDeleteEndpoints(ids),
+    queryKey: endpointKeys.all(),
+    itemLabelSingular: 'endpoint',
+    itemLabelPlural: 'endpoints',
+    onBulkActionsChange,
+  });
 
   const {
     filterModel,
@@ -260,32 +291,12 @@ export default function EndpointsGrid({
     }
   }, [status]);
 
-  const handleDeleteEndpoints = async () => {
-    if (!isAuthenticated(status) || !pendingDeleteId) return;
-
-    try {
-      setDeleting(true);
-      await deleteEndpoint.mutateAsync(pendingDeleteId);
-      setPendingDeleteId(null);
-      setDeleteDialogOpen(false);
-    } catch {
-      notifications.show('Failed to delete endpoints', { severity: 'error' });
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleRowDeleteAction = useCallback((id: string) => {
-    setPendingDeleteId(id);
-    setDeleteDialogOpen(true);
-  }, []);
-
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => {
         router.push(`/endpoints/${id}`);
       },
-      onDelete: id => handleRowDeleteAction(id),
+      onDelete: id => requestDelete(id),
       canEdit: () => canEditEndpoint,
       canDelete: () => canDeleteEndpoint,
     });
@@ -351,7 +362,7 @@ export default function EndpointsGrid({
       },
       actionsCol,
     ];
-  }, [projects, theme.typography.h5.fontSize, handleRowDeleteAction, router]);
+  }, [projects, theme.typography.h5.fontSize, requestDelete, router]);
 
   const hasActiveDrawerFilters = hasActiveEndpointFilters(drawerFilters);
   const activeFilterCount = countActiveEndpointFilters(drawerFilters);
@@ -363,8 +374,16 @@ export default function EndpointsGrid({
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters,
       activeFilterCount,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
     }),
-    [searchQuery, hasActiveDrawerFilters, activeFilterCount]
+    [
+      searchQuery,
+      hasActiveDrawerFilters,
+      activeFilterCount,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
+    ]
   );
 
   // Only the top-level Endpoints page passes `onCreateClick` — that's when
@@ -387,7 +406,11 @@ export default function EndpointsGrid({
           loading={loading || loadingProjects}
           density="comfortable"
           linkPath={
-            projectId ? `/projects/${projectId}/endpoints` : '/endpoints'
+            checkboxSelectionMode
+              ? undefined
+              : projectId
+                ? `/projects/${projectId}/endpoints`
+                : '/endpoints'
           }
           linkField="id"
           serverSidePagination={true}
@@ -403,18 +426,25 @@ export default function EndpointsGrid({
           disablePaperWrapper={true}
           persistState
           sx={rowActionsHoverSx}
+          checkboxSelection={checkboxSelectionMode}
+          disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+          rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+          onRowSelectionModelChange={
+            checkboxSelectionMode ? handleSelectionChange : undefined
+          }
         />
 
         <DeleteModal
-          open={deleteDialogOpen}
-          onClose={() => {
-            setDeleteDialogOpen(false);
-            setPendingDeleteId(null);
-          }}
-          onConfirm={handleDeleteEndpoints}
-          isLoading={deleting}
-          title="Delete Endpoint"
-          message="Are you sure you want to delete this endpoint? Related data will not be deleted."
+          open={deleteModalOpen}
+          onClose={cancelDelete}
+          onConfirm={confirmDelete}
+          isLoading={isDeleting}
+          title={pendingDeleteId ? 'Delete Endpoint' : 'Delete Endpoints'}
+          message={
+            pendingDeleteId
+              ? 'Are you sure you want to delete this endpoint? Related data will not be deleted.'
+              : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'endpoint' : 'endpoints'}? Related data will not be deleted.`
+          }
           itemType="endpoints"
         />
       </Box>

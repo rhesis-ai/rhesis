@@ -68,7 +68,8 @@ jest.mock('../RefreshTokenModal', () => ({
 }));
 
 const onRefreshToken = jest.fn().mockResolvedValue(undefined);
-const onDeleteToken = jest.fn().mockResolvedValue(undefined);
+const onDeleteToken = jest.fn();
+const onSelectionChange = jest.fn();
 
 function makeToken(id: string) {
   return {
@@ -97,6 +98,9 @@ describe('TokensGrid', () => {
         onRefreshToken={onRefreshToken}
         onDeleteToken={onDeleteToken}
         totalCount={0}
+        checkboxSelectionMode={false}
+        selectedRows={[]}
+        onSelectionChange={onSelectionChange}
       />
     );
     // BaseDataGrid is mocked to render a <table>; loading state is handled
@@ -112,6 +116,9 @@ describe('TokensGrid', () => {
         onRefreshToken={onRefreshToken}
         onDeleteToken={onDeleteToken}
         totalCount={2}
+        checkboxSelectionMode={false}
+        selectedRows={[]}
+        onSelectionChange={onSelectionChange}
       />
     );
     expect(screen.getByText('Token t1')).toBeInTheDocument();

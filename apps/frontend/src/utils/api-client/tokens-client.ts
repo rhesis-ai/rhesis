@@ -1,6 +1,10 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Token, TokenResponse } from './interfaces/token';
+import {
+  Token,
+  TokenBulkDeleteResponse,
+  TokenResponse,
+} from './interfaces/token';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 export class TokensClient extends BaseApiClient {
@@ -54,6 +58,14 @@ export class TokensClient extends BaseApiClient {
     return this.fetch<Token>(`${API_ENDPOINTS.tokens}/${tokenId}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteTokens(tokenIds: string[]): Promise<TokenBulkDeleteResponse> {
+    return this.bulkDelete<TokenBulkDeleteResponse>(
+      API_ENDPOINTS.tokens,
+      'token_ids',
+      tokenIds
+    );
   }
 
   async refreshToken(

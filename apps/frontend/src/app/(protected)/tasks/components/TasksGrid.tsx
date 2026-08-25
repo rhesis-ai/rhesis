@@ -18,6 +18,7 @@ import { Capability } from '@/constants/capabilities';
 import { Typography, Box, Alert, Avatar, Paper } from '@mui/material';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { combineTaskFiltersToOData } from '@/utils/odata-filter';
@@ -33,16 +34,16 @@ import {
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications } from '@/components/common/NotificationContext';
-// Renamed on import: distinct from the toast system's useNotifications above --
-// this is the persistent, backend-tracked "assigned to you" badge/highlight.
 import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
 import {
   HIGHLIGHTED_ROW_CLASS,
   NotificationSection,
 } from '@/constants/notifications';
-import { useQueryClient } from '@tanstack/react-query';
 import { taskKeys } from '@/constants/query-keys';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -52,6 +53,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 interface TasksGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 const STATUS_PILL_TABS = [
@@ -70,6 +72,8 @@ interface TasksToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const TasksToolbarContext = React.createContext<TasksToolbarState>({
@@ -80,6 +84,8 @@ const TasksToolbarContext = React.createContext<TasksToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function TasksUnifiedToolbar() {
@@ -91,6 +97,8 @@ function TasksUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TasksToolbarContext);
 
   return (
@@ -110,6 +118,11 @@ function TasksUnifiedToolbar() {
       }
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select tasks"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -122,11 +135,10 @@ function TasksUnifiedToolbar() {
 export default function TasksGrid({
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: TasksGridProps) {
   const router = useRouter();
-  const notifications = useNotifications();
   const { highlightedIds, clearHighlight } = useJobNotifications();
-  const queryClient = useQueryClient();
   const { status } = useSession();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,9 +146,28 @@ export default function TasksGrid({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      new ApiClientFactory().getTasksClient().bulkDeleteTasks(ids),
+    queryKey: taskKeys.all(),
+    itemLabelSingular: 'task',
+    itemLabelPlural: 'tasks',
+    getSkippedCount: response => response.forbidden_ids.length,
+    skippedReason: 'not yours to delete',
+    onBulkActionsChange,
+  });
 
   const {
     filterModel,
@@ -236,45 +267,11 @@ export default function TasksGrid({
     [router, clearHighlight]
   );
 
-  const handleRowDeleteAction = useCallback((id: string) => {
-    setPendingDeleteId(id);
-    setDeleteModalOpen(true);
-  }, []);
-
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!pendingDeleteId) return;
-    try {
-      setIsDeleting(true);
-      const clientFactory = new ApiClientFactory();
-      const tasksClient = clientFactory.getTasksClient();
-      await tasksClient.deleteTask(pendingDeleteId);
-      notifications.show('Successfully deleted task', {
-        severity: 'success',
-        autoHideDuration: 4000,
-      });
-      setPendingDeleteId(null);
-      queryClient.invalidateQueries({ queryKey: taskKeys.all() });
-    } catch {
-      notifications.show('Failed to delete task', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalOpen(false);
-    }
-  }, [pendingDeleteId, notifications, queryClient]);
-
-  const handleDeleteCancel = useCallback(() => {
-    setDeleteModalOpen(false);
-    setPendingDeleteId(null);
-  }, []);
-
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => router.push(`/tasks/${id}`),
       canEdit: row => can(row as unknown as Task, Capability.Task.UPDATE),
-      onDelete: id => handleRowDeleteAction(id),
+      onDelete: id => requestDelete(id),
       canDelete: row => can(row as unknown as Task, Capability.Task.DELETE),
     });
     return [
@@ -353,7 +350,7 @@ export default function TasksGrid({
       },
       actionsCol,
     ];
-  }, [router, handleRowDeleteAction]);
+  }, [router, requestDelete]);
 
   const filtersActive =
     filterModel.items.length > 0 ||
@@ -385,6 +382,8 @@ export default function TasksGrid({
             openFilterDrawer: () => setFilterDrawerOpen(true),
             hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
             activeFilterCount: countActiveTaskFilters(drawerFilters),
+            checkboxSelectionMode,
+            setCheckboxSelectionMode,
           }}
         >
           <Box sx={{ position: 'relative' }}>
@@ -403,8 +402,8 @@ export default function TasksGrid({
               onPaginationModelChange={handlePaginationModelChange}
               filterModel={gridFilterModel}
               onFilterModelChange={handleFilterModelChange}
-              disableRowSelectionOnClick
-              onRowClick={handleRowClick}
+              disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+              onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
               getRowClassName={params =>
                 highlightedIds(NotificationSection.TASKS).includes(
                   String(params.id)
@@ -426,16 +425,28 @@ export default function TasksGrid({
                   cursor: 'pointer',
                 },
               }}
+              checkboxSelection={checkboxSelectionMode}
+              isRowSelectable={(params: GridRowParams) =>
+                can(params.row as unknown as Task, Capability.Task.DELETE)
+              }
+              rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+              onRowSelectionModelChange={
+                checkboxSelectionMode ? handleSelectionChange : undefined
+              }
             />
 
             <DeleteModal
               open={deleteModalOpen}
-              onClose={handleDeleteCancel}
-              onConfirm={handleDeleteConfirm}
+              onClose={cancelDelete}
+              onConfirm={confirmDelete}
               isLoading={isDeleting}
-              title="Delete Task"
-              message="Are you sure you want to delete this task? This action cannot be undone."
-              itemType="task"
+              title={pendingDeleteId ? 'Delete Task' : 'Delete Tasks'}
+              message={
+                pendingDeleteId
+                  ? 'Are you sure you want to delete this task? This action cannot be undone.'
+                  : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? This action cannot be undone.`
+              }
+              itemType="tasks"
             />
 
             <TaskFilterDrawer

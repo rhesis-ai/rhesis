@@ -5,6 +5,7 @@ import {
   TestRunCreate,
   TestRunUpdate,
   TestRunDetail,
+  TestRunBulkDeleteResponse,
 } from './interfaces/test-run';
 import { Requirement } from './interfaces/requirement';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -115,6 +116,16 @@ export class TestRunsClient extends BaseApiClient {
     return this.fetch(`${API_ENDPOINTS.testRuns}/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteTestRuns(
+    testRunIds: string[]
+  ): Promise<TestRunBulkDeleteResponse> {
+    return this.bulkDelete<TestRunBulkDeleteResponse>(
+      API_ENDPOINTS.testRuns,
+      'test_run_ids',
+      testRunIds
+    );
   }
 
   async getTestRunsByTestConfiguration(

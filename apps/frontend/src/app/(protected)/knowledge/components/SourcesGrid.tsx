@@ -22,8 +22,8 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
@@ -36,8 +36,11 @@ import SourceFilterDrawer, {
   hasActiveSourceFilters,
   countActiveSourceFilters,
 } from './SourceFilterDrawer';
-import { useQueryClient } from '@tanstack/react-query';
 import { sourceKeys } from '@/constants/query-keys';
+import {
+  useBulkDelete,
+  type BulkDeleteActionsState,
+} from '@/hooks/useBulkDelete';
 import { useGridState } from '@/hooks/useGridState';
 import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -47,6 +50,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 interface SourcesGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
 }
 
 interface SourcesToolbarState {
@@ -55,7 +59,8 @@ interface SourcesToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
-  onDeleteSource: (id: string) => void;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
@@ -64,7 +69,8 @@ const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
-  onDeleteSource: () => {},
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 function SourcesUnifiedToolbar() {
@@ -74,6 +80,8 @@ function SourcesUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(SourcesToolbarContext);
 
   return (
@@ -86,6 +94,11 @@ function SourcesUnifiedToolbar() {
       activeFilterCount={activeFilterCount}
       rightContent={
         <>
+          <SelectionModeToggle
+            checked={checkboxSelectionMode}
+            onChange={setCheckboxSelectionMode}
+            label="Select sources"
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -98,22 +111,38 @@ function SourcesUnifiedToolbar() {
 export default function SourcesGrid({
   canCreate,
   onCreateClick,
+  onBulkActionsChange,
 }: SourcesGridProps) {
   const router = useRouter();
   const { status } = useSession();
-  const notifications = useNotifications();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const canDeleteSource = useCan(Capability.Source.DELETE);
-  const queryClient = useQueryClient();
 
   // Component state
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const {
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
+    selectedRows,
+    handleSelectionChange,
+    pendingDeleteId,
+    deleteModalOpen,
+    isDeleting,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+  } = useBulkDelete({
+    bulkDeleteFn: (ids: string[]) =>
+      new ApiClientFactory().getSourcesClient().bulkDeleteSources(ids),
+    queryKey: sourceKeys.all(),
+    itemLabelSingular: 'source',
+    itemLabelPlural: 'sources',
+    onBulkActionsChange,
+  });
 
   const {
     filterModel,
@@ -206,46 +235,6 @@ export default function SourcesGrid({
     [router]
   );
 
-  const handleDeleteSource = useCallback((id: string) => {
-    setPendingDeleteId(id);
-    setDeleteModalOpen(true);
-  }, []);
-
-  const handleDeleteConfirm = async () => {
-    if (!pendingDeleteId) return;
-
-    try {
-      setIsDeleting(true);
-      const clientFactory = new ApiClientFactory();
-      const sourcesClient = clientFactory.getSourcesClient();
-
-      await sourcesClient.deleteSource(
-        pendingDeleteId as `${string}-${string}-${string}-${string}-${string}`
-      );
-
-      notifications.show('Successfully deleted source', {
-        severity: 'success',
-        autoHideDuration: 4000,
-      });
-
-      setPendingDeleteId(null);
-      queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-    } catch {
-      notifications.show('Failed to delete source', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalOpen(false);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteModalOpen(false);
-    setPendingDeleteId(null);
-  };
-
   const toolbarContextValue = useMemo(
     () => ({
       searchQuery,
@@ -253,16 +242,22 @@ export default function SourcesGrid({
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
       activeFilterCount: countActiveSourceFilters(drawerFilters),
-      onDeleteSource: handleDeleteSource,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
     }),
-    [searchQuery, drawerFilters, handleDeleteSource]
+    [
+      searchQuery,
+      drawerFilters,
+      checkboxSelectionMode,
+      setCheckboxSelectionMode,
+    ]
   );
 
   // Column definitions
   const columns: GridColDef[] = React.useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => router.push(`/knowledge/${id}`),
-      onDelete: id => handleDeleteSource(id),
+      onDelete: id => requestDelete(id),
       canEdit: () => canEditSource,
       canDelete: () => canDeleteSource,
     });
@@ -478,7 +473,7 @@ export default function SourcesGrid({
       },
       actionsCol,
     ];
-  }, [router, handleDeleteSource]);
+  }, [router, requestDelete]);
 
   if (error) {
     return (
@@ -534,20 +529,30 @@ export default function SourcesGrid({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             disablePaperWrapper={true}
-            onRowClick={handleRowClick}
+            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
             toolbarSlot={SourcesUnifiedToolbar}
             persistState
             sx={rowActionsHoverSx}
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
+            }
           />
 
           <DeleteModal
             open={deleteModalOpen}
-            onClose={handleDeleteCancel}
-            onConfirm={handleDeleteConfirm}
+            onClose={cancelDelete}
+            onConfirm={confirmDelete}
             isLoading={isDeleting}
-            title="Delete Source"
-            message="Are you sure you want to delete this source? This action cannot be undone."
-            itemType="source"
+            title={pendingDeleteId ? 'Delete Source' : 'Delete Sources'}
+            message={
+              pendingDeleteId
+                ? 'Are you sure you want to delete this source? This action cannot be undone.'
+                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}? This action cannot be undone.`
+            }
+            itemType="sources"
           />
 
           <SourceFilterDrawer

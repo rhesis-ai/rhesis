@@ -168,10 +168,7 @@ export class TestsClient extends BaseApiClient {
   }
 
   async bulkDeleteTests(testIds: string[]): Promise<void> {
-    await this.fetch<void>(`${API_ENDPOINTS.tests}/bulk`, {
-      method: 'DELETE',
-      body: JSON.stringify({ test_ids: testIds }),
-    });
+    await this.bulkDelete<void>(API_ENDPOINTS.tests, 'test_ids', testIds);
   }
 
   async createTestsBulk(

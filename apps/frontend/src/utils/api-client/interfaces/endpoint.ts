@@ -130,3 +130,8 @@ export interface EndpointTestRequest {
   query_params?: Record<string, unknown>;
   response_format?: 'json' | 'xml' | 'text';
 }
+
+export interface EndpointBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+}

@@ -9,10 +9,14 @@ import { testSetKeys } from '@/constants/query-keys';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import TestSetsGrid from './components/TestSetsGrid';
+import TestSetsGrid, {
+  type TestSetsBulkActionsState,
+} from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
 import FileImportDrawer from './components/FileImportDrawer';
 import SecurityTestDrawer from './components/SecurityTestDrawer';
@@ -39,6 +43,26 @@ export default function TestSetsPage() {
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
   const [securityDrawerOpen, setSecurityDrawerOpen] = React.useState(false);
+  const [bulkActions, setBulkActions] = React.useState<
+    Pick<TestSetsBulkActionsState, 'visible'>
+  >({ visible: false });
+  const bulkHandlersRef = React.useRef<
+    Pick<TestSetsBulkActionsState, 'onRun' | 'onDelete'>
+  >({
+    onRun: () => {},
+    onDelete: () => {},
+  });
+
+  const handleBulkActionsChange = React.useCallback(
+    (actions: TestSetsBulkActionsState) => {
+      setBulkActions({ visible: actions.visible });
+      bulkHandlersRef.current = {
+        onRun: actions.onRun,
+        onDelete: actions.onDelete,
+      };
+    },
+    []
+  );
 
   useDocumentTitle('Test Sets');
 
@@ -109,6 +133,28 @@ export default function TestSetsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
+            {bulkActions.visible && (
+              <>
+                <Fab
+                  icon={<PlayArrowIcon />}
+                  tooltip="Run Test Sets"
+                  aria-label="Run Test Sets"
+                  onClick={() => bulkHandlersRef.current.onRun()}
+                />
+                <Can capability={Capability.TestSet.DELETE}>
+                  <Fab
+                    icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                    tooltip="Delete Test Sets"
+                    aria-label="Delete Test Sets"
+                    onClick={() => bulkHandlersRef.current.onDelete()}
+                    sx={{
+                      bgcolor: 'error.main',
+                      '&:hover': { bgcolor: 'error.dark' },
+                    }}
+                  />
+                </Can>
+              </>
+            )}
             <Can capability={Capability.File.IMPORT}>
               <Fab
                 icon={<FileUploadIcon />}
@@ -159,6 +205,7 @@ export default function TestSetsPage() {
           <TestSetsGrid
             canCreate={canCreate}
             onCreateClick={() => setCreateDrawerOpen(true)}
+            onBulkActionsChange={handleBulkActionsChange}
           />
         </Box>
       </PageLayout>

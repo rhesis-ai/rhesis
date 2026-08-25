@@ -11,3 +11,8 @@ export interface TokenResponse {
   expires_at: string;
   name?: string;
 }
+
+export interface TokenBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+}
