@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import prompt as prompt_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -36,7 +37,7 @@ def create_prompt_template(
 ):
     """Create a new prompt template."""
     organization_id, user_id = tenant_context
-    return crud.create_prompt_template(
+    return prompt_crud.create_prompt_template(
         db=db, prompt_template=template, organization_id=organization_id, user_id=user_id
     )
 
@@ -56,7 +57,7 @@ def read_prompt_templates(
 ):
     """Get all prompt templates with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_prompt_templates(
+    return prompt_crud.get_prompt_templates(
         db=db,
         skip=skip,
         limit=limit,
@@ -76,7 +77,7 @@ def read_prompt_template(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_template = crud.get_prompt_template(
+    db_template = prompt_crud.get_prompt_template(
         db, prompt_template_id=prompt_template_id, organization_id=organization_id, user_id=user_id
     )
     if db_template is None:
@@ -92,7 +93,7 @@ def delete_prompt_template(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_prompt_template = crud.delete_prompt_template(
+    db_prompt_template = prompt_crud.delete_prompt_template(
         db, prompt_template_id=prompt_template_id, organization_id=organization_id, user_id=user_id
     )
     if db_prompt_template is None:
@@ -109,7 +110,7 @@ def update_prompt_template(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_prompt_template = crud.update_prompt_template(
+    db_prompt_template = prompt_crud.update_prompt_template(
         db,
         prompt_template_id=prompt_template_id,
         prompt_template=prompt_template,

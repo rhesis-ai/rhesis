@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.crud import prompt as prompt_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
@@ -80,7 +81,7 @@ def get_test_results_for_test_run(
             else None
         )
         prompt = (
-            crud.get_prompt(db, result.prompt_id, organization_id=organization_id)
+            prompt_crud.get_prompt(db, result.prompt_id, organization_id=organization_id)
             if result.prompt_id
             else None
         )
