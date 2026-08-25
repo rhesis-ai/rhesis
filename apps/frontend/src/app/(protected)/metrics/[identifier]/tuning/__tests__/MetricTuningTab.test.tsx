@@ -128,12 +128,6 @@ describe('MetricTuningTab', () => {
     expect(screen.getByText('I am fine, thanks.')).toBeInTheDocument();
   });
 
-  it('marks the tab as beta', async () => {
-    render(<MetricTuningTab metricId={METRIC_ID} />);
-
-    expect(await screen.findByText('beta')).toBeInTheDocument();
-  });
-
   it('creates a case from the add form', async () => {
     mockCreateTuningCase.mockResolvedValue(CASE);
     render(<MetricTuningTab metricId={METRIC_ID} />);
@@ -760,7 +754,8 @@ describe('MetricTuningTab — agreement', () => {
     expect(await screen.findByText('67%')).toBeInTheDocument();
     // The denominator travels with it: three out of three must not read like a
     // solved problem.
-    expect(screen.getByText(/over 3 of 3 cases judged/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 of 3 cases accepted/i)).toBeInTheDocument();
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
   });
 
   it('reports no agreement rather than full agreement when nothing is judged', async () => {
@@ -783,7 +778,7 @@ describe('MetricTuningTab — agreement', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     expect(await screen.findByText('100%')).toBeInTheDocument();
-    expect(screen.getByText(/over 1 of 3 cases judged/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 1 case accepted/i)).toBeInTheDocument();
     expect(screen.getByText(/2 unreviewed/i)).toBeInTheDocument();
   });
 

@@ -32,6 +32,7 @@ import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import { BetaBadge } from '@/components/common/BetaBadge';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import type {
   RequirementReference,
@@ -85,6 +86,9 @@ export default function MetricDetailPageTabs() {
     (key, index) => ({
       key,
       label: NAV_LABELS[key],
+      // Beta belongs on the tab, not inside the panel: it qualifies the whole
+      // feature, and in the panel header it read as a label on the buttons.
+      ...(key === 'tuning' && { badge: <BetaBadge /> }),
       id: `metric-detail-tab-${index}`,
       'aria-controls': `metric-detail-tabpanel-${index}`,
     })
