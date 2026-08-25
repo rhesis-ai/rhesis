@@ -2,6 +2,7 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
   Task,
+  TaskBulkDeleteResponse,
   TaskCreate,
   TaskUpdate,
   TasksQueryParams,
@@ -53,6 +54,14 @@ export class TasksClient extends BaseApiClient {
     await this.fetch<void>(`${API_ENDPOINTS.tasks}/${taskId}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteTasks(taskIds: string[]): Promise<TaskBulkDeleteResponse> {
+    return this.bulkDelete<TaskBulkDeleteResponse>(
+      API_ENDPOINTS.tasks,
+      'task_ids',
+      taskIds
+    );
   }
 
   async getTasksByEntity(

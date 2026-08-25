@@ -78,3 +78,9 @@ export interface Priority {
 // Entity types are defined canonically in `@/types/entity-type` and re-exported
 // here for backward compatibility.
 export { EntityType } from '@/types/entity-type';
+
+export interface TaskBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+  forbidden_ids: string[];
+}
