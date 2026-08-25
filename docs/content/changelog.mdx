@@ -62,10 +62,6 @@ See [Synthesizers](/sdk/synthesizers).
 
 Websocket-driven alerts when background work finishes — test set generation, Garak imports, test run executions, task assignments, and Architect plans. Sidebar badges and highlighted grid rows show what's new.
 
-**Usage quotas enforced**
-
-Limits now block instead of only informing: test executions, test generations, seats, projects, endpoints, and hosted-model tokens. Paid tiers get a 25% overage grace band, and an exhausted quota returns `402 Payment Required`. Self-hosted deployments still track usage but are never blocked — `USAGE_QUOTAS_ENABLED` defaults to off.
-
 **Behavior is now Requirement**
 
 The Behavior entity is renamed to Requirement everywhere: database, API, SDK, and UI. `/behaviors` routes redirect to `/requirements`.
