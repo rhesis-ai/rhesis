@@ -13,13 +13,16 @@ unlike its predecessor it covers every job type rather than only test runs.
 import logging
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.models.enums import JobStatus
 from rhesis.backend.app.utils.crud_utils import get_item_detail, get_items_detail
+from rhesis.backend.app.utils.query_utils import include
 
 logger = logging.getLogger(__name__)
+
+_JOB_RELATED_FIELDS = (include(models.Job.user),)
 
 
 def get_jobs(
@@ -40,6 +43,7 @@ def get_jobs(
         sort_by,
         sort_order,
         filter,
+        related_fields=_JOB_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -55,6 +59,7 @@ def get_job(
         db,
         models.Job,
         job_id,
+        related_fields=_JOB_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -71,7 +76,11 @@ def get_job_by_celery_task_id(
     session's ambient scope, so this is a real ownership check when it backs a
     status endpoint.
     """
-    query = db.query(models.Job).filter(models.Job.celery_task_id == celery_task_id)
+    query = (
+        db.query(models.Job)
+        .options(joinedload(models.Job.user))
+        .filter(models.Job.celery_task_id == celery_task_id)
+    )
     if organization_id:
         query = query.filter(models.Job.organization_id == organization_id)
     return query.first()

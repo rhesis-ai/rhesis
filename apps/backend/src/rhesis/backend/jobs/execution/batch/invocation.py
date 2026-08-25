@@ -67,7 +67,7 @@ async def resolve_contract_lazy(
     def _resolve():
         from rhesis.backend.app import crud
         from rhesis.backend.app.database import get_db_with_tenant_variables
-        from rhesis.backend.tasks.execution.executors.output_providers import (
+        from rhesis.backend.jobs.execution.executors.output_providers import (
             resolve_multi_turn_contract,
         )
 

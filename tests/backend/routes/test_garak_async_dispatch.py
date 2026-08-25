@@ -192,7 +192,7 @@ class TestGenerateDynamicProbeDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
         ):
             mock_generator_cls.return_value.build.return_value = (
                 MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
@@ -216,7 +216,7 @@ class TestGenerateDynamicProbeDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
-            patch("rhesis.backend.app.routers.garak.task_launcher") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
         ):
             mock_generator_cls.return_value.build.return_value = (
                 MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),

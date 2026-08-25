@@ -716,11 +716,11 @@ class TestEvaluateMultiTurnMetricsContract:
 
         with (
             patch(
-                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                "rhesis.backend.jobs.execution.executors.data.get_test_metrics",
                 return_value=[{"name": "goal_achievement"}],
             ),
             patch(
-                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                "rhesis.backend.jobs.execution.executors.metrics.prepare_metric_configs",
                 return_value=[{"name": "goal_achievement"}],
             ),
         ):
@@ -757,15 +757,15 @@ class TestEvaluateMultiTurnMetricsContract:
 
         with (
             patch(
-                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                "rhesis.backend.jobs.execution.executors.data.get_test_metrics",
                 return_value=[{"name": "goal_achievement"}],
             ),
             patch(
-                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                "rhesis.backend.jobs.execution.executors.metrics.prepare_metric_configs",
                 return_value=[{"name": "goal_achievement"}],
             ),
             patch(
-                "rhesis.backend.tasks.execution.evaluation.MetricEvaluator",
+                "rhesis.backend.jobs.execution.evaluation.MetricEvaluator",
                 return_value=mock_evaluator_instance,
             ),
         ):
@@ -798,11 +798,11 @@ class TestEvaluateMultiTurnMetricsContract:
 
         with (
             patch(
-                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                "rhesis.backend.jobs.execution.executors.data.get_test_metrics",
                 return_value=[{"name": "goal_achievement"}],
             ),
             patch(
-                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                "rhesis.backend.jobs.execution.executors.metrics.prepare_metric_configs",
                 return_value=[{"name": "goal_achievement"}],
             ),
         ):

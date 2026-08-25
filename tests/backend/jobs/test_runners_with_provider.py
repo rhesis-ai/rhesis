@@ -397,7 +397,7 @@ class TestMultiTurnRunnerContractUsability:
         mock_test.test_configuration = {"goal": "Test"}
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            "rhesis.backend.jobs.execution.executors.runners.evaluate_multi_turn_metrics",
             return_value={},
         ) as mock_evaluate:
             runner = MultiTurnRunner()
@@ -432,7 +432,7 @@ class TestMultiTurnRunnerContractUsability:
         mock_test.test_configuration = {"goal": "Test"}
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            "rhesis.backend.jobs.execution.executors.runners.evaluate_multi_turn_metrics",
             return_value={"Tone Judge": {"is_successful": True, "score": 0.9}},
         ):
             runner = MultiTurnRunner()
@@ -465,7 +465,7 @@ class TestMultiTurnRunnerContractUsability:
         mock_test.test_configuration = {"goal": "Test"}
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            "rhesis.backend.jobs.execution.executors.runners.evaluate_multi_turn_metrics",
             return_value={},
         ):
             runner = MultiTurnRunner()
@@ -498,7 +498,7 @@ class TestMultiTurnRunnerContractUsability:
         mock_test.test_configuration = {"goal": "Test"}
 
         with patch(
-            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            "rhesis.backend.jobs.execution.executors.runners.evaluate_multi_turn_metrics",
             return_value={"goal_achievement": {"is_successful": True, "score": 1.0}},
         ):
             runner = MultiTurnRunner()

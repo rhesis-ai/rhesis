@@ -338,7 +338,7 @@ class TestSingleTurnOutputParamsInjection:
 # unit test (confirmed: ~8s and a genuine network call in this environment). Every
 # TestMultiTurnOutput test patches it at its call site inside output_providers.py.
 _RESOLVE_CONTRACT = (
-    "rhesis.backend.tasks.execution.executors.output_providers.resolve_multi_turn_contract"
+    "rhesis.backend.jobs.execution.executors.output_providers.resolve_multi_turn_contract"
 )
 
 
@@ -517,7 +517,7 @@ class TestMultiTurnOutput:
             patch(_RESOLVE_CONTRACT, return_value=(resolved_contract, True)),
             patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
             patch(
-                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
+                "rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget",
             ),
         ):
             provider = MultiTurnOutput(model=MagicMock())
@@ -550,7 +550,7 @@ class TestMultiTurnOutput:
             patch(_RESOLVE_CONTRACT, return_value=(None, False)),
             patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
             patch(
-                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
+                "rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget",
             ),
         ):
             provider = MultiTurnOutput(model=MagicMock())
