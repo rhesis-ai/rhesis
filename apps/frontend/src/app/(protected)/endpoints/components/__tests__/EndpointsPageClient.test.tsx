@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import EndpointsPage from '../page';
+import EndpointsPageClient from '../EndpointsPageClient';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -31,7 +31,7 @@ jest.mock('@/components/common/Can', () => ({
 // EndpointsGrid owns the query and the loading/empty/populated decision
 // itself — the page's only job is to wire `canCreate` and `onCreateClick`
 // through to it correctly.
-jest.mock('../components/EndpointsGrid', () => {
+jest.mock('../EndpointsGrid', () => {
   return function MockEndpointsGrid({
     canCreate,
     onCreateClick,
@@ -47,20 +47,20 @@ jest.mock('../components/EndpointsGrid', () => {
   };
 });
 
-jest.mock('../components/EndpointCreateDrawer', () => {
+jest.mock('../EndpointCreateDrawer', () => {
   return function MockEndpointCreateDrawer({ open }: { open: boolean }) {
     return open ? <div data-testid="endpoint-create-drawer" /> : null;
   };
 });
 
-describe('EndpointsPage', () => {
+describe('EndpointsPageClient', () => {
   it('passes canCreate through to the grid', () => {
-    render(<EndpointsPage />);
+    render(<EndpointsPageClient initialTotalCount={0} />);
     expect(screen.getByText('mock-create-endpoint')).toBeEnabled();
   });
 
   it('opens the create drawer when the grid invokes onCreateClick', async () => {
-    render(<EndpointsPage />);
+    render(<EndpointsPageClient initialTotalCount={0} />);
     await userEvent.click(screen.getByText('mock-create-endpoint'));
     expect(screen.getByTestId('endpoint-create-drawer')).toBeInTheDocument();
   });
