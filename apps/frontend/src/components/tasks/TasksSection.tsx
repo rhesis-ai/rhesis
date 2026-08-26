@@ -298,7 +298,6 @@ export function TasksSection({
           paginationModel={paginationModel}
           onPaginationModelChange={handlePaginationModelChange}
           getRowId={row => row.id}
-          showToolbar={true}
           disablePaperWrapper={true}
           serverSidePagination={true}
           totalRows={totalCount}

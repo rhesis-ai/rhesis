@@ -386,7 +386,6 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
                 getRowId={row => row.id}
                 loading={loading}
                 toolbarSlot={TraceMetricsToolbar}
-                showToolbar
                 disablePaperWrapper
                 pageSizeOptions={[10, 25, 50]}
                 initialState={{

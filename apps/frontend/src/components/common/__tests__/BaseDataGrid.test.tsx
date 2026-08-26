@@ -146,26 +146,6 @@ describe('BaseDataGrid', () => {
     return result;
   }
 
-  describe('title', () => {
-    it('renders title when provided', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          title="My Grid"
-        />
-      );
-      expect(
-        screen.getByRole('heading', { name: 'My Grid' })
-      ).toBeInTheDocument();
-    });
-
-    it('does not render a heading when title is omitted', () => {
-      renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
-      expect(screen.queryByRole('heading')).not.toBeInTheDocument();
-    });
-  });
-
   describe('data grid rendering', () => {
     it('renders the data grid', () => {
       renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
@@ -198,75 +178,11 @@ describe('BaseDataGrid', () => {
     });
   });
 
-  describe('action buttons', () => {
-    it('renders a simple action button', () => {
-      const onClick = jest.fn();
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[{ label: 'Add Item', onClick }]}
-        />
-      );
-      expect(
-        screen.getByRole('button', { name: /add item/i })
-      ).toBeInTheDocument();
-    });
-
-    it('calls onClick when action button is clicked', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const onClick = jest.fn();
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[{ label: 'Add Item', onClick }]}
-        />
-      );
-      await user.click(screen.getByRole('button', { name: /add item/i }));
-      expect(onClick).toHaveBeenCalledTimes(1);
-    });
-
-    it('renders disabled action button when disabled=true', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[
-            { label: 'Locked', onClick: jest.fn(), disabled: true },
-          ]}
-        />
-      );
-      expect(screen.getByRole('button', { name: /locked/i })).toBeDisabled();
-    });
-
-    it('renders multiple action buttons', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[
-            { label: 'Add', onClick: jest.fn() },
-            { label: 'Export', onClick: jest.fn() },
-          ]}
-        />
-      );
-      expect(
-        screen.getByRole('button', { name: /^add$/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: /export/i })
-      ).toBeInTheDocument();
-    });
-
-    it('does not inject action buttons when actionButtons prop is omitted', () => {
-      renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
-      // BaseDataGrid only renders action-button elements when the actionButtons
-      // prop is supplied.  The DataGrid itself is mocked here (no built-in
-      // toolbar/quick-filter buttons), so we can assert that the component
-      // introduces no button elements of its own when no actions are requested.
-      expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    });
+  it('introduces no button elements of its own', () => {
+    // The DataGrid itself is mocked here (no built-in toolbar buttons), so
+    // BaseDataGrid should render zero buttons around it.
+    renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   describe('row click', () => {
@@ -284,59 +200,6 @@ describe('BaseDataGrid', () => {
       expect(onRowClick).toHaveBeenCalledWith(
         expect.objectContaining({ row: sampleRows[0] })
       );
-    });
-  });
-
-  describe('dropdown filters', () => {
-    const filters = [
-      {
-        name: 'status',
-        label: 'Status',
-        filterField: 'status',
-        defaultValue: 'all',
-        options: [
-          { value: 'all', label: 'All' },
-          { value: 'active', label: 'Active' },
-          { value: 'inactive', label: 'Inactive' },
-        ],
-      },
-    ];
-
-    it('renders a filter dropdown when filters are provided', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          filters={filters}
-        />
-      );
-      expect(screen.getByLabelText(/status/i)).toBeInTheDocument();
-    });
-
-    it('shows all rows when filter default is "all"', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          filters={filters}
-        />
-      );
-      expect(screen.getByText('Alice')).toBeInTheDocument();
-      expect(screen.getByText('Bob')).toBeInTheDocument();
-      expect(screen.getByText('Charlie')).toBeInTheDocument();
-    });
-  });
-
-  describe('custom toolbar content', () => {
-    it('renders custom toolbar content', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          customToolbarContent={<div data-testid="custom-toolbar">Custom</div>}
-        />
-      );
-      expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument();
     });
   });
 

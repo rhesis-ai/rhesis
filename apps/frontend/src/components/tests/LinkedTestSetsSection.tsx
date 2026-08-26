@@ -276,7 +276,6 @@ export default function LinkedTestSetsSection({
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
             getRowId={row => row.id}
-            showToolbar={true}
             disablePaperWrapper={true}
             serverSidePagination={true}
             totalRows={totalCount}

@@ -493,7 +493,6 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
               getRowId={row => row.name}
               loading={loading}
               toolbarSlot={EnvironmentsToolbar}
-              showToolbar
               disablePaperWrapper
               pageSizeOptions={[10, 25, 50]}
               initialState={{
