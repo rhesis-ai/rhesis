@@ -478,6 +478,9 @@ export const authConfig: NextAuthConfig = {
               organization_id:
                 claims.organization_id ?? token.user.organization_id,
               name: claims.name ?? token.user.name,
+              email: claims.email ?? token.user.email,
+              image: claims.picture ?? token.user.image,
+              picture: claims.picture ?? token.user.picture,
             };
           }
         }

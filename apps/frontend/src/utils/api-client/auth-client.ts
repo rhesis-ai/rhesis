@@ -30,3 +30,32 @@ export async function acceptTerms(): Promise<void> {
     throw new Error('Failed to record terms acceptance');
   }
 }
+
+export interface ChangePasswordParams {
+  current_password?: string;
+  new_password: string;
+}
+
+export interface ChangePasswordResponse {
+  success: boolean;
+  message: string;
+  session_token: string;
+}
+
+export async function changePassword(
+  params: ChangePasswordParams
+): Promise<ChangePasswordResponse> {
+  const response = await fetch('/api/backend/auth/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || 'Password change failed');
+  }
+
+  return response.json();
+}
