@@ -1,16 +1,17 @@
 'use client';
 
+import type { GridPaginationModel } from '@mui/x-data-grid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
-  directoryListParams,
-  type DirectoryDescriptor,
+  listParams,
+  type ListDescriptor,
   type FilterSpecMap,
   type FiltersOf,
-} from '@/utils/directory';
-import { useDirectoryAuthGate } from './useDirectoryAuthGate';
+} from '@/utils/list';
+import { useListAuthGate } from './useListAuthGate';
 import { usePaginatedList } from './usePaginatedList';
 
-interface UseDirectoryListOptions<T, S extends FilterSpecMap> {
+interface UseListOptions<T, S extends FilterSpecMap> {
   filters: FiltersOf<S>;
   initialData?: T[];
   initialTotalCount?: number;
@@ -19,27 +20,27 @@ interface UseDirectoryListOptions<T, S extends FilterSpecMap> {
 }
 
 /**
- * The client-side half of a directory page: permission gate + paginated fetch,
+ * The client-side half of a list page: permission gate + paginated fetch,
  * both driven off one descriptor. Page/rowsPerPage state lives in
  * `usePaginatedList`; filters are owned by the caller and passed in.
  */
-export function useDirectoryList<T, S extends FilterSpecMap>(
-  descriptor: DirectoryDescriptor<T, S>,
+export function useList<T, S extends FilterSpecMap>(
+  descriptor: ListDescriptor<T, S>,
   {
     filters,
     initialData,
     initialTotalCount,
     onData,
     onError,
-  }: UseDirectoryListOptions<T, S>
+  }: UseListOptions<T, S>
 ) {
-  const gate = useDirectoryAuthGate(descriptor);
+  const gate = useListAuthGate(descriptor);
 
   const list = usePaginatedList<T>({
     fetchPage: ({ skip, limit }) =>
       descriptor.list(
         new ApiClientFactory(),
-        directoryListParams(descriptor, {
+        listParams(descriptor, {
           page: skip / limit + 1,
           pageSize: limit,
           sort: descriptor.defaultSort,
@@ -59,5 +60,14 @@ export function useDirectoryList<T, S extends FilterSpecMap>(
     ...list,
     ready: gate.ready,
     gateNode: gate.ready ? null : gate.node,
+    /** Spread onto `<BaseDataGrid>` alongside `rowCount`/`loading`/`serverSidePagination`. */
+    paginationModel: { page: list.page, pageSize: list.rowsPerPage },
+    onPaginationModelChange: (model: GridPaginationModel) => {
+      if (model.pageSize !== list.rowsPerPage) {
+        list.onRowsPerPageChange(model.pageSize);
+      } else {
+        list.onPageChange(model.page);
+      }
+    },
   };
 }

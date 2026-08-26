@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, TextField } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -9,10 +10,10 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
-import { EMPTY_TEAM_FILTERS, type TeamFilters } from '@/utils/odata-filter';
+import { EMPTY_TEAM_FILTERS, type TeamFilters } from './list';
 
 export { EMPTY_TEAM_FILTERS, type TeamFilters };
-export { hasActiveTeamFilters } from '@/utils/odata-filter';
+export { hasActiveTeamFilters } from './list';
 
 const MEMBER_STATUS_OPTIONS = [
   { label: 'Active', value: 'active' as const },
@@ -51,7 +52,7 @@ export default function TeamFilterDrawer({
       fontSize: 14,
     },
     '& .MuiOutlinedInput-input': {
-      padding: '20px 14px',
+      padding: (theme: Theme) => theme.spacing(2.5, 1.75),
     },
   };
 

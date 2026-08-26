@@ -1,6 +1,6 @@
 import { escapeODataValue } from '@/utils/odata-filter';
 import type {
-  DirectoryDescriptor,
+  ListDescriptor,
   FilterSpec,
   FilterSpecMap,
   FiltersOf,
@@ -76,7 +76,7 @@ function clauseFor(
 }
 
 /**
- * Builds the `$filter` for a directory page from its descriptor. Replaces the
+ * Builds the `$filter` for a list page from its descriptor. Replaces the
  * per-entity `build<Entity>ODataFilter` functions -- clauses are AND'd, and an
  * inactive filter contributes nothing. Returns undefined when nothing is active,
  * so the caller can omit `$filter` entirely.
@@ -84,8 +84,8 @@ function clauseFor(
  * `extra` is for clauses the filters don't own, e.g. scoping an embedded grid to
  * one project.
  */
-export function buildDirectoryFilter<S extends FilterSpecMap>(
-  descriptor: DirectoryDescriptor<unknown, S>,
+export function buildListFilter<S extends FilterSpecMap>(
+  descriptor: ListDescriptor<unknown, S>,
   filters: FiltersOf<S>,
   extra: (string | undefined)[] = []
 ): string | undefined {

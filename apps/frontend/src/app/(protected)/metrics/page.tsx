@@ -1,11 +1,11 @@
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, directoryListParams } from '@/utils/directory';
+import { emptyFilters, listParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import MetricsClientComponent from './components/MetricsClient';
 import type { UUID } from 'crypto';
-import { metricsDirectory } from './components/directory';
+import { metricsList } from './components/list';
 
 /**
  * Server component: fetches the first page of metrics before rendering so
@@ -26,11 +26,11 @@ export default async function MetricsPage() {
     Capability.Metric.READ,
     () =>
       client.getMetrics(
-        directoryListParams(metricsDirectory, {
+        listParams(metricsList, {
           page: 1,
-          pageSize: metricsDirectory.defaultPageSize,
-          sort: metricsDirectory.defaultSort,
-          filters: emptyFilters(metricsDirectory),
+          pageSize: metricsList.defaultPageSize,
+          sort: metricsList.defaultSort,
+          filters: emptyFilters(metricsList),
         })
       )
   );

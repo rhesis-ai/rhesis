@@ -10,33 +10,33 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
-interface UseDirectoryAuthGateOptions {
+interface UseListAuthGateOptions {
   /** A single capability, or two combined with OR (e.g. Annotations' TestResult.READ / Telemetry.READ). */
   capability: string | readonly [string, string];
   resource: string;
   title: string;
 }
 
-type DirectoryAuthGateResult =
+type ListAuthGateResult =
   | { ready: true }
   | { ready: false; node: React.ReactNode };
 
 /**
- * Shared client-side render gate for directory pages: session loading -> perms
+ * Shared client-side render gate for list pages: session loading -> perms
  * loading -> AccessDenied -> no-session, in that order, identical across every
  * page. This is the CLIENT-side check -- it always re-verifies, independent of
- * whatever `fetchDirectoryPage` decided server-side about whether to embed data
+ * whatever `fetchListPage` decided server-side about whether to embed data
  * (see that function's docstring for why both layers matter).
  *
  * Capped at two capabilities (OR'd) because `useCanWithStatus` is a hook and
  * can't be called a variable number of times per render -- today only
  * Annotations needs two; extend this if a third page ever needs more.
  */
-export function useDirectoryAuthGate({
+export function useListAuthGate({
   capability,
   resource,
   title,
-}: UseDirectoryAuthGateOptions): DirectoryAuthGateResult {
+}: UseListAuthGateOptions): ListAuthGateResult {
   const { status } = useSession();
   const [primary, secondary] = Array.isArray(capability)
     ? capability

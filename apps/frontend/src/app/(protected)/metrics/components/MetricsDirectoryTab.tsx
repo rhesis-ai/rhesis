@@ -30,7 +30,7 @@ import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './directory';
+import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
 export interface FilterState {
   search: string;
   backend: string[];

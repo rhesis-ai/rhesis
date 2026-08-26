@@ -1,9 +1,15 @@
 'use client';
 
-import React, { useState, useCallback, useContext, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
-  GridFilterModel,
   GridRowParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
@@ -21,7 +27,9 @@ import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { combineTaskFiltersToOData } from '@/utils/odata-filter';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { listParams } from '@/utils/list';
+import { tasksList } from './list';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import TaskFilterDrawer, {
   type TaskFilters,
@@ -39,13 +47,10 @@ import {
   HIGHLIGHTED_ROW_CLASS,
   NotificationSection,
 } from '@/constants/notifications';
-import { taskKeys } from '@/constants/query-keys';
 import {
   useBulkDelete,
   type BulkDeleteActionsState,
 } from '@/hooks/useBulkDelete';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -54,6 +59,8 @@ interface TasksGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
+  /** Bumped by the page after a create succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 const STATUS_PILL_TABS = [
@@ -136,6 +143,7 @@ export default function TasksGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
+  refreshTrigger,
 }: TasksGridProps) {
   const router = useRouter();
   const { highlightedIds, clearHighlight } = useJobNotifications();
@@ -146,6 +154,73 @@ export default function TasksGrid({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
+  const [errorDismissed, setErrorDismissed] = useState(false);
+
+  // A pill click wins over the drawer's own status value, matching the old
+  // useGridState behavior (pill applied after drawer filters).
+  const effectiveStatus =
+    statusFilter !== 'all' ? statusFilter : drawerFilters.status;
+
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      status: effectiveStatus,
+      priority: drawerFilters.priority,
+      assignee: drawerFilters.assignee,
+    }),
+    [
+      searchQuery,
+      effectiveStatus,
+      drawerFilters.priority,
+      drawerFilters.assignee,
+    ]
+  );
+
+  const {
+    data: tasks,
+    totalCount,
+    isLoading: loading,
+    error: rawError,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<Task>({
+    fetchPage: ({ skip, limit }) =>
+      tasksList.list(
+        new ApiClientFactory(),
+        listParams(tasksList, {
+          page: skip / limit + 1,
+          pageSize: limit,
+          sort: tasksList.defaultSort,
+          filters,
+        })
+      ),
+    filterFingerprint: JSON.stringify(filters),
+    defaultPageSize: tasksList.defaultPageSize,
+    enabled: isAuthenticated(status),
+    onError: () => setErrorDismissed(false),
+  });
+
+  useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
+
+  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (model.pageSize !== pageSize) {
+        onRowsPerPageChange(model.pageSize);
+      } else {
+        onPageChange(model.page);
+      }
+    },
+    [pageSize, onPageChange, onRowsPerPageChange]
+  );
 
   const {
     checkboxSelectionMode,
@@ -161,7 +236,7 @@ export default function TasksGrid({
   } = useBulkDelete({
     bulkDeleteFn: (ids: string[]) =>
       new ApiClientFactory().getTasksClient().bulkDeleteTasks(ids),
-    queryKey: taskKeys.all(),
+    onSuccess: refresh,
     itemLabelSingular: 'task',
     itemLabelPlural: 'tasks',
     getSkippedCount: response => response.forbidden_ids.length,
@@ -169,95 +244,16 @@ export default function TasksGrid({
     onBulkActionsChange,
   });
 
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    sortModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-    handleSortModelChange,
-  } = useGridState({
-    searchQuery,
-    typeFilter: statusFilter,
-    typeFilterField: 'status',
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) => {
-        const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
-        const otherItems = prev.items.filter(
-          item => !DRAWER_FIELDS.includes(item.field ?? '')
-        );
-        const drawerItems: typeof prev.items = [];
-        if (drawerFilters.status) {
-          drawerItems.push({
-            id: 'status',
-            field: 'status',
-            operator: 'equals',
-            value: drawerFilters.status,
-          });
-        }
-        if (drawerFilters.priority) {
-          drawerItems.push({
-            id: 'priority',
-            field: 'priority',
-            operator: 'equals',
-            value: drawerFilters.priority,
-          });
-        }
-        if (drawerFilters.assignee) {
-          drawerItems.push({
-            id: 'assignee',
-            field: 'assignee',
-            operator: 'equals',
-            value: drawerFilters.assignee,
-          });
-        }
-        const newItems = [...otherItems, ...drawerItems];
-        if (
-          newItems.length === prev.items.length &&
-          newItems.every((it, i) => it === prev.items[i])
-        )
-          return prev;
-        return { ...prev, items: newItems };
-      },
-      [drawerFilters]
-    ),
-  });
-
-  const filterString = combineTaskFiltersToOData(filterModel);
-  const {
-    data: tasksData,
-    isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: taskKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      'created_at',
-      'desc'
-    ),
-    errorFallbackMessage: 'Failed to load tasks',
-    queryFn: () => {
-      const client = new ApiClientFactory().getTasksClient();
-      return client.getTasks({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-        ...(filterString && { $filter: filterString }),
-      });
-    },
-    enabled: isAuthenticated(status),
-    // Always refetch when the list is opened -- a task assigned to you while
-    // you were elsewhere must show up on arrival. See the same note in
-    // TestSetsGrid.
-    staleTime: 0,
-  });
-  const tasks: Task[] = tasksData?.data ?? [];
-  const totalCount = tasksData?.pagination.totalCount ?? 0;
+  const isFirstRefreshTrigger = useRef(true);
+  useEffect(() => {
+    if (isFirstRefreshTrigger.current) {
+      isFirstRefreshTrigger.current = false;
+      return;
+    }
+    refresh();
+    // Only refreshTrigger (bumped by the page after a create) should re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -352,14 +348,11 @@ export default function TasksGrid({
     ];
   }, [router, requestDelete]);
 
-  const filtersActive =
-    filterModel.items.length > 0 ||
-    !!searchQuery ||
-    hasActiveTaskFilters(drawerFilters);
+  const filtersActive = !!searchQuery || hasActiveTaskFilters(drawerFilters);
 
   return (
     <GridStateGate
-      data={tasksData}
+      data={loading ? null : {}}
       error={error}
       isEmpty={totalCount === 0 && !filtersActive}
       emptyState={
@@ -400,8 +393,6 @@ export default function TasksGrid({
               getRowId={row => row.id}
               paginationModel={paginationModel}
               onPaginationModelChange={handlePaginationModelChange}
-              filterModel={gridFilterModel}
-              onFilterModelChange={handleFilterModelChange}
               disableRowSelectionOnClick={checkboxSelectionMode || undefined}
               onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
               getRowClassName={params =>

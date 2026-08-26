@@ -4,8 +4,6 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { useQueryClient } from '@tanstack/react-query';
-import { testSetKeys } from '@/constants/query-keys';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -31,7 +29,6 @@ import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 export default function TestSetsPage() {
   const { status } = useSession();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const notifications = useNotifications();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestSet.READ
@@ -52,6 +49,11 @@ export default function TestSetsPage() {
     onRun: () => {},
     onDelete: () => {},
   });
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
+  const bumpRefreshTrigger = React.useCallback(
+    () => setRefreshTrigger(prev => prev + 1),
+    []
+  );
 
   const handleBulkActionsChange = React.useCallback(
     (actions: TestSetsBulkActionsState) => {
@@ -68,39 +70,39 @@ export default function TestSetsPage() {
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-  }, [queryClient]);
+    bumpRefreshTrigger();
+  }, [bumpRefreshTrigger]);
 
   const handleFileImportSuccess = React.useCallback(
     (_testSetId: string) => {
-      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+      bumpRefreshTrigger();
       notifications.show('Test set imported successfully from file', {
         severity: 'success',
       });
     },
-    [queryClient, notifications]
+    [bumpRefreshTrigger, notifications]
   );
 
   const handleGarakImportStarted = React.useCallback(() => {
     // Import/generation run as background tasks — this fires once they're
-    // queued, not once they're done. Invalidate now so the list picks up
+    // queued, not once they're done. Refresh now so the list picks up
     // completed test sets whenever the user next revisits it.
-    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+    bumpRefreshTrigger();
     notifications.show(
       'Garak import started — the test set(s) will appear in your list shortly',
       { severity: 'success', autoHideDuration: 6000 }
     );
-  }, [queryClient, notifications]);
+  }, [bumpRefreshTrigger, notifications]);
 
   const handleOwaspGenerateSuccess = React.useCallback(() => {
     // Generation runs as a background task — this fires once it's queued,
-    // not once it's done. Invalidate now so the list picks up the completed
+    // not once it's done. Refresh now so the list picks up the completed
     // test set whenever the user next revisits it, mirroring Garak import.
-    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+    bumpRefreshTrigger();
     notifications.show('OWASP test set generation started', {
       severity: 'success',
     });
-  }, [queryClient, notifications]);
+  }, [bumpRefreshTrigger, notifications]);
 
   if (isSessionLoading(status)) {
     return (
@@ -206,6 +208,7 @@ export default function TestSetsPage() {
             canCreate={canCreate}
             onCreateClick={() => setCreateDrawerOpen(true)}
             onBulkActionsChange={handleBulkActionsChange}
+            refreshTrigger={refreshTrigger}
           />
         </Box>
       </PageLayout>

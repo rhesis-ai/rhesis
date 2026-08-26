@@ -1,24 +1,14 @@
 'use client';
 
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import {
   GridColDef,
-  GridFilterModel,
-  GridPaginationModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
@@ -50,10 +40,11 @@ import GridStateGate from '@/components/common/GridStateGate';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { listParams } from '@/utils/list';
+import { experimentsList } from './list';
 import CreateExperimentDialog from './CreateExperimentDialog';
 import { formatDate } from '@/utils/date';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 // ─── Toolbar context ───────────────────────────────────────────────────────────
 
@@ -152,137 +143,84 @@ function ExperimentsFilterDrawer({
   );
 }
 
-export default function ExperimentsClientWrapper() {
-  const isMounted = useRef(false);
+interface ExperimentsClientWrapperProps {
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: ExperimentRead[];
+  initialTotalCount?: number;
+}
+
+export default function ExperimentsClientWrapper({
+  initialData,
+  initialTotalCount,
+}: ExperimentsClientWrapperProps) {
   const router = useRouter();
-  const { status } = useSession();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Experiment.READ
   );
   const canCreateExperiment = useCan(Capability.Experiment.CREATE);
-  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState<string>('');
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 25,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
 
-  const apiFactory = useMemo(() => new ApiClientFactory(), []);
-
-  const initialLoadDone = useRef(false);
-
-  const fetchExperiments = useCallback(
-    async (skip: number, limit: number) => {
-      if (!isAuthenticated(status)) return;
-
-      try {
-        // Only show loading overlay on the first load
-        if (!initialLoadDone.current && isMounted.current) {
-          setLoading(true);
-        }
-
-        const parametersClient = apiFactory.getParametersClient();
-        const filterString = combineExperimentFiltersToOData(filterModel);
-
-        const { data, totalCount: count } =
-          await parametersClient.listExperiments({
-            skip,
-            limit,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-            ...(filterString && { filter: filterString }),
-          });
-
-        if (isMounted.current) {
-          setExperiments(data);
-          setTotalCount(count);
-          initialLoadDone.current = true;
-        }
-      } catch {
-        if (isMounted.current) {
-          notifications.show('Failed to load experiments', {
-            severity: 'error',
-          });
-          setExperiments([]);
-        }
-      } finally {
-        if (isMounted.current) setLoading(false);
-      }
-    },
-    [status, apiFactory, filterModel, notifications]
+  const filters = useMemo(
+    () => ({ search: searchQuery, visibility: visibilityFilter }),
+    [searchQuery, visibilityFilter]
   );
 
-  useEffect(() => {
-    isMounted.current = true;
+  const {
+    data: experiments,
+    totalCount,
+    isLoading: loading,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<ExperimentRead>({
+    fetchPage: ({ skip, limit }) =>
+      experimentsList.list(
+        new ApiClientFactory(),
+        listParams(experimentsList, {
+          page: skip / limit + 1,
+          pageSize: limit,
+          sort: experimentsList.defaultSort,
+          filters,
+        })
+      ),
+    filterFingerprint: JSON.stringify(filters),
+    defaultPageSize: experimentsList.defaultPageSize,
+    initialData,
+    initialTotalCount,
+    onError: () =>
+      notifications.show('Failed to load experiments', { severity: 'error' }),
+  });
 
-    const skip = paginationModel.page * paginationModel.pageSize;
-    fetchExperiments(skip, paginationModel.pageSize);
-
-    return () => {
-      isMounted.current = false;
-    };
-  }, [paginationModel, fetchExperiments]);
-
-  const handleFilterModelChange = useCallback(
-    (newFilterModel: GridFilterModel) => {
-      setFilterModel(newFilterModel);
-      setPaginationModel(prev => ({ ...prev, page: 0 }));
+  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (model.pageSize !== pageSize) {
+        onRowsPerPageChange(model.pageSize);
+      } else {
+        onPageChange(model.page);
+      }
     },
-    []
+    [pageSize, onPageChange, onRowsPerPageChange]
   );
-
-  // Sync search + visibility into the filter model
-  useEffect(() => {
-    setFilterModel(prev => {
-      const items = [];
-      if (searchQuery.trim()) {
-        items.push({
-          field: '__quickFilter__',
-          operator: 'contains',
-          value: searchQuery.trim(),
-        });
-      }
-      if (visibilityFilter) {
-        items.push({
-          field: 'visibility',
-          operator: 'equals',
-          value: visibilityFilter,
-        });
-      }
-      if (
-        items.length === prev.items.length &&
-        items.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return { items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [searchQuery, visibilityFilter]);
 
   const handleDeleteExperiment = async () => {
     if (!deleteTargetId) return;
     setDeleting(true);
     try {
-      const parametersClient = apiFactory.getParametersClient();
+      const parametersClient = new ApiClientFactory().getParametersClient();
       await parametersClient.deleteExperiment(deleteTargetId);
       notifications.show('Experiment deleted', { severity: 'success' });
       setDeleteTargetId(null);
-      fetchExperiments(
-        paginationModel.page * paginationModel.pageSize,
-        paginationModel.pageSize
-      );
+      refresh();
     } catch {
       notifications.show('Failed to delete experiment', { severity: 'error' });
     } finally {
@@ -449,10 +387,7 @@ export default function ExperimentsClientWrapper() {
             linkPath="/experiments"
             linkField="id"
             paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            filterModel={filterModel}
-            onFilterModelChange={handleFilterModelChange}
-            serverSideFiltering={true}
+            onPaginationModelChange={handlePaginationModelChange}
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}

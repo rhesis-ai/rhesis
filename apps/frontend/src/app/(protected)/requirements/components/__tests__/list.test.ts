@@ -1,17 +1,15 @@
-import { emptyFilters, buildDirectoryFilter } from '@/utils/directory';
-import { requirementsDirectory } from '../directory';
+import { emptyFilters, buildListFilter } from '@/utils/list';
+import { requirementsList } from '../list';
 
-const empty = emptyFilters(requirementsDirectory);
+const empty = emptyFilters(requirementsList);
 
-describe('requirementsDirectory filters', () => {
+describe('requirementsList filters', () => {
   it('contributes nothing when no filter is active, matching the old builder', () => {
-    expect(buildDirectoryFilter(requirementsDirectory, empty)).toBeUndefined();
+    expect(buildListFilter(requirementsList, empty)).toBeUndefined();
   });
 
   it('ORs search across name/description plus linked metric and tag names, matching the old builder', () => {
-    expect(
-      buildDirectoryFilter(requirementsDirectory, { ...empty, search: 'abc' })
-    ).toBe(
+    expect(buildListFilter(requirementsList, { ...empty, search: 'abc' })).toBe(
       "(contains(tolower(name),tolower('abc')) or contains(tolower(description),tolower('abc')) or " +
         "metrics/any(x: (contains(tolower(x/name),tolower('abc')) or contains(tolower(x/description),tolower('abc')))) or " +
         "_tags_relationship/any(x: contains(tolower(x/tag/name),tolower('abc'))))"
@@ -20,19 +18,19 @@ describe('requirementsDirectory filters', () => {
 
   it('maps has_metrics/no_metrics to metrics/any(), and anything else to no clause', () => {
     expect(
-      buildDirectoryFilter(requirementsDirectory, {
+      buildListFilter(requirementsList, {
         ...empty,
         metricCount: 'has_metrics',
       })
     ).toBe('metrics/any()');
     expect(
-      buildDirectoryFilter(requirementsDirectory, {
+      buildListFilter(requirementsList, {
         ...empty,
         metricCount: 'no_metrics',
       })
     ).toBe('not metrics/any()');
     expect(
-      buildDirectoryFilter(requirementsDirectory, {
+      buildListFilter(requirementsList, {
         ...empty,
         metricCount: 'all',
       })
@@ -41,7 +39,7 @@ describe('requirementsDirectory filters', () => {
 
   it('ORs tagNames and wraps them in any(), matching the old builder', () => {
     expect(
-      buildDirectoryFilter(requirementsDirectory, {
+      buildListFilter(requirementsList, {
         ...empty,
         tagNames: ['red', 'blue'],
       })
@@ -52,7 +50,7 @@ describe('requirementsDirectory filters', () => {
 
   it('ANDs active filters together', () => {
     expect(
-      buildDirectoryFilter(requirementsDirectory, {
+      buildListFilter(requirementsList, {
         ...empty,
         metricCount: 'has_metrics',
         tagNames: ['red'],

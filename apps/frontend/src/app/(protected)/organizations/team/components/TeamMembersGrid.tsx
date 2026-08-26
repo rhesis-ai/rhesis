@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Alert,
   Avatar,
@@ -38,13 +38,15 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { listParams } from '@/utils/list';
 import {
-  combineTeamFiltersToOData,
   EMPTY_TEAM_FILTERS,
   hasActiveTeamFilters,
   countActiveTeamFilters,
+  teamList,
   type TeamFilters,
-} from '@/utils/odata-filter';
+} from './list';
 import TeamFilterDrawer from './TeamFilterDrawer';
 import MemberAccessDrawer from './MemberAccessDrawer';
 import { useCan } from '@/components/common/Can';
@@ -77,63 +79,71 @@ export default function TeamMembersGrid({
   const canDeleteMember = useCan(Capability.Member.DELETE);
   const canManageMembers = useCan(Capability.Member.MANAGE);
   const notifications = useNotifications();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] =
     useState<TeamFilters>(EMPTY_TEAM_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [accessDrawerOpen, setAccessDrawerOpen] = useState(false);
   const [accessDrawerUser, setAccessDrawerUser] = useState<User | null>(null);
 
-  const fetchUsers = useCallback(
-    async (skip = 0, limit = 25) => {
-      if (!isAuthenticated(status)) {
-        setError('Session expired. Please refresh the page.');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        const clientFactory = new ApiClientFactory();
-        const usersClient = clientFactory.getUsersClient();
-        const response = await usersClient.getUsers({
-          skip,
-          limit: Math.min(limit, 100),
-          $filter: combineTeamFiltersToOData(searchQuery, drawerFilters),
-        });
-
-        setUsers(response.data || []);
-        const total = response.pagination.totalCount || 0;
-        setTotalCount(total);
-        onTotalCountChange?.(total);
-      } catch (_error) {
-        setError('Failed to load team members. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [onTotalCountChange, searchQuery, drawerFilters, status]
+  const filters = React.useMemo(
+    () => ({
+      search: searchQuery,
+      email: drawerFilters.email,
+      name: drawerFilters.name,
+      memberStatus: drawerFilters.memberStatus,
+      accountStatus:
+        drawerFilters.accountStatus === null
+          ? ''
+          : String(drawerFilters.accountStatus),
+    }),
+    [searchQuery, drawerFilters]
   );
 
-  useEffect(() => {
-    setPage(0);
-  }, [searchQuery, drawerFilters]);
+  const {
+    data: users,
+    totalCount,
+    isLoading: loading,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange: setPage,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<User>({
+    fetchPage: ({ skip, limit }) =>
+      teamList.list(
+        new ApiClientFactory(),
+        listParams(teamList, {
+          page: skip / limit + 1,
+          pageSize: limit,
+          sort: teamList.defaultSort,
+          filters,
+        })
+      ),
+    filterFingerprint: JSON.stringify(filters),
+    defaultPageSize: teamList.defaultPageSize,
+    enabled: isAuthenticated(status),
+    onError: () => setError('Failed to load team members. Please try again.'),
+  });
 
   useEffect(() => {
-    const skip = page * pageSize;
-    fetchUsers(skip, pageSize);
-  }, [fetchUsers, page, pageSize, refreshTrigger]);
+    onTotalCountChange?.(totalCount);
+  }, [totalCount, onTotalCountChange]);
+
+  const isFirstRefreshTrigger = useRef(true);
+  useEffect(() => {
+    if (isFirstRefreshTrigger.current) {
+      isFirstRefreshTrigger.current = false;
+      return;
+    }
+    refresh();
+    // Only refreshTrigger (bumped by the parent after an invite) should re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   const handleDeleteUser = useCallback((user: User) => {
     setUserToDelete(user);
@@ -157,8 +167,7 @@ export default function TeamMembersGrid({
         { severity: 'success' }
       );
 
-      const skip = page * pageSize;
-      await fetchUsers(skip, pageSize);
+      refresh();
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error
@@ -407,10 +416,7 @@ export default function TeamMembersGrid({
         pageSize={pageSize}
         totalRows={totalCount}
         onPageChange={setPage}
-        onPageSizeChange={newSize => {
-          setPageSize(newSize);
-          setPage(0);
-        }}
+        onPageSizeChange={onRowsPerPageChange}
       />
 
       <TeamFilterDrawer

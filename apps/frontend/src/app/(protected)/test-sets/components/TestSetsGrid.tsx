@@ -11,19 +11,17 @@ import React, {
 import {
   GridColDef,
   GridRowParams,
-  GridFilterModel,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
-import {
-  appendPresenceFilterItems,
-  stripPresenceFilterItems,
-} from '@/components/common/presence-filter';
-import { gridSortToApiParams } from '@/utils/grid-sort';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { listParams } from '@/utils/list';
+import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { testSetsList } from './list';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import {
@@ -68,10 +66,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
-import { testSetKeys } from '@/constants/query-keys';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -81,6 +76,8 @@ interface TestSetsGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
   onBulkActionsChange?: (actions: TestSetsBulkActionsState) => void;
+  /** Bumped by the page after a create/import/generate succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 export interface TestSetsBulkActionsState {
@@ -196,6 +193,7 @@ export default function TestSetsGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
+  refreshTrigger,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { status } = useSession();
@@ -214,6 +212,102 @@ export default function TestSetsGrid({
   );
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
+  const [errorDismissed, setErrorDismissed] = useState(false);
+
+  // A pill click wins over the drawer's own testSetType value, matching the
+  // old useGridState behavior (pill applied after drawer filters).
+  const effectiveTestSetType =
+    typeFilter !== 'all' ? typeFilter : drawerFilters.testSetType;
+
+  // ── Data fetching ────────────────────────────────────────────────────────
+
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      testSetType: effectiveTestSetType,
+      status: drawerFilters.status,
+      creator: drawerFilters.creator,
+      tag: drawerFilters.tag,
+      tagsPresence: drawerFilters.tags,
+      commentsPresence: drawerFilters.comments,
+      tasksPresence: drawerFilters.tasks,
+    }),
+    [searchQuery, effectiveTestSetType, drawerFilters]
+  );
+
+  const sort = useMemo(
+    () => ({
+      by: sortModel[0]?.field || 'created_at',
+      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
+    }),
+    [sortModel]
+  );
+
+  // No `initialData`/SSR prefetch here on purpose: a test set row exists from
+  // the moment generation is *submitted* (the flow then redirects to its
+  // detail page), so server-rendered data could predate a just-submitted row.
+  // `usePaginatedList` always fetches once on mount when `initialData` is
+  // absent, which is exactly the guarantee this page needs.
+  const {
+    data: testSets,
+    totalCount,
+    isLoading: loading,
+    error: rawError,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<TestSet>({
+    fetchPage: ({ skip, limit }) =>
+      testSetsList.list(
+        new ApiClientFactory(),
+        listParams(testSetsList, {
+          page: skip / limit + 1,
+          pageSize: limit,
+          sort,
+          filters,
+        })
+      ),
+    filterFingerprint: JSON.stringify({ filters, sort }),
+    defaultPageSize: testSetsList.defaultPageSize,
+    enabled: isAuthenticated(status),
+    onError: () => setErrorDismissed(false),
+  });
+
+  useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
+
+  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (model.pageSize !== pageSize) {
+        onRowsPerPageChange(model.pageSize);
+      } else {
+        onPageChange(model.page);
+      }
+    },
+    [pageSize, onPageChange, onRowsPerPageChange]
+  );
+  const handleSortModelChange = useCallback((model: GridSortModel) => {
+    setSortModel(model);
+  }, []);
+
+  const isFirstRefreshTrigger = useRef(true);
+  useEffect(() => {
+    if (isFirstRefreshTrigger.current) {
+      isFirstRefreshTrigger.current = false;
+      return;
+    }
+    refresh();
+    // Only refreshTrigger (bumped by the page after a create/import/generate) should re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   // ── Bulk selection + delete ──────────────────────────────────────────────────
   // TestSets has a second bulk action (Run), so it bridges to the page's
@@ -233,111 +327,10 @@ export default function TestSetsGrid({
   } = useBulkDelete({
     bulkDeleteFn: (ids: string[]) =>
       new ApiClientFactory().getTestSetsClient().bulkDeleteTestSets(ids),
-    queryKey: testSetKeys.all(),
+    onSuccess: refresh,
     itemLabelSingular: 'test set',
     itemLabelPlural: 'test sets',
   });
-
-  // ── Grid state (pagination, filter, sort) via useGridState ──────────────────
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    sortModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-    handleSortModelChange,
-  } = useGridState({
-    searchQuery,
-    typeFilter,
-    typeFilterField: 'testSetType',
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) => {
-        const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
-        const otherItems = stripPresenceFilterItems(
-          prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
-        );
-        const drawerItems: typeof prev.items = [];
-        if (drawerFilters.testSetType) {
-          drawerItems.push({
-            id: 'testSetType',
-            field: 'testSetType',
-            operator: 'equals',
-            value: drawerFilters.testSetType,
-          });
-        }
-        if (drawerFilters.status) {
-          drawerItems.push({
-            id: 'status.name',
-            field: 'status.name',
-            operator: 'contains',
-            value: drawerFilters.status,
-          });
-        }
-        if (drawerFilters.creator) {
-          drawerItems.push({
-            id: 'creator',
-            field: 'creator',
-            operator: 'contains',
-            value: drawerFilters.creator,
-          });
-        }
-        if (drawerFilters.tag) {
-          drawerItems.push({
-            id: 'tags',
-            field: 'tags',
-            operator: 'contains',
-            value: drawerFilters.tag,
-          });
-        }
-        const newItems = [...otherItems, ...drawerItems];
-        if (JSON.stringify(newItems) === JSON.stringify(prev.items))
-          return prev;
-        return { ...prev, items: newItems };
-      },
-      [drawerFilters]
-    ),
-  });
-
-  // ── Data fetching via React Query ────────────────────────────────────────────
-  const filterString = combineTestSetFiltersToOData(filterModel);
-  const { sort_by, sort_order } = gridSortToApiParams(sortModel);
-  const {
-    data: testSetsData,
-    isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: testSetKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      sort_by,
-      sort_order
-    ),
-    errorFallbackMessage: 'Failed to load test sets',
-    queryFn: () => {
-      const client = new ApiClientFactory().getTestSetsClient();
-      return client.getTestSets({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by,
-        sort_order,
-        ...(filterString && { $filter: filterString }),
-      });
-    },
-    enabled: isAuthenticated(status),
-    // Always refetch when the list is opened. A test set row exists from the
-    // moment generation is *submitted* (the flow then redirects to its detail
-    // page), so under the app-wide 5-minute staleTime, coming back to this
-    // list served cache that predated the new row -- it only showed up after a
-    // hard reload. keepPreviousData in useGridQuery means the current rows stay
-    // put while the refetch runs, so this costs no loading flash.
-    staleTime: 0,
-  });
-  const testSets = testSetsData?.data ?? [];
-  const totalCount = testSetsData?.pagination.totalCount ?? 0;
 
   // ── Row + selection handlers ─────────────────────────────────────────────────
 
@@ -628,14 +621,11 @@ export default function TestSetsGrid({
     ];
   }, [handleRowEditAction, requestDelete]);
 
-  const filtersActive =
-    filterModel.items.length > 0 ||
-    !!searchQuery ||
-    hasActiveTestSetFilters(drawerFilters);
+  const filtersActive = !!searchQuery || hasActiveTestSetFilters(drawerFilters);
 
   return (
     <GridStateGate
-      data={testSetsData}
+      data={loading ? null : {}}
       error={error}
       isEmpty={totalCount === 0 && !filtersActive}
       emptyState={
@@ -696,9 +686,6 @@ export default function TestSetsGrid({
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
-            serverSideFiltering={true}
-            filterModel={gridFilterModel}
-            onFilterModelChange={handleFilterModelChange}
             sortingMode="server"
             sortModel={sortModel}
             onSortModelChange={handleSortModelChange}

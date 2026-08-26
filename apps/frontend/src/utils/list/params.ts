@@ -1,9 +1,9 @@
 import { gridSortToApiParams } from '@/utils/grid-sort';
-import { buildDirectoryFilter } from './odata';
+import { buildListFilter } from './odata';
 import type {
-  DirectoryDescriptor,
-  DirectoryListParams,
-  DirectoryState,
+  ListDescriptor,
+  ListParams,
+  ListState,
   FilterSpecMap,
   FiltersOf,
 } from './define';
@@ -17,7 +17,7 @@ function isActive(value: string | string[] | undefined): boolean {
  * separately from the filter drawer's badge.
  */
 export function countActiveFilters<S extends FilterSpecMap>(
-  descriptor: DirectoryDescriptor<unknown, S>,
+  descriptor: ListDescriptor<unknown, S>,
   filters: FiltersOf<S>
 ): number {
   return Object.entries(descriptor.filters).filter(
@@ -28,7 +28,7 @@ export function countActiveFilters<S extends FilterSpecMap>(
 }
 
 export function hasActiveFilters<S extends FilterSpecMap>(
-  descriptor: DirectoryDescriptor<unknown, S>,
+  descriptor: ListDescriptor<unknown, S>,
   filters: FiltersOf<S>
 ): boolean {
   return countActiveFilters(descriptor, filters) > 0;
@@ -41,12 +41,12 @@ export function hasActiveFilters<S extends FilterSpecMap>(
  * `extra` adds OData clauses the caller doesn't own, e.g. scoping an embedded
  * grid to one project.
  */
-export function directoryListParams<T, S extends FilterSpecMap>(
-  descriptor: DirectoryDescriptor<T, S>,
-  state: DirectoryState<S>,
+export function listParams<T, S extends FilterSpecMap>(
+  descriptor: ListDescriptor<T, S>,
+  state: ListState<S>,
   extra: (string | undefined)[] = []
-): DirectoryListParams {
-  const $filter = buildDirectoryFilter(descriptor, state.filters, extra);
+): ListParams {
+  const $filter = buildListFilter(descriptor, state.filters, extra);
   // Grid column ids don't always match API sort fields (`tags` -> `tags_count`).
   const { sort_by, sort_order } = gridSortToApiParams([
     { field: state.sort.by, sort: state.sort.order },

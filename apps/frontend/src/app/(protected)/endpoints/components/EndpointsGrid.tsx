@@ -3,6 +3,7 @@
 import React, {
   useState,
   useEffect,
+  useRef,
   useCallback,
   useContext,
   useMemo,
@@ -13,7 +14,6 @@ import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
 import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import {
-  GridFilterModel,
   GridColDef,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
@@ -25,7 +25,10 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { buildEndpointListFilter } from '@/utils/odata-filter';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { listParams } from '@/utils/list';
+import { escapeODataValue } from '@/utils/odata-filter';
+import { endpointsList } from './list';
 import EndpointFilterDrawer, {
   type EndpointFilters,
   EMPTY_ENDPOINT_FILTERS,
@@ -39,13 +42,10 @@ import {
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getProjectIcon } from './endpoint-icon-utils';
-import { endpointKeys } from '@/constants/query-keys';
 import {
   useBulkDelete,
   type BulkDeleteActionsState,
 } from '@/hooks/useBulkDelete';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -64,6 +64,11 @@ interface EndpointsGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: Endpoint[];
+  initialTotalCount?: number;
+  /** Bumped by the page after a create succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 interface EndpointsToolbarState {
@@ -75,12 +80,6 @@ interface EndpointsToolbarState {
   checkboxSelectionMode: boolean;
   setCheckboxSelectionMode: (v: boolean) => void;
 }
-
-const DRAWER_FILTER_FIELDS = [
-  'connectionType',
-  'environment',
-  'status',
-] as const;
 
 const EndpointsToolbarContext = React.createContext<EndpointsToolbarState>({
   searchQuery: '',
@@ -132,6 +131,9 @@ export default function EndpointsGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
+  initialData,
+  initialTotalCount,
+  refreshTrigger,
 }: EndpointsGridProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -146,6 +148,74 @@ export default function EndpointsGrid({
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [errorDismissed, setErrorDismissed] = useState(false);
+
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      connectionType: drawerFilters.connectionType,
+      environment: drawerFilters.environment,
+      status: drawerFilters.status,
+    }),
+    [searchQuery, drawerFilters]
+  );
+
+  const extraODataClauses = useMemo(
+    () => (projectId ? [`project_id eq '${escapeODataValue(projectId)}'`] : []),
+    [projectId]
+  );
+
+  const {
+    data: endpoints,
+    totalCount,
+    isLoading: loading,
+    error: rawError,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+    refresh,
+  } = usePaginatedList<Endpoint>({
+    fetchPage: ({ skip, limit }) =>
+      endpointsList.list(
+        new ApiClientFactory(),
+        listParams(
+          endpointsList,
+          {
+            page: skip / limit + 1,
+            pageSize: limit,
+            sort: endpointsList.defaultSort,
+            filters,
+          },
+          extraODataClauses
+        )
+      ),
+    filterFingerprint: JSON.stringify(filters),
+    defaultPageSize: endpointsList.defaultPageSize,
+    initialData,
+    initialTotalCount,
+    enabled: isAuthenticated(status),
+    onError: () => setErrorDismissed(false),
+  });
+
+  useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
+
+  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (model.pageSize !== pageSize) {
+        onRowsPerPageChange(model.pageSize);
+      } else {
+        onPageChange(model.page);
+      }
+    },
+    [pageSize, onPageChange, onRowsPerPageChange]
+  );
 
   const {
     checkboxSelectionMode,
@@ -161,102 +231,22 @@ export default function EndpointsGrid({
   } = useBulkDelete({
     bulkDeleteFn: (ids: string[]) =>
       new ApiClientFactory().getEndpointsClient().bulkDeleteEndpoints(ids),
-    queryKey: endpointKeys.all(),
+    onSuccess: refresh,
     itemLabelSingular: 'endpoint',
     itemLabelPlural: 'endpoints',
     onBulkActionsChange,
   });
 
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-  } = useGridState({
-    searchQuery,
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) => {
-        const otherItems = prev.items.filter(
-          item =>
-            !DRAWER_FILTER_FIELDS.includes(
-              item.field as (typeof DRAWER_FILTER_FIELDS)[number]
-            )
-        );
-        const drawerItems: typeof prev.items = [];
-
-        if (drawerFilters.connectionType) {
-          drawerItems.push({
-            id: 'connectionType',
-            field: 'connectionType',
-            operator: 'equals',
-            value: drawerFilters.connectionType,
-          });
-        }
-        if (drawerFilters.environment) {
-          drawerItems.push({
-            id: 'environment',
-            field: 'environment',
-            operator: 'equals',
-            value: drawerFilters.environment,
-          });
-        }
-        if (drawerFilters.status) {
-          drawerItems.push({
-            id: 'status',
-            field: 'status',
-            operator: 'equals',
-            value: drawerFilters.status,
-          });
-        }
-
-        const newItems = [...otherItems, ...drawerItems];
-        if (
-          newItems.length === prev.items.length &&
-          newItems.every((it, i) => it === prev.items[i])
-        )
-          return prev;
-        return { ...prev, items: newItems };
-      },
-      [drawerFilters]
-    ),
-    initialPageSize: 10,
-  });
-
-  const filterString = buildEndpointListFilter(filterModel, projectId);
-  const sort_by = 'created_at';
-  const sort_order = 'desc';
-
-  const {
-    data: endpointsData,
-    isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: endpointKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      sort_by,
-      sort_order
-    ),
-    errorFallbackMessage: 'Failed to load endpoints',
-    queryFn: () => {
-      const client = new ApiClientFactory().getEndpointsClient();
-      return client.getEndpoints({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by,
-        sort_order,
-        ...(filterString && { $filter: filterString }),
-      });
-    },
-    enabled: isAuthenticated(status),
-  });
-
-  const endpoints = endpointsData?.data ?? [];
-  const totalCount = endpointsData?.pagination.totalCount ?? 0;
+  const isFirstRefreshTrigger = useRef(true);
+  useEffect(() => {
+    if (isFirstRefreshTrigger.current) {
+      isFirstRefreshTrigger.current = false;
+      return;
+    }
+    refresh();
+    // Only refreshTrigger (bumped by the page after a create) should re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -389,8 +379,7 @@ export default function EndpointsGrid({
   // Only the top-level Endpoints page passes `onCreateClick` — that's when
   // this grid owns its own loading/empty presentation and Paper wrapper.
   const isStandalone = onCreateClick !== undefined;
-  const filtersActive =
-    filterModel.items.length > 0 || !!searchQuery || hasActiveDrawerFilters;
+  const filtersActive = !!searchQuery || hasActiveDrawerFilters;
 
   const content = (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
@@ -418,9 +407,6 @@ export default function EndpointsGrid({
           paginationModel={paginationModel}
           onPaginationModelChange={handlePaginationModelChange}
           pageSizeOptions={[10, 25, 50]}
-          serverSideFiltering={true}
-          filterModel={gridFilterModel}
-          onFilterModelChange={handleFilterModelChange}
           toolbarSlot={EndpointsUnifiedToolbar}
           showToolbar={true}
           disablePaperWrapper={true}
@@ -461,7 +447,7 @@ export default function EndpointsGrid({
   return (
     <GridStateGate
       active={isStandalone}
-      data={endpointsData}
+      data={loading ? null : {}}
       error={error}
       isEmpty={totalCount === 0 && !filtersActive}
       emptyState={

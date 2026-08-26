@@ -1,32 +1,26 @@
+import { emptyFilters, buildListFilter, listParams } from '@/utils/list';
 import {
-  emptyFilters,
-  buildDirectoryFilter,
-  directoryListParams,
-} from '@/utils/directory';
-import {
-  metricsDirectory,
+  metricsList,
   METRICS_SELECT,
   OWASP_METRIC_FILTER_VALUE,
-} from '../directory';
+} from '../list';
 
-const empty = emptyFilters(metricsDirectory);
+const empty = emptyFilters(metricsList);
 
-describe('metricsDirectory filters', () => {
+describe('metricsList filters', () => {
   it('contributes nothing when no filter is active, matching the old builder', () => {
-    expect(buildDirectoryFilter(metricsDirectory, empty)).toBeUndefined();
+    expect(buildListFilter(metricsList, empty)).toBeUndefined();
   });
 
   it('ORs search across name/description, matching the old builder', () => {
-    expect(
-      buildDirectoryFilter(metricsDirectory, { ...empty, search: 'abc' })
-    ).toBe(
+    expect(buildListFilter(metricsList, { ...empty, search: 'abc' })).toBe(
       "(contains(tolower(name),tolower('abc')) or contains(tolower(description),tolower('abc')))"
     );
   });
 
   it('maps the OWASP pseudo-backend value to a tag clause, everything else to backend_type', () => {
     expect(
-      buildDirectoryFilter(metricsDirectory, {
+      buildListFilter(metricsList, {
         ...empty,
         backend: ['Custom', OWASP_METRIC_FILTER_VALUE],
       })
@@ -38,7 +32,7 @@ describe('metricsDirectory filters', () => {
 
   it('ORs type/scoreType case-insensitively, matching the old builder', () => {
     expect(
-      buildDirectoryFilter(metricsDirectory, {
+      buildListFilter(metricsList, {
         ...empty,
         type: ['grading'],
         scoreType: ['numeric', 'categorical'],
@@ -51,13 +45,13 @@ describe('metricsDirectory filters', () => {
 
   it('wraps requirement in any(), matching the old builder', () => {
     expect(
-      buildDirectoryFilter(metricsDirectory, { ...empty, requirement: 'Req A' })
+      buildListFilter(metricsList, { ...empty, requirement: 'Req A' })
     ).toBe("requirements/any(x: tolower(x/name) eq tolower('Req A'))");
   });
 
   it('leaves metricScope out of $filter entirely -- it is a dedicated query param', () => {
     expect(
-      buildDirectoryFilter(metricsDirectory, {
+      buildListFilter(metricsList, {
         ...empty,
         metricScope: ['Single-Turn'],
       })
@@ -65,12 +59,12 @@ describe('metricsDirectory filters', () => {
   });
 });
 
-describe('metricsDirectory extraParams', () => {
+describe('metricsList extraParams', () => {
   it('always includes the trimmed $select', () => {
-    const params = directoryListParams(metricsDirectory, {
+    const params = listParams(metricsList, {
       page: 1,
       pageSize: 25,
-      sort: metricsDirectory.defaultSort,
+      sort: metricsList.defaultSort,
       filters: empty,
     });
     expect(params.$select).toBe(METRICS_SELECT);
@@ -78,10 +72,10 @@ describe('metricsDirectory extraParams', () => {
   });
 
   it('joins metricScope into a comma-separated query param, not $filter', () => {
-    const params = directoryListParams(metricsDirectory, {
+    const params = listParams(metricsList, {
       page: 1,
       pageSize: 25,
-      sort: metricsDirectory.defaultSort,
+      sort: metricsList.defaultSort,
       filters: { ...empty, metricScope: ['Single-Turn', 'Multi-Turn'] },
     });
     expect(params.metric_scope).toBe('Single-Turn,Multi-Turn');

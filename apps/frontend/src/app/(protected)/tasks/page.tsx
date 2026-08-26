@@ -5,8 +5,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
-import { taskKeys } from '@/constants/query-keys';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
@@ -25,7 +23,6 @@ import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 
 export default function TasksPage() {
   const { status } = useSession();
-  const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
@@ -35,6 +32,7 @@ export default function TasksPage() {
   const [initialEntity, setInitialEntity] = React.useState<
     TaskDrawerInitialEntity | undefined
   >();
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
   const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
     useBulkActionsBridge();
 
@@ -76,8 +74,8 @@ export default function TasksPage() {
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
     setInitialEntity(undefined);
-    queryClient.invalidateQueries({ queryKey: taskKeys.all() });
-  }, [queryClient]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const handleCloseDrawer = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -151,6 +149,7 @@ export default function TasksPage() {
               setCreateDrawerOpen(true);
             }}
             onBulkActionsChange={handleBulkActionsChange}
+            refreshTrigger={refreshTrigger}
           />
         </Box>
       </PageLayout>

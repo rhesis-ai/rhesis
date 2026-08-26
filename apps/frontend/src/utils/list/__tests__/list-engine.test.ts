@@ -1,13 +1,9 @@
-import { defineDirectory, emptyFilters } from '../define';
-import {
-  countActiveFilters,
-  directoryListParams,
-  hasActiveFilters,
-} from '../params';
-import { buildDirectoryFilter } from '../odata';
+import { defineList, emptyFilters } from '../define';
+import { countActiveFilters, listParams, hasActiveFilters } from '../params';
+import { buildListFilter } from '../odata';
 import type { PaginatedResponse } from '@/utils/api-client/interfaces/pagination';
 
-const widgets = defineDirectory({
+const widgets = defineList({
   title: 'Widgets',
   resource: 'widgets',
   capability: 'widget:read',
@@ -52,9 +48,9 @@ describe('emptyFilters', () => {
   });
 });
 
-describe('buildDirectoryFilter', () => {
+describe('buildListFilter', () => {
   const filterFor = (partial: Partial<typeof empty.filters>) =>
-    buildDirectoryFilter(widgets, { ...empty.filters, ...partial });
+    buildListFilter(widgets, { ...empty.filters, ...partial });
 
   it('contributes nothing when no filter is active', () => {
     expect(filterFor({})).toBeUndefined();
@@ -106,7 +102,7 @@ describe('buildDirectoryFilter', () => {
 
   it('accepts extra clauses the caller does not own, e.g. project scoping', () => {
     expect(
-      buildDirectoryFilter(widgets, empty.filters, ["project_id eq 'p1'"])
+      buildListFilter(widgets, empty.filters, ["project_id eq 'p1'"])
     ).toBe("project_id eq 'p1'");
   });
 });
@@ -134,19 +130,19 @@ describe('countActiveFilters', () => {
   });
 });
 
-describe('directoryListParams', () => {
+describe('listParams', () => {
   it('turns a 1-indexed page into skip/limit', () => {
-    const params = directoryListParams(widgets, { ...empty, page: 3 });
+    const params = listParams(widgets, { ...empty, page: 3 });
     expect(params.skip).toBe(50);
     expect(params.limit).toBe(25);
   });
 
   it('omits $filter entirely when nothing is active', () => {
-    expect(directoryListParams(widgets, empty)).not.toHaveProperty('$filter');
+    expect(listParams(widgets, empty)).not.toHaveProperty('$filter');
   });
 
   it('maps grid-only sort fields onto their API names', () => {
-    const params = directoryListParams(widgets, {
+    const params = listParams(widgets, {
       ...empty,
       sort: { by: 'tags', order: 'asc' },
     });
