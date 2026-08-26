@@ -40,7 +40,6 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   GridColDef,
   GridPaginationModel,
@@ -55,7 +54,6 @@ import { Fab, FabGroup } from '@/components/common/Fab';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { explorerKeys } from '@/constants/query-keys';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -1833,7 +1831,6 @@ function TestsList({
             rows={filteredTests}
             loading={loading}
             getRowId={row => row.id}
-            showToolbar={hasToolbar}
             toolbarSlot={hasToolbar ? TestsListUnifiedToolbar : undefined}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
@@ -1975,7 +1972,7 @@ export default function ExplorerDetail({
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const queryClient = useQueryClient();
+
   const pathname = usePathname();
   const selectedTopicForApi =
     selectedTopic && selectedTopic !== NO_TOPIC_FILTER ? selectedTopic : null;
@@ -2908,7 +2905,7 @@ export default function ExplorerDetail({
         severity: 'success',
         autoHideDuration: 4000,
       });
-      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
+      // No cache to invalidate: navigating back re-fetches the sessions list.
       router.push('/explorer');
     } catch (err) {
       notifications.show(
@@ -2919,7 +2916,7 @@ export default function ExplorerDetail({
     } finally {
       setDeleteSessionDialogOpen(false);
     }
-  }, [testSetId, notifications, queryClient, router]);
+  }, [testSetId, notifications, router]);
 
   return (
     <PageLayout

@@ -1,6 +1,10 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
+import type {
+  PaginatedResponse,
+  PaginationParams,
+} from './interfaces/pagination';
 import {
   EvaluateRequest,
   EvaluateResponse,
@@ -105,19 +109,15 @@ export class ExplorerClient extends BaseApiClient {
    * @param sortOrder Sort direction
    */
   async getExplorerTestSets(
-    skip: number = 0,
-    limit: number = 100,
-    sortBy: string = 'created_at',
-    sortOrder: string = 'desc'
-  ): Promise<ExplorerTestSetDetail[]> {
-    const params = new URLSearchParams({
-      skip: skip.toString(),
-      limit: limit.toString(),
-      sort_by: sortBy,
-      sort_order: sortOrder,
-    });
-    return this.fetch<ExplorerTestSetDetail[]>(
-      `${API_ENDPOINTS.explorer}/?${params.toString()}`,
+    params: PaginationParams & { $filter?: string } = { skip: 0, limit: 100 }
+  ): Promise<PaginatedResponse<ExplorerTestSetDetail>> {
+    return this.fetchPaginated<ExplorerTestSetDetail>(
+      API_ENDPOINTS.explorer,
+      {
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        ...params,
+      },
       { cache: 'no-store' }
     );
   }
