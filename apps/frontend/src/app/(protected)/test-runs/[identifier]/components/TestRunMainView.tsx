@@ -14,7 +14,8 @@ import { testRunKeys } from '@/constants/query-keys';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import TestRunDetailHeader from './TestRunDetailHeader';
 import TestRunConfigurationTab from './TestRunConfigurationTab';
-import TestRunStatsTab from './TestRunStatsTab';
+import RunSummary from './summary/RunSummary';
+import TestRunTags from './TestRunTags';
 import TestRunLinkedEntitiesTab from './TestRunLinkedEntitiesTab';
 import TestRunTracesTab from './TestRunTracesTab';
 import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
@@ -119,15 +120,11 @@ export default function TestRunMainView({
     preferLinkedEntities && !searchParams.get('tab')
   );
 
-  // Fetch test results for Summary (reviews/corrections) and Test Cases tabs.
+  // Fetch test results for the Test Cases tab.
   const needsTestResults = React.useRef(
-    activeTab === TAB_KEYS.indexOf('linked_entities') ||
-      activeTab === TAB_KEYS.indexOf('summary')
+    activeTab === TAB_KEYS.indexOf('linked_entities')
   );
-  if (
-    activeTab === TAB_KEYS.indexOf('linked_entities') ||
-    activeTab === TAB_KEYS.indexOf('summary')
-  ) {
+  if (activeTab === TAB_KEYS.indexOf('linked_entities')) {
     needsTestResults.current = true;
   }
 
@@ -319,6 +316,16 @@ export default function TestRunMainView({
     [handleTabChange]
   );
 
+  const handleDrilldownToFailures = useCallback(() => {
+    setFilter(prev => ({
+      ...prev,
+      selectedRequirements: [],
+      metricFilters: {},
+      statusFilter: 'failed',
+    }));
+    handleTabChange(TAB_KEYS.indexOf('linked_entities'));
+  }, [handleTabChange]);
+
   const handleTestResultUpdate = useCallback(
     (updatedTest: TestResultDetail) => {
       setTestResultUpdates(prev => {
@@ -333,20 +340,6 @@ export default function TestRunMainView({
     },
     [refetchTestResults, queryClient]
   );
-
-  const previousTabRef = useRef(activeTab);
-
-  useEffect(() => {
-    const summaryTabIndex = TAB_KEYS.indexOf('summary');
-    const switchedToSummary =
-      activeTab === summaryTabIndex &&
-      previousTabRef.current !== summaryTabIndex;
-    previousTabRef.current = activeTab;
-
-    if (switchedToSummary) {
-      void refetchTestResults();
-    }
-  }, [activeTab, refetchTestResults]);
 
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
@@ -593,16 +586,16 @@ export default function TestRunMainView({
       />
 
       <TabPanel value={activeTab} index={0}>
-        <TestRunStatsTab
-          testRun={testRun}
+        <RunSummary
           testRunId={testRunId}
-          testResults={testResults}
-          loading={loading}
-          onRefresh={() => router.refresh()}
-          requirements={requirements}
+          testRun={testRun}
           onViewRequirement={handleDrilldownToRequirement}
           onViewMetric={handleDrilldownToMetric}
+          onViewFailures={handleDrilldownToFailures}
         />
+        <Box sx={{ mt: 3 }}>
+          <TestRunTags testRun={testRun} />
+        </Box>
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>

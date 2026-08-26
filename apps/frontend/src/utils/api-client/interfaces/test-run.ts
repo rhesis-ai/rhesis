@@ -45,3 +45,44 @@ export interface TestRunBulkDeleteResponse {
   not_found_ids: string[];
   forbidden_ids: string[];
 }
+
+export interface VerdictKpis {
+  pass_rate: number | null;
+  tests_executed: number;
+  tests_total: number;
+  verdicts_resolved: number;
+  verdicts_planned: number;
+  failures: number;
+}
+
+export interface VerdictRequirement {
+  id: string | null;
+  name: string;
+  metric_keys: string[];
+}
+
+export interface VerdictRow {
+  requirement_id: string | null;
+  metric_key: string;
+  metric_name: string;
+  metric_id: string | null;
+  ambiguous: boolean;
+  verdicts: string;
+  overrides: string;
+  passed: number;
+  failed: number;
+  pending: number;
+}
+
+export interface VerdictMatrix {
+  test_run_id: string;
+  project_id: string | null;
+  status: string;
+  is_terminal: boolean;
+  version: number;
+  test_ids: string[] | null;
+  test_status: string;
+  requirements: VerdictRequirement[];
+  rows: VerdictRow[];
+  kpis: VerdictKpis;
+}
