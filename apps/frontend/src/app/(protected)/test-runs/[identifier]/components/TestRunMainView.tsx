@@ -27,6 +27,11 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  resolveSingleCreatedRun,
+  watchRunHref,
+  type BatchRunOutcome,
+} from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import { getTestEvaluationSummary } from '@/utils/test-result-status';
@@ -492,11 +497,30 @@ export default function TestRunMainView({
 
   const handleRerunSuccess = useCallback(() => {
     // A re-run creates a new test run, so drop the cached test-runs list pages
-    // (kept fresh for 5 min otherwise) to make the new run and its status show
-    // up immediately on the list we navigate to.
+    // (kept fresh for 5 min otherwise) so it shows up immediately wherever
+    // handleRerunExecuted lands us -- its own detail page normally, the list
+    // as a fallback.
     void queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-    router.push('/test-runs');
-  }, [queryClient, router]);
+  }, [queryClient]);
+
+  // Jump straight to the new run in Detail view so execution is visible as
+  // it happens. executeTestSet only returns the test_configuration
+  // synchronously -- the worker creates the run itself -- so this polls for
+  // it the same way tag assignment already does. Falls back to the runs
+  // list (the prior unconditional behaviour) if it doesn't show up in time.
+  const handleRerunExecuted = useCallback(
+    (outcome: BatchRunOutcome) => {
+      void (async () => {
+        const factory = new ApiClientFactory();
+        const newRun = await resolveSingleCreatedRun(
+          outcome,
+          factory.getTestRunsClient()
+        );
+        router.push(newRun ? watchRunHref(newRun.id) : '/test-runs');
+      })();
+    },
+    [router]
+  );
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -664,6 +688,7 @@ export default function TestRunMainView({
           originalAttributes: testRun.test_configuration?.attributes,
         }}
         onSuccess={handleRerunSuccess}
+        onExecuted={handleRerunExecuted}
       />
     </Box>
   );

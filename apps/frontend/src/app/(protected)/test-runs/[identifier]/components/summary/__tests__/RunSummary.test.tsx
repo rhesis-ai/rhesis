@@ -11,6 +11,11 @@ jest.mock('@/hooks/useReducedMotion', () => ({
   useReducedMotion: () => false,
 }));
 
+let mockSearch = '';
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(mockSearch),
+}));
+
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue({
     clearRect: jest.fn(),
@@ -34,6 +39,10 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
     is_terminal: false,
     version: 1,
     test_ids: ['t1'],
+    test_started_ds: null,
+    test_generated_ds: null,
+    test_resolved_ds: null,
+    elapsed_ds: null,
     test_status: '.',
     requirements: [],
     rows: [],
@@ -44,6 +53,7 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
       verdicts_resolved: 0,
       verdicts_planned: 1,
       failures: 0,
+      reviews_count: 0,
     },
     ...overrides,
   };
@@ -87,6 +97,8 @@ function setMatchMediaNarrow(isNarrow: boolean) {
 describe('RunSummary', () => {
   beforeEach(() => {
     mockMatrix = makeMatrix();
+    mockSearch = '';
+    localStorage.clear();
   });
 
   it('renders the density control at a normal viewport width', () => {
@@ -122,5 +134,32 @@ describe('RunSummary', () => {
     // Numbers mode shows the Total column; forcing it doesn't touch the
     // persisted preference, only what's rendered.
     expect(screen.getByText('Total')).toBeInTheDocument();
+  });
+
+  it('forces Detail view via ?density=, overriding a stored preference', () => {
+    localStorage.setItem('runSummary.metricTableDensity', 'numbers');
+    mockSearch = 'density=detail';
+    setMatchMediaNarrow(false);
+
+    render(<RunSummary testRunId="run-1" testRun={makeTestRun()} />);
+
+    expect(screen.getByRole('radio', { name: 'Detail' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+  });
+
+  it('ignores an unrecognized ?density= value', () => {
+    mockSearch = 'density=bogus';
+    setMatchMediaNarrow(false);
+
+    render(<RunSummary testRunId="run-1" testRun={makeTestRun()} />);
+
+    // Falls through to the run-state default (running -> detail), same as
+    // no param at all.
+    expect(screen.getByRole('radio', { name: 'Detail' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
   });
 });

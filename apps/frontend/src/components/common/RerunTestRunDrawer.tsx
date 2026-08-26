@@ -1,6 +1,7 @@
 'use client';
 
 import RunDrawer, { type RerunConfig } from '@/components/common/RunDrawer';
+import type { BatchRunOutcome } from '@/utils/test-run-batch';
 
 export type { RerunConfig };
 
@@ -9,6 +10,7 @@ interface RerunTestRunDrawerProps {
   onClose: () => void;
   data: RerunConfig;
   onSuccess?: () => void;
+  onExecuted?: (outcome: BatchRunOutcome) => void;
 }
 
 export default function RerunTestRunDrawer({
@@ -16,6 +18,7 @@ export default function RerunTestRunDrawer({
   onClose,
   data,
   onSuccess,
+  onExecuted,
 }: RerunTestRunDrawerProps) {
   return (
     <RunDrawer
@@ -24,6 +27,7 @@ export default function RerunTestRunDrawer({
       onClose={onClose}
       data={data}
       onSuccess={onSuccess}
+      onExecuted={onExecuted}
     />
   );
 }

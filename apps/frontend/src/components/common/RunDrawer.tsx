@@ -70,6 +70,7 @@ import { getApiErrorMessage } from '@/utils/error-utils';
 import {
   executeBatchedTestRuns,
   assignTagsToRuns,
+  type BatchRunOutcome,
   type SelectedExperiment,
 } from '@/utils/test-run-batch';
 import { BiotechIcon } from '@/components/icons';
@@ -162,6 +163,11 @@ type RunDrawerProps = {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Fired synchronously with the raw execution outcome, before onSuccess/
+   *  onClose -- callers that need to redirect to the run this created (e.g.
+   *  resolving its id via pollForTestRun) hook in here rather than every
+   *  mode picking up router logic that most callers don't want. */
+  onExecuted?: (outcome: BatchRunOutcome) => void;
 } & RunDrawerModeProps;
 
 // ---------------------------------------------------------------------------
@@ -274,7 +280,7 @@ const EXPERIMENT_SECTION_DESCRIPTION =
 // ---------------------------------------------------------------------------
 
 export default function RunDrawer(props: RunDrawerProps) {
-  const { open, onClose, onSuccess, mode } = props;
+  const { open, onClose, onSuccess, onExecuted, mode } = props;
   const cfg = MODE_CONFIGS[mode];
   const notifications = useNotifications();
   const { status } = useSession();
@@ -993,6 +999,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         { severity: 'success', autoHideDuration: 5000 }
       );
 
+      onExecuted?.(outcome);
       onSuccess?.();
       onClose();
     } catch (err) {

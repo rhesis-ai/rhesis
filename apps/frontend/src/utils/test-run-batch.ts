@@ -23,6 +23,7 @@
 import type { UUID } from 'crypto';
 import type { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import type { TestRunsClient } from '@/utils/api-client/test-runs-client';
+import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { EntityType, type TagCreate } from '@/utils/api-client/interfaces/tag';
 import { pollForTestRun } from '@/utils/test-run-utils';
@@ -185,6 +186,45 @@ export async function executeBatchedTestRuns({
       result: responses[i],
     })),
   };
+}
+
+/**
+ * Resolves the single test run an ``executeTestSet``/rerun outcome created,
+ * for callers that want to redirect straight to it (e.g. "show me the
+ * execution taking place"). ``executeTestSet`` only returns the test set /
+ * test_configuration synchronously -- the worker creates the test_run
+ * itself, so this polls for it the same way ``assignTagsToRuns`` already
+ * does.
+ *
+ * Returns null for a batch outcome (more than one run created -- no single
+ * run to redirect to) or when the run hasn't shown up yet after polling;
+ * callers should fall back to their pre-redirect behaviour in that case.
+ */
+export async function resolveSingleCreatedRun(
+  outcome: BatchRunOutcome,
+  testRunsClient: TestRunsClient
+): Promise<TestRunDetail | null> {
+  if (outcome.members.length !== 1) return null;
+
+  const resultRecord = outcome.members[0].result as
+    | Record<string, unknown>
+    | undefined;
+  const testConfigurationId =
+    (resultRecord?.test_configuration_id as string | undefined) ?? null;
+  if (!testConfigurationId) return null;
+
+  return pollForTestRun(testRunsClient, testConfigurationId);
+}
+
+/**
+ * URL for the "go watch this run" redirect after an execute/rerun resolves
+ * a single run -- Detail view, so the animation is visible immediately
+ * instead of landing on whatever density the viewer last had stored. See
+ * useDensityPreference's `forceDensity`. The one place this literal is
+ * written, so both callers stay in sync if the target view ever changes.
+ */
+export function watchRunHref(testRunId: string): string {
+  return `/test-runs/${testRunId}?density=detail`;
 }
 
 interface AssignTagsToRunsParams {

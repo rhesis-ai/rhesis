@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Box,
   CircularProgress,
@@ -13,7 +14,11 @@ import KpiRow from './KpiRow';
 import RequirementTable from './RequirementTable';
 import BreakdownsDrawer from './BreakdownsDrawer';
 import { useTestRunLive } from './hooks/useTestRunLive';
-import { useDensityPreference } from './hooks/useDensityPreference';
+import {
+  isDensityMode,
+  useDensityPreference,
+} from './hooks/useDensityPreference';
+import { buildTimingMap, timelineDuration } from './verdict-timeline';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
 interface RunSummaryProps {
@@ -24,7 +29,7 @@ interface RunSummaryProps {
   onViewFailures?: () => void;
 }
 
-const EMPTY_SET = new Set<string>();
+const DS_PER_SECOND = 10;
 
 export default function RunSummary({
   testRunId,
@@ -34,7 +39,21 @@ export default function RunSummary({
   onViewFailures,
 }: RunSummaryProps) {
   const { matrix, isLoading, isTerminal } = useTestRunLive(testRunId);
-  const { density, setDensity } = useDensityPreference({ isTerminal });
+
+  // A "watch it run" redirect (just launched/re-ran this test set) forces
+  // Detail view for this visit via ?density=, regardless of any stored
+  // preference -- see useDensityPreference's forceDensity doc.
+  const searchParams = useSearchParams();
+  const forceDensity = useMemo(() => {
+    const raw = searchParams.get('density');
+    return isDensityMode(raw) ? raw : null;
+  }, [searchParams]);
+
+  const { density, setDensity } = useDensityPreference({
+    isTerminal,
+    testRunId,
+    forceDensity,
+  });
 
   // Below ~720px the Numbers+shape strip is too small to read and Detail's
   // fixed name column eats the row -- force Numbers and hide the control,
@@ -44,30 +63,41 @@ export default function RunSummary({
 
   const testIds = useMemo(() => (matrix?.test_ids ?? []).map(String), [matrix]);
 
-  const generatingIds = useMemo<Set<string>>(() => {
-    if (!matrix) return EMPTY_SET;
-    const ids = matrix.test_status;
-    if (!ids) return EMPTY_SET;
-    // test_status is a char-per-test string: G=generating, E=evaluating, .=idle
-    const testIds = matrix.test_ids ?? [];
-    const result = new Set<string>();
-    for (let i = 0; i < ids.length && i < testIds.length; i++) {
-      if (ids[i] === 'G') result.add(String(testIds[i]));
-    }
-    return result;
-  }, [matrix]);
+  // Per-test execution timing is what the strip animates from. Absent (an old
+  // run whose cache lapsed, or one too large to animate) the map is empty and
+  // every cell renders in its settled state.
+  const timings = useMemo(
+    () =>
+      buildTimingMap(
+        testIds,
+        matrix?.test_started_ds ?? null,
+        matrix?.test_generated_ds ?? null,
+        matrix?.test_resolved_ds ?? null
+      ),
+    [
+      testIds,
+      matrix?.test_started_ds,
+      matrix?.test_generated_ds,
+      matrix?.test_resolved_ds,
+    ]
+  );
 
-  const evaluatingIds = useMemo<Set<string>>(() => {
-    if (!matrix) return EMPTY_SET;
-    const ids = matrix.test_status;
-    if (!ids) return EMPTY_SET;
-    const testIds = matrix.test_ids ?? [];
-    const result = new Set<string>();
-    for (let i = 0; i < ids.length && i < testIds.length; i++) {
-      if (ids[i] === 'E') result.add(String(testIds[i]));
-    }
-    return result;
-  }, [matrix]);
+  const serverElapsed = useMemo(
+    () =>
+      typeof matrix?.elapsed_ds === 'number'
+        ? matrix.elapsed_ds / DS_PER_SECOND
+        : null,
+    [matrix?.elapsed_ds]
+  );
+
+  // A finished run's length is the last moment any test reached, which is
+  // exactly where the timeline ends -- not the run's wall-clock duration,
+  // which includes setup the grid never shows.
+  const runDuration = useMemo(() => {
+    if (!isTerminal) return null;
+    const end = timelineDuration(timings);
+    return end > 0 ? end : (serverElapsed ?? null);
+  }, [isTerminal, timings, serverElapsed]);
 
   if (isLoading && !matrix) {
     return (
@@ -84,15 +114,18 @@ export default function RunSummary({
   }
 
   return (
-    <RunClockProvider active={!isTerminal}>
+    <RunClockProvider
+      active={!isTerminal}
+      serverElapsed={serverElapsed}
+      runDuration={runDuration}
+    >
       <Stack spacing={3}>
         <KpiRow
           matrix={matrix}
           testRun={testRun}
           isRunning={!isTerminal}
           testIds={testIds}
-          generatingIds={generatingIds}
-          evaluatingIds={evaluatingIds}
+          timings={timings}
           onViewFailures={onViewFailures}
         />
 
@@ -101,8 +134,7 @@ export default function RunSummary({
           density={effectiveDensity}
           onDensityChange={setDensity}
           hideDensityControl={isNarrow}
-          generatingIds={generatingIds}
-          evaluatingIds={evaluatingIds}
+          timings={timings}
           onViewRequirement={onViewRequirement}
           onViewMetric={onViewMetric}
         />
