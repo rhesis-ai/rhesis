@@ -6,7 +6,7 @@ import TokensGrid from './TokensGrid';
 import CreateTokenDrawer from './CreateTokenDrawer';
 import TokenDisplay from './TokenDisplay';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TokenResponse } from '@/utils/api-client/interfaces/token';
+import type { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { Can, useCanWithStatus } from '@/components/common/Can';
@@ -15,7 +15,16 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
 
-export default function TokensPageClient() {
+interface TokensPageClientProps {
+  /** Server-fetched first page -- when present, skips the initial client fetch. */
+  initialData?: Token[];
+  initialTotalCount?: number;
+}
+
+export default function TokensPageClient({
+  initialData,
+  initialTotalCount,
+}: TokensPageClientProps) {
   const { allowed: canManage, loading: permsLoading } = useCanWithStatus(
     Capability.Token.MANAGE
   );
@@ -106,6 +115,8 @@ export default function TokensPageClient() {
         onRefreshToken={handleRefreshToken}
         onBulkActionsChange={handleBulkActionsChange}
         refreshTrigger={refreshTrigger}
+        initialData={initialData}
+        initialTotalCount={initialTotalCount}
       />
 
       <CreateTokenDrawer

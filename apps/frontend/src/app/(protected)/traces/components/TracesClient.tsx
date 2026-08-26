@@ -7,6 +7,7 @@ import TracesTable from './TracesTable';
 import TraceDrawer from './TraceDrawer';
 import { useList } from '@/hooks/useList';
 import { tracesList } from './list';
+import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import {
@@ -26,6 +27,9 @@ interface TracesClientProps {
   onUnfilteredEmpty?: (empty: boolean) => void;
   /** Bumped by the wrapper's refresh FAB, to trigger a re-fetch. */
   refreshTrigger?: number;
+  /** Server-fetched first page -- when present, skips the initial client fetch. */
+  initialData?: TraceSummary[];
+  initialTotalCount?: number;
 }
 
 export default function TracesClient({
@@ -37,6 +41,8 @@ export default function TracesClient({
   fixedTestRunId,
   onUnfilteredEmpty,
   refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TracesClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -108,6 +114,8 @@ export default function TracesClient({
   } = useList(descriptor, {
     filters,
     enabled: !projectLoading && !!scopedProjectId,
+    initialData,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 

@@ -61,6 +61,9 @@ interface TokensGridProps {
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
   /** Bumped by the page after a create succeeds, to trigger a re-fetch. */
   refreshTrigger?: number;
+  /** Server-fetched first page -- when present, skips the initial client fetch. */
+  initialData?: Token[];
+  initialTotalCount?: number;
 }
 
 export default function TokensGrid({
@@ -69,6 +72,8 @@ export default function TokensGrid({
   onRefreshToken,
   onBulkActionsChange,
   refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TokensGridProps) {
   const [refreshTarget, setRefreshTarget] = useState<Token | null>(null);
 
@@ -152,6 +157,8 @@ export default function TokensGrid({
           onAction={canCreate ? onCreateClick : undefined}
         />
       }
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
       refreshTrigger={refreshTrigger}
       searchPlaceholder="Search tokens…"
       pills={{ tabs: STATUS_PILL_TABS }}

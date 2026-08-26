@@ -1,62 +1,49 @@
-'use client';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { prefetchList } from '@/utils/server-prefetch';
+import { emptyFilters, listParams } from '@/utils/list';
+import OrganizationSettingsPageClient from './components/OrganizationSettingsPageClient';
+import { teamList } from '../team/components/list';
 
-import * as React from 'react';
-import { Alert } from '@mui/material';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { useOrganization } from '@/contexts/OrganizationContext';
-import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
-import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
-import { useCanWithStatus } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
+interface OrganizationSettingsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-export default function OrganizationSettingsPage() {
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Organization.READ
-  );
-  const { organization, refresh } = useOrganization();
+/**
+ * Server component: when the page opens on the Team tab, fetches the first
+ * page of members before rendering so the grid arrives with content already
+ * in place -- no client-side spinner on first load. See `prefetchList` for
+ * the permission-gating rationale.
+ */
+export default async function OrganizationSettingsPage({
+  searchParams,
+}: OrganizationSettingsPageProps) {
+  const params = await searchParams;
 
-  const organizationName = organization?.name || 'Organization';
-
-  const breadcrumbs = [
-    { label: organizationName, href: '/organizations' },
-    { label: 'Organization Settings', href: '/organizations/settings' },
-  ];
-
-  const pageHeader = {
-    title: 'Organization Settings',
-    description:
-      "Manage your organization's profile, contact details, and security settings.",
-    breadcrumbs,
-  };
-
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="organization settings" />;
-
-  if (!organization) {
-    return (
-      <PageLayout {...pageHeader}>
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          No organization found. Please contact support.
-        </Alert>
-      </PageLayout>
-    );
+  // The default tab is Information, so the member list is only needed on first paint for `?tab=team`.
+  if (params.tab !== 'team') {
+    return <OrganizationSettingsPageClient />;
   }
 
+  const factory = await createServerApiFactory();
+
+  const { initialData, initialTotalCount } = await prefetchList(
+    teamList.capability,
+    () =>
+      teamList.list(
+        factory,
+        listParams(teamList, {
+          page: 1,
+          pageSize: teamList.defaultPageSize,
+          sort: teamList.defaultSort,
+          filters: emptyFilters(teamList),
+        })
+      )
+  );
+
   return (
-    <PageLayout {...pageHeader}>
-      <OrgSettingsProvider
-        value={{
-          organization,
-          onUpdate: refresh,
-        }}
-      >
-        <OrganizationSettingsTabs
-          organization={organization}
-          onUpdate={refresh}
-        />
-      </OrgSettingsProvider>
-    </PageLayout>
+    <OrganizationSettingsPageClient
+      initialTeamData={initialData}
+      initialTeamTotalCount={initialTotalCount}
+    />
   );
 }

@@ -18,10 +18,13 @@
 
 import * as React from 'react';
 import type { Organization } from '@/utils/api-client/interfaces/organization';
+import type { User } from '@/utils/api-client/interfaces/user';
 
 export interface OrgSettingsContextValue {
   organization: Organization;
   onUpdate: () => void;
+  /** Server-prefetched first page of the team list, present only when the page opened on the Team tab. */
+  initialTeam?: { data: User[]; totalCount: number };
 }
 
 const OrgSettingsContext = React.createContext<OrgSettingsContextValue | null>(

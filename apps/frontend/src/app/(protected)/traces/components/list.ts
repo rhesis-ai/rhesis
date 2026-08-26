@@ -30,13 +30,17 @@ const TRACES_FILTERS = {
 } as const;
 
 /**
- * Traces are project-scoped (fail-closed): the factory param is ignored in
- * favor of one carrying the active project's `X-Project-Id`, and the scope is
- * also passed as `project_id` unless the drawer explicitly overrides it.
- * A factory function rather than a constant because the project id is client
- * state (`useActiveProject`), resolved per render.
+ * Traces are project-scoped (fail-closed): the `list` factory param is
+ * ignored in favor of one carrying the active project's `X-Project-Id`, and
+ * the scope is also passed as `project_id` unless the drawer explicitly
+ * overrides it. A factory function rather than a constant because the project
+ * id is client state (`useActiveProject`), resolved per render. The server
+ * prefetch passes its own `factory` (token + project header already set).
  */
-export function tracesList(scopedProjectId: string | null) {
+export function tracesList(
+  scopedProjectId: string | null,
+  factory?: ApiClientFactory
+) {
   return defineList<TraceSummary, typeof TRACES_FILTERS>({
     title: 'Traces',
     resource: 'traces',
@@ -63,9 +67,8 @@ export function tracesList(scopedProjectId: string | null) {
         sort_order: _sortOrder,
         ...rest
       } = params;
-      const response = await new ApiClientFactory(
-        undefined,
-        scopedProjectId ?? undefined
+      const response = await (
+        factory ?? new ApiClientFactory(undefined, scopedProjectId ?? undefined)
       )
         .getTelemetryClient()
         .listTraces({ ...rest, limit, offset: skip });

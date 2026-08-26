@@ -46,10 +46,17 @@ import {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-export default function ProjectsClientWrapper() {
+interface ProjectsClientWrapperProps {
+  /** Server-fetched project list — when present, skips the initial client fetch. */
+  initialData?: Project[];
+}
+
+export default function ProjectsClientWrapper({
+  initialData,
+}: ProjectsClientWrapperProps) {
   const { status } = useSession();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>(initialData ?? []);
+  const [isLoading, setIsLoading] = useState(initialData === undefined);
   const [error, setError] = useState<string | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
@@ -82,7 +89,6 @@ export default function ProjectsClientWrapper() {
 
   useOnboardingTour('project');
 
-  // Fetch all projects on mount
   const fetchProjects = useCallback(async () => {
     if (!isAuthenticated(status)) return;
     try {
@@ -103,8 +109,8 @@ export default function ProjectsClientWrapper() {
   }, [status]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    if (initialData === undefined) fetchProjects();
+  }, [fetchProjects, initialData]);
 
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
