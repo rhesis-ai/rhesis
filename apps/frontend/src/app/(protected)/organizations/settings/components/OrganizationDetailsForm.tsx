@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { Box, Grid, TextField, IconButton, Tooltip } from '@mui/material';
+import { Box, Grid, IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import { useRouter } from 'next/navigation';
@@ -9,7 +9,9 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { validateUrl, normalizeUrl } from '@/utils/validation';
+import { SECTION_GRID } from '@/styles/theme-constants';
 import EditableSection from '@/components/common/EditableSection';
+import EditableField from '@/components/common/EditableField';
 import ViewField from '@/components/common/ViewField';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -178,11 +180,12 @@ function DetailsFields({
     }
   };
 
-  const gridSpacing = isEditing ? 2 : '50px';
-  const columnSpacing = isEditing ? 2 : '30px';
-
   return (
-    <Grid container columnSpacing={columnSpacing} rowSpacing={gridSpacing}>
+    <Grid
+      container
+      columnSpacing={SECTION_GRID.columnSpacing}
+      rowSpacing={SECTION_GRID.rowSpacing}
+    >
       <Grid size={12}>
         <ViewField
           label="Organization ID"
@@ -220,105 +223,75 @@ function DetailsFields({
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Organization Name"
-            value={draft.name}
-            onChange={handleChange('name')}
-            required
-            helperText="The internal name for your organization"
-          />
-        ) : (
-          <ViewField
-            label="Organization Name"
-            value={draft.name}
-            helperText="The internal name for your organization"
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Organization Name"
+          value={draft.name}
+          onChange={handleChange('name')}
+          required={isEditing}
+          helperText="The internal name for your organization"
+        />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Display Name"
-            value={draft.display_name}
-            onChange={handleChange('display_name')}
-            helperText="Friendly name shown to users (optional)"
-          />
-        ) : (
-          <ViewField
-            label="Display Name"
-            value={draft.display_name}
-            helperText="Friendly name shown to users (optional)"
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Display Name"
+          value={draft.display_name}
+          onChange={handleChange('display_name')}
+          helperText="Friendly name shown to users (optional)"
+        />
       </Grid>
 
       <Grid size={12}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Description"
-            value={draft.description}
-            onChange={handleChange('description')}
-            multiline
-            rows={3}
-            helperText="A brief description of your organization"
-          />
-        ) : (
-          <ViewField
-            label="Description"
-            value={draft.description}
-            helperText="A brief description of your organization"
-            multiline
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Description"
+          value={draft.description}
+          onChange={handleChange('description')}
+          multiline
+          rows={3}
+          helperText="A brief description of your organization"
+        />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Website"
-            value={draft.website}
-            onChange={handleChange('website')}
-            onBlur={handleBlur('website')}
-            placeholder="https://example.com"
-            error={!!fieldErrors.website}
-            helperText={fieldErrors.website || "Your organization's website"}
-          />
-        ) : (
-          <ViewField
-            label="Website"
-            value={draft.website}
-            helperText="Your organization's website"
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Website"
+          value={draft.website}
+          onChange={handleChange('website')}
+          onBlur={handleBlur('website')}
+          placeholder={isEditing ? 'https://example.com' : undefined}
+          error={isEditing && !!fieldErrors.website}
+          helperText={
+            isEditing
+              ? fieldErrors.website || "Your organization's website"
+              : "Your organization's website"
+          }
+        />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Logo URL"
-            value={draft.logo_url}
-            onChange={handleChange('logo_url')}
-            onBlur={handleBlur('logo_url')}
-            placeholder="https://example.com/logo.png"
-            error={!!fieldErrors.logo_url}
-            helperText={
-              fieldErrors.logo_url || "URL to your organization's logo"
-            }
-          />
-        ) : (
-          <ViewField
-            label="Logo URL"
-            value={draft.logo_url}
-            helperText="URL to your organization's logo"
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Logo URL"
+          value={draft.logo_url}
+          onChange={handleChange('logo_url')}
+          onBlur={handleBlur('logo_url')}
+          placeholder={isEditing ? 'https://example.com/logo.png' : undefined}
+          error={isEditing && !!fieldErrors.logo_url}
+          helperText={
+            isEditing
+              ? fieldErrors.logo_url || "URL to your organization's logo"
+              : "URL to your organization's logo"
+          }
+        />
       </Grid>
     </Grid>
   );

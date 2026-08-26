@@ -46,6 +46,15 @@ export const BACKDROP_COLORS = {
 /** Horizontal gap between FAB buttons in a page-header action group (Figma) */
 export const FAB_GROUP_GAP = '20px';
 
+/** MUI spacing units for section-level Grid containers (EditableSection, SectionCard). */
+export const SECTION_GRID = {
+  columnSpacing: 4,
+  rowSpacing: 4,
+} as const;
+
+/** MUI spacing units for page-level section stacking. */
+export const PAGE_SECTION_GAP = 3;
+
 export const ELEVATION = {
   xs: '0px 2px 4px rgba(84, 90, 101, 0.25)',
   s: '0px 16px 32px -4px rgba(84, 90, 101, 0.10), 0px 4px 4px rgba(84, 90, 101, 0.04)',

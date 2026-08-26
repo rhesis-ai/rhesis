@@ -78,6 +78,22 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
   },
 };
 
+/** Read-only outlined field: filled background, no border. */
+export const readOnlyOutlinedFieldSx: SxProps<Theme> = {
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'transparent',
+  },
+  '& .MuiOutlinedInput-root': {
+    backgroundColor: theme => theme.palette.greyscale.fieldSurface,
+    '&:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: 'transparent',
+    },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+      borderColor: 'transparent',
+    },
+  },
+};
+
 export const drawerDisabledFieldSx: SxProps<Theme> = {
   ...drawerOutlinedFieldSx,
   '& .MuiOutlinedInput-root.Mui-disabled': {

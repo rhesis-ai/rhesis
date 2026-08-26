@@ -586,9 +586,6 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
           root: {
             '& .MuiOutlinedInput-root': {
               borderRadius: 8,
-              ...(mode === 'dark' && {
-                backgroundColor: GREYSCALE.dark.fieldSurface,
-              }),
               '& fieldset': {
                 borderColor:
                   mode === 'light'
@@ -611,7 +608,6 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
           root: {
             borderRadius: 8,
             ...(mode === 'dark' && {
-              backgroundColor: GREYSCALE.dark.fieldSurface,
               color: '#ffffff',
             }),
           },
