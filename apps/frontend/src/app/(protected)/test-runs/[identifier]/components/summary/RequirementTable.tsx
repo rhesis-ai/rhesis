@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Paper, Typography, useTheme } from '@mui/material';
+import { Box, Paper, Tooltip, Typography, useTheme } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import RequirementGroup from './RequirementGroup';
 import DensityControl from './DensityControl';
 import {
@@ -9,11 +10,14 @@ import {
   GEOMETRY,
   GRID_GAP,
   GRID_PADDING_X,
+  INLINE_ICON_SIZE,
   LAST_COLUMN_LABEL,
+  LEGEND_SWATCH_SIZE,
   gridMorphTransition,
   useVerdictPalette,
   type DensityMode,
 } from './summary-tokens';
+import type { TestTimingMap } from './verdict-timeline';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRunClock } from './RunClockProvider';
 import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
@@ -23,8 +27,7 @@ interface RequirementTableProps {
   density: DensityMode;
   onDensityChange: (d: DensityMode) => void;
   hideDensityControl?: boolean;
-  generatingIds: Set<string>;
-  evaluatingIds: Set<string>;
+  timings: TestTimingMap;
   onViewRequirement?: (id: string) => void;
   onViewMetric?: (name: string, reqId?: string) => void;
 }
@@ -41,8 +44,7 @@ export default function RequirementTable({
   density,
   onDensityChange,
   hideDensityControl = false,
-  generatingIds,
-  evaluatingIds,
+  timings,
   onViewRequirement,
   onViewMetric,
 }: RequirementTableProps) {
@@ -105,7 +107,7 @@ export default function RequirementTable({
           fontWeight={600}
           sx={{ color: theme.palette.greyscale.title }}
         >
-          Requirement performance
+          Requirements performance
         </Typography>
         {!hideDensityControl && (
           <DensityControl density={density} onChange={handleDensityChange} />
@@ -208,8 +210,7 @@ export default function RequirementTable({
             rows={matrix.rows}
             density={density}
             testIds={testIds}
-            generatingIds={generatingIds}
-            evaluatingIds={evaluatingIds}
+            timings={timings}
             dataVersion={matrix.version}
             onViewRequirement={onViewRequirement}
             onViewMetric={onViewMetric}
@@ -235,11 +236,31 @@ function VerdictLegend() {
   const theme = useTheme();
   const palette = useVerdictPalette();
 
-  const items: { label: string; color: string; outlined?: boolean }[] = [
+  const items: {
+    label: string;
+    color: string;
+    outlined?: boolean;
+    alpha?: number;
+  }[] = [
     { label: 'Passed', color: theme.palette.success.main },
     { label: 'Failed', color: theme.palette.error.main },
     { label: 'Pending', color: palette.pending.color },
-    { label: 'Scored', color: theme.palette.warning.main },
+    // Generating and Evaluating share the same amber hue in the grid and are
+    // told apart only by alpha (dim vs bright) and pulse rate -- a swatch
+    // forced to full opacity would show them as identical. `alpha` here is
+    // each state's resting value (pulse midpoint), the same faithful static
+    // snapshot a legend can give for something that's actually animated.
+    {
+      label: 'Generating',
+      color: palette.generating.color,
+      alpha: palette.generating.alpha,
+    },
+    {
+      label: 'Evaluating',
+      color: palette.evaluating.color,
+      alpha: palette.evaluating.alpha,
+    },
+    { label: 'No verdict', color: palette.scored.color },
     { label: 'Error', color: theme.palette.error.main, outlined: true },
     { label: 'N/A', color: palette.na.color },
   ];
@@ -248,6 +269,7 @@ function VerdictLegend() {
     <Box
       sx={{
         display: 'flex',
+        alignItems: 'center',
         gap: 2,
         flexWrap: 'wrap',
         px: 2,
@@ -263,9 +285,10 @@ function VerdictLegend() {
         >
           <Box
             sx={{
-              width: 10,
-              height: 10,
+              width: LEGEND_SWATCH_SIZE,
+              height: LEGEND_SWATCH_SIZE,
               borderRadius: 0.5,
+              opacity: item.alpha ?? 1,
               ...(item.outlined
                 ? {
                     bgcolor: 'transparent',
@@ -279,6 +302,46 @@ function VerdictLegend() {
             {item.label}
           </Typography>
         </Box>
+      ))}
+
+      <Tooltip title={<LegendExplainer />} placement="top" arrow>
+        <InfoOutlinedIcon
+          aria-label="What these statuses mean"
+          sx={{
+            fontSize: INLINE_ICON_SIZE,
+            color: 'text.secondary',
+            ml: 'auto',
+          }}
+        />
+      </Tooltip>
+    </Box>
+  );
+}
+
+function LegendExplainer() {
+  const rows: [string, string][] = [
+    ['Passed / Failed', 'The metric resolved, with a pass/fail verdict.'],
+    ['Pending', "Queued -- this test hasn't started yet."],
+    ['Generating', 'The model is producing a response for the whole test.'],
+    ['Evaluating', "Generation is done; this metric's judge is scoring it."],
+    [
+      'No verdict',
+      'The metric produced a score but has no pass/fail threshold -- permanent, not provisional.',
+    ],
+    ['Error', 'Execution failed for this test; not scored.'],
+    ['N/A', "This test isn't scoped to the requirement."],
+  ];
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, py: 0.5 }}>
+      {rows.map(([label, description]) => (
+        <Typography key={label} variant="caption" component="div">
+          <Typography component="span" variant="caption" fontWeight={700}>
+            {label}
+          </Typography>
+          {': '}
+          {description}
+        </Typography>
       ))}
     </Box>
   );

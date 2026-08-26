@@ -1,10 +1,12 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@/test-utils';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import lightTheme from '@/styles/theme';
 import RunClockProvider from '../RunClockProvider';
 import RequirementTable from '../RequirementTable';
 import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
+import type { TestTimingMap } from '../verdict-timeline';
 
 jest.mock('@/hooks/useReducedMotion', () => ({
   useReducedMotion: () => false,
@@ -37,6 +39,10 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
     is_terminal: true,
     version: 1,
     test_ids: ['t1', 't2', 't3'],
+    test_started_ds: null,
+    test_generated_ds: null,
+    test_resolved_ds: null,
+    elapsed_ds: null,
     test_status: '...',
     requirements: [
       {
@@ -78,26 +84,26 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
       verdicts_resolved: 4,
       verdicts_planned: 6,
       failures: 1,
+      reviews_count: 0,
     },
     ...overrides,
   };
 }
 
-const EMPTY_SET = new Set<string>();
+const EMPTY_TIMINGS: TestTimingMap = new Map();
 
 describe('RequirementTable', () => {
-  it('renders Requirement performance title', () => {
+  it('renders Requirements performance title', () => {
     renderWithClock(
       <RequirementTable
         matrix={makeMatrix()}
         density="numbers"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
-    expect(screen.getByText('Requirement performance')).toBeInTheDocument();
+    expect(screen.getByText('Requirements performance')).toBeInTheDocument();
   });
 
   it('renders density control with toggle buttons', () => {
@@ -107,8 +113,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix()}
         density="detail"
         onDensityChange={onDensityChange}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -124,8 +129,7 @@ describe('RequirementTable', () => {
         density="numbers"
         onDensityChange={jest.fn()}
         hideDensityControl
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -138,8 +142,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix({ requirements: [] })}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -152,8 +155,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix()}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -172,8 +174,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix()}
         density="numbers"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.queryByText('Distribution')).not.toBeInTheDocument();
@@ -185,8 +186,7 @@ describe('RequirementTable', () => {
           matrix={makeMatrix()}
           density="detail"
           onDensityChange={jest.fn()}
-          generatingIds={EMPTY_SET}
-          evaluatingIds={EMPTY_SET}
+          timings={EMPTY_TIMINGS}
         />
       </RunClockProvider>
     );
@@ -199,8 +199,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix()}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -215,8 +214,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix()}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -232,8 +230,7 @@ describe('RequirementTable', () => {
         matrix={makeMatrix()}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -268,8 +265,7 @@ describe('RequirementTable', () => {
         })}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
         onViewRequirement={onViewRequirement}
       />
     );
@@ -284,7 +280,7 @@ describe('RequirementTable', () => {
     expect(onViewRequirement).toHaveBeenCalledWith('req-1');
   });
 
-  it('calls onViewMetric from the metric-row drilldown button', () => {
+  it('calls onViewMetric when a failing metric row is clicked', () => {
     const onViewMetric = jest.fn();
 
     renderWithClock(
@@ -307,14 +303,15 @@ describe('RequirementTable', () => {
         })}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
         onViewMetric={onViewMetric}
       />
     );
 
-    const drilldownButton = screen.getByLabelText('View failures in Tests');
-    fireEvent.click(drilldownButton);
+    const row = screen.getByRole('button', {
+      name: 'View failures for Safety: Toxicity Score',
+    });
+    fireEvent.click(row);
     // A single metric has nothing to share a prefix with, so onViewMetric
     // receives the untrimmed name.
     expect(onViewMetric).toHaveBeenCalledWith(
@@ -323,14 +320,48 @@ describe('RequirementTable', () => {
     );
   });
 
+  it('does not make a metric row clickable when it has no failures', () => {
+    const onViewMetric = jest.fn();
+
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          rows: [
+            {
+              requirement_id: 'req-1',
+              metric_key: 'm1',
+              metric_name: 'Safety: Toxicity Score',
+              metric_id: 'mid-1',
+              ambiguous: false,
+              verdicts: 'PP.',
+              overrides: '000',
+              passed: 2,
+              failed: 0,
+              pending: 1,
+            },
+          ],
+        })}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+        onViewMetric={onViewMetric}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'View failures for Safety: Toxicity Score',
+      })
+    ).not.toBeInTheDocument();
+  });
+
   it('renders legend items', () => {
     renderWithClock(
       <RequirementTable
         matrix={makeMatrix()}
         density="shape"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -338,6 +369,87 @@ describe('RequirementTable', () => {
     expect(screen.getAllByText('Passed').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByText('Generating')).toBeInTheDocument();
+    expect(screen.getByText('Evaluating')).toBeInTheDocument();
+    // Not "Scored" -- a metric with no pass/fail threshold is a permanent
+    // outcome, not a provisional one, and "Scored" reads as if every other
+    // result weren't also a score.
+    expect(screen.getByText('No verdict')).toBeInTheDocument();
+    expect(screen.queryByText('Scored')).not.toBeInTheDocument();
+  });
+
+  it('explains each legend status via the info icon tooltip', async () => {
+    const user = userEvent.setup();
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix()}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    const infoIcon = screen.getByLabelText('What these statuses mean');
+    await user.hover(infoIcon);
+
+    expect(
+      await screen.findByText(/Generation is done; this metric's judge/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/no pass\/fail threshold -- permanent, not provisional/)
+    ).toBeInTheDocument();
+  });
+
+  it('colors the "No verdict" legend swatch differently from the in-flight states', () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix()}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    // Permanent (no verdict) and temporary (in-flight) states must not share
+    // a colour family, or a finished run's "No verdict" cells read as if
+    // they were still being judged.
+    const noVerdictSwatch = screen.getByText('No verdict').previousSibling;
+    const generatingSwatch = screen.getByText('Generating').previousSibling;
+    expect(noVerdictSwatch).toHaveStyle({
+      backgroundColor: lightTheme.palette.info.main,
+    });
+    expect(generatingSwatch).not.toHaveStyle({
+      backgroundColor: lightTheme.palette.info.main,
+    });
+  });
+
+  it('distinguishes Generating from Evaluating by opacity, since they share a hue', () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix()}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    // Both are the theme's warning colour; a swatch forced to full opacity
+    // would render them identically. The dim/bright split must survive into
+    // the legend, not just the animated grid.
+    const generatingSwatch = screen.getByText('Generating')
+      .previousSibling as HTMLElement;
+    const evaluatingSwatch = screen.getByText('Evaluating')
+      .previousSibling as HTMLElement;
+    const generatingOpacity = parseFloat(
+      getComputedStyle(generatingSwatch).opacity
+    );
+    const evaluatingOpacity = parseFloat(
+      getComputedStyle(evaluatingSwatch).opacity
+    );
+
+    expect(generatingOpacity).toBeLessThan(evaluatingOpacity);
+    expect(generatingOpacity).toBeLessThan(1);
+    expect(evaluatingOpacity).toBeLessThan(1);
   });
 
   it('renders a non-zero failed count in red, on both the metric row and the group header', () => {
@@ -361,8 +473,7 @@ describe('RequirementTable', () => {
         })}
         density="numbers"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 
@@ -396,8 +507,7 @@ describe('RequirementTable', () => {
         })}
         density="numbers"
         onDensityChange={jest.fn()}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
 

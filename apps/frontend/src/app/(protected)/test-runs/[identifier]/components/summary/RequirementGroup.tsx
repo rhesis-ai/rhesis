@@ -11,7 +11,11 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { aggregateGroupByTest } from './verdict-model';
+import {
+  aggregateGroupByTest,
+  computeGroupRollup,
+  type TestTimingMap,
+} from './verdict-timeline';
 import { describeStrip } from './verdict-strip-render';
 import { trimSharedPrefix } from './shared-prefix';
 import MetricRow from './MetricRow';
@@ -21,6 +25,7 @@ import {
   GEOMETRY,
   GRID_GAP,
   GRID_PADDING_X,
+  INLINE_ICON_SIZE,
   ROLLUP_HEIGHT,
   gridMorphTransition,
   type DensityMode,
@@ -36,8 +41,7 @@ interface RequirementGroupProps {
   rows: VerdictRow[];
   density: DensityMode;
   testIds: string[];
-  generatingIds: Set<string>;
-  evaluatingIds: Set<string>;
+  timings: TestTimingMap;
   dataVersion: number;
   onViewRequirement?: (id: string) => void;
   onViewMetric?: (name: string, reqId?: string) => void;
@@ -48,8 +52,7 @@ export default function RequirementGroup({
   rows,
   density,
   testIds,
-  generatingIds,
-  evaluatingIds,
+  timings,
   dataVersion,
   onViewRequirement,
   onViewMetric,
@@ -63,10 +66,17 @@ export default function RequirementGroup({
     [rows, requirement.metric_keys]
   );
 
+  const rollupAt = useCallback(
+    (t: number) => computeGroupRollup(groupRows, testIds, timings, t),
+    [groupRows, testIds, timings]
+  );
+
+  // Header counts describe the settled run, matching the strip's own final
+  // state. During the animation's lag they read slightly ahead of the cells,
+  // which is preferable to numbers that count backwards on a refetch.
   const agg = useMemo(
-    () =>
-      aggregateGroupByTest(groupRows, testIds, generatingIds, evaluatingIds),
-    [groupRows, testIds, generatingIds, evaluatingIds]
+    () => aggregateGroupByTest(groupRows, testIds, timings, Infinity),
+    [groupRows, testIds, timings]
   );
 
   const metricNames = useMemo(
@@ -170,7 +180,7 @@ export default function RequirementGroup({
                 onClick={handleDrilldown}
                 sx={{ ml: 0.5, p: 0.25 }}
               >
-                <OpenInNewIcon sx={{ fontSize: 14 }} />
+                <OpenInNewIcon sx={{ fontSize: INLINE_ICON_SIZE }} />
               </IconButton>
             </Tooltip>
           )}
@@ -234,7 +244,7 @@ export default function RequirementGroup({
 
         <Box sx={{ overflow: 'hidden' }}>
           <VerdictStrip
-            cells={agg.rollup}
+            cellsAt={rollupAt}
             dataVersion={dataVersion}
             height={stripHeight}
             ariaLabel={stripAriaLabel}
@@ -249,8 +259,9 @@ export default function RequirementGroup({
             row={row}
             density={density}
             testIds={testIds}
-            generatingIds={generatingIds}
-            evaluatingIds={evaluatingIds}
+            timings={timings}
+            metricIndex={idx}
+            metricCount={groupRows.length}
             trimmedName={trimmedNames[idx]}
             fullName={metricNames[idx]}
             dataVersion={dataVersion}

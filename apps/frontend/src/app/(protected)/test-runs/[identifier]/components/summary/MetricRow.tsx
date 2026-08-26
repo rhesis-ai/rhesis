@@ -1,17 +1,19 @@
 'use client';
 
 import React, { useCallback, useMemo } from 'react';
-import { Box, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Tooltip, Typography, useTheme } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import VerdictStrip from './VerdictStrip';
-import { cellState, aggregateMetric, type CellState } from './verdict-model';
+import { aggregateMetric, type CellState } from './verdict-model';
+import { cellState, type TestTimingMap } from './verdict-timeline';
 import { describeStrip } from './verdict-strip-render';
 import {
   COLUMN_TEMPLATES,
   GEOMETRY,
   GRID_GAP,
   GRID_PADDING_X,
+  INLINE_ICON_SIZE,
   STRIP_HEIGHTS,
   gridMorphTransition,
   type DensityMode,
@@ -23,8 +25,10 @@ interface MetricRowProps {
   row: VerdictRow;
   density: DensityMode;
   testIds: string[];
-  generatingIds: Set<string>;
-  evaluatingIds: Set<string>;
+  timings: TestTimingMap;
+  /** This metric's position within its requirement, for the reveal cascade. */
+  metricIndex: number;
+  metricCount: number;
   trimmedName: string;
   fullName: string;
   dataVersion: number;
@@ -35,8 +39,9 @@ function MetricRowInner({
   row,
   density,
   testIds,
-  generatingIds,
-  evaluatingIds,
+  timings,
+  metricIndex,
+  metricCount,
   trimmedName,
   fullName,
   dataVersion,
@@ -45,24 +50,32 @@ function MetricRowInner({
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
 
-  const cells: CellState[] = useMemo(() => {
-    const result: CellState[] = [];
-    for (let i = 0; i < row.verdicts.length; i++) {
-      const tid = testIds[i] ?? '';
-      result.push(
-        cellState(
-          row.verdicts[i],
-          generatingIds.has(tid),
-          evaluatingIds.has(tid)
-        )
-      );
-    }
-    return result;
-  }, [row.verdicts, testIds, generatingIds, evaluatingIds]);
+  const cellsAt = useCallback(
+    (t: number): CellState[] => {
+      const result: CellState[] = [];
+      for (let i = 0; i < row.verdicts.length; i++) {
+        const testId = testIds[i] ?? '';
+        result.push(
+          cellState(
+            timings.get(testId),
+            row.verdicts[i],
+            metricIndex,
+            metricCount,
+            testId,
+            t
+          )
+        );
+      }
+      return result;
+    },
+    [row.verdicts, testIds, timings, metricIndex, metricCount]
+  );
 
+  // Describes the settled grid: a screen reader gets the run's outcome, not
+  // a snapshot of whichever cells happen to be mid-flight.
   const stripAriaLabel = useMemo(
-    () => describeStrip(fullName, cells),
-    [fullName, cells]
+    () => describeStrip(fullName, cellsAt(Infinity)),
+    [fullName, cellsAt]
   );
 
   const hasOverride = row.overrides.includes('1');
@@ -76,16 +89,26 @@ function MetricRowInner({
 
   const hasDrilldown = row.failed > 0 && !!onViewMetric;
 
-  const handleDrilldown = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onViewMetric?.(fullName, row.requirement_id ?? undefined);
-    },
-    [fullName, row.requirement_id, onViewMetric]
-  );
+  const handleDrilldown = useCallback(() => {
+    onViewMetric?.(fullName, row.requirement_id ?? undefined);
+  }, [fullName, row.requirement_id, onViewMetric]);
 
   return (
     <Box
+      role={hasDrilldown ? 'button' : undefined}
+      tabIndex={hasDrilldown ? 0 : undefined}
+      onClick={hasDrilldown ? handleDrilldown : undefined}
+      onKeyDown={
+        hasDrilldown
+          ? e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleDrilldown();
+              }
+            }
+          : undefined
+      }
+      aria-label={hasDrilldown ? `View failures for ${fullName}` : undefined}
       sx={{
         display: 'grid',
         gridTemplateColumns: COLUMN_TEMPLATES[density],
@@ -95,6 +118,7 @@ function MetricRowInner({
         py: 0.25,
         px: `${GRID_PADDING_X}px`,
         minHeight: GEOMETRY.rowHeight,
+        cursor: hasDrilldown ? 'pointer' : 'default',
         '&:hover': {
           bgcolor: 'action.hover',
         },
@@ -128,19 +152,25 @@ function MetricRowInner({
             arrow
           >
             <RateReviewIcon
-              sx={{ fontSize: 14, color: 'primary.dark', flexShrink: 0 }}
+              sx={{
+                fontSize: INLINE_ICON_SIZE,
+                color: 'primary.dark',
+                flexShrink: 0,
+              }}
             />
           </Tooltip>
         )}
         {hasDrilldown && (
           <Tooltip title="View failures in Tests" placement="top">
-            <IconButton
-              size="small"
-              onClick={handleDrilldown}
-              sx={{ ml: 0.5, p: 0.25 }}
-            >
-              <OpenInNewIcon sx={{ fontSize: 14 }} />
-            </IconButton>
+            {/* Decorative -- the whole row is the click target (see the
+                outer Box's role="button"), so this isn't its own control. */}
+            <OpenInNewIcon
+              sx={{
+                fontSize: INLINE_ICON_SIZE,
+                color: 'text.secondary',
+                ml: 0.5,
+              }}
+            />
           </Tooltip>
         )}
       </Box>
@@ -203,7 +233,7 @@ function MetricRowInner({
 
       <Box sx={{ overflow: 'hidden' }}>
         <VerdictStrip
-          cells={cells}
+          cellsAt={cellsAt}
           dataVersion={dataVersion}
           height={STRIP_HEIGHTS[density]}
           ariaLabel={stripAriaLabel}

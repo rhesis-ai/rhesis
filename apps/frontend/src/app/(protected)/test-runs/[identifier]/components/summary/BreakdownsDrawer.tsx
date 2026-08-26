@@ -28,12 +28,7 @@ import {
   rowToPassFailStats,
   type DimensionItem,
 } from '@/app/(protected)/insights/utils/requirement-insights-utils';
-import { fetchAllTestResults } from '../../hooks/useTestRunDetailData';
-import {
-  computeReviewSummary,
-  getReviewBand,
-  type ReviewSummary,
-} from '../test-run-summary-utils';
+import { getReviewBand } from '../test-run-summary-utils';
 
 interface BreakdownsDrawerProps {
   testRunId: string;
@@ -61,19 +56,6 @@ function BandChip({ passRate }: { passRate: number }) {
       color={band.colorKey}
       sx={{ fontWeight: 500 }}
     />
-  );
-}
-
-function ReviewsSummary({ summary }: { summary: ReviewSummary }) {
-  return (
-    <Box>
-      <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
-        {summary.headline}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {summary.subtitle}
-      </Typography>
-    </Box>
   );
 }
 
@@ -131,9 +113,6 @@ function DimensionList({ items }: { items: DimensionItem[] }) {
 export default function BreakdownsDrawer({ testRunId }: BreakdownsDrawerProps) {
   const [expanded, setExpanded] = useState(false);
   const [insights, setInsights] = useState<InsightsQueryResponse | null>(null);
-  const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(
-    null
-  );
   const [isLoading, setIsLoading] = useState(false);
   const isMounted = useRef(true);
   const fetched = useRef(false);
@@ -146,26 +125,22 @@ export default function BreakdownsDrawer({ testRunId }: BreakdownsDrawerProps) {
       const client = new ApiClientFactory().getInsightsClient();
       const filters = { test_run_ids: [testRunId] };
       const measures = ['passed', 'failed', 'pass_rate'];
-      const [insightsResult, testResults] = await Promise.all([
-        client.getInsightsQuery({
-          categories: {
-            entity: 'test_result',
-            group_by: ['category'],
-            measures,
-            filters,
-          },
-          topics: {
-            entity: 'test_result',
-            group_by: ['topic'],
-            measures,
-            filters,
-          },
-        }),
-        fetchAllTestResults(testRunId),
-      ]);
+      const insightsResult = await client.getInsightsQuery({
+        categories: {
+          entity: 'test_result',
+          group_by: ['category'],
+          measures,
+          filters,
+        },
+        topics: {
+          entity: 'test_result',
+          group_by: ['topic'],
+          measures,
+          filters,
+        },
+      });
       if (isMounted.current) {
         setInsights(insightsResult);
-        setReviewSummary(computeReviewSummary(testResults));
         setIsLoading(false);
       }
     } catch {
@@ -197,9 +172,7 @@ export default function BreakdownsDrawer({ testRunId }: BreakdownsDrawerProps) {
     [insights]
   );
 
-  // Reviews always has content once fetched (even "0 reviews"), matching
-  // the always-visible old Reviews KPI card.
-  const hasData = categories.length > 0 || topics.length > 0 || !!reviewSummary;
+  const hasData = categories.length > 0 || topics.length > 0;
   if (!isLoading && !expanded && !hasData && fetched.current) return null;
 
   return (
@@ -228,18 +201,6 @@ export default function BreakdownsDrawer({ testRunId }: BreakdownsDrawerProps) {
           </Typography>
         ) : (
           <Grid container spacing={4}>
-            {reviewSummary && (
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Typography
-                  variant="subtitle2"
-                  fontWeight={600}
-                  sx={{ mb: 1.5 }}
-                >
-                  Reviews
-                </Typography>
-                <ReviewsSummary summary={reviewSummary} />
-              </Grid>
-            )}
             {categories.length > 0 && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <Typography
