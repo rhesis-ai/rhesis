@@ -213,6 +213,7 @@ export default function RequirementGroup({
             textAlign: 'right',
             fontVariantNumeric: 'tabular-nums',
             overflow: 'hidden',
+            color: agg.failed > 0 ? 'error.main' : 'text.secondary',
           }}
         >
           {agg.failed}

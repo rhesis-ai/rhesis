@@ -182,6 +182,7 @@ function MetricRowInner({
           textAlign: 'right',
           fontVariantNumeric: 'tabular-nums',
           overflow: 'hidden',
+          color: row.failed > 0 ? 'error.main' : 'text.secondary',
         }}
       >
         {failedStr}

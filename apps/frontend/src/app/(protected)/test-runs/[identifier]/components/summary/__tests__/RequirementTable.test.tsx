@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@/test-utils';
 import '@testing-library/jest-dom';
+import lightTheme from '@/styles/theme';
 import RunClockProvider from '../RunClockProvider';
 import RequirementTable from '../RequirementTable';
 import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
@@ -85,7 +86,7 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
 const EMPTY_SET = new Set<string>();
 
 describe('RequirementTable', () => {
-  it('renders Verdict Grid title', () => {
+  it('renders Requirement performance title', () => {
     renderWithClock(
       <RequirementTable
         matrix={makeMatrix()}
@@ -96,7 +97,7 @@ describe('RequirementTable', () => {
       />
     );
 
-    expect(screen.getByText('Verdict Grid')).toBeInTheDocument();
+    expect(screen.getByText('Requirement performance')).toBeInTheDocument();
   });
 
   it('renders density control with toggle buttons', () => {
@@ -156,7 +157,7 @@ describe('RequirementTable', () => {
       />
     );
 
-    expect(screen.getByText('Metric')).toBeInTheDocument();
+    expect(screen.getByText('Requirement / Metric')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.getByText('Pass rate')).toBeInTheDocument();
     // "Passed"/"Failed" also appear in the legend, so there are 2 of each.
@@ -337,5 +338,73 @@ describe('RequirementTable', () => {
     expect(screen.getAllByText('Passed').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Pending')).toBeInTheDocument();
+  });
+
+  it('renders a non-zero failed count in red, on both the metric row and the group header', () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          rows: [
+            {
+              requirement_id: 'req-1',
+              metric_key: 'm1',
+              metric_name: 'Safety: Toxicity Score',
+              metric_id: 'mid-1',
+              ambiguous: false,
+              verdicts: 'PFF',
+              overrides: '000',
+              passed: 1,
+              failed: 2,
+              pending: 0,
+            },
+          ],
+        })}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        generatingIds={EMPTY_SET}
+        evaluatingIds={EMPTY_SET}
+      />
+    );
+
+    // The metric row's own failed count (2) and the group header's rolled-up
+    // failed count (also 2, since there's only one metric) both render red.
+    const failedCells = screen.getAllByText('2');
+    expect(failedCells.length).toBeGreaterThanOrEqual(2);
+    for (const cell of failedCells) {
+      expect(cell).toHaveStyle({ color: lightTheme.palette.error.main });
+    }
+  });
+
+  it('renders a zero failed count in a muted color, not red', () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          rows: [
+            {
+              requirement_id: 'req-1',
+              metric_key: 'm1',
+              metric_name: 'Safety: Toxicity Score',
+              metric_id: 'mid-1',
+              ambiguous: false,
+              verdicts: 'PPP',
+              overrides: '000',
+              passed: 3,
+              failed: 0,
+              pending: 0,
+            },
+          ],
+        })}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        generatingIds={EMPTY_SET}
+        evaluatingIds={EMPTY_SET}
+      />
+    );
+
+    const failedCells = screen.getAllByText('0');
+    expect(failedCells.length).toBeGreaterThanOrEqual(1);
+    for (const cell of failedCells) {
+      expect(cell).not.toHaveStyle({ color: lightTheme.palette.error.main });
+    }
   });
 });

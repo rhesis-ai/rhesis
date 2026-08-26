@@ -105,7 +105,7 @@ export default function RequirementTable({
           fontWeight={600}
           sx={{ color: theme.palette.greyscale.title }}
         >
-          Verdict Grid
+          Requirement performance
         </Typography>
         {!hideDensityControl && (
           <DensityControl density={density} onChange={handleDensityChange} />
@@ -145,7 +145,7 @@ export default function RequirementTable({
             noWrap
             sx={{ overflow: 'hidden' }}
           >
-            Metric
+            Requirement / Metric
           </Typography>
           <Typography
             variant="caption"

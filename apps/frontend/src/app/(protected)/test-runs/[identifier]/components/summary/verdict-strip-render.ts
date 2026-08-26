@@ -11,7 +11,28 @@ export interface StripPaintOptions {
 }
 
 const CELL_MAX_WIDTH = 24;
+const CELL_BORDER_RADIUS = 2;
 const MIN_CELL_WIDTH = 3;
+
+// Rounds a cell's corners when the canvas supports it (broadly available;
+// falls back to a square corner on an environment that doesn't). Radius is
+// clamped to half the smaller dimension so a thin sliver never blobs out
+// into an ellipse.
+function tracePerCellShape(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  ctx.beginPath();
+  const radius = Math.max(0, Math.min(CELL_BORDER_RADIUS, w / 2, h / 2));
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, radius);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+}
 
 // Width-aware: a narrower strip (e.g. the 230px Numbers+shape strip) crosses
 // into binning at a lower cell count than a wide one (e.g. Detail's 1fr) --
@@ -104,10 +125,12 @@ function paintPerCell(
     if (state === 'error') {
       ctx.strokeStyle = entry.color;
       ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5, 0.5, cellWidth - 1, height - 1);
+      tracePerCellShape(ctx, x + 0.5, 0.5, cellWidth - 1, height - 1);
+      ctx.stroke();
     } else {
       ctx.fillStyle = entry.color;
-      ctx.fillRect(x, 0, cellWidth, height);
+      tracePerCellShape(ctx, x, 0, cellWidth, height);
+      ctx.fill();
     }
   }
 

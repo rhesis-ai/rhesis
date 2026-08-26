@@ -15,6 +15,17 @@ function fakeContext(): {
     save: jest.fn(),
     restore: jest.fn(),
     scale: jest.fn(),
+    beginPath: jest.fn((...args: unknown[]) =>
+      calls.push({ method: 'beginPath', args })
+    ),
+    roundRect: jest.fn((...args: unknown[]) =>
+      calls.push({ method: 'roundRect', args })
+    ),
+    rect: jest.fn((...args: unknown[]) => calls.push({ method: 'rect', args })),
+    fill: jest.fn((...args: unknown[]) => calls.push({ method: 'fill', args })),
+    stroke: jest.fn((...args: unknown[]) =>
+      calls.push({ method: 'stroke', args })
+    ),
     fillRect: jest.fn((...args: unknown[]) =>
       calls.push({ method: 'fillRect', args })
     ),
@@ -69,7 +80,7 @@ describe('shouldBin', () => {
 });
 
 describe('paintStrip', () => {
-  it('paints per-cell at correct x offsets', () => {
+  it('paints per-cell at correct x offsets, with rounded corners', () => {
     const { ctx, calls } = fakeContext();
     const cells: CellState[] = ['passed', 'failed', 'pending'];
     paintStrip(ctx, {
@@ -81,11 +92,18 @@ describe('paintStrip', () => {
       binned: false,
     });
 
-    const fillCalls = calls.filter(c => c.method === 'fillRect');
+    const roundRectCalls = calls.filter(c => c.method === 'roundRect');
+    const fillCalls = calls.filter(c => c.method === 'fill');
+    expect(roundRectCalls).toHaveLength(3);
     expect(fillCalls).toHaveLength(3);
-    expect(fillCalls[0].args[0]).toBe(0);
-    expect(fillCalls[1].args[0]).toBe(24);
-    expect(fillCalls[2].args[0]).toBe(48);
+    expect(roundRectCalls[0].args[0]).toBe(0);
+    expect(roundRectCalls[1].args[0]).toBe(24);
+    expect(roundRectCalls[2].args[0]).toBe(48);
+    // Radius is clamped to half the smaller dimension, never a raw magic
+    // number bigger than the cell itself.
+    for (const call of roundRectCalls) {
+      expect(call.args[4]).toBeLessThanOrEqual(20 / 2);
+    }
   });
 
   it('caps cell width at 24px', () => {
@@ -99,13 +117,53 @@ describe('paintStrip', () => {
       binned: false,
     });
 
-    const fillCalls = calls.filter(c => c.method === 'fillRect');
-    expect(fillCalls).toHaveLength(1);
+    const roundRectCalls = calls.filter(c => c.method === 'roundRect');
+    expect(roundRectCalls).toHaveLength(1);
     // drawWidth = min(24, 200/1) = 24; cellWidth = max(1, 24-0) = 24
-    expect(fillCalls[0].args[2]).toBe(24);
+    expect(roundRectCalls[0].args[2]).toBe(24);
   });
 
-  it('uses strokeRect for error cells', () => {
+  it('clamps the corner radius to half the smaller dimension for a thin cell', () => {
+    const { ctx, calls } = fakeContext();
+    // 40 cells in 40px -> 1px-wide cells, well under the 2px radius.
+    const cells: CellState[] = Array(40).fill('passed');
+    paintStrip(ctx, {
+      width: 40,
+      height: 20,
+      dpr: 1,
+      cells,
+      palette,
+      binned: false,
+    });
+
+    const roundRectCalls = calls.filter(c => c.method === 'roundRect');
+    for (const call of roundRectCalls) {
+      const [, , w, h, radius] = call.args as number[];
+      expect(radius).toBeLessThanOrEqual(Math.min(w, h) / 2);
+    }
+  });
+
+  it('falls back to a square-cornered rect when roundRect is unsupported', () => {
+    const { ctx, calls } = fakeContext();
+    // Simulate an environment without the CanvasRenderingContext2D.roundRect
+    // method (a real fallback path, not just an implementation detail).
+    delete (ctx as unknown as Record<string, unknown>).roundRect;
+
+    paintStrip(ctx, {
+      width: 100,
+      height: 20,
+      dpr: 1,
+      cells: ['passed'],
+      palette,
+      binned: false,
+    });
+
+    expect(calls.filter(c => c.method === 'roundRect')).toHaveLength(0);
+    expect(calls.filter(c => c.method === 'rect')).toHaveLength(1);
+    expect(calls.filter(c => c.method === 'fill')).toHaveLength(1);
+  });
+
+  it('strokes (not fills) rounded corners for error cells', () => {
     const { ctx, calls } = fakeContext();
     paintStrip(ctx, {
       width: 100,
@@ -116,8 +174,10 @@ describe('paintStrip', () => {
       binned: false,
     });
 
-    const strokeCalls = calls.filter(c => c.method === 'strokeRect');
-    const fillCalls = calls.filter(c => c.method === 'fillRect');
+    const strokeCalls = calls.filter(c => c.method === 'stroke');
+    const fillCalls = calls.filter(c => c.method === 'fill');
+    const roundRectCalls = calls.filter(c => c.method === 'roundRect');
+    expect(roundRectCalls).toHaveLength(1);
     expect(strokeCalls).toHaveLength(1);
     expect(fillCalls).toHaveLength(0);
   });
@@ -133,8 +193,9 @@ describe('paintStrip', () => {
       binned: false,
     });
 
-    expect(calls.filter(c => c.method === 'fillRect')).toHaveLength(0);
-    expect(calls.filter(c => c.method === 'strokeRect')).toHaveLength(0);
+    expect(calls.filter(c => c.method === 'roundRect')).toHaveLength(0);
+    expect(calls.filter(c => c.method === 'fill')).toHaveLength(0);
+    expect(calls.filter(c => c.method === 'stroke')).toHaveLength(0);
   });
 
   it('scales by DPR', () => {
