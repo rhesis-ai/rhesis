@@ -13,6 +13,7 @@ from rhesis.backend.app.outcomes import (
     Verdict,
     classify_metrics,
     outcome_of,
+    outcome_to_test_result_status_name,
 )
 
 
@@ -142,3 +143,39 @@ class TestClassifyMetrics:
         ]:
             execution, verdict = classify_metrics(metrics, http_error=http_error)
             outcome_of(execution, verdict)  # must not raise
+
+
+@pytest.mark.unit
+class TestOutcomeToTestResultStatusName:
+    """The legacy status.name bridge for display -- see the module docstring
+    on why this exists and why nothing new should call it.
+    """
+
+    def test_maps_the_four_reachable_outcomes(self):
+        assert outcome_to_test_result_status_name(Outcome.PASS) == "Pass"
+        assert outcome_to_test_result_status_name(Outcome.FAIL) == "Fail"
+        assert outcome_to_test_result_status_name(Outcome.ERROR) == "Error"
+        assert outcome_to_test_result_status_name(Outcome.INCONCLUSIVE) == "Inconclusive"
+
+    def test_matches_the_real_enum_values(self):
+        """Pins the bridge to TestResultStatus so the two cannot drift --
+        a renamed enum member here would otherwise write a status name
+        get_or_create_status happily creates as a brand new legacy status.
+        """
+        from rhesis.backend.app.constants import TestResultStatus
+
+        assert outcome_to_test_result_status_name(Outcome.PASS) == TestResultStatus.PASS.value
+        assert outcome_to_test_result_status_name(Outcome.FAIL) == TestResultStatus.FAIL.value
+        assert outcome_to_test_result_status_name(Outcome.ERROR) == TestResultStatus.ERROR.value
+        assert (
+            outcome_to_test_result_status_name(Outcome.INCONCLUSIVE)
+            == TestResultStatus.INCONCLUSIVE.value
+        )
+
+    @pytest.mark.parametrize("outcome", [Outcome.CANCELLED, Outcome.PENDING])
+    def test_unreachable_outcomes_raise(self, outcome):
+        """Nothing persists a test_result row in these states -- a caller
+        reaching here with one has the model wrong, not a display gap.
+        """
+        with pytest.raises(ValueError, match="No test-result status name"):
+            outcome_to_test_result_status_name(outcome)

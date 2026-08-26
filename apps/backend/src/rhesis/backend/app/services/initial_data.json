@@ -51,6 +51,11 @@
             "entity_type": "TestResult"
         },
         {
+            "name": "Inconclusive",
+            "description": "Ran, but at least one metric had no pass/fail verdict to give",
+            "entity_type": "TestResult"
+        },
+        {
             "name": "Test",
             "description": "Test status",
             "entity_type": "Test"

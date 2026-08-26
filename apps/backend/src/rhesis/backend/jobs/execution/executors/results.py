@@ -12,10 +12,14 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
-from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.outcomes import (
+    classify_metrics,
+    outcome_of,
+    outcome_to_test_result_status_name,
+)
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
 
@@ -243,22 +247,13 @@ def create_test_result_record(
         UUID of the created test result, or None if creation failed
     """
     # HTTP errors must never become Pass/Fail from metric scores.
-    if has_http_error_in_result(processed_result):
-        status_value = TestResultStatus.ERROR.value
+    http_error = has_http_error_in_result(processed_result)
+    if http_error:
         metrics_results = {}
-    elif not metrics_results or len(metrics_results) == 0:
-        # No metrics to evaluate - mark as ERROR
-        status_value = TestResultStatus.ERROR.value
-    else:
-        # Check if all metrics passed
-        all_metrics_passed = all(
-            metric_data.get("is_successful", False)
-            for metric_data in metrics_results.values()
-            if isinstance(metric_data, dict)
-        )
-        status_value = (
-            TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
-        )
+
+    execution, verdict = classify_metrics(metrics_results, http_error=http_error)
+    outcome = outcome_of(execution, verdict)
+    status_value = outcome_to_test_result_status_name(outcome)
 
     test_result_status = get_or_create_status(
         db, status_value, "TestResult", organization_id=organization_id
@@ -299,6 +294,8 @@ def create_test_result_record(
         "test_id": UUID(test_id),
         "prompt_id": test.prompt_id,
         "status_id": test_result_status.id,
+        "execution": execution.value,
+        "verdict": verdict.value if verdict else None,
         "user_id": UUID(user_id) if user_id else None,
         "organization_id": UUID(organization_id) if organization_id else None,
         "test_metrics": test_metrics,

@@ -141,3 +141,60 @@ def classify_metrics(
     if saw_inconclusive:
         return Execution.OK, Verdict.INCONCLUSIVE
     return Execution.OK, Verdict.PASS
+
+
+_STATUS_NAME_BY_OUTCOME = {
+    Outcome.PASS: "Pass",
+    Outcome.FAIL: "Fail",
+    Outcome.ERROR: "Error",
+    Outcome.INCONCLUSIVE: "Inconclusive",
+}
+
+
+def outcome_to_test_result_status_name(outcome: Outcome) -> str:
+    """Bridge to the legacy ``status.name`` shown in review/detail UIs.
+
+    Exists only so writers can keep populating ``status_id`` -- a
+    display/review artefact, not the source of truth (see the
+    ``TestResult`` model's column comment) -- without each re-inventing
+    this mapping. New code that only needs the real value should read
+    ``execution``/``verdict`` directly and never call this.
+
+    Only the four outcomes a test result can actually reach at write time
+    are mapped; CANCELLED and PENDING have no test-result status name
+    because nothing persists a test_result row in those states.
+    """
+    try:
+        return _STATUS_NAME_BY_OUTCOME[outcome]
+    except KeyError:
+        raise ValueError(f"No test-result status name for outcome {outcome.value!r}") from None
+
+
+def execution_verdict_from_status_name(
+    status_name: Optional[str],
+) -> Tuple[Execution, Optional[Verdict]]:
+    """Derive (execution, verdict) from a legacy status name directly.
+
+    For the one write path that is allowed to supply ``status_id`` without
+    ever going through ``classify_metrics`` -- a caller of
+    ``POST /test_results`` may set the status explicitly with no metrics
+    attached at all (see ``routers/test_result.py``). Prefer
+    ``classify_metrics`` wherever metrics are actually available; this
+    exists only to keep the source-of-truth columns populated when they
+    aren't.
+    """
+    from rhesis.backend.app.constants import (
+        TEST_RESULT_STATUS_FAILED,
+        TEST_RESULT_STATUS_PASSED,
+    )
+
+    normalized = (status_name or "").lower()
+    if normalized in TEST_RESULT_STATUS_PASSED:
+        return Execution.OK, Verdict.PASS
+    if normalized in TEST_RESULT_STATUS_FAILED:
+        return Execution.OK, Verdict.FAIL
+    if normalized == "inconclusive":
+        return Execution.OK, Verdict.INCONCLUSIVE
+    if normalized == "error":
+        return Execution.ERROR, None
+    return Execution.NOT_RUN, None

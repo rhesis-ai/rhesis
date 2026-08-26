@@ -176,11 +176,20 @@ TEST_RESULT_STATUS_ERROR = frozenset(
 
 
 class TestResultStatus(str, Enum):
-    """Exact DB status names for test results (written to the status table)."""
+    """Exact DB status names for test results (written to the status table).
+
+    Display/review artefact only -- app/outcomes.py's Execution/Verdict
+    columns are the source of truth for aggregation. INCONCLUSIVE is a
+    fourth value because it names a real, distinct bucket
+    (Outcome.INCONCLUSIVE) that this vocabulary never had a name for
+    before: a metric legitimately reporting no pass/fail verdict used to
+    collapse into FAIL by default rather than being shown as its own state.
+    """
 
     PASS = "Pass"
     FAIL = "Fail"
     ERROR = "Error"
+    INCONCLUSIVE = "Inconclusive"
 
 
 class ReviewTarget(str, Enum):

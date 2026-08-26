@@ -72,26 +72,38 @@ def create_test_result(
         test_result.user_id = current_user.id
 
     # Auto-set status based on test_metrics if not provided
-    if not test_result.status_id and test_result.test_metrics:
-        from rhesis.backend.app.constants import TestResultStatus
+    metrics = test_result.test_metrics.get("metrics", {}) if test_result.test_metrics else {}
+    if not test_result.status_id and metrics:
+        from rhesis.backend.app.outcomes import (
+            classify_metrics,
+            outcome_of,
+            outcome_to_test_result_status_name,
+        )
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
-        metrics = test_result.test_metrics.get("metrics", {})
-        if metrics:
-            # Check if all metrics passed
-            all_metrics_passed = all(
-                metric_data.get("is_successful", False)
-                for metric_data in metrics.values()
-                if isinstance(metric_data, dict)
-            )
+        execution, verdict = classify_metrics(metrics)
+        status_value = outcome_to_test_result_status_name(outcome_of(execution, verdict))
+        status = get_or_create_status(
+            db, status_value, "TestResult", organization_id=organization_id
+        )
+        test_result.status_id = status.id
+        test_result.execution = execution.value
+        test_result.verdict = verdict.value if verdict else None
+    elif test_result.status_id:
+        # The caller supplied a status directly, with no metrics for
+        # classify_metrics to work from -- derive execution/verdict from
+        # the status's own name so the source-of-truth columns still get
+        # populated for this path too, not only the auto-status one above.
+        from rhesis.backend.app.outcomes import execution_verdict_from_status_name
 
-            status_value = (
-                TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
-            )
-            status = get_or_create_status(
-                db, status_value, "TestResult", organization_id=organization_id
-            )
-            test_result.status_id = status.id
+        status_row = (
+            db.query(models.Status).filter(models.Status.id == test_result.status_id).first()
+        )
+        execution, verdict = execution_verdict_from_status_name(
+            status_row.name if status_row else None
+        )
+        test_result.execution = execution.value
+        test_result.verdict = verdict.value if verdict else None
 
     return test_result_crud.create_test_result(
         db=db, test_result=test_result, organization_id=organization_id, user_id=user_id
@@ -188,26 +200,37 @@ def update_test_result(
         raise HTTPException(status_code=403, detail="Not authorized to update this test result")
 
     # Auto-update status based on test_metrics if status_id is not explicitly provided
-    if test_result.test_metrics and not test_result.status_id:
-        from rhesis.backend.app.constants import TestResultStatus
+    metrics = test_result.test_metrics.get("metrics", {}) if test_result.test_metrics else {}
+    if metrics and not test_result.status_id:
+        from rhesis.backend.app.outcomes import (
+            classify_metrics,
+            outcome_of,
+            outcome_to_test_result_status_name,
+        )
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
-        metrics = test_result.test_metrics.get("metrics", {})
-        if metrics:
-            # Check if all metrics passed
-            all_metrics_passed = all(
-                metric_data.get("is_successful", False)
-                for metric_data in metrics.values()
-                if isinstance(metric_data, dict)
-            )
+        execution, verdict = classify_metrics(metrics)
+        status_value = outcome_to_test_result_status_name(outcome_of(execution, verdict))
+        status = get_or_create_status(
+            db, status_value, "TestResult", organization_id=organization_id
+        )
+        test_result.status_id = status.id
+        test_result.execution = execution.value
+        test_result.verdict = verdict.value if verdict else None
+    elif test_result.status_id:
+        # The caller is changing status directly, with no metrics for
+        # classify_metrics to work from -- derive execution/verdict from
+        # the new status's own name so they stay in sync with it.
+        from rhesis.backend.app.outcomes import execution_verdict_from_status_name
 
-            status_value = (
-                TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
-            )
-            status = get_or_create_status(
-                db, status_value, "TestResult", organization_id=organization_id
-            )
-            test_result.status_id = status.id
+        status_row = (
+            db.query(models.Status).filter(models.Status.id == test_result.status_id).first()
+        )
+        execution, verdict = execution_verdict_from_status_name(
+            status_row.name if status_row else None
+        )
+        test_result.execution = execution.value
+        test_result.verdict = verdict.value if verdict else None
 
     return test_result_crud.update_test_result(
         db=db,
