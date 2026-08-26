@@ -22,4 +22,14 @@ export const tasksList = defineList({
   filters: TASKS_FILTERS,
   list: (factory: ApiClientFactory, params) =>
     factory.getTasksClient().getTasks(params),
+  delete: {
+    bulk: (factory: ApiClientFactory, ids: string[]) =>
+      factory.getTasksClient().bulkDeleteTasks(ids),
+    capability: Capability.Task.DELETE,
+    capabilityMode: 'row',
+    labelSingular: 'task',
+    labelPlural: 'tasks',
+    getSkippedCount: response => response.forbidden_ids.length,
+    skippedReason: 'not yours to delete',
+  },
 });
