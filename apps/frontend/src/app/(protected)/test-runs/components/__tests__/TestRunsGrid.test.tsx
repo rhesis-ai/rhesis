@@ -72,7 +72,6 @@ jest.mock('@/components/common/BaseDataGrid', () => {
     }>;
     onRowClick?: (p: { id: unknown; row: Record<string, unknown> }) => void;
     toolbarSlot?: unknown;
-    showToolbar?: boolean;
   }) {
     if (loading) return <div data-testid="grid-loading">Loading…</div>;
     const actionsCol = columns?.find(c => c.field === 'actions');
@@ -341,7 +340,7 @@ describe('TestRunsGrid', () => {
     );
   });
 
-  it('passes showToolbar and toolbarSlot props to BaseDataGrid', async () => {
+  it('passes toolbarSlot prop to BaseDataGrid', async () => {
     render(<TestRunsGrid />);
     // The grid renders without error, confirming toolbarSlot prop is accepted
     expect(await screen.findByTestId('base-data-grid')).toBeInTheDocument();
