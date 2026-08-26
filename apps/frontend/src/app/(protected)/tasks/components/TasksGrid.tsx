@@ -17,7 +17,6 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { Task } from '@/utils/api-client/interfaces/task';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
@@ -27,8 +26,7 @@ import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
+import { useList } from '@/hooks/useList';
 import { tasksList } from './list';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import TaskFilterDrawer, {
@@ -51,7 +49,6 @@ import {
   useBulkDelete,
   type BulkDeleteActionsState,
 } from '@/hooks/useBulkDelete';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 
@@ -147,7 +144,6 @@ export default function TasksGrid({
 }: TasksGridProps) {
   const router = useRouter();
   const { highlightedIds, clearHighlight } = useJobNotifications();
-  const { status } = useSession();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -181,25 +177,11 @@ export default function TasksGrid({
     totalCount,
     isLoading: loading,
     error: rawError,
-    page,
-    rowsPerPage: pageSize,
-    onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<Task>({
-    fetchPage: ({ skip, limit }) =>
-      tasksList.list(
-        new ApiClientFactory(),
-        listParams(tasksList, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort: tasksList.defaultSort,
-          filters,
-        })
-      ),
-    filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: tasksList.defaultPageSize,
-    enabled: isAuthenticated(status),
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+  } = useList(tasksList, {
+    filters,
     onError: () => setErrorDismissed(false),
   });
 
@@ -209,18 +191,6 @@ export default function TasksGrid({
 
   const error = rawError && !errorDismissed ? rawError : null;
   const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
 
   const {
     checkboxSelectionMode,

@@ -11,18 +11,14 @@ import React, {
 import {
   GridColDef,
   GridRowParams,
-  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
-import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { useList } from '@/hooks/useList';
 import { testSetsList } from './list';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import {
   Box,
@@ -212,7 +208,6 @@ export default function TestSetsGrid({
   );
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [errorDismissed, setErrorDismissed] = useState(false);
 
   // A pill click wins over the drawer's own testSetType value, matching the
@@ -236,43 +231,23 @@ export default function TestSetsGrid({
     [searchQuery, effectiveTestSetType, drawerFilters]
   );
 
-  const sort = useMemo(
-    () => ({
-      by: sortModel[0]?.field || 'created_at',
-      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
-    }),
-    [sortModel]
-  );
-
   // No `initialData`/SSR prefetch here on purpose: a test set row exists from
   // the moment generation is *submitted* (the flow then redirects to its
   // detail page), so server-rendered data could predate a just-submitted row.
-  // `usePaginatedList` always fetches once on mount when `initialData` is
+  // `useList` always fetches once on mount when `initialData` is
   // absent, which is exactly the guarantee this page needs.
   const {
     data: testSets,
     totalCount,
     isLoading: loading,
     error: rawError,
-    page,
-    rowsPerPage: pageSize,
-    onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<TestSet>({
-    fetchPage: ({ skip, limit }) =>
-      testSetsList.list(
-        new ApiClientFactory(),
-        listParams(testSetsList, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort,
-          filters,
-        })
-      ),
-    filterFingerprint: JSON.stringify({ filters, sort }),
-    defaultPageSize: testSetsList.defaultPageSize,
-    enabled: isAuthenticated(status),
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+    sortModel,
+    onSortModelChange: handleSortModelChange,
+  } = useList(testSetsList, {
+    filters,
     onError: () => setErrorDismissed(false),
   });
 
@@ -282,21 +257,6 @@ export default function TestSetsGrid({
 
   const error = rawError && !errorDismissed ? rawError : null;
   const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
-  const handleSortModelChange = useCallback((model: GridSortModel) => {
-    setSortModel(model);
-  }, []);
 
   const isFirstRefreshTrigger = useRef(true);
   useEffect(() => {

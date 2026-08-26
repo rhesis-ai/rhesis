@@ -8,7 +8,6 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
-import { useSession } from 'next-auth/react';
 import {
   useBulkDelete,
   type BulkDeleteActionsState,
@@ -21,7 +20,6 @@ import TagLabel from '@/components/common/Tag';
 import {
   GridColDef,
   GridRowParams,
-  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -62,9 +60,7 @@ import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
-import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { useList } from '@/hooks/useList';
 import { testRunsList } from './list';
 import TestRunFilterDrawer, {
   type TestRunFilters,
@@ -76,7 +72,6 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
@@ -187,7 +182,6 @@ function TestRunsGrid({
   onBulkActionsChange,
   refreshTrigger,
 }: TestRunsGridProps) {
-  const { status } = useSession();
   const router = useRouter();
   const notifications = useNotifications();
   const { highlightedIds, clearHighlight } = useNotificationBadges();
@@ -208,7 +202,6 @@ function TestRunsGrid({
   const [isCancelling, setIsCancelling] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [errorDismissed, setErrorDismissed] = useState(false);
 
   // ── Grid state (pagination, filter, sort) ─────────────────────────────────
@@ -229,19 +222,11 @@ function TestRunsGrid({
     [searchQuery, statusFilter, drawerFilters, runKindFilter]
   );
 
-  const sort = useMemo(
-    () => ({
-      by: sortModel[0]?.field || 'created_at',
-      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
-    }),
-    [sortModel]
-  );
-
   // ── Data fetching ─────────────────────────────────────────────────────────
 
   // No `initialData`/SSR prefetch here on purpose: a run appears here as soon
   // as it's started, so server-rendered (and thus already-stale-by-the-time-
-  // it-renders) data would hide it. `usePaginatedList` always fetches once on
+  // it-renders) data would hide it. `useList` always fetches once on
   // mount when `initialData` is absent, which is exactly the guarantee this
   // page needs -- see the same note in TestSetsGrid.
   const {
@@ -249,25 +234,13 @@ function TestRunsGrid({
     totalCount,
     isLoading: loading,
     error: rawError,
-    page,
-    rowsPerPage: pageSize,
-    onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<TestRunDetail>({
-    fetchPage: ({ skip, limit }) =>
-      testRunsList.list(
-        new ApiClientFactory(),
-        listParams(testRunsList, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort,
-          filters,
-        })
-      ),
-    filterFingerprint: JSON.stringify({ filters, sort }),
-    defaultPageSize: testRunsList.defaultPageSize,
-    enabled: isAuthenticated(status),
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+    sortModel,
+    onSortModelChange: handleSortModelChange,
+  } = useList(testRunsList, {
+    filters,
     onError: () => setErrorDismissed(false),
   });
 
@@ -277,21 +250,6 @@ function TestRunsGrid({
 
   const error = rawError && !errorDismissed ? rawError : null;
   const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
-  const handleSortModelChange = useCallback((model: GridSortModel) => {
-    setSortModel(model);
-  }, []);
 
   // ── Bulk selection + delete ──────────────────────────────────────────────────
   const {

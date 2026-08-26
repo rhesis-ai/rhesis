@@ -25,8 +25,7 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
+import { useList } from '@/hooks/useList';
 import { escapeODataValue } from '@/utils/odata-filter';
 import { endpointsList } from './list';
 import EndpointFilterDrawer, {
@@ -170,31 +169,14 @@ export default function EndpointsGrid({
     totalCount,
     isLoading: loading,
     error: rawError,
-    page,
-    rowsPerPage: pageSize,
-    onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<Endpoint>({
-    fetchPage: ({ skip, limit }) =>
-      endpointsList.list(
-        new ApiClientFactory(),
-        listParams(
-          endpointsList,
-          {
-            page: skip / limit + 1,
-            pageSize: limit,
-            sort: endpointsList.defaultSort,
-            filters,
-          },
-          extraODataClauses
-        )
-      ),
-    filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: endpointsList.defaultPageSize,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+  } = useList(endpointsList, {
+    filters,
+    extraFilters: extraODataClauses,
     initialData,
     initialTotalCount,
-    enabled: isAuthenticated(status),
     onError: () => setErrorDismissed(false),
   });
 
@@ -204,18 +186,6 @@ export default function EndpointsGrid({
 
   const error = rawError && !errorDismissed ? rawError : null;
   const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
 
   const {
     checkboxSelectionMode,

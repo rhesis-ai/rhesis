@@ -11,14 +11,12 @@ import React, {
 import {
   GridColDef,
   GridRowParams,
-  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { Box, Chip, Typography, Paper } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
@@ -33,9 +31,7 @@ import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
-import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { useList } from '@/hooks/useList';
 import { sourcesList } from './list';
 import { ChatIcon, MenuBookIcon } from '@/components/icons';
 import { formatFileSize, getFileExtension } from '@/constants/knowledge';
@@ -50,7 +46,6 @@ import {
   useBulkDelete,
   type BulkDeleteActionsState,
 } from '@/hooks/useBulkDelete';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 
@@ -129,7 +124,6 @@ export default function SourcesGrid({
   refreshTrigger,
 }: SourcesGridProps) {
   const router = useRouter();
-  const { status } = useSession();
   const canEditSource = useCan(Capability.Source.UPDATE);
   const canDeleteSource = useCan(Capability.Source.DELETE);
 
@@ -138,7 +132,6 @@ export default function SourcesGrid({
   const [drawerFilters, setDrawerFilters] =
     useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
 
   const filters = useMemo(
     () => ({
@@ -150,40 +143,20 @@ export default function SourcesGrid({
     [searchQuery, drawerFilters]
   );
 
-  const sort = useMemo(
-    () => ({
-      by: sortModel[0]?.field || 'created_at',
-      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
-    }),
-    [sortModel]
-  );
-
   const {
     data: sources,
     totalCount,
     isLoading: loading,
     error,
-    page,
-    rowsPerPage: pageSize,
-    onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<Source>({
-    fetchPage: ({ skip, limit }) =>
-      sourcesList.list(
-        new ApiClientFactory(),
-        listParams(sourcesList, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort,
-          filters,
-        })
-      ),
-    filterFingerprint: JSON.stringify({ filters, sort }),
-    defaultPageSize: sourcesList.defaultPageSize,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+    sortModel,
+    onSortModelChange: handleSortModelChange,
+  } = useList(sourcesList, {
+    filters,
     initialData,
     initialTotalCount,
-    enabled: isAuthenticated(status),
   });
 
   const {
@@ -205,21 +178,6 @@ export default function SourcesGrid({
     itemLabelPlural: 'sources',
     onBulkActionsChange,
   });
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
-  const handleSortModelChange = useCallback((model: GridSortModel) => {
-    setSortModel(model);
-  }, []);
 
   const isFirstRefreshTrigger = useRef(true);
   useEffect(() => {

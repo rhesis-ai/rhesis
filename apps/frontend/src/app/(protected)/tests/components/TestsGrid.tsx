@@ -14,7 +14,6 @@ import {
   GridRowParams,
   GridRowSelectionModel,
   GridRenderCellParams,
-  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -48,9 +47,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
-import { DEFAULT_GRID_SORT } from '@/utils/grid-sort';
+import { useList } from '@/hooks/useList';
 import { testsList } from './list';
 import TestFilterDrawer, {
   type TestFilters,
@@ -193,7 +190,6 @@ export default function TestsTable({
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const isMounted = useRef(true);
   const canEditTest = useCan(Capability.Test.UPDATE);
   const canDeleteTest = useCan(Capability.Test.DELETE);
   const { status } = useSession();
@@ -203,7 +199,6 @@ export default function TestsTable({
   const [typeFilter, setTypeFilter] = useState('all');
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [errorDismissed, setErrorDismissed] = useState(false);
 
   // Component state
@@ -263,42 +258,22 @@ export default function TestsTable({
     [searchQuery, effectiveTestType, drawerFilters]
   );
 
-  const sort = useMemo(
-    () => ({
-      by: sortModel[0]?.field || 'created_at',
-      order: (sortModel[0]?.sort || 'desc') as 'asc' | 'desc',
-    }),
-    [sortModel]
-  );
-
   const {
     data: tests,
     totalCount,
     isLoading: loading,
     error: rawError,
     page,
-    rowsPerPage: pageSize,
     onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<TestDetail>({
-    fetchPage: ({ skip, limit }) =>
-      testsList.list(
-        new ApiClientFactory(),
-        listParams(
-          testsList,
-          {
-            page: skip / limit + 1,
-            pageSize: limit,
-            sort,
-            filters,
-          },
-          insightsIdFilter ? [insightsIdFilter] : []
-        )
-      ),
-    filterFingerprint: JSON.stringify({ filters, sort, insightsIdFilter }),
-    defaultPageSize: testsList.defaultPageSize,
-    enabled: isAuthenticated(status) && insightsFilterReady,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+    sortModel,
+    onSortModelChange: handleSortModelChange,
+  } = useList(testsList, {
+    filters,
+    extraFilters: insightsIdFilter ? [insightsIdFilter] : undefined,
+    enabled: insightsFilterReady,
     onError: () => setErrorDismissed(false),
   });
 
@@ -308,21 +283,6 @@ export default function TestsTable({
 
   const error = rawError && !errorDismissed ? rawError : null;
   const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
-  const handleSortModelChange = useCallback((model: GridSortModel) => {
-    setSortModel(model);
-  }, []);
 
   // Compute whether selected tests have mixed types
   const selectedTestTypes = useMemo(() => {

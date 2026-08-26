@@ -34,12 +34,10 @@ import {
 } from '@/components/common/SectionOverviewTable';
 import { DeleteIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
+import { useList } from '@/hooks/useList';
 import {
   EMPTY_TEAM_FILTERS,
   hasActiveTeamFilters,
@@ -113,20 +111,8 @@ export default function TeamMembersGrid({
     onPageChange: setPage,
     onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<User>({
-    fetchPage: ({ skip, limit }) =>
-      teamList.list(
-        new ApiClientFactory(),
-        listParams(teamList, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort: teamList.defaultSort,
-          filters,
-        })
-      ),
-    filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: teamList.defaultPageSize,
-    enabled: isAuthenticated(status),
+  } = useList(teamList, {
+    filters,
     onError: () => setError('Failed to load team members. Please try again.'),
   });
 

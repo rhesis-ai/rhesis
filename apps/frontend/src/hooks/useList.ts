@@ -1,10 +1,12 @@
 'use client';
 
-import type { GridPaginationModel } from '@mui/x-data-grid';
+import * as React from 'react';
+import type { GridPaginationModel, GridSortModel } from '@mui/x-data-grid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   listParams,
   type ListDescriptor,
+  type ListSort,
   type FilterSpecMap,
   type FiltersOf,
 } from '@/utils/list';
@@ -13,6 +15,17 @@ import { usePaginatedList } from './usePaginatedList';
 
 interface UseListOptions<T, S extends FilterSpecMap> {
   filters: FiltersOf<S>;
+  /**
+   * OData clauses the caller doesn't own, passed through to `listParams` --
+   * e.g. scoping an embedded grid to one project, or Tests' resolved
+   * Insights id filter.
+   */
+  extraFilters?: (string | undefined)[];
+  /**
+   * Extra fetch gate AND'd with the auth gate -- e.g. Tests waiting for its
+   * Insights deep-link filter to resolve. Defaults to `true`.
+   */
+  enabled?: boolean;
   initialData?: T[];
   initialTotalCount?: number;
   onData?: (data: T[]) => void;
@@ -20,14 +33,18 @@ interface UseListOptions<T, S extends FilterSpecMap> {
 }
 
 /**
- * The client-side half of a list page: permission gate + paginated fetch,
- * both driven off one descriptor. Page/rowsPerPage state lives in
- * `usePaginatedList`; filters are owned by the caller and passed in.
+ * The client-side half of a list page: permission gate + paginated fetch +
+ * sort state, all driven off one descriptor. Page/rowsPerPage state lives in
+ * `usePaginatedList`; sort starts from `descriptor.defaultSort` (so it always
+ * matches what an SSR prefetch used); filters are owned by the caller and
+ * passed in.
  */
 export function useList<T, S extends FilterSpecMap>(
   descriptor: ListDescriptor<T, S>,
   {
     filters,
+    extraFilters,
+    enabled = true,
     initialData,
     initialTotalCount,
     onData,
@@ -36,24 +53,36 @@ export function useList<T, S extends FilterSpecMap>(
 ) {
   const gate = useListAuthGate(descriptor);
 
+  const [sortModel, setSortModel] = React.useState<GridSortModel>([
+    { field: descriptor.defaultSort.by, sort: descriptor.defaultSort.order },
+  ]);
+  const sort: ListSort = {
+    by: sortModel[0]?.field ?? descriptor.defaultSort.by,
+    order: sortModel[0]?.sort ?? descriptor.defaultSort.order,
+  };
+
   const list = usePaginatedList<T>({
     fetchPage: ({ skip, limit }) =>
       descriptor.list(
         new ApiClientFactory(),
-        listParams(descriptor, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort: descriptor.defaultSort,
-          filters,
-        })
+        listParams(
+          descriptor,
+          {
+            page: skip / limit + 1,
+            pageSize: limit,
+            sort,
+            filters,
+          },
+          extraFilters ?? []
+        )
       ),
-    filterFingerprint: JSON.stringify(filters),
+    filterFingerprint: JSON.stringify({ filters, sort, extraFilters }),
     defaultPageSize: descriptor.defaultPageSize,
     initialData,
     initialTotalCount,
     onData,
     onError,
-    enabled: gate.ready,
+    enabled: gate.ready && enabled,
   });
 
   return {
@@ -69,5 +98,18 @@ export function useList<T, S extends FilterSpecMap>(
         list.onPageChange(model.page);
       }
     },
+    /** Spread onto a sortable `<BaseDataGrid>`; omit for grids with fixed sort. */
+    sortModel,
+    onSortModelChange: (model: GridSortModel) =>
+      setSortModel(
+        model.length > 0
+          ? model
+          : [
+              {
+                field: descriptor.defaultSort.by,
+                sort: descriptor.defaultSort.order,
+              },
+            ]
+      ),
   };
 }

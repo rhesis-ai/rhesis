@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import {
   GridColDef,
@@ -40,8 +40,7 @@ import GridStateGate from '@/components/common/GridStateGate';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { usePaginatedList } from '@/hooks/usePaginatedList';
-import { listParams } from '@/utils/list';
+import { useList } from '@/hooks/useList';
 import { experimentsList } from './list';
 import CreateExperimentDialog from './CreateExperimentDialog';
 import { formatDate } from '@/utils/date';
@@ -176,41 +175,16 @@ export default function ExperimentsClientWrapper({
     data: experiments,
     totalCount,
     isLoading: loading,
-    page,
-    rowsPerPage: pageSize,
-    onPageChange,
-    onRowsPerPageChange,
     refresh,
-  } = usePaginatedList<ExperimentRead>({
-    fetchPage: ({ skip, limit }) =>
-      experimentsList.list(
-        new ApiClientFactory(),
-        listParams(experimentsList, {
-          page: skip / limit + 1,
-          pageSize: limit,
-          sort: experimentsList.defaultSort,
-          filters,
-        })
-      ),
-    filterFingerprint: JSON.stringify(filters),
-    defaultPageSize: experimentsList.defaultPageSize,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+  } = useList(experimentsList, {
+    filters,
     initialData,
     initialTotalCount,
     onError: () =>
       notifications.show('Failed to load experiments', { severity: 'error' }),
   });
-
-  const paginationModel = useMemo(() => ({ page, pageSize }), [page, pageSize]);
-  const handlePaginationModelChange = useCallback(
-    (model: { page: number; pageSize: number }) => {
-      if (model.pageSize !== pageSize) {
-        onRowsPerPageChange(model.pageSize);
-      } else {
-        onPageChange(model.page);
-      }
-    },
-    [pageSize, onPageChange, onRowsPerPageChange]
-  );
 
   const handleDeleteExperiment = async () => {
     if (!deleteTargetId) return;
