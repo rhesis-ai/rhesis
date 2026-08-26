@@ -976,10 +976,10 @@ async def change_password(
     if not db_user.provider_type:
         db_user.provider_type = AuthProviderType.EMAIL
 
+    db.commit()
+
     invalidate_user_sessions(str(db_user.id))
     clear_user_logout(str(db_user.id))
-
-    db.commit()
 
     logger.info("Password changed for user: %s", redact_email(db_user.email))
 
