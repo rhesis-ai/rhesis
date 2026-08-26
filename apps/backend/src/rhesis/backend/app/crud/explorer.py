@@ -40,6 +40,15 @@ logger = logging.getLogger(__name__)
 # --- Test sets ---------------------------------------------------------------------
 
 
+def only_explorer_test_sets(query):
+    """Row selection for the Explorer list: test sets flagged via ``explorer_row``.
+
+    Shared with the route's ``with_count_header`` so X-Total-Count counts exactly
+    the rows the list returns.
+    """
+    return query.filter(models.TestSet.explorer_row.is_(True))
+
+
 def get_explorer_test_sets(
     db: Session,
     organization_id: str,
@@ -47,6 +56,7 @@ def get_explorer_test_sets(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    filter: Optional[str] = None,
 ) -> List[models.TestSet]:
     """Get Explorer test sets -- the inverse of ``get_test_sets``' exclusion clause.
 
@@ -67,16 +77,14 @@ def get_explorer_test_sets(
         Field to sort by
     sort_order : str
         Sort direction ('asc' or 'desc')
+    filter : str, optional
+        OData filter expression
 
     Returns
     -------
     list of models.TestSet
         Test sets flagged as Explorer-owned.
     """
-
-    def only_explorer_test_sets(query):
-        return query.filter(models.TestSet.explorer_row.is_(True))
-
     # Paginated outside the builder on purpose: with_pagination caps limit at 100
     # (validate_pagination) and this endpoint has never capped. with_sorting already
     # appends id ASC as a tiebreaker, so pagination stays stable.
@@ -86,6 +94,7 @@ def get_explorer_test_sets(
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_custom_filter(only_explorer_test_sets)
+        .with_odata_filter(filter)
         .with_sorting(sort_by, sort_order)
         .build()
     )

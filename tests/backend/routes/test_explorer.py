@@ -489,6 +489,58 @@ class TestListExplorerTestSetsEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
+    def test_count_header_counts_only_explorer_rows(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        """X-Total-Count must count explorer rows only, and ignore pagination."""
+        response = authenticated_client.get("/explorer", params={"limit": 1})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "X-Total-Count" in response.headers
+        total = int(response.headers["X-Total-Count"])
+        # Two explorer sets exist in the fixture; the regular ones must not count.
+        assert total >= 2
+        assert len(response.json()) == 1
+
+        unpaged = authenticated_client.get("/explorer")
+        assert int(unpaged.headers["X-Total-Count"]) == total
+        explorer_ids = {item["id"] for item in unpaged.json()}
+        assert total == len(explorer_ids)
+
+    def test_odata_filter_narrows_results(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        """$filter should narrow both the page and the count header."""
+        target = explorer_and_regular_test_sets["explorer_1"]
+        response = authenticated_client.get(
+            "/explorer",
+            params={"$filter": f"name eq '{target.name}'"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert [item["id"] for item in data] == [str(target.id)]
+        assert response.headers["X-Total-Count"] == "1"
+
+    def test_odata_filter_no_match(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        """A non-matching $filter returns an empty page and a zero count."""
+        response = authenticated_client.get(
+            "/explorer",
+            params={"$filter": "name eq 'no-such-session-name'"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+        assert response.headers["X-Total-Count"] == "0"
+
 
 @pytest.mark.integration
 @pytest.mark.routes
