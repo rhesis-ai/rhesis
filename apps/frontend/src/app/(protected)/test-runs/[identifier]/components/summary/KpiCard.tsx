@@ -10,6 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { INLINE_ICON_SIZE } from './summary-tokens';
 
 interface KpiCardProps {
   title: string;
@@ -18,7 +19,9 @@ interface KpiCardProps {
   valueSuffix?: string;
   /** Theme color path for the value, e.g. 'error.main' when failures > 0. */
   valueColor?: string;
-  subtitle?: string;
+  /** Plain text, or a node when part of it needs its own styling (e.g. a red
+   *  failures count inline with the rest of the sentence). */
+  subtitle?: React.ReactNode;
   /** Rendered between the value and the subtitle -- a progress bar or a
    *  compact sparkline strip. */
   visual?: React.ReactNode;
@@ -46,7 +49,9 @@ export default function KpiCard({
         </Typography>
         {infoTooltip && (
           <Tooltip title={infoTooltip} placement="top" arrow>
-            <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+            <InfoOutlinedIcon
+              sx={{ fontSize: INLINE_ICON_SIZE, color: 'text.secondary' }}
+            />
           </Tooltip>
         )}
       </Box>
@@ -94,7 +99,13 @@ export default function KpiCard({
       {onClick ? (
         <CardActionArea
           onClick={onClick}
-          sx={{ height: '100%', alignItems: 'stretch' }}
+          sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            justifyContent: 'flex-start',
+          }}
         >
           {content}
         </CardActionArea>

@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@/test-utils';
+import { render, screen, fireEvent, within } from '@/test-utils';
 import '@testing-library/jest-dom';
 import lightTheme from '@/styles/theme';
 import KpiRow from '../KpiRow';
 import RunClockProvider from '../RunClockProvider';
+import type { TestTimingMap } from '../verdict-timeline';
 import type {
   VerdictMatrix,
   VerdictRow,
@@ -32,7 +33,7 @@ function renderWithClock(ui: React.ReactElement) {
   return render(<RunClockProvider active={false}>{ui}</RunClockProvider>);
 }
 
-const EMPTY_SET = new Set<string>();
+const EMPTY_TIMINGS: TestTimingMap = new Map();
 
 function makeRow(overrides: Partial<VerdictRow> = {}): VerdictRow {
   return {
@@ -61,6 +62,10 @@ function makeMatrix(
     is_terminal: true,
     version: 1,
     test_ids: ['t1'],
+    test_started_ds: null,
+    test_generated_ds: null,
+    test_resolved_ds: null,
+    elapsed_ds: null,
     test_status: '.',
     requirements: [],
     rows: [],
@@ -71,6 +76,7 @@ function makeMatrix(
       verdicts_resolved: 0,
       verdicts_planned: 0,
       failures: 0,
+      reviews_count: 0,
       ...kpiOverrides,
     },
     ...overrides,
@@ -98,8 +104,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.getByText('--')).toBeInTheDocument();
@@ -112,8 +117,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.getByText('85.0')).toBeInTheDocument();
@@ -130,8 +134,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={true}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.getByText('5')).toBeInTheDocument();
@@ -148,8 +151,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.getByText('Verdicts')).toBeInTheDocument();
@@ -189,52 +191,73 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     // req-1: 27 tests x 1 metric, req-2: 11 tests x 1 metric
     expect(screen.getByText('blocks: 27×1 and 11×1')).toBeInTheDocument();
   });
 
-  it('displays a non-zero failures count in red', () => {
+  it('becomes a "Failures" card leading with the failure count when failures exist', () => {
+    const rows = [makeRow({ metric_key: 'm1', failed: 3 })];
     renderWithClock(
       <KpiRow
-        matrix={makeMatrix({ failures: 3 })}
+        matrix={makeMatrix(
+          {
+            failures: 3,
+            tests_total: 38,
+            verdicts_resolved: 8,
+            verdicts_planned: 20,
+          },
+          { rows }
+        )}
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
+    expect(screen.getByText('Failures')).toBeInTheDocument();
+    expect(screen.queryByText('Verdicts')).not.toBeInTheDocument();
+    // The headline number is now the failure count, not verdicts resolved,
+    // suffixed the same "/ total" way every other card's headline is. No
+    // "failed" label on the number itself -- the card title already says it.
     expect(screen.getByText('3')).toHaveStyle({
       color: lightTheme.palette.error.main,
     });
+    // Scoped to the Failures card itself -- "/ 38" also appears on the Tests
+    // executed card here, since both share kpis.tests_total as denominator.
+    const failuresCard = screen.getByText('Failures').closest('.MuiCard-root');
+    expect(failuresCard).not.toBeNull();
+    expect(
+      within(failuresCard as HTMLElement).getByText('/ 38')
+    ).toBeInTheDocument();
+    // Verdicts resolved/planned moves down to the subtitle instead.
+    expect(screen.getByText(/8 of 20 verdicts/)).toBeInTheDocument();
+    expect(screen.getByText(/1 metric affected/)).toBeInTheDocument();
   });
 
-  it('does not color a zero failures count red', () => {
+  it('falls back to the blocks subtitle on the Verdicts card when there are no failures', () => {
+    const rows = [
+      makeRow({ requirement_id: 'req-1', metric_key: 'm1', passed: 5 }),
+    ];
     renderWithClock(
       <KpiRow
-        // Give the other cards non-zero, distinct values so "0" uniquely
-        // identifies the Failures card's value.
-        matrix={makeMatrix({
-          tests_executed: 5,
-          tests_total: 10,
-          verdicts_resolved: 20,
-          verdicts_planned: 40,
-          failures: 0,
-        })}
+        matrix={makeMatrix(
+          { failures: 0 },
+          {
+            requirements: [{ id: 'req-1', name: 'Req1', metric_keys: ['m1'] }],
+            rows,
+          }
+        )}
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.getByText('0')).not.toHaveStyle({
-      color: lightTheme.palette.error.main,
-    });
+    expect(screen.queryByText(/failed/)).not.toBeInTheDocument();
+    expect(screen.getByText('blocks: 5×1')).toBeInTheDocument();
   });
 
   it('shows progress bar when running', () => {
@@ -247,8 +270,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={true}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     const progressBar = container.querySelector('[role="progressbar"]');
@@ -266,8 +288,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     const progressBar = container.querySelector('[role="progressbar"]');
@@ -298,8 +319,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={['t1', 't2', 't3']}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     // 2 of 3 tests passed (verdicts 'PPF')
@@ -318,8 +338,7 @@ describe('KpiRow', () => {
         })}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.getByText('Ran for 0m 24s')).toBeInTheDocument();
@@ -332,8 +351,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={true}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
       />
     );
     expect(screen.queryByText(/Ran for/)).not.toBeInTheDocument();
@@ -347,8 +365,7 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
         onViewFailures={onViewFailures}
       />
     );
@@ -356,7 +373,7 @@ describe('KpiRow', () => {
     expect(onViewFailures).toHaveBeenCalledTimes(1);
   });
 
-  it('does not make the Failures card clickable when there are no failures', () => {
+  it('does not make the Verdicts card clickable when there are no failures', () => {
     const onViewFailures = jest.fn();
     renderWithClock(
       <KpiRow
@@ -364,12 +381,39 @@ describe('KpiRow', () => {
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
-        generatingIds={EMPTY_SET}
-        evaluatingIds={EMPTY_SET}
+        timings={EMPTY_TIMINGS}
         onViewFailures={onViewFailures}
       />
     );
-    fireEvent.click(screen.getByText('Failures'));
+    fireEvent.click(screen.getByText('Verdicts'));
     expect(onViewFailures).not.toHaveBeenCalled();
+  });
+
+  it('shows "No reviews yet" on the Reviews card when nothing has been reviewed', () => {
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({ reviews_count: 0 })}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('Reviews')).toBeInTheDocument();
+    expect(screen.getByText('No reviews yet')).toBeInTheDocument();
+  });
+
+  it('shows the review count and a "of N tests" subtitle when reviews exist', () => {
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({ reviews_count: 3, tests_executed: 5 })}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('of 5 tests')).toBeInTheDocument();
   });
 });

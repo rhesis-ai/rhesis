@@ -53,6 +53,7 @@ export interface VerdictKpis {
   verdicts_resolved: number;
   verdicts_planned: number;
   failures: number;
+  reviews_count: number;
 }
 
 export interface VerdictRequirement {
@@ -82,6 +83,18 @@ export interface VerdictMatrix {
   version: number;
   test_ids: string[] | null;
   test_status: string;
+  /**
+   * Execution phase offsets in deciseconds from the run's timing origin,
+   * aligned to test_ids' order. null where a phase wasn't reached or wasn't
+   * recorded; the whole array is null when no timing exists (an old run whose
+   * cache lapsed, or one too large to be worth animating), in which case the
+   * grid renders settled.
+   */
+  test_started_ds: (number | null)[] | null;
+  test_generated_ds: (number | null)[] | null;
+  test_resolved_ds: (number | null)[] | null;
+  /** How far into the run the server is, same units and origin. */
+  elapsed_ds: number | null;
   requirements: VerdictRequirement[];
   rows: VerdictRow[];
   kpis: VerdictKpis;
