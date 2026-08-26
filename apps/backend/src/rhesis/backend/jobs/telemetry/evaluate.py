@@ -14,7 +14,6 @@ from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.crud.telemetry import (
     update_trace_conversation_metrics,
     update_trace_turn_metrics,
@@ -110,15 +109,21 @@ def _derive_status_id(
 ) -> Optional[str]:
     """Derive trace_metrics_status_id from metric results.
 
-    All metrics must pass for overall Pass. Any failure -> Fail.
-    Empty results or errors -> Error.
+    Thin wrapper over the single classifier in app/outcomes.py -- see
+    playground/outcome-model/inventory.md section 4.1 for the duplicated
+    copies of this rule this one replaces. No test_result row exists for
+    a trace, so there is no execution/verdict pair to populate here, only
+    the legacy status name.
     """
-    metrics = metrics_results.get("metrics", {})
-    if not metrics:
-        return _resolve_status_id(db, organization_id, TestResultStatus.ERROR.value)
+    from rhesis.backend.app.outcomes import (
+        classify_metrics,
+        outcome_of,
+        outcome_to_test_result_status_name,
+    )
 
-    all_pass = all(m.get("is_successful", False) for m in metrics.values())
-    status_name = TestResultStatus.PASS.value if all_pass else TestResultStatus.FAIL.value
+    metrics = metrics_results.get("metrics", {})
+    execution, verdict = classify_metrics(metrics)
+    status_name = outcome_to_test_result_status_name(outcome_of(execution, verdict))
     return _resolve_status_id(db, organization_id, status_name)
 
 
@@ -130,6 +135,12 @@ def _derive_combined_status_id(
     new_results: Dict[str, Any],
 ) -> Optional[str]:
     """Re-derive status from combined turn + conversation metrics on a span."""
+    from rhesis.backend.app.outcomes import (
+        classify_metrics,
+        outcome_of,
+        outcome_to_test_result_status_name,
+    )
+
     existing = span.trace_metrics or {}
     all_metrics = {}
 
@@ -138,11 +149,8 @@ def _derive_combined_status_id(
         section_metrics = data.get("metrics", {})
         all_metrics.update(section_metrics)
 
-    if not all_metrics:
-        return _resolve_status_id(db, organization_id, TestResultStatus.ERROR.value)
-
-    all_pass = all(m.get("is_successful", False) for m in all_metrics.values())
-    status_name = TestResultStatus.PASS.value if all_pass else TestResultStatus.FAIL.value
+    execution, verdict = classify_metrics(all_metrics)
+    status_name = outcome_to_test_result_status_name(outcome_of(execution, verdict))
     return _resolve_status_id(db, organization_id, status_name)
 
 
@@ -151,15 +159,16 @@ def _resolve_status_id(
     organization_id: str,
     status_name: str,
 ) -> Optional[str]:
-    """Look up a Status row by name and organization."""
-    status = (
-        db.query(models.Status)
-        .filter(
-            models.Status.name == status_name,
-            models.Status.organization_id == organization_id,
-        )
-        .first()
-    )
+    """Get or create the Status row for this org/name, scoped to TestResult
+    -- the same vocabulary trace_metrics_status borrows from test results.
+    get_or_create_status rather than a bare lookup: a status like
+    "Inconclusive" may not have been created for this org yet if no
+    TestResult has produced one, and this must not silently drop the
+    trace's status in that case.
+    """
+    from rhesis.backend.app.utils.crud_utils import get_or_create_status
+
+    status = get_or_create_status(db, status_name, "TestResult", organization_id=organization_id)
     if not status:
         logger.warning(
             f"Status '{status_name}' not found for org {organization_id}; "
