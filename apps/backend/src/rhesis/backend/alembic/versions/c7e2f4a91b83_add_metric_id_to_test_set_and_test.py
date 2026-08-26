@@ -31,7 +31,7 @@ from rhesis.backend.app.models.guid import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = "c7e2f4a91b83"
-down_revision: Union[str, None] = "3f5954f6c374"
+down_revision: Union[str, None] = "ff71b040aebf"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
