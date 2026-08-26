@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from '@/test-utils';
 import RunClockProvider, { useRunClock } from '../RunClockProvider';
+import type { RunClockFrame } from '../run-clock';
 
 let mockReducedMotion = false;
 jest.mock('@/hooks/useReducedMotion', () => ({
@@ -40,8 +41,8 @@ function TestConsumer({
   onFrame,
   onText,
 }: {
-  onFrame: (t: number) => void;
-  onText: (t: number) => void;
+  onFrame: (frame: RunClockFrame) => void;
+  onText: (frame: RunClockFrame) => void;
 }) {
   const clock = useRunClock();
   React.useEffect(() => {

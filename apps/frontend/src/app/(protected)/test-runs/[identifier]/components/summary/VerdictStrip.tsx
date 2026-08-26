@@ -5,10 +5,16 @@ import type { CellState } from './verdict-model';
 import { useVerdictPalette, GEOMETRY, DURATIONS } from './summary-tokens';
 import { paintStrip, shouldBin } from './verdict-strip-render';
 import { useRunClock } from './RunClockProvider';
+import type { RunClockFrame } from './run-clock';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface VerdictStripProps {
-  cells: CellState[];
+  /**
+   * Cell states at a given moment. A function rather than an array so every
+   * frame re-derives state from the run's timing -- there is no per-cell
+   * animation state to drift out of sync with the data.
+   */
+  cellsAt: (t: number) => CellState[];
   dataVersion: number;
   height?: number;
   /** Text equivalent for the canvas, e.g. from describeStrip(). */
@@ -17,7 +23,7 @@ interface VerdictStripProps {
 }
 
 function VerdictStripInner({
-  cells,
+  cellsAt,
   dataVersion: _dataVersion,
   height = GEOMETRY.stripHeight,
   ariaLabel,
@@ -33,16 +39,18 @@ function VerdictStripInner({
   const onBinnedChangeRef = useRef(onBinnedChange);
   onBinnedChangeRef.current = onBinnedChange;
 
-  const cellsRef = useRef(cells);
-  cellsRef.current = cells;
+  const cellsAtRef = useRef(cellsAt);
+  cellsAtRef.current = cellsAt;
   const paletteRef = useRef(palette);
   paletteRef.current = palette;
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
 
-  const paint = useCallback((t: number) => {
+  const paint = useCallback((frame: RunClockFrame) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const { width, height: h } = sizeRef.current;
-    if (width <= 0) return;
+    if (width <= 0 || h <= 0) return;
 
     const dpr = window.devicePixelRatio || 1;
     const pxW = Math.round(width * dpr);
@@ -50,7 +58,9 @@ function VerdictStripInner({
     if (canvas.width !== pxW) canvas.width = pxW;
     if (canvas.height !== pxH) canvas.height = pxH;
 
-    const binned = shouldBin(cellsRef.current.length, width);
+    const cells = cellsAtRef.current(frame.t);
+
+    const binned = shouldBin(cells.length, width);
     if (binned !== binnedRef.current) {
       binnedRef.current = binned;
       onBinnedChangeRef.current?.(binned);
@@ -63,10 +73,11 @@ function VerdictStripInner({
       width,
       height: h,
       dpr,
-      cells: cellsRef.current,
+      cells,
       palette: paletteRef.current,
       binned,
-      animationProgress: (t % 1400) / 1400,
+      frame,
+      reducedMotion: reducedMotionRef.current,
     });
   }, []);
 
@@ -77,21 +88,24 @@ function VerdictStripInner({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    // Height comes from the observed box, not the prop: during the density
+    // morph the CSS height is mid-transition, and sizing the canvas to the
+    // target instead would stretch it for the length of the morph.
     const observer = new ResizeObserver(entries => {
       for (const entry of entries) {
-        const { width } = entry.contentRect;
-        sizeRef.current = { width, height };
+        const { width, height: observed } = entry.contentRect;
+        sizeRef.current = { width, height: observed };
         clock.poke();
       }
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [height, clock]);
+  }, [clock]);
 
-  // Poke on cells change.
+  // Repaint when the data behind cellsAt changes.
   useEffect(() => {
     clock.poke();
-  }, [cells, clock]);
+  }, [cellsAt, clock]);
 
   return (
     <div

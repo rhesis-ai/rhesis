@@ -8,8 +8,18 @@ import React, {
   useRef,
 } from 'react';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import {
+  advanceClock,
+  clockTarget,
+  initialClock,
+  isSettled,
+  toFrame,
+  type ClockState,
+  type ClockTargets,
+  type RunClockFrame,
+} from './run-clock';
 
-type FrameCallback = (t: number) => void;
+type FrameCallback = (frame: RunClockFrame) => void;
 
 interface RunClockContextValue {
   subscribeFrame(cb: FrameCallback): () => void;
@@ -26,59 +36,102 @@ export function useRunClock(): RunClockContextValue {
 }
 
 interface RunClockProviderProps {
+  /** Whether the run is still going. */
   active: boolean;
+  /** Seconds into the run per the server; drives lag reconciliation. */
+  serverElapsed?: number | null;
+  /** Total run length, once known. */
+  runDuration?: number | null;
   children: React.ReactNode;
 }
 
 export default function RunClockProvider({
   active,
+  serverElapsed = null,
+  runDuration = null,
   children,
 }: RunClockProviderProps) {
   const reducedMotion = useReducedMotion();
+  const isTerminal = !active;
 
   const frameSubscribers = useRef(new Set<FrameCallback>());
   const textSubscribers = useRef(new Set<FrameCallback>());
   const rafId = useRef<number | null>(null);
   const frameCount = useRef(0);
+  const lastTime = useRef<number | null>(null);
+
+  // Latest targets, read inside the loop without re-creating it every poll.
+  const targetsRef = useRef<ClockTargets>({
+    serverElapsed,
+    runDuration,
+    isTerminal,
+  });
+  targetsRef.current = { serverElapsed, runDuration, isTerminal };
+
+  // A run that had already finished when the page opened starts settled, so
+  // an old run is never replayed as if it were happening now.
+  const state = useRef<ClockState | null>(null);
+  if (state.current === null) {
+    state.current = { clock: initialClock(runDuration, isTerminal), rate: 1 };
+  }
+
+  const emit = useCallback((textToo: boolean) => {
+    const { runDuration: dur, isTerminal: terminal } = targetsRef.current;
+    const clock = state.current?.clock ?? 0;
+    const frame = toFrame(clock, dur, terminal);
+    for (const cb of frameSubscribers.current) cb(frame);
+    if (textToo) {
+      for (const cb of textSubscribers.current) cb(frame);
+    }
+  }, []);
+
+  const hasSubscribers = useCallback(
+    () => frameSubscribers.current.size > 0 || textSubscribers.current.size > 0,
+    []
+  );
+
+  const settled = useCallback(() => {
+    const { runDuration: dur, isTerminal: terminal } = targetsRef.current;
+    return isSettled(state.current?.clock ?? 0, dur, terminal);
+  }, []);
 
   const tick = useCallback(
-    (t: number) => {
-      frameCount.current++;
-      for (const cb of frameSubscribers.current) cb(t);
-      // Text subscribers fire at ~15fps (every 4th frame).
-      if (frameCount.current % 4 === 0) {
-        for (const cb of textSubscribers.current) cb(t);
+    (now: number) => {
+      const previous = lastTime.current;
+      lastTime.current = now;
+      const dt = previous === null ? 0 : (now - previous) / 1000;
+
+      if (state.current) {
+        state.current = advanceClock(state.current, dt, targetsRef.current);
       }
-      if (
-        active &&
-        !reducedMotion &&
-        (frameSubscribers.current.size > 0 || textSubscribers.current.size > 0)
-      ) {
+
+      frameCount.current++;
+      // Canvas repaints every frame; DOM text at ~15fps, since rewriting
+      // counters at 60fps is wasted work and visibly jitters.
+      emit(frameCount.current % 4 === 0);
+
+      if (!reducedMotion && hasSubscribers() && !settled()) {
         rafId.current = requestAnimationFrame(tick);
       } else {
         rafId.current = null;
+        lastTime.current = null;
       }
     },
-    [active, reducedMotion]
+    [emit, hasSubscribers, reducedMotion, settled]
   );
 
   const maybeStart = useCallback(() => {
-    if (
-      rafId.current !== null ||
-      !active ||
-      reducedMotion ||
-      (frameSubscribers.current.size === 0 &&
-        textSubscribers.current.size === 0)
-    )
-      return;
+    if (rafId.current !== null || reducedMotion || !hasSubscribers()) return;
+    if (settled()) return;
+    lastTime.current = null;
     rafId.current = requestAnimationFrame(tick);
-  }, [active, reducedMotion, tick]);
+  }, [hasSubscribers, reducedMotion, settled, tick]);
 
+  /** Repaint now without advancing time -- for resize and density changes. */
   const poke = useCallback(() => {
-    const t = performance.now();
-    for (const cb of frameSubscribers.current) cb(t);
-    for (const cb of textSubscribers.current) cb(t);
-  }, []);
+    emit(true);
+    maybeStart();
+  }, [emit, maybeStart]);
 
   const subscribeFrame = useCallback(
     (cb: FrameCallback) => {
@@ -102,15 +155,34 @@ export default function RunClockProvider({
     [maybeStart]
   );
 
+  // Reduced motion still needs the final state painted, just not animated.
+  useEffect(() => {
+    if (!reducedMotion) return;
+    const { runDuration: dur, isTerminal: terminal } = targetsRef.current;
+    const target = clockTarget(targetsRef.current);
+    if (state.current) {
+      state.current = {
+        clock: terminal ? initialClock(dur, true) : (target ?? 0),
+        rate: 1,
+      };
+    }
+    emit(true);
+  }, [reducedMotion, emit, serverElapsed, runDuration, isTerminal]);
+
+  // Restart when the run's shape changes (a new poll, or the run finishing):
+  // a settled loop must wake up to play the completion transition.
   useEffect(() => {
     maybeStart();
+  }, [maybeStart, serverElapsed, runDuration, isTerminal]);
+
+  useEffect(() => {
     return () => {
       if (rafId.current !== null) {
         cancelAnimationFrame(rafId.current);
         rafId.current = null;
       }
     };
-  }, [maybeStart]);
+  }, []);
 
   const value = useRef<RunClockContextValue>({
     subscribeFrame,

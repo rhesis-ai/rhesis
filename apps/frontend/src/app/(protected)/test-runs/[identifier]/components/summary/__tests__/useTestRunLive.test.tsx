@@ -48,6 +48,10 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
     is_terminal: false,
     version: 1,
     test_ids: ['t1', 't2'],
+    test_started_ds: null,
+    test_generated_ds: null,
+    test_resolved_ds: null,
+    elapsed_ds: null,
     test_status: '...',
     requirements: [],
     rows: [],
@@ -58,6 +62,7 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
       verdicts_resolved: 0,
       verdicts_planned: 4,
       failures: 0,
+      reviews_count: 0,
     },
     ...overrides,
   };
@@ -128,6 +133,67 @@ describe('useTestRunLive', () => {
     });
 
     await waitFor(() => expect(mockGetVerdictMatrix).toHaveBeenCalled());
+  });
+
+  it('sends columns=none once test_ids are already known', async () => {
+    const { result } = renderHook(() => useTestRunLive('run-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.matrix).toBeDefined());
+    mockGetVerdictMatrix.mockClear();
+    mockGetVerdictMatrix.mockResolvedValue(
+      makeMatrix({ test_ids: null, version: 2 })
+    );
+
+    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    await act(async () => {
+      handler!({ channel: 'test_run:run-1' });
+    });
+
+    await waitFor(() =>
+      expect(mockGetVerdictMatrix).toHaveBeenCalledWith('run-1', 'none')
+    );
+  });
+
+  // columns=none means the server omitted test_ids, not that the run has
+  // none -- without carrying the array forward, every live update after the
+  // first silently drops it, and everything downstream (rollups, the KPI
+  // sparkline, the per-test timing map) computes over zero tests.
+  it('carries test_ids forward across a columns=none refetch', async () => {
+    const { result } = renderHook(() => useTestRunLive('run-1'), { wrapper });
+
+    await waitFor(() =>
+      expect(result.current.matrix?.test_ids).toEqual(['t1', 't2'])
+    );
+
+    mockGetVerdictMatrix.mockResolvedValue(
+      makeMatrix({ test_ids: null, version: 2 })
+    );
+
+    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    await act(async () => {
+      handler!({ channel: 'test_run:run-1' });
+    });
+
+    await waitFor(() => expect(result.current.matrix?.version).toBe(2));
+    expect(result.current.matrix?.test_ids).toEqual(['t1', 't2']);
+  });
+
+  it('does not overwrite real test_ids with a stale carry-forward', async () => {
+    const { result } = renderHook(() => useTestRunLive('run-1'), { wrapper });
+    await waitFor(() => expect(result.current.matrix).toBeDefined());
+
+    // A fresh full fetch (e.g. a new run after switching testRunId) still
+    // returns real test_ids and must not be clobbered by carry-forward logic.
+    mockGetVerdictMatrix.mockResolvedValue(
+      makeMatrix({ test_ids: ['t3', 't4'], version: 2 })
+    );
+    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    await act(async () => {
+      handler!({ channel: 'test_run:run-1' });
+    });
+
+    await waitFor(() => expect(result.current.matrix?.version).toBe(2));
+    expect(result.current.matrix?.test_ids).toEqual(['t3', 't4']);
   });
 
   it('marks terminal when matrix.is_terminal is true', async () => {

@@ -1,5 +1,12 @@
 import type { CellState } from '../verdict-model';
-import { paintStrip, shouldBin, describeStrip } from '../verdict-strip-render';
+import type { RunClockFrame } from '../run-clock';
+import {
+  paintStrip,
+  shouldBin,
+  describeStrip,
+  alphaFor,
+  failRingAlpha,
+} from '../verdict-strip-render';
 
 type Call = { method: string; args: unknown[] };
 
@@ -47,8 +54,18 @@ const palette: Record<CellState, { color: string; alpha: number }> = {
   scored: { color: '#ff0', alpha: 1 },
   error: { color: '#f00', alpha: 1 },
   na: { color: '#999', alpha: 0.5 },
-  inFlight: { color: '#ccc', alpha: 0.8 },
+  generating: { color: '#fb0', alpha: 0.3 },
+  evaluating: { color: '#fb0', alpha: 0.85 },
 };
+
+/** A run still in flight, so no completion transition is in play. */
+function runningFrame(clock = 0): RunClockFrame {
+  return { clock, t: clock, sinceComplete: -Infinity, isTerminal: false };
+}
+
+function completedFrame(sinceComplete: number): RunClockFrame {
+  return { clock: 100, t: 100, sinceComplete, isTerminal: true };
+}
 
 describe('shouldBin', () => {
   it('does not bin when width per cell is at least the minimum', () => {
@@ -90,6 +107,8 @@ describe('paintStrip', () => {
       cells,
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     const roundRectCalls = calls.filter(c => c.method === 'roundRect');
@@ -115,6 +134,8 @@ describe('paintStrip', () => {
       cells: ['passed'],
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     const roundRectCalls = calls.filter(c => c.method === 'roundRect');
@@ -134,6 +155,8 @@ describe('paintStrip', () => {
       cells,
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     const roundRectCalls = calls.filter(c => c.method === 'roundRect');
@@ -156,6 +179,8 @@ describe('paintStrip', () => {
       cells: ['passed'],
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     expect(calls.filter(c => c.method === 'roundRect')).toHaveLength(0);
@@ -172,6 +197,8 @@ describe('paintStrip', () => {
       cells: ['error'],
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     const strokeCalls = calls.filter(c => c.method === 'stroke');
@@ -191,6 +218,8 @@ describe('paintStrip', () => {
       cells: ['passed'],
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     expect(calls.filter(c => c.method === 'roundRect')).toHaveLength(0);
@@ -207,6 +236,8 @@ describe('paintStrip', () => {
       cells: ['passed'],
       palette,
       binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     expect(ctx.scale).toHaveBeenCalledWith(2, 2);
@@ -223,6 +254,8 @@ describe('paintStrip', () => {
       cells,
       palette,
       binned: true,
+      frame: runningFrame(),
+      reducedMotion: false,
     });
 
     const fillCalls = calls.filter(c => c.method === 'fillRect');
@@ -289,5 +322,157 @@ describe('describeStrip', () => {
 
   it('handles an empty strip', () => {
     expect(describeStrip('ASI02', [])).toBe('ASI02: no tests.');
+  });
+});
+
+describe('alphaFor in-flight pulses', () => {
+  // The two in-flight states must be tellable apart by pulse alone, so their
+  // alpha bands are required never to overlap at any point in either cycle.
+  it('keeps the generating and evaluating bands disjoint', () => {
+    let genMax = -Infinity;
+    let evalMin = Infinity;
+    for (let clock = 0; clock < 10; clock += 0.01) {
+      const frame = runningFrame(clock);
+      genMax = Math.max(
+        genMax,
+        alphaFor('generating', 0, palette, frame, false)
+      );
+      evalMin = Math.min(
+        evalMin,
+        alphaFor('evaluating', 0, palette, frame, false)
+      );
+    }
+    expect(genMax).toBeLessThan(evalMin);
+  });
+
+  it('keeps generating dimmer than a resolved cell', () => {
+    for (let clock = 0; clock < 5; clock += 0.05) {
+      const alpha = alphaFor(
+        'generating',
+        0,
+        palette,
+        runningFrame(clock),
+        false
+      );
+      expect(alpha).toBeLessThan(palette.passed.alpha);
+    }
+  });
+
+  it('oscillates rather than holding steady', () => {
+    const samples = new Set<number>();
+    for (let clock = 0; clock < 2; clock += 0.05) {
+      samples.add(
+        Math.round(
+          alphaFor('generating', 0, palette, runningFrame(clock), false) * 1000
+        )
+      );
+    }
+    expect(samples.size).toBeGreaterThan(5);
+  });
+
+  it('pulses evaluating faster than generating', () => {
+    const zeroCrossings = (state: CellState) => {
+      let crossings = 0;
+      let previous = alphaFor(state, 0, palette, runningFrame(0), false);
+      for (let clock = 0.01; clock < 4; clock += 0.01) {
+        const current = alphaFor(state, 0, palette, runningFrame(clock), false);
+        const base = palette[state].alpha;
+        if (previous < base !== current < base) crossings++;
+        previous = current;
+      }
+      return crossings;
+    };
+    expect(zeroCrossings('evaluating')).toBeGreaterThan(
+      zeroCrossings('generating')
+    );
+  });
+
+  // Without a per-column phase offset every in-flight cell pulses in unison
+  // and the row reads as a flashing warning light instead of a travelling wave.
+  it('offsets the pulse by column', () => {
+    const frame = runningFrame(1.2);
+    const first = alphaFor('generating', 0, palette, frame, false);
+    const later = alphaFor('generating', 5, palette, frame, false);
+    expect(first).not.toBeCloseTo(later, 3);
+  });
+
+  it('never leaves the 0..1 alpha range', () => {
+    for (let clock = 0; clock < 5; clock += 0.02) {
+      for (const state of ['generating', 'evaluating'] as CellState[]) {
+        const alpha = alphaFor(state, 3, palette, runningFrame(clock), false);
+        expect(alpha).toBeGreaterThanOrEqual(0);
+        expect(alpha).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});
+
+describe('alphaFor completion transition', () => {
+  it('fades passed cells once the run lands', () => {
+    const during = alphaFor('passed', 0, palette, runningFrame(1), false);
+    const settled = alphaFor('passed', 0, palette, completedFrame(1), false);
+    expect(settled).toBeLessThan(during);
+  });
+
+  it('eases the fade rather than snapping', () => {
+    const start = alphaFor('passed', 0, palette, completedFrame(0), false);
+    const middle = alphaFor('passed', 0, palette, completedFrame(0.2), false);
+    const end = alphaFor('passed', 0, palette, completedFrame(0.4), false);
+    expect(middle).toBeLessThan(start);
+    expect(end).toBeLessThan(middle);
+  });
+
+  it('leaves failed cells at full strength, so contrast lands on them', () => {
+    const before = alphaFor('failed', 0, palette, runningFrame(1), false);
+    const after = alphaFor('failed', 0, palette, completedFrame(2), false);
+    expect(after).toBe(before);
+  });
+
+  it('rings failures once, then stops', () => {
+    expect(failRingAlpha(completedFrame(0), false)).toBeGreaterThan(0);
+    expect(failRingAlpha(completedFrame(0.7), false)).toBeGreaterThan(0);
+    expect(failRingAlpha(completedFrame(1.5), false)).toBe(0);
+  });
+
+  it('does not ring while the run is still going', () => {
+    expect(failRingAlpha(runningFrame(5), false)).toBe(0);
+  });
+
+  it('fades the ring out over its lifetime', () => {
+    expect(failRingAlpha(completedFrame(1.2), false)).toBeLessThan(
+      failRingAlpha(completedFrame(0.2), false)
+    );
+  });
+});
+
+describe('alphaFor under reduced motion', () => {
+  it('holds in-flight states flat', () => {
+    const first = alphaFor('generating', 0, palette, runningFrame(0.3), true);
+    const second = alphaFor('generating', 0, palette, runningFrame(2.9), true);
+    expect(first).toBe(second);
+  });
+
+  it('still separates the two in-flight states by brightness', () => {
+    const frame = runningFrame(1);
+    expect(alphaFor('generating', 0, palette, frame, true)).toBeLessThan(
+      alphaFor('evaluating', 0, palette, frame, true)
+    );
+  });
+
+  it('snaps the completion fade instead of easing it', () => {
+    const atStart = alphaFor('passed', 0, palette, completedFrame(0), true);
+    const later = alphaFor('passed', 0, palette, completedFrame(0.4), true);
+    expect(atStart).toBe(later);
+  });
+
+  it('suppresses the failure ring entirely', () => {
+    expect(failRingAlpha(completedFrame(0.1), true)).toBe(0);
+  });
+
+  // Colour still changes as verdicts land: that is information, not decoration.
+  it('keeps resolved states at their palette colour', () => {
+    expect(alphaFor('failed', 0, palette, runningFrame(1), true)).toBe(
+      palette.failed.alpha
+    );
   });
 });

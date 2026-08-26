@@ -1,13 +1,34 @@
 import {
-  cellState,
-  reduceCellStates,
-  computeGroupRollup,
-  aggregateGroupByTest,
+  CHAR_TO_STATE,
   aggregateMetric,
+  computeVerdictBlocks,
+  formatVerdictBlocks,
 } from '../verdict-model';
-import type { VerdictRow } from '@/utils/api-client/interfaces/test-run';
+import type {
+  VerdictRequirement,
+  VerdictRow,
+} from '@/utils/api-client/interfaces/test-run';
 
-describe('cellState', () => {
+// Time-dependent state derivation lives in verdict-timeline.ts and is covered
+// by verdict-timeline.test.ts; this file covers what stays time-independent.
+
+function makeRow(overrides: Partial<VerdictRow> = {}): VerdictRow {
+  return {
+    requirement_id: 'r1',
+    metric_key: 'm1',
+    metric_name: 'M1',
+    metric_id: null,
+    ambiguous: false,
+    verdicts: '',
+    overrides: '',
+    passed: 0,
+    failed: 0,
+    pending: 0,
+    ...overrides,
+  };
+}
+
+describe('CHAR_TO_STATE', () => {
   it.each([
     ['.', 'pending'],
     ['P', 'passed'],
@@ -16,162 +37,109 @@ describe('cellState', () => {
     ['E', 'error'],
     ['X', 'na'],
   ] as const)('maps %s to %s', (char, expected) => {
-    expect(cellState(char, false, false)).toBe(expected);
+    expect(CHAR_TO_STATE[char]).toBe(expected);
   });
 
-  it('overrides pending to inFlight when generating', () => {
-    expect(cellState('.', true, false)).toBe('inFlight');
-  });
-
-  it('overrides pending to inFlight when evaluating', () => {
-    expect(cellState('.', false, true)).toBe('inFlight');
-  });
-
-  it('does not override passed even when generating', () => {
-    expect(cellState('P', true, false)).toBe('passed');
-  });
-
-  it('does not override failed even when evaluating', () => {
-    expect(cellState('F', false, true)).toBe('failed');
-  });
-
-  it('maps unknown char to pending', () => {
-    expect(cellState('?', false, false)).toBe('pending');
-  });
-});
-
-describe('reduceCellStates', () => {
-  it('returns pending for empty input', () => {
-    expect(reduceCellStates([])).toBe('pending');
-  });
-
-  it('failed wins over everything else', () => {
-    expect(reduceCellStates(['passed', 'pending', 'failed', 'scored'])).toBe(
-      'failed'
-    );
-  });
-
-  it('error wins over inFlight/pending/scored/na/passed', () => {
-    expect(reduceCellStates(['passed', 'error', 'na'])).toBe('error');
-  });
-
-  it('inFlight wins over pending', () => {
-    expect(reduceCellStates(['pending', 'inFlight'])).toBe('inFlight');
-  });
-
-  it('returns passed when all states are passed', () => {
-    expect(reduceCellStates(['passed', 'passed'])).toBe('passed');
-  });
-});
-
-const EMPTY_SET = new Set<string>();
-
-function makeRow(
-  metricKey: string,
-  verdicts: string,
-  overrides: Partial<VerdictRow> = {}
-): VerdictRow {
-  return {
-    requirement_id: 'r1',
-    metric_key: metricKey,
-    metric_name: metricKey,
-    metric_id: null,
-    ambiguous: false,
-    verdicts,
-    overrides: '0'.repeat(verdicts.length),
-    passed: 0,
-    failed: 0,
-    pending: 0,
-    ...overrides,
-  };
-}
-
-describe('computeGroupRollup', () => {
-  it('reduces per-test across all metric rows in the group', () => {
-    const rows = [makeRow('m1', 'PF.'), makeRow('m2', 'PPF')];
-    const testIds = ['t1', 't2', 't3'];
-    const rollup = computeGroupRollup(rows, testIds, EMPTY_SET, EMPTY_SET);
-    // t1: P,P -> passed. t2: F,P -> failed. t3: .,F -> failed (F wins over .)
-    expect(rollup).toEqual(['passed', 'failed', 'failed']);
-  });
-
-  it('marks a test in-flight when generating and no metric has failed yet', () => {
-    const rows = [makeRow('m1', '.')];
-    const testIds = ['t1'];
-    const rollup = computeGroupRollup(
-      rows,
-      testIds,
-      new Set(['t1']),
-      EMPTY_SET
-    );
-    expect(rollup).toEqual(['inFlight']);
-  });
-
-  it('returns pending for every test when the group has no rows', () => {
-    const rollup = computeGroupRollup([], ['t1', 't2'], EMPTY_SET, EMPTY_SET);
-    expect(rollup).toEqual(['pending', 'pending']);
-  });
-});
-
-describe('aggregateGroupByTest', () => {
-  it('derives total/passed/failed from the same rollup array', () => {
-    const rows = [makeRow('m1', 'PF.'), makeRow('m2', 'PPF')];
-    const testIds = ['t1', 't2', 't3'];
-    const agg = aggregateGroupByTest(rows, testIds, EMPTY_SET, EMPTY_SET);
-    expect(agg.rollup).toEqual(['passed', 'failed', 'failed']);
-    expect(agg.total).toBe(3);
-    expect(agg.passed).toBe(1);
-    expect(agg.failed).toBe(2);
-  });
-
-  it('counts error rollup states toward failed, not passed', () => {
-    const rows = [makeRow('m1', 'E')];
-    const testIds = ['t1'];
-    const agg = aggregateGroupByTest(rows, testIds, EMPTY_SET, EMPTY_SET);
-    expect(agg.failed).toBe(1);
-    expect(agg.passed).toBe(0);
-  });
-
-  it('excludes pending tests from both passed and failed', () => {
-    const rows = [makeRow('m1', '.')];
-    const testIds = ['t1'];
-    const agg = aggregateGroupByTest(rows, testIds, EMPTY_SET, EMPTY_SET);
-    expect(agg.total).toBe(1);
-    expect(agg.passed).toBe(0);
-    expect(agg.failed).toBe(0);
+  it('has no mapping for an unknown char', () => {
+    expect(CHAR_TO_STATE['?']).toBeUndefined();
   });
 });
 
 describe('aggregateMetric', () => {
   it('computes pass rate from row counts', () => {
-    const row: VerdictRow = {
-      requirement_id: 'r1',
-      metric_key: 'm1',
-      metric_name: 'M1',
-      metric_id: null,
-      ambiguous: false,
-      verdicts: '',
-      overrides: '',
-      passed: 3,
-      failed: 1,
-      pending: 0,
-    };
-    expect(aggregateMetric(row)).toEqual({ passRate: 0.75 });
+    expect(aggregateMetric(makeRow({ passed: 3, failed: 1 }))).toEqual({
+      passRate: 0.75,
+    });
   });
 
-  it('returns null when both passed and failed are 0', () => {
-    const row: VerdictRow = {
-      requirement_id: 'r1',
-      metric_key: 'm1',
-      metric_name: 'M1',
-      metric_id: null,
-      ambiguous: false,
-      verdicts: '',
-      overrides: '',
-      passed: 0,
-      failed: 0,
-      pending: 5,
-    };
-    expect(aggregateMetric(row)).toEqual({ passRate: null });
+  it('returns null when nothing has resolved yet', () => {
+    expect(aggregateMetric(makeRow({ pending: 5 }))).toEqual({
+      passRate: null,
+    });
+  });
+
+  it('excludes pending from the denominator', () => {
+    expect(
+      aggregateMetric(makeRow({ passed: 1, failed: 1, pending: 8 }))
+    ).toEqual({ passRate: 0.5 });
+  });
+});
+
+describe('computeVerdictBlocks', () => {
+  function makeRequirement(
+    overrides: Partial<VerdictRequirement> = {}
+  ): VerdictRequirement {
+    return { id: 'r1', name: 'R1', metric_keys: ['m1'], ...overrides };
+  }
+
+  it('derives tests x metrics per requirement', () => {
+    const blocks = computeVerdictBlocks(
+      [makeRequirement({ metric_keys: ['m1', 'm2'] })],
+      [makeRow({ metric_key: 'm1', passed: 20, failed: 5, pending: 2 })]
+    );
+    expect(blocks).toEqual([{ tests: 27, metrics: 2 }]);
+  });
+
+  it('keeps requirements with different test scopes apart', () => {
+    const blocks = computeVerdictBlocks(
+      [
+        makeRequirement({ id: 'r1', metric_keys: ['m1'] }),
+        makeRequirement({ id: 'r2', metric_keys: ['m2'] }),
+      ],
+      [
+        makeRow({ metric_key: 'm1', passed: 27 }),
+        makeRow({ metric_key: 'm2', passed: 11 }),
+      ]
+    );
+    expect(blocks).toEqual([
+      { tests: 27, metrics: 1 },
+      { tests: 11, metrics: 1 },
+    ]);
+  });
+
+  it('reports zero tests for a requirement with no rows', () => {
+    expect(computeVerdictBlocks([makeRequirement()], [])).toEqual([
+      { tests: 0, metrics: 1 },
+    ]);
+  });
+});
+
+describe('formatVerdictBlocks', () => {
+  it('renders a single block', () => {
+    expect(formatVerdictBlocks([{ tests: 38, metrics: 7 }])).toBe(
+      'blocks: 38×7'
+    );
+  });
+
+  it('joins two blocks with "and"', () => {
+    expect(
+      formatVerdictBlocks([
+        { tests: 27, metrics: 7 },
+        { tests: 11, metrics: 3 },
+      ])
+    ).toBe('blocks: 27×7 and 11×3');
+  });
+
+  it('comma-separates three or more', () => {
+    expect(
+      formatVerdictBlocks([
+        { tests: 1, metrics: 1 },
+        { tests: 2, metrics: 2 },
+        { tests: 3, metrics: 3 },
+      ])
+    ).toBe('blocks: 1×1, 2×2 and 3×3');
+  });
+
+  it('skips empty blocks', () => {
+    expect(
+      formatVerdictBlocks([
+        { tests: 0, metrics: 4 },
+        { tests: 5, metrics: 2 },
+      ])
+    ).toBe('blocks: 5×2');
+  });
+
+  it('returns an empty string when nothing is renderable', () => {
+    expect(formatVerdictBlocks([{ tests: 0, metrics: 0 }])).toBe('');
   });
 });

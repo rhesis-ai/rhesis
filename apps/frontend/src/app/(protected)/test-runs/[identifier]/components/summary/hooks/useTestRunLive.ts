@@ -9,6 +9,12 @@ import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
 
 const LIVE_POLL_MS = 3000;
 
+const verdictMatrixKey = (testRunId: string) => [
+  'test-runs',
+  'verdict-matrix',
+  testRunId,
+];
+
 export function useTestRunLive(testRunId: string): {
   matrix: VerdictMatrix | undefined;
   isLoading: boolean;
@@ -35,12 +41,25 @@ export function useTestRunLive(testRunId: string): {
   }, [testRunId]);
 
   const { data: matrix, isLoading } = useQuery<VerdictMatrix>({
-    queryKey: ['test-runs', 'verdict-matrix', testRunId],
+    queryKey: verdictMatrixKey(testRunId),
     queryFn: async () => {
       const client = new ApiClientFactory().getTestRunsClient();
       const columns = hasFetched.current ? 'none' : undefined;
       const result = await client.getVerdictMatrix(testRunId, columns);
       hasFetched.current = true;
+      // A columns=none response omits test_ids entirely (the server didn't
+      // resend it, not that the run has none) -- carry the array already in
+      // cache forward. It's fixed for the run's lifetime, so this can never
+      // go stale, and without it every consumer downstream of test_ids would
+      // silently see zero tests on every refetch after the first.
+      if (result.test_ids === null) {
+        const previous = queryClient.getQueryData<VerdictMatrix>(
+          verdictMatrixKey(testRunId)
+        );
+        if (previous?.test_ids) {
+          result.test_ids = previous.test_ids;
+        }
+      }
       return result;
     },
     refetchInterval: query => {
@@ -77,7 +96,7 @@ export function useTestRunLive(testRunId: string): {
       EventType.TEST_RUN_PROGRESSED,
       forThisRun(() =>
         queryClient.invalidateQueries({
-          queryKey: ['test-runs', 'verdict-matrix', testRunId],
+          queryKey: verdictMatrixKey(testRunId),
         })
       )
     );
@@ -96,7 +115,7 @@ export function useTestRunLive(testRunId: string): {
   useEffect(() => {
     if (isConnected && !prevConnected.current) {
       void queryClient.invalidateQueries({
-        queryKey: ['test-runs', 'verdict-matrix', testRunId],
+        queryKey: verdictMatrixKey(testRunId),
       });
     }
     prevConnected.current = isConnected;
