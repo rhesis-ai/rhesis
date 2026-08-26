@@ -177,8 +177,15 @@ class MetricTuningRunSummary(BaseModel):
     # Why the run as a whole failed, when it did. A single case failing does not
     # fail the run -- that is `errored_cases`.
     error: Optional[str] = None
+    # A digest of the metric fields that decide a verdict, taken when the run
+    # started. A run whose digest no longer matches the metric scored an earlier
+    # version of it -- see services/metric_tuning/fingerprint.py. Absent on runs
+    # stored before this existed, which reads as unknown rather than as stale.
+    metric_fingerprint: Optional[str] = None
 
-    @field_validator("error", "started_at", "completed_at", "progressed_at", mode="before")
+    @field_validator(
+        "error", "started_at", "completed_at", "progressed_at", "metric_fingerprint", mode="before"
+    )
     @classmethod
     def _validate_optional_str(cls, v: Any) -> Optional[str]:
         return _coerce_optional_str(v)

@@ -20,6 +20,11 @@ action through ``POST .../tuning/reviews/accept-rest``. The verdict a review is
 about is read from storage, never sent, so a review cannot be recorded against
 something the metric did not say.
 
+``POST .../tuning/improve`` reads the rejections back and asks the generation
+model to rewrite the metric from them. It never writes: applying an improvement
+is an ordinary metric update the frontend sends afterwards with the fields it was
+shown (domain.local/adr/0006).
+
 Only custom metrics can be tuned, and that is enforced here rather than only in
 the UI. The frontend hides the tab behind a flag, but these routes are live in
 every deployment -- a hidden tab is not an access rule.
@@ -30,6 +35,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import Depends, HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -38,16 +44,22 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.crud.metric import get_metric
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningCase,
     MetricTuningCaseCreate,
     MetricTuningCaseUpdate,
+    MetricTuningImprovement,
     MetricTuningReviewCreate,
     MetricTuningRun,
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningRunSummary
 from rhesis.backend.app.services import metric_tuning as service
+from rhesis.backend.app.services.metric_tuning.improve import (
+    ImprovementUnavailable,
+    NoStandingRejections,
+)
 from rhesis.backend.app.services.metric_tuning.invoke import MetricModelNotConfigured
 from rhesis.backend.app.services.metric_tuning.reviews import (
     NothingToReview,
@@ -108,16 +120,19 @@ def _run_response(
     organization_id: str,
     summary: MetricTuningRunSummary,
 ) -> MetricTuningRun:
-    """The stored run summary plus the agreement, which is never stored.
+    """The stored run summary plus the two things about it that are never stored.
 
-    Read here on every request rather than written when a run finishes: a review
-    recorded between runs -- or one a run has just invalidated -- has to move the
-    number straight away.
+    The agreement is read here on every request rather than written when a run
+    finishes: a review recorded between runs -- or one a run has just invalidated
+    -- has to move the number straight away. Whether the run predates the metric
+    is derived for the same reason: editing the metric has to change how the run
+    reads without touching the run.
     """
     # Set after construction rather than passed in: the stored summary allows
     # extra keys, so spreading it beside a keyword risks colliding with one.
     run = MetricTuningRun(**summary.model_dump(mode="json"))
     run.agreement = service.get_agreement(db, metric, organization_id)
+    run.predates_metric = service.run_predates_metric(summary, metric)
     return run
 
 
@@ -299,3 +314,50 @@ def start_tuning_run(
         ) from e
 
     return _run_response(db, metric, organization_id, summary)
+
+
+# Marked update for the same reason the run is: it costs an LLM call, and it is
+# the step before an update the same person is about to make. It writes nothing
+# itself -- ADR-0006 -- so the write capability guards the cost and the intent,
+# not the effect.
+@router.post(
+    "/{metric_id}/tuning/improve",
+    response_model=MetricTuningImprovement,
+    **capability(Permission.Metric.UPDATE),
+)
+def improve_metric_from_reviews(
+    metric_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: models.User = Depends(require_current_user_or_token),
+):
+    """Propose a rewrite of the metric from the rejections its reviewers wrote.
+
+    Synchronous, and it saves nothing. The caller is shown the current fields
+    beside the proposed ones and applies them with an ordinary metric update, or
+    closes the dialog -- rewriting the evaluation prompt in place would replace
+    the text the reviews were made against with no diff and no undo.
+    """
+    organization_id, user_id = tenant_context
+    metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
+
+    try:
+        return service.improve_from_reviews(db, metric, organization_id, current_user)
+    except NoStandingRejections as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValidationError as e:
+        # The model's fields did not fit MetricUpdate, so applying them would
+        # fail. That is our template or our schema, not the caller's request.
+        raise internal_error(e, context=f"improving metric {metric_id} from its reviews") from e
+    except ImprovementUnavailable as e:
+        # Same public detail as /metrics/{id}/improve: the caller acts on it the
+        # same way, and the real reason stays in the log.
+        raise internal_error(
+            e,
+            context=f"improving metric {metric_id} from its reviews",
+            status_code=400,
+            public_detail=(
+                "Failed to improve metric: the generation model could not be "
+                "used. Check the model configured for your organization."
+            ),
+        ) from e
