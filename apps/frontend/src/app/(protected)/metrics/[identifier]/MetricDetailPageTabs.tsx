@@ -62,6 +62,9 @@ export default function MetricDetailPageTabs() {
 
   const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
+  // Bumped when a tab writes the metric, so the detail view re-reads it instead
+  // of serving the copy it fetched on mount.
+  const [metricRevision, setMetricRevision] = useState(0);
   // This page also serves `rhesis` metrics, and the tuning routes refuse
   // anything that is not custom.
   const showTuning = useIsCustomMetric(metricId);
@@ -94,6 +97,7 @@ export default function MetricDetailPageTabs() {
     <MetricDetailView
       metricId={metricId}
       mode="page"
+      refreshKey={metricRevision}
       tabNav={tabNav}
       tabBody={
         activeTab === 1 ? (
@@ -102,7 +106,10 @@ export default function MetricDetailPageTabs() {
             sessionStatus={status}
           />
         ) : activeTab === 2 && showTuning ? (
-          <MetricTuningTab metricId={metricId} />
+          <MetricTuningTab
+            metricId={metricId}
+            onMetricChanged={() => setMetricRevision(revision => revision + 1)}
+          />
         ) : undefined
       }
     />
