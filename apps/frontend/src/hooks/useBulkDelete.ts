@@ -103,9 +103,9 @@ export function useBulkDelete<TResp = void>({
   }, []);
 
   const confirmDelete = useCallback(async () => {
-    const idsToDelete = pendingDeleteId
-      ? [pendingDeleteId]
-      : (selectedRows as string[]);
+    const idsToDelete = (
+      pendingDeleteId ? [pendingDeleteId] : selectedRows
+    ).map(String);
     if (idsToDelete.length === 0) return;
 
     try {
