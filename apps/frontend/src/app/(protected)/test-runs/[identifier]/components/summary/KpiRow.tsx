@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Box, Grid, LinearProgress, useTheme } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { Box, Grid, LinearProgress } from '@mui/material';
 import KpiCard from './KpiCard';
+import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
+import {
+  aggregateGroupByTest,
+  computeVerdictBlocks,
+  formatVerdictBlocks,
+} from './verdict-model';
+import { describeStrip } from './verdict-strip-render';
+import { STRIP_HEIGHTS } from './summary-tokens';
 import type {
   VerdictMatrix,
   TestRunDetail,
@@ -19,6 +22,9 @@ interface KpiRowProps {
   matrix: VerdictMatrix;
   testRun: TestRunDetail;
   isRunning: boolean;
+  testIds: string[];
+  generatingIds: Set<string>;
+  evaluatingIds: Set<string>;
   onViewFailures?: () => void;
 }
 
@@ -26,9 +32,11 @@ export default function KpiRow({
   matrix,
   testRun,
   isRunning,
+  testIds,
+  generatingIds,
+  evaluatingIds,
   onViewFailures,
 }: KpiRowProps) {
-  const theme = useTheme();
   const { kpis } = matrix;
 
   const durationDisplay = useMemo(() => {
@@ -39,51 +47,68 @@ export default function KpiRow({
       : undefined;
   }, [testRun, isRunning]);
 
-  const passRateDisplay = useMemo(() => {
-    if (kpis.pass_rate === null) return '--';
-    return `${Math.round(kpis.pass_rate * 100)}%`;
-  }, [kpis.pass_rate]);
+  // Run-wide per-test roll-up (same aggregation as a requirement group's,
+  // just scoped to every row instead of one requirement's) -- this is what
+  // the Pass Rate card's sparkline and "N of M tests" subtitle are built
+  // from, distinct from kpis.pass_rate, which is a per-verdict rate.
+  const runRollup = useMemo(
+    () =>
+      aggregateGroupByTest(matrix.rows, testIds, generatingIds, evaluatingIds),
+    [matrix.rows, testIds, generatingIds, evaluatingIds]
+  );
 
-  const passRateIcon = useMemo(() => {
-    if (kpis.pass_rate === null) return <PlayCircleOutlineIcon />;
-    if (kpis.pass_rate >= 0.67)
-      return (
-        <CheckCircleOutlineIcon sx={{ color: theme.palette.success.main }} />
-      );
-    if (kpis.pass_rate >= 0.33)
-      return (
-        <WarningAmberOutlinedIcon sx={{ color: theme.palette.warning.main }} />
-      );
-    return <CancelOutlinedIcon sx={{ color: theme.palette.error.main }} />;
-  }, [kpis.pass_rate, theme]);
+  const passRateStripAriaLabel = useMemo(
+    () => describeStrip('Pass rate', runRollup.rollup),
+    [runRollup.rollup]
+  );
+
+  const passRateDisplay =
+    kpis.pass_rate !== null ? (kpis.pass_rate * 100).toFixed(1) : '--';
 
   const testsProgress =
     kpis.tests_total > 0 ? (kpis.tests_executed / kpis.tests_total) * 100 : 0;
+
+  const verdictBlocksSubtitle = useMemo(() => {
+    const blocks = computeVerdictBlocks(matrix.requirements, matrix.rows);
+    return formatVerdictBlocks(blocks) || undefined;
+  }, [matrix.requirements, matrix.rows]);
 
   return (
     <Box sx={{ mb: 4 }}>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KpiCard
-            title="Pass Rate"
+            title="Pass rate"
             value={passRateDisplay}
+            valueSuffix={kpis.pass_rate !== null ? '%' : undefined}
             subtitle={
-              kpis.pass_rate !== null
-                ? `${kpis.verdicts_resolved} verdicts resolved`
+              runRollup.total > 0
+                ? `${runRollup.passed} of ${runRollup.total} tests`
                 : undefined
             }
-            icon={passRateIcon}
+            visual={
+              runRollup.total > 0 ? (
+                <Box sx={{ mt: 1.5 }}>
+                  <VerdictStrip
+                    cells={runRollup.rollup}
+                    dataVersion={matrix.version}
+                    height={STRIP_HEIGHTS.shape}
+                    ariaLabel={passRateStripAriaLabel}
+                  />
+                </Box>
+              ) : undefined
+            }
           />
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KpiCard
-            title="Tests Executed"
-            value={`${kpis.tests_executed}/${kpis.tests_total}`}
+            title="Tests executed"
+            value={kpis.tests_executed}
+            valueSuffix={`/ ${kpis.tests_total}`}
             subtitle={durationDisplay}
-            icon={<PlayCircleOutlineIcon />}
-            trend={
-              isRunning ? (
+            visual={
+              kpis.tests_total > 0 ? (
                 <LinearProgress
                   variant="determinate"
                   value={testsProgress}
@@ -96,14 +121,10 @@ export default function KpiRow({
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KpiCard
-            title="Metric Verdicts"
-            value={`${kpis.verdicts_resolved}/${kpis.verdicts_planned}`}
-            subtitle={
-              kpis.verdicts_planned > 0
-                ? `${Math.round((kpis.verdicts_resolved / kpis.verdicts_planned) * 100)}% complete`
-                : undefined
-            }
-            icon={<CheckCircleOutlineIcon />}
+            title="Verdicts"
+            value={kpis.verdicts_resolved}
+            valueSuffix={`/ ${kpis.verdicts_planned}`}
+            subtitle={verdictBlocksSubtitle}
             infoTooltip="Each test/metric pair produces one verdict. Shows verdicts resolved out of the total planned for this run."
           />
         </Grid>
@@ -112,15 +133,11 @@ export default function KpiRow({
           <KpiCard
             title="Failures"
             value={kpis.failures}
-            icon={
-              <ErrorOutlineIcon
-                sx={{
-                  color:
-                    kpis.failures > 0
-                      ? theme.palette.error.main
-                      : theme.palette.text.secondary,
-                }}
-              />
+            valueColor={kpis.failures > 0 ? 'error.main' : undefined}
+            subtitle={
+              kpis.failures > 0
+                ? `across ${new Set(matrix.rows.filter(r => r.failed > 0).map(r => r.metric_key)).size} metrics`
+                : undefined
             }
             onClick={kpis.failures > 0 ? onViewFailures : undefined}
           />

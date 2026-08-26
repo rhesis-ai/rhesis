@@ -42,6 +42,8 @@ export default function RunSummary({
   const isNarrow = useMediaQuery('(max-width:720px)');
   const effectiveDensity = isNarrow ? 'numbers' : density;
 
+  const testIds = useMemo(() => (matrix?.test_ids ?? []).map(String), [matrix]);
+
   const generatingIds = useMemo<Set<string>>(() => {
     if (!matrix) return EMPTY_SET;
     const ids = matrix.test_status;
@@ -88,6 +90,9 @@ export default function RunSummary({
           matrix={matrix}
           testRun={testRun}
           isRunning={!isTerminal}
+          testIds={testIds}
+          generatingIds={generatingIds}
+          evaluatingIds={evaluatingIds}
           onViewFailures={onViewFailures}
         />
 
