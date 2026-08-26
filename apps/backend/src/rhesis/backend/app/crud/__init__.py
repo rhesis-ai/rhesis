@@ -116,9 +116,7 @@ def get_test_sets(
     # Exclude explorer test sets (they use the dedicated /explorer API)
     # A metric's tuning test set is reachable only through its metric.
     return (
-        query_builder.with_custom_filter(
-            lambda q: q.filter(models.TestSet.explorer_row.is_(False))
-        )
+        query_builder.with_custom_filter(lambda q: q.filter(models.TestSet.explorer_row.is_(False)))
         .with_custom_filter(exclude_metric_owned(models.TestSet))
         .all()
     )
