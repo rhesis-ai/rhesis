@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import TasksPage from '../page';
+import TasksPageClient from '../TasksPageClient';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -30,7 +30,7 @@ jest.mock('@/components/common/Can', () => ({
 
 // TasksGrid owns the query and the loading/empty/populated decision itself —
 // the page's only job is to wire `canCreate`/`onCreateClick` through to it.
-jest.mock('../components/TasksGrid', () => {
+jest.mock('../TasksGrid', () => {
   return function MockTasksGrid({
     canCreate,
     onCreateClick,
@@ -46,20 +46,20 @@ jest.mock('../components/TasksGrid', () => {
   };
 });
 
-jest.mock('../components/TaskDrawer', () => {
+jest.mock('../TaskDrawer', () => {
   return function MockTaskDrawer({ open }: { open: boolean }) {
     return open ? <div data-testid="task-drawer" /> : null;
   };
 });
 
-describe('TasksPage', () => {
+describe('TasksPageClient', () => {
   it('passes canCreate through to the grid', () => {
-    render(<TasksPage />);
+    render(<TasksPageClient />);
     expect(screen.getByText('mock-create-task')).toBeEnabled();
   });
 
   it('opens the create drawer when the grid invokes onCreateClick', async () => {
-    render(<TasksPage />);
+    render(<TasksPageClient />);
     await userEvent.click(screen.getByText('mock-create-task'));
     expect(screen.getByTestId('task-drawer')).toBeInTheDocument();
   });

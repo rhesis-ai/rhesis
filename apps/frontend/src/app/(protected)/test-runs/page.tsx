@@ -1,111 +1,36 @@
-'use client';
-
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import { useSession } from 'next-auth/react';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { prefetchList } from '@/utils/server-prefetch';
+import { emptyFilters, listParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
-import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
-import TestRunsGrid from './components/TestRunsGrid';
-import RunDrawer from '@/components/common/RunDrawer';
-import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import TestRunsPageClient from './components/TestRunsPageClient';
+import { testRunsList } from './components/list';
 
-export default function TestRunsPage() {
-  const { status } = useSession();
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.TestRun.READ
+/**
+ * Server component: fetches the first page of test runs before rendering so
+ * the page arrives with content already in place -- no client-side spinner
+ * on first load. See `prefetchList` for the permission-gating rationale.
+ */
+export default async function TestRunsPage() {
+  const factory = await createServerApiFactory();
+
+  const { initialData, initialTotalCount } = await prefetchList(
+    Capability.TestRun.READ,
+    () =>
+      testRunsList.list(
+        factory,
+        listParams(testRunsList, {
+          page: 1,
+          pageSize: testRunsList.defaultPageSize,
+          sort: testRunsList.defaultSort,
+          filters: emptyFilters(testRunsList),
+        })
+      )
   );
-  const canCreateTestRun = useCan(Capability.TestRun.CREATE);
-  const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
-  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
-  const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
-    useBulkActionsBridge();
-
-  useDocumentTitle('Test Runs');
-
-  const handleCreateSuccess = React.useCallback(() => {
-    setCreateDrawerOpen(false);
-    setRefreshTrigger(prev => prev + 1);
-  }, []);
-
-  if (isSessionLoading(status)) {
-    return (
-      <PageLayout title="Test Runs" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      </PageLayout>
-    );
-  }
-
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="test runs" />;
-
-  if (!isAuthenticated(status)) {
-    return (
-      <PageLayout title="Test Runs" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
-          <Typography color="error">No session token available</Typography>
-        </Box>
-      </PageLayout>
-    );
-  }
 
   return (
-    <>
-      <PageLayout
-        title="Test Runs"
-        description="Executions of your test sets against AI endpoints. Track status, results, and history of each run."
-        breadcrumbs={[]}
-        actions={
-          <FabGroup>
-            {bulkActionsVisible && (
-              <Can capability={Capability.TestRun.DELETE}>
-                <Fab
-                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-                  tooltip="Delete Test Runs"
-                  aria-label="Delete Test Runs"
-                  onClick={onBulkDelete}
-                  sx={{
-                    bgcolor: 'error.main',
-                    '&:hover': { bgcolor: 'error.dark' },
-                  }}
-                />
-              </Can>
-            )}
-            <Can capability={Capability.TestRun.CREATE}>
-              <Fab
-                icon={<FabAddIcon />}
-                tooltip="New Test Run"
-                onClick={() => setCreateDrawerOpen(true)}
-              />
-            </Can>
-          </FabGroup>
-        }
-      >
-        <Box sx={{ mt: 2, mb: 2 }}>
-          <TestRunsGrid
-            canCreate={canCreateTestRun}
-            onCreateClick={() => setCreateDrawerOpen(true)}
-            onBulkActionsChange={handleBulkActionsChange}
-            refreshTrigger={refreshTrigger}
-          />
-        </Box>
-      </PageLayout>
-
-      <RunDrawer
-        mode="newTestRun"
-        open={createDrawerOpen}
-        onClose={() => setCreateDrawerOpen(false)}
-        onSuccess={handleCreateSuccess}
-      />
-    </>
+    <TestRunsPageClient
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+    />
   );
 }

@@ -84,6 +84,9 @@ interface TestRunsGridProps {
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
   /** Bumped by the page after a cancel succeeds, to trigger a re-fetch. */
   refreshTrigger?: number;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: TestRunDetail[];
+  initialTotalCount?: number;
 }
 
 function formatReviewTooltip(reviewed: number, corrected: number): string {
@@ -181,6 +184,8 @@ function TestRunsGrid({
   onCreateClick,
   onBulkActionsChange,
   refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TestRunsGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -224,11 +229,6 @@ function TestRunsGrid({
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
-  // No `initialData`/SSR prefetch here on purpose: a run appears here as soon
-  // as it's started, so server-rendered (and thus already-stale-by-the-time-
-  // it-renders) data would hide it. `useList` always fetches once on
-  // mount when `initialData` is absent, which is exactly the guarantee this
-  // page needs -- see the same note in TestSetsGrid.
   const {
     data: testRuns,
     totalCount,
@@ -241,6 +241,8 @@ function TestRunsGrid({
     onSortModelChange: handleSortModelChange,
   } = useList(testRunsList, {
     filters,
+    initialData,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 
