@@ -42,4 +42,13 @@ export const experimentsList = defineList({
       },
     };
   },
+  // Experiments have no bulk-delete endpoint -- row-level delete only.
+  delete: {
+    one: (factory: ApiClientFactory, id: string) =>
+      factory.getParametersClient().deleteExperiment(id),
+    capability: Capability.Experiment.DELETE,
+    capabilityMode: 'row',
+    labelSingular: 'experiment',
+    labelPlural: 'experiments',
+  },
 });
