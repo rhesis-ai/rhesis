@@ -108,6 +108,13 @@ def _user_settings_read_payload(
         **db_user.user_settings,
         "is_verified": db_user.is_verified,
         "permitted_actions": _user_settings_permitted_actions(request, current_user, db),
+        "has_password": db_user.password_hash is not None,
+        "provider_type": db_user.provider_type,
+        "email": db_user.email,
+        "name": db_user.name,
+        "given_name": db_user.given_name,
+        "family_name": db_user.family_name,
+        "picture": db_user.picture,
     }
 
 
