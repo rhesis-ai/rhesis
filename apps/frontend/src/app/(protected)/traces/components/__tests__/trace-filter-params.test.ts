@@ -15,9 +15,7 @@ describe('trace-filter-params', () => {
         timeRange: '24h',
       },
       'llm.invoke',
-      'Single-Turn',
-      50,
-      0
+      'Single-Turn'
     );
 
     expect(params.project_id).toBe('proj-1');
@@ -25,20 +23,11 @@ describe('trace-filter-params', () => {
     expect(params.search).toBe('llm.invoke');
     expect(params.trace_type).toBe('Single-Turn');
     expect(params.start_time_after).toBeDefined();
-    expect(params.limit).toBe(50);
-    expect(params.offset).toBe(0);
   });
 
   it('omits type filter when all', () => {
-    const params = buildTraceQueryParams(
-      EMPTY_TRACE_DRAWER_FILTERS,
-      '',
-      'all',
-      25,
-      50
-    );
+    const params = buildTraceQueryParams(EMPTY_TRACE_DRAWER_FILTERS, '', 'all');
     expect(params.trace_type).toBeUndefined();
-    expect(params.offset).toBe(50);
   });
 
   it('detects active drawer filters', () => {

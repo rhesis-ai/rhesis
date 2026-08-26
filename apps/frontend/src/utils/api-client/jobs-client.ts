@@ -1,24 +1,21 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { Job, JobActivity, JobsQueryParams } from './interfaces/job';
+import type { PaginatedResponse } from './interfaces/pagination';
 
 export class JobsClient extends BaseApiClient {
   constructor(sessionToken?: string, retryConfig = {}, projectId?: string) {
     super(sessionToken, retryConfig, projectId);
   }
 
-  async getJobs(
-    params: JobsQueryParams = {}
-  ): Promise<{ data: Job[]; totalCount: number }> {
-    const { data, pagination } = await this.fetchPaginated<Job>('jobs', {
+  async getJobs(params: JobsQueryParams = {}): Promise<PaginatedResponse<Job>> {
+    return this.fetchPaginated<Job>('jobs', {
       skip: params.skip ?? 0,
       limit: params.limit ?? 50,
       sort_by: params.sort_by,
       sort_order: params.sort_order,
       $filter: params.$filter,
     });
-
-    return { data, totalCount: pagination.totalCount };
   }
 
   /**

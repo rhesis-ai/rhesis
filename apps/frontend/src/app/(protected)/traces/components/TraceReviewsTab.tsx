@@ -26,7 +26,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
-import { useQueryClient } from '@tanstack/react-query';
 import { BORDER_RADIUS } from '@/styles/theme';
 import {
   SpanNode,
@@ -44,7 +43,6 @@ import StatusChip from '@/components/common/StatusChip';
 import { Capability } from '@/constants/capabilities';
 import { can, Can } from '@/components/common/Can';
 import { EntityType } from '@/types/entity-type';
-import { annotationKeys } from '@/constants/query-keys';
 import {
   findStatusByCategory,
   isPassedStatusName,
@@ -77,12 +75,7 @@ export default function TraceReviewsTab({
   onCommentUsed,
 }: TraceReviewsTabProps) {
   const theme = useTheme();
-  const queryClient = useQueryClient();
   const notifications = useNotifications();
-
-  const invalidateAnnotations = () => {
-    void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
-  };
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
@@ -175,7 +168,6 @@ export default function TraceReviewsTab({
       );
 
       onTraceUpdated();
-      invalidateAnnotations();
 
       setReason('');
       setShowReviewForm(false);
@@ -211,7 +203,6 @@ export default function TraceReviewsTab({
         resolved: !review.resolved,
       });
       onTraceUpdated();
-      invalidateAnnotations();
     } catch (error) {
       console.error('Failed to update review resolution:', error);
     } finally {
@@ -234,7 +225,6 @@ export default function TraceReviewsTab({
       );
 
       onTraceUpdated();
-      invalidateAnnotations();
 
       setDeleteDialogOpen(false);
       setReviewToDelete(null);

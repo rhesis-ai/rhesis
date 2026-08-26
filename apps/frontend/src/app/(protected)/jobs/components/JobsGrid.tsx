@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useCallback, useContext, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { Box, Chip, LinearProgress, Tooltip, Typography } from '@mui/material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
@@ -11,14 +10,10 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridStateGate from '@/components/common/GridStateGate';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { jobKeys } from '@/constants/query-keys';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useList } from '@/hooks/useList';
+import { jobsList } from './list';
 import type { Job } from '@/utils/api-client/interfaces/job';
 import {
-  combineJobFiltersToOData,
   countActiveJobFilters,
   EMPTY_JOB_FILTERS,
   hasActiveJobFilters,
@@ -174,7 +169,6 @@ function formatDuration(job: Job): string {
 
 export default function JobsGrid() {
   const router = useRouter();
-  const { status: sessionStatus } = useSession();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusPill, setStatusPill] = useState('all');
@@ -182,68 +176,55 @@ export default function JobsGrid() {
   const [drawerFilters, setDrawerFilters] =
     useState<JobFilters>(EMPTY_JOB_FILTERS);
 
-  const {
-    paginationModel,
-    sortModel,
-    handlePaginationModelChange,
-    handleSortModelChange,
-  } = useGridState({ initialPageSize: 25 });
-
   /**
    * The pill narrows the drawer's status rather than fighting it: a user who
    * picked "failed" in the drawer and then clicks the Active pill should see
    * active jobs, so the pill wins for the one field they overlap on.
    */
-  const effectiveFilters = useMemo<JobFilters>(() => {
-    if (statusPill === 'all') return drawerFilters;
-    return { ...drawerFilters, status: PILL_TO_FILTER[statusPill] ?? '' };
-  }, [drawerFilters, statusPill]);
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      status:
+        statusPill === 'all'
+          ? drawerFilters.status
+          : (PILL_TO_FILTER[statusPill] ?? ''),
+      jobType: drawerFilters.jobType,
+      triggeredBy: drawerFilters.triggeredBy,
+      createdFrom: drawerFilters.createdFrom,
+      createdTo: drawerFilters.createdTo,
+    }),
+    [searchQuery, statusPill, drawerFilters]
+  );
 
-  const filterString = useMemo(() => {
-    const base = combineJobFiltersToOData(searchQuery, effectiveFilters);
-    if (statusPill !== 'active') return base;
-
-    // 'active' is the complement of the terminal states. Expressed as a status
-    // list rather than "not terminal" because OData has no notion of which of
-    // our statuses are terminal.
-    const activeClause =
-      "(status eq 'queued' or status eq 'running' or status eq 'cancelling')";
-    return base ? `(${base}) and ${activeClause}` : activeClause;
-  }, [searchQuery, effectiveFilters, statusPill]);
+  // 'active' is the complement of the terminal states. Expressed as a status
+  // list rather than "not terminal" because OData has no notion of which of
+  // our statuses are terminal.
+  const extraFilters = useMemo(
+    () =>
+      statusPill === 'active'
+        ? [
+            "(status eq 'queued' or status eq 'running' or status eq 'cancelling')",
+          ]
+        : undefined,
+    [statusPill]
+  );
 
   const LIVE_POLL_MS = 3000;
 
   const {
-    data: jobsData,
+    data: jobs,
+    totalCount,
     isLoading: loading,
-    errorMessage: error,
-  } = useGridQuery({
-    queryKey: jobKeys.list(
-      filterString ?? '',
-      paginationModel.page,
-      paginationModel.pageSize,
-      sortModel[0]?.field ?? 'created_at',
-      sortModel[0]?.sort ?? 'desc'
-    ),
-    errorFallbackMessage: 'Failed to load jobs',
-    enabled: isAuthenticated(sessionStatus),
-    staleTime: 0,
-    queryFn: () => {
-      const client = new ApiClientFactory().getJobsClient();
-      return client.getJobs({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: sortModel[0]?.field ?? 'created_at',
-        sort_order: sortModel[0]?.sort ?? 'desc',
-        $filter: filterString,
-      });
-    },
-    refetchInterval: query =>
-      query.state.data?.data.some(j => !j.is_terminal) ? LIVE_POLL_MS : false,
+    error,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+    sortModel,
+    onSortModelChange: handleSortModelChange,
+  } = useList(jobsList, {
+    filters,
+    extraFilters,
+    pollMs: data => (data.some(j => !j.is_terminal) ? LIVE_POLL_MS : false),
   });
-
-  const jobs = jobsData?.data ?? [];
-  const totalCount = jobsData?.totalCount ?? 0;
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -341,7 +322,7 @@ export default function JobsGrid() {
   return (
     <JobsToolbarContext.Provider value={toolbarState}>
       <GridStateGate
-        data={jobsData}
+        data={loading ? null : {}}
         error={error}
         isEmpty={jobs.length === 0 && !isFiltered}
         emptyState={

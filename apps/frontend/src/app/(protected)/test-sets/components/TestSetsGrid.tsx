@@ -216,8 +216,8 @@ export default function TestSetsGrid({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [errorDismissed, setErrorDismissed] = useState(false);
 
-  // A pill click wins over the drawer's own testSetType value, matching the
-  // old useGridState behavior (pill applied after drawer filters).
+  // A pill click wins over the drawer's own testSetType value (the pill is
+  // applied after drawer filters).
   const effectiveTestSetType =
     typeFilter !== 'all' ? typeFilter : drawerFilters.testSetType;
 

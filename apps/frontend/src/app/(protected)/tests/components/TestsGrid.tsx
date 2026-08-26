@@ -244,8 +244,8 @@ export default function TestsTable({
       ? buildTestIdsODataFilter(resolvedInsightsFailedTestIds)
       : '';
 
-  // A pill click wins over the drawer's own testType value, matching the old
-  // useGridState behavior (pill applied after drawer filters).
+  // A pill click wins over the drawer's own testType value (the pill is
+  // applied after drawer filters).
   const effectiveTestType =
     typeFilter !== 'all' ? typeFilter : drawerFilters.testType;
 

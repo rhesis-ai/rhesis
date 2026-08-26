@@ -20,7 +20,3 @@ export function gridSortToApiParams(sortModel: GridSortModel): {
     sort_order: active.sort,
   };
 }
-
-export const DEFAULT_GRID_SORT: GridSortModel = [
-  { field: 'created_at', sort: 'desc' },
-];

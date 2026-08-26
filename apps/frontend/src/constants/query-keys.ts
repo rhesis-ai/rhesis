@@ -19,18 +19,11 @@ export const jobKeys = {
   activity: (id: string, afterSequence?: number) =>
     ['jobs', 'activity', id, afterSequence ?? null] as const,
 };
-export const annotationKeys = createEntityKeys('annotations');
 export const experimentKeys = createEntityKeys('experiments');
 export const modelKeys = createEntityKeys('models');
 export const requirementKeys = createEntityKeys('requirements');
 export const projectKeys = createEntityKeys('projects');
 export const explorerKeys = createEntityKeys('explorer');
-
-export const traceKeys = {
-  all: () => ['traces'] as const,
-  list: (params: Record<string, unknown>) =>
-    ['traces', 'list', params] as const,
-};
 
 export const commentKeys = {
   list: (entityType: string, entityId: string) =>
