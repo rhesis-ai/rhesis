@@ -157,8 +157,8 @@ export default function TasksGrid({
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
   const [errorDismissed, setErrorDismissed] = useState(false);
 
-  // A pill click wins over the drawer's own status value, matching the old
-  // useGridState behavior (pill applied after drawer filters).
+  // A pill click wins over the drawer's own status value (the pill is
+  // applied after drawer filters).
   const effectiveStatus =
     statusFilter !== 'all' ? statusFilter : drawerFilters.status;
 

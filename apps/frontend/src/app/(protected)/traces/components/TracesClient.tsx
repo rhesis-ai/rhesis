@@ -1,32 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Typography } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceDrawer from './TraceDrawer';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
-import { useGridQuery } from '@/hooks/useGridQuery';
-import { traceKeys } from '@/constants/query-keys';
+import { useList } from '@/hooks/useList';
+import { tracesList } from './list';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import {
-  buildTraceQueryParams,
   EMPTY_TRACE_DRAWER_FILTERS,
   hasActiveTraceDrawerFilters,
   sanitizeTraceDrawerFiltersForTestRunScope,
   type TraceDrawerFilters,
 } from './trace-filter-params';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-
-const TRACE_PAGE_SIZE_OPTIONS = [25, 50, 100];
-
-function normalizePageSize(size: number): number {
-  return TRACE_PAGE_SIZE_OPTIONS.includes(size) ? size : 50;
-}
 
 interface TracesClientProps {
   currentUserId?: string;
@@ -36,6 +24,8 @@ interface TracesClientProps {
   initialProjectId?: string | null;
   fixedTestRunId?: string;
   onUnfilteredEmpty?: (empty: boolean) => void;
+  /** Bumped by the wrapper's refresh FAB, to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 export default function TracesClient({
@@ -46,11 +36,10 @@ export default function TracesClient({
   initialProjectId = null,
   fixedTestRunId,
   onUnfilteredEmpty,
+  refreshTrigger,
 }: TracesClientProps) {
-  const { status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const queryClient = useQueryClient();
   const { activeProject, loading: projectLoading } = useActiveProject();
   const scopedProjectId = activeProject?.id
     ? String(activeProject.id)
@@ -80,49 +69,67 @@ export default function TracesClient({
         }
   );
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [limit, setLimit] = useState(50);
-  const [offset, setOffset] = useState(0);
+  const [errorDismissed, setErrorDismissed] = useState(false);
 
-  const pageSize = normalizePageSize(limit);
+  const descriptor = useMemo(
+    () => tracesList(scopedProjectId),
+    [scopedProjectId]
+  );
 
-  const queryParams: TraceQueryParams = useMemo(
+  const filters = useMemo(
     () => ({
-      ...buildTraceQueryParams(
-        drawerFilters,
-        searchQuery,
-        typeFilter,
-        pageSize,
-        offset
-      ),
-      // Traces are project-scoped (fail-closed). Always filter by the active
-      // project unless the drawer explicitly overrides it.
-      ...(scopedProjectId && !drawerFilters.projectId
-        ? { project_id: scopedProjectId }
-        : {}),
+      search: searchQuery,
+      typeFilter,
+      projectId: drawerFilters.projectId ?? '',
+      endpointId: drawerFilters.endpointId ?? '',
+      environment: drawerFilters.environment ?? '',
+      timeRange: drawerFilters.timeRange,
+      startTimeAfter: drawerFilters.startTimeAfter ?? '',
+      startTimeBefore: drawerFilters.startTimeBefore ?? '',
+      traceSource: drawerFilters.traceSource ?? '',
+      traceMetricsStatus: drawerFilters.traceMetricsStatus ?? '',
+      testRunId: drawerFilters.testRunId ?? '',
+      testResultId: drawerFilters.testResultId ?? '',
+      testId: drawerFilters.testId ?? '',
     }),
-    [drawerFilters, searchQuery, typeFilter, pageSize, offset, scopedProjectId]
+    [searchQuery, typeFilter, drawerFilters]
   );
 
   const {
-    data,
-    isFetching,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: traceKeys.list({ ...queryParams, scopedProjectId }),
-    errorFallbackMessage: 'Failed to fetch traces',
-    queryFn: () => {
-      if (!scopedProjectId)
-        return Promise.reject(new Error('No active project'));
-      const clientFactory = new ApiClientFactory(undefined, scopedProjectId);
-      return clientFactory.getTelemetryClient().listTraces(queryParams);
-    },
-    enabled: isAuthenticated(status) && !projectLoading && !!scopedProjectId,
+    data: traces,
+    totalCount,
+    isLoading,
+    error: rawError,
+    refresh,
+    page,
+    rowsPerPage: pageSize,
+    onPageChange,
+    onRowsPerPageChange,
+  } = useList(descriptor, {
+    filters,
+    enabled: !projectLoading && !!scopedProjectId,
+    onError: () => setErrorDismissed(false),
   });
 
-  const traces = data?.traces ?? [];
-  const totalCount = data?.total ?? 0;
-  const listLoading = isFetching || projectLoading;
+  useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
+
+  const isFirstRefreshTrigger = useRef(true);
+  useEffect(() => {
+    if (isFirstRefreshTrigger.current) {
+      isFirstRefreshTrigger.current = false;
+      return;
+    }
+    refresh();
+    // Only refreshTrigger (bumped by the wrapper's refresh FAB) should re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
+
+  const listLoading = isLoading || projectLoading;
 
   useEffect(() => {
     const unfiltered =
@@ -146,10 +153,6 @@ export default function TracesClient({
     onUnfilteredEmpty,
   ]);
 
-  useEffect(() => {
-    setOffset(0);
-  }, [searchQuery, typeFilter, drawerFilters]);
-
   const handleRowClick = (traceId: string, projectId: string) => {
     setSelectedTraceId(traceId);
     setSelectedProjectId(projectId);
@@ -165,15 +168,6 @@ export default function TracesClient({
     }
   }, [initialTraceId, router, pathname]);
 
-  const handlePageChange = (newPage: number) => {
-    setOffset(newPage * pageSize);
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    setLimit(normalizePageSize(newSize));
-    setOffset(0);
-  };
-
   const handleApplyDrawerFilters = useCallback(
     (filters: TraceDrawerFilters) => {
       if (fixedTestRunId) {
@@ -186,10 +180,6 @@ export default function TracesClient({
     },
     [fixedTestRunId]
   );
-
-  const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: traceKeys.all() });
-  }, [queryClient]);
 
   const showFilteredEmpty =
     !listLoading && traces.length === 0 && totalCount === 0;
@@ -207,10 +197,10 @@ export default function TracesClient({
         loading={listLoading}
         onRowClick={handleRowClick}
         totalCount={totalCount}
-        page={Math.floor(offset / pageSize)}
+        page={page}
         pageSize={pageSize}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
+        onPageChange={onPageChange}
+        onPageSizeChange={onRowsPerPageChange}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         typeFilter={typeFilter}
@@ -243,7 +233,7 @@ export default function TracesClient({
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
-        onTraceUpdated={handleRefresh}
+        onTraceUpdated={refresh}
       />
     </>
   );

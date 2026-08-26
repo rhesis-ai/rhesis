@@ -18,7 +18,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { formatDistanceToNow } from 'date-fns';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   TestResultDetail,
   Review,
@@ -30,7 +29,6 @@ import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
 import { isPassedStatusName } from '@/utils/test-result-status';
-import { annotationKeys } from '@/constants/query-keys';
 import {
   getResultReviews,
   getLatestMetricReviewForResult,
@@ -65,11 +63,6 @@ export default function TestDetailReviewsTab({
   mentionableTurns = [],
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
-  const queryClient = useQueryClient();
-
-  const invalidateAnnotations = () => {
-    void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
-  };
 
   const canCreateReview = can(test, Capability.TestResult.UPDATE);
   const [createOpen, setCreateOpen] = useState(false);
@@ -134,7 +127,6 @@ export default function TestDetailReviewsTab({
     const testResultsClient = clientFactory.getTestResultsClient();
     const updatedTest = await testResultsClient.getTestResult(testId);
     onTestResultUpdate(updatedTest);
-    invalidateAnnotations();
   };
 
   // Delete handlers
@@ -152,7 +144,6 @@ export default function TestDetailReviewsTab({
       await testResultsClient.deleteReview(test.id, reviewToDelete.review_id);
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
-      invalidateAnnotations();
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
     } catch (_err) {
@@ -237,7 +228,6 @@ export default function TestDetailReviewsTab({
       });
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
-      invalidateAnnotations();
     } catch (error) {
       console.error('Failed to update review resolution:', error);
     } finally {

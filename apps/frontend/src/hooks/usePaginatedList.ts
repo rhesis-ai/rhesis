@@ -35,6 +35,13 @@ export interface UsePaginatedListOptions<T> {
   onData?: (data: T[]) => void;
   /** Called with the raw error on fetch failure, e.g. to show a toast. */
   onError?: (error: unknown) => void;
+  /**
+   * Live polling: called with each page's data, returns the delay in ms until
+   * the next background refresh, or `false` to stop polling (e.g. Jobs polls
+   * while any job is still running). Poll refreshes are silent -- they don't
+   * set `isLoading`, so the grid doesn't flash its loading overlay.
+   */
+  pollMs?: (data: T[]) => number | false;
 }
 
 export interface UsePaginatedListResult<T> {
@@ -77,6 +84,7 @@ export function usePaginatedList<T>({
   enabled = true,
   onData,
   onError,
+  pollMs,
 }: UsePaginatedListOptions<T>): UsePaginatedListResult<T> {
   const { status: sessionStatus } = useSession();
 
@@ -88,6 +96,9 @@ export function usePaginatedList<T>({
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultPageSize);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  // Set by the poll timer just before it bumps `refreshKey`, so that one
+  // fetch skips the loading flag; cleared as soon as the fetch effect reads it.
+  const silentRef = React.useRef(false);
 
   const loadedRequestKeyRef = React.useRef<string | null>(
     initialData !== undefined
@@ -115,6 +126,8 @@ export function usePaginatedList<T>({
     loadedRequestKeyRef.current = requestKey;
 
     let cancelled = false;
+    const silent = silentRef.current;
+    silentRef.current = false;
 
     const run = async () => {
       if (!isAuthenticated(sessionStatus)) {
@@ -125,7 +138,7 @@ export function usePaginatedList<T>({
       }
 
       try {
-        setIsLoading(true);
+        if (!silent) setIsLoading(true);
         setError(null);
 
         const response = await fetchPage({
@@ -168,6 +181,21 @@ export function usePaginatedList<T>({
     sessionStatus,
     enabled,
   ]);
+
+  // Re-armed after every fetch (`data` changes identity even on equal
+  // content), so polling keeps going as long as `pollMs` returns a delay.
+  const pollRef = React.useRef(pollMs);
+  pollRef.current = pollMs;
+  React.useEffect(() => {
+    if (!pollRef.current || !enabled) return;
+    const delay = pollRef.current(data);
+    if (!delay) return;
+    const timer = setTimeout(() => {
+      silentRef.current = true;
+      setRefreshKey(prev => prev + 1);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [data, enabled]);
 
   // Clamp page when the result set shrinks below the current page (e.g. after delete)
   React.useEffect(() => {

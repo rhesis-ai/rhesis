@@ -13,7 +13,8 @@ function presenceClause(
   return undefined;
 }
 
-const TESTS_FILTERS = {
+/** Shared with the embedded test-set tests grid, which filters the same entity. */
+export const TESTS_FILTERS = {
   search: {
     kind: 'search',
     columns: [
@@ -43,11 +44,9 @@ const TESTS_FILTERS = {
 } as const;
 
 /**
- * Not SSR-prefetched: this page's "insights failed tests" deep link (search
- * params opened from the Insights page) adds an extra ID filter resolved
- * asynchronously on the client, after first render. Server-rendered
- * `initialData` would show the unfiltered list first, then swap -- worse
- * than the existing client-only loading state for that path.
+ * SSR-prefetched except for the "insights failed tests" deep link: that path's
+ * extra ID filter resolves asynchronously on the client, after first render,
+ * so `tests/page.tsx` skips the prefetch when its search params are present.
  */
 export const testsList = defineList<TestDetail, typeof TESTS_FILTERS>({
   title: 'Tests',

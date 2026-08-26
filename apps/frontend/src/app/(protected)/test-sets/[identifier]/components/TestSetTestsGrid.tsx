@@ -3,32 +3,25 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 import {
   GridColDef,
-  GridFilterModel,
   GridRowParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { useSession } from 'next-auth/react';
 import { Alert } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
-import { combineTestFiltersToOData } from '@/utils/odata-filter';
 import { getTestSetTestColumns } from './testSetTestColumns';
 import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
   hasActiveTestFilters,
 } from '@/app/(protected)/tests/components/TestFilterDrawer';
-import { applyTestDrawerFiltersToModel } from '@/app/(protected)/tests/components/test-filter-model';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
-import { testSetKeys } from '@/constants/query-keys';
+import { useList } from '@/hooks/useList';
+import { testSetTestsList } from './list';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -87,55 +80,53 @@ export default function TestSetTestsGrid({
   onTotalCountChange,
 }: TestSetTestsGridProps) {
   const router = useRouter();
-  const { status } = useSession();
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [errorDismissed, setErrorDismissed] = useState(false);
 
-  const { filterModel, paginationModel, handlePaginationModelChange } =
-    useGridState({
-      searchQuery,
-      applyDrawerFilters: useCallback(
-        (prev: GridFilterModel) =>
-          applyTestDrawerFiltersToModel(prev, drawerFilters),
-        [drawerFilters]
-      ),
-    });
+  const descriptor = useMemo(() => testSetTestsList(testSetId), [testSetId]);
 
-  const filterString = combineTestFiltersToOData(filterModel);
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      testType: drawerFilters.testType,
+      requirement: drawerFilters.requirement,
+      category: drawerFilters.category,
+      topic: drawerFilters.topic,
+      tagsPresence: drawerFilters.tags,
+      commentsPresence: drawerFilters.comments,
+      tasksPresence: drawerFilters.tasks,
+    }),
+    [searchQuery, drawerFilters]
+  );
+
+  const filtersActive = !!searchQuery || hasActiveTestFilters(drawerFilters);
 
   const {
-    data,
+    data: tests,
+    totalCount,
     isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: [
-      ...testSetKeys.detail(testSetId),
-      'tests',
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-    ],
-    errorFallbackMessage: 'Failed to load tests',
-    queryFn: () =>
-      new ApiClientFactory().getTestSetsClient().getTestSetTests(testSetId, {
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: 'topic',
-        sort_order: 'asc',
-        ...(filterString && { $filter: filterString }),
-      }),
-    enabled: isAuthenticated(status) && !!testSetId,
+    error: rawError,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+  } = useList(descriptor, {
+    filters,
+    enabled: !!testSetId,
+    onError: () => setErrorDismissed(false),
   });
 
-  const tests = data?.data ?? [];
-  const totalCount = data?.pagination.totalCount ?? 0;
+  React.useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
 
   React.useEffect(() => {
-    if (data && !filterString) onTotalCountChange?.(totalCount);
-  }, [data, filterString, totalCount, onTotalCountChange]);
+    if (!loading && !filtersActive) onTotalCountChange?.(totalCount);
+  }, [loading, filtersActive, totalCount, onTotalCountChange]);
 
   const columns: GridColDef[] = React.useMemo(
     () => getTestSetTestColumns(testSetType),

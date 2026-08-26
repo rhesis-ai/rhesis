@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import {
   GridColDef,
-  GridPaginationModel,
   GridRowParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
@@ -20,7 +19,6 @@ import { alpha, useTheme } from '@mui/material/styles';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MentionText } from '@/components/common/MentionTextInput';
 import {
   AnnotationListItem,
@@ -28,8 +26,8 @@ import {
   ANNOTATION_SOURCE_LABELS,
   ANNOTATION_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/annotation';
-import { annotationKeys } from '@/constants/query-keys';
-import { useGridQuery } from '@/hooks/useGridQuery';
+import { useList } from '@/hooks/useList';
+import { annotationsList } from './list';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import AnnotationFilterDrawer, {
   type AnnotationFilters,
@@ -124,77 +122,51 @@ export default function AnnotationsGrid({
   const [drawerFilters, setDrawerFilters] = useState<AnnotationFilters>(
     EMPTY_ANNOTATION_FILTERS
   );
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 25,
-  });
+  const [errorDismissed, setErrorDismissed] = useState(false);
 
-  useEffect(() => {
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [statusFilter, searchQuery, drawerFilters]);
-
-  const searchParam = searchQuery.trim() || undefined;
-  const resolvedParam =
-    statusFilter === 'resolved'
-      ? true
-      : statusFilter === 'open'
-        ? false
-        : undefined;
-  const sourceParam = drawerFilters.source || undefined;
-  const ratingParam = drawerFilters.rating || undefined;
-  const targetTypeParam = drawerFilters.target_type || undefined;
-
-  const filterKey = [
-    sourceParam || '',
-    searchParam || '',
-    resolvedParam === undefined ? '' : String(resolvedParam),
-    ratingParam || '',
-    targetTypeParam || '',
-  ].join('|');
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      status: statusFilter === 'all' ? '' : statusFilter,
+      source: drawerFilters.source,
+      rating: drawerFilters.rating,
+      targetType: drawerFilters.target_type,
+    }),
+    [searchQuery, statusFilter, drawerFilters]
+  );
 
   const {
-    data: annotationsData,
+    data: annotations,
+    totalCount,
     isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: annotationKeys.list(
-      filterKey,
-      paginationModel.page,
-      paginationModel.pageSize
-    ),
-    errorFallbackMessage: 'Failed to load annotations',
-    queryFn: () => {
-      const client = new ApiClientFactory().getAnnotationsClient();
-      return client.getAnnotations({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        ...(sourceParam && { source: sourceParam }),
-        ...(searchParam && { search: searchParam }),
-        ...(resolvedParam !== undefined && { resolved: resolvedParam }),
-        ...(ratingParam && { rating: ratingParam }),
-        ...(targetTypeParam && { target_type: targetTypeParam }),
-      });
-    },
-    staleTime: 0,
+    error: rawError,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+  } = useList(annotationsList, {
+    filters,
+    onError: () => setErrorDismissed(false),
   });
 
-  const annotations: AnnotationListItem[] = annotationsData?.data ?? [];
-  const totalCount = annotationsData?.pagination.totalCount ?? 0;
+  useEffect(() => {
+    setErrorDismissed(false);
+  }, [rawError]);
+
+  const error = rawError && !errorDismissed ? rawError : null;
+  const dismissError = useCallback(() => setErrorDismissed(true), []);
 
   useEffect(() => {
-    if (!annotationsData) return;
+    if (loading) return;
     const filtersActive =
-      !!searchParam ||
+      !!searchQuery.trim() ||
       statusFilter !== 'all' ||
       hasActiveAnnotationFilters(drawerFilters);
     if (!filtersActive) {
       onTotalCountChange?.(totalCount);
     }
   }, [
-    annotationsData,
+    loading,
     onTotalCountChange,
-    searchParam,
+    searchQuery,
     statusFilter,
     drawerFilters,
     totalCount,
@@ -386,7 +358,7 @@ export default function AnnotationsGrid({
           getRowId={row => row.id}
           onRowClick={handleRowClick}
           paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
           serverSidePagination={true}
           totalRows={totalCount}
           pageSizeOptions={[10, 25, 50]}

@@ -30,6 +30,8 @@ interface UseListOptions<T, S extends FilterSpecMap> {
   initialTotalCount?: number;
   onData?: (data: T[]) => void;
   onError?: (error: unknown) => void;
+  /** Live polling -- see `usePaginatedList`. */
+  pollMs?: (data: T[]) => number | false;
 }
 
 /**
@@ -49,6 +51,7 @@ export function useList<T, S extends FilterSpecMap>(
     initialTotalCount,
     onData,
     onError,
+    pollMs,
   }: UseListOptions<T, S>
 ) {
   const gate = useListAuthGate(descriptor);
@@ -82,6 +85,7 @@ export function useList<T, S extends FilterSpecMap>(
     initialTotalCount,
     onData,
     onError,
+    pollMs,
     enabled: gate.ready && enabled,
   });
 
