@@ -107,7 +107,7 @@ def _get_all_trace_metric_values(trace_metrics: Dict[str, Any]) -> Dict[str, Any
         metrics = section_data.get("metrics", {})
         for name, m in metrics.items():
             if isinstance(m, dict):
-                merged[name] = m
+                merged[f"{section}.{name}"] = m
     return merged
 
 
