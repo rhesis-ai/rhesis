@@ -34,6 +34,9 @@ import { useDeleteUser } from '@/hooks/useUsers';
 interface TeamMembersGridProps {
   refreshTrigger?: number;
   onTotalCountChange?: (count: number) => void;
+  /** Server-fetched first page -- when present, skips the initial client fetch. */
+  initialData?: User[];
+  initialTotalCount?: number;
 }
 
 function getDisplayName(user: User): string {
@@ -73,6 +76,8 @@ const drawerAdapter: EntityGridDrawerAdapter<TeamFilters> = {
 export default function TeamMembersGrid({
   refreshTrigger,
   onTotalCountChange,
+  initialData,
+  initialTotalCount,
 }: TeamMembersGridProps) {
   const { data: session, status } = useSession();
   const canDeleteMember = useCan(Capability.Member.DELETE);
@@ -264,6 +269,8 @@ export default function TeamMembersGrid({
       toFilters={toFilters}
       emptyState={null}
       embedded
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
       refreshTrigger={refreshTrigger}
       onDataChange={handleDataChange}
       searchPlaceholder="Search team members…"

@@ -100,9 +100,14 @@ export function usePaginatedList<T>({
   // fetch skips the loading flag; cleared as soon as the fetch effect reads it.
   const silentRef = React.useRef(false);
 
+  // Stamped with the state the first real fetch would run under, not the
+  // current one: on first client render the session is still `loading` and
+  // the auth gate hasn't flipped `enabled`, so keying on those would miss
+  // once they settle and trigger a redundant fetch (skeleton flash on empty
+  // pages). `page`/`rowsPerPage`/`refreshKey` are still at their initial values here.
   const loadedRequestKeyRef = React.useRef<string | null>(
     initialData !== undefined
-      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}|${enabled}`
+      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|authenticated|true`
       : null
   );
 

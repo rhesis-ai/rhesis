@@ -157,12 +157,13 @@ export default function EntityGrid<
   const hasLoadedOnce = useRef(initialData !== undefined);
   if (!isLoading) hasLoadedOnce.current = true;
 
-  const isFirstRefreshTrigger = useRef(true);
+  // Compare against the last seen value rather than a "first run" flag: Strict
+  // Mode's double-invoked mount effect would consume the flag and then call
+  // refresh(), causing a redundant fetch (and a grid flash on empty pages).
+  const lastRefreshTrigger = useRef(refreshTrigger);
   useEffect(() => {
-    if (isFirstRefreshTrigger.current) {
-      isFirstRefreshTrigger.current = false;
-      return;
-    }
+    if (lastRefreshTrigger.current === refreshTrigger) return;
+    lastRefreshTrigger.current = refreshTrigger;
     refresh();
     // Only refreshTrigger (bumped by the page after a create) should re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps

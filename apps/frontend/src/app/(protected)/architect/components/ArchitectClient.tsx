@@ -35,7 +35,14 @@ import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
-export default function ArchitectClient() {
+interface ArchitectClientProps {
+  /** Server-fetched session list -- when present, skips the initial client fetch. */
+  initialSessions?: ArchitectSession[];
+}
+
+export default function ArchitectClient({
+  initialSessions,
+}: ArchitectClientProps) {
   const { status } = useSession();
   const userScope = useUserScope();
   const queryClient = useQueryClient();
@@ -76,6 +83,7 @@ export default function ArchitectClient() {
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
     queryKey: sessionsQueryKey,
     queryFn: () => new ApiClientFactory().getArchitectClient().getSessions(),
+    initialData: initialSessions,
     enabled:
       !permsLoading &&
       canRead &&

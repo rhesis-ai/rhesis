@@ -14,10 +14,10 @@
  * deliberate tradeoff, not an oversight -- `GET /usage` costs a license
  * lookup plus four counting queries, paid once per `staleTime` window
  * (5 minutes) rather than never, so every session now carries a fixed
- * background cost proactive quota UI didn't have before. Unlike
- * `FeaturesProvider`, there is still no SSR-seeded `initialData`: the
- * first consumer on a given page shows a loading state for one round
- * trip instead.
+ * background cost proactive quota UI didn't have before. The layout mount
+ * has no SSR seed, so the first consumer on a page shows a loading state
+ * for one round trip; the Usage page mounts its own provider with
+ * `initialUsage` from its server component, so it paints with data.
  *
  * Fail-closed, same as `FeaturesContext`/`PermissionsContext`: `resources`
  * is empty during the initial fetch and on error, never a stale/default
@@ -26,7 +26,10 @@
 
 import { usageKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { UsageResourceItem } from '@/utils/api-client/usage-client';
+import type {
+  UsageResourceItem,
+  UsageResponse,
+} from '@/utils/api-client/usage-client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
@@ -48,7 +51,18 @@ const DEFAULT_STATE: UsageState = {
 
 const UsageContext = createContext<UsageState>(DEFAULT_STATE);
 
-export function UsageProvider({ children }: { children: ReactNode }) {
+export function UsageProvider({
+  children,
+  initialUsage,
+}: {
+  children: ReactNode;
+  /**
+   * Server-fetched `GET /usage` result, seeded as this query's `initialData`
+   * so `loading` is already `false` on the first client render. `undefined`
+   * falls back to the normal client-side fetch.
+   */
+  initialUsage?: UsageResponse;
+}) {
   const { status } = useSession();
   const userScope = useUserScope();
 
@@ -60,6 +74,7 @@ export function UsageProvider({ children }: { children: ReactNode }) {
     // could run (and cache) under the `''` scope key.
     enabled: isAuthenticated(status) && !!userScope,
     staleTime: 5 * 60_000,
+    ...(initialUsage ? { initialData: initialUsage } : {}),
   });
 
   const value = useMemo<UsageState>(() => {

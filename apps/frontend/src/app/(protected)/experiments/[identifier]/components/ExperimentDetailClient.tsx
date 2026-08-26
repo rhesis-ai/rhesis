@@ -8,7 +8,6 @@ import { experimentKeys } from '@/constants/query-keys';
 import {
   Alert,
   Box,
-  CircularProgress,
   FormHelperText,
   IconButton,
   Stack,
@@ -29,6 +28,7 @@ import RunDrawer from '@/components/common/RunDrawer';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  ExperimentDetail,
   ParameterSchema,
   ParameterValue,
   ExperimentVersion,
@@ -59,8 +59,15 @@ const TAB_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   runs: 'Experiment Runs',
 };
 
+export interface ExperimentDetailData {
+  experiment: ExperimentDetail;
+  schema: ParameterSchema;
+  environments: ProjectEnvironments;
+}
+
 interface ExperimentDetailClientProps {
   experimentId: string;
+  initialExperiment: ExperimentDetailData;
 }
 
 function defaultsForSchema(
@@ -87,6 +94,7 @@ function valuesFromVersion(
 
 export default function ExperimentDetailClient({
   experimentId,
+  initialExperiment,
 }: ExperimentDetailClientProps) {
   const notifications = useNotifications();
   const { status } = useSession();
@@ -120,12 +128,9 @@ export default function ExperimentDetailClient({
 
   const queryClient = useQueryClient();
 
-  const {
-    data: expData,
-    isLoading: loading,
-    error: fetchError,
-  } = useQuery({
+  const { data: expData, error: fetchError } = useQuery({
     queryKey: experimentKeys.detail(experimentId),
+    initialData: initialExperiment,
     queryFn: async () => {
       const client = apiFactory.getParametersClient();
       const detail = await client.getExperiment(experimentId);
@@ -133,14 +138,17 @@ export default function ExperimentDetailClient({
         client.getSchema(detail.project_id),
         client.getEnvironments(detail.project_id),
       ]);
-      return { experiment: detail, schema: schemaResp, environments: envResp };
+      const data: ExperimentDetailData = {
+        experiment: detail,
+        schema: schemaResp,
+        environments: envResp,
+      };
+      return data;
     },
     enabled: isAuthenticated(status) && !!experimentId,
   });
 
-  const experiment = expData?.experiment ?? null;
-  const schema = expData?.schema ?? null;
-  const environments = expData?.environments ?? null;
+  const { experiment, schema, environments } = expData;
   const error =
     fetchError instanceof Error
       ? fetchError.message
@@ -159,7 +167,7 @@ export default function ExperimentDetailClient({
 
   // Seed draft on first load only; skip if user has unsaved edits
   useEffect(() => {
-    if (!expData || isDraftDirty) return;
+    if (isDraftDirty) return;
     const { experiment: detail, schema: schemaResp } = expData;
     const latest = detail.versions[detail.versions.length - 1];
     setDraft(valuesFromVersion(latest, schemaResp));
@@ -174,7 +182,6 @@ export default function ExperimentDetailClient({
   );
 
   const handleSaveVersion = useCallback(async (): Promise<boolean> => {
-    if (!experiment || !schema) return false;
     setSaving(true);
     try {
       const payloadValues: Record<string, unknown> = {};
@@ -200,16 +207,14 @@ export default function ExperimentDetailClient({
     } finally {
       setSaving(false);
     }
-  }, [apiFactory, draft, experiment, message, notifications, refresh, schema]);
+  }, [apiFactory, draft, experiment, message, notifications, refresh]);
 
   const handleRenameOpen = useCallback(() => {
-    if (!experiment) return;
     setRenameValue(experiment.name);
     setRenameOpen(true);
   }, [experiment]);
 
   const handleRenameSubmit = useCallback(async () => {
-    if (!experiment) return;
     const trimmed = renameValue.trim();
     if (!trimmed || trimmed === experiment.name) {
       setRenameOpen(false);
@@ -241,7 +246,6 @@ export default function ExperimentDetailClient({
 
   const handleUnbindEnvironment = useCallback(
     async (environmentName: string) => {
-      if (!experiment) return;
       try {
         const client = apiFactory.getParametersClient();
         await client.deleteEnvironment(experiment.project_id, environmentName);
@@ -259,24 +263,13 @@ export default function ExperimentDetailClient({
     [apiFactory, experiment, notifications, refresh]
   );
 
-  const breadcrumbs: BreadcrumbItem[] = useMemo(() => {
-    if (!experiment) return [];
-    return [
+  const breadcrumbs: BreadcrumbItem[] = useMemo(
+    () => [
       { label: 'Experiments', href: '/experiments' },
       { label: experiment.name || 'Experiment' },
-    ];
-  }, [experiment]);
-
-  if (loading) {
-    return (
-      <PageLayout title="Experiment" breadcrumbs={[]}>
-        <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
-          <CircularProgress size={20} />
-          <Typography color="text.secondary">Loading experiment...</Typography>
-        </Box>
-      </PageLayout>
-    );
-  }
+    ],
+    [experiment]
+  );
 
   if (fetchError && isNotFoundApiError(fetchError)) {
     return (
@@ -295,10 +288,10 @@ export default function ExperimentDetailClient({
     );
   }
 
-  if (error || !experiment || !schema) {
+  if (error) {
     return (
-      <PageLayout title="Experiment" breadcrumbs={[]}>
-        <Alert severity="error">{error ?? 'Experiment not found'}</Alert>
+      <PageLayout title="Experiment" breadcrumbs={breadcrumbs}>
+        <Alert severity="error">{error}</Alert>
       </PageLayout>
     );
   }
@@ -426,49 +419,43 @@ export default function ExperimentDetailClient({
         </DetailTabPanel>
       </Box>
 
-      {experiment && (
-        <RunDrawer
-          mode="runExperiment"
-          open={runDrawerOpen}
-          onClose={() => {
-            setRunDrawerOpen(false);
-            setSelectedVersionHashes(new Set());
-          }}
-          data={{
-            experiment,
-            initialVersionHashes:
-              selectedVersionHashes.size > 0
-                ? selectedVersionHashes
-                : undefined,
-          }}
-          onSuccess={async () => {
-            setRunDrawerOpen(false);
-            setSelectedVersionHashes(new Set());
-            await refresh({ silent: true });
-          }}
-        />
-      )}
+      <RunDrawer
+        mode="runExperiment"
+        open={runDrawerOpen}
+        onClose={() => {
+          setRunDrawerOpen(false);
+          setSelectedVersionHashes(new Set());
+        }}
+        data={{
+          experiment,
+          initialVersionHashes:
+            selectedVersionHashes.size > 0 ? selectedVersionHashes : undefined,
+        }}
+        onSuccess={async () => {
+          setRunDrawerOpen(false);
+          setSelectedVersionHashes(new Set());
+          await refresh({ silent: true });
+        }}
+      />
 
-      {experiment && environments && (
-        <PromoteEnvironmentDialog
-          open={promoteOpen}
-          onClose={() => setPromoteOpen(false)}
-          projectId={experiment.project_id}
-          experimentId={experiment.id}
-          experimentName={experiment.name}
-          versions={experiment.versions}
-          currentEnvironments={environments}
-          defaultVersion={
-            promotePrefill.version ??
-            experiment.versions[experiment.versions.length - 1]?.version
-          }
-          defaultEnvironment={promotePrefill.environment}
-          onPromoted={async () => {
-            setPromoteOpen(false);
-            await refresh({ silent: true });
-          }}
-        />
-      )}
+      <PromoteEnvironmentDialog
+        open={promoteOpen}
+        onClose={() => setPromoteOpen(false)}
+        projectId={experiment.project_id}
+        experimentId={experiment.id}
+        experimentName={experiment.name}
+        versions={experiment.versions}
+        currentEnvironments={environments}
+        defaultVersion={
+          promotePrefill.version ??
+          experiment.versions[experiment.versions.length - 1]?.version
+        }
+        defaultEnvironment={promotePrefill.environment}
+        onPromoted={async () => {
+          setPromoteOpen(false);
+          await refresh({ silent: true });
+        }}
+      />
 
       <BaseDrawer
         open={configDrawerOpen}

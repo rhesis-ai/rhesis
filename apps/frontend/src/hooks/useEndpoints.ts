@@ -53,7 +53,11 @@ export function useEndpoints(
   });
 }
 
-export function useEndpoint(identifier: string, enabled = true) {
+export function useEndpoint(
+  identifier: string,
+  enabled = true,
+  initialData?: Endpoint
+) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<Endpoint>({
     queryKey: endpointKeys.detail(identifier),
@@ -61,16 +65,18 @@ export function useEndpoint(identifier: string, enabled = true) {
       new ApiClientFactory().getEndpointsClient().getEndpoint(identifier),
     enabled: enabled && isAuthenticated && !!identifier,
     staleTime: STALE_TIME,
+    initialData,
   });
 }
 
-export function useProject(id: string, enabled = true) {
+export function useProject(id: string, enabled = true, initialData?: Project) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<Project>({
     queryKey: projectKeys.detail(id),
     queryFn: () => new ApiClientFactory().getProjectsClient().getProject(id),
     enabled: enabled && isAuthenticated && !!id,
     staleTime: STALE_TIME,
+    initialData,
   });
 }
 
