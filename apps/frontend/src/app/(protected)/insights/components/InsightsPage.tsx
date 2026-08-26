@@ -25,17 +25,38 @@ import {
   chunkRequirementColumns,
   isRequirementRowExpandable,
 } from '../utils/requirement-insights-utils';
-import { useRequirementInsightsData } from '../hooks/useRequirementInsightsData';
+import {
+  useRequirementInsightsData,
+  type RequirementInsightsSeed,
+} from '../hooks/useRequirementInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
 
-export default function InsightsPage() {
+interface InsightsPageProps {
+  /** Server-resolved endpoint (same pick as `resolveEndpointId`), so the first render already has a selection. */
+  initialEndpointId?: string;
+  /** Server-fetched insights for the default filters on `initialEndpointId`. */
+  initialInsights?: RequirementInsightsSeed['data'];
+}
+
+export default function InsightsPage({
+  initialEndpointId,
+  initialInsights,
+}: InsightsPageProps) {
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestResult.READ
   );
   const [filters, setFilters] = useState<InsightsFilters>(() =>
-    normalizeInsightsFilters(DEFAULT_INSIGHTS_FILTERS)
+    normalizeInsightsFilters({
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: initialEndpointId ?? '',
+    })
+  );
+  const [seed] = useState<RequirementInsightsSeed | undefined>(() =>
+    initialEndpointId && initialInsights
+      ? { filters, data: initialInsights }
+      : undefined
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -73,7 +94,7 @@ export default function InsightsPage() {
     loading: insightsLoading,
     error,
     noRuns,
-  } = useRequirementInsightsData(filters, !permsLoading && canRead);
+  } = useRequirementInsightsData(filters, !permsLoading && canRead, seed);
 
   const filteredColumns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

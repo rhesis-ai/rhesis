@@ -1,53 +1,32 @@
-'use client';
-
-import { PageLayout } from '@/components/layout/PageLayout';
-import { useOrganization } from '@/contexts/OrganizationContext';
-import { UsageProvider } from '@/contexts/UsageContext';
-import UsageDetailTabs from './components/UsageDetailTabs';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
-import { useCanWithStatus } from '@/components/common/Can';
+import { auth } from '@/auth';
 import { Capability } from '@/constants/capabilities';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import type { UsageResponse } from '@/utils/api-client/usage-client';
+import { hasServerCapability } from '@/utils/server-permissions';
+import UsagePageClient from './components/UsagePageClient';
 
-export default function OrganizationUsagePage() {
-  // Not Organization.READ: every Viewer holds that one for basic org
-  // context, so it would not gate anything. Usage is billing data, so it
-  // has its own admin-only capability, matching what the backend now
-  // requires on GET /usage.
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Usage.READ
-  );
-  const { organization } = useOrganization();
+/**
+ * Server component: fetches `GET /usage` before rendering so the Usage
+ * dashboard arrives with data instead of a spinner. Gated on the same
+ * capability the client checks; if not permitted or the fetch fails, the
+ * client falls back to its own fetch (fail open).
+ */
+export default async function OrganizationUsagePage() {
+  const session = await auth();
 
-  const organizationName = organization?.name || 'Organization';
+  if (!session || session.error) {
+    throw new Error('Authentication required');
+  }
 
-  const breadcrumbs = [
-    { label: organizationName, href: '/organizations' },
-    { label: 'Usage', href: '/organizations/usage' },
-  ];
+  let initialUsage: UsageResponse | undefined;
+  if (await hasServerCapability(Capability.Usage.READ)) {
+    const factory = await createServerApiFactory();
+    initialUsage = await factory
+      .getUsageClient()
+      .getUsage()
+      .then(usage => JSON.parse(JSON.stringify(usage)) as UsageResponse)
+      .catch(() => undefined);
+  }
 
-  const pageHeader = {
-    title: 'Usage',
-    description:
-      "Track your organization's metered resource consumption against its plan limits.",
-    breadcrumbs,
-  };
-
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="usage" />;
-
-  return (
-    <PageLayout {...pageHeader}>
-      {/*
-        Mounted here rather than in the protected layout: this is the only
-        page that reads usage, and `GET /usage` costs a license lookup plus
-        a counting query per stock resource -- not worth paying on every
-        protected navigation. Inside the `canRead` guard, so a user without
-        the capability never fires a request that would only 403.
-      */}
-      <UsageProvider>
-        <UsageDetailTabs />
-      </UsageProvider>
-    </PageLayout>
-  );
+  return <UsagePageClient initialUsage={initialUsage} />;
 }
