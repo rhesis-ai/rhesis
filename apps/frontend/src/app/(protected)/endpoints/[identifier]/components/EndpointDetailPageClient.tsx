@@ -17,15 +17,9 @@ import {
   isSessionLoading,
   isSessionUnauthenticated,
 } from '@/hooks/useIsAuthenticated';
+import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { Project } from '@/utils/api-client/interfaces/project';
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isValidEndpointId(identifier: string): boolean {
-  return !!identifier && UUID_REGEX.test(identifier);
-}
 
 interface EndpointDetailPageClientProps {
   identifier: string;

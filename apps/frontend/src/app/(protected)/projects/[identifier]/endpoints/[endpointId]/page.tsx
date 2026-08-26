@@ -2,9 +2,8 @@ import * as React from 'react';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
-import ProjectEndpointDetailPageClient, {
-  isValidEndpointId,
-} from './components/ProjectEndpointDetailPageClient';
+import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
+import ProjectEndpointDetailPageClient from './components/ProjectEndpointDetailPageClient';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { Project } from '@/utils/api-client/interfaces/project';
 
