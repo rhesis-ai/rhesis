@@ -20,4 +20,16 @@ export const endpointsList = defineList({
   filters: ENDPOINTS_FILTERS,
   list: (factory: ApiClientFactory, params) =>
     factory.getEndpointsClient().getEndpoints(params),
+  delete: {
+    bulk: (factory: ApiClientFactory, ids: string[]) =>
+      factory.getEndpointsClient().bulkDeleteEndpoints(ids),
+    capability: Capability.Endpoint.DELETE,
+    capabilityMode: 'ambient',
+    labelSingular: 'endpoint',
+    labelPlural: 'endpoints',
+    confirmMessage: count =>
+      count === 1
+        ? 'Are you sure you want to delete this endpoint? Related data will not be deleted.'
+        : `Are you sure you want to delete ${count} endpoints? Related data will not be deleted.`,
+  },
 });

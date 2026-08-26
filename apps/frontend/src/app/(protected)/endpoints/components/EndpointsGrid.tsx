@@ -1,55 +1,30 @@
 'use client';
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
-import { useRouter } from 'next/navigation';
-import { Box, Typography, useTheme, Alert, Paper } from '@mui/material';
-import GridBadge from '@/components/common/GridBadge';
-import GridToolbar from '@/components/common/GridToolbar';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import {
-  GridColDef,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { Project } from '@/utils/api-client/interfaces/project';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Box, Typography, useTheme } from '@mui/material';
+import { GridColDef } from '@mui/x-data-grid';
 import { useSession } from 'next-auth/react';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import { useList } from '@/hooks/useList';
-import { escapeODataValue } from '@/utils/odata-filter';
-import { endpointsList } from './list';
-import EndpointFilterDrawer, {
-  type EndpointFilters,
-  EMPTY_ENDPOINT_FILTERS,
-  hasActiveEndpointFilters,
-  countActiveEndpointFilters,
-} from './EndpointFilterDrawer';
-import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
-import { useCan } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
-import { getProjectIcon } from './endpoint-icon-utils';
-import {
-  useBulkDelete,
-  type BulkDeleteActionsState,
-} from '@/hooks/useBulkDelete';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import GridStateGate from '@/components/common/GridStateGate';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
+import GridBadge from '@/components/common/GridBadge';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import EndpointsIcon from '@/components/EndpointsIcon';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { Project } from '@/utils/api-client/interfaces/project';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { escapeODataValue } from '@/utils/odata-filter';
+import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { endpointsList } from './list';
+import { getProjectIcon } from './endpoint-icon-utils';
+import EndpointFilterDrawer, {
+  type EndpointFilters,
+  EMPTY_ENDPOINT_FILTERS,
+  countActiveEndpointFilters,
+} from './EndpointFilterDrawer';
 
 interface EndpointsGridProps {
   projectId?: string;
@@ -70,60 +45,27 @@ interface EndpointsGridProps {
   refreshTrigger?: number;
 }
 
-interface EndpointsToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+function toFilters(state: EntityGridFilterState<EndpointFilters>) {
+  return {
+    search: state.search,
+    connectionType: state.drawer.connectionType,
+    environment: state.drawer.environment,
+    status: state.drawer.status,
+  };
 }
 
-const EndpointsToolbarContext = React.createContext<EndpointsToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-function EndpointsUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(EndpointsToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search endpoints…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select endpoints"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<EndpointFilters> = {
+  empty: EMPTY_ENDPOINT_FILTERS,
+  countActive: countActiveEndpointFilters,
+  render: props => (
+    <EndpointFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
+  ),
+};
 
 export default function EndpointsGrid({
   projectId,
@@ -135,88 +77,15 @@ export default function EndpointsGrid({
   refreshTrigger,
 }: EndpointsGridProps) {
   const theme = useTheme();
-  const router = useRouter();
   const { status } = useSession();
-  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
-  const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
-    EMPTY_ENDPOINT_FILTERS
-  );
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [errorDismissed, setErrorDismissed] = useState(false);
-
-  const filters = useMemo(
-    () => ({
-      search: searchQuery,
-      connectionType: drawerFilters.connectionType,
-      environment: drawerFilters.environment,
-      status: drawerFilters.status,
-    }),
-    [searchQuery, drawerFilters]
-  );
 
   const extraODataClauses = useMemo(
     () => (projectId ? [`project_id eq '${escapeODataValue(projectId)}'`] : []),
     [projectId]
   );
-
-  const {
-    data: endpoints,
-    totalCount,
-    isLoading: loading,
-    error: rawError,
-    refresh,
-    paginationModel,
-    onPaginationModelChange: handlePaginationModelChange,
-  } = useList(endpointsList, {
-    filters,
-    extraFilters: extraODataClauses,
-    initialData,
-    initialTotalCount,
-    onError: () => setErrorDismissed(false),
-  });
-
-  useEffect(() => {
-    setErrorDismissed(false);
-  }, [rawError]);
-
-  const error = rawError && !errorDismissed ? rawError : null;
-  const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const {
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-    selectedRows,
-    handleSelectionChange,
-    pendingDeleteId,
-    deleteModalOpen,
-    isDeleting,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  } = useBulkDelete({
-    bulkDeleteFn: (ids: string[]) =>
-      new ApiClientFactory().getEndpointsClient().bulkDeleteEndpoints(ids),
-    onSuccess: refresh,
-    itemLabelSingular: 'endpoint',
-    itemLabelPlural: 'endpoints',
-    onBulkActionsChange,
-  });
-
-  const isFirstRefreshTrigger = useRef(true);
-  useEffect(() => {
-    if (isFirstRefreshTrigger.current) {
-      isFirstRefreshTrigger.current = false;
-      return;
-    }
-    refresh();
-    // Only refreshTrigger (bumped by the page after a create) should re-run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -251,16 +120,16 @@ export default function EndpointsGrid({
     }
   }, [status]);
 
-  const columns: GridColDef[] = useMemo(() => {
-    const actionsCol = createRowActionsColumn({
-      onEdit: id => {
-        router.push(`/endpoints/${id}`);
-      },
-      onDelete: id => requestDelete(id),
-      canEdit: () => canEditEndpoint,
-      canDelete: () => canDeleteEndpoint,
-    });
-    return [
+  const getRowUrl = useCallback(
+    (row: Endpoint) =>
+      projectId
+        ? `/projects/${projectId}/endpoints/${row.id}`
+        : `/endpoints/${row.id}`,
+    [projectId]
+  );
+
+  const columns: GridColDef[] = useMemo(
+    () => [
       {
         field: 'name',
         headerName: 'Name',
@@ -282,6 +151,7 @@ export default function EndpointsGrid({
         field: 'project',
         headerName: 'Project',
         flex: 1,
+        sortable: false,
         renderCell: params => {
           const endpoint = params.row as Endpoint;
           const project = endpoint.project_id
@@ -313,6 +183,7 @@ export default function EndpointsGrid({
         field: 'status',
         headerName: 'Status',
         flex: 0.7,
+        sortable: false,
         renderCell: params => {
           const endpoint = params.row as Endpoint;
           const status = endpoint.status;
@@ -320,106 +191,19 @@ export default function EndpointsGrid({
           return <GridBadge label={status?.name ?? 'Unknown'} />;
         },
       },
-      actionsCol,
-    ];
-  }, [projects, theme.typography.h5.fontSize, requestDelete, router]);
-
-  const hasActiveDrawerFilters = hasActiveEndpointFilters(drawerFilters);
-  const activeFilterCount = countActiveEndpointFilters(drawerFilters);
-
-  const toolbarContextValue = useMemo(
-    () => ({
-      searchQuery,
-      setSearchQuery,
-      openFilterDrawer: () => setFilterDrawerOpen(true),
-      hasActiveDrawerFilters,
-      activeFilterCount,
-      checkboxSelectionMode,
-      setCheckboxSelectionMode,
-    }),
-    [
-      searchQuery,
-      hasActiveDrawerFilters,
-      activeFilterCount,
-      checkboxSelectionMode,
-      setCheckboxSelectionMode,
-    ]
+    ],
+    [projects, theme.typography.h5.fontSize]
   );
 
   // Only the top-level Endpoints page passes `onCreateClick` — that's when
   // this grid owns its own loading/empty presentation and Paper wrapper.
   const isStandalone = onCreateClick !== undefined;
-  const filtersActive = !!searchQuery || hasActiveDrawerFilters;
-
-  const content = (
-    <EndpointsToolbarContext.Provider value={toolbarContextValue}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
-      )}
-      <Box sx={{ position: 'relative' }}>
-        <BaseDataGrid
-          rows={endpoints}
-          columns={columns}
-          loading={loading || loadingProjects}
-          density="comfortable"
-          linkPath={
-            checkboxSelectionMode
-              ? undefined
-              : projectId
-                ? `/projects/${projectId}/endpoints`
-                : '/endpoints'
-          }
-          linkField="id"
-          serverSidePagination={true}
-          totalRows={totalCount}
-          paginationModel={paginationModel}
-          onPaginationModelChange={handlePaginationModelChange}
-          pageSizeOptions={[10, 25, 50]}
-          toolbarSlot={EndpointsUnifiedToolbar}
-          showToolbar={true}
-          disablePaperWrapper={true}
-          persistState
-          sx={rowActionsHoverSx}
-          checkboxSelection={checkboxSelectionMode}
-          disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-          rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-          onRowSelectionModelChange={
-            checkboxSelectionMode ? handleSelectionChange : undefined
-          }
-        />
-
-        <DeleteModal
-          open={deleteModalOpen}
-          onClose={cancelDelete}
-          onConfirm={confirmDelete}
-          isLoading={isDeleting}
-          title={pendingDeleteId ? 'Delete Endpoint' : 'Delete Endpoints'}
-          message={
-            pendingDeleteId
-              ? 'Are you sure you want to delete this endpoint? Related data will not be deleted.'
-              : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'endpoint' : 'endpoints'}? Related data will not be deleted.`
-          }
-          itemType="endpoints"
-        />
-      </Box>
-
-      <EndpointFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={setDrawerFilters}
-      />
-    </EndpointsToolbarContext.Provider>
-  );
 
   return (
-    <GridStateGate
-      active={isStandalone}
-      data={loading ? null : {}}
-      error={error}
-      isEmpty={totalCount === 0 && !filtersActive}
+    <EntityGrid<Endpoint, typeof endpointsList.filters, EndpointFilters>
+      descriptor={endpointsList}
+      columns={columns}
+      toFilters={toFilters}
       emptyState={
         <EntityEmptyState
           card
@@ -431,8 +215,20 @@ export default function EndpointsGrid({
           enrichment={getEntityEmptyStateEnrichment('endpoints')}
         />
       }
-    >
-      {isStandalone ? <Paper sx={GRID_PAPER_SX}>{content}</Paper> : content}
-    </GridStateGate>
+      embedded={!isStandalone}
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      extraFilters={extraODataClauses}
+      extraLoading={loadingProjects}
+      searchPlaceholder="Search endpoints…"
+      drawer={drawerAdapter}
+      selectionLabel="Select endpoints"
+      getRowUrl={getRowUrl}
+      onBulkActionsChange={onBulkActionsChange}
+      density="comfortable"
+      pageSizeOptions={[10, 25, 50]}
+      serverSort={false}
+    />
   );
 }
