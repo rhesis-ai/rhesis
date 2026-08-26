@@ -11,6 +11,7 @@ import {
   GRID_PADDING_X,
   LAST_COLUMN_LABEL,
   gridMorphTransition,
+  useVerdictPalette,
   type DensityMode,
 } from './summary-tokens';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -232,14 +233,15 @@ export default function RequirementTable({
 
 function VerdictLegend() {
   const theme = useTheme();
+  const palette = useVerdictPalette();
 
   const items: { label: string; color: string; outlined?: boolean }[] = [
     { label: 'Passed', color: theme.palette.success.main },
     { label: 'Failed', color: theme.palette.error.main },
-    { label: 'Pending', color: theme.palette.greyscale.surface2 },
+    { label: 'Pending', color: palette.pending.color },
     { label: 'Scored', color: theme.palette.warning.main },
     { label: 'Error', color: theme.palette.error.main, outlined: true },
-    { label: 'N/A', color: theme.palette.greyscale.border },
+    { label: 'N/A', color: palette.na.color },
   ];
 
   return (

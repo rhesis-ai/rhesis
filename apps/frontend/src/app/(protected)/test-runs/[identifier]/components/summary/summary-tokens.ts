@@ -58,14 +58,24 @@ export function useVerdictPalette(): Record<
     const warning = theme.palette.warning.main;
     const border = theme.palette.greyscale.border;
     const surface2 = theme.palette.greyscale.surface2;
+    const label = theme.palette.greyscale.label;
+
+    // Cells are alpha-blended straight onto the card background (no opaque
+    // per-cell backdrop), which in dark mode is `#161B22` -- close to both
+    // `border` (`#30363d`) and `surface2` (`#0d1117`), so at low alpha those
+    // cells were nearly invisible. `label` (`#8b949e`) has real separation
+    // from the dark background, and swapping `pending` to `border` (still
+    // muted, but lighter than `surface2`) restores its contrast too.
+    const pendingColor = isDark ? border : surface2;
+    const naColor = isDark ? label : border;
 
     return {
-      pending: { color: surface2, alpha: isDark ? 0.4 : 0.6 },
+      pending: { color: pendingColor, alpha: isDark ? 0.5 : 0.6 },
       passed: { color: success, alpha: isDark ? 0.85 : 0.9 },
       failed: { color: error, alpha: isDark ? 0.85 : 0.9 },
       scored: { color: warning, alpha: isDark ? 0.7 : 0.8 },
       error: { color: error, alpha: isDark ? 0.5 : 0.6 },
-      na: { color: border, alpha: isDark ? 0.3 : 0.35 },
+      na: { color: naColor, alpha: isDark ? 0.5 : 0.35 },
       inFlight: { color: warning, alpha: isDark ? 0.5 : 0.6 },
     };
   }, [theme, isDark]);
