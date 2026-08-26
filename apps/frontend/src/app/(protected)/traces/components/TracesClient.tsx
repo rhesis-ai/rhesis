@@ -126,12 +126,12 @@ export default function TracesClient({
   const error = rawError && !errorDismissed ? rawError : null;
   const dismissError = useCallback(() => setErrorDismissed(true), []);
 
-  const isFirstRefreshTrigger = useRef(true);
+  // Compare against the last seen value, not a "first run" flag: Strict Mode's
+  // double-invoked mount effect would consume the flag and refetch on mount.
+  const lastRefreshTrigger = useRef(refreshTrigger);
   useEffect(() => {
-    if (isFirstRefreshTrigger.current) {
-      isFirstRefreshTrigger.current = false;
-      return;
-    }
+    if (lastRefreshTrigger.current === refreshTrigger) return;
+    lastRefreshTrigger.current = refreshTrigger;
     refresh();
     // Only refreshTrigger (bumped by the wrapper's refresh FAB) should re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
