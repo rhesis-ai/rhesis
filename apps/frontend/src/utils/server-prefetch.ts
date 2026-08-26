@@ -24,11 +24,15 @@ export interface PrefetchListResult<T> {
  * instead of breaking the page.
  */
 export async function prefetchList<T>(
-  capability: string,
+  capability: string | readonly string[],
   fetchFirstPage: () => Promise<PaginatedResponse<T>>
 ): Promise<PrefetchListResult<T>> {
-  const canRead = await hasServerCapability(capability);
-  if (!canRead) {
+  // A tuple is OR'd, matching `useListAuthGate` (e.g. Annotations reads with
+  // either TestResult.READ or Telemetry.READ).
+  const capabilities: readonly string[] =
+    typeof capability === 'string' ? [capability] : capability;
+  const checks = await Promise.all(capabilities.map(hasServerCapability));
+  if (!checks.some(Boolean)) {
     return { initialData: undefined, initialTotalCount: 0 };
   }
 
