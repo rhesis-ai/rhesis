@@ -1,53 +1,25 @@
 'use client';
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
-import {
-  GridColDef,
-  GridRowParams,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
-import { useRouter } from 'next/navigation';
-import { Source } from '@/utils/api-client/interfaces/source';
-import { Box, Chip, Typography, Paper } from '@mui/material';
-import GridToolbar from '@/components/common/GridToolbar';
+import React, { useCallback, useMemo } from 'react';
+import { GridColDef } from '@mui/x-data-grid';
+import { Box, Chip, Typography } from '@mui/material';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
 import GridBadge from '@/components/common/GridBadge';
-import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
-import { useCan } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import styles from '@/styles/Knowledge.module.css';
-import { useList } from '@/hooks/useList';
-import { sourcesList } from './list';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { Source } from '@/utils/api-client/interfaces/source';
 import { ChatIcon, MenuBookIcon } from '@/components/icons';
 import { formatFileSize, getFileExtension } from '@/constants/knowledge';
 import { formatDate } from '@/utils/date';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { sourcesList } from './list';
 import SourceFilterDrawer, {
   type SourceFilters,
   EMPTY_SOURCE_FILTERS,
-  hasActiveSourceFilters,
   countActiveSourceFilters,
 } from './SourceFilterDrawer';
-import {
-  useBulkDelete,
-  type BulkDeleteActionsState,
-} from '@/hooks/useBulkDelete';
-import GridStateGate from '@/components/common/GridStateGate';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
 
 interface SourcesGridProps {
   canCreate?: boolean;
@@ -60,60 +32,27 @@ interface SourcesGridProps {
   refreshTrigger?: number;
 }
 
-interface SourcesToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+function toFilters(state: EntityGridFilterState<SourceFilters>) {
+  return {
+    search: state.search,
+    sourceType: state.drawer.sourceType,
+    creator: state.drawer.creator,
+    tag: state.drawer.tag,
+  };
 }
 
-const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-function SourcesUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(SourcesToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search sources…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select sources"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<SourceFilters> = {
+  empty: EMPTY_SOURCE_FILTERS,
+  countActive: countActiveSourceFilters,
+  render: props => (
+    <SourceFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
+  ),
+};
 
 export default function SourcesGrid({
   canCreate,
@@ -123,109 +62,10 @@ export default function SourcesGrid({
   initialTotalCount,
   refreshTrigger,
 }: SourcesGridProps) {
-  const router = useRouter();
-  const canEditSource = useCan(Capability.Source.UPDATE);
-  const canDeleteSource = useCan(Capability.Source.DELETE);
+  const getRowUrl = useCallback((row: Source) => `/knowledge/${row.id}`, []);
 
-  // Component state
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] =
-    useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filters = useMemo(
-    () => ({
-      search: searchQuery,
-      sourceType: drawerFilters.sourceType,
-      creator: drawerFilters.creator,
-      tag: drawerFilters.tag,
-    }),
-    [searchQuery, drawerFilters]
-  );
-
-  const {
-    data: sources,
-    totalCount,
-    isLoading: loading,
-    error,
-    refresh,
-    paginationModel,
-    onPaginationModelChange: handlePaginationModelChange,
-    sortModel,
-    onSortModelChange: handleSortModelChange,
-  } = useList(sourcesList, {
-    filters,
-    initialData,
-    initialTotalCount,
-  });
-
-  const {
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-    selectedRows,
-    handleSelectionChange,
-    pendingDeleteId,
-    deleteModalOpen,
-    isDeleting,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  } = useBulkDelete({
-    bulkDeleteFn: (ids: string[]) =>
-      new ApiClientFactory().getSourcesClient().bulkDeleteSources(ids),
-    onSuccess: refresh,
-    itemLabelSingular: 'source',
-    itemLabelPlural: 'sources',
-    onBulkActionsChange,
-  });
-
-  const isFirstRefreshTrigger = useRef(true);
-  useEffect(() => {
-    if (isFirstRefreshTrigger.current) {
-      isFirstRefreshTrigger.current = false;
-      return;
-    }
-    refresh();
-    // Only refreshTrigger (bumped by the page after an upload/import) should re-run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
-
-  // Handle row click to navigate to preview
-  const handleRowClick = useCallback(
-    (params: GridRowParams) => {
-      const sourceId = String(params.id);
-      router.push(`/knowledge/${sourceId}`);
-    },
-    [router]
-  );
-
-  const toolbarContextValue = useMemo(
-    () => ({
-      searchQuery,
-      setSearchQuery,
-      openFilterDrawer: () => setFilterDrawerOpen(true),
-      hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
-      activeFilterCount: countActiveSourceFilters(drawerFilters),
-      checkboxSelectionMode,
-      setCheckboxSelectionMode,
-    }),
-    [
-      searchQuery,
-      drawerFilters,
-      checkboxSelectionMode,
-      setCheckboxSelectionMode,
-    ]
-  );
-
-  // Column definitions
-  const columns: GridColDef[] = React.useMemo(() => {
-    const actionsCol = createRowActionsColumn({
-      onEdit: id => router.push(`/knowledge/${id}`),
-      onDelete: id => requestDelete(id),
-      canEdit: () => canEditSource,
-      canDelete: () => canDeleteSource,
-    });
-    return [
+  const columns: GridColDef[] = useMemo(
+    () => [
       {
         field: 'title',
         headerName: 'Title',
@@ -415,7 +255,7 @@ export default function SourcesGrid({
                 overflow: 'hidden',
               }}
             >
-              {source.tags.slice(0, 2).map((tag, _index) => (
+              {source.tags.slice(0, 2).map(tag => (
                 <Chip
                   key={tag.id}
                   label={tag.name}
@@ -435,30 +275,15 @@ export default function SourcesGrid({
           );
         },
       },
-      actionsCol,
-    ];
-  }, [router, requestDelete]);
-
-  if (error) {
-    return (
-      <Box className={styles.errorContainer}>
-        <Typography color="error" variant="h6" gutterBottom>
-          Error Loading Sources
-        </Typography>
-        <Typography color="text.secondary" paragraph>
-          {error}
-        </Typography>
-      </Box>
-    );
-  }
-
-  const filtersActive = !!searchQuery || hasActiveSourceFilters(drawerFilters);
+    ],
+    []
+  );
 
   return (
-    <GridStateGate
-      data={loading ? null : {}}
-      error={error}
-      isEmpty={totalCount === 0 && !filtersActive}
+    <EntityGrid<Source, typeof sourcesList.filters, SourceFilters>
+      descriptor={sourcesList}
+      columns={columns}
+      toFilters={toFilters}
       emptyState={
         <EntityEmptyState
           card
@@ -469,58 +294,15 @@ export default function SourcesGrid({
           onAction={canCreate ? onCreateClick : undefined}
         />
       }
-    >
-      <Paper sx={GRID_PAPER_SX}>
-        <SourcesToolbarContext.Provider value={toolbarContextValue}>
-          <BaseDataGrid
-            columns={columns}
-            rows={sources}
-            loading={loading}
-            getRowId={row => row.id}
-            showToolbar={true}
-            paginationModel={paginationModel}
-            onPaginationModelChange={handlePaginationModelChange}
-            sortModel={sortModel}
-            onSortModelChange={handleSortModelChange}
-            serverSidePagination={true}
-            sortingMode="server"
-            totalRows={totalCount}
-            pageSizeOptions={[10, 25, 50]}
-            disablePaperWrapper={true}
-            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
-            toolbarSlot={SourcesUnifiedToolbar}
-            persistState
-            sx={rowActionsHoverSx}
-            checkboxSelection={checkboxSelectionMode}
-            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-            onRowSelectionModelChange={
-              checkboxSelectionMode ? handleSelectionChange : undefined
-            }
-          />
-
-          <DeleteModal
-            open={deleteModalOpen}
-            onClose={cancelDelete}
-            onConfirm={confirmDelete}
-            isLoading={isDeleting}
-            title={pendingDeleteId ? 'Delete Source' : 'Delete Sources'}
-            message={
-              pendingDeleteId
-                ? 'Are you sure you want to delete this source? This action cannot be undone.'
-                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}? This action cannot be undone.`
-            }
-            itemType="sources"
-          />
-
-          <SourceFilterDrawer
-            open={filterDrawerOpen}
-            onClose={() => setFilterDrawerOpen(false)}
-            filters={drawerFilters}
-            onApply={f => setDrawerFilters(f)}
-          />
-        </SourcesToolbarContext.Provider>
-      </Paper>
-    </GridStateGate>
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      searchPlaceholder="Search sources…"
+      drawer={drawerAdapter}
+      selectionLabel="Select sources"
+      getRowUrl={getRowUrl}
+      onBulkActionsChange={onBulkActionsChange}
+      pageSizeOptions={[10, 25, 50]}
+    />
   );
 }

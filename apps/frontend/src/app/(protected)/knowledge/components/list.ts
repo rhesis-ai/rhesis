@@ -35,4 +35,12 @@ export const sourcesList = defineList({
   filters: SOURCES_FILTERS,
   list: (factory: ApiClientFactory, params) =>
     factory.getSourcesClient().getSources(params),
+  delete: {
+    bulk: (factory: ApiClientFactory, ids: string[]) =>
+      factory.getSourcesClient().bulkDeleteSources(ids),
+    capability: Capability.Source.DELETE,
+    capabilityMode: 'ambient',
+    labelSingular: 'source',
+    labelPlural: 'sources',
+  },
 });
