@@ -19,12 +19,13 @@ current threshold, which is a question that cannot be answered once and stored.
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.metric_tuning_metadata import ReviewDecision, TuningRunStatus
+from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
 
 
 class TuningCaseOutcome(str, Enum):
@@ -197,13 +198,74 @@ class MetricTuningRun(BaseModel):
     # tab already re-reads while a run is going, and the number has to move as the
     # cases land. Derived on every read; see ``TuningAgreement``.
     agreement: TuningAgreement = TuningAgreement()
+    # True when the metric has changed in a verdict-affecting way since this run
+    # started, so its agreement belongs to the earlier metric. Derived from the
+    # stored fingerprint on every read; a run without one answers False, because
+    # unknown is not the same as out of date.
+    predates_metric: bool = False
+
+
+class ImprovedMetricFields(BaseModel):
+    """The metric fields a model may rewrite from a reviewer's rejections.
+
+    Deliberately narrow: the evaluation fields and nothing else. No ids, no
+    relations, no ``metric_scope`` -- a rejection says the metric judged one case
+    wrongly, which is not an opinion about which turn shapes it applies to.
+
+    Every field is required but nullable rather than optional-with-a-default, so
+    the JSON schema handed to the model lists them all: a provider running strict
+    structured output rejects a schema whose properties are not all required, and
+    a numeric metric genuinely has no ``categories`` to give.
+
+    ``score_type`` and ``categories`` are here because the model has to reason
+    about the score bands coherently, not because it may move them -- both are
+    overwritten with the metric's current values before this is returned. An
+    improvement that changed ``score_type`` would invalidate every review for the
+    metric, which is not something a button does quietly (domain.local/adr/0006).
+    """
+
+    name: str = Field(description="Title Case with spaces, e.g. 'Factual Accuracy'")
+    description: str
+    evaluation_prompt: str = Field(description="The evaluation criteria, no template placeholders")
+    evaluation_steps: str
+    reasoning: str
+    explanation: str
+    score_type: ScoreType
+    min_score: Optional[float]
+    max_score: Optional[float]
+    threshold: Optional[float]
+    threshold_operator: Optional[ThresholdOperator]
+    categories: Optional[List[str]]
+    passing_categories: Optional[List[str]]
+
+
+class MetricTuningImprovement(BaseModel):
+    """A proposed rewrite of a metric, read off the rejections its reviewers wrote.
+
+    Producing one never writes anything. The reviewer sees the current fields
+    beside these and applies them with an ordinary metric update, or does not --
+    an in-place rewrite of the evaluation prompt the reviews were made against
+    would have no diff and no undo (ADR-0006).
+
+    ``changed`` is what the dialog shows; the fields it leaves out are named as
+    unchanged rather than hidden, so the reviewer can see the rewrite left them
+    alone. ``rejections_used`` is the header: how many comments this was written
+    from.
+    """
+
+    improvement: ImprovedMetricFields
+    # Names of the fields whose proposed value differs from the metric's current one.
+    changed: List[str] = []
+    rejections_used: int = 0
 
 
 __all__ = [
+    "ImprovedMetricFields",
     "MetricTuningCase",
     "MetricTuningCaseCreate",
     "MetricTuningCaseResult",
     "MetricTuningCaseUpdate",
+    "MetricTuningImprovement",
     "MetricTuningReview",
     "MetricTuningReviewCreate",
     "MetricTuningRun",

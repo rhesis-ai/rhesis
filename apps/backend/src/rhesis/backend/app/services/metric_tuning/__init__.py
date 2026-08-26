@@ -25,6 +25,16 @@ from rhesis.backend.app.services.metric_tuning.cases import (
     to_api,
     update_tuning_case,
 )
+from rhesis.backend.app.services.metric_tuning.fingerprint import (
+    metric_fingerprint,
+    run_predates_metric,
+)
+from rhesis.backend.app.services.metric_tuning.improve import (
+    ImprovementUnavailable,
+    NoStandingRejections,
+    improve_from_reviews,
+    standing_rejections,
+)
 from rhesis.backend.app.services.metric_tuning.invoke import (
     MetricModelNotConfigured,
     invoke_metric_on_case,
@@ -60,7 +70,9 @@ from rhesis.backend.app.services.metric_tuning.test_sets import (
 __all__ = [
     "STALE_RUN_AFTER",
     "STALE_RUN_MESSAGE",
+    "ImprovementUnavailable",
     "MetricModelNotConfigured",
+    "NoStandingRejections",
     "NoTuningCases",
     "NothingToReview",
     "ReviewCommentRequired",
@@ -77,12 +89,16 @@ __all__ = [
     "get_tuning_case",
     "get_tuning_run",
     "get_tuning_test_set",
+    "improve_from_reviews",
     "invoke_metric_on_case",
     "list_tuning_cases",
+    "metric_fingerprint",
     "resolve_metric_model",
     "review_case",
     "review_still_stands",
     "run_is_stale",
+    "run_predates_metric",
+    "standing_rejections",
     "standing_review",
     "start_tuning_run",
     "to_api",

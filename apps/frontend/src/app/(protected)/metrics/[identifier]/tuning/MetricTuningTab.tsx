@@ -31,6 +31,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
   AddIcon,
+  AutoFixHighIcon,
   CancelIcon,
   CheckCircleIcon,
   PlayArrowIcon,
@@ -43,14 +44,21 @@ import {
 } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { UUID } from 'crypto';
-import type { ScoreType } from '@/utils/api-client/interfaces/metric';
 import type {
+  Metric,
+  MetricUpdate,
+  ScoreType,
+} from '@/utils/api-client/interfaces/metric';
+import type {
+  ImprovedMetricFields,
   MetricTuningAgreement,
   MetricTuningCase,
   MetricTuningCaseCreate,
+  MetricTuningImprovement,
   MetricTuningRun,
 } from '@/utils/api-client/interfaces/metric-tuning';
 import MetricTuningCaseDialog from './MetricTuningCaseDialog';
+import MetricTuningImproveDialog from './MetricTuningImproveDialog';
 import MetricTuningRejectDialog from './MetricTuningRejectDialog';
 
 /** How often to re-read a run that is still going. */
@@ -65,6 +73,15 @@ const INVALIDATED_HINT =
 
 const ERRORED_HINT =
   'The metric call failed for this case, so there is no verdict to judge.';
+
+const NO_REJECTIONS_HINT =
+  'Reject a case with a comment first: Improve reads the comments.';
+
+const IMPROVE_HINT =
+  'Rewrite this metric from the comments on the cases it got wrong. Nothing is saved until you apply it.';
+
+const IMPROVE_WHILE_RUNNING_HINT =
+  'Wait for the run to finish: it is about to replace the verdicts those comments are about.';
 
 const NO_AGREEMENT_HINT =
   'Agreement is the share of judged cases you accepted. Nothing has been judged yet, so there is no share to report — a set nobody has looked at is not a set the metric got right.';
@@ -376,16 +393,87 @@ function RunSummary({ run }: { run: MetricTuningRun | null }) {
       ? ` ${run.errored_cases} of them could not be reached.`
       : '';
   return (
-    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-      Last run {finished ? finished.toLocaleString() : ''} over{' '}
-      {run.completed_cases} {run.completed_cases === 1 ? 'case' : 'cases'}.
-      {errored}
-    </Typography>
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="body2" color="text.secondary">
+        Last run {finished ? finished.toLocaleString() : ''} over{' '}
+        {run.completed_cases} {run.completed_cases === 1 ? 'case' : 'cases'}.
+        {errored}
+      </Typography>
+      {/* Every verdict above came out of the metric as it was then, so the
+          agreement is that metric's rather than this one's. */}
+      {run.predates_metric && (
+        <Typography variant="body2" color="warning.main">
+          This metric has changed since that run, so the numbers above belong to
+          the earlier version. Press Run metric to score it again.
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+/**
+ * The improvement as a metric update: every field it showed that has a value.
+ *
+ * A metric update cannot clear a field — the API drops a null rather than
+ * writing it — so a null sent here would be a field the dialog showed and the
+ * save quietly skipped. The API refuses to propose blanking anything the metric
+ * has, so every null left is a field the metric does not have either, and
+ * leaving it out writes exactly what was on screen.
+ */
+function toMetricUpdate(fields: ImprovedMetricFields): MetricUpdate {
+  const update: MetricUpdate = {
+    name: fields.name,
+    description: fields.description,
+    evaluation_prompt: fields.evaluation_prompt,
+    evaluation_steps: fields.evaluation_steps,
+    reasoning: fields.reasoning,
+    explanation: fields.explanation,
+    score_type: fields.score_type,
+  };
+  if (fields.min_score !== null) update.min_score = fields.min_score;
+  if (fields.max_score !== null) update.max_score = fields.max_score;
+  if (fields.threshold !== null) update.threshold = fields.threshold;
+  if (fields.threshold_operator !== null) {
+    update.threshold_operator = fields.threshold_operator;
+  }
+  if (fields.categories !== null) update.categories = fields.categories;
+  if (fields.passing_categories !== null) {
+    update.passing_categories = fields.passing_categories;
+  }
+  return update;
+}
+
+/**
+ * One line saying a rewrite is being written, while it is being written.
+ *
+ * Deliberately the same shape as ``RunSummary``'s in-progress line: both are a
+ * slow thing the tab started, and a second visual language for the second one
+ * would be two ways of saying "wait". The label on the button alone is too quiet
+ * for a call that can take most of a minute.
+ *
+ * The rejection count is in it because that is what makes the wait legible --
+ * three comments is quick, forty is not.
+ */
+function ImprovingSummary({ rejections }: { rejections: number }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      <CircularProgress size={16} />
+      <Typography variant="body2" color="text.secondary">
+        Rewriting this metric from {rejections}{' '}
+        {rejections === 1 ? 'rejection' : 'rejections'} — this takes a moment,
+        the model is reading every comment.
+      </Typography>
+    </Box>
   );
 }
 
 export interface MetricTuningTabProps {
   metricId: string;
+  /**
+   * Called after an improvement is applied, so the rest of the page re-reads the
+   * metric. Applying writes the evaluation prompt every other tab is showing.
+   */
+  onMetricChanged?: () => void;
 }
 
 /**
@@ -401,13 +489,17 @@ export interface MetricTuningTabProps {
  * only the id, and threading the whole metric through it would couple this
  * feature to a component that otherwise knows nothing about it.
  */
-export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
+export default function MetricTuningTab({
+  metricId,
+  onMetricChanged,
+}: MetricTuningTabProps) {
   const notifications = useNotifications();
   const canEdit = useCan(Capability.Metric.UPDATE);
 
   const [cases, setCases] = useState<MetricTuningCase[]>([]);
-  const [scoreType, setScoreType] = useState<ScoreType>('binary');
-  const [groundTruthRequired, setGroundTruthRequired] = useState(false);
+  // The whole metric, because the Improve dialog shows the current fields beside
+  // the proposed ones and the grid needs the score type to render a verdict.
+  const [metric, setMetric] = useState<Metric | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MetricTuningCase | null>(null);
@@ -415,6 +507,9 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
   const [run, setRun] = useState<MetricTuningRun | null>(null);
   const [starting, setStarting] = useState(false);
   const [acceptingRest, setAcceptingRest] = useState(false);
+  const [improving, setImproving] = useState(false);
+  const [improvement, setImprovement] =
+    useState<MetricTuningImprovement | null>(null);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -424,13 +519,12 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
     setLoading(true);
     try {
       const factory = new ApiClientFactory();
-      const [metric, tuningCases, tuningRun] = await Promise.all([
+      const [tuningMetric, tuningCases, tuningRun] = await Promise.all([
         factory.getMetricsClient().getMetric(metricId as UUID),
         factory.getMetricTuningClient().getTuningCases(metricId),
         factory.getMetricTuningClient().getTuningRun(metricId),
       ]);
-      setScoreType(metric.score_type ?? 'binary');
-      setGroundTruthRequired(metric.ground_truth_required === true);
+      setMetric(tuningMetric);
       setCases(tuningCases);
       setRun(tuningRun);
     } catch (error) {
@@ -624,6 +718,53 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
     }
   }, [metricId, notifications, refreshRun]);
 
+  // Read off the metric rather than kept beside it, so there is one answer to
+  // "what score type is this" while the metric is being reloaded.
+  const scoreType: ScoreType = metric?.score_type ?? 'binary';
+  const groundTruthRequired = metric?.ground_truth_required === true;
+
+  const handleImprove = useCallback(async () => {
+    setImproving(true);
+    try {
+      const client = new ApiClientFactory().getMetricTuningClient();
+      // The dialog opens on the answer, not on the click — there is nothing to
+      // show until the rewrite is back, and no cancelling a call this short.
+      setImprovement(await client.improveFromReviews(metricId));
+    } catch (error) {
+      notifications.show(
+        error instanceof Error
+          ? `Failed to improve the metric: ${error.message}`
+          : 'Failed to improve the metric',
+        { severity: 'error', autoHideDuration: 6000 }
+      );
+    } finally {
+      setImproving(false);
+    }
+  }, [metricId, notifications]);
+
+  // Throws on failure so the dialog keeps the proposal on screen: losing a
+  // rewrite to a network blip would mean asking the model again for a different
+  // one. Re-reads everything afterwards — the metric has changed, so the run on
+  // screen now predates it.
+  const handleApplyImprovement = useCallback(
+    async (fields: ImprovedMetricFields) => {
+      const client = new ApiClientFactory().getMetricsClient();
+      await client.updateMetric(metricId as UUID, toMetricUpdate(fields));
+      await fetchCases();
+      // The evaluation prompt just changed, and the tabs beside this one are
+      // still showing the copy they read when the page loaded.
+      onMetricChanged?.();
+      notifications.show(
+        'Applied the improvement. Run the metric again to score it.',
+        {
+          severity: 'success',
+          autoHideDuration: 6000,
+        }
+      );
+    },
+    [metricId, fetchCases, notifications, onMetricChanged]
+  );
+
   const openAdd = useCallback(() => {
     setEditing(null);
     setDialogOpen(true);
@@ -782,6 +923,19 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
   );
 
   const isRunning = run?.status === 'running';
+  // Improve reads the comments on rejections, so without one there is nothing
+  // for it to read. Only rejections that still stand count — the API refuses on
+  // the same rule, and it is the outcome the grid is already showing.
+  const standingRejections = cases.filter(c => c.outcome === 'rejected').length;
+  const hasStandingRejection = standingRejections > 0;
+  const canImprove = hasStandingRejection && !isRunning && !improving;
+  // Keyed off why it is off, not off one of the reasons: a tooltip that explains
+  // what Improve does while the button is disabled explains the wrong thing.
+  const improveHint = !hasStandingRejection
+    ? NO_REJECTIONS_HINT
+    : isRunning
+      ? IMPROVE_WHILE_RUNNING_HINT
+      : IMPROVE_HINT;
   const actions = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
       {canEdit && cases.length > 0 && (
@@ -803,6 +957,29 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         >
           Accept the rest
         </Button>
+      )}
+      {/* The tooltip sits on a span because MUI drops pointer events on a
+          disabled button, and the disabled state is the one whose reason a
+          reader actually needs. */}
+      {canEdit && (
+        <Tooltip title={improveHint}>
+          <span>
+            <Button
+              variant="outlined"
+              startIcon={
+                improving ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <AutoFixHighIcon />
+                )
+              }
+              onClick={handleImprove}
+              disabled={!canImprove}
+            >
+              {improving ? 'Improving…' : 'Improve'}
+            </Button>
+          </span>
+        </Tooltip>
       )}
       {canEdit && (
         <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
@@ -838,6 +1015,7 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
               <AgreementSummary agreement={run.agreement} />
             )}
             <RunSummary run={run} />
+            {improving && <ImprovingSummary rejections={standingRejections} />}
             <BaseDataGrid
               rows={cases as unknown as GridRowModel[]}
               columns={columns}
@@ -868,6 +1046,14 @@ export default function MetricTuningTab({ metricId }: MetricTuningTabProps) {
         onClose={() => setRejecting(null)}
         verdict={rejecting?.result?.verdict ?? null}
         onSubmit={handleReject}
+      />
+
+      <MetricTuningImproveDialog
+        open={improvement !== null}
+        onClose={() => setImprovement(null)}
+        improvement={improvement}
+        metric={metric}
+        onApply={handleApplyImprovement}
       />
     </>
   );

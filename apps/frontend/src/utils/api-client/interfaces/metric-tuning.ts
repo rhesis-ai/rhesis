@@ -1,4 +1,5 @@
 import { UUID } from 'crypto';
+import type { ScoreType, ThresholdOperator } from './metric';
 
 /**
  * What the metric said about a case in the latest run.
@@ -107,6 +108,50 @@ export interface MetricTuningRun {
    * between runs moves it without a run.
    */
   agreement: MetricTuningAgreement;
+  /**
+   * True when the metric has changed in a verdict-affecting way since this run
+   * started — so its agreement belongs to the earlier metric, not the one on
+   * screen. Renaming a metric does not set this; editing its evaluation prompt
+   * does.
+   */
+  predates_metric: boolean;
+}
+
+/**
+ * The metric fields a model may rewrite from a reviewer's rejections.
+ *
+ * `score_type` and `categories` always come back as the metric already has
+ * them — an improvement that moved either would invalidate every review for the
+ * metric.
+ */
+export interface ImprovedMetricFields {
+  name: string;
+  description: string;
+  evaluation_prompt: string;
+  evaluation_steps: string;
+  reasoning: string;
+  explanation: string;
+  score_type: ScoreType;
+  min_score: number | null;
+  max_score: number | null;
+  threshold: number | null;
+  threshold_operator: ThresholdOperator | null;
+  categories: string[] | null;
+  passing_categories: string[] | null;
+}
+
+/**
+ * A proposed rewrite of a metric, read off the rejections its reviewers wrote.
+ *
+ * Producing one saves nothing. The reviewer sees the current fields beside these
+ * and applies them with an ordinary metric update, or closes the dialog.
+ */
+export interface MetricTuningImprovement {
+  improvement: ImprovedMetricFields;
+  /** Fields whose proposed value differs from the metric's current one. */
+  changed: (keyof ImprovedMetricFields)[];
+  /** How many rejections it was written from. */
+  rejections_used: number;
 }
 
 export interface MetricTuningCaseCreate {

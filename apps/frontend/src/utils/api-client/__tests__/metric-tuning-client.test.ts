@@ -123,6 +123,21 @@ describe('MetricTuningClient', () => {
     expect(result).toHaveLength(1);
   });
 
+  it('asks for an improvement with no body at all', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ improvement: {}, changed: [], rejections_used: 2 })
+    );
+
+    const result = await client.improveFromReviews(METRIC_ID);
+
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${BASE_URL}/metrics/${METRIC_ID}/tuning/improve`);
+    expect(options.method).toBe('POST');
+    // The rejections are read server-side; there is nothing for a caller to send.
+    expect(options.body).toBeUndefined();
+    expect(result.rejections_used).toBe(2);
+  });
+
   it('deletes a tuning case', async () => {
     fetchMock.mockResolvedValue(makeFetch({ deleted: true, case_id: TEST_ID }));
 

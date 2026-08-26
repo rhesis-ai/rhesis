@@ -29,6 +29,9 @@ const LONG_RUNNING_PATH_SUFFIXES = [
   '/generate_outputs',
   '/evaluate',
   '/load-initial-data',
+  // Rewrites a whole metric from its reviews in one generation call, and holds
+  // the response until the model answers.
+  '/tuning/improve',
 ];
 
 const LONG_RUNNING_TIMEOUT_MS = 300_000;

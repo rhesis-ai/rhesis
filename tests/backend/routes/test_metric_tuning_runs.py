@@ -1424,3 +1424,161 @@ class TestADispatchThatNeverReachesAWorker:
         response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
 
         assert response.status_code == status.HTTP_202_ACCEPTED
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestARunThatPredatesItsMetric:
+    """Whether the numbers on screen still belong to the metric above them.
+
+    Applying an improvement rewrites the evaluation prompt every verdict in the
+    run came from, so the run has to be able to say it predates the metric rather
+    than go on reporting an agreement for something that changed underneath it.
+    The check is a fingerprint of the verdict-affecting fields, not the metric's
+    ``updated_at`` — see domain.local/adr/0006.
+    """
+
+    def _edit(self, test_db: Session, metric: models.Metric, **columns) -> None:
+        """Edit the metric the way the metric editor — or an apply — would."""
+        test_db.expire_all()
+        row = test_db.query(models.Metric).filter(models.Metric.id == metric.id).first()
+        for field, value in columns.items():
+            setattr(row, field, value)
+        test_db.commit()
+
+    def test_a_fresh_run_belongs_to_the_metric_it_scored(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+
+        assert body["predates_metric"] is False
+
+    def test_editing_the_evaluation_prompt_makes_the_run_predate_the_metric(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """Every verdict in that run came out of the text that just changed."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
+
+        self._edit(test_db, tuning_metric, evaluation_prompt="Fail any answer with an insult.")
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert body["predates_metric"] is True
+
+    def test_moving_the_threshold_makes_the_run_predate_the_metric(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        numeric_metric: models.Metric,
+    ):
+        """A threshold is where a score becomes a decision, so it decides verdicts."""
+        _create_case(authenticated_client, numeric_metric.id)
+        _run(test_db, numeric_metric, test_org_id, {"score": 0.7, "reason": "mostly relevant"})
+
+        self._edit(test_db, numeric_metric, threshold=0.9)
+
+        body = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/run").json()
+        assert body["predates_metric"] is True
+
+    def test_renaming_the_metric_does_not(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """The whole reason this is a fingerprint rather than ``updated_at``."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
+
+        self._edit(
+            test_db,
+            tuning_metric,
+            name=f"Renamed {uuid.uuid4().hex[:6]}",
+            description="Rewritten description.",
+        )
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert body["predates_metric"] is False
+
+    def test_a_run_stored_without_a_fingerprint_is_not_read_as_out_of_date(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """Unknown is not stale — runs recorded before this existed still read."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
+        test_set = service.get_tuning_test_set(test_db, tuning_metric.id, test_org_id)
+        summary = crud_metric_tuning.get_run_summary(test_set)
+        summary.metric_fingerprint = None
+        crud_metric_tuning.set_run_summary(test_db, test_set, summary)
+        test_db.commit()
+
+        self._edit(test_db, tuning_metric, evaluation_prompt="Fail any answer with an insult.")
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert body["predates_metric"] is False
+
+    def test_a_metric_that_has_never_been_run_does_not_predate_itself(
+        self,
+        authenticated_client: TestClient,
+        tuning_metric: models.Metric,
+    ):
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+
+        assert body["status"] == "never_run"
+        assert body["predates_metric"] is False
+
+    def test_editing_the_prompt_does_not_invalidate_the_reviews(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """An apply stales the run, not the judgements.
+
+        The per-case material-change rule does that work, and it needs a verdict
+        from the new prompt to do it — which only the next run produces.
+        """
+        case = _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
+        _review(authenticated_client, tuning_metric.id, case["id"], "rejected", REVIEW_COMMENT)
+
+        self._edit(test_db, tuning_metric, evaluation_prompt="Fail any answer with an insult.")
+
+        after = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()[0]
+        assert after["outcome"] == "rejected"
+        assert after["review"]["comment"] == REVIEW_COMMENT
+
+    def test_the_next_run_belongs_to_the_metric_again(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        """Which is what makes Run metric the way out of a stale scorecard."""
+        _create_case(authenticated_client, tuning_metric.id)
+        _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
+        self._edit(test_db, tuning_metric, evaluation_prompt="Fail any answer with an insult.")
+
+        _run(test_db, tuning_metric, test_org_id, {"score": False, "reason": "an insult"})
+
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert body["predates_metric"] is False

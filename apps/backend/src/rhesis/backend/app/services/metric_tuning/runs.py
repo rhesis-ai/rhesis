@@ -29,6 +29,7 @@ from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningRunSummary,
     TuningRunStatus,
 )
+from rhesis.backend.app.services.metric_tuning.fingerprint import metric_fingerprint
 from rhesis.backend.app.services.metric_tuning.invoke import (
     invoke_metric_on_case,
     resolve_metric_model,
@@ -114,6 +115,9 @@ def start_tuning_run(
         total_cases=len(cases),
         completed_cases=0,
         errored_cases=0,
+        # Taken now, so applying an improvement afterwards makes these results
+        # read as belonging to the metric they were actually produced by.
+        metric_fingerprint=metric_fingerprint(metric),
     )
     crud_metric_tuning.set_run_summary(db, test_set, summary)
     return summary
@@ -164,6 +168,10 @@ def execute_tuning_run(
     if not summary.started_at:
         summary.started_at = _now()
     summary.progressed_at = _now()
+    # Re-stamped rather than trusted from the claim: the metric can be edited
+    # between the claim and the worker picking the run up, and the verdicts about
+    # to be written come from the metric as it is right now.
+    summary.metric_fingerprint = metric_fingerprint(metric)
 
     _clear_previous_results(db, cases)
     crud_metric_tuning.set_run_summary(db, test_set, summary)
