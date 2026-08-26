@@ -51,11 +51,6 @@
             "entity_type": "TestResult"
         },
         {
-            "name": "Review",
-            "description": "This is a test status",
-            "entity_type": "TestResult"
-        },
-        {
             "name": "Test",
             "description": "Test status",
             "entity_type": "Test"

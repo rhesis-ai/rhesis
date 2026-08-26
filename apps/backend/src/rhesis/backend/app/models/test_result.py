@@ -1,6 +1,8 @@
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     ForeignKey,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -36,6 +38,22 @@ class TestResult(
     ReviewsMixin,
 ):
     __tablename__ = "test_result"
+    __table_args__ = (
+        CheckConstraint(
+            "execution IN ('not_run','running','ok','error','cancelled')",
+            name="ck_test_result_execution",
+        ),
+        CheckConstraint(
+            "verdict IS NULL OR verdict IN ('pass','fail','inconclusive')",
+            name="ck_test_result_verdict",
+        ),
+        # The invariant the model exists to express: a verdict means
+        # something only once execution succeeded. See app/outcomes.py.
+        CheckConstraint(
+            "(execution = 'ok') = (verdict IS NOT NULL)",
+            name="ck_test_result_verdict_requires_ok",
+        ),
+    )
 
     _reviews_column_name = "test_reviews"
     _reviews_entity_type = REVIEW_TARGET_TEST_RESULT
@@ -46,6 +64,11 @@ class TestResult(
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
     test_id = Column(GUID(), ForeignKey("test.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"), index=True)
+    # Source of truth for aggregation -- see app/outcomes.py. `status_id`
+    # (Pass/Fail/Error) stays alongside these as a display/review artefact;
+    # nothing should derive an outcome from it going forward.
+    execution = Column(Text, nullable=False, server_default="not_run")
+    verdict = Column(Text)
     test_output = Column(JSONB)
     test_metrics = Column(JSONB)
     test_reviews = Column(JSONB)
