@@ -1,5 +1,6 @@
 import csv
 import logging
+import time
 import uuid
 from io import StringIO
 from typing import Any, Dict, List, Optional, Tuple
@@ -18,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 # Statuses a test run never leaves -- the grid stops refetching once here.
 _TERMINAL_RUN_STATUSES = {"Completed", "Partial", "Failed", "Cancelled"}
+
+# Past this many tests the grid renders binned, where per-cell animation is
+# illegible anyway -- so the timing arrays stop being worth their payload.
+_TIMING_MAX_TESTS = 2000
 
 
 def get_test_results_for_test_run(
@@ -384,6 +389,52 @@ def _requirement_names_for_fallback(
     return {str(rid): name for rid, name in query.all()}
 
 
+def _build_timing_columns(
+    test_run_id: uuid.UUID, test_order: List[str]
+) -> Tuple[
+    Optional[List[Optional[int]]],
+    Optional[List[Optional[int]]],
+    Optional[List[Optional[int]]],
+    Optional[int],
+]:
+    """Phase-offset columns aligned to test_order, plus the run's elapsed time.
+
+    All-None on any failure: the timing cache is a nicety for the animation,
+    never a reason to fail the grid.
+    """
+    if not test_order or len(test_order) > _TIMING_MAX_TESTS:
+        return None, None, None, None
+
+    try:
+        from rhesis.backend.app.services.test_run_timing import get_test_run_timing_cache
+
+        origin, timings = get_test_run_timing_cache().get_run_timing(str(test_run_id))
+    except Exception:
+        logger.debug("verdict matrix: timing lookup failed", exc_info=True)
+        return None, None, None, None
+
+    if origin is None:
+        return None, None, None, None
+
+    # An origin with no phases yet means the run has just been picked up.
+    # Report elapsed anyway so the client's clock can start reconciling
+    # against the server from its very first poll.
+    elapsed_ds = max(0, int(round((time.time() - origin) * 10)))
+    if not timings:
+        return None, None, None, elapsed_ds
+
+    started: List[Optional[int]] = []
+    generated: List[Optional[int]] = []
+    resolved: List[Optional[int]] = []
+    for test_id in test_order:
+        entry = timings.get(test_id)
+        started.append(entry.started_ds if entry else None)
+        generated.append(entry.generated_ds if entry else None)
+        resolved.append(entry.resolved_ds if entry else None)
+
+    return started, generated, resolved, elapsed_ds
+
+
 def get_verdict_matrix(
     db: Session,
     test_run: models.TestRun,
@@ -423,6 +474,7 @@ def get_verdict_matrix(
         verdict_index[cell] = (row.effective_success, bool(row.has_override))
 
     outcomes = test_run_crud.get_test_outcomes_for_run(db, test_run.id, organization_id=org_id)
+    reviews_count = test_run_crud.get_review_count_for_run(db, test_run.id, organization_id=org_id)
 
     requirements_payload: List[schemas.VerdictRequirement] = []
     rows_payload: List[schemas.VerdictRow] = []
@@ -523,6 +575,12 @@ def get_verdict_matrix(
 
     status_name = test_run.status.name if test_run.status else ""
 
+    # Always sent, unlike test_ids: this is the part that actually changes
+    # between polls while a run is in flight.
+    started_ds, generated_ds, resolved_ds, elapsed_ds = _build_timing_columns(
+        test_run.id, test_order
+    )
+
     return schemas.VerdictMatrix(
         test_run_id=test_run.id,
         project_id=test_run.project_id,
@@ -533,6 +591,10 @@ def get_verdict_matrix(
             {"passed": "P", "failed": "F", "error": "E"}.get(outcomes.get(tid, ""), ".")
             for tid in test_order
         ),
+        test_started_ds=started_ds,
+        test_generated_ds=generated_ds,
+        test_resolved_ds=resolved_ds,
+        elapsed_ds=elapsed_ds,
         requirements=requirements_payload,
         rows=rows_payload,
         kpis=schemas.VerdictKpis(
@@ -542,5 +604,6 @@ def get_verdict_matrix(
             verdicts_resolved=verdicts_resolved,
             verdicts_planned=verdicts_planned,
             failures=failing_tests,
+            reviews_count=reviews_count,
         ),
     )

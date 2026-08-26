@@ -10,6 +10,7 @@ import logging
 import time
 from typing import Any, Dict, List
 
+from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
@@ -337,7 +338,7 @@ async def _execute_single_test(
         def _report_done() -> None:
             if on_test_phase:
                 try:
-                    on_test_phase(test_id, "done")
+                    on_test_phase(test_id, TestPhase.DONE)
                 except Exception:
                     logger.debug("on_test_phase(done) failed", exc_info=True)
 
@@ -364,7 +365,7 @@ async def _execute_single_test(
 
         if on_test_phase:
             try:
-                on_test_phase(test_id, "generating")
+                on_test_phase(test_id, TestPhase.GENERATING)
             except Exception:
                 logger.debug("on_test_phase(generating) failed", exc_info=True)
 
@@ -401,7 +402,7 @@ async def _execute_single_test(
                 contract_usable = result.get("contract_usable", True)
                 if on_test_phase:
                     try:
-                        on_test_phase(test_id, "evaluating")
+                        on_test_phase(test_id, TestPhase.EVALUATING)
                     except Exception:
                         logger.debug("on_test_phase(evaluating) failed", exc_info=True)
             except asyncio.TimeoutError:
@@ -494,7 +495,7 @@ async def _execute_single_test(
             ctx.input_files.pop(test_id, None)
             if on_test_phase:
                 try:
-                    on_test_phase(test_id, "done")
+                    on_test_phase(test_id, TestPhase.DONE)
                 except Exception:
                     logger.debug("on_test_phase(done) failed", exc_info=True)
             deferred_traces.clear()

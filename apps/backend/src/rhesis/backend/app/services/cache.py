@@ -255,6 +255,53 @@ class RedisBackedCache:
                 self._memory_timestamps[key] = now
             self._evict_stale()
 
+    def _hset(self, key: str, field: str, value: str, ttl: Optional[int] = None) -> None:
+        """Set one field of a hash, refreshing the whole hash's TTL.
+
+        HSET carries no expiry of its own, so the TTL is re-applied on every
+        write -- the hash lives for `ttl` past its *last* write, not its first.
+        """
+        ex = ttl if ttl is not None else self._ttl
+        if self._using_redis:
+            try:
+                pipe = self._redis.pipeline()
+                pipe.hset(key, field, value)
+                pipe.expire(key, ex)
+                pipe.execute()
+                return
+            except Exception as exc:
+                logger.warning(
+                    f"{self._cache_name}: Redis hset failed, falling back to memory: {exc}"
+                )
+
+        with self._lock:
+            bucket = self._memory.get(key)
+            if not isinstance(bucket, dict):
+                bucket = {}
+                self._memory[key] = bucket
+            bucket[field] = value
+            self._memory_timestamps[key] = time.monotonic()
+            self._evict_stale()
+
+    def _hgetall(self, key: str) -> Dict[str, str]:
+        """Read every field of a hash. Returns {} when absent."""
+        if self._redis_read is not None:
+            try:
+                return self._redis_read.hgetall(key) or {}
+            except Exception as exc:
+                logger.warning(f"{self._cache_name}: Redis hgetall failed: {exc}")
+                if self._has_separate_read and self._redis is not None:
+                    self._disable_read_replica()
+                    try:
+                        return self._redis.hgetall(key) or {}
+                    except Exception:
+                        pass
+
+        with self._lock:
+            self._evict_stale()
+            bucket = self._memory.get(key)
+            return dict(bucket) if isinstance(bucket, dict) else {}
+
     def _getdel(self, key: str) -> Optional[str]:
         """Get and delete a key atomically."""
         if self._using_redis:

@@ -20,6 +20,7 @@ class VerdictKpis(BaseModel):
     verdicts_resolved: int = 0
     verdicts_planned: int = 0
     failures: int = 0
+    reviews_count: int = 0
 
 
 class VerdictRequirement(BaseModel):
@@ -49,6 +50,17 @@ class VerdictMatrix(Base):
     version: int = 0
     test_ids: Optional[List[UUID4]] = None
     test_status: str = ""
+    # Execution phase offsets, in deciseconds from this run's timing origin,
+    # aligned to test_ids' order (None where a phase wasn't reached or wasn't
+    # recorded). They drive the Summary grid's animation; when absent the grid
+    # renders settled. Sequential execution never reports a generating->
+    # evaluating boundary, so test_generated_ds is empty for those runs.
+    test_started_ds: Optional[List[Optional[int]]] = None
+    test_generated_ds: Optional[List[Optional[int]]] = None
+    test_resolved_ds: Optional[List[Optional[int]]] = None
+    # How far into the run the server is right now, same units and origin.
+    # Computed server-side so the client never has to reconcile clock skew.
+    elapsed_ds: Optional[int] = None
     requirements: List[VerdictRequirement] = Field(default_factory=list)
     rows: List[VerdictRow] = Field(default_factory=list)
     kpis: VerdictKpis = Field(default_factory=VerdictKpis)

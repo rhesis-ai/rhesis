@@ -22,3 +22,4 @@ class RedisDatabase:
     CHATBOT_SESSIONS = 4
     PERMISSION_CACHE = 5  # authorization PDP decision cache (SP5)
     OWASP_SECTIONS_CACHE = 6
+    TEST_RUN_TIMING = 7  # per-test execution phase offsets, for the verdict grid animation

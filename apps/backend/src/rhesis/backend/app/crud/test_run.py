@@ -431,6 +431,30 @@ def get_ordered_tests_for_test_set(
     ]
 
 
+def get_review_count_for_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+) -> int:
+    """Count distinct tests with at least one review recorded, for this run.
+
+    A coarse presence count, not the detailed test-vs-metric /
+    review-vs-correction breakdown ``BreakdownsDrawer`` computes lazily from
+    full test result bodies -- this only answers "has anything been
+    reviewed yet" for the KPI row, so it stays a single indexed-by-run
+    aggregate instead of hydrating every result. Same JSONB presence
+    predicate as ``_test_run_experiment_filter``'s ``has_reviews`` filter
+    above.
+    """
+    query = db.query(func.count(func.distinct(models.TestResult.test_id))).filter(
+        models.TestResult.test_run_id == test_run_id,
+        models.TestResult.test_reviews.isnot(None),
+        func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
+        func.coalesce(func.jsonb_array_length(models.TestResult.test_reviews["reviews"]), 0) > 0,
+    )
+    if organization_id:
+        query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))
+    return query.scalar() or 0
+
+
 def get_metric_verdicts_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
 ) -> List[Row]:

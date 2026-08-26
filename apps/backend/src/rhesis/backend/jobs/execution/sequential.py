@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.quota.enforcement import QuotaExceededError
+from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.jobs.enums import ExecutionMode, RunStatus
 from rhesis.backend.jobs.execution.run import update_test_run_status
 from rhesis.backend.jobs.execution.shared import (
@@ -47,10 +48,13 @@ def execute_tests_sequentially(
         trace_id: Optional trace ID for trace-based evaluation
         on_progress: Optional callback(current, total) to update job progress
         on_emit: Optional callback(message) to write activity log entries
-        on_test_phase: Optional callback(test_id, phase). Only ever reports
-            "generating", right before the test runs -- unlike the batch
-            path, there is no seam between invocation and evaluation here to
-            report "evaluating" from (execute_test does both in one call).
+        on_test_phase: Optional callback(test_id, phase). Reports
+            "generating" right before the test runs and "done" when it
+            finishes, same as the batch path. "evaluating" is also reported,
+            but from inside execute_test's call chain (SingleTurnRunner.run /
+            MultiTurnRunner.run, not this loop) -- that's the real seam
+            between invocation and metric evaluation, just three call frames
+            deeper here than in batch.
     """
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
 
@@ -151,7 +155,7 @@ def execute_tests_sequentially(
 
         if on_test_phase:
             try:
-                on_test_phase(str(test.id), "generating")
+                on_test_phase(str(test.id), TestPhase.GENERATING)
             except Exception:
                 logger.debug("on_test_phase(generating) failed", exc_info=True)
 
@@ -173,6 +177,7 @@ def execute_tests_sequentially(
                     evaluation_model=evaluation_model,
                     reference_test_run_id=reference_test_run_id,
                     trace_id=trace_id,
+                    on_test_phase=on_test_phase,
                 )
             )
             results.append(result)
@@ -195,7 +200,7 @@ def execute_tests_sequentially(
         finally:
             if on_test_phase:
                 try:
-                    on_test_phase(str(test.id), "done")
+                    on_test_phase(str(test.id), TestPhase.DONE)
                 except Exception:
                     logger.debug("on_test_phase(done) failed", exc_info=True)
 

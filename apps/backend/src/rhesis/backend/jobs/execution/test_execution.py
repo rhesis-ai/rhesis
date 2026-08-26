@@ -9,9 +9,11 @@ with existing tests and code.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from sqlalchemy.orm import Session
+
+from rhesis.backend.app.services.test_run_timing import TestPhase
 
 # Import factory for executor creation
 from rhesis.backend.jobs.execution.executors import create_executor
@@ -44,6 +46,7 @@ async def execute_test(
     evaluation_model: Optional[Any] = None,
     reference_test_run_id: Optional[str] = None,
     trace_id: Optional[str] = None,
+    on_test_phase: Optional[Callable[[str, TestPhase], None]] = None,
 ) -> Dict[str, Any]:
     """
     Execute a test and return its results.
@@ -69,6 +72,10 @@ async def execute_test(
             TestResults instead of invoking the endpoint.
         trace_id: Optional trace ID for trace-based evaluation. When
             provided, output is loaded from stored Trace records.
+        on_test_phase: Optional (test_id, phase) callback for live phase
+            transitions, forwarded to the executor. Only the sequential
+            execution path passes this; batch has its own equivalent
+            wired at a different layer (jobs/execution/batch/runner.py).
 
     Returns:
         Dictionary with test execution results containing:
@@ -111,6 +118,7 @@ async def execute_test(
             execution_model=execution_model,
             evaluation_model=evaluation_model,
             output_provider=output_provider,
+            on_test_phase=on_test_phase,
         )
 
         logger.info(f"Test execution completed successfully for test {test_id}")

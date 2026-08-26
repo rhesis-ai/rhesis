@@ -5,10 +5,11 @@ Defines the abstract base class for all test executors following the Strategy Pa
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.jobs.execution.executors.output_providers import (
     OutputProvider,
 )
@@ -38,6 +39,7 @@ class BaseTestExecutor(ABC):
         execution_model: Optional[Any] = None,
         evaluation_model: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
+        on_test_phase: Optional[Callable[[str, TestPhase], None]] = None,
     ) -> Dict[str, Any]:
         """
         Execute a test and return standardized results.
@@ -55,6 +57,9 @@ class BaseTestExecutor(ABC):
             output_provider: Optional OutputProvider for obtaining test
                 output. If None, the executor uses its default provider
                 (live endpoint invocation or Penelope execution).
+            on_test_phase: Optional (test_id, phase) callback for live phase
+                transitions -- fired with "evaluating" once the model has
+                answered and metric evaluation is about to begin.
 
         Returns:
             Dictionary with standardized structure:
