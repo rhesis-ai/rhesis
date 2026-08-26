@@ -38,6 +38,9 @@ import AnnotationFilterDrawer, {
 
 interface AnnotationsGridProps {
   onTotalCountChange?: (count: number) => void;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: AnnotationListItem[];
+  initialTotalCount?: number;
 }
 
 const STATUS_PILL_TABS = [
@@ -114,6 +117,8 @@ function formatTarget(item: AnnotationListItem): string {
 
 export default function AnnotationsGrid({
   onTotalCountChange,
+  initialData,
+  initialTotalCount,
 }: AnnotationsGridProps) {
   const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,6 +149,8 @@ export default function AnnotationsGrid({
     onPaginationModelChange: handlePaginationModelChange,
   } = useList(annotationsList, {
     filters,
+    initialData,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 

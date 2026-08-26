@@ -167,7 +167,16 @@ function formatDuration(job: Job): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-export default function JobsGrid() {
+interface JobsGridProps {
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: Job[];
+  initialTotalCount?: number;
+}
+
+export default function JobsGrid({
+  initialData,
+  initialTotalCount,
+}: JobsGridProps) {
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -223,6 +232,8 @@ export default function JobsGrid() {
   } = useList(jobsList, {
     filters,
     extraFilters,
+    initialData,
+    initialTotalCount,
     pollMs: data => (data.some(j => !j.is_terminal) ? LIVE_POLL_MS : false),
   });
 

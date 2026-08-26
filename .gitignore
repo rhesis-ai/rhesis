@@ -363,3 +363,6 @@ infrastructure/config/service-secrets-file.json
 
 # K6 test results
 tests/k6/results/
+
+# Backend runtime storage (user uploads, generated files)
+apps/backend/storage/
