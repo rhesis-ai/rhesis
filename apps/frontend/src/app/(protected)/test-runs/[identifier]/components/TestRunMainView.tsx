@@ -24,6 +24,8 @@ import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useViewingEntity } from '@/contexts/NotificationsContext';
+import { NotificationSection } from '@/constants/notifications';
 import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -116,6 +118,10 @@ export default function TestRunMainView({
   initialDetailTab,
 }: TestRunMainViewProps) {
   const testRun = useLiveTestRun(testRunId, initialTestRun);
+  // Already watching this run live on screen -- a completion notification
+  // for it would be redundant noise, so mark it read on arrival instead of
+  // badging/highlighting it (see useViewingEntity).
+  useViewingEntity(NotificationSection.TEST_RUNS, testRunId);
   const notifications = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
