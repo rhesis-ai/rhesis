@@ -487,21 +487,21 @@ describe('MetricTuningTab — the grid', () => {
   });
 });
 
-const acceptThumb = () =>
+const acceptMark = () =>
   screen.getByRole('button', { name: /accept this verdict/i });
 
-const rejectThumb = () =>
+const rejectMark = () =>
   screen.getByRole('button', { name: /reject this verdict/i });
 
-/** The pressed thumb is the recorded judgement — there is no chip to read. */
+/** The pressed mark is the recorded judgement — there is no chip to read. */
 const findAccepted = async () =>
   await waitFor(() =>
-    expect(acceptThumb()).toHaveAttribute('aria-pressed', 'true')
+    expect(acceptMark()).toHaveAttribute('aria-pressed', 'true')
   );
 
 const findRejected = async () =>
   await waitFor(() =>
-    expect(rejectThumb()).toHaveAttribute('aria-pressed', 'true')
+    expect(rejectMark()).toHaveAttribute('aria-pressed', 'true')
   );
 
 describe('MetricTuningTab — reviewing', () => {
@@ -553,36 +553,36 @@ describe('MetricTuningTab — reviewing', () => {
     mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
   });
 
-  it('leaves both thumbs unpressed while nobody has judged the verdict', async () => {
+  it('leaves both marks unpressed while nobody has judged the verdict', async () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
-    await waitFor(() => expect(acceptThumb()).toBeInTheDocument());
-    expect(acceptThumb()).toHaveAttribute('aria-pressed', 'false');
-    expect(rejectThumb()).toHaveAttribute('aria-pressed', 'false');
+    await waitFor(() => expect(acceptMark()).toBeInTheDocument());
+    expect(acceptMark()).toHaveAttribute('aria-pressed', 'false');
+    expect(rejectMark()).toHaveAttribute('aria-pressed', 'false');
     // Nothing was taken away, so there is no warning to explain.
     expect(
       screen.queryByLabelText(/review invalidated/i)
     ).not.toBeInTheDocument();
   });
 
-  it('shows an accepted case on the thumb that recorded it', async () => {
+  it('shows an accepted case on the mark that recorded it', async () => {
     mockGetTuningCases.mockResolvedValue([ACCEPTED_CASE]);
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await findAccepted();
-    expect(rejectThumb()).toHaveAttribute('aria-pressed', 'false');
+    expect(rejectMark()).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it("shows a rejected case on its thumb, with the reviewer's comment", async () => {
+  it("shows a rejected case on its mark, with the reviewer's comment", async () => {
     mockGetTuningCases.mockResolvedValue([REJECTED_CASE]);
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await findRejected();
-    // The comment rides on the thumb's tooltip, which MUI only mounts once the
-    // thumb is hovered or focused.
-    fireEvent.mouseOver(rejectThumb());
+    // The comment rides on the mark's tooltip, which MUI only mounts once the
+    // mark is hovered or focused.
+    fireEvent.mouseOver(rejectMark());
     expect(
       await screen.findByText('This answer dodges the question.')
     ).toBeInTheDocument();
@@ -594,7 +594,7 @@ describe('MetricTuningTab — reviewing', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await findRejected();
-    expect(acceptThumb()).toBeEnabled();
+    expect(acceptMark()).toBeEnabled();
   });
 
   it('offers no review buttons for a case whose metric call failed', async () => {
@@ -619,8 +619,8 @@ describe('MetricTuningTab — reviewing', () => {
     expect(
       await screen.findByLabelText(/review invalidated/i)
     ).toBeInTheDocument();
-    expect(acceptThumb()).toHaveAttribute('aria-pressed', 'false');
-    expect(rejectThumb()).toHaveAttribute('aria-pressed', 'false');
+    expect(acceptMark()).toHaveAttribute('aria-pressed', 'false');
+    expect(rejectMark()).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('accepts a case in one click', async () => {
