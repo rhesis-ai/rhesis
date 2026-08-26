@@ -90,16 +90,15 @@ const TEAM_FILTERS = {
 };
 
 /**
- * Not wired through `useList`/`useListAuthGate`: today's team grid has no
- * independent read gate of its own (only Organization.READ, checked one level up by
- * `organizations/settings/page.tsx`), and adding one here would be a new restriction, not a
- * port. `capability` is still declared for documentation/typing; only `list`/`listParams`
- * are actually used, via `usePaginatedList` directly in `TeamMembersGrid`.
+ * Gated on Organization.READ, not Member.READ: the team grid has never had an
+ * independent read gate of its own -- `organizations/settings/page.tsx` checks
+ * Organization.READ one level up, and every Viewer holds it. Using Member.READ
+ * here would be a new restriction, not a port.
  */
 export const teamList = defineList({
   title: 'Team',
   resource: 'team members',
-  capability: Capability.Member.READ,
+  capability: Capability.Organization.READ,
   defaultPageSize: 25,
   filters: TEAM_FILTERS,
   list: (factory: ApiClientFactory, params) =>
