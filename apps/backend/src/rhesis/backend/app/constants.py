@@ -228,14 +228,6 @@ class OverallTestResult(str, Enum):
     ERROR = "error"
 
 
-# Test Run Status Mappings (execution-level: did the run finish?)
-# A "passed" run completed execution; "failed" means execution itself failed.
-TEST_RUN_STATUS_PASSED = frozenset(
-    ["completed", "complete", "finished", "done", "success", "successful"]
-)
-TEST_RUN_STATUS_FAILED = frozenset(["failed", "fail", "error", "aborted"])
-
-
 def categorize_test_result_status(status_name: str) -> str:
     """Categorize a test result status name into an OverallTestResult bucket.
 

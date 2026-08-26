@@ -41,8 +41,7 @@ class MetricStatsView(Base):
     """Backs v_metric_stats -- one row per (test_result, metric_name), created by
     alembic migration d3f8a91c5b02 (fixed by d52329dc7e4e). effective_success is
     each metric's own recorded verdict (automated, or corrected by a review that
-    targeted that specific metric); automated_success is the pre-review value,
-    mirroring automated_metric_success() in services/stats/common.py.
+    targeted that specific metric); automated_success is the pre-review value.
     """
 
     __tablename__ = "v_metric_stats"

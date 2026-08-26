@@ -35,18 +35,11 @@ from rhesis.backend.jobs.embedding import (
     compute_test_set_graph_task,
     generate_embedding_task,
 )
-from rhesis.backend.jobs.enums import (
-    DEFAULT_METRIC_WORKERS,
-    DEFAULT_RESULT_STATUS,
-    DEFAULT_RUN_STATUS_COMPLETED,
-    DEFAULT_RUN_STATUS_FAILED,
-    DEFAULT_RUN_STATUS_PROGRESS,
-)
+from rhesis.backend.jobs.enums import DEFAULT_METRIC_WORKERS
 from rhesis.backend.jobs.execution.results import collect_results
 from rhesis.backend.jobs.test_configuration import execute_test_configuration
 from rhesis.backend.jobs.test_set import count_test_sets
 from rhesis.backend.jobs.usage import accrue_usage
-from rhesis.backend.jobs.utils import increment_test_run_progress
 from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
@@ -65,7 +58,6 @@ __all__ = [
     "email_notification",
     # Helper functions
     "launch_job",
-    "increment_test_run_progress",
     # Services
     "email_service",
     # Tasks
@@ -78,10 +70,6 @@ __all__ = [
     "accrue_usage",
     # Constants
     "DEFAULT_METRIC_WORKERS",
-    "DEFAULT_RESULT_STATUS",
-    "DEFAULT_RUN_STATUS_PROGRESS",
-    "DEFAULT_RUN_STATUS_COMPLETED",
-    "DEFAULT_RUN_STATUS_FAILED",
 ]
 
 
