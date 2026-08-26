@@ -58,4 +58,16 @@ export const testsList = defineList<TestDetail, typeof TESTS_FILTERS>({
     const { $filter, ...rest } = params;
     return factory.getTestsClient().getTests({ ...rest, filter: $filter });
   },
+  delete: {
+    bulk: (factory: ApiClientFactory, ids: string[]) =>
+      factory.getTestsClient().bulkDeleteTests(ids),
+    capability: Capability.Test.DELETE,
+    capabilityMode: 'ambient',
+    labelSingular: 'test',
+    labelPlural: 'tests',
+    confirmMessage: count =>
+      count === 1
+        ? 'Are you sure you want to delete this test? Related data will not be deleted.'
+        : `Are you sure you want to delete ${count} tests? Don't worry, related data will not be deleted, only these records.`,
+  },
 });
