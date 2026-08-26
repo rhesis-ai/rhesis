@@ -10,8 +10,12 @@ export interface BulkDeleteActionsState {
 }
 
 interface UseBulkDeleteOptions<TResp> {
-  /** Calls the entity's `DELETE .../bulk` client method. */
-  bulkDeleteFn: (ids: string[]) => Promise<TResp>;
+  /** Calls the entity's `DELETE .../bulk` client method. Omit for entities
+   * with only a single-row delete endpoint (pass `deleteOneFn` instead). */
+  bulkDeleteFn?: (ids: string[]) => Promise<TResp>;
+  /** Single-row delete used when `requestDelete(id)` targeted one row and
+   * no bulk endpoint exists. */
+  deleteOneFn?: (id: string) => Promise<unknown>;
   /** Invalidated after a successful delete so the grid refetches. Omit for
    * grids that don't fetch through react-query (e.g. Tokens) and use
    * `onSuccess` instead. */
@@ -49,6 +53,7 @@ interface UseBulkDeleteOptions<TResp> {
  */
 export function useBulkDelete<TResp = void>({
   bulkDeleteFn,
+  deleteOneFn,
   queryKey,
   onSuccess,
   itemLabelSingular,
@@ -105,9 +110,16 @@ export function useBulkDelete<TResp = void>({
 
     try {
       setIsDeleting(true);
-      const response = await bulkDeleteFn(idsToDelete);
+      let skipped = 0;
+      if (bulkDeleteFn) {
+        const response = await bulkDeleteFn(idsToDelete);
+        skipped = getSkippedCount?.(response) ?? 0;
+      } else if (deleteOneFn && pendingDeleteId) {
+        await deleteOneFn(pendingDeleteId);
+      } else {
+        return;
+      }
 
-      const skipped = getSkippedCount?.(response) ?? 0;
       const deletedCount = idsToDelete.length - skipped;
       if (deletedCount > 0) {
         const deletedLabel =
@@ -152,6 +164,7 @@ export function useBulkDelete<TResp = void>({
     pendingDeleteId,
     selectedRows,
     bulkDeleteFn,
+    deleteOneFn,
     getSkippedCount,
     skippedReason,
     itemLabelSingular,
