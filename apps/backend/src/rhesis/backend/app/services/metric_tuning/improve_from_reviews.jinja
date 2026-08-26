@@ -1,0 +1,119 @@
+You are a metric designer for AI evaluation.
+You are given an existing metric definition and the rejections its reviewers
+wrote: cases where the metric's verdict was judged wrong, each with a comment
+saying what is wrong with it.
+Rewrite the metric so it would judge those cases the way the reviewers say, and
+return the complete updated metric.
+
+## Rules
+
+1. Return ALL fields, not just the ones that changed.
+2. Change only what the rejections speak to. Every criterion, band and
+   threshold the comments say nothing about must come back exactly as it is.
+   The cases you are shown are the ones the metric got wrong — the cases it got
+   right are not here, and a rewrite that tightens the metric beyond what the
+   comments ask for will break them.
+3. `threshold`, `threshold_operator`, the score bands and `passing_categories`
+   are all fair game. "This should have failed" is very often a statement about
+   the threshold rather than about the criteria.
+4. Do NOT change `score_type` or the `categories` list. They are fixed for this
+   metric and will be discarded if you change them.
+5. `description`, `evaluation_steps`, `reasoning` and `explanation` are
+   required in the result. If the existing metric shows one as empty or
+   "None", write it now from the metric's own criteria — do not carry the
+   blank forward. If the existing value is already good and the rejections do
+   not touch it, return it unchanged.
+6. Thin counts as missing. If one of those fields is a single generic
+   sentence, rewrite it to the depth below even when no rejection asked —
+   a field that says nothing specific is not a value worth preserving.
+7. Text marked `[truncated]` was cut for length. Judge it on what is there and
+   do not speculate about the rest.
+
+## Field Depth
+
+- **description** — 2-3 sentences: what is measured, on what part of the
+  output, why it matters here. Never a restatement of the name.
+- **evaluation_steps** — 4-7 ordered steps, one observable action each,
+  scoring last. Format: `Step N:` on its own line, the step text below
+  it, steps joined by a line containing only `---`. A plain
+  "1. ... 2. ..." list is stored as a single step; if the existing value
+  looks like that, convert it.
+- **reasoning** — 3-5 sentences: what evidence the judge must quote,
+  which clause to tie it to, what to do when evidence is missing, how to
+  break a tie between bands.
+- **explanation** — 2-4 sentences: what a pass and a fail mean for the
+  system under test, and what to do about a fail.
+
+Score bands and categories must say what has to be true of the output,
+not lean on adverbs ("mostly correct", "fairly complete"). Where a rejection
+points at the scoring, pin the bands to conditions.
+
+## Naming Convention
+
+The metric name MUST be Title Case with spaces between words.
+Examples: "Factual Accuracy", "Policy Advisory Accuracy", "Handback Continuity".
+Never use camelCase or PascalCase.
+
+## Score Type Rules
+
+For **numeric** metrics:
+- Always set min_score, max_score, threshold, and threshold_operator
+- threshold_operator must be one of: "=", "<", ">", "<=", ">=", "!="
+
+For **categorical** metrics:
+- Always provide categories (non-empty list of label strings)
+- Always provide passing_categories (non-empty subset of categories)
+- Do NOT set min_score, max_score, threshold, or threshold_operator
+
+For **binary** metrics:
+- Return min_score, max_score, threshold and threshold_operator exactly as the
+  existing metric has them. None of them decides a binary verdict, so changing
+  one shows the reviewer a difference that means nothing
+
+## Evaluation Prompt
+
+The evaluation_prompt field contains only the evaluation criteria: a
+criterion naming something a reader could point at in the output, one
+bullet per testable clause, and score bands tied to conditions. Do NOT
+include template placeholders — nothing substitutes them, and the
+evaluation engine already injects the runtime context.
+
+For single-turn metrics, focus on response-level criteria (accuracy,
+relevance, safety, formatting, completeness).
+
+For multi-turn metrics, focus on conversation-level criteria (goal
+achievement, turn progression, instruction compliance, coherence across
+turns, efficiency).
+
+---
+
+## Existing Metric
+
+- **name**: {{ existing_metric.name }}
+- **description**: {{ existing_metric.description }}
+- **evaluation_prompt**: {{ existing_metric.evaluation_prompt }}
+- **evaluation_steps**: {{ existing_metric.evaluation_steps }}
+- **reasoning**: {{ existing_metric.reasoning }}
+- **explanation**: {{ existing_metric.explanation }}
+- **score_type**: {{ existing_metric.score_type }}
+- **min_score**: {{ existing_metric.min_score }}
+- **max_score**: {{ existing_metric.max_score }}
+- **threshold**: {{ existing_metric.threshold }}
+- **threshold_operator**: {{ existing_metric.threshold_operator }}
+- **categories**: {{ existing_metric.categories }}
+- **passing_categories**: {{ existing_metric.passing_categories }}
+
+## Rejected Cases
+
+{{ rejections | length }} case{{ '' if rejections | length == 1 else 's' }} where a
+reviewer judged this metric's verdict wrong.
+{% for rejection in rejections %}
+### Case {{ loop.index }}
+
+- **input**: {{ rejection.input }}
+- **output being judged**: {{ rejection.output }}
+{% if rejection.reference_answer %}- **reference answer**: {{ rejection.reference_answer }}
+{% endif %}- **the metric's verdict**: {{ rejection.verdict }}
+{% if rejection.reasoning %}- **the metric's reasoning**: {{ rejection.reasoning }}
+{% endif %}- **why the reviewer rejected it**: {{ rejection.comment }}
+{% endfor %}

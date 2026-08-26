@@ -180,6 +180,16 @@ export interface MetricDetailViewProps {
   tabNav?: React.ReactNode;
   /** Optional content to replace the detail body (e.g. for secondary tabs). */
   tabBody?: React.ReactNode;
+  /**
+   * Bump to make this view re-read the metric.
+   *
+   * The fetch is guarded to run once per metric id, which is right while this
+   * view is the only thing writing the metric. It is not the only thing: a
+   * sibling tab rendered through `tabBody` can write it too — the Tuning tab
+   * applying an improvement rewrites the evaluation prompt — and this view would
+   * otherwise go on showing the copy it read on mount until the page reloads.
+   */
+  refreshKey?: number;
 }
 
 export function MetricDetailView({
@@ -189,6 +199,7 @@ export function MetricDetailView({
   onSaved,
   tabNav,
   tabBody,
+  refreshKey = 0,
 }: MetricDetailViewProps) {
   const { data: session, status } = useSession();
   const theme = useTheme();
@@ -229,6 +240,14 @@ export function MetricDetailView({
     setMetric(null);
     setMissingError(null);
   }, [metricId]);
+
+  // Declared before the fetch below so it clears the guard on the same render
+  // the key changes. Deliberately does not blank `metric` the way a new id does:
+  // this is the same metric read again, and emptying the view first would flash
+  // a loading state over content that is only slightly out of date.
+  useEffect(() => {
+    dataFetchedRef.current = false;
+  }, [refreshKey]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -280,7 +299,7 @@ export function MetricDetailView({
     };
 
     fetchData();
-  }, [metricId, mode, notifications, router, status]);
+  }, [metricId, mode, notifications, refreshKey, router, status]);
 
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
     const values: Partial<EditData> = {};
