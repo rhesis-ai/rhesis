@@ -1,42 +1,29 @@
 'use client';
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
-import {
-  useBulkDelete,
-  type BulkDeleteActionsState,
-} from '@/hooks/useBulkDelete';
-import ListIcon from '@mui/icons-material/List';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import GridBadge from '@/components/common/GridBadge';
-import TagLabel from '@/components/common/Tag';
-import {
-  GridColDef,
-  GridRowParams,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
-import { useRouter } from 'next/navigation';
+import React, { useState, useCallback, useMemo } from 'react';
+import { GridColDef } from '@mui/x-data-grid';
 import {
   Typography,
   Box,
-  Alert,
   Avatar,
   Chip,
   Button,
   ButtonGroup,
   Tooltip,
-  Paper,
 } from '@mui/material';
+import ListIcon from '@mui/icons-material/List';
+import PersonIcon from '@mui/icons-material/Person';
+import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
+import GridBadge from '@/components/common/GridBadge';
+import TagLabel from '@/components/common/Tag';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import {
   ChatIcon,
   DescriptionIcon,
@@ -45,36 +32,19 @@ import {
   PlayArrowIcon,
 } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import PersonIcon from '@mui/icons-material/Person';
-import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import { useNotifications } from '@/components/common/NotificationContext';
-// Renamed on import: distinct from the toast system's useNotifications above --
-// this one tracks the persistent unread badge and row highlight.
-import { useNotifications as useNotificationBadges } from '@/contexts/NotificationsContext';
-import {
-  HIGHLIGHTED_ROW_CLASS,
-  NotificationSection,
-} from '@/constants/notifications';
+import { NotificationSection } from '@/constants/notifications';
 import { TestRun, TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import { useList } from '@/hooks/useList';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
 import { testRunsList } from './list';
 import TestRunFilterDrawer, {
   type TestRunFilters,
   EMPTY_TEST_RUN_FILTERS,
-  hasActiveTestRunFilters,
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
-import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
-import GridStateGate from '@/components/common/GridStateGate';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
 
@@ -97,8 +67,6 @@ function formatReviewTooltip(reviewed: number, corrected: number): string {
   return reviewedLabel;
 }
 
-// ── Status pill tabs ─────────────────────────────────────────────────────────
-
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
   { label: 'In Progress', value: 'Progress' },
@@ -107,79 +75,43 @@ const STATUS_TABS = [
   { label: 'Failed', value: 'Failed' },
 ];
 
-// ── Toolbar context ──────────────────────────────────────────────────────────
-
-interface TestRunsToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  statusFilter: string;
-  setStatusFilter: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+function toFilters(state: EntityGridFilterState<TestRunFilters>) {
+  return {
+    search: state.search,
+    status: state.pill,
+    testSet: state.drawer.testSet,
+    executor: state.drawer.executor,
+    tag: state.drawer.tag,
+    tagsPresence: state.drawer.tags,
+    commentsPresence: state.drawer.comments,
+    tasksPresence: state.drawer.tasks,
+    // Owned by the toolbar's run-kind toggle, merged in via externalFilters.
+    runKind: 'all',
+    reviews: state.drawer.reviews ?? 'all',
+  };
 }
 
-const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  statusFilter: 'all',
-  setStatusFilter: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-function TestRunsUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(TestRunsToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search test runs…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      middleContent={
-        <ToolbarPillTabs
-          tabs={STATUS_TABS}
-          activeValue={statusFilter}
-          onChange={setStatusFilter}
-        />
-      }
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select test runs"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<TestRunFilters> = {
+  empty: EMPTY_TEST_RUN_FILTERS,
+  countActive: countActiveTestRunFilters,
+  render: props => (
+    <TestRunFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
+  ),
+};
+
+function isCancellableRun(row: Record<string, unknown>): boolean {
+  const statusName = (
+    (row.status as { name?: string } | undefined)?.name ?? ''
+  ).toLowerCase();
+  return statusName === 'queued' || statusName === 'progress';
 }
 
-// ── Grid component ────────────────────────────────────────────────────────────
-
-function TestRunsGrid({
+export default function TestRunsGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
@@ -187,141 +119,87 @@ function TestRunsGrid({
   initialData,
   initialTotalCount,
 }: TestRunsGridProps) {
-  const router = useRouter();
   const notifications = useNotifications();
-  const { highlightedIds, clearHighlight } = useNotificationBadges();
-  const testRunHighlights = highlightedIds(NotificationSection.TEST_RUNS);
 
-  // ── Search + status filter ─────────────────────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-
-  // ── Filter drawer state ────────────────────────────────────────────────────
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] = useState<TestRunFilters>(
-    EMPTY_TEST_RUN_FILTERS
-  );
-
-  // ── Other UI state ─────────────────────────────────────────────────────────
-  const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
-  const [errorDismissed, setErrorDismissed] = useState(false);
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  // ── Grid state (pagination, filter, sort) ─────────────────────────────────
-
-  const filters = useMemo(
-    () => ({
-      search: searchQuery,
-      status: statusFilter === 'all' ? '' : statusFilter,
-      testSet: drawerFilters.testSet,
-      executor: drawerFilters.executor,
-      tag: drawerFilters.tag,
-      tagsPresence: drawerFilters.tags,
-      commentsPresence: drawerFilters.comments,
-      tasksPresence: drawerFilters.tasks,
-      runKind: runKindFilter,
-      reviews: drawerFilters.reviews ?? 'all',
-    }),
-    [searchQuery, statusFilter, drawerFilters, runKindFilter]
+  const externalFilters = useMemo(
+    () => ({ runKind: runKindFilter }),
+    [runKindFilter]
   );
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
+  const runKindToolbar = useMemo(
+    () => (
+      <ButtonGroup size="small" variant="outlined">
+        <Button
+          onClick={() => setRunKindFilter('all')}
+          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
+          startIcon={<ListIcon fontSize="small" />}
+        >
+          All
+        </Button>
+        <Button
+          onClick={() => setRunKindFilter('tests')}
+          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
+          startIcon={<ScienceIcon fontSize="small" />}
+        >
+          Tests
+        </Button>
+        <Button
+          onClick={() => setRunKindFilter('experiments')}
+          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
+          startIcon={<BiotechIcon fontSize="small" />}
+        >
+          Experiments
+        </Button>
+      </ButtonGroup>
+    ),
+    [runKindFilter]
+  );
 
-  const {
-    data: testRuns,
-    totalCount,
-    isLoading: loading,
-    error: rawError,
-    refresh,
-    paginationModel,
-    onPaginationModelChange: handlePaginationModelChange,
-    sortModel,
-    onSortModelChange: handleSortModelChange,
-  } = useList(testRunsList, {
-    filters,
-    initialData,
-    initialTotalCount,
-    onError: () => setErrorDismissed(false),
-  });
+  const handleCancelClose = useCallback(() => {
+    setPendingCancelId(null);
+  }, []);
 
-  useEffect(() => {
-    setErrorDismissed(false);
-  }, [rawError]);
-
-  const error = rawError && !errorDismissed ? rawError : null;
-  const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  // ── Bulk selection + delete ──────────────────────────────────────────────────
-  const {
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-    selectedRows,
-    handleSelectionChange,
-    pendingDeleteId,
-    deleteModalOpen,
-    isDeleting,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  } = useBulkDelete({
-    bulkDeleteFn: (ids: string[]) =>
-      new ApiClientFactory().getTestRunsClient().bulkDeleteTestRuns(ids),
-    onSuccess: refresh,
-    itemLabelSingular: 'test run',
-    itemLabelPlural: 'test runs',
-    getSkippedCount: response => response.forbidden_ids.length,
-    skippedReason: 'not yours to delete',
-    onBulkActionsChange,
-  });
-
-  const isFirstRefreshTrigger = useRef(true);
-  useEffect(() => {
-    if (isFirstRefreshTrigger.current) {
-      isFirstRefreshTrigger.current = false;
-      return;
-    }
-    refresh();
-    // Only refreshTrigger (bumped by the page after a create) should re-run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
-
-  // ── Row action handlers ────────────────────────────────────────────────────
-
-  const handleRowEditAction = useCallback(
-    (id: string) => {
-      router.push(`/test-runs/${id}`);
+  const makeCancelConfirm = useCallback(
+    (refresh: () => void) => async () => {
+      if (!pendingCancelId) return;
+      try {
+        setIsCancelling(true);
+        await new ApiClientFactory()
+          .getTestRunsClient()
+          .cancelTestRun(pendingCancelId);
+        notifications.show('Successfully cancelled test run', {
+          severity: 'success',
+        });
+        refresh();
+      } catch {
+        notifications.show('Failed to cancel test run', { severity: 'error' });
+      } finally {
+        setIsCancelling(false);
+        setPendingCancelId(null);
+      }
     },
-    [router]
+    [pendingCancelId, notifications]
   );
 
-  const handleRowCancelAction = useCallback((id: string) => {
-    setPendingCancelId(id);
-    setCancelModalOpen(true);
-  }, []);
+  const extraRowActions = useMemo(
+    () => [
+      {
+        key: 'cancel',
+        icon: StopCircleOutlinedIcon,
+        tooltip: 'Cancel',
+        onClick: (id: string) => setPendingCancelId(id),
+        can: isCancellableRun,
+      },
+    ],
+    []
+  );
 
-  const isCancellableRun = useCallback((row: Record<string, unknown>) => {
-    const statusName = (
-      (row.status as { name?: string } | undefined)?.name ?? ''
-    ).toLowerCase();
-    return statusName === 'queued' || statusName === 'progress';
-  }, []);
-
-  // ── Column definitions ────────────────────────────────────────────────────
-
-  const columns: GridColDef[] = useMemo(() => {
-    const actionsCol = createRowActionsColumn({
-      onEdit: id => handleRowEditAction(id),
-      canEdit: row => can(row as unknown as TestRun, Capability.TestRun.UPDATE),
-      onCancel: id => handleRowCancelAction(id),
-      canCancel: isCancellableRun,
-      onDelete: id => requestDelete(id),
-      canDelete: row =>
-        can(row as unknown as TestRun, Capability.TestRun.DELETE),
-      width: 112,
-    });
-    return [
+  const columns: GridColDef[] = useMemo(
+    () => [
       {
         field: 'name',
         headerName: 'Name',
@@ -621,96 +499,16 @@ function TestRunsGrid({
           );
         },
       },
-      actionsCol,
-    ];
-  }, [
-    handleRowEditAction,
-    handleRowCancelAction,
-    isCancellableRun,
-    requestDelete,
-  ]);
-
-  // ── Row handlers ──────────────────────────────────────────────────────────
-
-  const handleRowClick = useCallback(
-    (params: { id: string | number }) => {
-      clearHighlight(NotificationSection.TEST_RUNS, String(params.id));
-      router.push(`/test-runs/${params.id}`);
-    },
-    [router, clearHighlight]
+    ],
+    []
   );
-
-  // ── Cancel handlers ───────────────────────────────────────────────────────
-
-  const handleCancelConfirm = useCallback(async () => {
-    if (!pendingCancelId) {
-      setCancelModalOpen(false);
-      return;
-    }
-
-    try {
-      setIsCancelling(true);
-      const clientFactory = new ApiClientFactory();
-      const testRunsClient = clientFactory.getTestRunsClient();
-      await testRunsClient.cancelTestRun(pendingCancelId);
-      notifications.show('Successfully cancelled test run', {
-        severity: 'success',
-      });
-      setPendingCancelId(null);
-      refresh();
-    } catch (_error) {
-      notifications.show('Failed to cancel test run', { severity: 'error' });
-    } finally {
-      setIsCancelling(false);
-      setCancelModalOpen(false);
-    }
-  }, [pendingCancelId, notifications, refresh]);
-
-  const handleCancelClose = useCallback(() => {
-    setCancelModalOpen(false);
-    setPendingCancelId(null);
-  }, []);
-
-  const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
-    setRunKindFilter(value);
-  }, []);
-
-  const runKindToolbar = useMemo(
-    () => (
-      <ButtonGroup size="small" variant="outlined">
-        <Button
-          onClick={() => handleRunKindFilterChange('all')}
-          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
-          startIcon={<ListIcon fontSize="small" />}
-        >
-          All
-        </Button>
-        <Button
-          onClick={() => handleRunKindFilterChange('tests')}
-          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
-          startIcon={<ScienceIcon fontSize="small" />}
-        >
-          Tests
-        </Button>
-        <Button
-          onClick={() => handleRunKindFilterChange('experiments')}
-          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
-          startIcon={<BiotechIcon fontSize="small" />}
-        >
-          Experiments
-        </Button>
-      </ButtonGroup>
-    ),
-    [runKindFilter, handleRunKindFilterChange]
-  );
-
-  const filtersActive = !!searchQuery || hasActiveTestRunFilters(drawerFilters);
 
   return (
-    <GridStateGate
-      data={loading ? null : {}}
-      error={error}
-      isEmpty={totalCount === 0 && !filtersActive}
+    <EntityGrid<TestRunDetail, typeof testRunsList.filters, TestRunFilters>
+      descriptor={testRunsList}
+      columns={columns}
+      toFilters={toFilters}
+      externalFilters={externalFilters}
       emptyState={
         <EntityEmptyState
           card
@@ -722,106 +520,38 @@ function TestRunsGrid({
           enrichment={getEntityEmptyStateEnrichment('test-runs')}
         />
       }
-    >
-      <Paper sx={GRID_PAPER_SX}>
-        <TestRunsToolbarContext.Provider
-          value={{
-            searchQuery,
-            setSearchQuery,
-            statusFilter,
-            setStatusFilter,
-            openFilterDrawer: () => setFilterDrawerOpen(true),
-            hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
-            activeFilterCount: countActiveTestRunFilters(drawerFilters),
-            checkboxSelectionMode,
-            setCheckboxSelectionMode,
-          }}
-        >
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-              {error}
-            </Alert>
-          )}
-
-          <BaseDataGrid
-            rows={testRuns}
-            columns={columns}
-            loading={loading}
-            getRowId={row => row.id}
-            paginationModel={paginationModel}
-            onPaginationModelChange={handlePaginationModelChange}
-            sortingMode="server"
-            sortModel={sortModel}
-            onSortModelChange={handleSortModelChange}
-            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
-            getRowClassName={params =>
-              testRunHighlights.includes(String(params.id))
-                ? HIGHLIGHTED_ROW_CLASS
-                : ''
-            }
-            getRowUrl={
-              checkboxSelectionMode ? undefined : row => `/test-runs/${row.id}`
-            }
-            serverSidePagination={true}
-            totalRows={totalCount}
-            pageSizeOptions={[10, 25, 50]}
-            gridToolbarExtra={runKindToolbar}
-            disablePaperWrapper={true}
-            showToolbar={true}
-            toolbarSlot={TestRunsUnifiedToolbar}
-            persistState
-            storageKey="test-runs-grid-v2"
-            sx={rowActionsHoverSx}
-            checkboxSelection={checkboxSelectionMode}
-            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-            isRowSelectable={(params: GridRowParams) =>
-              can(params.row as unknown as TestRun, Capability.TestRun.DELETE)
-            }
-            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-            onRowSelectionModelChange={
-              checkboxSelectionMode ? handleSelectionChange : undefined
-            }
-          />
-
-          <DeleteModal
-            open={deleteModalOpen}
-            onClose={cancelDelete}
-            onConfirm={confirmDelete}
-            isLoading={isDeleting}
-            title={pendingDeleteId ? 'Delete Test Run' : 'Delete Test Runs'}
-            message={
-              pendingDeleteId
-                ? 'Are you sure you want to delete this test run? Related data will not be deleted.'
-                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test run' : 'test runs'}? Related data will not be deleted.`
-            }
-            itemType="test runs"
-          />
-
-          <DeleteModal
-            open={cancelModalOpen}
-            onClose={handleCancelClose}
-            onConfirm={handleCancelConfirm}
-            isLoading={isCancelling}
-            title="Cancel Test Run"
-            message="Are you sure you want to cancel this test run? It will be stopped and marked as Cancelled."
-            itemType="test run"
-            confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
-            cancelButtonText="Keep Running"
-          />
-
-          {/* Filter drawer */}
-          <TestRunFilterDrawer
-            open={filterDrawerOpen}
-            onClose={() => setFilterDrawerOpen(false)}
-            filters={drawerFilters}
-            onApply={f => {
-              setDrawerFilters(f);
-            }}
-          />
-        </TestRunsToolbarContext.Provider>
-      </Paper>
-    </GridStateGate>
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      searchPlaceholder="Search test runs…"
+      pills={{ tabs: STATUS_TABS }}
+      drawer={drawerAdapter}
+      toolbarRight={runKindToolbar}
+      selectionLabel="Select test runs"
+      getRowUrl={row => `/test-runs/${row.id}`}
+      highlightSection={NotificationSection.TEST_RUNS}
+      editAction={{
+        can: (row: TestRunDetail) =>
+          can(row as TestRun, Capability.TestRun.UPDATE),
+      }}
+      extraRowActions={extraRowActions}
+      rowActionsWidth={112}
+      onBulkActionsChange={onBulkActionsChange}
+      storageKey="test-runs-grid-v2"
+      pageSizeOptions={[10, 25, 50]}
+      renderSelectionExtras={ctx => (
+        <DeleteModal
+          open={pendingCancelId !== null}
+          onClose={handleCancelClose}
+          onConfirm={makeCancelConfirm(ctx.refresh)}
+          isLoading={isCancelling}
+          title="Cancel Test Run"
+          message="Are you sure you want to cancel this test run? It will be stopped and marked as Cancelled."
+          itemType="test run"
+          confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
+          cancelButtonText="Keep Running"
+        />
+      )}
+    />
   );
 }
-
-export default React.memo(TestRunsGrid);

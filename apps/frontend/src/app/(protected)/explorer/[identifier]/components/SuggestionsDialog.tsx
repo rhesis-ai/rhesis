@@ -881,7 +881,6 @@ export default function SuggestionsDialog({
           rows={suggestions}
           loading={acceptAllInProgress}
           getRowId={row => row._id}
-          showToolbar={false}
           paginationModel={{ page: 0, pageSize: 25 }}
           serverSidePagination={false}
           totalRows={suggestions.length}

@@ -68,7 +68,7 @@ export class OrgTeamPage extends BasePage {
    */
   async expectMembersAreaVisible() {
     await this.page.waitForLoadState('networkidle');
-    await expect(this.page.getByRole('table').first()).toBeVisible({
+    await expect(this.page.locator('[role="grid"]').first()).toBeVisible({
       timeout: 15_000,
     });
   }

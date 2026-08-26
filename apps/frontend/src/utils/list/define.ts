@@ -110,14 +110,48 @@ export interface ListState<S extends FilterSpecMap> {
 
 export type ListParams = PaginationParams & Record<string, unknown>;
 
-export interface ListDescriptor<T, S extends FilterSpecMap> {
+/**
+ * How rows of this list are deleted. Declaring it on the descriptor gives the
+ * grid its trailing delete action, the confirm modal, and (when `bulk` is set)
+ * the checkbox-selection bulk-delete mode — no per-grid wiring.
+ */
+export interface ListDeleteSpec<TResp = unknown> {
+  /** Calls the entity's `DELETE .../bulk` endpoint. Enables checkbox bulk mode. */
+  bulk?: (factory: ApiClientFactory, ids: string[]) => Promise<TResp>;
+  /** Single-row delete, for entities without a bulk endpoint. */
+  one?: (factory: ApiClientFactory, id: string) => Promise<unknown>;
+  /** e.g. `Capability.TestRun.DELETE`. */
+  capability: string;
+  /**
+   * `'row'`: the response rows carry `permitted_actions` — gate per row via
+   * `can(row, capability)` (also gates row selectability). `'ambient'`: gate
+   * once via `useCan(capability)`.
+   */
+  capabilityMode: 'row' | 'ambient';
+  labelSingular: string;
+  labelPlural: string;
+  // Method syntax on purpose: bivariant params keep a descriptor with a
+  // concrete TResp assignable to the `ListDescriptor<T, S>` (TDeleteResp =
+  // unknown) signatures the hooks use.
+  /** Owner-only delete rule: count of ids skipped by the bulk response. */
+  getSkippedCount?(response: TResp): number;
+  /** Reason shown alongside the skipped count, e.g. "not yours to delete". */
+  skippedReason?: string;
+  /** Confirm-modal body override; `count` is 1 for a single-row delete. */
+  confirmMessage?: (count: number) => string;
+}
+
+export interface ListDescriptor<
+  T,
+  S extends FilterSpecMap,
+  TDeleteResp = unknown,
+> {
   title: string;
   description?: string;
   /** Noun used in the `AccessDenied` message, e.g. `endpoints`. */
   resource: string;
   /** A single capability, or two OR'd together. */
   capability: string | readonly [string, string];
-  createCapability?: string;
   defaultPageSize: number;
   defaultSort: ListSort;
   filters: S;
@@ -130,19 +164,26 @@ export interface ListDescriptor<T, S extends FilterSpecMap> {
    * `has_experiment`/`has_reviews` are top-level params, not `$filter` clauses.
    */
   extraParams?: (filters: FiltersOf<S>) => Record<string, unknown>;
+  delete?: ListDeleteSpec<TDeleteResp>;
 }
 
-type DescriptorInput<T, S extends FilterSpecMap> = Omit<
-  ListDescriptor<T, S>,
+type DescriptorInput<T, S extends FilterSpecMap, TDeleteResp> = Omit<
+  ListDescriptor<T, S, TDeleteResp>,
   'defaultSort'
-> & { defaultSort?: ListSort };
+> & {
+  defaultSort?: ListSort;
+};
 
 /** Every list endpoint sorts newest-first unless the descriptor says otherwise. */
 const DEFAULT_SORT: ListSort = { by: 'created_at', order: 'desc' };
 
-export function defineList<T, const S extends FilterSpecMap>(
-  descriptor: DescriptorInput<T, S>
-): ListDescriptor<T, S> {
+export function defineList<
+  T,
+  const S extends FilterSpecMap,
+  TDeleteResp = unknown,
+>(
+  descriptor: DescriptorInput<T, S, TDeleteResp>
+): ListDescriptor<T, S, TDeleteResp> {
   return { defaultSort: DEFAULT_SORT, ...descriptor };
 }
 

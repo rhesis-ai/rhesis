@@ -699,7 +699,6 @@ export default function TestsTableView({
           openTestDrawer(params.row);
         }}
         disablePaperWrapper={embedded}
-        showToolbar={false}
         sx={{
           '& .test-row-actions': {
             opacity: 0,

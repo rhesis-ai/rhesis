@@ -419,7 +419,6 @@ export default function TracesTable({
         }}
         pageSizeOptions={[25, 50, 100]}
         disablePaperWrapper
-        showToolbar
         toolbarSlot={() => (
           <TracesUnifiedToolbar hideTypeFilter={Boolean(fixedTestRunId)} />
         )}

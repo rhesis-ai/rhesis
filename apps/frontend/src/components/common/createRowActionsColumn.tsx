@@ -10,7 +10,6 @@ import React, {
 import { Box, IconButton, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { gridClasses, type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { EditIcon, DeleteIcon } from '@/components/icons';
 
@@ -131,37 +130,55 @@ function RowActionsCell({ rowId, children }: RowActionsCellProps) {
   );
 }
 
+/** An entity-specific action rendered between the edit and delete icons. */
+export interface RowExtraAction {
+  key: string;
+  icon: SvgIconComponent;
+  tooltip: string;
+  onClick: (id: string, row: Record<string, unknown>) => void;
+  /** Return false to hide the action for this row. Defaults to always visible. */
+  can?: (row: Record<string, unknown>) => boolean;
+  /** Icon hover color. Defaults to `warning.main`. */
+  hoverColor?: 'primary.main' | 'warning.main' | 'error.main';
+}
+
 interface RowActionsColumnOptions {
   onEdit?: (id: string, row: Record<string, unknown>) => void;
   onDelete?: (id: string, row: Record<string, unknown>) => void;
-  onCancel?: (id: string, row: Record<string, unknown>) => void;
   /** Return false to hide the edit button for this row. Defaults to always visible. */
   canEdit?: (row: Record<string, unknown>) => boolean;
-  canCancel?: (row: Record<string, unknown>) => boolean;
   canDelete?: (row: Record<string, unknown>) => boolean;
+  /** Entity-specific actions (cancel a run, refresh a token, …). */
+  extraActions?: RowExtraAction[];
   width?: number;
   editTooltip?: string;
   deleteTooltip?: string;
-  cancelTooltip?: string;
   deleteIcon?: SvgIconComponent;
 }
 
+const actionIconButtonSx = (hoverColor: string) => ({
+  p: 0.5,
+  color: 'text.secondary',
+  '&:hover': {
+    color: hoverColor,
+    bgcolor: 'action.hover',
+  },
+});
+
 /**
- * Creates a header-less trailing column showing edit / delete / cancel icons
- * revealed on row hover. Pass handlers as needed; `onCancel` is only rendered
- * when `canCancel(row)` returns true (defaults to always-true if omitted).
+ * Creates a header-less trailing column showing edit / extra / delete icons
+ * revealed on row hover. Pass handlers as needed; each entry only renders when
+ * its `can*` predicate returns true (defaults to always-true if omitted).
  */
 export function createRowActionsColumn({
   onEdit,
   onDelete,
-  onCancel,
   canEdit,
-  canCancel,
   canDelete,
+  extraActions,
   width = 88,
   editTooltip = 'Edit',
   deleteTooltip = 'Delete',
-  cancelTooltip = 'Cancel',
   deleteIcon: DeleteIconComponent = DeleteIcon,
 }: RowActionsColumnOptions): GridColDef {
   return {
@@ -176,9 +193,7 @@ export function createRowActionsColumn({
     renderCell: params => {
       const id = String(params.id);
       const row = params.row as Record<string, unknown>;
-      const cancelFn = onCancel;
       const showEdit = onEdit && (!canEdit || canEdit(row));
-      const showCancel = cancelFn && (!canCancel || canCancel(row));
       const showDelete = onDelete && (!canDelete || canDelete(row));
 
       return (
@@ -189,42 +204,32 @@ export function createRowActionsColumn({
                 size="small"
                 onClick={e => {
                   e.stopPropagation();
-                  onEdit!(id, row);
+                  onEdit(id, row);
                 }}
-                sx={{
-                  p: 0.5,
-                  color: 'text.secondary',
-                  '&:hover': {
-                    color: 'primary.main',
-                    bgcolor: 'action.hover',
-                  },
-                }}
+                sx={actionIconButtonSx('primary.main')}
               >
                 <EditIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Tooltip>
           )}
-          {showCancel && cancelFn && (
-            <Tooltip title={cancelTooltip}>
-              <IconButton
-                size="small"
-                onClick={e => {
-                  e.stopPropagation();
-                  cancelFn(id, row);
-                }}
-                sx={{
-                  p: 0.5,
-                  color: 'text.secondary',
-                  '&:hover': {
-                    color: 'warning.main',
-                    bgcolor: 'action.hover',
-                  },
-                }}
-              >
-                <StopCircleOutlinedIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
+          {extraActions?.map(action => {
+            if (action.can && !action.can(row)) return null;
+            const ActionIcon = action.icon;
+            return (
+              <Tooltip key={action.key} title={action.tooltip}>
+                <IconButton
+                  size="small"
+                  onClick={e => {
+                    e.stopPropagation();
+                    action.onClick(id, row);
+                  }}
+                  sx={actionIconButtonSx(action.hoverColor ?? 'warning.main')}
+                >
+                  <ActionIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            );
+          })}
           {showDelete && (
             <Tooltip title={deleteTooltip}>
               <IconButton
@@ -233,14 +238,7 @@ export function createRowActionsColumn({
                   e.stopPropagation();
                   onDelete(id, row);
                 }}
-                sx={{
-                  p: 0.5,
-                  color: 'text.secondary',
-                  '&:hover': {
-                    color: 'error.main',
-                    bgcolor: 'action.hover',
-                  },
-                }}
+                sx={actionIconButtonSx('error.main')}
               >
                 <DeleteIconComponent sx={{ fontSize: 18 }} />
               </IconButton>

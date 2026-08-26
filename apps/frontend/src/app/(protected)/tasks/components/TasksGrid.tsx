@@ -1,56 +1,27 @@
 'use client';
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
-import {
-  GridColDef,
-  GridRowParams,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
-import { useRouter } from 'next/navigation';
+import React, { useCallback, useMemo } from 'react';
+import { GridColDef } from '@mui/x-data-grid';
+import { Typography, Box, Avatar } from '@mui/material';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
+import GridBadge from '@/components/common/GridBadge';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { Task } from '@/utils/api-client/interfaces/task';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
-import { Typography, Box, Alert, Avatar, Paper } from '@mui/material';
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import GridBadge from '@/components/common/GridBadge';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useList } from '@/hooks/useList';
-import { tasksList } from './list';
+import { NotificationSection } from '@/constants/notifications';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { tasksList } from './list';
 import TaskFilterDrawer, {
   type TaskFilters,
   EMPTY_TASK_FILTERS,
-  hasActiveTaskFilters,
   countActiveTaskFilters,
 } from './TaskFilterDrawer';
-import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
-import {
-  HIGHLIGHTED_ROW_CLASS,
-  NotificationSection,
-} from '@/constants/notifications';
-import {
-  useBulkDelete,
-  type BulkDeleteActionsState,
-} from '@/hooks/useBulkDelete';
-import GridStateGate from '@/components/common/GridStateGate';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
 
 interface TasksGridProps {
   canCreate?: boolean;
@@ -69,75 +40,35 @@ const STATUS_PILL_TABS = [
   { label: 'In Progress', value: 'In Progress' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Cancelled', value: 'Cancelled' },
-] as const;
+];
 
-interface TasksToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  statusFilter: string;
-  setStatusFilter: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+// A pill click wins over the drawer's own status value (the pill is applied
+// after drawer filters).
+function toFilters(state: EntityGridFilterState<TaskFilters>) {
+  return {
+    search: state.search,
+    status: state.pill || state.drawer.status,
+    priority: state.drawer.priority,
+    assignee: state.drawer.assignee,
+  };
 }
 
-const TasksToolbarContext = React.createContext<TasksToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  statusFilter: 'all',
-  setStatusFilter: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-function TasksUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(TasksToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search tasks…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      middleContent={
-        <ToolbarPillTabs
-          tabs={[...STATUS_PILL_TABS]}
-          activeValue={statusFilter}
-          onChange={setStatusFilter}
-        />
-      }
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select tasks"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<TaskFilters> = {
+  empty: EMPTY_TASK_FILTERS,
+  countActive: countActiveTaskFilters,
+  render: props => (
+    <TaskFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
+  ),
+  // Applying a status in the drawer syncs the pill; clearing it resets the
+  // pill only when no drawer status was active before.
+  pillFromApply: (applied, previous) =>
+    applied.status ? applied.status : !previous.status ? '' : undefined,
+};
 
 export default function TasksGrid({
   canCreate,
@@ -147,107 +78,10 @@ export default function TasksGrid({
   initialData,
   initialTotalCount,
 }: TasksGridProps) {
-  const router = useRouter();
-  const { highlightedIds, clearHighlight } = useJobNotifications();
+  const getRowUrl = useCallback((row: Task) => `/tasks/${row.id}`, []);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] =
-    useState<TaskFilters>(EMPTY_TASK_FILTERS);
-  const [errorDismissed, setErrorDismissed] = useState(false);
-
-  // A pill click wins over the drawer's own status value (the pill is
-  // applied after drawer filters).
-  const effectiveStatus =
-    statusFilter !== 'all' ? statusFilter : drawerFilters.status;
-
-  const filters = useMemo(
-    () => ({
-      search: searchQuery,
-      status: effectiveStatus,
-      priority: drawerFilters.priority,
-      assignee: drawerFilters.assignee,
-    }),
-    [
-      searchQuery,
-      effectiveStatus,
-      drawerFilters.priority,
-      drawerFilters.assignee,
-    ]
-  );
-
-  const {
-    data: tasks,
-    totalCount,
-    isLoading: loading,
-    error: rawError,
-    refresh,
-    paginationModel,
-    onPaginationModelChange: handlePaginationModelChange,
-  } = useList(tasksList, {
-    filters,
-    initialData,
-    initialTotalCount,
-    onError: () => setErrorDismissed(false),
-  });
-
-  useEffect(() => {
-    setErrorDismissed(false);
-  }, [rawError]);
-
-  const error = rawError && !errorDismissed ? rawError : null;
-  const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  const {
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-    selectedRows,
-    handleSelectionChange,
-    pendingDeleteId,
-    deleteModalOpen,
-    isDeleting,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  } = useBulkDelete({
-    bulkDeleteFn: (ids: string[]) =>
-      new ApiClientFactory().getTasksClient().bulkDeleteTasks(ids),
-    onSuccess: refresh,
-    itemLabelSingular: 'task',
-    itemLabelPlural: 'tasks',
-    getSkippedCount: response => response.forbidden_ids.length,
-    skippedReason: 'not yours to delete',
-    onBulkActionsChange,
-  });
-
-  const isFirstRefreshTrigger = useRef(true);
-  useEffect(() => {
-    if (isFirstRefreshTrigger.current) {
-      isFirstRefreshTrigger.current = false;
-      return;
-    }
-    refresh();
-    // Only refreshTrigger (bumped by the page after a create) should re-run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
-
-  const handleRowClick = useCallback(
-    (params: GridRowParams) => {
-      clearHighlight(NotificationSection.TASKS, String(params.id));
-      router.push(`/tasks/${params.id}`);
-    },
-    [router, clearHighlight]
-  );
-
-  const columns: GridColDef[] = useMemo(() => {
-    const actionsCol = createRowActionsColumn({
-      onEdit: id => router.push(`/tasks/${id}`),
-      canEdit: row => can(row as unknown as Task, Capability.Task.UPDATE),
-      onDelete: id => requestDelete(id),
-      canDelete: row => can(row as unknown as Task, Capability.Task.DELETE),
-    });
-    return [
+  const columns: GridColDef[] = useMemo(
+    () => [
       {
         field: 'title',
         headerName: 'Title',
@@ -286,6 +120,7 @@ export default function TasksGrid({
         width: 120,
         minWidth: 90,
         resizable: true,
+        sortable: false,
         renderCell: params => (
           <GridBadge label={params.row.status?.name || 'Unknown'} />
         ),
@@ -296,6 +131,7 @@ export default function TasksGrid({
         width: 150,
         minWidth: 120,
         resizable: true,
+        sortable: false,
         renderCell: params => {
           if (!params.row.assignee?.name) {
             return null;
@@ -321,17 +157,15 @@ export default function TasksGrid({
           );
         },
       },
-      actionsCol,
-    ];
-  }, [router, requestDelete]);
-
-  const filtersActive = !!searchQuery || hasActiveTaskFilters(drawerFilters);
+    ],
+    []
+  );
 
   return (
-    <GridStateGate
-      data={loading ? null : {}}
-      error={error}
-      isEmpty={totalCount === 0 && !filtersActive}
+    <EntityGrid<Task, typeof tasksList.filters, TaskFilters>
+      descriptor={tasksList}
+      columns={columns}
+      toFilters={toFilters}
       emptyState={
         <EntityEmptyState
           icon={AssignmentOutlinedIcon}
@@ -341,98 +175,19 @@ export default function TasksGrid({
           onAction={canCreate ? onCreateClick : undefined}
         />
       }
-    >
-      <Paper sx={GRID_PAPER_SX}>
-        <TasksToolbarContext.Provider
-          value={{
-            searchQuery,
-            setSearchQuery,
-            statusFilter,
-            setStatusFilter,
-            openFilterDrawer: () => setFilterDrawerOpen(true),
-            hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
-            activeFilterCount: countActiveTaskFilters(drawerFilters),
-            checkboxSelectionMode,
-            setCheckboxSelectionMode,
-          }}
-        >
-          <Box sx={{ position: 'relative' }}>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-                {error}
-              </Alert>
-            )}
-
-            <BaseDataGrid
-              rows={tasks}
-              columns={columns}
-              loading={loading}
-              getRowId={row => row.id}
-              paginationModel={paginationModel}
-              onPaginationModelChange={handlePaginationModelChange}
-              disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-              onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
-              getRowClassName={params =>
-                highlightedIds(NotificationSection.TASKS).includes(
-                  String(params.id)
-                )
-                  ? HIGHLIGHTED_ROW_CLASS
-                  : ''
-              }
-              serverSidePagination={true}
-              totalRows={totalCount}
-              pageSizeOptions={[10, 25, 50, 100]}
-              serverSideFiltering={true}
-              showToolbar={true}
-              toolbarSlot={TasksUnifiedToolbar}
-              disablePaperWrapper={true}
-              persistState
-              sx={{
-                ...rowActionsHoverSx,
-                '& .MuiDataGrid-row': {
-                  cursor: 'pointer',
-                },
-              }}
-              checkboxSelection={checkboxSelectionMode}
-              isRowSelectable={(params: GridRowParams) =>
-                can(params.row as unknown as Task, Capability.Task.DELETE)
-              }
-              rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-              onRowSelectionModelChange={
-                checkboxSelectionMode ? handleSelectionChange : undefined
-              }
-            />
-
-            <DeleteModal
-              open={deleteModalOpen}
-              onClose={cancelDelete}
-              onConfirm={confirmDelete}
-              isLoading={isDeleting}
-              title={pendingDeleteId ? 'Delete Task' : 'Delete Tasks'}
-              message={
-                pendingDeleteId
-                  ? 'Are you sure you want to delete this task? This action cannot be undone.'
-                  : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? This action cannot be undone.`
-              }
-              itemType="tasks"
-            />
-
-            <TaskFilterDrawer
-              open={filterDrawerOpen}
-              onClose={() => setFilterDrawerOpen(false)}
-              filters={drawerFilters}
-              onApply={f => {
-                setDrawerFilters(f);
-                if (f.status) {
-                  setStatusFilter(f.status);
-                } else if (!drawerFilters.status) {
-                  setStatusFilter('all');
-                }
-              }}
-            />
-          </Box>
-        </TasksToolbarContext.Provider>
-      </Paper>
-    </GridStateGate>
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      searchPlaceholder="Search tasks…"
+      pills={{ tabs: STATUS_PILL_TABS }}
+      drawer={drawerAdapter}
+      selectionLabel="Select tasks"
+      getRowUrl={getRowUrl}
+      highlightSection={NotificationSection.TASKS}
+      editAction={{ can: (row: Task) => can(row, Capability.Task.UPDATE) }}
+      onBulkActionsChange={onBulkActionsChange}
+      pageSizeOptions={[10, 25, 50, 100]}
+      sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+    />
   );
 }

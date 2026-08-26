@@ -1046,7 +1046,6 @@ export default function MetricTuningTab({
               paginationModel={paginationModel}
               onPaginationModelChange={setPaginationModel}
               pageSizeOptions={[10, 25, 50, 100]}
-              showToolbar={false}
               disableMultipleRowSelection
               sx={rowActionsHoverSx}
             />

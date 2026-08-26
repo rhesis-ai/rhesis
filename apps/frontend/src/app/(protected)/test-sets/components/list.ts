@@ -63,4 +63,16 @@ export const testSetsList = defineList({
   filters: TEST_SETS_FILTERS,
   list: (factory: ApiClientFactory, params) =>
     factory.getTestSetsClient().getTestSets(params),
+  delete: {
+    bulk: (factory: ApiClientFactory, ids: string[]) =>
+      factory.getTestSetsClient().bulkDeleteTestSets(ids),
+    capability: Capability.TestSet.DELETE,
+    capabilityMode: 'ambient',
+    labelSingular: 'test set',
+    labelPlural: 'test sets',
+    confirmMessage: count =>
+      count === 1
+        ? 'Are you sure you want to delete this test set? Related data will not be deleted.'
+        : `Are you sure you want to delete ${count} test sets? Don't worry, related data will not be deleted, only these records.`,
+  },
 });

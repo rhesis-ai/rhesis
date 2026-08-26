@@ -97,6 +97,7 @@ def get_explorer_test_sets(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    filter: Optional[str] = None,
 ) -> List[models.TestSet]:
     """Get all test sets flagged as Explorer-owned.
 
@@ -116,6 +117,8 @@ def get_explorer_test_sets(
         Field to sort by
     sort_order : str
         Sort direction ('asc' or 'desc')
+    filter : str, optional
+        OData filter expression
 
     Returns
     -------
@@ -129,6 +132,7 @@ def get_explorer_test_sets(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
+        filter=filter,
     )
 
     logger.info(f"Found {len(test_sets)} explorer test sets for organization={organization_id}")

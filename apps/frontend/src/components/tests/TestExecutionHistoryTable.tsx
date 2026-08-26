@@ -139,7 +139,6 @@ export default function TestExecutionHistoryTable({
       columns={columns}
       getRowId={row => row.id}
       disableRowSelectionOnClick
-      showToolbar={false}
       disablePaperWrapper
       pageSizeOptions={[10, 25, 50]}
       initialState={{

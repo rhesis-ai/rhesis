@@ -1,285 +1,182 @@
 'use client';
 
-import React, { useContext, useState } from 'react';
-import { Box, Tooltip, IconButton } from '@mui/material';
-import {
-  GridPaginationModel,
-  type GridRenderCellParams,
-  type GridColDef,
-  type GridRowSelectionModel,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import { Token } from '@/utils/api-client/interfaces/token';
+import React, { useState, useCallback, useMemo } from 'react';
+import { type GridRenderCellParams, type GridColDef } from '@mui/x-data-grid';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
-import RefreshTokenModal from './RefreshTokenModal';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
 import GridBadge from '@/components/common/GridBadge';
-import {
-  ROW_ACTIONS_CLASS,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { VpnKeyIcon } from '@/components/icons';
+import { Token } from '@/utils/api-client/interfaces/token';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import RefreshTokenModal from './RefreshTokenModal';
+import { tokensList } from './list';
+import TokenFilterDrawer, {
+  type TokenFilters,
+  EMPTY_TOKEN_FILTERS,
+  countActiveTokenFilters,
+} from './TokenFilterDrawer';
 
-// ── Toolbar status filter options ────────────────────────────────────────────
-
-export type TokenStatusFilter = 'all' | 'active' | 'expired';
-
-export const STATUS_OPTIONS: { value: TokenStatusFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'expired', label: 'Expired' },
+const STATUS_PILL_TABS = [
+  { label: 'All', value: 'all' },
+  { label: 'Active', value: 'active' },
+  { label: 'Expired', value: 'expired' },
 ];
 
-// ── Toolbar context (passes search/filter state into the DataGrid slot) ──────
-
-export interface TokensToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  statusFilter: TokenStatusFilter;
-  setStatusFilter: (v: TokenStatusFilter) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+// The pill wins over the drawer's status for the one field they overlap on.
+function toFilters(state: EntityGridFilterState<TokenFilters>) {
+  return {
+    search: state.search,
+    status:
+      state.pill || (state.drawer.status === 'all' ? '' : state.drawer.status),
+    usage: state.drawer.usage === 'all' ? '' : state.drawer.usage,
+  };
 }
 
-export const TokensToolbarContext = React.createContext<TokensToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  statusFilter: 'all',
-  setStatusFilter: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-function TokensUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(TokensToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search tokens…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      middleContent={
-        <ToolbarPillTabs
-          tabs={STATUS_OPTIONS}
-          activeValue={statusFilter}
-          onChange={v => setStatusFilter(v as TokenStatusFilter)}
-        />
-      }
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select tokens"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<TokenFilters> = {
+  empty: EMPTY_TOKEN_FILTERS,
+  countActive: countActiveTokenFilters,
+  render: props => (
+    <TokenFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
-
-// ── Grid component ────────────────────────────────────────────────────────────
+  ),
+};
 
 interface TokensGridProps {
-  tokens: Token[];
+  canCreate?: boolean;
+  onCreateClick?: () => void;
+  /** Called with the refreshed token so the page can show it once. */
   onRefreshToken: (
     tokenId: string,
     expiresInDays: number | null
   ) => Promise<void>;
-  onDeleteToken: (tokenId: string) => void;
-  loading: boolean;
-  totalCount: number;
-  onPaginationModelChange?: (model: GridPaginationModel) => void;
-  paginationModel?: GridPaginationModel;
-  checkboxSelectionMode: boolean;
-  selectedRows: GridRowSelectionModel;
-  onSelectionChange: (model: GridRowSelectionModel) => void;
+  onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
+  /** Bumped by the page after a create succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 export default function TokensGrid({
-  tokens,
+  canCreate,
+  onCreateClick,
   onRefreshToken,
-  onDeleteToken,
-  loading,
-  totalCount,
-  onPaginationModelChange,
-  paginationModel = {
-    page: 0,
-    pageSize: 10,
-  },
-  checkboxSelectionMode,
-  selectedRows,
-  onSelectionChange,
+  onBulkActionsChange,
+  refreshTrigger,
 }: TokensGridProps) {
-  const [refreshModalOpen, setRefreshModalOpen] = useState(false);
-  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
+  const [refreshTarget, setRefreshTarget] = useState<Token | null>(null);
 
-  const handleRefreshClick = (tokenId: string) => {
-    setSelectedTokenId(tokenId);
-    setRefreshModalOpen(true);
-  };
+  const extraRowActions = useMemo(
+    () => [
+      {
+        key: 'refresh',
+        icon: RefreshIcon,
+        tooltip: 'Invalidate and refresh',
+        onClick: (_id: string, row: Record<string, unknown>) =>
+          setRefreshTarget(row as unknown as Token),
+        hoverColor: 'primary.main' as const,
+      },
+    ],
+    []
+  );
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1,
-      renderCell: (params: GridRenderCellParams) => (
-        <span style={{ fontWeight: 500 }}>{params.row.name}</span>
-      ),
-    },
-    {
-      field: 'token',
-      headerName: 'Token',
-      flex: 1.5,
-      renderCell: (params: GridRenderCellParams) => params.row.token_obfuscated,
-    },
-    {
-      field: 'last_used',
-      headerName: 'Last Used',
-      flex: 1,
-      renderCell: (params: GridRenderCellParams) =>
-        params.row.last_used_at
-          ? formatDistanceToNow(new Date(params.row.last_used_at), {
-              addSuffix: true,
-            })
-          : 'Never',
-    },
-    {
-      field: 'expires',
-      headerName: 'Expires',
-      flex: 1,
-      renderCell: (params: GridRenderCellParams) => (
-        <GridBadge
-          label={
-            params.row.expires_at
-              ? formatDistanceToNow(new Date(params.row.expires_at), {
-                  addSuffix: true,
-                })
-              : 'Never'
-          }
-        />
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 88,
-      sortable: false,
-      disableColumnMenu: true,
-      align: 'center',
-      headerAlign: 'center',
-      renderCell: (params: GridRenderCellParams) => (
-        <Box
-          className={ROW_ACTIONS_CLASS}
-          sx={{
-            display: 'flex',
-            gap: '4px',
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Tooltip title="Invalidate and refresh">
-            <IconButton
-              size="small"
-              onClick={e => {
-                e.stopPropagation();
-                handleRefreshClick(params.row.id);
-              }}
-              sx={{
-                p: 0.5,
-                color: 'text.secondary',
-                '&:hover': { color: 'primary.main', bgcolor: 'action.hover' },
-              }}
-            >
-              <RefreshIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete Token">
-            <IconButton
-              size="small"
-              onClick={e => {
-                e.stopPropagation();
-                onDeleteToken(params.row.id);
-              }}
-              sx={{
-                p: 0.5,
-                color: 'text.secondary',
-                '&:hover': { color: 'error.main', bgcolor: 'action.hover' },
-              }}
-            >
-              <DeleteIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
-    } as GridColDef,
-  ];
+  const handleRefreshClose = useCallback(() => setRefreshTarget(null), []);
+
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1,
+        renderCell: (params: GridRenderCellParams) => (
+          <span style={{ fontWeight: 500 }}>{params.row.name}</span>
+        ),
+      },
+      {
+        field: 'token',
+        headerName: 'Token',
+        flex: 1.5,
+        sortable: false,
+        renderCell: (params: GridRenderCellParams) =>
+          params.row.token_obfuscated,
+      },
+      {
+        field: 'last_used_at',
+        headerName: 'Last Used',
+        flex: 1,
+        renderCell: (params: GridRenderCellParams) =>
+          params.row.last_used_at
+            ? formatDistanceToNow(new Date(params.row.last_used_at), {
+                addSuffix: true,
+              })
+            : 'Never',
+      },
+      {
+        field: 'expires_at',
+        headerName: 'Expires',
+        flex: 1,
+        renderCell: (params: GridRenderCellParams) => (
+          <GridBadge
+            label={
+              params.row.expires_at
+                ? formatDistanceToNow(new Date(params.row.expires_at), {
+                    addSuffix: true,
+                  })
+                : 'Never'
+            }
+          />
+        ),
+      },
+    ],
+    []
+  );
 
   return (
-    <>
-      <BaseDataGrid
-        columns={columns}
-        rows={tokens}
-        loading={loading}
-        getRowId={row => (row as Token).id}
-        density="standard"
-        paginationModel={paginationModel}
-        onPaginationModelChange={onPaginationModelChange}
-        serverSidePagination={false}
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50]}
-        disablePaperWrapper={true}
-        toolbarSlot={TokensUnifiedToolbar}
-        persistState
-        storageKey="tokens-grid"
-        sx={rowActionsHoverSx}
-        checkboxSelection={checkboxSelectionMode}
-        disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-        rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-        onRowSelectionModelChange={
-          checkboxSelectionMode ? onSelectionChange : undefined
-        }
-      />
-      <RefreshTokenModal
-        open={refreshModalOpen}
-        onClose={() => setRefreshModalOpen(false)}
-        onRefresh={async expiresInDays => {
-          if (selectedTokenId) {
-            await onRefreshToken(selectedTokenId, expiresInDays);
-            setRefreshModalOpen(false);
-          }
-        }}
-        tokenName={tokens.find(t => t.id === selectedTokenId)?.name || ''}
-      />
-    </>
+    <EntityGrid<Token, typeof tokensList.filters, TokenFilters>
+      descriptor={tokensList}
+      columns={columns}
+      toFilters={toFilters}
+      emptyState={
+        <EntityEmptyState
+          card
+          icon={VpnKeyIcon}
+          title="No API tokens yet"
+          description="Create your first API token to start interacting with the Rhesis API. Tokens allow you to authenticate your applications and build powerful integrations."
+          actionLabel={canCreate ? 'Create API token' : undefined}
+          onAction={canCreate ? onCreateClick : undefined}
+        />
+      }
+      refreshTrigger={refreshTrigger}
+      searchPlaceholder="Search tokens…"
+      pills={{ tabs: STATUS_PILL_TABS }}
+      drawer={drawerAdapter}
+      selectionLabel="Select tokens"
+      editAction={false}
+      extraRowActions={extraRowActions}
+      onBulkActionsChange={onBulkActionsChange}
+      density="standard"
+      storageKey="tokens-grid"
+      pageSizeOptions={[10, 25, 50]}
+      renderSelectionExtras={ctx => (
+        <RefreshTokenModal
+          open={refreshTarget !== null}
+          onClose={handleRefreshClose}
+          onRefresh={async expiresInDays => {
+            if (refreshTarget) {
+              await onRefreshToken(refreshTarget.id, expiresInDays);
+              setRefreshTarget(null);
+              ctx.refresh();
+            }
+          }}
+          tokenName={refreshTarget?.name || ''}
+        />
+      )}
+    />
   );
 }

@@ -1,5 +1,8 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import type {
+  TestRunBulkDeleteResponse,
+  TestRunDetail,
+} from '@/utils/api-client/interfaces/test-run';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
@@ -83,6 +86,21 @@ export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
       return factory
         .getTestRunsClient()
         .getTestRuns({ ...rest, filter: $filter });
+    },
+    delete: {
+      bulk: (factory: ApiClientFactory, ids: string[]) =>
+        factory.getTestRunsClient().bulkDeleteTestRuns(ids),
+      capability: Capability.TestRun.DELETE,
+      capabilityMode: 'row',
+      labelSingular: 'test run',
+      labelPlural: 'test runs',
+      getSkippedCount: (response: TestRunBulkDeleteResponse) =>
+        response.forbidden_ids.length,
+      skippedReason: 'not yours to delete',
+      confirmMessage: count =>
+        count === 1
+          ? 'Are you sure you want to delete this test run? Related data will not be deleted.'
+          : `Are you sure you want to delete ${count} test runs? Related data will not be deleted.`,
     },
   }
 );
