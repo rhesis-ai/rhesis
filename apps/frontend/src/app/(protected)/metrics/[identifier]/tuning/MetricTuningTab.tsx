@@ -34,11 +34,9 @@ import {
   AutoFixHighIcon,
   CancelIcon,
   CheckCircleIcon,
+  CheckIcon,
+  CloseIcon,
   PlayArrowIcon,
-  ThumbDownFilledIcon,
-  ThumbDownIcon,
-  ThumbUpFilledIcon,
-  ThumbUpIcon,
   TuneIcon,
   WarningAmberIcon,
 } from '@/components/icons';
@@ -167,11 +165,21 @@ function MetricReasoningCell({ params }: { params: GridRenderCellParams }) {
 }
 
 /**
+ * Weight for a mark that records a judgement.
+ *
+ * These icons are filled paths with no bolder variant to switch to, so the
+ * weight has to come from stroking the glyph in its own colour. Colour alone
+ * did not carry the pressed state at this size: a thin green tick and a thin
+ * grey one read as the same mark until you look for the hue.
+ */
+const MARK_PRESSED_SX = { stroke: 'currentColor', strokeWidth: 1.5 };
+
+/**
  * The judgement that stands for this case, and the two buttons that change it.
  *
- * The thumbs are the state as well as the control: the one that was pressed is
- * filled and coloured, the other stays faint. A chip saying "Accepted" beside a
- * green thumb says the same thing twice.
+ * The tick and the cross are the state as well as the control: the one that was
+ * pressed is coloured green or red and drawn heavier, the other stays thin and
+ * faint. A chip saying "Accepted" beside a green tick says the same thing twice.
  *
  * They stay on a judged row on purpose — reading a case and re-judging it are
  * the same moment, and a mis-click has to be correctable where it happened.
@@ -211,10 +219,12 @@ function ReviewCell({
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {invalidated && <InvalidatedMark />}
-        {accepted && <ThumbUpFilledIcon fontSize="small" color="success" />}
+        {accepted && (
+          <CheckIcon fontSize="small" color="success" sx={MARK_PRESSED_SX} />
+        )}
         {rejected && (
           <Tooltip title={review?.comment ?? ''}>
-            <ThumbDownFilledIcon fontSize="small" color="error" />
+            <CloseIcon fontSize="small" color="error" sx={MARK_PRESSED_SX} />
           </Tooltip>
         )}
         {!accepted && !rejected && <span>—</span>}
@@ -236,11 +246,10 @@ function ReviewCell({
           sx={{ opacity: accepted ? 1 : 0.55 }}
           onClick={() => onAccept(tuningCase)}
         >
-          {accepted ? (
-            <ThumbUpFilledIcon fontSize="small" />
-          ) : (
-            <ThumbUpIcon fontSize="small" />
-          )}
+          <CheckIcon
+            fontSize="small"
+            sx={accepted ? MARK_PRESSED_SX : undefined}
+          />
         </IconButton>
       </Tooltip>
       <Tooltip
@@ -258,11 +267,10 @@ function ReviewCell({
           sx={{ opacity: rejected ? 1 : 0.55 }}
           onClick={() => onReject(tuningCase)}
         >
-          {rejected ? (
-            <ThumbDownFilledIcon fontSize="small" />
-          ) : (
-            <ThumbDownIcon fontSize="small" />
-          )}
+          <CloseIcon
+            fontSize="small"
+            sx={rejected ? MARK_PRESSED_SX : undefined}
+          />
         </IconButton>
       </Tooltip>
     </Box>
@@ -936,8 +944,18 @@ export default function MetricTuningTab({
     : isRunning
       ? IMPROVE_WHILE_RUNNING_HINT
       : IMPROVE_HINT;
+  // Right above the grid rather than in the card header: every one of these
+  // acts on the table below it, and the header sits three summary blocks away.
   const actions = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 1.5,
+        mb: 2,
+      }}
+    >
       {canEdit && cases.length > 0 && (
         <Button
           variant="outlined"
@@ -951,7 +969,7 @@ export default function MetricTuningTab({
       {canEdit && (
         <Button
           variant="outlined"
-          startIcon={<ThumbUpIcon />}
+          startIcon={<CheckIcon />}
           onClick={handleAcceptRest}
           disabled={!unreviewedWithVerdict || acceptingRest}
         >
@@ -992,9 +1010,8 @@ export default function MetricTuningTab({
   return (
     <>
       <SectionCard
-        title="Tuning"
+        title="Improve this metric"
         subtitle="Cases for checking whether this metric judges the way you would."
-        actions={actions}
       >
         {!loading && cases.length === 0 ? (
           <SectionEmptyState
@@ -1016,6 +1033,10 @@ export default function MetricTuningTab({
             )}
             <RunSummary run={run} />
             {improving && <ImprovingSummary rejections={standingRejections} />}
+            {/* Not while the list is still loading: a toolbar that appears and
+                then goes away again when the metric turns out to have no cases
+                is worse than one that arrives with the rows it acts on. */}
+            {cases.length > 0 && actions}
             <BaseDataGrid
               rows={cases as unknown as GridRowModel[]}
               columns={columns}
