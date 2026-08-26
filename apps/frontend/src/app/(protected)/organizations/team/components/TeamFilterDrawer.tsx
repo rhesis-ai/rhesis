@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, TextField } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -51,7 +52,7 @@ export default function TeamFilterDrawer({
       fontSize: 14,
     },
     '& .MuiOutlinedInput-input': {
-      padding: '20px 14px',
+      padding: (theme: Theme) => theme.spacing(2.5, 1.75),
     },
   };
 
