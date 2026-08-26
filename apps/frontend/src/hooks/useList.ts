@@ -56,7 +56,6 @@ export function useList<T, S extends FilterSpecMap>(
   const [sortModel, setSortModel] = React.useState<GridSortModel>([
     { field: descriptor.defaultSort.by, sort: descriptor.defaultSort.order },
   ]);
-  // An un-sorted grid (user cleared the column sort) falls back to the default.
   const sort: ListSort = {
     by: sortModel[0]?.field ?? descriptor.defaultSort.by,
     order: sortModel[0]?.sort ?? descriptor.defaultSort.order,
@@ -101,6 +100,16 @@ export function useList<T, S extends FilterSpecMap>(
     },
     /** Spread onto a sortable `<BaseDataGrid>`; omit for grids with fixed sort. */
     sortModel,
-    onSortModelChange: setSortModel,
+    onSortModelChange: (model: GridSortModel) =>
+      setSortModel(
+        model.length > 0
+          ? model
+          : [
+              {
+                field: descriptor.defaultSort.by,
+                sort: descriptor.defaultSort.order,
+              },
+            ]
+      ),
   };
 }
