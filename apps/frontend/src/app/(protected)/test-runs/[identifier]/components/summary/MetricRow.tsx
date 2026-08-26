@@ -133,7 +133,7 @@ function MetricRowInner({
           </Tooltip>
         )}
         {hasDrilldown && (
-          <Tooltip title="View failures in Test Cases" placement="top">
+          <Tooltip title="View failures in Tests" placement="top">
             <IconButton
               size="small"
               onClick={handleDrilldown}

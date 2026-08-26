@@ -278,9 +278,7 @@ describe('RequirementTable', () => {
     expect(onViewRequirement).not.toHaveBeenCalled();
 
     // The drilldown IconButton has an aria-label from the Tooltip
-    const drilldownButton = screen.getByLabelText(
-      'View failures in Test Cases'
-    );
+    const drilldownButton = screen.getByLabelText('View failures in Tests');
     fireEvent.click(drilldownButton);
     expect(onViewRequirement).toHaveBeenCalledWith('req-1');
   });
@@ -314,9 +312,7 @@ describe('RequirementTable', () => {
       />
     );
 
-    const drilldownButton = screen.getByLabelText(
-      'View failures in Test Cases'
-    );
+    const drilldownButton = screen.getByLabelText('View failures in Tests');
     fireEvent.click(drilldownButton);
     // A single metric has nothing to share a prefix with, so onViewMetric
     // receives the untrimmed name.

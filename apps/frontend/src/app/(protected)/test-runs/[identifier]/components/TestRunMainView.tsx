@@ -42,7 +42,7 @@ type TabKey = (typeof TAB_KEYS)[number];
 const TAB_LABELS: Record<TabKey, string> = {
   summary: 'Summary',
   configuration: 'Configuration',
-  linked_entities: 'Test Cases',
+  linked_entities: 'Tests',
   traces: 'Traces',
 };
 
@@ -122,7 +122,7 @@ export default function TestRunMainView({
     preferLinkedEntities && !searchParams.get('tab')
   );
 
-  // Fetch test results for the Test Cases tab.
+  // Fetch test results for the Tests tab.
   const needsTestResults = React.useRef(
     activeTab === TAB_KEYS.indexOf('linked_entities')
   );
