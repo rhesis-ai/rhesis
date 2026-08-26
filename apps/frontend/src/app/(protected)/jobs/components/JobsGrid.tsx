@@ -1,22 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useContext, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useMemo } from 'react';
 import { Box, Chip, LinearProgress, Tooltip, Typography } from '@mui/material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
-import BaseDataGrid from '@/components/common/BaseDataGrid';
-import GridStateGate from '@/components/common/GridStateGate';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import { useList } from '@/hooks/useList';
 import { jobsList } from './list';
 import type { Job } from '@/utils/api-client/interfaces/job';
 import {
   countActiveJobFilters,
   EMPTY_JOB_FILTERS,
-  hasActiveJobFilters,
   type JobFilters,
 } from '@/utils/odata-filter';
 import { JOB_STATUS_COLOR, JOB_STATUS_LABEL } from '@/constants/jobs';
@@ -26,67 +24,50 @@ import JobFilterDrawer from './JobFilterDrawer';
 /**
  * Pill tabs are the coarse cut people actually want ("what is running", "what
  * broke"); everything finer lives in the drawer. 'active' is not a status the
- * backend has -- it expands to queued/running/cancelling below.
+ * backend has -- the descriptor's statusPill filter expands it.
  */
 const STATUS_PILL_TABS = [
   { label: 'All', value: 'all' },
   { label: 'Active', value: 'active' },
   { label: 'Failed', value: 'failed' },
-] as const;
+];
 
-const PILL_TO_FILTER: Record<string, JobFilters['status']> = {
-  failed: 'failed',
-};
+const LIVE_POLL_MS = 3000;
 
-interface JobsToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  statusPill: string;
-  setStatusPill: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
+/**
+ * The pill narrows the drawer's status rather than fighting it: a user who
+ * picked "failed" in the drawer and then clicks the Active pill should see
+ * active jobs, so the pill wins for the one field they overlap on.
+ */
+function toFilters(state: EntityGridFilterState<JobFilters>) {
+  return {
+    search: state.search,
+    status:
+      state.pill === ''
+        ? state.drawer.status
+        : state.pill === 'failed'
+          ? ('failed' as const)
+          : ('' as const),
+    statusPill: state.pill === 'active' ? 'active' : '',
+    jobType: state.drawer.jobType,
+    triggeredBy: state.drawer.triggeredBy,
+    createdFrom: state.drawer.createdFrom,
+    createdTo: state.drawer.createdTo,
+  };
 }
 
-const JobsToolbarContext = React.createContext<JobsToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  statusPill: 'all',
-  setStatusPill: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-});
-
-function JobsUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    statusPill,
-    setStatusPill,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-  } = useContext(JobsToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search jobs…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      middleContent={
-        <ToolbarPillTabs
-          tabs={[...STATUS_PILL_TABS]}
-          activeValue={statusPill}
-          onChange={setStatusPill}
-        />
-      }
+const drawerAdapter: EntityGridDrawerAdapter<JobFilters> = {
+  empty: EMPTY_JOB_FILTERS,
+  countActive: countActiveJobFilters,
+  render: props => (
+    <JobFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
+  ),
+};
 
 function StatusCell({ job }: { job: Job }) {
   const status = job.status as keyof typeof JOB_STATUS_COLOR;
@@ -177,65 +158,11 @@ export default function JobsGrid({
   initialData,
   initialTotalCount,
 }: JobsGridProps) {
-  const router = useRouter();
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusPill, setStatusPill] = useState('all');
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] =
-    useState<JobFilters>(EMPTY_JOB_FILTERS);
-
-  /**
-   * The pill narrows the drawer's status rather than fighting it: a user who
-   * picked "failed" in the drawer and then clicks the Active pill should see
-   * active jobs, so the pill wins for the one field they overlap on.
-   */
-  const filters = useMemo(
-    () => ({
-      search: searchQuery,
-      status:
-        statusPill === 'all'
-          ? drawerFilters.status
-          : (PILL_TO_FILTER[statusPill] ?? ''),
-      jobType: drawerFilters.jobType,
-      triggeredBy: drawerFilters.triggeredBy,
-      createdFrom: drawerFilters.createdFrom,
-      createdTo: drawerFilters.createdTo,
-    }),
-    [searchQuery, statusPill, drawerFilters]
+  const getRowUrl = useCallback((row: Job) => `/jobs/${row.id}`, []);
+  const pollMs = useCallback(
+    (data: Job[]) => (data.some(j => !j.is_terminal) ? LIVE_POLL_MS : false),
+    []
   );
-
-  // 'active' is the complement of the terminal states. Expressed as a status
-  // list rather than "not terminal" because OData has no notion of which of
-  // our statuses are terminal.
-  const extraFilters = useMemo(
-    () =>
-      statusPill === 'active'
-        ? [
-            "(status eq 'queued' or status eq 'running' or status eq 'cancelling')",
-          ]
-        : undefined,
-    [statusPill]
-  );
-
-  const LIVE_POLL_MS = 3000;
-
-  const {
-    data: jobs,
-    totalCount,
-    isLoading: loading,
-    error,
-    paginationModel,
-    onPaginationModelChange: handlePaginationModelChange,
-    sortModel,
-    onSortModelChange: handleSortModelChange,
-  } = useList(jobsList, {
-    filters,
-    extraFilters,
-    initialData,
-    initialTotalCount,
-    pollMs: data => (data.some(j => !j.is_terminal) ? LIVE_POLL_MS : false),
-  });
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -307,67 +234,28 @@ export default function JobsGrid({
     []
   );
 
-  const toolbarState = useMemo<JobsToolbarState>(
-    () => ({
-      searchQuery,
-      setSearchQuery,
-      statusPill,
-      setStatusPill,
-      openFilterDrawer: () => setFilterDrawerOpen(true),
-      hasActiveDrawerFilters: hasActiveJobFilters(drawerFilters),
-      activeFilterCount: countActiveJobFilters(drawerFilters),
-    }),
-    [searchQuery, statusPill, drawerFilters]
-  );
-
-  const handleRowClick = useCallback(
-    (jobId: string) => router.push(`/jobs/${jobId}`),
-    [router]
-  );
-
-  const isFiltered =
-    searchQuery !== '' ||
-    statusPill !== 'all' ||
-    hasActiveJobFilters(drawerFilters);
-
   return (
-    <JobsToolbarContext.Provider value={toolbarState}>
-      <GridStateGate
-        data={loading ? null : {}}
-        error={error}
-        isEmpty={jobs.length === 0 && !isFiltered}
-        emptyState={
-          <EntityEmptyState
-            icon={JobsIcon}
-            title="No jobs yet"
-            description="Background work shows up here when you generate a test set, run tests, or import from Garak."
-          />
-        }
-      >
-        <BaseDataGrid
-          rows={jobs}
-          columns={columns}
-          getRowId={row => String(row.id)}
-          loading={loading}
-          serverSidePagination
-          totalRows={totalCount}
-          paginationModel={paginationModel}
-          onPaginationModelChange={handlePaginationModelChange}
-          sortModel={sortModel}
-          onSortModelChange={handleSortModelChange}
-          pageSizeOptions={[10, 25, 50, 100]}
-          toolbarSlot={JobsUnifiedToolbar}
-          onRowClick={params => handleRowClick(String(params.id))}
-          persistState
+    <EntityGrid<Job, typeof jobsList.filters, JobFilters>
+      descriptor={jobsList}
+      columns={columns}
+      toFilters={toFilters}
+      emptyState={
+        <EntityEmptyState
+          icon={JobsIcon}
+          title="No jobs yet"
+          description="Background work shows up here when you generate a test set, run tests, or import from Garak."
         />
-      </GridStateGate>
-
-      <JobFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={setDrawerFilters}
-      />
-    </JobsToolbarContext.Provider>
+      }
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      pollMs={pollMs}
+      searchPlaceholder="Search jobs…"
+      pills={{ tabs: STATUS_PILL_TABS }}
+      drawer={drawerAdapter}
+      getRowUrl={getRowUrl}
+      showGridButtons={false}
+      pageSizeOptions={[10, 25, 50, 100]}
+      editAction={false}
+    />
   );
 }

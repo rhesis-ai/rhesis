@@ -27,6 +27,15 @@ const JOBS_FILTERS = {
     toOData: (value: string) =>
       value ? `created_at le ${value}T23:59:59Z` : undefined,
   },
+  // The toolbar's Active pill. Not a backend status -- it expands to the
+  // non-terminal states, because OData has no notion of which are terminal.
+  statusPill: {
+    kind: 'raw',
+    toOData: (value: string) =>
+      value === 'active'
+        ? "(status eq 'queued' or status eq 'running' or status eq 'cancelling')"
+        : undefined,
+  },
 } as const;
 
 export const jobsList = defineList<Job, typeof JOBS_FILTERS>({
