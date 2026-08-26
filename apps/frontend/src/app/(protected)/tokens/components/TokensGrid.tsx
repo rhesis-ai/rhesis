@@ -163,6 +163,7 @@ export default function TokensGrid({
       density="standard"
       storageKey="tokens-grid"
       pageSizeOptions={[10, 25, 50]}
+      serverSort={false}
       renderSelectionExtras={ctx => (
         <RefreshTokenModal
           open={refreshTarget !== null}
