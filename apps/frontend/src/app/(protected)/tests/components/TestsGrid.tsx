@@ -85,6 +85,9 @@ interface TestsTableProps {
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
   insightsEndpointName?: string;
   onBulkActionsChange?: (actions: TestsBulkActionsState) => void;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: TestDetail[];
+  initialTotalCount?: number;
 }
 
 export interface TestsBulkActionsState {
@@ -187,6 +190,8 @@ export default function TestsTable({
   insightsFailedFilter = null,
   insightsEndpointName,
   onBulkActionsChange,
+  initialData,
+  initialTotalCount,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -274,6 +279,8 @@ export default function TestsTable({
     filters,
     extraFilters: insightsIdFilter ? [insightsIdFilter] : undefined,
     enabled: insightsFilterReady,
+    initialData,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 

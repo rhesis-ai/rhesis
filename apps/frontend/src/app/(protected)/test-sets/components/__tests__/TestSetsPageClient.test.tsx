@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import TestSetsPage from '../page';
+import TestSetsPageClient from '../TestSetsPageClient';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -38,7 +38,7 @@ jest.mock('@/components/common/NotificationContext', () => ({
 // TestSetsGrid owns the query and the loading/empty/populated decision
 // itself (see TestSetsGrid.test.tsx for that behavior) — the page's only
 // job is to wire `canCreate` and `onCreateClick` through to it correctly.
-jest.mock('../components/TestSetsGrid', () => {
+jest.mock('../TestSetsGrid', () => {
   return function MockTestSetsGrid({
     canCreate,
     onCreateClick,
@@ -54,32 +54,32 @@ jest.mock('../components/TestSetsGrid', () => {
   };
 });
 
-jest.mock('../components/TestSetDrawer', () => {
+jest.mock('../TestSetDrawer', () => {
   return function MockTestSetDrawer({ open }: { open: boolean }) {
     return open ? <div data-testid="test-set-drawer" /> : null;
   };
 });
 
-jest.mock('../components/FileImportDrawer', () => {
+jest.mock('../FileImportDrawer', () => {
   return function MockFileImportDrawer() {
     return null;
   };
 });
 
-jest.mock('../components/SecurityTestDrawer', () => {
+jest.mock('../SecurityTestDrawer', () => {
   return function MockSecurityTestDrawer() {
     return null;
   };
 });
 
-describe('TestSetsPage', () => {
+describe('TestSetsPageClient', () => {
   it('passes canCreate through to the grid', () => {
-    render(<TestSetsPage />);
+    render(<TestSetsPageClient />);
     expect(screen.getByText('mock-create-test-set')).toBeEnabled();
   });
 
   it('opens the create drawer when the grid invokes onCreateClick', async () => {
-    render(<TestSetsPage />);
+    render(<TestSetsPageClient />);
     await userEvent.click(screen.getByText('mock-create-test-set'));
     expect(screen.getByTestId('test-set-drawer')).toBeInTheDocument();
   });

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import TestRunsPage from '../page';
+import TestRunsPageClient from '../TestRunsPageClient';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -31,7 +31,7 @@ jest.mock('@/components/common/Can', () => ({
 // TestRunsGrid owns the query and the loading/empty/populated decision
 // itself — the page's only job is to wire `canCreate`/`onCreateClick`
 // through to it correctly.
-jest.mock('../components/TestRunsGrid', () => {
+jest.mock('../TestRunsGrid', () => {
   return function MockTestRunsGrid({
     canCreate,
     onCreateClick,
@@ -53,14 +53,14 @@ jest.mock('@/components/common/RunDrawer', () => {
   };
 });
 
-describe('TestRunsPage', () => {
+describe('TestRunsPageClient', () => {
   it('passes canCreate through to the grid', () => {
-    render(<TestRunsPage />);
+    render(<TestRunsPageClient />);
     expect(screen.getByText('mock-create-test-run')).toBeEnabled();
   });
 
   it('opens the create drawer when the grid invokes onCreateClick', async () => {
-    render(<TestRunsPage />);
+    render(<TestRunsPageClient />);
     await userEvent.click(screen.getByText('mock-create-test-run'));
     expect(screen.getByTestId('run-drawer')).toBeInTheDocument();
   });

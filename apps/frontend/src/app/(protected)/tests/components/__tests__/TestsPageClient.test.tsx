@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import TestsPage from '../page';
+import TestsPageClient from '../TestsPageClient';
 
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -42,7 +42,7 @@ jest.mock('@/hooks/useEndpoints', () => ({
 
 // TestsGrid owns the query and the loading/empty/populated decision itself —
 // the page's only job is to wire `canCreate`/`onNewTest` through to it.
-jest.mock('../components/TestsGrid', () => {
+jest.mock('../TestsGrid', () => {
   return function MockTestsGrid({
     canCreate,
     onNewTest,
@@ -64,14 +64,14 @@ jest.mock('@/app/(protected)/test-sets/components/FileImportDrawer', () => {
   };
 });
 
-describe('TestsPage', () => {
+describe('TestsPageClient', () => {
   it('passes canCreate through to the grid', () => {
-    render(<TestsPage />);
+    render(<TestsPageClient />);
     expect(screen.getByText('mock-create-test')).toBeEnabled();
   });
 
   it('navigates to the manual test flow when the grid invokes onNewTest', async () => {
-    render(<TestsPage />);
+    render(<TestsPageClient />);
     await userEvent.click(screen.getByText('mock-create-test'));
     expect(mockPush).toHaveBeenCalledWith('/tests/new-manual');
   });

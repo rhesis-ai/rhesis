@@ -19,6 +19,7 @@ import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { useList } from '@/hooks/useList';
 import { testSetsList } from './list';
+import type { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import {
   Box,
@@ -74,6 +75,9 @@ interface TestSetsGridProps {
   onBulkActionsChange?: (actions: TestSetsBulkActionsState) => void;
   /** Bumped by the page after a create/import/generate succeeds, to trigger a re-fetch. */
   refreshTrigger?: number;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: TestSet[];
+  initialTotalCount?: number;
 }
 
 export interface TestSetsBulkActionsState {
@@ -190,6 +194,8 @@ export default function TestSetsGrid({
   onCreateClick,
   onBulkActionsChange,
   refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { status } = useSession();
@@ -231,11 +237,6 @@ export default function TestSetsGrid({
     [searchQuery, effectiveTestSetType, drawerFilters]
   );
 
-  // No `initialData`/SSR prefetch here on purpose: a test set row exists from
-  // the moment generation is *submitted* (the flow then redirects to its
-  // detail page), so server-rendered data could predate a just-submitted row.
-  // `useList` always fetches once on mount when `initialData` is
-  // absent, which is exactly the guarantee this page needs.
   const {
     data: testSets,
     totalCount,
@@ -248,6 +249,8 @@ export default function TestSetsGrid({
     onSortModelChange: handleSortModelChange,
   } = useList(testSetsList, {
     filters,
+    initialData,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 

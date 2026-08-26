@@ -58,6 +58,9 @@ interface TasksGridProps {
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
   /** Bumped by the page after a create succeeds, to trigger a re-fetch. */
   refreshTrigger?: number;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: Task[];
+  initialTotalCount?: number;
 }
 
 const STATUS_PILL_TABS = [
@@ -141,6 +144,8 @@ export default function TasksGrid({
   onCreateClick,
   onBulkActionsChange,
   refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TasksGridProps) {
   const router = useRouter();
   const { highlightedIds, clearHighlight } = useJobNotifications();
@@ -182,6 +187,8 @@ export default function TasksGrid({
     onPaginationModelChange: handlePaginationModelChange,
   } = useList(tasksList, {
     filters,
+    initialData,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 
