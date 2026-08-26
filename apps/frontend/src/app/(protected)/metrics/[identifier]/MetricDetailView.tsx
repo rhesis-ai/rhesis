@@ -171,6 +171,8 @@ export type MetricDetailViewMode = 'page' | 'embedded' | 'content';
 
 export interface MetricDetailViewProps {
   metricId: string;
+  /** Server-fetched metric; when given, the view renders it without a client fetch. */
+  initialMetric?: MetricDetail;
   mode?: MetricDetailViewMode;
   /** Shown when mode is embedded (e.g. dialog close). */
   onClose?: () => void;
@@ -194,6 +196,7 @@ export interface MetricDetailViewProps {
 
 export function MetricDetailView({
   metricId,
+  initialMetric,
   mode = 'page',
   onClose,
   onSaved,
@@ -205,16 +208,25 @@ export function MetricDetailView({
   const theme = useTheme();
   const router = useRouter();
   const canEditMetric = useCan(Capability.Metric.UPDATE);
-  const [metric, setMetric] = useState<MetricDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [metric, setMetric] = useState<MetricDetail | null>(
+    initialMetric ?? null
+  );
+  const [loading, setLoading] = useState(initialMetric === undefined);
   const [missingError, setMissingError] = useState<unknown>(null);
   const notifications = useNotifications();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [editData, setEditData] = useState<Partial<EditData>>({});
-  const [models, setModels] = useState<Model[]>([]);
+  // Model data is already included in the metric response.
+  const [models, setModels] = useState<Model[]>(
+    initialMetric?.model ? [initialMetric.model] : []
+  );
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const dataFetchedRef = useRef(false);
+  const dataFetchedRef = useRef(initialMetric !== undefined);
+  // The reset effects below must not fire for the values we mounted with, or
+  // they would blank a server-seeded metric on the first render.
+  const currentMetricIdRef = useRef(metricId);
+  const currentRefreshKeyRef = useRef(refreshKey);
   const textFieldsDirtyRef = useRef(false);
   const [blurRevision, setBlurRevision] = useState(0);
   const onCloseRef = useRef(onClose);
@@ -235,6 +247,8 @@ export function MetricDetailView({
   );
 
   useEffect(() => {
+    if (currentMetricIdRef.current === metricId) return;
+    currentMetricIdRef.current = metricId;
     dataFetchedRef.current = false;
     setLoading(true);
     setMetric(null);
@@ -246,6 +260,8 @@ export function MetricDetailView({
   // this is the same metric read again, and emptying the view first would flash
   // a loading state over content that is only slightly out of date.
   useEffect(() => {
+    if (currentRefreshKeyRef.current === refreshKey) return;
+    currentRefreshKeyRef.current = refreshKey;
     dataFetchedRef.current = false;
   }, [refreshKey]);
 

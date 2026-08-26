@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Box, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import {
@@ -25,7 +25,6 @@ import LinkedEntitiesFilterDrawer, {
 } from '@/components/common/LinkedEntitiesFilterDrawer';
 import { MetricDetailView } from './MetricDetailView';
 import MetricTuningTab from './tuning/MetricTuningTab';
-import { useIsCustomMetric } from './tuning/useIsCustomMetric';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
@@ -38,6 +37,7 @@ import type {
   RequirementReference,
   RequirementWithMetrics,
 } from '@/utils/api-client/interfaces/requirement';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -53,21 +53,28 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   tuning: 'Tuning',
 };
 
-export default function MetricDetailPageTabs() {
-  const params = useParams();
+export default function MetricDetailPageTabs({
+  metricId,
+  initialMetric,
+}: {
+  metricId: string;
+  /** Fetched by the server page so the first paint already has content. */
+  initialMetric: MetricDetail;
+}) {
   const { status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Metric.READ
   );
 
-  const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
   // Bumped when a tab writes the metric, so the detail view re-reads it instead
   // of serving the copy it fetched on mount.
   const [metricRevision, setMetricRevision] = useState(0);
   // This page also serves `rhesis` metrics, and the tuning routes refuse
-  // anything that is not custom.
-  const showTuning = useIsCustomMetric(metricId);
+  // anything that is not custom. Tuning rewrites the prompt, never the backend
+  // type, so the server-fetched copy stays authoritative.
+  const showTuning =
+    initialMetric.backend_type?.type_value?.toLowerCase() === 'custom';
 
   const navTabs = TAB_KEYS.filter(key => key !== 'tuning' || showTuning).map(
     (key, index) => ({
@@ -96,6 +103,7 @@ export default function MetricDetailPageTabs() {
   return (
     <MetricDetailView
       metricId={metricId}
+      initialMetric={initialMetric}
       mode="page"
       refreshKey={metricRevision}
       tabNav={tabNav}
