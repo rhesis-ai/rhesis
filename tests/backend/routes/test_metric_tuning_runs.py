@@ -225,7 +225,7 @@ def broken_dispatch():
     failure is the whole question.
     """
     with patch(
-        "rhesis.backend.app.routers.metric_tuning.task_launcher",
+        "rhesis.backend.app.routers.metric_tuning.launch_job",
         side_effect=RuntimeError("broker unreachable"),
     ) as launcher:
         yield launcher
@@ -1416,7 +1416,7 @@ class TestADispatchThatNeverReachesAWorker:
         """Waiting out the staleness window for a run never queued is not recovery."""
         _create_case(authenticated_client, tuning_metric.id)
         with patch(
-            "rhesis.backend.app.routers.metric_tuning.task_launcher",
+            "rhesis.backend.app.routers.metric_tuning.launch_job",
             side_effect=RuntimeError("broker unreachable"),
         ):
             authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
