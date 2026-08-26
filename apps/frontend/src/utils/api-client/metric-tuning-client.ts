@@ -5,6 +5,7 @@ import {
   MetricTuningCaseCreate,
   MetricTuningCaseDeleteResponse,
   MetricTuningCaseUpdate,
+  MetricTuningImprovement,
   MetricTuningReviewCreate,
   MetricTuningRun,
 } from './interfaces/metric-tuning';
@@ -27,6 +28,10 @@ export class MetricTuningClient extends BaseApiClient {
 
   private reviewsPath(metricId: UUID | string): string {
     return `${API_ENDPOINTS.metrics}/${metricId}/tuning/reviews`;
+  }
+
+  private improvePath(metricId: UUID | string): string {
+    return `${API_ENDPOINTS.metrics}/${metricId}/tuning/improve`;
   }
 
   /** Cases for a metric. Empty when it has no tuning test set yet. */
@@ -120,6 +125,21 @@ export class MetricTuningClient extends BaseApiClient {
    */
   async startTuningRun(metricId: UUID | string): Promise<MetricTuningRun> {
     return this.fetch<MetricTuningRun>(this.runPath(metricId), {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Proposes a rewrite of the metric from the rejections its reviewers wrote.
+   *
+   * Saves nothing — applying is an ordinary `updateMetric` with the fields this
+   * returned. Synchronous and one LLM call, so it is only ever called from an
+   * explicit action. Refused when no rejection currently stands.
+   */
+  async improveFromReviews(
+    metricId: UUID | string
+  ): Promise<MetricTuningImprovement> {
+    return this.fetch<MetricTuningImprovement>(this.improvePath(metricId), {
       method: 'POST',
     });
   }

@@ -3,8 +3,10 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MetricTuningTab from '../MetricTuningTab';
 import type {
+  ImprovedMetricFields,
   MetricTuningAgreement,
   MetricTuningCase,
+  MetricTuningImprovement,
   MetricTuningRun,
 } from '@/utils/api-client/interfaces/metric-tuning';
 
@@ -16,7 +18,9 @@ const mockGetTuningRun = jest.fn();
 const mockStartTuningRun = jest.fn();
 const mockReviewTuningCase = jest.fn();
 const mockAcceptRemainingTuningCases = jest.fn();
+const mockImproveFromReviews = jest.fn();
 const mockGetMetric = jest.fn();
+const mockUpdateMetric = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
@@ -29,9 +33,11 @@ jest.mock('@/utils/api-client/client-factory', () => ({
       startTuningRun: mockStartTuningRun,
       reviewTuningCase: mockReviewTuningCase,
       acceptRemainingTuningCases: mockAcceptRemainingTuningCases,
+      improveFromReviews: mockImproveFromReviews,
     }),
     getMetricsClient: () => ({
       getMetric: mockGetMetric,
+      updateMetric: mockUpdateMetric,
     }),
   })),
 }));
@@ -102,6 +108,7 @@ const NEVER_RUN: MetricTuningRun = {
   errored_cases: 0,
   error: null,
   agreement: NO_AGREEMENT,
+  predates_metric: false,
 };
 
 describe('MetricTuningTab', () => {
@@ -249,6 +256,7 @@ describe('MetricTuningTab — runs', () => {
     errored_cases: 0,
     error: null,
     agreement: NO_AGREEMENT,
+    predates_metric: false,
   };
 
   const COMPLETED: MetricTuningRun = {
@@ -260,6 +268,7 @@ describe('MetricTuningTab — runs', () => {
     errored_cases: 0,
     error: null,
     agreement: NO_AGREEMENT,
+    predates_metric: false,
   };
 
   const SCORED_CASE: MetricTuningCase = {
@@ -642,12 +651,12 @@ describe('MetricTuningTab — reviewing', () => {
     const save = await screen.findByRole('button', { name: 'Save' });
     expect(save).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText(/comment/i), {
+    fireEvent.change(screen.getByRole('textbox', { name: /comment/i }), {
       target: { value: '   ' },
     });
     expect(save).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText(/comment/i), {
+    fireEvent.change(screen.getByRole('textbox', { name: /comment/i }), {
       target: { value: 'Far too lenient.' },
     });
     expect(save).toBeEnabled();
@@ -668,7 +677,7 @@ describe('MetricTuningTab — reviewing', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: /reject this verdict/i })
     );
-    fireEvent.change(await screen.findByLabelText(/comment/i), {
+    fireEvent.change(await screen.findByRole('textbox', { name: /comment/i }), {
       target: { value: 'Far too lenient.' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -845,5 +854,479 @@ describe('MetricTuningTab — agreement', () => {
     expect(await screen.findByText(/1 done/i)).toBeInTheDocument();
     expect(screen.queryByText('Agreement')).not.toBeInTheDocument();
     expect(screen.queryByText('100%')).not.toBeInTheDocument();
+  });
+});
+
+describe('MetricTuningTab — improving from reviews', () => {
+  /** A metric with the fields the dialog shows on its "current" side. */
+  const FULL_METRIC = {
+    ...BINARY_METRIC,
+    name: 'Toxicity',
+    description: 'Whether the answer is toxic.',
+    evaluation_prompt: 'Score how toxic the answer is.',
+    evaluation_steps: 'Step 1:\nRead the answer.',
+    reasoning: 'Say which phrase decided it.',
+    explanation: 'A fail means the answer is toxic.',
+    min_score: null,
+    max_score: null,
+    threshold: null,
+    threshold_operator: null,
+    categories: null,
+    passing_categories: null,
+  };
+
+  const REJECTED_CASE: MetricTuningCase = {
+    ...JUDGEABLE_CASE,
+    outcome: 'rejected',
+    unreviewed_reason: null,
+    review: {
+      decision: 'rejected',
+      comment: 'This answer dodges the question.',
+      verdict: 'pass',
+      reviewed_at: '2026-08-14T09:00:00Z',
+    },
+  };
+
+  const PROPOSED: ImprovedMetricFields = {
+    name: 'Toxicity',
+    description: 'Whether the answer is toxic.',
+    evaluation_prompt: 'Fail any answer that dodges the question.',
+    evaluation_steps: 'Step 1:\nRead the answer.',
+    reasoning: 'Quote the phrase that dodges.',
+    explanation: 'A fail means the answer is toxic.',
+    score_type: 'binary',
+    min_score: null,
+    max_score: null,
+    threshold: null,
+    threshold_operator: null,
+    categories: null,
+    passing_categories: null,
+  };
+
+  const IMPROVEMENT: MetricTuningImprovement = {
+    improvement: PROPOSED,
+    changed: ['evaluation_prompt', 'reasoning'],
+    rejections_used: 3,
+  };
+
+  const RUNNING: MetricTuningRun = {
+    ...NEVER_RUN,
+    status: 'running',
+    started_at: '2026-08-13T10:00:00Z',
+    total_cases: 1,
+  };
+
+  const improveButton = () => screen.getByRole('button', { name: /improve/i });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(FULL_METRIC);
+    mockGetTuningRun.mockResolvedValue(NEVER_RUN);
+    mockGetTuningCases.mockResolvedValue([REJECTED_CASE]);
+    mockImproveFromReviews.mockResolvedValue(IMPROVEMENT);
+    mockUpdateMetric.mockResolvedValue(FULL_METRIC);
+  });
+
+  it('offers Improve once a rejection stands', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+  });
+
+  it('refuses to improve with nothing to read, and says why', async () => {
+    mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await waitFor(() => expect(improveButton()).toBeDisabled());
+    expect(
+      screen.getByLabelText(/reject a case with a comment first/i)
+    ).toBeInTheDocument();
+  });
+
+  it('does not improve while a run is in flight, and says that is why', async () => {
+    // The verdicts are about to be replaced, so a rewrite of them is premature.
+    mockGetTuningRun.mockResolvedValue(RUNNING);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await waitFor(() => expect(improveButton()).toBeDisabled());
+    expect(
+      screen.getByLabelText(/wait for the run to finish/i)
+    ).toBeInTheDocument();
+  });
+
+  it('says a rewrite is being written, and how much it is reading', async () => {
+    // The button label alone is too quiet for a call that runs most of a minute.
+    let arrive: (value: MetricTuningImprovement) => void = () => {};
+    mockImproveFromReviews.mockReturnValue(
+      new Promise<MetricTuningImprovement>(resolve => {
+        arrive = resolve;
+      })
+    );
+    mockGetTuningCases.mockResolvedValue([
+      REJECTED_CASE,
+      { ...REJECTED_CASE, id: 'other-id' as MetricTuningCase['id'] },
+    ]);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+
+    expect(
+      await screen.findByText(/rewriting this metric from 2 rejections/i)
+    ).toBeInTheDocument();
+
+    arrive(IMPROVEMENT);
+    await screen.findByRole('dialog');
+    // The dialog says the same thing now, so the line has nothing left to add.
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/rewriting this metric from/i)
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it('says nothing about rewriting when no call is out', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    expect(
+      screen.queryByText(/rewriting this metric from/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it('says it is improving, and opens nothing until the rewrite arrives', async () => {
+    let arrive: (value: MetricTuningImprovement) => void = () => {};
+    mockImproveFromReviews.mockReturnValue(
+      new Promise<MetricTuningImprovement>(resolve => {
+        arrive = resolve;
+      })
+    );
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /improving/i })).toBeDisabled()
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    arrive(IMPROVEMENT);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('says how many rejections the rewrite came from', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+
+    fireEvent.click(improveButton());
+
+    expect(
+      await screen.findByText(/rewritten from 3 rejections/i)
+    ).toBeInTheDocument();
+  });
+
+  it('shows the current field beside the proposed one', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+
+    fireEvent.click(improveButton());
+
+    await screen.findByRole('dialog');
+    expect(
+      screen.getByText('Score how toxic the answer is.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Fail any answer that dodges the question.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows only the changed fields, and names the rest as unchanged', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+
+    fireEvent.click(improveButton());
+
+    const dialog = await screen.findByRole('dialog');
+    // The field the whole feature exists to rewrite is the one read first.
+    const headings = Array.from(
+      dialog.querySelectorAll('.MuiTypography-subtitle2')
+    ).map(node => node.textContent);
+    expect(headings).toEqual(['Evaluation prompt', 'Reasoning']);
+    // Unchanged, so it is named rather than shown as a diff.
+    expect(screen.queryByText('Description')).not.toBeInTheDocument();
+    expect(screen.getByText(/unchanged:/i)).toHaveTextContent('description');
+  });
+
+  it('applies every field it showed, not only the changed ones', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    // All-or-nothing: a half-applied metric has bands and steps that disagree.
+    // The fields this metric does not have are left out rather than sent as
+    // nulls — the API drops a null on update, so sending one writes nothing and
+    // only makes the request disagree with what the reviewer approved.
+    await waitFor(() =>
+      expect(mockUpdateMetric).toHaveBeenCalledWith(METRIC_ID, {
+        name: PROPOSED.name,
+        description: PROPOSED.description,
+        evaluation_prompt: PROPOSED.evaluation_prompt,
+        evaluation_steps: PROPOSED.evaluation_steps,
+        reasoning: PROPOSED.reasoning,
+        explanation: PROPOSED.explanation,
+        score_type: PROPOSED.score_type,
+      })
+    );
+  });
+
+  it('sends the score bands of a metric that has them', async () => {
+    const scored: ImprovedMetricFields = {
+      ...PROPOSED,
+      score_type: 'numeric',
+      min_score: 0,
+      max_score: 1,
+      threshold: 0.9,
+      threshold_operator: '>=',
+    };
+    mockImproveFromReviews.mockResolvedValue({
+      ...IMPROVEMENT,
+      improvement: scored,
+      changed: ['evaluation_prompt', 'threshold'],
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() =>
+      expect(mockUpdateMetric).toHaveBeenCalledWith(
+        METRIC_ID,
+        expect.objectContaining({ threshold: 0.9, threshold_operator: '>=' })
+      )
+    );
+  });
+
+  it('tells the page the metric changed, so the other tabs re-read it', async () => {
+    // The detail view fetches the metric once per id. Without this it goes on
+    // showing the evaluation prompt from before the apply until a page reload.
+    const onMetricChanged = jest.fn();
+    render(
+      <MetricTuningTab metricId={METRIC_ID} onMetricChanged={onMetricChanged} />
+    );
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() => expect(onMetricChanged).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not say the metric changed when the apply failed', async () => {
+    const onMetricChanged = jest.fn();
+    mockUpdateMetric.mockRejectedValue(new Error('conflict'));
+    render(
+      <MetricTuningTab metricId={METRIC_ID} onMetricChanged={onMetricChanged} />
+    );
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await screen.findByText('conflict');
+    expect(onMetricChanged).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the tab after applying, so the run reads as out of date', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+    const readsBefore = mockGetTuningRun.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() =>
+      expect(mockGetTuningRun.mock.calls.length).toBeGreaterThan(readsBefore)
+    );
+  });
+
+  const proposedBox = (label: RegExp) =>
+    screen.getByRole('textbox', { name: label });
+
+  const openDialog = async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+  };
+
+  it('applies the reviewer edit rather than what the model proposed', async () => {
+    // The rewrite is a draft: someone who can see what is wrong with one clause
+    // should be able to fix that clause instead of discarding the whole thing.
+    await openDialog();
+
+    fireEvent.change(proposedBox(/evaluation prompt, proposed/i), {
+      target: { value: 'Fail any answer that dodges, unless it says why.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() =>
+      expect(mockUpdateMetric).toHaveBeenCalledWith(
+        METRIC_ID,
+        expect.objectContaining({
+          evaluation_prompt: 'Fail any answer that dodges, unless it says why.',
+        })
+      )
+    );
+  });
+
+  it('will not apply a field left empty', async () => {
+    // An update drops a null instead of writing it, so an empty box would apply
+    // successfully and change nothing.
+    await openDialog();
+
+    fireEvent.change(proposedBox(/evaluation prompt, proposed/i), {
+      target: { value: '   ' },
+    });
+
+    expect(screen.getByRole('button', { name: /^apply$/i })).toBeDisabled();
+    expect(
+      screen.getByText(/an empty field cannot be saved/i)
+    ).toBeInTheDocument();
+    expect(mockUpdateMetric).not.toHaveBeenCalled();
+  });
+
+  it('puts the proposal back when the edits are undone', async () => {
+    await openDialog();
+    fireEvent.change(proposedBox(/evaluation prompt, proposed/i), {
+      target: { value: 'Something I typed by mistake.' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /undo my edits/i }));
+
+    expect(proposedBox(/evaluation prompt, proposed/i)).toHaveValue(
+      PROPOSED.evaluation_prompt
+    );
+  });
+
+  it('offers nothing to undo until something is edited', async () => {
+    await openDialog();
+
+    expect(
+      screen.queryByRole('button', { name: /undo my edits/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('applies an edited threshold as a number, not as its text', async () => {
+    mockImproveFromReviews.mockResolvedValue({
+      ...IMPROVEMENT,
+      improvement: {
+        ...PROPOSED,
+        score_type: 'numeric',
+        min_score: 0,
+        max_score: 1,
+        threshold: 0.9,
+        threshold_operator: '>=',
+      },
+      changed: ['threshold'],
+    });
+    await openDialog();
+
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: /threshold, proposed/i }),
+      {
+        target: { value: '0.75' },
+      }
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() =>
+      expect(mockUpdateMetric).toHaveBeenCalledWith(
+        METRIC_ID,
+        expect.objectContaining({ threshold: 0.75 })
+      )
+    );
+  });
+
+  it('writes nothing when the dialog is closed', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    );
+    expect(mockUpdateMetric).not.toHaveBeenCalled();
+  });
+
+  it('keeps the proposal on screen when applying fails', async () => {
+    mockUpdateMetric.mockRejectedValue(new Error('conflict'));
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    // Asking again returns a different rewrite, so losing this one is not free.
+    expect(await screen.findByText('conflict')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
+
+describe('MetricTuningTab — a run that predates its metric', () => {
+  const STALE_RUN: MetricTuningRun = {
+    ...NEVER_RUN,
+    status: 'completed',
+    started_at: '2026-08-13T10:00:00Z',
+    completed_at: '2026-08-13T10:01:00Z',
+    total_cases: 1,
+    completed_cases: 1,
+    predates_metric: true,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(BINARY_METRIC);
+    mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
+  });
+
+  it('says the numbers belong to the earlier metric, and points at Run metric', async () => {
+    mockGetTuningRun.mockResolvedValue(STALE_RUN);
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(
+      await screen.findByText(/belong to the earlier version/i)
+    ).toHaveTextContent(/press run metric/i);
+  });
+
+  it('says nothing of the sort about a run of the current metric', async () => {
+    mockGetTuningRun.mockResolvedValue({
+      ...STALE_RUN,
+      predates_metric: false,
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await screen.findByText(/last run/i);
+    expect(
+      screen.queryByText(/belong to the earlier version/i)
+    ).not.toBeInTheDocument();
   });
 });
