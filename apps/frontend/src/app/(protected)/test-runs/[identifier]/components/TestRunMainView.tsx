@@ -28,6 +28,7 @@ import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
+import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import { getTestEvaluationSummary } from '@/utils/test-result-status';
 
 const TAB_KEYS = [
@@ -102,13 +103,14 @@ interface TestRunMainViewProps {
 export default function TestRunMainView({
   testRunId,
   testRunData: _testRunData,
-  testRun,
+  testRun: initialTestRun,
   currentUserId,
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
   initialDetailTab,
 }: TestRunMainViewProps) {
+  const testRun = useLiveTestRun(testRunId, initialTestRun);
   const notifications = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
