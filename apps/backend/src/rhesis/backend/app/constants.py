@@ -176,11 +176,20 @@ TEST_RESULT_STATUS_ERROR = frozenset(
 
 
 class TestResultStatus(str, Enum):
-    """Exact DB status names for test results (written to the status table)."""
+    """Exact DB status names for test results (written to the status table).
+
+    Display/review artefact only -- app/outcomes.py's Execution/Verdict
+    columns are the source of truth for aggregation. INCONCLUSIVE is a
+    fourth value because it names a real, distinct bucket
+    (Outcome.INCONCLUSIVE) that this vocabulary never had a name for
+    before: a metric legitimately reporting no pass/fail verdict used to
+    collapse into FAIL by default rather than being shown as its own state.
+    """
 
     PASS = "Pass"
     FAIL = "Fail"
     ERROR = "Error"
+    INCONCLUSIVE = "Inconclusive"
 
 
 class ReviewTarget(str, Enum):
@@ -217,14 +226,6 @@ class OverallTestResult(str, Enum):
     FAILED = "failed"
     PENDING = "pending"
     ERROR = "error"
-
-
-# Test Run Status Mappings (execution-level: did the run finish?)
-# A "passed" run completed execution; "failed" means execution itself failed.
-TEST_RUN_STATUS_PASSED = frozenset(
-    ["completed", "complete", "finished", "done", "success", "successful"]
-)
-TEST_RUN_STATUS_FAILED = frozenset(["failed", "fail", "error", "aborted"])
 
 
 def categorize_test_result_status(status_name: str) -> str:

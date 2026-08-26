@@ -8,7 +8,7 @@ Cell alphabet, one character per test per metric row:
 
 from typing import List, Optional
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas.base import Base
 
@@ -49,6 +49,6 @@ class VerdictMatrix(Base):
     version: int = 0
     test_ids: Optional[List[UUID4]] = None
     test_status: str = ""
-    requirements: List[VerdictRequirement] = []
-    rows: List[VerdictRow] = []
-    kpis: VerdictKpis = VerdictKpis()
+    requirements: List[VerdictRequirement] = Field(default_factory=list)
+    rows: List[VerdictRow] = Field(default_factory=list)
+    kpis: VerdictKpis = Field(default_factory=VerdictKpis)

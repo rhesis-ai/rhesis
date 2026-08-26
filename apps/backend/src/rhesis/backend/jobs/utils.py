@@ -3,13 +3,11 @@ Utility functions for background job operations and common patterns.
 """
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import schemas
-from rhesis.backend.app.crud.test_run import get_test_run, get_test_runs, update_test_run
+from rhesis.backend.app.crud.test_run import get_test_runs
 from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 from rhesis.backend.jobs.enums import RunStatus
 
@@ -59,83 +57,6 @@ def get_test_run_by_task_id(
         return query.first()
     except Exception:
         return None
-
-
-def increment_test_run_progress(
-    db: Session,
-    test_run_id: str,
-    test_id: str,
-    was_successful: bool = True,
-    organization_id: str = None,
-    user_id: str = None,
-) -> bool:
-    """
-    Atomically increment the completed_tests counter in test run attributes.
-
-    This function safely updates the test run progress as individual tests complete,
-    providing real-time progress tracking.
-
-    Args:
-        db: Database session
-        test_run_id: Test run UUID
-        test_id: Test UUID that was completed
-        was_successful: Whether the test was successful or failed
-
-    Returns:
-        True if update succeeded, False otherwise
-    """
-    try:
-        # Get the test run
-        test_run_uuid = safe_uuid_convert(test_run_id)
-        if not test_run_uuid:
-            return False
-
-        test_run = get_test_run(db, test_run_uuid, organization_id=organization_id, user_id=user_id)
-        if not test_run:
-            return False
-
-        # Get current attributes
-        current_attributes = test_run.attributes.copy() if test_run.attributes else {}
-
-        # Initialize counters if they don't exist
-        completed_tests = current_attributes.get("completed_tests", 0)
-        failed_tests = current_attributes.get("failed_tests", 0)
-
-        # Increment appropriate counter
-        if was_successful:
-            completed_tests += 1
-        else:
-            failed_tests += 1
-
-        # Update attributes with new progress
-        current_attributes.update(
-            {
-                "completed_tests": completed_tests,
-                "failed_tests": failed_tests,
-                "last_completed_test_id": test_id,
-                "last_update": datetime.now(timezone.utc).isoformat(),
-                "progress_updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
-
-        # Update the test run
-        update_data = {"attributes": current_attributes}
-
-        update_test_run(
-            db,
-            test_run.id,
-            schemas.TestRunUpdate(**update_data),
-            organization_id=str(test_run.organization_id) if test_run.organization_id else None,
-            user_id=str(test_run.user_id) if test_run.user_id else None,
-        )
-
-        return True
-
-    except Exception as e:
-        # Log error but don't raise - progress update failure shouldn't break test execution
-
-        logger.error(f"Failed to update test run progress: {str(e)}")
-        return False
 
 
 def create_task_result(

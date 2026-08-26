@@ -92,6 +92,18 @@ class MetricVerdict:
         }
 
 
+_EXPLORER_LABEL_BY_OUTCOME = {
+    "pass": "pass",
+    "fail": "fail",
+    # The explorer's label vocabulary predates Inconclusive and has no
+    # concept of it; matches the old `all(v.get('is_successful', False)
+    # for v in valid.values())` behavior, where a present-but-None
+    # is_successful was falsy and so counted as a fail.
+    "inconclusive": "fail",
+    "error": "error",
+}
+
+
 def aggregate_metric_verdict(
     metric_results: Dict[str, Any],
     metric_names: List[str],
@@ -100,15 +112,26 @@ def aggregate_metric_verdict(
 
     Passes only when every metric passed; the score is the mean across metrics. Returns
     ``None`` when no result is usable, which every caller treats as "no metric results".
+
+    Uses the single classifier in app/outcomes.py -- see
+    playground/outcome-model/inventory.md section 4.1. One intentional
+    behavior change from the old inline "all(is_successful)" check: a
+    metric that crashed while evaluating (carries an `error` key) now
+    labels the whole verdict "error" rather than being indistinguishable
+    from a metric that legitimately failed (the same bug 5 fix applied
+    everywhere else this rule was duplicated).
     """
+    from rhesis.backend.app.outcomes import classify_metrics, outcome_of
+
     valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
     if not valid:
         return None
 
     scores = [v.get("score", 0.0) for v in valid.values()]
-    all_passed = all(v.get("is_successful", False) for v in valid.values())
+    execution, verdict = classify_metrics(valid)
+    label = _EXPLORER_LABEL_BY_OUTCOME[outcome_of(execution, verdict).value]
     return MetricVerdict(
-        label="pass" if all_passed else "fail",
+        label=label,
         labeler=", ".join(metric_names),
         model_score=sum(scores) / len(scores) if scores else 0.0,
         metrics=build_metrics_summary_for_response(valid),

@@ -60,9 +60,8 @@ SELECT
     -- Pre-review automated outcome: the override's stashed original value if
     -- present, otherwise the current (possibly overridden) is_successful.
     COALESCE(override_original_value_raw::boolean, is_successful) AS automated_success,
-    -- Mirrors effective_metric_success() in services/stats/common.py: a metric
-    -- override always wins; otherwise a disagreeing overall result overrides
-    -- the stored per-metric value.
+    -- Effective per-metric outcome: a metric override always wins; otherwise
+    -- a disagreeing overall result overrides the stored per-metric value.
     CASE
         WHEN has_override THEN is_successful
         WHEN overall_result = 'passed' AND NOT is_successful THEN true
