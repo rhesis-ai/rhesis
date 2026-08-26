@@ -177,6 +177,28 @@ jobs:
           retry_argocd argocd app sync prd-base \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
 
+  trigger-java-sdk-tests:
+    name: Trigger Java SDK integration tests
+    if: startsWith(github.ref, 'refs/heads/release/')
+    needs: [promote-prd-config]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate cross-repo token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+          repositories: rhesis-java
+
+      - name: Dispatch integration tests
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          gh api repos/rhesis-ai/rhesis-java/dispatches \
+            -f event_type=platform-released \
+            -f "client_payload[ref]=${{ github.ref_name }}"
+
   publish:
     if: startsWith(github.ref, 'refs/heads/release/')
     needs: [promote-prd-config]
