@@ -48,3 +48,6 @@ class TraceResponse(BaseModel):
     """Response after receiving a trace."""
 
     status: str = Field(default="received", description="Status message")
+    trace_id: Optional[str] = Field(
+        None, description="Persisted execution trace id, when storage is enabled"
+    )

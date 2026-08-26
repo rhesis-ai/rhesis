@@ -9,11 +9,14 @@ This module tests the WebSocket connector endpoints including:
 """
 
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
+
+from rhesis.backend.app.models.execution_trace import ExecutionTrace
 
 # A valid, stable project UUID used across trigger tests.
 _TEST_PROJECT_ID = str(uuid.uuid4())
@@ -21,6 +24,21 @@ _TEST_PROJECT_ID = str(uuid.uuid4())
 # Path to the membership guard so tests can bypass it when they are
 # exercising connection-manager behaviour rather than authorization.
 _MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_membership"
+
+
+@pytest.fixture
+def seeded_project(test_db, test_org_id):
+    """Real project row so persisted execution traces satisfy the FK."""
+    from rhesis.backend.app import models
+
+    project = models.Project(
+        name=f"Connector Trace Project {uuid.uuid4().hex[:8]}",
+        organization_id=uuid.UUID(test_org_id),
+    )
+    test_db.add(project)
+    test_db.flush()
+    yield project
+    test_db.rollback()
 
 
 @pytest.mark.integration
@@ -248,10 +266,10 @@ class TestConnectorHTTPEndpoints:
             data = response.json()
             assert data["environment"] == "development"  # Default environment
 
-    def test_receive_trace_success(self, authenticated_client: TestClient):
+    def test_receive_trace_success(self, authenticated_client: TestClient, seeded_project):
         """Test receiving execution trace (legacy endpoint for connector traces)"""
         trace_data = {
-            "project_id": "test-project",
+            "project_id": str(seeded_project.id),
             "environment": "development",
             "function_name": "test_func",
             "status": "success",
@@ -269,10 +287,10 @@ class TestConnectorHTTPEndpoints:
         data = response.json()
         assert data["status"] == "received"
 
-    def test_receive_trace_with_error(self, authenticated_client: TestClient):
+    def test_receive_trace_with_error(self, authenticated_client: TestClient, seeded_project):
         """Test receiving execution trace with error (legacy endpoint)"""
         trace_data = {
-            "project_id": "test-project",
+            "project_id": str(seeded_project.id),
             "environment": "development",
             "function_name": "test_func",
             "status": "error",
@@ -290,10 +308,10 @@ class TestConnectorHTTPEndpoints:
         data = response.json()
         assert data["status"] == "received"
 
-    def test_receive_trace_with_long_output(self, authenticated_client: TestClient):
+    def test_receive_trace_with_long_output(self, authenticated_client: TestClient, seeded_project):
         """Test receiving execution trace with long output (legacy endpoint)"""
         trace_data = {
-            "project_id": "test-project",
+            "project_id": str(seeded_project.id),
             "environment": "development",
             "function_name": "test_func",
             "status": "success",
@@ -310,6 +328,68 @@ class TestConnectorHTTPEndpoints:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "received"
+
+    def test_receive_trace_persists_record(
+        self, authenticated_client: TestClient, test_db, seeded_project, test_org_id
+    ):
+        """Trace is persisted and its id returned, not just logged."""
+        trace_data = {
+            "project_id": str(seeded_project.id),
+            "environment": "development",
+            "function_name": "test_func",
+            "status": "success",
+            "duration_ms": 123.45,
+            "inputs": {"param": "value"},
+            "output": "success result",
+            "error": None,
+            "timestamp": 1704067200.0,  # 2024-01-01T00:00:00Z
+        }
+
+        response = authenticated_client.post("/connector/trace", json=trace_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "received"
+        assert data["trace_id"]
+
+        record = (
+            test_db.query(ExecutionTrace)
+            .filter(ExecutionTrace.id == uuid.UUID(data["trace_id"]))
+            .one()
+        )
+        assert record.project_id == seeded_project.id
+        assert record.organization_id == uuid.UUID(test_org_id)
+        assert record.function_name == "test_func"
+        assert record.inputs == {"param": "value"}
+        assert record.output == "success result"
+        assert record.duration_ms == pytest.approx(123.45)
+        assert record.status == "success"
+        assert record.executed_at == datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+    def test_receive_trace_persists_error(
+        self, authenticated_client: TestClient, test_db, seeded_project
+    ):
+        """Error traces persist the error payload too."""
+        trace_data = {
+            "project_id": str(seeded_project.id),
+            "environment": "staging",
+            "function_name": "boom_func",
+            "status": "error",
+            "duration_ms": 5.0,
+            "inputs": {},
+            "output": None,
+            "error": "Something went wrong",
+            "timestamp": 1704067200.0,
+        }
+
+        response = authenticated_client.post("/connector/trace", json=trace_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        record = test_db.query(ExecutionTrace).filter_by(id=uuid.UUID(data["trace_id"])).one()
+        assert record.status == "error"
+        assert record.error == "Something went wrong"
+        assert record.environment == "staging"
 
 
 @pytest.mark.integration
