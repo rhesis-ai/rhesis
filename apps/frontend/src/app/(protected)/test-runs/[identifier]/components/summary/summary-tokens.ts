@@ -73,11 +73,11 @@ export function useVerdictPalette(): Record<
     const label = theme.palette.greyscale.label;
 
     // Cells are alpha-blended straight onto the card background (no opaque
-    // per-cell backdrop), which in dark mode is `#161B22` -- close to both
-    // `border` (`#30363d`) and `surface2` (`#0d1117`), so at low alpha those
-    // cells were nearly invisible. `label` (`#8b949e`) has real separation
-    // from the dark background, and swapping `pending` to `border` (still
-    // muted, but lighter than `surface2`) restores its contrast too.
+    // per-cell backdrop). In dark mode that background sits very close to
+    // both `border` and `surface2`, so at low alpha those cells were nearly
+    // invisible. `label` is much lighter and has real separation from it,
+    // and swapping `pending` to `border` (still muted, but lighter than
+    // `surface2`) restores its contrast too.
     const pendingColor = isDark ? border : surface2;
     const naColor = isDark ? label : border;
 

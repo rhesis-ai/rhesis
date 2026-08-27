@@ -74,7 +74,7 @@ export default function DensityControl({
             sx={{
               px: 1.5,
               py: 0.5,
-              fontSize: '0.8125rem',
+              fontSize: theme => theme.typography.button.fontSize,
               fontWeight: 500,
               color: checked ? 'primary.contrastText' : 'text.secondary',
               bgcolor: checked ? 'primary.main' : 'transparent',
