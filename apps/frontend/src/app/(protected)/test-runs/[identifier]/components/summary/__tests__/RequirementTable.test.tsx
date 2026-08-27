@@ -210,6 +210,34 @@ describe('RequirementTable', () => {
     expect(screen.getByText('Safety')).toBeInTheDocument();
   });
 
+  it('renders a requirement-less group without a group header', () => {
+    // Execution-time/test-set metrics never linked to a requirement --
+    // "Unassigned" would misleadingly present them as a requirement.
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          requirements: [
+            { id: null, name: 'Unassigned', metric_keys: ['m1', 'm2'] },
+          ],
+        })}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    // The metric rows themselves still render (shared-prefix trimmed, same
+    // as any other group)...
+    expect(screen.getByText('Toxicity Score')).toBeInTheDocument();
+    expect(screen.getByText('Bias Check')).toBeInTheDocument();
+    // ...but there is no clickable/collapsible group header for them, and
+    // no "Unassigned" label presented as if it were a requirement.
+    expect(
+      screen.queryByRole('button', { expanded: true })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument();
+  });
+
   it('derives group header Total/Passed/Failed from the per-test rollup', () => {
     // m1 verdicts 'PF.', m2 verdicts 'PP.' across 3 tests:
     // t1: P,P -> passed. t2: F,P -> failed. t3: .,. -> pending (neither).

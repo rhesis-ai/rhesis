@@ -223,6 +223,7 @@ export default function RequirementTable({
             dataVersion={matrix.version}
             onViewRequirement={onViewRequirement}
             onViewMetric={onViewMetric}
+            headerless={req.id === null}
           />
         ))}
 
