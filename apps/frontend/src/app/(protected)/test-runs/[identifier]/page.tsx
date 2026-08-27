@@ -4,6 +4,10 @@ import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import TestRunMainView from './components/TestRunMainViewClient';
+import { prefetch } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { fetchSmallTestRunResults } from './hooks/useTestRunDetailData';
+import { hasOtherRunsForTestSet } from './components/comparison-runs';
 
 interface _PageProps {
   params: Promise<{ identifier: string }>;
@@ -58,6 +62,20 @@ export default async function TestRunPage({
     throw error;
   }
 
+  // Results for the Summary/Test Cases tabs (small runs only) and the
+  // "can compare" check, so both tabs open without a client round trip.
+  const testSetId = testRun.test_configuration?.test_set?.id;
+  const [testResults, hasComparisonRuns] = await Promise.all([
+    prefetch(Capability.TestResult.READ, () =>
+      fetchSmallTestRunResults(apiFactory, identifier)
+    ),
+    testSetId
+      ? prefetch(Capability.TestRun.READ, () =>
+          hasOtherRunsForTestSet(apiFactory, testSetId, identifier)
+        )
+      : Promise.resolve(false),
+  ]);
+
   const title = testRun.name || `Test Run ${identifier}`;
   const breadcrumbs = [
     { label: 'Test Runs', href: '/test-runs' },
@@ -87,6 +105,8 @@ export default async function TestRunPage({
           typeof selectedResult === 'string' ? selectedResult : undefined
         }
         initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
+        initialTestResults={testResults}
+        initialHasComparisonRuns={hasComparisonRuns}
       />
     </PageLayout>
   );

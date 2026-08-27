@@ -4,6 +4,13 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import type { Project } from '@/utils/api-client/interfaces/project';
 import ClientWrapper from './client-wrapper';
+import { prefetch } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import {
+  fetchProjectEnvironments,
+  fetchProjectTraceMetrics,
+  projectTraceMetricIds,
+} from './components/project-data';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -34,5 +41,27 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     throw error;
   }
 
-  return <ClientWrapper project={project} projectId={project.id} />;
+  // Members and Configuration tab data, so each tab opens with rows in place.
+  const [members, environments, traceMetrics] = await Promise.all([
+    prefetch(Capability.ProjectMember.READ, () =>
+      apiFactory
+        .forProject(project.id)
+        .getProjectsClient()
+        .getProjectMembers(project.id)
+    ),
+    prefetch(Capability.Experiment.READ, () =>
+      fetchProjectEnvironments(apiFactory, project.id)
+    ),
+    prefetch(Capability.Metric.READ, () =>
+      fetchProjectTraceMetrics(apiFactory, projectTraceMetricIds(project))
+    ),
+  ]);
+
+  return (
+    <ClientWrapper
+      project={project}
+      projectId={project.id}
+      initialData={{ members, environments, traceMetrics }}
+    />
+  );
 }

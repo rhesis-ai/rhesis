@@ -3,7 +3,7 @@
 import React from 'react';
 import { CommentsSection } from './CommentsSection';
 import { useComments } from '@/hooks/useComments';
-import { EntityType } from '@/types/comments';
+import { Comment, EntityType } from '@/types/comments';
 
 interface CommentsWrapperProps {
   entityType: EntityType;
@@ -14,6 +14,7 @@ interface CommentsWrapperProps {
   onCreateTask?: (commentId: string) => void;
   onCreateTaskFromEntity?: () => void;
   onCountsChange?: () => void;
+  initialComments?: Comment[];
 }
 
 export default function CommentsWrapper({
@@ -25,6 +26,7 @@ export default function CommentsWrapper({
   onCreateTask,
   onCreateTaskFromEntity,
   onCountsChange,
+  initialComments,
 }: CommentsWrapperProps) {
   const {
     comments,
@@ -41,6 +43,7 @@ export default function CommentsWrapper({
     currentUserId,
     currentUserName,
     currentUserPicture,
+    initialComments,
   });
 
   // Wrap the functions to match the expected Promise<void> return type

@@ -7,6 +7,7 @@ let mockCanEdit = true;
 
 jest.mock('@/components/common/Can', () => ({
   useCan: () => mockCanEdit,
+  useCanWithStatus: () => ({ allowed: true, loading: false }),
   Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   can: () => mockCanEdit,
 }));

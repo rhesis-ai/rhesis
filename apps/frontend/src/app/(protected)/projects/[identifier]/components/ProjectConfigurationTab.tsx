@@ -7,6 +7,8 @@ import { AddIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
 import { Project } from '@/utils/api-client/interfaces/project';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type { ProjectEnvironmentsData } from './project-data';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import ProjectTraceMetrics, {
@@ -25,12 +27,16 @@ interface ProjectConfigurationTabProps {
   project: Project;
   projectId: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
+  initialTraceMetrics?: MetricDetail[];
+  initialEnvironments?: ProjectEnvironmentsData;
 }
 
 export default function ProjectConfigurationTab({
   project,
   projectId,
   onProjectUpdate,
+  initialTraceMetrics,
+  initialEnvironments,
 }: ProjectConfigurationTabProps) {
   const canUpdateProject = useCan(Capability.Project.UPDATE);
   const traceMetricsRef = useRef<ProjectTraceMetricsHandle>(null);
@@ -62,6 +68,7 @@ export default function ProjectConfigurationTab({
           ref={traceMetricsRef}
           project={project}
           onProjectUpdate={onProjectUpdate}
+          initialMetrics={initialTraceMetrics}
         />
       </SectionCard>
 
@@ -87,6 +94,7 @@ export default function ProjectConfigurationTab({
           ref={environmentsRef}
           projectId={projectId}
           hideToolbarAddButton
+          initialData={initialEnvironments}
         />
       </SectionCard>
     </>

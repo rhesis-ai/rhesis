@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
 import RequirementDetailTabs from './RequirementDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -16,11 +17,13 @@ import { Capability } from '@/constants/capabilities';
 interface RequirementDetailClientProps {
   requirement: RequirementWithMetrics;
   identifier: string;
+  initialLinkedTests?: TestDetail[];
 }
 
 export default function RequirementDetailClient({
   requirement: initialRequirement,
   identifier,
+  initialLinkedTests,
 }: RequirementDetailClientProps) {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Requirement.READ
@@ -65,6 +68,7 @@ export default function RequirementDetailClient({
         <RequirementDetailTabs
           requirement={requirement}
           onUpdated={setRequirement}
+          initialLinkedTests={initialLinkedTests}
         />
       </Box>
     </PageLayout>

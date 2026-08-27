@@ -1,11 +1,12 @@
 import { gridSortToApiParams } from '@/utils/grid-sort';
 import { buildListFilter } from './odata';
-import type {
-  ListDescriptor,
-  ListParams,
-  ListState,
-  FilterSpecMap,
-  FiltersOf,
+import {
+  emptyFilters,
+  type ListDescriptor,
+  type ListParams,
+  type ListState,
+  type FilterSpecMap,
+  type FiltersOf,
 } from './define';
 
 function isActive(value: string | string[] | undefined): boolean {
@@ -60,4 +61,19 @@ export function listParams<T, S extends FilterSpecMap>(
     ...(descriptor.extraParams?.(state.filters) ?? {}),
     ...($filter ? { $filter } : {}),
   };
+}
+
+/**
+ * The params for a descriptor's first page in its default state -- what a
+ * server prefetch fetches, and what the client grid asks for on mount.
+ */
+export function firstPageParams<T, S extends FilterSpecMap>(
+  descriptor: ListDescriptor<T, S>
+): ListParams {
+  return listParams(descriptor, {
+    page: 1,
+    pageSize: descriptor.defaultPageSize,
+    sort: descriptor.defaultSort,
+    filters: emptyFilters(descriptor),
+  });
 }

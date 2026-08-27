@@ -29,6 +29,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useQuery } from '@tanstack/react-query';
 import { experimentKeys } from '@/constants/query-keys';
 import {
+  fetchExperimentRuns,
+  type ExperimentRunsData,
+} from './experiment-data';
+import {
   ExperimentResultsRunItem,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
@@ -40,11 +44,13 @@ import { passRate } from '@/constants/outcomes';
 interface ExperimentRunsTabProps {
   experimentId: string;
   onRunExperiment?: () => void;
+  initialRuns?: ExperimentRunsData;
 }
 
 export default function ExperimentRunsTab({
   experimentId,
   onRunExperiment,
+  initialRuns,
 }: ExperimentRunsTabProps) {
   const { status } = useSession();
   const [drawerRun, setDrawerRun] = useState<ExperimentResultsRunItem | null>(
@@ -60,9 +66,9 @@ export default function ExperimentRunsTab({
     error: fetchError,
   } = useQuery({
     queryKey: [...experimentKeys.detail(experimentId), 'runs'],
-    queryFn: () =>
-      apiFactory.getParametersClient().getExperimentResultsByRun(experimentId),
+    queryFn: () => fetchExperimentRuns(apiFactory, experimentId),
     enabled: isAuthenticated(status) && !!experimentId,
+    initialData: initialRuns,
   });
 
   const runs = data?.items ?? [];

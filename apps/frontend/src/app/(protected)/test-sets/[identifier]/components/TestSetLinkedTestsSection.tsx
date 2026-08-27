@@ -36,6 +36,7 @@ interface TestSetLinkedTestsSectionProps {
   testSetId: string;
   testSetType?: string;
   testCount: number;
+  initialTests?: TestDetail[];
   isGenerating?: boolean;
 }
 
@@ -43,6 +44,7 @@ export default function TestSetLinkedTestsSection({
   testSetId,
   testSetType,
   testCount: initialTestCount,
+  initialTests,
   isGenerating: initialIsGenerating = false,
 }: TestSetLinkedTestsSectionProps) {
   const { show: showNotification } = useNotifications();
@@ -256,6 +258,8 @@ export default function TestSetLinkedTestsSection({
           <EmbeddingTestsPanel
             testSetId={testSetId}
             testSetType={testSetType}
+            initialTests={initialTests}
+            initialTotalCount={initialTestCount}
             onTotalCountChange={setTotalCount}
           />
         </>

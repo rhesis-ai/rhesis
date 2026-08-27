@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import {
   GridColDef,
@@ -34,6 +34,7 @@ import type {
   MetricWithRelationships,
 } from '@/utils/api-client/interfaces/requirement';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
@@ -56,11 +57,13 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 interface RequirementDetailTabsProps {
   requirement: RequirementWithMetrics;
   onUpdated: (updated: RequirementWithMetrics) => void;
+  initialLinkedTests?: TestDetail[];
 }
 
 export default function RequirementDetailTabs({
   requirement,
   onUpdated,
+  initialLinkedTests,
 }: RequirementDetailTabsProps) {
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
@@ -89,7 +92,10 @@ export default function RequirementDetailTabs({
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="requirement-detail">
-        <RequirementLinkedTests requirement={requirement} />
+        <RequirementLinkedTests
+          requirement={requirement}
+          initialTests={initialLinkedTests}
+        />
       </DetailTabPanel>
     </Box>
   );
@@ -320,10 +326,8 @@ function RequirementLinkedMetrics({
     }
   }, [requirement.id]);
 
-  useEffect(() => {
-    fetchLinked();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
-  }, [requirement.id]);
+  // No mount fetch: `requirement.metrics` arrives with the server-rendered
+  // requirement, so `fetchLinked` only re-reads after an assignment.
 
   const handleUnassign = useCallback(
     async (metricId: string) => {

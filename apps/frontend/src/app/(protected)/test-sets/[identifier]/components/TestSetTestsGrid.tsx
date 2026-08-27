@@ -22,6 +22,7 @@ import { useList } from '@/hooks/useList';
 import { testSetTestsList } from './list';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -71,12 +72,17 @@ interface TestSetTestsGridProps {
   testSetType?: string;
   /** When true, grid is rendered inside embedding atlas (spacing only). */
   embedded?: boolean;
+  /** Server-prefetched first page (default sort, no filters); skips the mount fetch. */
+  initialTests?: TestDetail[];
+  initialTotalCount?: number;
   onTotalCountChange?: (count: number) => void;
 }
 
 export default function TestSetTestsGrid({
   testSetId,
   testSetType,
+  initialTests,
+  initialTotalCount,
   onTotalCountChange,
 }: TestSetTestsGridProps) {
   const router = useRouter();
@@ -114,6 +120,8 @@ export default function TestSetTestsGrid({
   } = useList(descriptor, {
     filters,
     enabled: !!testSetId,
+    initialData: initialTests,
+    initialTotalCount,
     onError: () => setErrorDismissed(false),
   });
 

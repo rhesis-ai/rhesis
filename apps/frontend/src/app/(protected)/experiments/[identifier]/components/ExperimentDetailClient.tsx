@@ -44,6 +44,7 @@ import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
 import ExperimentOverviewTab from './ExperimentOverviewTab';
 import ExperimentVersionsGrid from './ExperimentVersionsGrid';
 import ExperimentRunsTab from './ExperimentRunsTab';
+import type { ExperimentRunsData } from './experiment-data';
 import ExperimentParametersTab from './ExperimentParametersTab';
 import { formatDate } from '@/utils/date';
 import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
@@ -68,6 +69,8 @@ export interface ExperimentDetailData {
 interface ExperimentDetailClientProps {
   experimentId: string;
   initialExperiment: ExperimentDetailData;
+  /** Server-prefetched Runs tab; undefined falls back to a client fetch. */
+  initialRuns?: ExperimentRunsData;
 }
 
 function defaultsForSchema(
@@ -95,6 +98,7 @@ function valuesFromVersion(
 export default function ExperimentDetailClient({
   experimentId,
   initialExperiment,
+  initialRuns,
 }: ExperimentDetailClientProps) {
   const notifications = useNotifications();
   const { status } = useSession();
@@ -414,6 +418,7 @@ export default function ExperimentDetailClient({
         <DetailTabPanel value={activeTab} index={3} prefix="experiment">
           <ExperimentRunsTab
             experimentId={experiment.id}
+            initialRuns={initialRuns}
             onRunExperiment={() => setRunDrawerOpen(true)}
           />
         </DetailTabPanel>

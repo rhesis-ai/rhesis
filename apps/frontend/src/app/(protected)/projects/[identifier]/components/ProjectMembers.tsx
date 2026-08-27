@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+
+const EMPTY_MEMBERS: ProjectMember[] = [];
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
@@ -30,6 +32,8 @@ interface ProjectMembersProps {
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
   onMembersLoaded?: (members: ProjectMember[]) => void;
+  /** Server-prefetched members; seeds the query. */
+  initialMembers?: ProjectMember[];
 }
 
 function getMemberDisplayName(
@@ -45,6 +49,7 @@ export default function ProjectMembers({
   projectId,
   ownerId,
   onMembersLoaded,
+  initialMembers,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
   const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
@@ -67,20 +72,24 @@ export default function ProjectMembers({
   ] as const;
 
   const {
-    data: members = [],
+    data: members = EMPTY_MEMBERS,
     isLoading: membersLoading,
     error: membersQueryError,
   } = useQuery({
     queryKey: membersQueryKey,
-    queryFn: async () => {
-      const data = await new ApiClientFactory(undefined, projectId)
+    queryFn: () =>
+      new ApiClientFactory(undefined, projectId)
         .getProjectsClient()
-        .getProjectMembers(projectId);
-      onMembersLoaded?.(data);
-      return data;
-    },
+        .getProjectMembers(projectId),
     enabled: isAuthenticated(status) && !!projectId,
+    initialData: initialMembers,
   });
+
+  // An effect rather than a side effect of the fetch, so server-prefetched
+  // members reach the parent too.
+  useEffect(() => {
+    if (members !== EMPTY_MEMBERS) onMembersLoaded?.(members);
+  }, [members, onMembersLoaded]);
 
   const membersError = membersQueryError
     ? 'Failed to load project members.'
