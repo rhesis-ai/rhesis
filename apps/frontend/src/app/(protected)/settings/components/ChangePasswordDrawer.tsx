@@ -14,7 +14,6 @@ import {
   validatePasswordConfirmation,
   type PasswordPolicy,
 } from '@/utils/validation';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import {
   drawerFieldsSx,
@@ -49,7 +48,7 @@ export default function ChangePasswordDrawer({
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const res = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        const res = await fetch('/api/auth-config');
         if (res.ok) {
           const data = await res.json();
           setPasswordPolicy(data.password_policy || null);
