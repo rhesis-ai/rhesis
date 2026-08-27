@@ -967,6 +967,18 @@ export function Sidebar() {
             },
           }}
         >
+          {/* Settings */}
+          <MenuItem
+            onClick={() => {
+              router.push('/settings');
+              setMenuAnchor(null);
+            }}
+            sx={MENU_ROW_SX}
+          >
+            <SettingsOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>User Settings</Typography>
+          </MenuItem>
+
           {/* Notifications */}
           <MenuItem
             onClick={() => {

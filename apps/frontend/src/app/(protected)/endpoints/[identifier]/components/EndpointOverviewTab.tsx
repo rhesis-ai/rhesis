@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo } from 'react';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -12,18 +11,18 @@ import {
   MenuItem,
   Select,
   Switch,
-  TextField,
   FormControl,
   InputLabel,
 } from '@mui/material';
+import { SECTION_GRID } from '@/styles/theme-constants';
 import GridBadge from '@/components/common/GridBadge';
 import EditableSection from '@/components/common/EditableSection';
+import EditableField from '@/components/common/EditableField';
 import ViewField from '@/components/common/ViewField';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { ENVIRONMENTS } from './endpoint-detail-shared';
 import {
-  detailGridSpacing,
   formatConfigSource,
   formatEnvironment,
 } from './endpoint-overview-utils';
@@ -82,62 +81,48 @@ export default function EndpointOverviewTab() {
         {({ draft, setDraft, isEditing }) => (
           <Grid
             container
-            columnSpacing={detailGridSpacing.columnSpacing(isEditing)}
-            rowSpacing={detailGridSpacing.rowSpacing(isEditing)}
+            columnSpacing={SECTION_GRID.columnSpacing}
+            rowSpacing={SECTION_GRID.rowSpacing}
           >
-            {/* Project is fixed once the endpoint exists — an endpoint cannot be
-                moved between projects, so this stays read-only even while editing. */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <ViewField label="Project">
-                {endpoint.project_id ? (
-                  <Link
-                    href={`/projects/${endpoint.project_id}`}
-                    style={{ color: 'inherit', fontWeight: 500 }}
-                  >
-                    {projectName}
-                  </Link>
-                ) : (
-                  'No project assigned'
-                )}
-              </ViewField>
+              <EditableField
+                fullWidth
+                editing={isEditing}
+                label="Name"
+                value={isEditing ? draft.name : endpoint.name}
+                onChange={e =>
+                  setDraft(prev => ({ ...prev, name: e.target.value }))
+                }
+              />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  label="Name"
-                  value={draft.name}
-                  onChange={e =>
-                    setDraft(prev => ({ ...prev, name: e.target.value }))
-                  }
-                />
-              ) : (
-                <ViewField label="Name" value={endpoint.name} />
-              )}
+              <EditableField
+                fullWidth
+                editing={false}
+                label="Project"
+                value={projectName}
+              />
             </Grid>
 
             <Grid size={12}>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  label="Description"
-                  value={draft.description}
-                  onChange={e =>
-                    setDraft(prev => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  multiline
-                  minRows={3}
-                />
-              ) : (
-                <ViewField
-                  label="Description"
-                  value={endpoint.description || 'No description provided'}
-                  multiline
-                />
-              )}
+              <EditableField
+                fullWidth
+                editing={isEditing}
+                label="Description"
+                value={
+                  isEditing
+                    ? draft.description
+                    : endpoint.description || 'No description provided'
+                }
+                onChange={e =>
+                  setDraft(prev => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                multiline
+                minRows={3}
+              />
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>

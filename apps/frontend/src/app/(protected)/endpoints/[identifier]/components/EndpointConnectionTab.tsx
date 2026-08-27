@@ -10,15 +10,15 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  TextField,
 } from '@mui/material';
+import { SECTION_GRID } from '@/styles/theme-constants';
 import EditableSection from '@/components/common/EditableSection';
+import EditableField from '@/components/common/EditableField';
 import ViewField from '@/components/common/ViewField';
 import { normalizeUrl } from '@/utils/validation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { METHODS } from './endpoint-detail-shared';
-import { detailGridSpacing } from './endpoint-overview-utils';
 import EndpointSdkConnectionPanel from './EndpointSdkConnectionPanel';
 import EndpointHeadersFields from '../../components/EndpointHeadersFields';
 
@@ -103,24 +103,29 @@ export default function EndpointConnectionTab() {
         {({ draft, setDraft, isEditing }) => (
           <Grid
             container
-            columnSpacing={detailGridSpacing.columnSpacing(isEditing)}
-            rowSpacing={detailGridSpacing.rowSpacing(isEditing)}
+            columnSpacing={SECTION_GRID.columnSpacing}
+            rowSpacing={SECTION_GRID.rowSpacing}
           >
             <Grid size={{ xs: 12, md: 8 }}>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  label="URL"
-                  placeholder="api.example.com or https://api.example.com"
-                  helperText="https:// will be added automatically if omitted"
-                  value={draft.url}
-                  onChange={e =>
-                    setDraft(prev => ({ ...prev, url: e.target.value }))
-                  }
-                />
-              ) : (
-                <ViewField label="URL" value={endpoint.url || '—'} />
-              )}
+              <EditableField
+                fullWidth
+                editing={isEditing}
+                label="URL"
+                placeholder={
+                  isEditing
+                    ? 'api.example.com or https://api.example.com'
+                    : undefined
+                }
+                helperText={
+                  isEditing
+                    ? 'https:// will be added automatically if omitted'
+                    : undefined
+                }
+                value={isEditing ? draft.url : endpoint.url || '—'}
+                onChange={e =>
+                  setDraft(prev => ({ ...prev, url: e.target.value }))
+                }
+              />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               {isEditing ? (
@@ -189,9 +194,6 @@ export default function EndpointConnectionTab() {
               setDraft(prev => ({
                 ...prev,
                 auth_token: value,
-                // typing a real replacement cancels a pending removal;
-                // whitespace-only input is treated as empty on save, so it
-                // must not silently cancel the removal
                 clear_token: value.trim() !== '' ? false : prev.clear_token,
               }))
             }

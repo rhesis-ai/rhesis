@@ -68,6 +68,7 @@ from rhesis.backend.app.error_handlers import PublicHTTPException, internal_erro
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
+    AUTH_CHANGE_PASSWORD_LIMIT,
     AUTH_FORGOT_PASSWORD_LIMIT,
     AUTH_LOGIN_EMAIL_LIMIT,
     AUTH_MAGIC_LINK_LIMIT,
@@ -156,6 +157,15 @@ class ResetPasswordRequest(BaseModel):
     """Request body for password reset."""
 
     token: str
+    new_password: str = Field(..., min_length=1)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request body for authenticated password change/set."""
+
+    current_password: Optional[str] = Field(
+        None, description="Required when the user already has a password set."
+    )
     new_password: str = Field(..., min_length=1)
 
 
@@ -908,6 +918,73 @@ async def reset_password(
     return {
         "success": True,
         "message": "Password has been reset successfully",
+    }
+
+
+# =============================================================================
+# Change Password (Authenticated)
+# =============================================================================
+
+
+@router.post("/change-password")
+@limiter.limit(AUTH_CHANGE_PASSWORD_LIMIT)
+async def change_password(
+    request: Request,
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """
+    Change or set a password for the currently authenticated user.
+
+    Users who already have a password must provide ``current_password``.
+    Users without a password (OAuth, magic-link, SSO) can set one by
+    omitting ``current_password``. Setting a password is additive -- it
+    does not change the user's primary authentication provider.
+
+    On success, all other sessions are invalidated and a fresh session
+    token is returned so the current session survives.
+    """
+    from rhesis.backend.app.auth.session_invalidation import (
+        invalidate_user_sessions,
+    )
+    from rhesis.backend.app.utils.encryption import hash_password, verify_password
+
+    db_user = db.query(User).filter(User.id == current_user.id).first()
+    if db_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if db_user.password_hash is not None:
+        if not body.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required.",
+            )
+        if not verify_password(body.current_password, db_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect.",
+            )
+
+    await validate_password(
+        body.new_password,
+        context={"email": db_user.email, "name": db_user.name or ""},
+    )
+
+    db_user.password_hash = hash_password(body.new_password)
+    if not db_user.provider_type:
+        db_user.provider_type = AuthProviderType.EMAIL
+
+    db.commit()
+
+    invalidate_user_sessions(str(db_user.id))
+
+    logger.info("Password changed for user: %s", redact_email(db_user.email))
+
+    return {
+        "success": True,
+        "message": "Password updated successfully.",
+        "session_token": create_session_token(db_user),
     }
 
 

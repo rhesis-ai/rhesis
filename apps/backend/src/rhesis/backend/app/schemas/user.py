@@ -173,13 +173,29 @@ class UserSettingsOutput(UserSettings):
 
 
 class UserSettingsRead(UserSettingsOutput):
-    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+    """GET /users/settings — affordances, profile fields, and auth metadata."""
 
     permitted_actions: list[str] = Field(
         default_factory=list,
         description="Capabilities the caller may exercise on their own settings "
         "(e.g. polyphemus:request).",
     )
+    has_password: bool = Field(
+        False,
+        description="Whether the user has a password set (vs. OAuth/magic-link/SSO-only login).",
+    )
+    provider_type: Optional[str] = Field(
+        None,
+        description="Authentication provider type (google, github, email, oidc, etc.).",
+    )
+    email: str = Field(
+        ...,
+        description="User's email address.",
+    )
+    name: Optional[str] = Field(None, description="Full display name.")
+    given_name: Optional[str] = Field(None, description="First name.")
+    family_name: Optional[str] = Field(None, description="Last name.")
+    picture: Optional[str] = Field(None, description="Profile picture URL.")
 
 
 class UserSettingsUpdate(BaseModel):
