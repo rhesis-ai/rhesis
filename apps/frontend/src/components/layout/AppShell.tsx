@@ -91,6 +91,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
             flexDirection: 'column',
             minHeight: scaledVh(),
             minWidth: 0,
+            overflowX: 'auto',
             bgcolor: 'background.default',
           }}
         >
