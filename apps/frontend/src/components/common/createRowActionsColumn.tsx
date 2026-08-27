@@ -183,7 +183,7 @@ export function createRowActionsColumn({
 }: RowActionsColumnOptions): GridColDef {
   return {
     field: 'actions',
-    headerName: '',
+    headerName: 'Actions',
     width,
     sortable: false,
     hideable: false,
