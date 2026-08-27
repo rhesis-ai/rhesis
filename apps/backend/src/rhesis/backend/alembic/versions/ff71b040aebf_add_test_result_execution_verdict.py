@@ -26,10 +26,13 @@ convention in the v_test_result_stats migrations -- an import here would
 silently change historical backfill behavior if constants.py is edited
 later.
 
-Also drops the seeded 'Review' TestResult status: never written by any code
-path, and read as an error by the backend and a Fail by the frontend where
-it did appear. Guarded to skip any row that (unexpectedly) still references
-it.
+Also drops the seeded 'Review' TestResult status, which no code path writes
+and which the backend read as an error and the frontend as a Fail where it
+did appear. initial_data.json used to seed two 'Review' rows per org, one
+against Test and a mis-scoped one against TestResult, and tests created
+through POST/PUT /tests (which take status_id straight from the client, with
+no entity-type check) could be pointed at either. So the drop is guarded on
+both test and test_result, and the row survives in orgs that still use it.
 
 Revision ID: ff71b040aebf
 Revises: f2b3c4d5e6a7
@@ -96,6 +99,9 @@ def upgrade() -> None:
         "(execution = 'ok') = (verdict IS NOT NULL)",
     )
 
+    # test as well as test_result: initial_data.json seeded two 'Review' rows per
+    # org, one against Test and a mis-scoped one against TestResult, and some
+    # tests were pointed at the TestResult row. Skipping keeps those tests valid.
     op.execute(
         """
         DELETE FROM status s
@@ -106,6 +112,9 @@ def upgrade() -> None:
           AND lower(s.name) = 'review'
           AND NOT EXISTS (
               SELECT 1 FROM test_result tr WHERE tr.status_id = s.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM test t WHERE t.status_id = s.id
           )
         """
     )
