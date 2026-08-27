@@ -192,6 +192,15 @@ export default function RequirementTable({
             noWrap
             sx={{ overflow: 'hidden' }}
           >
+            Review status
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            fontWeight={600}
+            noWrap
+            sx={{ overflow: 'hidden' }}
+          >
             {/* A non-breaking space keeps this cell's line box the same
                   height as every other header cell when the label is empty
                   (Numbers mode) -- an empty inline element can collapse to

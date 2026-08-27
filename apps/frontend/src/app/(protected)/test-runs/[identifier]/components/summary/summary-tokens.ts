@@ -5,14 +5,18 @@ import type { CellState } from './verdict-model';
 
 export type DensityMode = 'numbers' | 'shape' | 'detail';
 
-// Six tracks, fixed order in every mode: name, total, passed, failed,
-// passRate, strip. Modes only resize columns -- nothing is added, removed,
-// or reordered, so a metric name never moves vertically or horizontally
-// when the mode changes.
+// Seven tracks, fixed order in every mode: name, total, passed, failed,
+// passRate, status, strip. Modes only resize columns -- nothing is added,
+// removed, or reordered, so a metric name never moves vertically or
+// horizontally when the mode changes. Status collapses in Detail, where the
+// per-test strip already answers the same question at full resolution.
+//
+// The status track is sized to hold "Needs Review" -- the longest band label
+// -- at the theme's chip padding without ellipsis.
 export const COLUMN_TEMPLATES: Record<DensityMode, string> = {
-  numbers: '1fr 58px 66px 58px 78px 0px',
-  shape: '1fr 0px 66px 58px 78px 230px',
-  detail: '252px 0px 0px 52px 0px 1fr',
+  numbers: '1fr 58px 66px 58px 78px 128px 0px',
+  shape: '1fr 0px 66px 58px 78px 128px 230px',
+  detail: '252px 0px 0px 52px 0px 0px 1fr',
 };
 
 export const STRIP_HEIGHTS: Record<DensityMode, number> = {

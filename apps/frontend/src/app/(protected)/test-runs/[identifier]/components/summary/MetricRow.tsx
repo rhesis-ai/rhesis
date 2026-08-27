@@ -5,6 +5,7 @@ import { Box, Tooltip, Typography, useTheme } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import VerdictStrip from './VerdictStrip';
+import BandChip from './BandChip';
 import { aggregateMetric, type CellState } from './verdict-model';
 import { cellState, type TestTimingMap } from './verdict-timeline';
 import { describeStrip } from './verdict-strip-render';
@@ -229,6 +230,8 @@ function MetricRowInner({
       >
         {passRateStr}
       </Typography>
+
+      <BandChip passRate={passRate} />
 
       <Box sx={{ overflow: 'hidden' }}>
         <VerdictStrip

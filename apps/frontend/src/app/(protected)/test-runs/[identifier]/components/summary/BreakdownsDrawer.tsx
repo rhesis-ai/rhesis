@@ -12,7 +12,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
-  Chip,
   CircularProgress,
   Grid,
   Stack,
@@ -28,7 +27,7 @@ import {
   rowToPassFailStats,
   type DimensionItem,
 } from '@/app/(protected)/insights/utils/requirement-insights-utils';
-import { getReviewBand } from '../test-run-summary-utils';
+import BandChip from './BandChip';
 
 interface BreakdownsDrawerProps {
   testRunId: string;
@@ -45,18 +44,6 @@ function namedDimensionItems(
       return [{ name, ...rowToPassFailStats(row) }];
     })
     .sort((a, b) => a.pass_rate - b.pass_rate);
-}
-
-function BandChip({ passRate }: { passRate: number }) {
-  const band = getReviewBand(passRate);
-  return (
-    <Chip
-      label={band.label}
-      size="small"
-      color={band.colorKey}
-      sx={{ fontWeight: 500 }}
-    />
-  );
 }
 
 function DimensionList({ items }: { items: DimensionItem[] }) {

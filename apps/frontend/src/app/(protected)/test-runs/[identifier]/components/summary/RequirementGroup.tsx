@@ -20,6 +20,7 @@ import { describeStrip } from './verdict-strip-render';
 import { trimSharedPrefix } from './shared-prefix';
 import MetricRow from './MetricRow';
 import VerdictStrip from './VerdictStrip';
+import BandChip from './BandChip';
 import {
   COLUMN_TEMPLATES,
   GEOMETRY,
@@ -89,10 +90,8 @@ export default function RequirementGroup({
     [metricNames]
   );
 
-  const passRateStr = useMemo(() => {
-    const rate = passRate(agg.passed, agg.failed);
-    return rate === null ? '--' : `${Math.round(rate)}%`;
-  }, [agg]);
+  const rate = useMemo(() => passRate(agg.passed, agg.failed), [agg]);
+  const passRateStr = rate === null ? '--' : `${Math.round(rate)}%`;
 
   const stripAriaLabel = useMemo(
     () => describeStrip(requirement.name, agg.rollup),
@@ -241,6 +240,8 @@ export default function RequirementGroup({
         >
           {passRateStr}
         </Typography>
+
+        <BandChip passRate={rate} />
 
         <Box sx={{ overflow: 'hidden' }}>
           <VerdictStrip

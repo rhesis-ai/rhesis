@@ -5,7 +5,10 @@ import '@testing-library/jest-dom';
 import lightTheme from '@/styles/theme';
 import RunClockProvider from '../RunClockProvider';
 import RequirementTable from '../RequirementTable';
-import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
+import type {
+  VerdictMatrix,
+  VerdictRow,
+} from '@/utils/api-client/interfaces/test-run';
 import type { TestTimingMap } from '../verdict-timeline';
 
 jest.mock('@/hooks/useReducedMotion', () => ({
@@ -162,6 +165,7 @@ describe('RequirementTable', () => {
     expect(screen.getByText('Requirement / Metric')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.getByText('Pass rate')).toBeInTheDocument();
+    expect(screen.getByText('Review status')).toBeInTheDocument();
     // "Passed"/"Failed" also appear in the legend, so there are 2 of each.
     expect(screen.getAllByText('Passed').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(1);
@@ -484,6 +488,108 @@ describe('RequirementTable', () => {
     for (const cell of failedCells) {
       expect(cell).toHaveStyle({ color: lightTheme.palette.error.main });
     }
+  });
+
+  describe('review status column', () => {
+    function renderAt(
+      density: 'numbers' | 'shape' | 'detail',
+      row: VerdictRow
+    ) {
+      renderWithClock(
+        <RequirementTable
+          matrix={makeMatrix({
+            requirements: [
+              { id: 'req-1', name: 'Safety', metric_keys: ['m1'] },
+            ],
+            rows: [row],
+            // One test id per verdict char -- the group header rolls up over
+            // test_ids, so a short list would silently ignore later verdicts
+            // and band the header off a different sample than the row.
+            test_ids: row.verdicts.split('').map((_c, i) => `t${i + 1}`),
+          })}
+          density={density}
+          onDensityChange={jest.fn()}
+          timings={EMPTY_TIMINGS}
+        />
+      );
+    }
+
+    const baseRow: VerdictRow = {
+      requirement_id: 'req-1',
+      metric_key: 'm1',
+      metric_name: 'Safety: Toxicity Score',
+      metric_id: 'mid-1',
+      ambiguous: false,
+      verdicts: 'PPP',
+      overrides: '000',
+      passed: 3,
+      failed: 0,
+      pending: 0,
+    };
+
+    it('bands a clean metric as OK, on both the row and its group header', () => {
+      renderAt('numbers', baseRow);
+      // The metric row and the group header rolled up from it both band OK.
+      expect(screen.getAllByText('OK')).toHaveLength(2);
+    });
+
+    it('bands a mostly-passing metric as Watch', () => {
+      // 8/10 = 80%: below the 100 "OK" cut, above the 70 "review" cut.
+      renderAt('numbers', {
+        ...baseRow,
+        verdicts: 'PPPPPPPPFF',
+        overrides: '0000000000',
+        passed: 8,
+        failed: 2,
+      });
+      expect(screen.getAllByText('Watch').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('OK')).not.toBeInTheDocument();
+    });
+
+    it('bands a failing metric as Needs Review', () => {
+      renderAt('numbers', {
+        ...baseRow,
+        verdicts: 'PFF',
+        passed: 1,
+        failed: 2,
+      });
+      expect(screen.getAllByText('Needs Review').length).toBeGreaterThanOrEqual(
+        1
+      );
+    });
+
+    it('shows no chip while nothing has resolved -- not a premature OK', () => {
+      renderAt('numbers', {
+        ...baseRow,
+        verdicts: '...',
+        passed: 0,
+        failed: 0,
+        pending: 3,
+      });
+      expect(screen.queryByText('OK')).not.toBeInTheDocument();
+      expect(screen.queryByText('Watch')).not.toBeInTheDocument();
+      expect(screen.queryByText('Needs Review')).not.toBeInTheDocument();
+    });
+
+    it('bands from the same rate it renders, so the two cannot disagree', () => {
+      renderAt('numbers', {
+        ...baseRow,
+        verdicts: 'PPPPPPPPFF',
+        overrides: '0000000000',
+        passed: 8,
+        failed: 2,
+      });
+      // 80% is a Watch on the shared 100/70 scale. If the chip ever banded
+      // off a different denominator (e.g. including pending) this pairing
+      // would break.
+      expect(screen.getAllByText('80%').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Watch').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('is present in Numbers + Shape too', () => {
+      renderAt('shape', baseRow);
+      expect(screen.getAllByText('OK').length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   it('renders a zero failed count in a muted color, not red', () => {
