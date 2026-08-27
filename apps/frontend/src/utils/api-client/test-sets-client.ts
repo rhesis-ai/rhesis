@@ -7,6 +7,8 @@ import {
   TestSet,
   TestSetCreate,
   TestSetBulkAssociateRequest,
+  TestSetBulkDisassociateRequest,
+  TestSetBulkDisassociateResponse,
   TestSetBulkDeleteResponse,
   GenerateTestsRequest,
   GenerateTestSetResponse,
@@ -404,6 +406,23 @@ export class TestSetsClient extends BaseApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  async disassociateTestsFromTestSet(
+    testSetId: string,
+    testIds: string[]
+  ): Promise<TestSetBulkDisassociateResponse> {
+    const request: TestSetBulkDisassociateRequest = {
+      test_ids: testIds as UUID[],
+    };
+
+    return this.fetch<TestSetBulkDisassociateResponse>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/disassociate`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
   }
 
   async getTestSetTests(

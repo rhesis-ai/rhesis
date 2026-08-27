@@ -20,10 +20,11 @@ export function getTestSetTestColumns(testSetType?: string): GridColDef[] {
       renderCell: renderTestContentCell,
     },
     {
-      field: 'requirement',
+      field: 'requirement.name',
       headerName: 'Requirement',
       flex: 1,
       minWidth: 120,
+      valueGetter: (_value, row) => row.requirement?.name || '',
       renderCell: params => {
         const requirementName = params.row.requirement?.name;
         if (!requirementName) return null;
@@ -31,10 +32,11 @@ export function getTestSetTestColumns(testSetType?: string): GridColDef[] {
       },
     },
     {
-      field: 'topic',
+      field: 'topic.name',
       headerName: 'Topic',
       flex: 1,
       minWidth: 120,
+      valueGetter: (_value, row) => row.topic?.name || '',
       renderCell: params => {
         const topicName = params.row.topic?.name;
         if (!topicName) return null;
@@ -42,10 +44,11 @@ export function getTestSetTestColumns(testSetType?: string): GridColDef[] {
       },
     },
     {
-      field: 'category',
+      field: 'category.name',
       headerName: 'Category',
       flex: 1,
       minWidth: 120,
+      valueGetter: (_value, row) => row.category?.name || '',
       renderCell: params => {
         const categoryName = params.row.category?.name;
         if (!categoryName) return null;
