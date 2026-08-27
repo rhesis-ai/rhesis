@@ -17,7 +17,6 @@ export interface StripPaintOptions {
   reducedMotion: boolean;
 }
 
-const CELL_MAX_WIDTH = 24;
 const CELL_BORDER_RADIUS = 2;
 const MIN_CELL_WIDTH = 3;
 
@@ -203,7 +202,9 @@ function paintPerCell(
   opts: StripPaintOptions
 ): void {
   const { width, height, cells, palette, frame, reducedMotion } = opts;
-  const drawWidth = Math.min(CELL_MAX_WIDTH, width / cells.length);
+  // No max: a strip with few tests fills the full width rather than
+  // clustering a handful of fixed-size cells at the left edge.
+  const drawWidth = width / cells.length;
   const gap = cells.length > 1 ? 1 : 0;
   const cellWidth = Math.max(1, drawWidth - gap);
   const ringAlpha = failRingAlpha(frame, reducedMotion);
