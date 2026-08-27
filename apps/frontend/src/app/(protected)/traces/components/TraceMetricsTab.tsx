@@ -32,6 +32,7 @@ import {
 } from '@/utils/api-client/interfaces/telemetry';
 import StatusChip from '@/components/common/StatusChip';
 import { TEST_RESULT_STATUS_NAMES } from '@/utils/test-result-status';
+import { passRate, allMetricsPassed } from '@/constants/outcomes';
 
 interface MetricOverride {
   original_value: boolean;
@@ -314,8 +315,10 @@ export default function TraceMetricsTab({
     const entries = Object.values(allMetrics);
     const total = entries.length;
     const passed = entries.filter(m => m.is_successful).length;
-    const passRate = total > 0 ? (passed / total) * 100 : 0;
-    return { total, passed, failed: total - passed, passRate };
+    const failed = total - passed;
+    // Per-metric tally, not the trace's own outcome (that is execution/
+    // verdict) -- but it uses the one shared rate formula.
+    return { total, passed, failed, passRate: passRate(passed, failed) };
   }, [turnMetrics, conversationMetrics]);
 
   const metricReviewMap = useMemo(() => {
@@ -339,10 +342,12 @@ export default function TraceMetricsTab({
     return map;
   }, [selectedSpan?.trace_reviews]);
 
+  // Per-TURN, which is finer than anything the backend stores an outcome
+  // for -- see allMetricsPassed. Not the trace's execution/verdict.
   const automatedTurnSuccess = useMemo(() => {
     const metrics = turnMetrics?.metrics;
     if (!metrics || Object.keys(metrics).length === 0) return undefined;
-    return Object.values(metrics).every(m => m.is_successful);
+    return allMetricsPassed(Object.values(metrics));
   }, [turnMetrics]);
 
   const turnOverrides = useMemo(() => {
@@ -518,7 +523,9 @@ export default function TraceMetricsTab({
                   Overall Performance
                 </Typography>
                 <Typography variant="h5" fontWeight={600}>
-                  {summary.passRate.toFixed(1)}%
+                  {summary.passRate === null
+                    ? '—'
+                    : `${summary.passRate.toFixed(1)}%`}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {summary.passed} of {summary.total} metrics passed

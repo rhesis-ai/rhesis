@@ -5,9 +5,15 @@ import { Chip, ChipProps } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { STATUS_LABEL, type TestResultStatus } from '@/constants/outcomes';
 
-export type TestResultStatus = 'Pass' | 'Fail' | 'Error';
+// The canonical vocabulary lives in constants/outcomes.ts (mirroring the
+// backend enum), not in this presentational component. Re-exported so the
+// many existing `from '@/components/common/StatusChip'` type imports keep
+// working.
+export type { TestResultStatus };
 
 export interface StatusChipProps extends Omit<ChipProps, 'icon' | 'color'> {
   /**
@@ -16,7 +22,7 @@ export interface StatusChipProps extends Omit<ChipProps, 'icon' | 'color'> {
    */
   passed?: boolean;
   /**
-   * The status of the test result: Pass, Fail, or Error
+   * The status of the test result: Pass, Fail, Error, or Inconclusive
    */
   status?: TestResultStatus;
   /**
@@ -55,9 +61,11 @@ export default function StatusChip({
   const defaultIconSize = size === 'small' ? 16 : 20;
   const finalIconSize = iconSize ?? defaultIconSize;
 
-  // Determine status from either new status prop or legacy passed prop
-  const actualStatus: TestResultStatus =
-    status || (passed !== undefined ? (passed ? 'Pass' : 'Fail') : 'Error');
+  // Determine status from either new status prop or legacy passed prop.
+  // Neither given is a caller bug, not an errored result -- rendering it as
+  // Error used to silently turn "I forgot to pass a prop" into a real-looking
+  // failure state.
+  const actualStatus: TestResultStatus = status ?? (passed ? 'Pass' : 'Fail');
 
   // Determine icon based on status
   const iconSx = { fontSize: finalIconSize, color: 'inherit' };
@@ -70,8 +78,8 @@ export default function StatusChip({
         return <CancelOutlinedIcon sx={iconSx} />;
       case 'Error':
         return <ErrorOutlineIcon sx={iconSx} />;
-      default:
-        return <CancelOutlinedIcon sx={iconSx} />;
+      case 'Inconclusive':
+        return <HelpOutlineIcon sx={iconSx} />;
     }
   };
 
@@ -84,7 +92,10 @@ export default function StatusChip({
         return 'error';
       case 'Error':
         return 'warning';
-      default:
+      case 'Inconclusive':
+        // Neutral rather than warning: the evaluation worked fine, it just
+        // has no pass/fail to report. Colouring it like an error would
+        // reintroduce exactly the conflation this state exists to remove.
         return 'default';
     }
   };
@@ -107,26 +118,36 @@ export default function StatusChip({
 }
 
 /**
- * Helper function to create a status chip with metric counts
+ * A chip summarising how many of an entity's metrics passed, e.g.
+ * "Passed (3/3)".
+ *
+ * This is a per-metric tally, deliberately NOT the entity's own outcome:
+ * `status` should be the backend-computed one (via `displayStatusOf`), so a
+ * result whose metrics all pass but which errored, or which a human reviewed
+ * down to Fail, still reads correctly. Omitting `status` falls back to the
+ * count, which is only right where no outcome is available.
  */
 export function MetricStatusChip({
   passedCount,
   totalCount,
+  status,
   size = 'small',
   variant = 'outlined',
   ...chipProps
 }: {
   passedCount: number;
   totalCount: number;
+  status?: TestResultStatus;
   size?: 'small' | 'medium';
   variant?: 'filled' | 'outlined';
 } & Omit<ChipProps, 'icon' | 'color' | 'label'>) {
-  const passed = totalCount > 0 && passedCount === totalCount;
-  const label = `${passed ? 'Passed' : 'Failed'} (${passedCount}/${totalCount})`;
+  const actualStatus: TestResultStatus =
+    status ?? (totalCount > 0 && passedCount === totalCount ? 'Pass' : 'Fail');
+  const label = `${STATUS_LABEL[actualStatus]} (${passedCount}/${totalCount})`;
 
   return (
     <StatusChip
-      passed={passed}
+      status={actualStatus}
       label={label}
       size={size}
       variant={variant}
@@ -148,10 +169,11 @@ export function SimpleStatusChip({
   size?: 'small' | 'medium';
   variant?: 'filled' | 'outlined';
 } & Omit<ChipProps, 'icon' | 'color' | 'label'>) {
+  const status: TestResultStatus = passed ? 'Pass' : 'Fail';
   return (
     <StatusChip
-      passed={passed}
-      label={passed ? 'Passed' : 'Failed'}
+      status={status}
+      label={STATUS_LABEL[status]}
       size={size}
       variant={variant}
       {...chipProps}

@@ -36,7 +36,10 @@ import {
 } from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
-import { getTestEvaluationSummary } from '@/utils/test-result-status';
+import {
+  getTestEvaluationSummary,
+  getEffectiveTestResultStatus,
+} from '@/utils/test-result-status';
 
 const TAB_KEYS = [
   'summary',
@@ -219,12 +222,12 @@ export default function TestRunMainView({
     }
 
     if (filter.statusFilter !== 'all') {
+      // Must use the same trusted outcome the row's own status chip renders.
+      // Re-deriving it from raw metrics here made the filter disagree with
+      // what the user could see: a test reviewed to Pass showed a "Passed"
+      // chip but was excluded from the "passed" filter.
       filtered = filtered.filter(test => {
-        const metrics = test.test_metrics?.metrics || {};
-        const metricValues = Object.values(metrics);
-        const totalMetrics = metricValues.length;
-        const passedMetrics = metricValues.filter(m => m.is_successful).length;
-        const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
+        const isPassed = getEffectiveTestResultStatus(test) === 'Pass';
         return filter.statusFilter === 'passed' ? isPassed : !isPassed;
       });
     }

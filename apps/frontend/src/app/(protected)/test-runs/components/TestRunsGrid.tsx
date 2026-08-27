@@ -45,6 +45,7 @@ import TestRunFilterDrawer, {
   EMPTY_TEST_RUN_FILTERS,
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
+import { passRate } from '@/constants/outcomes';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
 
@@ -246,8 +247,8 @@ export default function TestRunsGrid({
         filterable: false,
         valueGetter: (_, row) => {
           const stats = row.stats;
-          if (!stats || !stats.total) return null;
-          return (stats.passed / stats.total) * 100;
+          if (!stats) return null;
+          return passRate(stats.passed, stats.failed);
         },
         renderCell: params => {
           const value = params.value as number | null;

@@ -44,6 +44,7 @@ import {
   getMetricsSourceLabel,
 } from '@/utils/api-client/interfaces/test-configuration';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { passRate } from '@/constants/outcomes';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -208,9 +209,8 @@ export default function TestDetailMetricsTab({
     const total = filteredMetrics.length;
     const passed = filteredMetrics.filter(m => m.passed).length;
     const failed = total - passed;
-    const passRate = total > 0 ? (passed / total) * 100 : 0;
 
-    return { total, passed, failed, passRate };
+    return { total, passed, failed, passRate: passRate(passed, failed) ?? 0 };
   }, [filteredMetrics]);
 
   // Find best and worst performing requirements based on filtered metrics
@@ -239,7 +239,7 @@ export default function TestDetailMetricsTab({
         name,
         passed,
         total,
-        rate: (passed / total) * 100,
+        rate: passRate(passed, total - passed) ?? 0,
       })
     );
 

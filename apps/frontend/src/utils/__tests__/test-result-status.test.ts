@@ -1,18 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  getTestResultStatus,
-  getTestResultStatusWithReview,
+  getEffectiveTestResultStatus,
   getTestResultLabel,
-  getTestResultLabelWithReview,
   hasConflictingReview,
-  hasExecutionError,
+  isPassedStatusName,
+  findStatusByCategory,
   getTestEvaluationSummary,
+  TEST_RESULT_STATUS_NAMES,
 } from '../test-result-status';
 import {
   TestResultDetail,
   MetricResult,
   REVIEW_TARGET_TYPES,
 } from '../api-client/interfaces/test-results';
+import { Status } from '../api-client/interfaces/status';
 
 // Helper to create valid metric result
 const createMetricResult = (
@@ -46,243 +46,107 @@ const createReview = (statusName: string, comments: string = 'Test') => ({
 });
 
 describe('testResultStatus', () => {
-  describe('getTestResultStatus', () => {
-    it('should return Pass when all metrics are successful', () => {
+  describe('getEffectiveTestResultStatus', () => {
+    it('returns Pass for execution=ok, verdict=pass', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-            metric2: createMetricResult(true, 0.85, 0.8),
-          },
-          execution_time: 1.5,
-        },
+        execution: 'ok',
+        verdict: 'pass',
       };
-      expect(getTestResultStatus(test as TestResultDetail)).toBe('Pass');
-    });
-
-    it('should return Fail when some metrics fail', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-            metric2: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-      };
-      expect(getTestResultStatus(test as TestResultDetail)).toBe('Fail');
-    });
-
-    it('should return Error when no metrics are present', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {},
-          execution_time: 1.5,
-        },
-      };
-      expect(getTestResultStatus(test as TestResultDetail)).toBe('Error');
-    });
-
-    it('should return Error when test_metrics is undefined', () => {
-      const test: Partial<TestResultDetail> = {};
-      expect(getTestResultStatus(test as TestResultDetail)).toBe('Error');
-    });
-  });
-
-  describe('getTestResultStatusWithReview', () => {
-    it('should prioritize human review over automated metrics when review exists', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('Passed', 'Looks good'),
-      };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
+      expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
         'Pass'
       );
     });
 
-    it('should return Fail when review status indicates failure', () => {
+    it('returns Fail for execution=ok, verdict=fail', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('Failed', 'Needs work'),
+        execution: 'ok',
+        verdict: 'fail',
       };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
+      expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
         'Fail'
       );
     });
 
-    it('should handle review status with "success" in name', () => {
+    it('returns Error for execution=error', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('Success', 'Good'),
+        execution: 'error',
+        verdict: null,
       };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
-        'Pass'
-      );
-    });
-
-    it('should handle review status with "completed" in name', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('Completed', 'Done'),
-      };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
-        'Pass'
-      );
-    });
-
-    it('should return Error when review exists but no metrics or goal evaluation', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: { metrics: {}, execution_time: 1.5 },
-        last_review: createReview('Passed', 'Good'),
-      };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
+      expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
         'Error'
       );
     });
 
-    it('should accept review when goal_evaluation exists (multi-turn)', () => {
+    it('returns Inconclusive for an inconclusive verdict, not Error', () => {
+      // A metric that scored but has no pass/fail threshold is its own
+      // bucket -- the backend names it, and the verdict grid already renders
+      // it distinctly. Collapsing it into Error made "Error" mean two things.
       const test: Partial<TestResultDetail> = {
-        test_metrics: { metrics: {}, execution_time: 1.5 },
-        test_output: {
-          output: 'Test output',
-          context: [],
-          goal_evaluation: {
-            all_criteria_met: false,
-            reason: 'Some criteria failed',
-            criteria_evaluations: [],
-            evidence: ['Test evidence'],
-          },
-        },
-        last_review: createReview('Passed', 'Override'),
+        execution: 'ok',
+        verdict: 'inconclusive',
       };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
-        'Pass'
+      expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
+        'Inconclusive'
       );
     });
 
-    it('should fall back to automated metrics when no review exists', () => {
+    it('labels an inconclusive result as Inconclusive', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
+        execution: 'ok',
+        verdict: 'inconclusive',
       };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
-        'Pass'
+      expect(getTestResultLabel(test as TestResultDetail)).toBe('Inconclusive');
+    });
+
+    it('returns Error for not_run/cancelled -- a persisted row never actually reaches these', () => {
+      const test: Partial<TestResultDetail> = {
+        execution: 'not_run',
+        verdict: null,
+      };
+      expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
+        'Error'
       );
     });
 
-    it('should handle missing status.name property gracefully', () => {
+    it('trusts execution/verdict even when it disagrees with raw metrics -- the backend already applied any review', () => {
       const test: Partial<TestResultDetail> = {
+        execution: 'ok',
+        verdict: 'pass',
         test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
+          metrics: { metric1: createMetricResult(false) },
           execution_time: 1.5,
         },
-        last_review: {
-          review_id: '12345678-1234-1234-1234-123456789012' as const,
-          status: {} as any,
-          user: {
-            user_id: '12345678-1234-1234-1234-123456789012' as const,
-            name: 'Test User',
-          },
-          comments: 'Test',
-          updated_at: '2025-01-01T00:00:00Z',
-          created_at: '2025-01-01T00:00:00Z',
-          target: { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null },
-        },
+        last_review: createReview('Pass', 'Looks good'),
       };
-      // Should fall back to automated when status.name is missing
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
+      expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
         'Pass'
       );
     });
   });
 
   describe('getTestResultLabel', () => {
-    it('should return "Passed" for passing test', () => {
+    it('returns "Passed" for a passing test', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
+        execution: 'ok',
+        verdict: 'pass',
       };
       expect(getTestResultLabel(test as TestResultDetail)).toBe('Passed');
     });
 
-    it('should return "Failed" for failing test', () => {
+    it('returns "Failed" for a failing test', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
+        execution: 'ok',
+        verdict: 'fail',
       };
       expect(getTestResultLabel(test as TestResultDetail)).toBe('Failed');
     });
 
-    it('should return "Error" for test with no metrics', () => {
+    it('returns "Error" for an execution error', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: { metrics: {}, execution_time: 1.5 },
+        execution: 'error',
+        verdict: null,
       };
       expect(getTestResultLabel(test as TestResultDetail)).toBe('Error');
-    });
-  });
-
-  describe('getTestResultLabelWithReview', () => {
-    it('should return review-based label when review exists', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('Passed', 'Override'),
-      };
-      expect(getTestResultLabelWithReview(test as TestResultDetail)).toBe(
-        'Passed'
-      );
-    });
-
-    it('should fall back to automated label when no review exists', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
-      };
-      expect(getTestResultLabelWithReview(test as TestResultDetail)).toBe(
-        'Passed'
-      );
     });
   });
 
@@ -305,12 +169,8 @@ describe('testResultStatus', () => {
 
     it('should return false when no review exists', () => {
       const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
+        execution: 'ok',
+        verdict: 'pass',
       };
       expect(hasConflictingReview(test as TestResultDetail)).toBe(false);
     });
@@ -324,87 +184,57 @@ describe('testResultStatus', () => {
     });
   });
 
-  describe('hasExecutionError', () => {
-    it('should return true when no metrics are present', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: { metrics: {}, execution_time: 1.5 },
-      };
-      expect(hasExecutionError(test as TestResultDetail)).toBe(true);
+  describe('isPassedStatusName', () => {
+    it('returns true for the canonical Pass name', () => {
+      expect(isPassedStatusName(TEST_RESULT_STATUS_NAMES.PASSED)).toBe(true);
     });
 
-    it('should return true when test_metrics is undefined', () => {
-      const test: Partial<TestResultDetail> = {};
-      expect(hasExecutionError(test as TestResultDetail)).toBe(true);
+    it('returns false for the canonical Fail name', () => {
+      expect(isPassedStatusName(TEST_RESULT_STATUS_NAMES.FAILED)).toBe(false);
     });
 
-    it('should return false when metrics exist', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
-      };
-      expect(hasExecutionError(test as TestResultDetail)).toBe(false);
+    it('is an exact match, not a substring guess -- a review status name is always canonical', () => {
+      expect(isPassedStatusName('pass')).toBe(false);
+      expect(isPassedStatusName('Successful')).toBe(false);
+      expect(isPassedStatusName('Completed')).toBe(false);
     });
   });
 
-  describe('edge cases', () => {
-    it('should handle test with single metric', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-          },
-          execution_time: 1.5,
-        },
-      };
-      expect(getTestResultStatus(test as TestResultDetail)).toBe('Pass');
+  describe('findStatusByCategory', () => {
+    const statuses: Status[] = [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Pass',
+        entity_type: 'TestResult',
+      } as Status,
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        name: 'Fail',
+        entity_type: 'TestResult',
+      } as Status,
+    ];
+
+    it('finds the canonical Pass status', () => {
+      expect(findStatusByCategory(statuses, 'passed')?.name).toBe('Pass');
     });
 
-    it('should handle test with multiple metrics where one fails', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(true, 0.9, 0.8),
-            metric2: createMetricResult(true, 0.85, 0.8),
-            metric3: createMetricResult(false, 0.7, 0.8),
-          },
-          execution_time: 1.5,
-        },
-      };
-      expect(getTestResultStatus(test as TestResultDetail)).toBe('Fail');
+    it('finds the canonical Fail status', () => {
+      expect(findStatusByCategory(statuses, 'failed')?.name).toBe('Fail');
     });
 
-    it('should handle case-insensitive status matching', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('PASSED', 'Override'),
-      };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
-        'Pass'
-      );
+    it('falls back to keyword matching when no canonical name exists', () => {
+      const custom: Status[] = [
+        {
+          id: '33333333-3333-3333-3333-333333333333',
+          name: 'Approved',
+          entity_type: 'TestResult',
+        } as Status,
+      ];
+      expect(findStatusByCategory(custom, 'passed')?.name).toBe('Approved');
     });
 
-    it('should handle review status with "pass" substring', () => {
-      const test: Partial<TestResultDetail> = {
-        test_metrics: {
-          metrics: {
-            metric1: createMetricResult(false, 0.5, 0.8),
-          },
-          execution_time: 1.5,
-        },
-        last_review: createReview('pass-review', 'Override'),
-      };
-      expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
-        'Pass'
-      );
+    it('returns undefined for an empty list', () => {
+      expect(findStatusByCategory([], 'passed')).toBeUndefined();
     });
   });
 

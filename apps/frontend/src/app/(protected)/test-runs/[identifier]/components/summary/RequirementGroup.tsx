@@ -35,6 +35,7 @@ import type {
   VerdictRequirement,
   VerdictRow,
 } from '@/utils/api-client/interfaces/test-run';
+import { passRate } from '@/constants/outcomes';
 
 interface RequirementGroupProps {
   requirement: VerdictRequirement;
@@ -89,9 +90,8 @@ export default function RequirementGroup({
   );
 
   const passRateStr = useMemo(() => {
-    const resolved = agg.passed + agg.failed;
-    if (resolved === 0) return '--';
-    return `${Math.round((agg.passed / resolved) * 100)}%`;
+    const rate = passRate(agg.passed, agg.failed);
+    return rate === null ? '--' : `${Math.round(rate)}%`;
   }, [agg]);
 
   const stripAriaLabel = useMemo(

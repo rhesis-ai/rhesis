@@ -35,6 +35,7 @@ import {
 import { BORDER_RADIUS } from '@/styles/theme';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { passRate } from '@/constants/outcomes';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
@@ -365,7 +366,8 @@ function RunSummaryContent({
   const passed = run.stats?.passed ?? 0;
   const failed = run.stats?.failed ?? 0;
   const errors = run.stats?.errors ?? 0;
-  const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : null;
+  const rate = passRate(passed, failed);
+  const passRateStr = rate === null ? null : rate.toFixed(1);
   const version =
     typeof run.attributes?.parameter_version === 'string'
       ? run.attributes.parameter_version
@@ -380,7 +382,7 @@ function RunSummaryContent({
         <Grid size={{ xs: 6 }}>
           <ViewField
             label="Pass Rate"
-            value={passRate !== null ? `${passRate}%` : '—'}
+            value={passRateStr !== null ? `${passRateStr}%` : '—'}
           />
         </Grid>
         <Grid size={{ xs: 4 }}>
