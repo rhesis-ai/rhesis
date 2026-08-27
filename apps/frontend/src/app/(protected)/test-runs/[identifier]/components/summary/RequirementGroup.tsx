@@ -27,7 +27,7 @@ import {
   GRID_GAP,
   GRID_PADDING_X,
   INLINE_ICON_SIZE,
-  ROLLUP_HEIGHT,
+  STRIP_HEIGHTS,
   gridMorphTransition,
   type DensityMode,
 } from './summary-tokens';
@@ -109,7 +109,9 @@ export default function RequirementGroup({
     [requirement.id, onViewRequirement]
   );
 
-  const stripHeight = density === 'numbers' ? 0 : ROLLUP_HEIGHT;
+  // Same height as the metric rows in this mode, so a rollup cell and the
+  // cells under it are the same shape. Numbers mode is 0 for both.
+  const stripHeight = STRIP_HEIGHTS[density];
 
   return (
     <Box sx={{ mb: 0.5 }}>

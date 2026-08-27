@@ -592,6 +592,45 @@ describe('RequirementTable', () => {
     });
   });
 
+  describe('verdict cell shape', () => {
+    // Cells fill their strip's full height and share a cell width, so equal
+    // strip heights are what make a rollup cell and the cells under it the
+    // same shape. The rollup used to be pinned to its own 16px, which drew
+    // the requirement row as squares above rectangular metric rows.
+    function stripHeights(density: 'numbers' | 'shape' | 'detail'): string[] {
+      const { container } = renderWithClock(
+        <RequirementTable
+          matrix={makeMatrix()}
+          density={density}
+          onDensityChange={jest.fn()}
+          timings={EMPTY_TIMINGS}
+        />
+      );
+      return Array.from(container.querySelectorAll('canvas[role="img"]')).map(
+        c => (c.parentElement as HTMLElement).style.height
+      );
+    }
+
+    it.each(['numbers', 'shape', 'detail'] as const)(
+      'gives the requirement rollup and its metric rows one height in %s',
+      density => {
+        const heights = stripHeights(density);
+        // One rollup + two metric rows in the default matrix.
+        expect(heights).toHaveLength(3);
+        expect(new Set(heights).size).toBe(1);
+      }
+    );
+
+    it('still grows the cells from Shape to Detail', () => {
+      // Guards the fix from being "make everything 0" -- the modes must
+      // stay visually distinct.
+      const shape = parseFloat(stripHeights('shape')[0]);
+      const detail = parseFloat(stripHeights('detail')[0]);
+      expect(shape).toBeGreaterThan(0);
+      expect(detail).toBeGreaterThan(shape);
+    });
+  });
+
   it('renders a zero failed count in a muted color, not red', () => {
     renderWithClock(
       <RequirementTable
