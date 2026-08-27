@@ -12,7 +12,7 @@
   - Tests: `[Test Name](/tests/abc123)`
   - Endpoints: `[File Chatbot](/endpoints/abc123)`
   - Projects: `[My Project](/projects/abc123)`
-  - Test runs: `[Basic Travel Agent Functionality](/test-runs/abc123)` — use the test set name, never a UUID or generic label like "Run abc123"
+  - Test runs: `[witty-otter](/test-runs/abc123)` — use the run's own `name`, the memorable label the platform generates for every run. Never a UUID or a generic label like "Run abc123", and never the test set name on its own: two runs of the same test set are indistinguishable that way. `list_test_runs`, `get_test_run`, `execute_test_set` (as `test_run_name`), `list_annotations` (as `test_run_name`) and `get_insights` (`group_by=[test_run]`) all return it. If you only have a run id, call `get_test_run` to resolve the name before you write about it
   - Requirements: `[Provides Accurate Information](/requirements/abc123)`
   - Metrics: `[Escalation Accuracy](/metrics/abc123)`
   - Traces: `[ai.llm.invoke](/traces/abc123)` — use the span name as link text, and use the trace's **`trace_db_id`** (a UUID) in the URL, never the `trace_id` (a 32-character hex string). `list_annotations` returns both; only `trace_db_id` resolves, so a link built from `trace_id` is broken
@@ -58,9 +58,10 @@ Rhesis tests a live system. Every run sends prompts to an endpoint and records w
   - Looking up requirements by name: `$select=name,id`
   - Checking metrics: `$select=name,id,score_type,threshold`
   - Listing test results: `$select=id,status,prompt,requirement,metric_scores` (omit `response`)
+  - Listing test runs: `$select=id,name,status,test_set,created_at` — always include `name`; it is how the user identifies a run
   - `id` is always returned even if not listed in `$select`
 - **For accurate counts**, use `get_test_run` (which returns total_tests, pass counts, etc.) rather than counting items from a `list_test_results` call — list responses may be truncated
-- **For run comparison**, use `get_test_result_stats` with `mode=test_runs` and `test_run_ids` — this returns pre-computed per-run pass rates in a single call, much more efficient than fetching and comparing full result lists
+- **For run comparison**, use `get_insights` with `entity=test_result`, `group_by=[test_run,test_run_id]`, `measures=[count,passed,failed,pass_rate]` and `test_run_ids` — this returns per-run pass rates in a single call, much more efficient than fetching and comparing full result lists. `test_run` comes back as the run's name (what you show) and `test_run_id` as the UUID (what goes in the link URL)
 - **For human feedback**, use `list_annotations` with `test_run_id` when analysing a run or explaining failures — it returns the reviews people left on that run's test results and traces in one call. Add `resolved=false` for open items only. A human's Pass/Fail verdict is ground truth: when it contradicts a metric score, say so and go with the human. Check this before concluding a run looks fine — someone may have failed a test the metrics passed
 - **Use `$filter`** to narrow results. Use `tolower()` for case-insensitive matching. Combine multiple lookups with OR: `$filter=tolower(name) eq 'x' or tolower(name) eq 'y'`
 - **Navigation properties**: To filter by a related entity's field, use slash notation: `related/field`. For example, to filter test results by status name: `$filter=status/name eq 'Failed'`. Do NOT filter by `status_id` with a string value — `status_id` is a UUID. Common navigation filters:
