@@ -158,7 +158,13 @@ describe('paintStrip', () => {
 
   it('divides the width evenly, with a 1px gap, across a handful of cells', () => {
     const { ctx, calls } = fakeContext();
-    const cells: CellState[] = ['passed', 'passed', 'failed', 'passed', 'failed'];
+    const cells: CellState[] = [
+      'passed',
+      'passed',
+      'failed',
+      'passed',
+      'failed',
+    ];
     paintStrip(ctx, {
       width: 200,
       height: 20,
