@@ -23,6 +23,7 @@ import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { taskKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { escapeODataValue } from '@/utils/odata-filter';
 
 interface TasksSectionProps {
   entityType: EntityType;
@@ -52,7 +53,7 @@ export function TasksSection({
 
   const currentPage = paginationModel.page;
   const currentPageSize = paginationModel.pageSize;
-  const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
+  const filter = `entity_type eq '${escapeODataValue(entityType)}' and entity_id eq '${escapeODataValue(entityId)}'`;
 
   const queryKey = taskKeys.list(
     `${entityType}:${entityId}`,

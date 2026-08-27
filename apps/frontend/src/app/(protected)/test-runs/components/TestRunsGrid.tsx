@@ -2,16 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { GridColDef } from '@mui/x-data-grid';
-import {
-  Typography,
-  Box,
-  Avatar,
-  Chip,
-  Button,
-  ButtonGroup,
-  Tooltip,
-} from '@mui/material';
-import ListIcon from '@mui/icons-material/List';
+import { Typography, Box, Avatar, Chip, Tooltip } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
@@ -24,13 +15,7 @@ import TagLabel from '@/components/common/Tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import {
-  ChatIcon,
-  DescriptionIcon,
-  ScienceIcon,
-  BiotechIcon,
-  PlayArrowIcon,
-} from '@/components/icons';
+import { ChatIcon, DescriptionIcon, PlayArrowIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { NotificationSection } from '@/constants/notifications';
@@ -45,8 +30,6 @@ import TestRunFilterDrawer, {
   EMPTY_TEST_RUN_FILTERS,
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
-
-type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 interface TestRunsGridProps {
   canCreate?: boolean;
@@ -85,8 +68,7 @@ function toFilters(state: EntityGridFilterState<TestRunFilters>) {
     tagsPresence: state.drawer.tags,
     commentsPresence: state.drawer.comments,
     tasksPresence: state.drawer.tasks,
-    // Owned by the toolbar's run-kind toggle, merged in via externalFilters.
-    runKind: 'all',
+    runKind: state.drawer.runKind,
     reviews: state.drawer.reviews ?? 'all',
   };
 }
@@ -121,43 +103,8 @@ export default function TestRunsGrid({
 }: TestRunsGridProps) {
   const notifications = useNotifications();
 
-  const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-
-  const externalFilters = useMemo(
-    () => ({ runKind: runKindFilter }),
-    [runKindFilter]
-  );
-
-  const runKindToolbar = useMemo(
-    () => (
-      <ButtonGroup size="small" variant="outlined">
-        <Button
-          onClick={() => setRunKindFilter('all')}
-          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
-          startIcon={<ListIcon fontSize="small" />}
-        >
-          All
-        </Button>
-        <Button
-          onClick={() => setRunKindFilter('tests')}
-          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
-          startIcon={<ScienceIcon fontSize="small" />}
-        >
-          Tests
-        </Button>
-        <Button
-          onClick={() => setRunKindFilter('experiments')}
-          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
-          startIcon={<BiotechIcon fontSize="small" />}
-        >
-          Experiments
-        </Button>
-      </ButtonGroup>
-    ),
-    [runKindFilter]
-  );
 
   const handleCancelClose = useCallback(() => {
     setPendingCancelId(null);
@@ -508,7 +455,6 @@ export default function TestRunsGrid({
       descriptor={testRunsList}
       columns={columns}
       toFilters={toFilters}
-      externalFilters={externalFilters}
       emptyState={
         <EntityEmptyState
           card
@@ -526,7 +472,6 @@ export default function TestRunsGrid({
       searchPlaceholder="Search test runs…"
       pills={{ tabs: STATUS_TABS }}
       drawer={drawerAdapter}
-      toolbarRight={runKindToolbar}
       selectionLabel="Select test runs"
       getRowUrl={row => `/test-runs/${row.id}`}
       highlightSection={NotificationSection.TEST_RUNS}
