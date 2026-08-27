@@ -83,24 +83,27 @@ def placeholder_entry(component: str) -> str:
 
 
 def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
-    """Insert an entry directly below the [Unreleased] heading.
+    """Insert an entry below the [Unreleased] section, above the newest released version.
 
-    Does nothing if the heading is absent, which is how both callers have always
-    behaved -- they rewrite the file unchanged and still report success.
+    Anything hand-written under [Unreleased] stays there. Inserting directly beneath the heading
+    instead would leave those entries under the new version header, reading as part of a release
+    that never contained them.
     """
     lines = changelog_path.read_text().split("\n")
 
-    new_lines = []
-    inserted = False
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == UNRELEASED_MARKER)
+    except StopIteration:
+        raise ValueError(f"{changelog_path} has no '{UNRELEASED_MARKER}' heading to insert under")
 
-    for line in lines:
-        new_lines.append(line)
-        if line.strip() == UNRELEASED_MARKER and not inserted:
-            new_lines.append("")
-            new_lines.extend(entry.split("\n"))
-            inserted = True
+    # Skip past any existing Unreleased content to the next section heading, or the end of the file
+    insert_at = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
+        len(lines),
+    )
 
-    changelog_path.write_text("\n".join(new_lines))
+    lines[insert_at:insert_at] = entry.split("\n") + [""]
+    changelog_path.write_text("\n".join(lines))
 
 
 def update_component_changelog(
