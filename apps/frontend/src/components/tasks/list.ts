@@ -2,6 +2,7 @@ import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Task } from '@/types/tasks';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
+import { escapeODataValue } from '@/utils/odata-filter';
 
 export const ENTITY_TASKS_FILTERS = {} as const;
 
@@ -20,7 +21,7 @@ export function entityTasksList(entityType: string, entityId: string) {
     list: (factory: ApiClientFactory, params) =>
       factory.getTasksClient().getTasks({
         ...params,
-        $filter: `entity_type eq '${entityType}' and entity_id eq ${entityId}`,
+        $filter: `entity_type eq '${escapeODataValue(entityType)}' and entity_id eq '${escapeODataValue(entityId)}'`,
       }),
   });
 }
