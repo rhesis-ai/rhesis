@@ -160,7 +160,11 @@ describe('SelectMetricsDialog', () => {
 
     await user.click(screen.getByText('Precision'));
 
-    expect(onSelect).toHaveBeenCalledWith('metric-abc');
+    expect(onSelect).toHaveBeenCalledWith({
+      id: 'metric-abc',
+      name: 'Precision',
+      metric_scope: ['Single-Turn'],
+    });
     expect(onClose).toHaveBeenCalled();
   });
 

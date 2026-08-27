@@ -52,6 +52,7 @@ import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -759,22 +760,11 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Metric helpers
   // -----------------------------------------------------------------------
 
-  const handleAddMetric = async (metricId: UUID) => {
-    try {
-      const metric = await apiFactory.getMetricsClient().getMetric(metricId);
-      if (metric) {
-        setSelectedMetrics(prev => [
-          ...prev,
-          {
-            id: metric.id as UUID,
-            name: metric.name,
-            scope: metric.metric_scope,
-          },
-        ]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch metric details:', err);
-    }
+  const handleAddMetric = (metric: { id: UUID; name: string; metric_scope?: MetricScope[] }) => {
+    setSelectedMetrics(prev => [
+      ...prev,
+      { id: metric.id, name: metric.name, scope: metric.metric_scope },
+    ]);
   };
 
   const handleRemoveMetric = (metricId: UUID) => {

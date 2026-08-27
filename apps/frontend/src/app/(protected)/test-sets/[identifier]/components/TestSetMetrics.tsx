@@ -96,11 +96,11 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
       : 'Failed to load metrics'
     : null;
 
-  const handleAddMetric = async (metricId: UUID) => {
+  const handleAddMetric = async (metric: { id: UUID }) => {
     try {
       await new ApiClientFactory()
         .getTestSetsClient()
-        .addMetricToTestSet(testSetId, metricId as string);
+        .addMetricToTestSet(testSetId, metric.id as string);
       queryClient.invalidateQueries({ queryKey: metricsQueryKey });
       notifications.show('Metric added to test set successfully', {
         severity: 'success',
