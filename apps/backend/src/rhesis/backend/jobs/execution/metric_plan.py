@@ -166,6 +166,17 @@ def _build_metric_plan(
     cell_keys: Dict[str, Dict[str, str]] = {}
     sources: set = set()
 
+    # Execution-time and test-set metrics apply uniformly across the whole
+    # run -- resolving them per requirement group (below) still works, since
+    # every group's representative resolves the same config, but showing
+    # that identical result under every requirement's own header would
+    # duplicate each metric once per requirement instead of once for the
+    # run. Only a requirement-sourced result is actually specific to its
+    # requirement, so only those keep their own payload entry; everything
+    # else pools into one requirement-less section.
+    pooled_test_ids: List[str] = []
+    pooled_metrics: Dict[uuid.UUID, models.Metric] = {}
+
     for group in groups:
         group_test_ids = tests_by_group.get(group, [])
         representative = (
@@ -186,22 +197,29 @@ def _build_metric_plan(
         sources.add(source)
 
         keyed = _assign_metric_keys(metrics)
-        requirements_payload.append(
-            {
-                "id": group,
-                "name": requirement_names.get(group, "Unassigned") if group else "Unassigned",
-                "metrics": [
-                    {
-                        "key": key,
-                        "name": metric.name or metric.class_name,
-                        "id": str(metric.id) if metric.id else None,
-                        "ambiguous": ambiguous,
-                    }
-                    for key, metric, ambiguous in keyed
-                ],
-                "test_ids": group_test_ids,
-            }
-        )
+
+        if source == "requirement":
+            requirements_payload.append(
+                {
+                    "id": group,
+                    "name": requirement_names.get(group, "Unassigned") if group else "Unassigned",
+                    "metrics": [
+                        {
+                            "key": key,
+                            "name": metric.name or metric.class_name,
+                            "id": str(metric.id) if metric.id else None,
+                            "ambiguous": ambiguous,
+                        }
+                        for key, metric, ambiguous in keyed
+                    ],
+                    "test_ids": group_test_ids,
+                }
+            )
+        else:
+            pooled_test_ids.extend(group_test_ids)
+            for _, metric, _ in keyed:
+                if metric.id:
+                    pooled_metrics[metric.id] = metric
 
         for test_id in group_test_ids:
             scope = (
@@ -220,6 +238,25 @@ def _build_metric_plan(
             }
             if per_test:
                 cell_keys[test_id] = per_test
+
+    if pooled_test_ids:
+        pooled_keyed = _assign_metric_keys(list(pooled_metrics.values()))
+        requirements_payload.append(
+            {
+                "id": None,
+                "name": "Unassigned",
+                "metrics": [
+                    {
+                        "key": key,
+                        "name": metric.name or metric.class_name,
+                        "id": str(metric.id) if metric.id else None,
+                        "ambiguous": ambiguous,
+                    }
+                    for key, metric, ambiguous in pooled_keyed
+                ],
+                "test_ids": pooled_test_ids,
+            }
+        )
 
     return {
         "source": sources.pop() if len(sources) == 1 else "mixed",

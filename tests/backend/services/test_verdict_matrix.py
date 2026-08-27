@@ -583,6 +583,128 @@ class TestSourceResolutionPerGroup:
         assert by_id[None]["test_ids"] == [str(unassigned.id)]
 
 
+class TestCustomMetricPoolsAcrossRequirements:
+    """A metric that resolves from the test set, not a requirement, applies
+    the same way regardless of which requirement (if any) a test belongs to.
+    Grouping it under each requirement's own header would show the identical
+    metric once per requirement -- the same failures counted, and displayed,
+    over and over. It belongs in one requirement-less section instead.
+    """
+
+    def test_test_set_metric_gets_one_pooled_group_not_one_per_requirement(
+        self, test_db: Session, test_organization, db_user, db_endpoint, db_status
+    ):
+        org_id = test_organization.id
+        user_id = db_user.id
+
+        test_config = models.TestConfiguration(
+            endpoint_id=db_endpoint.id, organization_id=org_id, user_id=user_id
+        )
+        test_db.add(test_config)
+        test_db.flush()
+
+        test_set = models.TestSet(
+            name="Custom Metric Test Set",
+            user_id=user_id,
+            organization_id=org_id,
+            status_id=db_status.id,
+        )
+        test_db.add(test_set)
+        test_db.flush()
+        test_config.test_set_id = test_set.id
+        test_db.flush()
+
+        # Two requirements, neither with a requirement-level metric -- both
+        # fall through to the test set's own metric.
+        requirement_a = models.Requirement(
+            name="Reliability", organization_id=org_id, user_id=user_id
+        )
+        requirement_b = models.Requirement(
+            name="Compliance", organization_id=org_id, user_id=user_id
+        )
+        test_db.add_all([requirement_a, requirement_b])
+        test_db.flush()
+
+        metric = _metric(test_db, org_id, user_id, name="Custom Detector", scope=["Single-Turn"])
+        test_db.execute(
+            models.test_set_metric_association.insert().values(
+                test_set_id=test_set.id,
+                metric_id=metric.id,
+                organization_id=org_id,
+                user_id=user_id,
+            )
+        )
+
+        test_a = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_a.id
+        )
+        test_b = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_b.id
+        )
+        test_db.add_all([test_a, test_b])
+        test_db.flush()
+        for test in (test_a, test_b):
+            _add_to_set(test_db, test, test_set, org_id, user_id)
+
+        test_run = models.TestRun(
+            name="Custom Metric Run",
+            user_id=user_id,
+            organization_id=org_id,
+            status_id=db_status.id,
+            test_configuration_id=test_config.id,
+        )
+        test_db.add(test_run)
+        test_db.flush()
+
+        for test, is_successful in ((test_a, True), (test_b, False)):
+            status = get_or_create_status(
+                test_db,
+                TestResultStatus.PASS.value if is_successful else TestResultStatus.FAIL.value,
+                "TestResult",
+                organization_id=str(org_id),
+            )
+            metrics = {"Custom Detector": {"is_successful": is_successful}}
+            test_db.add(
+                models.TestResult(
+                    test_run_id=test_run.id,
+                    test_configuration_id=test_config.id,
+                    test_id=test.id,
+                    organization_id=org_id,
+                    user_id=user_id,
+                    status_id=status.id,
+                    test_metrics={"metrics": metrics},
+                    **_execution_verdict(metrics),
+                )
+            )
+        test_db.commit()
+
+        plan = build_metric_plan(test_db, test_config, test_set, organization_id=str(org_id))
+
+        # One pooled group, not one duplicated per requirement.
+        assert len(plan["requirements"]) == 1
+        group = plan["requirements"][0]
+        assert group["id"] is None
+        assert [m["key"] for m in group["metrics"]] == ["Custom Detector"]
+        assert set(group["test_ids"]) == {str(test_a.id), str(test_b.id)}
+
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        # One row for the metric, spanning both tests -- not one row per
+        # requirement repeating the same verdicts.
+        assert len(matrix.rows) == 1
+        row = matrix.rows[0]
+        test_order = plan["test_order"]
+        index_a = test_order.index(str(test_a.id))
+        index_b = test_order.index(str(test_b.id))
+        assert row.verdicts[index_a] == "P"
+        assert row.verdicts[index_b] == "F"
+        assert (row.passed, row.failed) == (1, 1)
+
+
 class TestScopeFilteredKeys:
     """cell_keys must carry the key the runtime will really write, not the
     plan's own row key. The runtime numbers duplicate names *after* scope
