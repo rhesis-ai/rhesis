@@ -12,7 +12,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
 import DetailTabNav from '@/components/common/DetailTabNav';
-import TestRunDetailHeader from './TestRunDetailHeader';
+import {
+  TestRunTitle,
+  TestRunMetadata,
+  TestRunActions,
+} from './TestRunDetailHeader';
+import { PageLayout } from '@/components/layout/PageLayout';
 import TestRunConfigurationTab from './TestRunConfigurationTab';
 import RunSummary from './summary/RunSummary';
 import TestRunTags from './TestRunTags';
@@ -573,26 +578,40 @@ export default function TestRunMainView({
               ? 'Checking test set…'
               : 'Re-run test';
 
+  const title = testRun.name || `Test Run ${testRunId}`;
+
   return (
-    <Box>
+    <PageLayout
+      breadcrumbs={[
+        { label: 'Test Runs', href: '/test-runs' },
+        { label: title, href: `/test-runs/${testRunId}` },
+      ]}
+      title={
+        <TestRunTitle
+          testRun={testRun}
+          onRename={handleRenameOpen}
+          canRename={can(testRun, Capability.TestRun.UPDATE)}
+        />
+      }
+      metadata={<TestRunMetadata testRun={testRun} />}
+      actions={
+        <TestRunActions
+          testRun={testRun}
+          onCompare={handleCompare}
+          onDownload={handleDownload}
+          onRerun={handleRerun}
+          isDownloading={isDownloading}
+          canRerun={canRerun}
+          rerunTooltip={rerunTooltip}
+          canCompare={hasComparisonRuns}
+        />
+      }
+    >
       {loadError && (
         <Typography color="error" sx={{ mb: 2 }}>
           {loadError}
         </Typography>
       )}
-
-      <TestRunDetailHeader
-        testRun={testRun}
-        onRename={handleRenameOpen}
-        onCompare={handleCompare}
-        onDownload={handleDownload}
-        onRerun={handleRerun}
-        isDownloading={isDownloading}
-        canRerun={canRerun}
-        rerunTooltip={rerunTooltip}
-        canCompare={hasComparisonRuns}
-        canRename={can(testRun, Capability.TestRun.UPDATE)}
-      />
 
       <BaseDrawer
         open={renameDialogOpen}
@@ -706,6 +725,6 @@ export default function TestRunMainView({
         onSuccess={handleRerunSuccess}
         onExecuted={handleRerunExecuted}
       />
-    </Box>
+    </PageLayout>
   );
 }

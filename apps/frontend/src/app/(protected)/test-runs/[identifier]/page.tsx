@@ -1,5 +1,4 @@
 import { Metadata } from 'next';
-import { PageLayout } from '@/components/layout/PageLayout';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
@@ -76,38 +75,33 @@ export default async function TestRunPage({
       : Promise.resolve(false),
   ]);
 
-  const title = testRun.name || `Test Run ${identifier}`;
-  const breadcrumbs = [
-    { label: 'Test Runs', href: '/test-runs' },
-    { label: title, href: `/test-runs/${identifier}` },
-  ];
-
+  // PageLayout is rendered by TestRunMainView, not here: its title carries a
+  // rename control and its actions are FABs, both of which need the client
+  // component's handlers. Same shape as RequirementsClient.
   return (
-    <PageLayout title="" breadcrumbs={breadcrumbs}>
-      <TestRunMainView
-        testRunId={identifier}
-        testRunData={{
-          id: testRun.id,
-          name: testRun.name,
-          created_at:
-            (typeof testRun.attributes?.started_at === 'string'
-              ? testRun.attributes.started_at
-              : null) ||
-            testRun.created_at ||
-            '',
-          test_configuration_id: testRun.test_configuration_id,
-        }}
-        testRun={testRun}
-        currentUserId={session.user?.id || ''}
-        currentUserName={session.user?.name || ''}
-        currentUserPicture={session.user?.picture || undefined}
-        initialSelectedTestId={
-          typeof selectedResult === 'string' ? selectedResult : undefined
-        }
-        initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
-        initialTestResults={testResults}
-        initialHasComparisonRuns={hasComparisonRuns}
-      />
-    </PageLayout>
+    <TestRunMainView
+      testRunId={identifier}
+      testRunData={{
+        id: testRun.id,
+        name: testRun.name,
+        created_at:
+          (typeof testRun.attributes?.started_at === 'string'
+            ? testRun.attributes.started_at
+            : null) ||
+          testRun.created_at ||
+          '',
+        test_configuration_id: testRun.test_configuration_id,
+      }}
+      testRun={testRun}
+      currentUserId={session.user?.id || ''}
+      currentUserName={session.user?.name || ''}
+      currentUserPicture={session.user?.picture || undefined}
+      initialSelectedTestId={
+        typeof selectedResult === 'string' ? selectedResult : undefined
+      }
+      initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
+      initialTestResults={testResults}
+      initialHasComparisonRuns={hasComparisonRuns}
+    />
   );
 }
