@@ -47,6 +47,11 @@ interface RequirementGroupProps {
   dataVersion: number;
   onViewRequirement?: (id: string) => void;
   onViewMetric?: (name: string, reqId?: string) => void;
+  /** Skip the collapsible requirement header and render the metric rows on
+   *  their own -- for the pooled bucket of metrics that never linked to a
+   *  requirement in the first place (execution-time and test-set metrics),
+   *  a "requirement" header has nothing real to say. */
+  headerless?: boolean;
 }
 
 export default function RequirementGroup({
@@ -58,6 +63,7 @@ export default function RequirementGroup({
   dataVersion,
   onViewRequirement,
   onViewMetric,
+  headerless = false,
 }: RequirementGroupProps) {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
@@ -112,6 +118,28 @@ export default function RequirementGroup({
   // Same height as the metric rows in this mode, so a rollup cell and the
   // cells under it are the same shape. Numbers mode is 0 for both.
   const stripHeight = STRIP_HEIGHTS[density];
+
+  if (headerless) {
+    return (
+      <Box sx={{ mb: 0.5 }}>
+        {groupRows.map((row, idx) => (
+          <MetricRow
+            key={row.metric_key}
+            row={row}
+            density={density}
+            testIds={testIds}
+            timings={timings}
+            metricIndex={idx}
+            metricCount={groupRows.length}
+            trimmedName={trimmedNames[idx]}
+            fullName={metricNames[idx]}
+            dataVersion={dataVersion}
+            onViewMetric={onViewMetric}
+          />
+        ))}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ mb: 0.5 }}>
