@@ -2,7 +2,11 @@ import * as React from 'react';
 import { Snackbar, Alert, useTheme } from '@mui/material';
 
 export type NotificationSeverity =
-  'success' | 'info' | 'warning' | 'error' | 'neutral';
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'neutral';
 
 interface NotificationOptions {
   severity?: NotificationSeverity;
