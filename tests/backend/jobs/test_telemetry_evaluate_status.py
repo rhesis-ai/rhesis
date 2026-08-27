@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.jobs.telemetry.evaluate import (
-    _derive_combined_status_id,
-    _derive_status_id,
+    _derive_combined_outcome,
+    _derive_outcome,
     _resolve_status_id,
 )
 
@@ -18,7 +18,7 @@ from rhesis.backend.jobs.telemetry.evaluate import (
 @pytest.mark.unit
 class TestDeriveStatusId:
     def test_all_metrics_passed(self, test_db: Session, test_organization):
-        status_id = _derive_status_id(
+        status_id, _execution, _verdict = _derive_outcome(
             test_db,
             str(test_organization.id),
             {"metrics": {"Accuracy": {"is_successful": True}}},
@@ -27,7 +27,7 @@ class TestDeriveStatusId:
         assert status.name == "Pass"
 
     def test_a_metric_failed(self, test_db: Session, test_organization):
-        status_id = _derive_status_id(
+        status_id, _execution, _verdict = _derive_outcome(
             test_db,
             str(test_organization.id),
             {"metrics": {"Accuracy": {"is_successful": False}}},
@@ -40,12 +40,14 @@ class TestDeriveStatusId:
         classify_metrics({}) must still resolve to Error, not a vacuous
         Pass from `all([]) == True`.
         """
-        status_id = _derive_status_id(test_db, str(test_organization.id), {"metrics": {}})
+        status_id, _execution, _verdict = _derive_outcome(
+            test_db, str(test_organization.id), {"metrics": {}}
+        )
         status = test_db.query(models.Status).filter(models.Status.id == status_id).one()
         assert status.name == "Error"
 
     def test_inconclusive_metric_gets_its_own_status(self, test_db: Session, test_organization):
-        status_id = _derive_status_id(
+        status_id, _execution, _verdict = _derive_outcome(
             test_db,
             str(test_organization.id),
             {"metrics": {"Accuracy": {"is_successful": None}}},
@@ -54,7 +56,7 @@ class TestDeriveStatusId:
         assert status.name == "Inconclusive"
 
     def test_crashed_metric_is_error_not_fail(self, test_db: Session, test_organization):
-        status_id = _derive_status_id(
+        status_id, _execution, _verdict = _derive_outcome(
             test_db,
             str(test_organization.id),
             {"metrics": {"Accuracy": {"is_successful": False, "error": "timeout"}}},
@@ -75,7 +77,7 @@ class TestDeriveCombinedStatusId:
         )
         # New conversation_metrics section fails -- combined must be Fail
         # even though the existing turn_metrics section passed.
-        status_id = _derive_combined_status_id(
+        status_id, _execution, _verdict = _derive_combined_outcome(
             test_db,
             str(test_organization.id),
             span,
@@ -87,7 +89,7 @@ class TestDeriveCombinedStatusId:
 
     def test_no_metrics_in_either_section_is_error(self, test_db: Session, test_organization):
         span = models.Trace(organization_id=test_organization.id, trace_metrics={})
-        status_id = _derive_combined_status_id(
+        status_id, _execution, _verdict = _derive_combined_outcome(
             test_db, str(test_organization.id), span, "turn_metrics", {"metrics": {}}
         )
         status = test_db.query(models.Status).filter(models.Status.id == status_id).one()
@@ -128,3 +130,33 @@ class TestResolveStatusId:
         first = _resolve_status_id(test_db, str(test_organization.id), "Inconclusive")
         second = _resolve_status_id(test_db, str(test_organization.id), "Inconclusive")
         assert first == second
+
+
+@pytest.mark.unit
+class TestDeriveOutcomeReturnsThePair:
+    """The status name alone is the legacy artefact; execution/verdict are
+    the source of truth a trace row now stores (see app/outcomes.py). They
+    come back together so a writer cannot persist one without the other.
+    """
+
+    @pytest.mark.parametrize(
+        "metrics,expected_execution,expected_verdict",
+        [
+            ({"Accuracy": {"is_successful": True}}, "ok", "pass"),
+            ({"Accuracy": {"is_successful": False}}, "ok", "fail"),
+            ({"Accuracy": {"is_successful": None}}, "ok", "inconclusive"),
+            ({"Accuracy": {"is_successful": False, "error": "timeout"}}, "error", None),
+            ({}, "error", None),
+        ],
+    )
+    def test_pair_matches_the_derived_status(
+        self, test_db: Session, test_organization, metrics, expected_execution, expected_verdict
+    ):
+        status_id, execution, verdict = _derive_outcome(
+            test_db, str(test_organization.id), {"metrics": metrics}
+        )
+        assert execution == expected_execution
+        assert verdict == expected_verdict
+        # And the legacy status name still agrees with the pair.
+        status = test_db.query(models.Status).filter(models.Status.id == status_id).one()
+        assert status.name in {"Pass", "Fail", "Error", "Inconclusive"}

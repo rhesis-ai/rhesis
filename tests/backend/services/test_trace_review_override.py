@@ -269,20 +269,77 @@ class TestRecalculateOverallStatus:
         mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.FAIL)
 
     @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
-    def test_no_metrics_no_op(self, mock_apply):
+    def test_no_metrics_resets_to_error(self, mock_apply):
+        """Was a no-op, which left the row stuck at whatever a
+        just-deleted review had set it to. Nothing evaluated means Error.
+        """
         trace = MagicMock()
         trace.trace_metrics = {
             "turn_metrics": {"metrics": {}},
             "conversation_metrics": {"metrics": {}},
         }
         recalculate_overall_status(trace)
-        mock_apply.assert_not_called()
+        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
 
     @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
-    def test_none_trace_metrics_no_op(self, mock_apply):
+    def test_none_trace_metrics_resets_to_error(self, mock_apply):
         trace = MagicMock()
         trace.trace_metrics = None
         recalculate_overall_status(trace)
+        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
+
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_reviewed_crashed_metric_can_leave_error(self, mock_apply, mock_user):
+        """A metric that crashed carries an `error` key, which
+        classify_metrics reads as ERROR regardless of is_successful. Once a
+        human overrides it to pass, that key is stashed on the override so
+        the trace can actually reach PASS.
+        """
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {
+                "metrics": {
+                    "m1": {"is_successful": False, "error": "judge timed out"},
+                }
+            },
+            "conversation_metrics": {"metrics": {}},
+        }
+
+        _apply_metric_override(
+            trace, "m1", True, "review-1", mock_user, "2026-01-01T00:00:00+00:00"
+        )
+
+        metric = trace.trace_metrics["turn_metrics"]["metrics"]["m1"]
+        assert "error" not in metric
+        assert metric["override"]["original_error"] == "judge timed out"
+
+        recalculate_overall_status(trace)
+        mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.PASS)
+
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_reverting_that_override_restores_the_crash(self, mock_apply, mock_user):
+        """Symmetric with the stash above: deleting the review must put the
+        `error` key back, or the metric stays quietly "resolved" forever.
+        """
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {
+                "metrics": {
+                    "m1": {"is_successful": False, "error": "judge timed out"},
+                }
+            },
+            "conversation_metrics": {"metrics": {}},
+        }
+
+        _apply_metric_override(
+            trace, "m1", True, "review-1", mock_user, "2026-01-01T00:00:00+00:00"
+        )
+        _revert_metric_override(trace, "m1", "review-1", None)
+
+        metric = trace.trace_metrics["turn_metrics"]["metrics"]["m1"]
+        assert metric["error"] == "judge timed out"
+        assert metric["is_successful"] is False
+        assert "override" not in metric
         mock_apply.assert_not_called()
 
     @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")

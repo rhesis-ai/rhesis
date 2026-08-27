@@ -126,9 +126,22 @@ class TraceSummary(BaseModel):
         default=None, description="Endpoint name if this trace is linked to an endpoint"
     )
 
-    # Trace metrics evaluation status
+    # Trace metrics evaluation outcome. execution/verdict are the source of
+    # truth (see app/outcomes.py); trace_metrics_status is the legacy
+    # display name kept alongside them.
     trace_metrics_status: Optional[str] = Field(
-        default=None, description="Evaluation status name (Pass/Fail/Error)"
+        default=None, description="Evaluation status name (Pass/Fail/Error/Inconclusive)"
+    )
+    execution: str = Field(
+        default="not_run",
+        description=(
+            "not_run | running | ok | error | cancelled -- "
+            "did evaluation produce a usable observation"
+        ),
+    )
+    verdict: Optional[str] = Field(
+        default=None,
+        description="pass | fail | inconclusive -- set only when execution == 'ok'",
     )
 
     # Human reviews
@@ -179,8 +192,11 @@ class SpanNode(BaseModel):
     events: List[Dict[str, Any]]
     children: List["SpanNode"] = Field(default_factory=list)
 
-    # Trace metrics
+    # Trace metrics. execution/verdict are the source of truth for this
+    # span's outcome (app/outcomes.py); trace_metrics is the raw evidence.
     trace_metrics: Optional[Dict[str, Any]] = None
+    execution: str = "not_run"
+    verdict: Optional[str] = None
 
     # Human reviews
     trace_reviews: Optional[Dict[str, Any]] = None
@@ -213,9 +229,22 @@ class TraceDetailResponse(BaseModel):
     total_cost_usd: float
     root_spans: List[SpanNode]
 
-    # Trace metrics evaluation status
+    # Trace metrics evaluation outcome. execution/verdict are the source of
+    # truth (see app/outcomes.py); trace_metrics_status is the legacy
+    # display name kept alongside them.
     trace_metrics_status: Optional[str] = Field(
-        default=None, description="Evaluation status name (Pass/Fail/Error)"
+        default=None, description="Evaluation status name (Pass/Fail/Error/Inconclusive)"
+    )
+    execution: str = Field(
+        default="not_run",
+        description=(
+            "not_run | running | ok | error | cancelled -- "
+            "did evaluation produce a usable observation"
+        ),
+    )
+    verdict: Optional[str] = Field(
+        default=None,
+        description="pass | fail | inconclusive -- set only when execution == 'ok'",
     )
 
     # Human reviews

@@ -55,12 +55,14 @@ def _parse_turn_number(reference: str) -> Optional[int]:
 def _apply_outcome(
     db_trace: models.Trace, execution: Execution, verdict: Optional[Verdict]
 ) -> None:
-    """Write trace_metrics_status_id from one outcome -- the same legacy
-    vocabulary test results use (see jobs/telemetry/evaluate.py's
-    _resolve_status_id) since Trace has no execution/verdict columns of
-    its own. Uses get_or_create_status rather than a bare lookup: an org
-    that never produced a given outcome (e.g. Inconclusive) must get the
-    status created, not silently drop the update.
+    """Write execution/verdict (the source of truth -- see app/outcomes.py)
+    and trace_metrics_status_id (the legacy display artefact) together,
+    from one outcome, so a review can never update one without the other.
+
+    Mirrors review_override.py's twin for test results. Uses
+    get_or_create_status rather than a bare lookup: an org that never
+    produced a given outcome (e.g. Inconclusive) must get the status
+    created, not silently drop the update.
     """
     from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
@@ -75,6 +77,8 @@ def _apply_outcome(
         organization_id=str(db_trace.organization_id),
     )
     db_trace.trace_metrics_status_id = status.id
+    db_trace.execution = execution.value
+    db_trace.verdict = verdict.value if verdict else None
 
 
 def _set_pass_fail_status(db_trace: models.Trace, passed: bool) -> None:
@@ -169,14 +173,28 @@ def _apply_metric_override(
         if review_passed == original_val:
             metric["is_successful"] = original_val
             metric.pop("override", None)
+            original_error = (existing_override or {}).get("original_error")
+            if original_error is not None:
+                metric["error"] = original_error
         else:
             metric["is_successful"] = review_passed
-            metric["override"] = {
+            override_data = {
                 "original_value": original_val,
                 "review_id": review_id,
                 "overridden_by": str(current_user.id),
                 "overridden_at": now,
             }
+            # A metric that crashed while evaluating carries an `error` key,
+            # which classify_metrics reads as Execution.ERROR regardless of
+            # is_successful -- so without stashing it away here a reviewed
+            # trace metric could never leave Error. Same fix, and the same
+            # stash/restore contract, as review_override.py's twin.
+            stashed_error = metric.pop("error", None)
+            if stashed_error is None and existing_override:
+                stashed_error = existing_override.get("original_error")
+            if stashed_error is not None:
+                override_data["original_error"] = stashed_error
+            metric["override"] = override_data
 
     flag_modified(db_trace, "trace_metrics")
 
@@ -326,24 +344,36 @@ def _revert_metric_override(
             continue
 
         original_val = override["original_value"]
+        # Symmetric with _apply_metric_override's stash: a metric that
+        # crashed before any review had its `error` key moved into the
+        # override. Reverting must put it back, or the metric quietly stays
+        # "resolved" forever after its one review is deleted.
+        original_error = override.get("original_error")
 
         if replacement_review:
             review_passed = _is_passed_status(replacement_review.get("status", {}).get("name", ""))
             if review_passed == original_val:
                 metric["is_successful"] = original_val
                 metric.pop("override", None)
+                if original_error is not None:
+                    metric["error"] = original_error
             else:
                 now = datetime.now(timezone.utc).isoformat()
                 metric["is_successful"] = review_passed
-                metric["override"] = {
+                new_override = {
                     "original_value": original_val,
                     "review_id": replacement_review["review_id"],
                     "overridden_by": replacement_review.get("user", {}).get("user_id", ""),
                     "overridden_at": now,
                 }
+                if original_error is not None:
+                    new_override["original_error"] = original_error
+                metric["override"] = new_override
         else:
             metric["is_successful"] = original_val
             metric.pop("override", None)
+            if original_error is not None:
+                metric["error"] = original_error
 
     flag_modified(db_trace, "trace_metrics")
 
@@ -414,10 +444,15 @@ def recalculate_overall_status(db_trace: models.Trace) -> None:
     """
     trace_metrics = db_trace.trace_metrics
     if not trace_metrics or not isinstance(trace_metrics, dict):
+        # Nothing was ever evaluated -- reverting the last review must
+        # still reset the row rather than leave it at whatever that
+        # review set it to (the same fix as review_override.py's twin).
+        _apply_outcome(db_trace, Execution.ERROR, None)
         return
 
     all_metrics = _get_all_trace_metric_values(trace_metrics)
     if not all_metrics:
+        _apply_outcome(db_trace, Execution.ERROR, None)
         return
 
     execution, verdict = classify_metrics(all_metrics)
@@ -425,7 +460,10 @@ def recalculate_overall_status(db_trace: models.Trace) -> None:
     turn_overrides = trace_metrics.get("turn_overrides", {})
     if turn_overrides:
         turns_passed = all(entry.get("success", True) for entry in turn_overrides.values())
-        if execution == Execution.OK and not turns_passed:
+        # `is False` rather than a bare `not`, matching review_override.py:
+        # only an actual turn failure pulls a PASS down, never a missing
+        # or unrecorded verdict.
+        if execution == Execution.OK and turns_passed is False:
             verdict = Verdict.FAIL
 
     _apply_outcome(db_trace, execution, verdict)

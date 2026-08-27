@@ -8,7 +8,7 @@ Two-phase evaluation:
 import logging
 import random
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
@@ -102,18 +102,18 @@ def _load_trace_scoped_metrics(
     return query.all()
 
 
-def _derive_status_id(
+def _outcome_from_metrics(
     db: Session,
     organization_id: str,
-    metrics_results: Dict[str, Any],
-) -> Optional[str]:
-    """Derive trace_metrics_status_id from metric results.
+    metrics: Dict[str, Any],
+) -> Tuple[Optional[str], str, Optional[str]]:
+    """Classify metrics into (status_id, execution, verdict) for a trace.
 
     Thin wrapper over the single classifier in app/outcomes.py -- see
     playground/outcome-model/inventory.md section 4.1 for the duplicated
-    copies of this rule this one replaces. No test_result row exists for
-    a trace, so there is no execution/verdict pair to populate here, only
-    the legacy status name.
+    copies of this rule this one replaces. All three are returned together
+    so a writer cannot persist the legacy status name without the
+    execution/verdict pair that is now the source of truth.
     """
     from rhesis.backend.app.outcomes import (
         classify_metrics,
@@ -121,26 +121,29 @@ def _derive_status_id(
         outcome_to_test_result_status_name,
     )
 
-    metrics = metrics_results.get("metrics", {})
     execution, verdict = classify_metrics(metrics)
     status_name = outcome_to_test_result_status_name(outcome_of(execution, verdict))
-    return _resolve_status_id(db, organization_id, status_name)
+    status_id = _resolve_status_id(db, organization_id, status_name)
+    return status_id, execution.value, verdict.value if verdict else None
 
 
-def _derive_combined_status_id(
+def _derive_outcome(
+    db: Session,
+    organization_id: str,
+    metrics_results: Dict[str, Any],
+) -> Tuple[Optional[str], str, Optional[str]]:
+    """Outcome for a single metrics section (turn metrics on their own)."""
+    return _outcome_from_metrics(db, organization_id, metrics_results.get("metrics", {}))
+
+
+def _derive_combined_outcome(
     db: Session,
     organization_id: str,
     span: models.Trace,
     new_section: str,
     new_results: Dict[str, Any],
-) -> Optional[str]:
-    """Re-derive status from combined turn + conversation metrics on a span."""
-    from rhesis.backend.app.outcomes import (
-        classify_metrics,
-        outcome_of,
-        outcome_to_test_result_status_name,
-    )
-
+) -> Tuple[Optional[str], str, Optional[str]]:
+    """Re-derive the outcome from combined turn + conversation metrics."""
     existing = span.trace_metrics or {}
     all_metrics = {}
 
@@ -149,9 +152,7 @@ def _derive_combined_status_id(
         section_metrics = data.get("metrics", {})
         all_metrics.update(section_metrics)
 
-    execution, verdict = classify_metrics(all_metrics)
-    status_name = outcome_to_test_result_status_name(outcome_of(execution, verdict))
-    return _resolve_status_id(db, organization_id, status_name)
+    return _outcome_from_metrics(db, organization_id, all_metrics)
 
 
 def _resolve_status_id(
@@ -314,13 +315,15 @@ def evaluate_turn_trace_metrics(
             "metrics": results,
         }
 
-        status_id = _derive_status_id(db, organization_id, turn_metrics)
+        status_id, execution, verdict = _derive_outcome(db, organization_id, turn_metrics)
 
         update_trace_turn_metrics(
             db=db,
             span_id=str(root_span.id),
             turn_metrics=turn_metrics,
             status_id=status_id,
+            execution=execution,
+            verdict=verdict,
         )
 
         logger.info(
@@ -426,7 +429,7 @@ def evaluate_conversation_trace_metrics(
         }
 
         first_span = root_spans[0]
-        status_id = _derive_combined_status_id(
+        status_id, execution, verdict = _derive_combined_outcome(
             db,
             organization_id,
             first_span,
@@ -439,6 +442,8 @@ def evaluate_conversation_trace_metrics(
             trace_id=trace_id,
             conversation_metrics=conversation_metrics,
             status_id=status_id,
+            execution=execution,
+            verdict=verdict,
         )
 
         logger.info(
