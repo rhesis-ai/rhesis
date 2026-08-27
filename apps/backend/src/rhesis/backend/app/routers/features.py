@@ -12,13 +12,13 @@ the wire format stable independent of Python enum evolution.
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from rhesis.backend.app.config.settings import get_application_settings
-from rhesis.backend.app.dependencies import get_current_organization
+from rhesis.backend.app.dependencies import get_current_organization_optional
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaRegistry, limits_to_wire
@@ -48,11 +48,16 @@ class FeaturesResponse(BaseModel):
 
 @router.get("", response_model=FeaturesResponse)
 def list_features(
-    org: Organization = Depends(get_current_organization),
+    org: Optional[Organization] = Depends(get_current_organization_optional),
 ) -> FeaturesResponse:
-    """Return license info and the set of features enabled for the current user's org."""
-    enabled = [f.name.value for f in FeatureRegistry.licensed_features(org)]
-    warnings = FeatureRegistry.feature_warnings(org)
+    """Return license info and the set of features enabled for the current user's org.
+
+    Works for users mid-onboarding who have no org yet: returns default-tier
+    limits and no enabled features, so the frontend can size the invitation
+    form to the tier's seat cap before the org exists.
+    """
+    enabled = [f.name.value for f in FeatureRegistry.licensed_features(org)] if org else []
+    warnings = FeatureRegistry.feature_warnings(org) if org else {}
     info = FeatureRegistry.license_info(org=org)
     limits = limits_to_wire(QuotaRegistry.get_limits(org))
     return FeaturesResponse(

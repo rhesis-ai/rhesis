@@ -33,6 +33,7 @@ interface FeaturesState {
   license: LicenseInfo | null;
   enabled: ReadonlySet<string>;
   warnings: Readonly<Record<string, string>>;
+  limits: Readonly<Record<string, number | null>>;
   isLocalMode: boolean;
   rhesisKeyEnabled: boolean;
   loading: boolean;
@@ -43,6 +44,7 @@ const DEFAULT_STATE: FeaturesState = {
   license: null,
   enabled: new Set<string>(),
   warnings: {},
+  limits: {},
   isLocalMode: false,
   rhesisKeyEnabled: false,
   loading: true,
@@ -91,6 +93,7 @@ export function FeaturesProvider({
         license: null,
         enabled: new Set<string>(),
         warnings: {},
+        limits: {},
         isLocalMode: false,
         rhesisKeyEnabled: false,
         loading: false,
@@ -101,6 +104,7 @@ export function FeaturesProvider({
       license: data.license,
       enabled: new Set<string>(data.enabled),
       warnings: data.warnings ?? {},
+      limits: data.limits ?? {},
       isLocalMode: data.is_local ?? false,
       rhesisKeyEnabled: data.rhesis_key_enabled ?? false,
       loading: false,
@@ -163,6 +167,15 @@ export function useIsLocalMode(): boolean {
  */
 export function useRhesisKeyEnabled(): boolean {
   return useContext(FeaturesContext).rhesisKeyEnabled;
+}
+
+/**
+ * Per-resource quota limits from the current org's tier, keyed by
+ * resource name (e.g. `"seats"`, `"projects"`). `null` means unlimited.
+ * Empty while loading or on error.
+ */
+export function useLimits(): Readonly<Record<string, number | null>> {
+  return useContext(FeaturesContext).limits;
 }
 
 /**

@@ -11,6 +11,8 @@ export interface FeaturesResponse {
   enabled: string[];
   /** Per-feature warnings for features that are licensed but not operationally ready. */
   warnings?: Record<string, string>;
+  /** Per-resource quota limits for the current org's tier. */
+  limits?: Record<string, number | null>;
   /**
    * Whether this deployment runs in local/self-hosted mode. Single source of
    * truth for local-only UI -- optional to tolerate an older backend that

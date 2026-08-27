@@ -29,7 +29,7 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
     sidebarSubtitle: 'Start collaborating with your team',
     contentTitle: 'Invite your team',
     contentDescription:
-      'Invite up to 10 colleagues during onboarding to join your organization. You can skip this step and add team members later.',
+      'Invite colleagues to join your organization. You can skip this step and add team members later.',
     icon: PersonAddOutlinedIcon,
   },
   {

@@ -18,6 +18,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { writeActiveProjectId } from '@/utils/active-project';
 import { useCreateProject } from '@/hooks/useEndpoints';
 import { useCreateUser } from '@/hooks/useUsers';
+import { parseQuotaError } from '@/utils/quota';
 
 type OnboardingStatus =
   | 'idle'
@@ -166,7 +167,9 @@ export default function OnboardingPageClient({
               error?: string;
             }> = [];
 
-            const createUserPromises = validEmails.map(async email => {
+            // Send invitations sequentially so the backend quota gate
+            // sees each new seat before checking the next one.
+            for (const email of validEmails) {
               const userData = {
                 email: email,
                 organization_id: organization.id as UUID,
@@ -175,12 +178,28 @@ export default function OnboardingPageClient({
               };
 
               try {
-                const user = await createUser(userData);
+                await createUser(userData);
                 invitationResults.push({ email, success: true });
-                return user;
               } catch (error: unknown) {
-                let errorMessage = 'Unknown error';
+                if (parseQuotaError(error)) {
+                  invitationResults.push({
+                    email,
+                    success: false,
+                    error: 'Seat limit reached',
+                  });
+                  // Mark remaining emails as skipped and stop.
+                  const currentIndex = validEmails.indexOf(email);
+                  for (const remaining of validEmails.slice(currentIndex + 1)) {
+                    invitationResults.push({
+                      email: remaining,
+                      success: false,
+                      error: 'Seat limit reached',
+                    });
+                  }
+                  break;
+                }
 
+                let errorMessage = 'Unknown error';
                 if (error instanceof Error) {
                   errorMessage = error.message;
                 } else if (
@@ -198,13 +217,11 @@ export default function OnboardingPageClient({
                   success: false,
                   error: errorMessage,
                 });
-                return null;
               }
-            });
+            }
 
-            const createdUsers = await Promise.all(createUserPromises);
-            const successCount = createdUsers.filter(
-              user => user !== null
+            const successCount = invitationResults.filter(
+              r => r.success
             ).length;
             const failedCount = validEmails.length - successCount;
 
@@ -215,7 +232,7 @@ export default function OnboardingPageClient({
               );
             } else if (successCount > 0 && failedCount > 0) {
               notifications.show(
-                `Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} failed.`,
+                `Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} could not be sent.`,
                 { severity: 'warning' }
               );
 
