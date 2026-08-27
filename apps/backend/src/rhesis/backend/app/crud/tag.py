@@ -1,9 +1,5 @@
 """CRUD operations for tags and their assignment to entities.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``assign_tag`` and ``remove_tag`` link a tag to any kind of entity through the
 ``TaggedItem`` table, which stores the target as an ``entity_id`` plus an ``entity_type``
 string rather than a foreign key. The entity type drives the lookup of the ORM class:

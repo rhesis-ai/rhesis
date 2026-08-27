@@ -1,9 +1,5 @@
 """CRUD operations for metric tuning.
 
-Part of the incremental split of the ``crud`` monolith: per-entity modules like
-this one take over as the code around them is touched, and nothing new is added
-to ``crud/__init__.py``.
-
 Every function here flushes and never commits -- the request session owns the
 commit (see ``get_db_with_tenant_variables`` in ``database.py``).
 

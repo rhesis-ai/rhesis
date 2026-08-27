@@ -1,9 +1,5 @@
 """CRUD operations for comments and their emoji reactions.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Two behaviours here are worth knowing about. ``delete_comment`` first strips the
 ``comment_id`` key out of ``Task.task_metadata`` for every task that points at the comment,
 so deleting a comment does not leave orphaned references behind; that cleanup is committed

@@ -29,9 +29,9 @@ as the files around them are touched.
 
 ## CRUD layout
 
-`app/crud/` is a package mid-split. `crud/__init__.py` still holds the monolith; per-entity modules
-(`crud/explorer.py`, …) take over as the code around them is touched. **Anything that would add to
-`crud/__init__.py` goes into a per-entity module instead** — it only shrinks from here.
+`app/crud/` is one module per entity — `crud/test.py`, `crud/test_set.py`, `crud/explorer.py`, and so on.
+`crud/__init__.py` is empty on purpose; **a new CRUD function goes in its entity's module**, and a
+new entity gets a new module.
 
 Layering is routers → services → crud, and the same "split, don't grow" rule runs down it: touching
 a router means its business logic moves into a service; touching a service means its SQL moves into

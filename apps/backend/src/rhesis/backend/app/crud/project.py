@@ -1,9 +1,5 @@
 """CRUD operations for projects and project membership.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Project reads enforce membership, not just organization scope -- ``get_project`` and
 ``get_projects`` return only projects the caller has a ``project_membership`` row for.
 Writes to membership route through ``services.organization`` so that a user's

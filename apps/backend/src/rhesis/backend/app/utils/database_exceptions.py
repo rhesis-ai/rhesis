@@ -173,11 +173,11 @@ def handle_database_exceptions(
     Usage:
         @handle_database_exceptions(entity_name="demographic")
         def create_demographic(...):
-            return crud.create_demographic(...)
+            return demographic_crud.create_demographic(...)
 
         @handle_database_exceptions(entity_name="organization")
         async def create_organization(...):
-            return crud.create_organization(...)
+            return organization_crud.create_organization(...)
     """
 
     def decorator(func: Callable) -> Callable:
@@ -253,7 +253,7 @@ def with_database_error_handling(
 
     Usage:
         with with_database_error_handling(entity_name="demographic"):
-            return crud.create_demographic(...)
+            return demographic_crud.create_demographic(...)
     """
 
     class DatabaseErrorContext:

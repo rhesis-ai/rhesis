@@ -1,9 +1,5 @@
 """CRUD operations for requirements.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``_REQUIREMENT_RELATED_FIELDS`` covers exactly what ``RequirementWithMetricsSchema`` in
 ``routers/requirement.py`` serializes -- user, and each metric with its metric_type,
 backend_type and tags. Status, organization and project are left out because nothing reads
