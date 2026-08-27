@@ -5,7 +5,7 @@ import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import TestRunMainView from './components/TestRunMainViewClient';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
-import { fetchSmallTestRunResults } from './hooks/useTestRunDetailData';
+import { fetchSmallTestRunResults } from './hooks/test-run-results';
 import { hasOtherRunsForTestSet } from './components/comparison-runs';
 
 interface _PageProps {

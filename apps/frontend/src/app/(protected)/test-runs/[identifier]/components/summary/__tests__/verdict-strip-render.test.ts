@@ -136,7 +136,7 @@ describe('paintStrip', () => {
     }
   });
 
-  it('caps cell width at 24px', () => {
+  it('fills the full width when there are few cells', () => {
     const { ctx, calls } = fakeContext();
     paintStrip(ctx, {
       width: 200,
@@ -151,8 +151,40 @@ describe('paintStrip', () => {
 
     const roundRectCalls = calls.filter(c => c.method === 'roundRect');
     expect(roundRectCalls).toHaveLength(1);
-    // drawWidth = min(24, 200/1) = 24; cellWidth = max(1, 24-0) = 24
-    expect(roundRectCalls[0].args[2]).toBe(24);
+    // A single cell has no gap, so it draws at the strip's full width --
+    // no fixed cap left to clamp it and cluster it at the left edge.
+    expect(roundRectCalls[0].args[2]).toBe(200);
+  });
+
+  it('divides the width evenly, with a 1px gap, across a handful of cells', () => {
+    const { ctx, calls } = fakeContext();
+    const cells: CellState[] = [
+      'passed',
+      'passed',
+      'failed',
+      'passed',
+      'failed',
+    ];
+    paintStrip(ctx, {
+      width: 200,
+      height: 20,
+      dpr: 1,
+      cells,
+      palette,
+      binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
+    });
+
+    const roundRectCalls = calls.filter(c => c.method === 'roundRect');
+    expect(roundRectCalls).toHaveLength(5);
+    // drawWidth = 200 / 5 = 40; cellWidth = 40 - 1 (gap) = 39.
+    for (const call of roundRectCalls) {
+      expect(call.args[2]).toBe(39);
+    }
+    // Cells are evenly spaced across the full width, not clustered at the start.
+    const xs = roundRectCalls.map(c => c.args[0]);
+    expect(xs).toEqual([0, 40, 80, 120, 160]);
   });
 
   it('clamps the corner radius to half the smaller dimension for a thin cell', () => {
