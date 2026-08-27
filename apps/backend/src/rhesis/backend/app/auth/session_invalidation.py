@@ -40,7 +40,10 @@ class SessionInvalidationStore:
             user_id: The user ID whose sessions should be invalidated
         """
         with self._lock:
-            self._logout_times[user_id] = datetime.now(timezone.utc)
+            # Truncate to second precision so the comparison with JWT iat
+            # (a Unix epoch integer) is on the same scale.
+            now = datetime.now(timezone.utc).replace(microsecond=0)
+            self._logout_times[user_id] = now
             logger.info(f"Invalidated all sessions for user {user_id}")
 
     def is_session_valid(self, user_id: str, issued_at: datetime) -> bool:
@@ -65,8 +68,10 @@ class SessionInvalidationStore:
             if issued_at.tzinfo is None:
                 issued_at = issued_at.replace(tzinfo=timezone.utc)
 
-            # Session is valid if it was issued AFTER the logout
-            is_valid = issued_at > logout_time
+            # Session is valid if it was issued AT or AFTER the logout.
+            # JWT iat and the stored logout time are both at second precision,
+            # so a token minted in the same second as invalidation is valid.
+            is_valid = issued_at >= logout_time
 
             if not is_valid:
                 logger.debug(
