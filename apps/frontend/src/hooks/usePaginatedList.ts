@@ -68,12 +68,13 @@ export interface UsePaginatedListResult<T> {
  *
  * Fetches are keyed by a request signature (page, rowsPerPage,
  * filterFingerprint, refreshKey, sessionStatus, enabled) rather than a
- * one-shot "skip the first fetch" flag, so it stays correct under React 18
- * Strict Mode's dev-only double-invoke of mount effects: both invocations
- * compute the same signature and both no-op, instead of the second slipping
- * through a "consumed" ref. `sessionStatus` is part of the key so a run that
- * lands while the session is still `loading` doesn't "claim" the same key a
- * later `authenticated` run would use.
+ * one-shot "skip the first fetch" flag. With `initialData` the key is
+ * pre-filled so the SSR'd page isn't refetched on mount. A fetch cancelled
+ * by effect cleanup releases its key again, so React 18 Strict Mode's
+ * dev-only double-invoke of mount effects refetches instead of getting
+ * stuck behind a cancelled request. `sessionStatus` is part of the key so a
+ * run that lands while the session is still `loading` doesn't "claim" the
+ * same key a later `authenticated` run would use.
  */
 export function usePaginatedList<T>({
   fetchPage,
@@ -131,6 +132,7 @@ export function usePaginatedList<T>({
     loadedRequestKeyRef.current = requestKey;
 
     let cancelled = false;
+    let settled = false;
     const silent = silentRef.current;
     silentRef.current = false;
 
@@ -169,9 +171,18 @@ export function usePaginatedList<T>({
       }
     };
 
-    run();
+    run().finally(() => {
+      settled = true;
+    });
     return () => {
       cancelled = true;
+      // A cancelled in-flight fetch never writes its result, so it must not
+      // "claim" this key: otherwise a remount with the same signature (Strict
+      // Mode's dev double-invoke, when the gate is already open) would skip
+      // the fetch and leave the grid spinning forever.
+      if (!settled && loadedRequestKeyRef.current === requestKey) {
+        loadedRequestKeyRef.current = null;
+      }
     };
     // fetchPage/onData/onError are recreated every render; the request-key
     // check above (not this array) is what governs whether a fetch actually
