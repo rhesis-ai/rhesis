@@ -76,6 +76,8 @@ interface EmbeddingTestsPanelProps {
   initialTests?: TestDetail[];
   initialTotalCount?: number;
   onTotalCountChange?: (count: number) => void;
+  /** Bumped by the page (e.g. after an assign) to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 export default function EmbeddingTestsPanel({
@@ -84,6 +86,7 @@ export default function EmbeddingTestsPanel({
   initialTests,
   initialTotalCount,
   onTotalCountChange,
+  refreshTrigger,
 }: EmbeddingTestsPanelProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -312,8 +315,8 @@ export default function EmbeddingTestsPanel({
             testSetType={testSetType}
             initialTests={initialTests}
             initialTotalCount={initialTotalCount}
-            embedded
             onTotalCountChange={onTotalCountChange}
+            refreshTrigger={refreshTrigger}
           />
         </Box>
       )}

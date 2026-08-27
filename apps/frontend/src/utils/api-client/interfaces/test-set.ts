@@ -86,6 +86,18 @@ export interface TestSetBulkAssociateRequest {
   test_ids: UUID[];
 }
 
+// Test set disassociation request
+export interface TestSetBulkDisassociateRequest {
+  test_ids: UUID[];
+}
+
+export interface TestSetBulkDisassociateResponse {
+  success: boolean;
+  total_tests: number;
+  removed_associations: number;
+  message: string;
+}
+
 export interface TestSetBulkDeleteResponse {
   deleted_ids: string[];
   not_found_ids: string[];
