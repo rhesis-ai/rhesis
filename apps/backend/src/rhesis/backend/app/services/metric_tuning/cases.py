@@ -31,8 +31,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.crud import delete_test
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
+from rhesis.backend.app.crud.test import delete_test
 from rhesis.backend.app.schemas.metric_tuning import (
     MetricTuningCase,
     MetricTuningCaseCreate,

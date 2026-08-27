@@ -65,7 +65,7 @@ async def resolve_contract_lazy(
     from uuid import UUID
 
     def _resolve():
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import test as test_crud
         from rhesis.backend.app.database import get_db_with_tenant_variables
         from rhesis.backend.jobs.execution.executors.output_providers import (
             resolve_multi_turn_contract,
@@ -74,7 +74,7 @@ async def resolve_contract_lazy(
         with get_db_with_tenant_variables(
             ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
         ) as db:
-            test = crud.get_test(db, UUID(test_id), ctx.organization_id, ctx.user_id)
+            test = test_crud.get_test(db, UUID(test_id), ctx.organization_id, ctx.user_id)
             if test is None:
                 return None, False
             return resolve_multi_turn_contract(db, test, ctx.user_id)

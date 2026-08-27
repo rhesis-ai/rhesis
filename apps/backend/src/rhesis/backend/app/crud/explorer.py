@@ -561,7 +561,7 @@ def remove_tests_from_test_set(
     """Drop the association rows linking the given tests to a test set.
 
     One statement for the whole batch. This only detaches -- soft-deleting the tests
-    themselves is a separate ``crud.delete_test`` call, and note the order matters:
+    themselves is a separate ``test_crud.delete_test`` call, and note the order matters:
     ``delete_test`` reads the association table to decide which test sets to
     recalculate, so a test detached first is deliberately left out of that.
 

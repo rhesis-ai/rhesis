@@ -47,15 +47,15 @@ def multi_turn_test(
     # Re-fetch through the same call the batch prefetch uses, so the instance
     # starts in the same load state production sees (test_type NOT eager-loaded).
     test_db.expire_all()
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import test as test_crud
 
-    return crud.get_test(test_db, test.id, organization_id=test_org_id)
+    return test_crud.get_test(test_db, test.id, organization_id=test_org_id)
 
 
 @pytest.mark.unit
 class TestGetTestTypeDetached:
     def test_test_type_relationship_is_not_eager_loaded(self, multi_turn_test):
-        """Establishes the precondition: crud.get_test leaves test_type unloaded."""
+        """Establishes the precondition: test_crud.get_test leaves test_type unloaded."""
         assert "test_type" in sa_inspect(multi_turn_test).unloaded
 
     def test_attached_instance_resolves_multi_turn(self, multi_turn_test):
@@ -72,9 +72,7 @@ class TestGetTestTypeDetached:
         get_test_type(multi_turn_test)
         assert "test_type" not in sa_inspect(multi_turn_test).unloaded
 
-    def test_detached_instance_still_resolves_multi_turn(
-        self, multi_turn_test, test_db: Session
-    ):
+    def test_detached_instance_still_resolves_multi_turn(self, multi_turn_test, test_db: Session):
         """The batch path's exact sequence: resolve, expunge, resolve again.
 
         Regression: this returned Single-Turn, routing Multi-Turn tests through

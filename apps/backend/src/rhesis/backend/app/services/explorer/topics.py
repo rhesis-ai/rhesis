@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.crud.explorer import (
     create_explorer_test,
     get_tests_under_topic,
@@ -264,11 +264,11 @@ def remove_topic_node(
 
     reassign_tests_topic(db, orphaned)
 
-    # Detach before deleting: crud.delete_test reads the association table to decide
+    # Detach before deleting: test_crud.delete_test reads the association table to decide
     # which test sets to recalculate, and this one is going away regardless.
     remove_tests_from_test_set(db, test_set_id, topic_marker_ids)
     for test_id in topic_marker_ids:
-        crud.delete_test(
+        test_crud.delete_test(
             db=db,
             test_id=test_id,
             organization_id=organization_id,
