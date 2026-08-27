@@ -9,6 +9,7 @@ import {
   tagKeys,
   userKeys,
   typeLookupKeys,
+  testSetKeys,
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -17,6 +18,7 @@ import { Category } from '@/utils/api-client/interfaces/category';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { User } from '@/utils/api-client/interfaces/user';
+import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { getPriorities } from '@/utils/task-lookup';
 import type { Priority } from '@/utils/api-client/interfaces/task';
@@ -122,6 +124,28 @@ export function useTags(enabled = true) {
         .getTagsClient()
         .getTags({ sort_by: 'name', sort_order: 'asc' });
       return tags;
+    },
+    enabled: enabled && isAuthenticated,
+    staleTime: STALE_TIME,
+  });
+}
+
+/** Test sets that have been run at least once -- the only ones a test-run filter can match. */
+export function useRunTestSets(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery<TestSet[]>({
+    queryKey: testSetKeys.list('has_runs', 0, 100, 'name', 'asc'),
+    queryFn: async () => {
+      const response = await new ApiClientFactory()
+        .getTestSetsClient()
+        .getTestSets({
+          has_runs: true,
+          skip: 0,
+          limit: 100,
+          sort_by: 'name',
+          sort_order: 'asc',
+        });
+      return response.data;
     },
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
