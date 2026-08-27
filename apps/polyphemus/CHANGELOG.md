@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-27
+
+### Added
+- Added a startup probe for the backend to improve deployment reliability and startup monitoring.
+- Implemented prune protection for the `prd-base` environment.
+- Added support for generating changelog summaries.
+
+### Changed
+- Optimized the OWASP resync process by reducing the number of queries executed per organization, significantly improving performance.
+
+### Fixed
+- Resolved a database migration conflict caused by a duplicate Alembic revision ID.
+- Fixed database view recreation by ensuring `v_test_result_stats` is dropped before being recreated with reordered columns.
+- Added a `localStorage` guard to `ThemeProvider` to prevent potential runtime errors.
+
+
 ## [0.6.0] - 2026-08-20
 
 ### Changed

@@ -13,6 +13,38 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.14.0**
+- **Frontend 0.14.0**
+- **SDK 0.14.0**
+- **Polyphemus 0.7.0**
+
+### Summary of Changes
+
+**Backend v0.14.0:**
+Key changes include: Rebuild test run summary as a live verdict grid (#2619), Add user settings page with profile editing and password management (#2616)....
+
+**Frontend v0.14.0:**
+Key changes include: Rebuild test run summary as a live verdict grid (#2619), Add user settings page with profile editing and password management (#2616)....
+
+**SDK v0.14.0:**
+Key changes include: Add job tracking, activity logs, and live progress (#2593), Add evaluation contracts to fix backwards adversarial scoring (#2580)....
+
+**Polyphemus v0.7.0:**
+Key changes include: Release: platform: v0.12.0 -> v0.13.0, backend: v0.12.0 -> v0.13.0, frontend: v0.12.0 -> v0.13.0, sdk: v0.12.0 -> v0.13.0, polyphemus: v0.5.0 -> v0.6.0 (#2532).
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.13.0] - 2026-08-20
 
 ### Platform Release

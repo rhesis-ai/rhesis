@@ -1645,7 +1645,7 @@ wheels = [
 
 [[package]]
 name = "polyphemus"
-version = "0.6.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -2166,7 +2166,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.13.0"
+version = "0.14.0"
 source = { editable = "../backend" }
 dependencies = [
     { name = "alembic" },
