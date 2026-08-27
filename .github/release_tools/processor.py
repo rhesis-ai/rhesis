@@ -9,7 +9,7 @@ from typing import Dict
 
 from .changelog import (
     generate_changelog_with_llm,
-    generate_fallback_changelog,
+    placeholder_entry,
     update_component_changelog,
     update_platform_changelog,
 )
@@ -106,23 +106,19 @@ class ReleaseProcessor:
 
             # Generate changelog (skip for platform-wide releases)
             if component != "platform":
-                changelog_content = None
-
-                # Try LLM generation first
+                body = None
                 if self.gemini_api_key:
                     llm_content = generate_changelog_with_llm(
                         self.gemini_api_key, component, new_version, commits, last_tag
                     )
                     if llm_content:
-                        # Add proper header with current date to LLM-generated content
-                        date = datetime.now().strftime("%Y-%m-%d")
-                        changelog_content = (
-                            f"## [{new_version}] - {date}\n\n{llm_content.strip()}\n"
-                        )
+                        body = llm_content.strip()
 
-                # Fall back to basic changelog if LLM failed
-                if not changelog_content:
-                    changelog_content = generate_fallback_changelog(new_version, commits)
+                if body is None:
+                    body = placeholder_entry(component).rstrip()
+
+                date = datetime.now().strftime("%Y-%m-%d")
+                changelog_content = f"## [{new_version}] - {date}\n\n{body}\n"
 
                 # Update component changelog
                 if not update_component_changelog(
