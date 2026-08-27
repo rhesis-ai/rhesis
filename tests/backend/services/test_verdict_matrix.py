@@ -705,6 +705,84 @@ class TestCustomMetricPoolsAcrossRequirements:
         assert (row.passed, row.failed) == (1, 1)
 
 
+class TestMetriclessRequirementKeepsItsOwnEntry:
+    """A requirement with no metric of its own, and no test-set/execution-
+    time metric to fall through to, resolves "none" -- not a metric shared
+    across the run, just nothing resolved. It must keep its own (empty)
+    entry under its own name rather than being folded into the pooled
+    section, which would both rename it "Unassigned" and -- if some other
+    requirement's test-set metric were pooled too -- wrongly attach that
+    metric to its tests.
+    """
+
+    def test_metricless_requirement_is_not_pooled_or_renamed(
+        self, test_db: Session, test_organization, db_user, db_endpoint, db_status
+    ):
+        org_id = test_organization.id
+        user_id = db_user.id
+
+        test_config = models.TestConfiguration(
+            endpoint_id=db_endpoint.id, organization_id=org_id, user_id=user_id
+        )
+        test_db.add(test_config)
+        test_db.flush()
+
+        test_set = models.TestSet(
+            name="Metricless Requirement Test Set",
+            user_id=user_id,
+            organization_id=org_id,
+            status_id=db_status.id,
+        )
+        test_db.add(test_set)
+        test_db.flush()
+        test_config.test_set_id = test_set.id
+        test_db.flush()
+
+        # One requirement with its own metric, one with none at all -- and
+        # no test-set/execution-time metric for the metric-less one to fall
+        # through to.
+        requirement_with_metric = models.Requirement(
+            name="Has A Metric", organization_id=org_id, user_id=user_id
+        )
+        requirement_without_metric = models.Requirement(
+            name="Has No Metric", organization_id=org_id, user_id=user_id
+        )
+        test_db.add_all([requirement_with_metric, requirement_without_metric])
+        test_db.flush()
+        metric = _metric(test_db, org_id, user_id, name="Accuracy", scope=["Single-Turn"])
+        _link_metric(test_db, requirement_with_metric, metric, org_id, user_id)
+
+        test_with_metric = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_with_metric.id
+        )
+        test_without_metric = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_without_metric.id
+        )
+        test_db.add_all([test_with_metric, test_without_metric])
+        test_db.flush()
+        for test in (test_with_metric, test_without_metric):
+            _add_to_set(test_db, test, test_set, org_id, user_id)
+        test_db.commit()
+
+        plan = build_metric_plan(test_db, test_config, test_set, organization_id=str(org_id))
+
+        by_id = {g["id"]: g for g in plan["requirements"]}
+
+        assert [m["key"] for m in by_id[str(requirement_with_metric.id)]["metrics"]] == ["Accuracy"]
+
+        # The metric-less requirement keeps its own name and an empty
+        # metrics list -- it is not folded into a pooled "Unassigned" group.
+        metricless_id = str(requirement_without_metric.id)
+        assert metricless_id in by_id
+        assert by_id[metricless_id]["name"] == "Has No Metric"
+        assert by_id[metricless_id]["metrics"] == []
+        assert by_id[metricless_id]["test_ids"] == [str(test_without_metric.id)]
+
+        # No pooled "Unassigned" bucket exists here at all -- nothing in
+        # this run resolved from a test-set/execution-time source.
+        assert None not in by_id
+
+
 class TestScopeFilteredKeys:
     """cell_keys must carry the key the runtime will really write, not the
     plan's own row key. The runtime numbers duplicate names *after* scope

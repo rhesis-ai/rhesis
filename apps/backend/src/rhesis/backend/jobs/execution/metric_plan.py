@@ -171,9 +171,10 @@ def _build_metric_plan(
     # every group's representative resolves the same config, but showing
     # that identical result under every requirement's own header would
     # duplicate each metric once per requirement instead of once for the
-    # run. Only a requirement-sourced result is actually specific to its
-    # requirement, so only those keep their own payload entry; everything
-    # else pools into one requirement-less section.
+    # run. Those two sources pool into one requirement-less section instead;
+    # "requirement" and "none" both keep their own entry, since neither is a
+    # metric shared across groups -- "requirement" is genuinely specific to
+    # its own requirement, and "none" is nothing resolved at all.
     pooled_test_ids: List[str] = []
     pooled_metrics: Dict[uuid.UUID, models.Metric] = {}
 
@@ -198,7 +199,14 @@ def _build_metric_plan(
 
         keyed = _assign_metric_keys(metrics)
 
-        if source == "requirement":
+        # "none" keeps its own entry too, not just "requirement" -- it isn't
+        # a metric that applies uniformly across the run, it is a group with
+        # nothing resolved at all (e.g. a requirement carrying no metric of
+        # its own). Pooling it would fold that requirement's name into the
+        # pooled bucket's "Unassigned" label, and if some other group's
+        # test_set/execution_time metric ends up in that same bucket, would
+        # wrongly attach it to this group's tests too.
+        if source in ("requirement", "none"):
             requirements_payload.append(
                 {
                     "id": group,
