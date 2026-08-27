@@ -225,7 +225,7 @@ def remove_case_from_test_set(db: Session, test_set_id: uuid.UUID, test_id: uuid
     """Drop the association row linking a tuning case to its test set.
 
     Detaches only -- soft-deleting the test itself is a separate
-    ``crud.delete_test`` call, and the order matters: ``delete_test`` reads the
+    ``test_crud.delete_test`` call, and the order matters: ``delete_test`` reads the
     association table to decide which test sets to recalculate, so a case
     detached first is deliberately left out of that.
     """

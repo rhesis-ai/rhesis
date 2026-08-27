@@ -11,6 +11,7 @@ from rhesis.backend.app import crud, models, schemas
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
 from rhesis.backend.app.crud import explorer as crud_explorer
+from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.explorer import (
     ExportExplorerTestSetResponse,
@@ -211,7 +212,7 @@ def _delete_session_tests(
     test_ids = crud_explorer.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
     if not test_ids:
         return
-    crud.bulk_delete_tests(
+    test_crud.bulk_delete_tests(
         db,
         test_ids,
         organization_id=organization_id,
@@ -896,12 +897,12 @@ def delete_test_node(
     if db_test is None:
         return False
 
-    # Detach before deleting: crud.delete_test reads the association table to decide
+    # Detach before deleting: test_crud.delete_test reads the association table to decide
     # which test sets to recalculate, and this one is going away regardless.
     crud_explorer.remove_tests_from_test_set(db, test_set_id, [test_id])
 
     # Soft-delete the test via the existing CRUD helper
-    crud.delete_test(
+    test_crud.delete_test(
         db=db,
         test_id=test_id,
         organization_id=organization_id,

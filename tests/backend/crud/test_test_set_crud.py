@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 
@@ -75,7 +76,7 @@ class TestUpdateTestSetAttributesSoftDeleteHandling:
     """update_test_set_attributes must still no-op when a linked test set is deleted.
 
     Regression test: crud.get_test_set now raises ItemDeletedException instead of
-    returning None, so update_test_set_attributes (called by crud.update_test for
+    returning None, so update_test_set_attributes (called by test_crud.update_test for
     every test set a test belongs to) must catch that itself -- otherwise updating
     a test would fail with a 410 just because an unrelated linked test set was
     soft-deleted.
@@ -126,7 +127,7 @@ class TestUpdateTestSetAttributesSoftDeleteHandling:
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
 
-        result = crud.update_test(
+        result = test_crud.update_test(
             db=test_db,
             test_id=db_test.id,
             test={"requirement_id": robustness.id},

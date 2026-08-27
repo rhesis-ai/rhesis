@@ -12,7 +12,8 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.utils.user_model_utils import get_evaluation_model, get_execution_model
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
@@ -78,7 +79,9 @@ async def execute_test_in_place(
     if test_id:
         # Use existing test - fetch from database
         logger.info(f"[InPlaceExecution] Using existing test: {test_id}")
-        test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+        test = test_crud.get_test(
+            db, test_id=test_id, organization_id=organization_id, user_id=user_id
+        )
         if not test:
             raise ValueError(f"Test not found: {test_id}")
 

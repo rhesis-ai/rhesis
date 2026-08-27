@@ -14,6 +14,7 @@ from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import file as file_crud
+from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -59,7 +60,9 @@ def create_test(
     """Create a new test."""
     organization_id, user_id = tenant_context
     test_data = resolve_test_entity_names(db, test.model_dump(), organization_id, user_id)
-    return crud.create_test(db=db, test=test_data, organization_id=organization_id, user_id=user_id)
+    return test_crud.create_test(
+        db=db, test=test_data, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
@@ -162,7 +165,7 @@ def bulk_delete_tests(
     /{test_id}-shaped route would swallow it (treating "bulk" as an id).
     """
     organization_id, user_id = tenant_context
-    return crud.bulk_delete_tests(
+    return test_crud.bulk_delete_tests(
         db=db, test_ids=request.test_ids, organization_id=organization_id, user_id=user_id
     )
 
@@ -194,7 +197,7 @@ def extract_test_from_conversation_endpoint(
 
 
 @router.get("/", response_model=List[schemas.TestDetail])
-# Both mirror the filters crud.get_tests applies, so the count matches the rows.
+# Both mirror the filters test_crud.get_tests applies, so the count matches the rows.
 @with_count_header(
     model=models.Test,
     exclude_explorer_rows=True,
@@ -222,7 +225,7 @@ def read_tests(
     through the /explorer API only.
     """
     organization_id, user_id = tenant_context
-    tests = crud.get_tests(
+    tests = test_crud.get_tests(
         db,
         skip=skip,
         limit=limit,
@@ -253,7 +256,9 @@ def get_test_test_sets(
 ):
     """Get all test sets that contain the given test with optional filtering."""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
@@ -281,7 +286,7 @@ def read_test(
 ):
     """Get a specific test by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test_detail(
+    db_test = test_crud.get_test_detail(
         db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )
     if db_test is None:
@@ -310,7 +315,9 @@ def read_test_interpretation(
     derive or refresh the interpretation.
     """
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     return contract_status(db_test)
@@ -338,7 +345,9 @@ def interpret_test(
     matches the current wording.
     """
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
@@ -357,14 +366,16 @@ def update_test(
 ):
     """Update an existing test."""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
     test_data = resolve_test_entity_names(
         db, test.model_dump(exclude_unset=True), organization_id, user_id, is_create=False
     )
-    return crud.update_test(
+    return test_crud.update_test(
         db=db, test_id=test_id, test=test_data, organization_id=organization_id, user_id=user_id
     )
 
@@ -378,11 +389,13 @@ def delete_test(
 ):
     """Delete a test"""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    return crud.delete_test(
+    return test_crud.delete_test(
         db=db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )
 
