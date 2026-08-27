@@ -10,8 +10,9 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.crud import tag as tag_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from tests.backend.routes.fixtures.data_factories import TagDataFactory
 
 
@@ -164,7 +165,7 @@ class TestTestSetOrganizationSecurity:
         import inspect
 
         # Verify that get_test_set accepts organization_id parameter
-        signature = inspect.signature(crud.get_test_set)
+        signature = inspect.signature(test_set_crud.get_test_set)
         assert "organization_id" in signature.parameters, (
             "get_test_set should accept organization_id for test set scoping"
         )
@@ -203,7 +204,7 @@ class TestTestSetOrganizationSecurity:
         test_db.commit()
 
         # User from org1 should be able to access the test set
-        result_org1 = crud.get_test_set(
+        result_org1 = test_set_crud.get_test_set(
             test_db, test_set.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None
@@ -211,7 +212,7 @@ class TestTestSetOrganizationSecurity:
         assert str(result_org1.organization_id) == str(org1.id)
 
         # User from org2 should NOT be able to access the test set
-        result_org2 = crud.get_test_set(
+        result_org2 = test_set_crud.get_test_set(
             test_db, test_set.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None
@@ -220,14 +221,14 @@ class TestTestSetOrganizationSecurity:
         with pytest.raises(
             ValueError, match="organization_id is required for TestSet but was not provided"
         ):
-            crud.get_test_set(test_db, test_set.id)
+            test_set_crud.get_test_set(test_db, test_set.id)
 
     def test_create_test_set_organization_scoping(self, test_db: Session):
         """🔒 SECURITY: Test that create_test_set properly scopes test sets to organizations"""
         import inspect
 
         # Verify that create_test_set accepts organization_id parameter
-        signature = inspect.signature(crud.create_test_set)
+        signature = inspect.signature(test_set_crud.create_test_set)
         assert "organization_id" in signature.parameters, (
             "create_test_set should accept organization_id for test set scoping"
         )
@@ -254,7 +255,7 @@ class TestTestSetOrganizationSecurity:
             "visibility": "organization",
         }
 
-        result = crud.create_test_set(
+        result = test_set_crud.create_test_set(
             test_db, test_set_data, organization_id=str(org.id), user_id=str(user.id)
         )
 
@@ -269,7 +270,7 @@ class TestTestSetOrganizationSecurity:
         import inspect
 
         # Verify that delete_test_set accepts organization_id parameter
-        signature = inspect.signature(crud.delete_test_set)
+        signature = inspect.signature(test_set_crud.delete_test_set)
         assert "organization_id" in signature.parameters, (
             "delete_test_set should accept organization_id for test set scoping"
         )
@@ -301,12 +302,12 @@ class TestTestSetOrganizationSecurity:
             "is_published": False,
             "visibility": "organization",
         }
-        test_set = crud.create_test_set(
+        test_set = test_set_crud.create_test_set(
             test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org1 should be able to delete the test set
-        result_org1 = crud.delete_test_set(
+        result_org1 = test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=str(org1.id), user_id=str(user1.id)
         )
         assert result_org1 is not None  # Test set was found and deleted
@@ -318,12 +319,12 @@ class TestTestSetOrganizationSecurity:
             "is_published": False,
             "visibility": "organization",
         }
-        test_set2 = crud.create_test_set(
+        test_set2 = test_set_crud.create_test_set(
             test_db, test_set_data2, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org2 should NOT be able to delete the test set from org1
-        result_org2 = crud.delete_test_set(
+        result_org2 = test_set_crud.delete_test_set(
             test_db, test_set2.id, organization_id=str(org2.id), user_id=str(user2.id)
         )
         assert result_org2 is None  # Test set was not found/deleted due to organization filtering
@@ -333,7 +334,7 @@ class TestTestSetOrganizationSecurity:
         import inspect
 
         # Verify that update_test_set accepts organization_id parameter
-        signature = inspect.signature(crud.update_test_set)
+        signature = inspect.signature(test_set_crud.update_test_set)
         assert "organization_id" in signature.parameters, (
             "update_test_set should accept organization_id for test set scoping"
         )
@@ -365,13 +366,13 @@ class TestTestSetOrganizationSecurity:
             "is_published": False,
             "visibility": "organization",
         }
-        test_set = crud.create_test_set(
+        test_set = test_set_crud.create_test_set(
             test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id)
         )
 
         # User from org1 should be able to update the test set
         update_data = {"name": f"Updated TestSet {unique_id}"}
-        result_org1 = crud.update_test_set(
+        result_org1 = test_set_crud.update_test_set(
             test_db, test_set.id, update_data, organization_id=str(org1.id)
         )
         assert result_org1 is not None
@@ -380,7 +381,7 @@ class TestTestSetOrganizationSecurity:
 
         # User from org2 should NOT be able to update the test set from org1
         update_data2 = {"name": f"Should Not Update {unique_id}"}
-        result_org2 = crud.update_test_set(
+        result_org2 = test_set_crud.update_test_set(
             test_db, test_set.id, update_data2, organization_id=str(org2.id)
         )
         assert result_org2 is None  # Test set was not found/updated due to organization filtering
@@ -395,7 +396,7 @@ class TestTestSetCrudSecurity:
         import inspect
 
         # Verify that get_test_sets accepts organization_id parameter
-        signature = inspect.signature(crud.get_test_sets)
+        signature = inspect.signature(test_set_crud.get_test_sets)
         assert "organization_id" in signature.parameters, (
             "get_test_sets should accept organization_id for filtering"
         )
@@ -453,7 +454,7 @@ class TestTestSetCrudSecurity:
         test_db.commit()
 
         # Get test sets for org1 - should return at least the 2 we created
-        result_org1 = crud.get_test_sets(test_db, organization_id=str(org1.id))
+        result_org1 = test_set_crud.get_test_sets(test_db, organization_id=str(org1.id))
         assert len(result_org1) >= 2  # At least the 2 we created, could be more from initial data
         assert all(str(ts.organization_id) == str(org1.id) for ts in result_org1)
 
@@ -463,7 +464,7 @@ class TestTestSetCrudSecurity:
         assert f"Test Set 2 Org 1 {unique_id}" in test_set_names_org1
 
         # Get test sets for org2 - should return at least the 1 we created
-        result_org2 = crud.get_test_sets(test_db, organization_id=str(org2.id))
+        result_org2 = test_set_crud.get_test_sets(test_db, organization_id=str(org2.id))
         assert len(result_org2) >= 1  # At least the 1 we created, could be more from initial data
         assert all(str(ts.organization_id) == str(org2.id) for ts in result_org2)
 
@@ -475,9 +476,9 @@ class TestTestSetCrudSecurity:
         with pytest.raises(
             ValueError, match="organization_id is required for TestSet but was not provided"
         ):
-            crud.get_test_sets(test_db)
+            test_set_crud.get_test_sets(test_db)
 
-    # Note: get_test_set_by_name function doesn't exist in crud.py, so this test is removed
+    # Note: there is no get_test_set_by_name function, so this test is removed
 
 
 @pytest.mark.security
@@ -493,12 +494,12 @@ class TestServiceSecurityValidation:
             (tag_crud, "get_tag"),
             (tag_crud, "create_tag"),
             (tag_crud, "delete_tag"),
-            (crud, "get_test_set"),
-            (crud, "create_test_set"),
-            (crud, "delete_test_set"),
-            (crud, "update_test_set"),
-            (crud, "get_test_sets"),
-            # Note: get_test_set_by_name function doesn't exist in crud.py
+            (test_set_crud, "get_test_set"),
+            (test_set_crud, "create_test_set"),
+            (test_set_crud, "delete_test_set"),
+            (test_set_crud, "update_test_set"),
+            (test_set_crud, "get_test_sets"),
+            # Note: there is no get_test_set_by_name function
         ]
 
         for module, func_name in service_functions:

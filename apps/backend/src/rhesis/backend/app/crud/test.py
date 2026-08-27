@@ -1,9 +1,4 @@
-"""CRUD operations for tests.
-
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the test-set functions, and per-entity modules like this one take over as the code around
-them is touched -- see ``apps/backend/AGENTS.md``'s crud-layout rule.
-"""
+"""CRUD operations for tests."""
 
 import uuid
 from typing import Any, Dict, List, Optional

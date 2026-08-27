@@ -314,7 +314,7 @@ class TestEndpointServiceIntegration:
         mock_invoker.invoke = AsyncMock(return_value={"status": "success", "data": "response"})
 
         # Mock database -- _get_endpoint is mocked directly rather than the DB
-        # query chain, since it now delegates to crud.get_endpoint internally.
+        # query chain, since it now delegates to endpoint_crud.get_endpoint internally.
         mock_db = Mock(spec=Session)
 
         input_data = {"message": "test input"}

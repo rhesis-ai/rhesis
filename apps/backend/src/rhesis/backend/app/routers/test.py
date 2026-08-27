@@ -8,13 +8,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.crud import test as test_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -262,7 +263,7 @@ def get_test_test_sets(
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    items, count = crud.get_test_sets_for_test(
+    items, count = test_set_crud.get_test_sets_for_test(
         db=db,
         test_id=test_id,
         skip=skip,

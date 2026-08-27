@@ -1,9 +1,5 @@
 """CRUD operations for organizations.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``create_organization`` is the one function here that steps outside the normal tenant
 machinery. Every other entity is created *inside* a tenant, so the org/user GUCs are
 already set and RLS applies; an organization *is* the tenant, so there is nothing to scope

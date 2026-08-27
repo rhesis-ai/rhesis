@@ -16,8 +16,9 @@ from fastapi import Body, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import only_explorer_test_sets
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -86,7 +87,7 @@ router = RhesisRouter(
 
 def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str):
     """Resolve a test set by identifier (UUID, nano_id, or slug)."""
-    db_test_set = crud.resolve_test_set(identifier, db, organization_id)
+    db_test_set = test_set_crud.resolve_test_set(identifier, db, organization_id)
     if db_test_set is None:
         raise HTTPException(
             status_code=404,

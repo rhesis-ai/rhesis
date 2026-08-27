@@ -1,9 +1,5 @@
 """CRUD operations for test runs.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``get_test_run`` and ``get_test_runs`` both push ``_defer_endpoint_last_token`` through
 ``with_custom_filter``. The eager chain down to ``TestConfiguration.endpoint`` would
 otherwise pull ``Endpoint.last_token`` -- a large encrypted OAuth token that no test run

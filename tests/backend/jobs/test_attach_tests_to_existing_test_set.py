@@ -16,7 +16,8 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 
@@ -52,7 +53,7 @@ class TestAttachTestsToExistingTestSetSoftDelete:
         test_db.commit()
         test_db.refresh(test_set)
 
-        crud.delete_test_set(
+        test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
 

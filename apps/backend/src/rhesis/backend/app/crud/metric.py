@@ -1,6 +1,6 @@
 """CRUD operations for metrics and their requirement/test-set associations.
 
-Split out of ``crud/__init__.py``. Import the functions directly::
+Import the functions directly::
 
     from rhesis.backend.app.crud.metric import get_metrics
 """

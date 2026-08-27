@@ -13,12 +13,13 @@ from faker import Faker
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
     EXPLORER_REQUIREMENT_NAME,
     TestSetType,
     TestType,
 )
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.schemas.validators import resolve_test_type
 from rhesis.backend.app.services import test_set as test_set_service
 
@@ -243,7 +244,7 @@ class TestTestSetExecution:
 
         # Mock all the dependencies
         with (
-            patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
+            patch("rhesis.backend.app.crud.test_set.resolve_test_set") as mock_resolve_test_set,
             patch("rhesis.backend.app.crud.endpoint.get_endpoint") as mock_get_endpoint,
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access"
@@ -328,8 +329,8 @@ class TestTestSetExecution:
         # User already exists from authenticated_user_id fixture - get it from DB
         user = test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
 
-        # Mock crud.resolve_test_set to return None
-        with patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set:
+        # Mock test_set_crud.resolve_test_set to return None
+        with patch("rhesis.backend.app.crud.test_set.resolve_test_set") as mock_resolve_test_set:
             mock_resolve_test_set.return_value = None
 
             # Call the function and expect ValueError
@@ -360,7 +361,7 @@ class TestTestSetExecution:
 
         # Mock dependencies
         with (
-            patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
+            patch("rhesis.backend.app.crud.test_set.resolve_test_set") as mock_resolve_test_set,
             patch("rhesis.backend.app.crud.endpoint.get_endpoint") as mock_get_endpoint,
         ):
             mock_resolve_test_set.return_value = test_set
@@ -454,7 +455,7 @@ class TestTestSetExecution:
         user = test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
 
         with (
-            patch("rhesis.backend.app.crud.resolve_test_set", return_value=test_set),
+            patch("rhesis.backend.app.crud.test_set.resolve_test_set", return_value=test_set),
             patch("rhesis.backend.app.crud.endpoint.get_endpoint", return_value=endpoint),
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access",
@@ -534,7 +535,7 @@ class TestTestSetExecution:
 
         # Mock all the dependencies
         with (
-            patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
+            patch("rhesis.backend.app.crud.test_set.resolve_test_set") as mock_resolve_test_set,
             patch("rhesis.backend.app.crud.endpoint.get_endpoint") as mock_get_endpoint,
             patch(
                 "rhesis.backend.app.services.test_set._validate_user_access"
@@ -781,7 +782,7 @@ class TestBulkCreateEnforcesUniformTestType:
 @pytest.mark.unit
 @pytest.mark.service
 class TestGetTestSetsExcludesExplorer:
-    """crud.get_test_sets must omit explorer sets (general test set list API)."""
+    """test_set_crud.get_test_sets must omit explorer sets (general test set list API)."""
 
     def test_get_test_sets_excludes_explorer_metadata_requirement(
         self, test_db: Session, authenticated_user_id, test_org_id
@@ -804,7 +805,7 @@ class TestGetTestSetsExcludesExplorer:
         test_db.add_all([regular, explorer])
         test_db.commit()
 
-        results = crud.get_test_sets(
+        results = test_set_crud.get_test_sets(
             test_db,
             organization_id=str(test_org_id),
             user_id=str(authenticated_user_id),
@@ -834,7 +835,7 @@ class TestGetTestSetSoftDeleteContract:
         test_db.commit()
         test_db.refresh(test_set)
 
-        crud.delete_test_set(
+        test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
 

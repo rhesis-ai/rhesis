@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -173,7 +173,7 @@ def delete_test_configuration(
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    return crud.delete_test_configuration(
+    return test_configuration_crud.delete_test_configuration(
         db=db,
         test_configuration_id=test_configuration_id,
         organization_id=organization_id,

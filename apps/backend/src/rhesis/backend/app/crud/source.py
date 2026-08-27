@@ -1,9 +1,5 @@
 """CRUD operations for sources and their chunks.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``Source.content`` is a ``deferred()`` column on the model -- the full extracted text of a
 document or web page, which no list or detail response returns. ``get_source`` and
 ``get_sources`` therefore leave it unloaded, and ``get_source_with_content`` exists as a

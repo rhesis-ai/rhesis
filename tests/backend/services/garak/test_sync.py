@@ -7,7 +7,7 @@ import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
@@ -152,7 +152,7 @@ class TestGarakSyncServiceSoftDeleteContract:
         test_db.commit()
         test_db.refresh(test_set)
 
-        crud.delete_test_set(
+        test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
         return test_set

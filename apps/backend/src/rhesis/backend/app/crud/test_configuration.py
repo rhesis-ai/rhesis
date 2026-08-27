@@ -1,9 +1,4 @@
-"""CRUD operations for test configurations.
-
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched -- see ``apps/backend/AGENTS.md``'s crud-layout rule.
-"""
+"""CRUD operations for test configurations."""
 
 import uuid
 from typing import List, Optional
@@ -11,7 +6,12 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.utils.crud_utils import create_item, get_item_detail, update_item
+from rhesis.backend.app.utils.crud_utils import (
+    create_item,
+    delete_item,
+    get_item_detail,
+    update_item,
+)
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
@@ -78,4 +78,20 @@ def update_test_configuration(
         test_configuration,
         organization_id,
         user_id,
+    )
+
+
+def delete_test_configuration(
+    db: Session,
+    test_configuration_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.TestConfiguration]:
+    """Delete test_configuration."""
+    return delete_item(
+        db,
+        models.TestConfiguration,
+        test_configuration_id,
+        organization_id=organization_id,
+        user_id=user_id,
     )
