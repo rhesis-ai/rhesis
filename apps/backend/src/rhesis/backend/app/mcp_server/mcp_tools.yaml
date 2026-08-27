@@ -243,7 +243,8 @@ tools:
       test_run_ids=[<test_run_id>], measures=[count,passed,failed,pass_rate]) and
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
-      manually. Response includes test_run_id and task_id.
+      manually. Response includes test_run_id, test_run_name and
+      task_id — refer to the new run by test_run_name.
     parameters:
       test_set_identifier:
         description: "REQUIRED. Test set UUID, nano_id, or slug (path parameter)."
@@ -493,19 +494,24 @@ tools:
     page_size: 20
     description: >
       List test runs in the organization. Each test run tracks one
-      execution of a test set. Key fields: id, status, test_set,
-      endpoint, created_at, completed_at. Status values: Queued,
-      Running, Completed, Failed. Use $select to request only the
-      fields you need (e.g. $select=id,status,test_set,created_at).
-      Use $filter to narrow results (e.g. $filter=status eq 'Completed').
+      execution of a test set. Key fields: id, name, status, test_set,
+      endpoint, created_at, completed_at. Every run has a generated
+      memorable name — always request it and use it whenever you refer
+      to a run, so the user can tell two runs of the same test set
+      apart. Status values: Queued, Running, Completed, Failed. Use
+      $select to request only the fields you need (e.g.
+      $select=id,name,status,test_set,created_at). Use $filter to
+      narrow results (e.g. $filter=status eq 'Completed').
 
   - name: get_test_run
     label: Checking test run status
     method: GET
     path: /test_runs/{test_run_id}
     description: >
-      Get details of a specific test run including its status, timing,
-      test configuration, endpoint, and test set information.
+      Get details of a specific test run including its name, status,
+      timing, test configuration, endpoint, and test set information.
+      The name is the run's own memorable label — use it, not the id,
+      when naming the run to the user.
       The attributes field contains summary stats (total_tests,
       execution_mode, started_at). Always use this for accurate
       test counts rather than counting items from list_test_results.
@@ -1185,7 +1191,7 @@ tools:
       single-run analysis (which requirements/metrics failed?) and multi-run
       comparison (did results improve?).
         group_by: requirement, requirement_id, category, category_id, topic,
-        topic_id, test_run, status, year, month.
+        topic_id, test_run (the run's name), test_run_id, status, year, month.
         measures: count, passed, failed, pass_rate.
 
       entity="metric" -- one row per (test_result, metric_name); use for
@@ -1211,8 +1217,11 @@ tools:
       - Which requirements failed in a run: entity=test_result,
         group_by=[requirement], measures=[count,passed,failed,pass_rate],
         test_run_ids=[<id>]
-      - Compare runs side by side: entity=test_result, group_by=[test_run],
+      - Compare runs side by side: entity=test_result,
+        group_by=[test_run,test_run_id],
         measures=[count,passed,failed,pass_rate], test_run_ids=[<id1>,<id2>]
+        -- test_run is the run's name (what you show the user), test_run_id
+        the UUID (what you put in the link URL)
       - Which metrics are the problem areas: entity=metric,
         group_by=[metric_name], measures=[count,passed,failed,pass_rate],
         test_run_ids=[<id>]
@@ -1289,8 +1298,9 @@ tools:
 
       Key response fields: comments (the human's actual words),
       status.name (Pass/Fail), resolved, target.type (what was reviewed —
-      test_result, trace, metric, or turn), plus requirement_name and the
-      test_run_id/test_result_id/trace_id deep-link ids. Annotations on a
+      test_result, trace, metric, or turn), plus requirement_name,
+      test_run_name (the run's memorable name — use this when naming the
+      run) and the test_run_id/test_result_id/trace_id deep-link ids. Annotations on a
       test-execution trace carry the run and result ids too, so you can
       walk from a trace review back to the run — they are null only for
       traces recorded outside a test run.

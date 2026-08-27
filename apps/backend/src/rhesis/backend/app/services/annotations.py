@@ -44,6 +44,7 @@ def _row_to_item(row: Any) -> AnnotationListItem:
         resolved=_as_resolved(review.get("resolved")),
         test_result_id=row.test_result_id,
         test_run_id=row.test_run_id,
+        test_run_name=row.test_run_name,
         trace_db_id=row.trace_db_id,
         trace_id=row.trace_id,
         project_id=row.project_id,
@@ -125,6 +126,7 @@ def list_annotations(
                 'test_result' AS source,
                 tr.id AS test_result_id,
                 tr.test_run_id AS test_run_id,
+                run.name AS test_run_name,
                 NULL::uuid AS trace_db_id,
                 NULL::text AS trace_id,
                 tr.project_id AS project_id,
@@ -134,6 +136,9 @@ def list_annotations(
                 elem AS review,
                 COALESCE(elem->>'updated_at', elem->>'created_at') AS sort_at
             FROM test_result tr
+            LEFT JOIN test_run run
+              ON run.id = tr.test_run_id
+             AND run.deleted_at IS NULL
             LEFT JOIN test tst
               ON tst.id = tr.test_id
              AND tst.deleted_at IS NULL
@@ -169,6 +174,7 @@ def list_annotations(
                 'trace' AS source,
                 t.test_result_id AS test_result_id,
                 t.test_run_id AS test_run_id,
+                run.name AS test_run_name,
                 t.id AS trace_db_id,
                 t.trace_id AS trace_id,
                 t.project_id AS project_id,
@@ -177,8 +183,11 @@ def list_annotations(
                 NULL::text AS requirement_name,
                 elem AS review,
                 COALESCE(elem->>'updated_at', elem->>'created_at') AS sort_at
-            FROM trace t,
-                 LATERAL jsonb_array_elements(t.trace_reviews->'reviews') AS elem
+            FROM trace t
+            LEFT JOIN test_run run
+              ON run.id = t.test_run_id
+             AND run.deleted_at IS NULL
+            CROSS JOIN LATERAL jsonb_array_elements(t.trace_reviews->'reviews') AS elem
             WHERE t.organization_id = CAST(:organization_id AS uuid)
               AND t.deleted_at IS NULL
               AND t.trace_reviews IS NOT NULL
@@ -218,6 +227,7 @@ def list_annotations(
             source,
             test_result_id,
             test_run_id,
+            test_run_name,
             trace_db_id,
             trace_id,
             project_id,
