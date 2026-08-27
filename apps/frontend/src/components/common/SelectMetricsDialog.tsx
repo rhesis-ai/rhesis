@@ -27,7 +27,10 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import { AutoGraphIcon } from '@/components/icons';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { MetricDetail, MetricScope } from '@/utils/api-client/interfaces/metric';
+import type {
+  MetricDetail,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { getMetricScopeIcon } from '@/constants/metric-scopes';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -86,7 +89,11 @@ const capitalize = (s: string) =>
 interface SelectMetricsDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (metric: { id: UUID; name: string; metric_scope?: MetricScope[] }) => void;
+  onSelect: (metric: {
+    id: UUID;
+    name: string;
+    metric_scope?: MetricScope[];
+  }) => void;
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
@@ -209,7 +216,11 @@ export default function SelectMetricsDialog({
   }, [searchQuery, backendFilter, metrics]);
 
   const handleSelect = (metric: MetricDetail) => {
-    onSelect({ id: metric.id as UUID, name: metric.name, metric_scope: metric.metric_scope });
+    onSelect({
+      id: metric.id as UUID,
+      name: metric.name,
+      metric_scope: metric.metric_scope,
+    });
     onClose();
   };
 
