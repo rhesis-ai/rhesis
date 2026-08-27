@@ -30,6 +30,16 @@ CELERY_CONFIG = {
     # slow operations under Redis contention don't cause unbounded growth.
     "broker_transport_options": {
         "retry_on_timeout": True,
+        # Must exceed the longest task_annotations time_limit below, or Redis
+        # redelivers a still-running task to a second worker: with
+        # task_acks_late the message is only acked on completion, and kombu's
+        # default here is 3600s -- shorter than the 3900s hard limit on
+        # execute_test_configuration. Nothing guards against the duplicate
+        # (a run already in Progress is re-executed from the first test), and
+        # progress is written as an absolute value keyed by celery_task_id,
+        # which a redelivery reuses -- so the second pass drags the counter
+        # backwards over the first.
+        "visibility_timeout": 7200,
         "connection_pool_kwargs": {
             "max_connections": 10,
             "retry_on_timeout": True,
