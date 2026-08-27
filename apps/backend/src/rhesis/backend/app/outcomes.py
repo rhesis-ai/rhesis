@@ -170,6 +170,37 @@ def outcome_to_test_result_status_name(outcome: Outcome) -> str:
         raise ValueError(f"No test-result status name for outcome {outcome.value!r}") from None
 
 
+# Grid-character encoding for the verdict matrix. Each Outcome maps to the
+# single character transmitted in VerdictRow.verdicts and decoded by the
+# frontend's verdict-model.ts. CANCELLED and PENDING share "." -- the grid
+# only distinguishes a cell with a real verdict from one that doesn't have
+# one yet, and neither state ends the wait differently from the viewer's
+# perspective.
+VERDICT_CHAR: Dict[Outcome, str] = {
+    Outcome.PASS: "P",
+    Outcome.FAIL: "F",
+    Outcome.INCONCLUSIVE: "S",
+    Outcome.ERROR: "E",
+    Outcome.CANCELLED: ".",
+    Outcome.PENDING: ".",
+}
+NOT_APPLICABLE_CHAR = "X"
+
+# Grid outcome strings used by the stats views (v_test_result_stats.result,
+# v_test_stats' passed/failed/error/pending counts) and
+# result_processor.py's aggregation. INCONCLUSIVE reads as "pending" here:
+# those grids only ever distinguished resolved-with-a-verdict from
+# not-yet-resolved, and a threshold-less score is not a verdict.
+GRID_RESULT: Dict[Outcome, str] = {
+    Outcome.PASS: "passed",
+    Outcome.FAIL: "failed",
+    Outcome.ERROR: "error",
+    Outcome.INCONCLUSIVE: "pending",
+    Outcome.CANCELLED: "cancelled",
+    Outcome.PENDING: "pending",
+}
+
+
 def execution_verdict_from_status_name(
     status_name: Optional[str],
 ) -> Tuple[Execution, Optional[Verdict]]:

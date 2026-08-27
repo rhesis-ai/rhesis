@@ -14,11 +14,27 @@ from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
+from rhesis.backend.app.outcomes import (
+    GRID_RESULT,
+    NOT_APPLICABLE_CHAR,
+    VERDICT_CHAR,
+    Outcome,
+)
 
 logger = logging.getLogger(__name__)
 
 # Statuses a test run never leaves -- the grid stops refetching once here.
 _TERMINAL_RUN_STATUSES = {"Completed", "Partial", "Failed", "Cancelled"}
+
+# test_status encoding: get_test_outcomes_for_run's grid-result strings
+# (GRID_RESULT, the same vocabulary v_test_result_stats.result speaks),
+# keyed down to the three a test (as opposed to a single metric) can be
+# encoded as. VERDICT_CHAR[Outcome.PENDING] covers everything else --
+# cancelled included, since the grid has no separate glyph for it.
+_TEST_STATUS_CHAR = {
+    GRID_RESULT[outcome]: VERDICT_CHAR[outcome]
+    for outcome in (Outcome.PASS, Outcome.FAIL, Outcome.ERROR)
+}
 
 # Past this many tests the grid renders binned, where per-cell animation is
 # illegible anyway -- so the timing arrays stop being worth their payload.
@@ -511,14 +527,14 @@ def get_verdict_matrix(
 
             for test_id in test_order:
                 if test_id not in group_test_ids:
-                    chars.append("X")
+                    chars.append(NOT_APPLICABLE_CHAR)
                     override_chars.append("0")
                     continue
 
                 # Absent from cell_keys = scope-filtered out for this test.
                 actual_key = cell_keys.get(test_id, {}).get(metric_ref)
                 if actual_key is None:
-                    chars.append("X")
+                    chars.append(NOT_APPLICABLE_CHAR)
                     override_chars.append("0")
                     continue
 
@@ -529,19 +545,19 @@ def get_verdict_matrix(
                     verdicts_resolved += 1
                     override_chars.append("1" if has_override else "0")
                     if effective_success is True:
-                        chars.append("P")
+                        chars.append(VERDICT_CHAR[Outcome.PASS])
                         passed += 1
                     elif effective_success is False:
-                        chars.append("F")
+                        chars.append(VERDICT_CHAR[Outcome.FAIL])
                         failed += 1
                     else:
-                        chars.append("S")
-                elif outcomes.get(test_id) == "error":
-                    chars.append("E")
+                        chars.append(VERDICT_CHAR[Outcome.INCONCLUSIVE])
+                elif outcomes.get(test_id) == GRID_RESULT[Outcome.ERROR]:
+                    chars.append(VERDICT_CHAR[Outcome.ERROR])
                     override_chars.append("0")
                     verdicts_resolved += 1
                 else:
-                    chars.append(".")
+                    chars.append(VERDICT_CHAR[Outcome.PENDING])
                     override_chars.append("0")
                     pending += 1
 
@@ -560,9 +576,14 @@ def get_verdict_matrix(
                 )
             )
 
+    # A cancelled or still-pending test counts as neither, so these two need
+    # not sum to tests_executed.
+    _FAILING_RESULTS = (GRID_RESULT[Outcome.FAIL], GRID_RESULT[Outcome.ERROR])
     tests_executed = sum(1 for test_id in test_order if test_id in outcomes)
-    passing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) == "passed")
-    failing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) in ("failed", "error"))
+    passing_tests = sum(
+        1 for test_id in test_order if outcomes.get(test_id) == GRID_RESULT[Outcome.PASS]
+    )
+    failing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) in _FAILING_RESULTS)
     # Pass rate is over tests, not over metric verdicts, to agree with the
     # number the runs list and the run header already show
     # (result_processor.get_test_statistics_for_runs). A test with four of
@@ -588,7 +609,7 @@ def get_verdict_matrix(
         is_terminal=status_name in _TERMINAL_RUN_STATUSES,
         test_ids=None if columns == "none" else [uuid.UUID(tid) for tid in test_order],
         test_status="".join(
-            {"passed": "P", "failed": "F", "error": "E"}.get(outcomes.get(tid, ""), ".")
+            _TEST_STATUS_CHAR.get(outcomes.get(tid, ""), VERDICT_CHAR[Outcome.PENDING])
             for tid in test_order
         ),
         test_started_ds=started_ds,
