@@ -95,6 +95,23 @@ def _set_pass_fail_status(
     _apply_outcome(db_test_result, Execution.OK, Verdict.PASS if passed else Verdict.FAIL)
 
 
+def _has_evaluable_content(db_test_result: models.TestResult) -> bool:
+    """Whether this result has anything a verdict could be about.
+
+    A test-result-level review can correct a verdict, but it can't
+    fabricate one out of nothing: a result with no metrics and no goal
+    evaluation never produced evaluable output, so it stays Error
+    regardless of what a reviewer picks. Mirrors the frontend's guard in
+    getEffectiveTestResultStatus (test-result-status.ts) -- moving here so
+    the persisted outcome agrees with what the review UI has always shown.
+    """
+    metrics = (db_test_result.test_metrics or {}).get("metrics")
+    has_metrics = isinstance(metrics, dict) and bool(metrics)
+    test_output = db_test_result.test_output
+    has_goal_eval = isinstance(test_output, dict) and bool(test_output.get("goal_evaluation"))
+    return has_metrics or has_goal_eval
+
+
 def apply_review_override(
     db_test_result: models.TestResult,
     target_type: str,
@@ -134,7 +151,10 @@ def apply_review_override(
         )
         recalculate_overall_status(db_test_result)
     elif target_type == REVIEW_TARGET_TEST_RESULT:
-        _set_pass_fail_status(db_test_result, review_passed)
+        if _has_evaluable_content(db_test_result):
+            _set_pass_fail_status(db_test_result, review_passed)
+        else:
+            _apply_outcome(db_test_result, Execution.ERROR, None)
 
 
 def _apply_metric_override(
@@ -438,8 +458,11 @@ def recalculate_overall_status(
 
     if not metrics:
         if turns_passed is None:
-            # Nothing to recalculate from at all -- matches the old
-            # function's early return for a metric-less result.
+            # Nothing to recalculate from at all -- e.g. reverting the last
+            # entity-level review on a metrics-less/turn-less result. Must
+            # still write Error rather than no-op, or the row stays stuck
+            # at whatever the just-deleted review set it to.
+            _apply_outcome(db_test_result, Execution.ERROR, None)
             return
         # Turn-only multi-turn result (no discrete metrics dict): the
         # turns are the only verdict-shaped signal there is, so they
