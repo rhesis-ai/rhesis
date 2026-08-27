@@ -58,13 +58,24 @@ const palette: Record<CellState, { color: string; alpha: number }> = {
   evaluating: { color: '#fb0', alpha: 0.85 },
 };
 
-/** A run still in flight, so no completion transition is in play. */
-function runningFrame(clock = 0): RunClockFrame {
-  return { clock, t: clock, sinceComplete: -Infinity, isTerminal: false };
+/**
+ * A run still in flight, so no completion transition is in play.
+ *
+ * `wall` defaults to `clock`, which is the 1x case. Pass it separately to
+ * cover a catch-up, where run time outpaces real time.
+ */
+function runningFrame(clock = 0, wall = clock): RunClockFrame {
+  return { clock, t: clock, sinceComplete: -Infinity, isTerminal: false, wall };
 }
 
 function completedFrame(sinceComplete: number): RunClockFrame {
-  return { clock: 100, t: 100, sinceComplete, isTerminal: true };
+  return {
+    clock: 100,
+    t: 100,
+    sinceComplete,
+    isTerminal: true,
+    wall: 100,
+  };
 }
 
 describe('shouldBin', () => {
@@ -394,6 +405,29 @@ describe('alphaFor in-flight pulses', () => {
     const first = alphaFor('generating', 0, palette, frame, false);
     const later = alphaFor('generating', 5, palette, frame, false);
     expect(first).not.toBeCloseTo(later, 3);
+  });
+
+  // Catching up runs the clock at REPLAY_RATE. Driving the pulse from run
+  // time made it oscillate that many times faster, which is the flicker seen
+  // when reloading a long-running run.
+  it('keeps the pulse on real time while the clock is catching up', () => {
+    const realSeconds = 0.4;
+    // Same moment on screen, but run time has advanced 10x.
+    const normal = alphaFor(
+      'evaluating',
+      0,
+      palette,
+      runningFrame(realSeconds, realSeconds),
+      false
+    );
+    const replaying = alphaFor(
+      'evaluating',
+      0,
+      palette,
+      runningFrame(realSeconds * 10, realSeconds),
+      false
+    );
+    expect(replaying).toBeCloseTo(normal, 6);
   });
 
   it('never leaves the 0..1 alpha range', () => {
