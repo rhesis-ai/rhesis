@@ -164,17 +164,17 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
       ? `Failed to load metrics: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
       : null;
 
-    const handleAddMetric = async (metricId: UUID) => {
+    const handleAddMetric = async (metric: { id: UUID }) => {
       try {
         const currentMetricIds = getTraceMetricIds(project);
-        if (currentMetricIds.includes(metricId)) {
+        if (currentMetricIds.includes(metric.id)) {
           notifications.show('Metric is already added to this project', {
             severity: 'warning',
           });
           return;
         }
 
-        const newMetricIds = [...currentMetricIds, metricId];
+        const newMetricIds = [...currentMetricIds, metric.id];
         const updatedAttributes = {
           ...(project.attributes || {}),
           trace_metrics: newMetricIds,
