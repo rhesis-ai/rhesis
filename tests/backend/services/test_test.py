@@ -519,7 +519,7 @@ class TestTestSetAssociationsInTestService:
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
         """A soft-deleted test set must not crash with ItemDeletedException."""
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import test_set as test_set_crud
 
         test_set_data = create_test_set_data()
         test_set = models.TestSet(
@@ -528,7 +528,7 @@ class TestTestSetAssociationsInTestService:
         test_db.add(test_set)
         test_db.commit()
 
-        crud.delete_test_set(
+        test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
 
@@ -657,7 +657,7 @@ class TestTestSetAssociationsInTestService:
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
         """A soft-deleted test set must not crash with ItemDeletedException."""
-        from rhesis.backend.app import crud
+        from rhesis.backend.app.crud import test_set as test_set_crud
 
         test_set_data = create_test_set_data()
         test_set = models.TestSet(
@@ -666,7 +666,7 @@ class TestTestSetAssociationsInTestService:
         test_db.add(test_set)
         test_db.commit()
 
-        crud.delete_test_set(
+        test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
 

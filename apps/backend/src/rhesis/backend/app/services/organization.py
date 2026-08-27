@@ -10,11 +10,12 @@ from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session, joinedload, with_parent
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import tag as tag_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
@@ -25,9 +26,9 @@ from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
 from rhesis.backend.app.utils.crud_utils import (
     create_default_rhesis_model,
-    get_or_create_requirement,
     get_or_create_category,
     get_or_create_entity,
+    get_or_create_requirement,
     get_or_create_status,
     get_or_create_topic,
     get_or_create_type_lookup,
@@ -1010,7 +1011,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
 
         # Get all test sets for the organization
         print(f"\nFetching test sets for organization: {organization_id}")
-        test_sets = crud.get_test_sets(
+        test_sets = test_set_crud.get_test_sets(
             db=db,
             organization_id=organization_id,
             # Use default limit (10) - sufficient for initial data

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_outputs
 from rhesis.backend.app.schemas.explorer import (
     GenerateOutputsFailedItem,
@@ -67,7 +67,9 @@ async def generate_outputs_for_tests(
     GenerateOutputsResponse
         Counts plus the per-test ``updated`` and ``failed`` items.
     """
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
 

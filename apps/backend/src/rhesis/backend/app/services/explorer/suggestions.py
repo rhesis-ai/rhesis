@@ -9,7 +9,7 @@ import anyio
 from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.quota.enforcement import stream_error_message
 from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
@@ -149,7 +149,9 @@ def _prepare_suggestion_context(
     Returns a context dict with resolved model, prompt, topic_value, and
     sample_size, or ``None`` when there are no eligible tests.
     """
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         raise ValueError(f"Test set not found: {test_set_identifier}")
 

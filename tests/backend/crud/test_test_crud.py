@@ -18,9 +18,10 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.constants import EXPLORER_REQUIREMENT_NAME
 from rhesis.backend.app.crud import test as test_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services import test_set as test_set_service
 from rhesis.backend.app.utils.crud_utils import count_items
@@ -114,7 +115,7 @@ class TestTestOperations:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        seeded_test_set = crud.get_test_set(
+        seeded_test_set = test_set_crud.get_test_set(
             test_db,
             test_set.id,
             organization_id=test_org_id,
@@ -134,7 +135,7 @@ class TestTestOperations:
         assert result is not None
         assert result.requirement_id == robustness.id
 
-        reloaded_test_set = crud.get_test_set(
+        reloaded_test_set = test_set_crud.get_test_set(
             test_db,
             test_set.id,
             organization_id=test_org_id,
@@ -211,7 +212,7 @@ class TestTestOperations:
             user_id=authenticated_user_id,
         )
 
-        reloaded_explorer_test_set = crud.get_test_set(
+        reloaded_explorer_test_set = test_set_crud.get_test_set(
             test_db,
             explorer_test_set.id,
             organization_id=test_org_id,

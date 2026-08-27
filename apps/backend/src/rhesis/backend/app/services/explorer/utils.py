@@ -4,7 +4,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.schemas.explorer import TestTreeNode
 from rhesis.backend.app.schemas.explorer_metadata import parse_explorer_test_metadata
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
@@ -62,7 +63,7 @@ def _get_test_set_tests_from_db(
     all_tests: list[models.Test] = []
 
     while True:
-        items, _count = crud.get_test_set_tests(
+        items, _count = test_set_crud.get_test_set_tests(
             db=db,
             test_set_id=test_set_id,
             skip=skip,

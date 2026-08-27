@@ -113,12 +113,12 @@ def _ensure_embeddings_for_entities(
 
 def _collect_test_set_entity_ids(db, test_set_id: UUID) -> list[UUID]:
     """Return visible test IDs for a test set (excludes soft-deleted tests)."""
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import test_set as test_set_crud
 
     entity_ids: list[UUID] = []
     skip = 0
     while True:
-        items, _count = crud.get_test_set_tests(
+        items, _count = test_set_crud.get_test_set_tests(
             db=db,
             test_set_id=test_set_id,
             skip=skip,
@@ -199,12 +199,13 @@ def _run_embedding_graph(
 
 
 def _run_test_set_embedding_graph(db, *, test_set_id: str, user_id: str) -> None:
-    from rhesis.backend.app import crud, models
+    from rhesis.backend.app import models
+    from rhesis.backend.app.crud import test_set as test_set_crud
 
     test_set_uuid = UUID(test_set_id)
 
     def load_parent(db_session, user):
-        return crud.get_test_set(
+        return test_set_crud.get_test_set(
             db_session,
             test_set_uuid,
             str(user.organization_id),
