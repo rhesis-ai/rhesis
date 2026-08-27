@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { TextField, Alert, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,13 +8,18 @@ import { changePassword } from '@/utils/api-client/auth-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useUserScope } from '@/hooks/useIsAuthenticated';
 import { userSettingsKeys } from '@/constants/query-keys';
+import {
+  DEFAULT_PASSWORD_POLICY,
+  validatePassword,
+  validatePasswordConfirmation,
+  type PasswordPolicy,
+} from '@/utils/validation';
+import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import {
   drawerFieldsSx,
   drawerOutlinedFieldSx,
 } from '@/components/common/drawerFormFieldSx';
-
-const MIN_PASSWORD_LENGTH = 12;
 
 interface ChangePasswordDrawerProps {
   open: boolean;
@@ -37,6 +42,26 @@ export default function ChangePasswordDrawer({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
+    null
+  );
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const res = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        if (res.ok) {
+          const data = await res.json();
+          setPasswordPolicy(data.password_policy || null);
+        }
+      } catch {
+        // Fall back to DEFAULT_PASSWORD_POLICY
+      }
+    };
+    fetchPolicy();
+  }, []);
+
+  const policy = passwordPolicy ?? DEFAULT_PASSWORD_POLICY;
 
   const resetForm = useCallback(() => {
     setCurrentPassword('');
@@ -59,13 +84,18 @@ export default function ChangePasswordDrawer({
       return;
     }
 
-    if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    const passwordResult = validatePassword(newPassword, policy);
+    if (!passwordResult.isValid) {
+      setError(passwordResult.message ?? 'Invalid password.');
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setError('New passwords do not match.');
+    const confirmResult = validatePasswordConfirmation(
+      newPassword,
+      confirmPassword
+    );
+    if (!confirmResult.isValid) {
+      setError(confirmResult.message ?? 'Passwords do not match.');
       return;
     }
 
@@ -104,6 +134,7 @@ export default function ChangePasswordDrawer({
     currentPassword,
     newPassword,
     confirmPassword,
+    policy,
     updateSession,
     queryClient,
     userScope,
@@ -149,7 +180,7 @@ export default function ChangePasswordDrawer({
           value={newPassword}
           onChange={e => setNewPassword(e.target.value)}
           autoComplete="new-password"
-          helperText={`Minimum ${MIN_PASSWORD_LENGTH} characters`}
+          helperText={`Minimum ${policy.min_length} characters`}
           autoFocus={!hasPassword}
           sx={drawerOutlinedFieldSx}
         />
