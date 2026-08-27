@@ -24,6 +24,7 @@ class AnnotationListItem(Base):
     # Deep-link fields
     test_result_id: Optional[UUID] = None
     test_run_id: Optional[UUID] = None
+    test_run_name: Optional[str] = None
     trace_db_id: Optional[UUID] = None
     trace_id: Optional[str] = None
     project_id: Optional[UUID] = None

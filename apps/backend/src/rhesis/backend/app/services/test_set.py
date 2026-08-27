@@ -840,7 +840,7 @@ def execute_test_set_on_endpoint(
     )
 
     # Submit for execution (creates test run with Queued status)
-    task_result, test_run_id = _submit_test_configuration_for_execution(
+    task_result, test_run_id, test_run_name = _submit_test_configuration_for_execution(
         db, test_config_id, current_user
     )
 
@@ -854,6 +854,7 @@ def execute_test_set_on_endpoint(
         "endpoint_name": db_endpoint.name,
         "test_configuration_id": test_config_id,
         "test_run_id": test_run_id,
+        "test_run_name": test_run_name,
         "task_id": task_result.id,
     }
     logger.info(f"Successfully initiated test set execution: {response_data}")
@@ -1053,7 +1054,7 @@ def _submit_test_configuration_for_execution(
     """Create a Queued test run and submit the task for background execution.
 
     Returns:
-        Tuple of (celery_result, test_run_id_str)
+        Tuple of (celery_result, test_run_id_str, test_run_name)
     """
     from rhesis.backend.app.crud import test_configuration as test_configuration_crud
     from rhesis.backend.jobs import launch_job
@@ -1113,4 +1114,4 @@ def _submit_test_configuration_for_execution(
         raise
 
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
-    return result, test_run_id
+    return result, test_run_id, test_run.name

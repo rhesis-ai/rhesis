@@ -110,6 +110,26 @@ class TestInsightsRoute:
         assert row["count"] == 2
         assert row["unrun_count"] == 1
 
+    def test_group_by_test_run_returns_the_run_name(self, authenticated_client, two_test_results):
+        """`test_run` is a name dimension like `requirement`/`topic` -- a bare UUID
+        here leaves callers (the Architect above all) unable to name the run."""
+        db_test_run, _ = two_test_results
+
+        response = authenticated_client.get(
+            "/insights/",
+            params={
+                "entity": "test_result",
+                "group_by": ["test_run", "test_run_id"],
+                "measures": ["count"],
+                "test_run_ids": [str(db_test_run.id)],
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        row = response.json()["rows"][0]
+        assert row["test_run"] == db_test_run.name
+        assert row["test_run_id"] == str(db_test_run.id)
+
     def test_unknown_entity_returns_400(self, authenticated_client):
         response = authenticated_client.get(
             "/insights/", params={"entity": "not_a_real_entity", "measures": ["count"]}
