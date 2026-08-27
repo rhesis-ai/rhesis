@@ -4,6 +4,10 @@ import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { prefetch, prefetchList } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { firstPageParams } from '@/utils/list';
+import { entityTasksList } from '@/components/tasks/list';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -11,6 +15,7 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
+import { testSetTestsList } from './components/list';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -61,15 +66,26 @@ export default async function TestSetPage({ params }: PageProps) {
     }
   }
 
-  let testCount = testSet.attributes?.metadata?.total_tests ?? 0;
-  try {
-    const testsResponse = await testSetsClient.getTestSetTests(identifier, {
-      limit: 1,
-    });
-    testCount = testsResponse.pagination.totalCount;
-  } catch {
-    // fall back to cached count
-  }
+  // First pages of the Tests and Tasks tabs, so they render with rows in
+  // place instead of a client-side spinner. The tests total doubles as the
+  // header count.
+  const linkedTests = testSetTestsList(identifier);
+  const tasks = entityTasksList('TestSet', identifier);
+  const [testsPage, tasksPage, comments] = await Promise.all([
+    prefetchList(linkedTests.capability, () =>
+      linkedTests.list(apiFactory, firstPageParams(linkedTests))
+    ),
+    prefetchList(tasks.capability, () =>
+      tasks.list(apiFactory, firstPageParams(tasks))
+    ),
+    prefetch(Capability.Comment.READ, () =>
+      apiFactory.getCommentsClient().getComments('TestSet', identifier)
+    ),
+  ]);
+  const testCount =
+    testsPage.initialData !== undefined
+      ? testsPage.initialTotalCount
+      : (testSet.attributes?.metadata?.total_tests ?? 0);
 
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));
 
@@ -127,6 +143,10 @@ export default async function TestSetPage({ params }: PageProps) {
           <TestSetDetailTabs
             testSet={serializedTestSet}
             testCount={testCount}
+            initialTests={testsPage.initialData}
+            initialTasks={tasksPage.initialData}
+            initialTasksTotalCount={tasksPage.initialTotalCount}
+            initialComments={comments}
             isGenerating={isGenerating}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}

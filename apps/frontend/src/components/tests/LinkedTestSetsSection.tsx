@@ -1,83 +1,62 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
-import {
-  GridColDef,
-  GridPaginationModel,
-  GridRowModel,
-} from '@mui/x-data-grid';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { GridColDef, GridRowModel } from '@mui/x-data-grid';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useList } from '@/hooks/useList';
+import { linkedTestSetsList } from './list';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
+const NO_FILTERS = {};
+
 interface LinkedTestSetsSectionProps {
   testId: string;
+  /** Server-prefetched first page; undefined falls back to a client fetch. */
+  initialTestSets?: TestSet[];
+  initialTotalCount?: number;
 }
 
 export default function LinkedTestSetsSection({
   testId,
+  initialTestSets,
+  initialTotalCount,
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
-  const { status } = useSession();
   const canEditTest = useCan(Capability.TestSet.UPDATE);
-
-  const [testSets, setTestSets] = useState<TestSet[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
   const [available, setAvailable] = useState<TestSet[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
-  const fetchLinkedTestSets = useCallback(async () => {
-    if (!testId || !isAuthenticated(status)) return;
-    setLoading(true);
-    try {
-      const apiFactory = new ApiClientFactory();
-      const testsClient = apiFactory.getTestsClient();
-      const response = await testsClient.getLinkedTestSets(testId, {
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
-      setTestSets(response.data);
-      setTotalCount(response.pagination.totalCount);
-    } catch {
+  const descriptor = useMemo(() => linkedTestSetsList(testId), [testId]);
+  const {
+    data: testSets,
+    totalCount,
+    isLoading: loading,
+    refresh: fetchLinkedTestSets,
+    paginationModel,
+    onPaginationModelChange: setPaginationModel,
+  } = useList(descriptor, {
+    filters: NO_FILTERS,
+    enabled: !!testId,
+    initialData: initialTestSets,
+    initialTotalCount,
+    onError: () =>
       showNotification('Failed to load linked test sets', {
         severity: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    testId,
-    paginationModel.page,
-    paginationModel.pageSize,
-    showNotification,
-    status,
-  ]);
-
-  useEffect(() => {
-    fetchLinkedTestSets();
-  }, [fetchLinkedTestSets]);
+      }),
+  });
 
   const handleAssignClick = useCallback(async () => {
     setLoadingAvailable(true);
@@ -134,7 +113,7 @@ export default function LinkedTestSetsSection({
         );
       }
       setAssignOpen(false);
-      await fetchLinkedTestSets();
+      fetchLinkedTestSets();
     },
     [testId, showNotification, fetchLinkedTestSets]
   );

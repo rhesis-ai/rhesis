@@ -73,12 +73,16 @@ const CLUSTER_VIEW_ENABLED = false;
 interface EmbeddingTestsPanelProps {
   testSetId: string;
   testSetType?: string;
+  initialTests?: TestDetail[];
+  initialTotalCount?: number;
   onTotalCountChange?: (count: number) => void;
 }
 
 export default function EmbeddingTestsPanel({
   testSetId,
   testSetType,
+  initialTests,
+  initialTotalCount,
   onTotalCountChange,
 }: EmbeddingTestsPanelProps) {
   const theme = useTheme();
@@ -306,6 +310,8 @@ export default function EmbeddingTestsPanel({
           <TestSetTestsGrid
             testSetId={testSetId}
             testSetType={testSetType}
+            initialTests={initialTests}
+            initialTotalCount={initialTotalCount}
             embedded
             onTotalCountChange={onTotalCountChange}
           />

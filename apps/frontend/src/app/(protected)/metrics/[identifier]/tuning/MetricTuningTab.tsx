@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { fetchMetricTuning, type MetricTuningData } from '../metric-data';
 import {
   Box,
   Button,
@@ -482,6 +489,8 @@ export interface MetricTuningTabProps {
    * metric. Applying writes the evaluation prompt every other tab is showing.
    */
   onMetricChanged?: () => void;
+  /** Server-prefetched metric, cases and run; skips the mount fetch. */
+  initialData?: MetricTuningData;
 }
 
 /**
@@ -500,19 +509,28 @@ export interface MetricTuningTabProps {
 export default function MetricTuningTab({
   metricId,
   onMetricChanged,
+  initialData,
 }: MetricTuningTabProps) {
   const notifications = useNotifications();
   const canEdit = useCan(Capability.Metric.UPDATE);
 
-  const [cases, setCases] = useState<MetricTuningCase[]>([]);
+  const [cases, setCases] = useState<MetricTuningCase[]>(
+    initialData?.cases ?? []
+  );
   // The whole metric, because the Improve dialog shows the current fields beside
   // the proposed ones and the grid needs the score type to render a verdict.
-  const [metric, setMetric] = useState<Metric | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [metric, setMetric] = useState<Metric | null>(
+    initialData?.metric ?? null
+  );
+  const [loading, setLoading] = useState(!initialData);
+  // The metric id the server-rendered data belongs to: no mount fetch for it.
+  const seededMetricIdRef = useRef(initialData ? metricId : null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MetricTuningCase | null>(null);
   const [rejecting, setRejecting] = useState<MetricTuningCase | null>(null);
-  const [run, setRun] = useState<MetricTuningRun | null>(null);
+  const [run, setRun] = useState<MetricTuningRun | null>(
+    initialData?.run ?? null
+  );
   const [starting, setStarting] = useState(false);
   const [acceptingRest, setAcceptingRest] = useState(false);
   const [improving, setImproving] = useState(false);
@@ -526,15 +544,10 @@ export default function MetricTuningTab({
   const fetchCases = useCallback(async () => {
     setLoading(true);
     try {
-      const factory = new ApiClientFactory();
-      const [tuningMetric, tuningCases, tuningRun] = await Promise.all([
-        factory.getMetricsClient().getMetric(metricId as UUID),
-        factory.getMetricTuningClient().getTuningCases(metricId),
-        factory.getMetricTuningClient().getTuningRun(metricId),
-      ]);
-      setMetric(tuningMetric);
-      setCases(tuningCases);
-      setRun(tuningRun);
+      const tuning = await fetchMetricTuning(new ApiClientFactory(), metricId);
+      setMetric(tuning.metric);
+      setCases(tuning.cases);
+      setRun(tuning.run);
     } catch (error) {
       notifications.show(
         error instanceof Error
@@ -549,6 +562,7 @@ export default function MetricTuningTab({
   }, [metricId, notifications]);
 
   useEffect(() => {
+    if (seededMetricIdRef.current === metricId) return;
     fetchCases();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- notifications identity changes each render
   }, [metricId]);

@@ -5,6 +5,7 @@ import { Box } from '@mui/material';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import type { Comment } from '@/types/comments';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { Priority, Status, Task, TaskUpdate } from '@/types/tasks';
 import type { User } from '@/utils/api-client/interfaces/user';
@@ -27,6 +28,7 @@ interface TaskDetailTabsProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  initialComments?: Comment[];
   onTaskUpdated: (task: Task) => void;
   updateTask: (
     id: string,
@@ -42,6 +44,7 @@ export default function TaskDetailTabs({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  initialComments,
   onTaskUpdated,
   updateTask,
 }: TaskDetailTabsProps) {
@@ -87,6 +90,7 @@ export default function TaskDetailTabs({
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
+          initialComments={initialComments}
         />
       </DetailTabPanel>
     </Box>

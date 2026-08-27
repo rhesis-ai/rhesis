@@ -6,6 +6,13 @@ import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import MetricDetailPageTabs from './MetricDetailPageTabs';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
+import { prefetch } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import {
+  fetchMetricLinkedRequirements,
+  fetchMetricTuning,
+  isCustomMetric,
+} from './metric-data';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -19,7 +26,8 @@ export default async function MetricDetailPage({ params }: PageProps) {
   }
 
   const { identifier } = await params;
-  const client = (await createServerApiFactory()).getMetricsClient();
+  const apiFactory = await createServerApiFactory();
+  const client = apiFactory.getMetricsClient();
 
   let metric: MetricDetail;
   try {
@@ -35,10 +43,24 @@ export default async function MetricDetailPage({ params }: PageProps) {
     redirect('/metrics');
   }
 
+  // The other tabs' data; the tuning routes reject non-custom metrics.
+  const [requirements, tuning] = await Promise.all([
+    prefetch(Capability.Requirement.READ, () =>
+      fetchMetricLinkedRequirements(apiFactory, identifier)
+    ),
+    isCustomMetric(metric)
+      ? prefetch(Capability.Metric.READ, () =>
+          fetchMetricTuning(apiFactory, identifier)
+        )
+      : Promise.resolve(undefined),
+  ]);
+
   return (
     <MetricDetailPageTabs
       metricId={identifier}
       initialMetric={JSON.parse(JSON.stringify(metric))}
+      initialRequirements={requirements}
+      initialTuning={tuning}
     />
   );
 }

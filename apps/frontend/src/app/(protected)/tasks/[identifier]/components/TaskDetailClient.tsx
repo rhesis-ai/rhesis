@@ -17,6 +17,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import CreateJiraIssueButton from '../../components/CreateJiraIssueButton';
 import TaskDetailTabs from './TaskDetailTabs';
+import type { Comment } from '@/types/comments';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
@@ -27,11 +28,13 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 interface TaskDetailClientProps {
   identifier: string;
   initialTask: Task;
+  initialComments?: Comment[];
 }
 
 export default function TaskDetailClient({
   identifier: taskId,
   initialTask,
+  initialComments,
 }: TaskDetailClientProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -199,6 +202,7 @@ export default function TaskDetailClient({
         currentUserId={session?.user?.id || ''}
         currentUserName={session?.user?.name || 'Unknown User'}
         currentUserPicture={session?.user?.picture || undefined}
+        initialComments={initialComments}
         onTaskUpdated={setTask}
         updateTask={handleUpdateTask}
       />

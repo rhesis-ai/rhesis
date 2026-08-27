@@ -24,18 +24,22 @@ import {
   PROJECT_DELETE_WARNING,
 } from '../constants';
 import ProjectEditDrawer from './edit-drawer';
-import ProjectDetailTabs from './components/ProjectDetailTabs';
+import ProjectDetailTabs, {
+  type ProjectDetailInitialData,
+} from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
 import { useDeleteProject } from '@/hooks/useEndpoints';
 
 interface ClientWrapperProps {
   project: Project;
+  initialData?: ProjectDetailInitialData;
   projectId: string;
 }
 
 export default function ClientWrapper({
   project,
   projectId,
+  initialData,
 }: ClientWrapperProps) {
   const router = useRouter();
   const params = useParams<{ identifier: string }>();
@@ -204,6 +208,7 @@ export default function ClientWrapper({
         project={currentProject}
         projectId={projectId}
         onProjectUpdate={handleUpdateProject}
+        initialData={initialData}
       />
 
       <ProjectEditDrawer

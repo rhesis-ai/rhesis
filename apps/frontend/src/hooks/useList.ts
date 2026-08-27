@@ -13,6 +13,21 @@ import {
 import { useListAuthGate } from './useListAuthGate';
 import { usePaginatedList } from './usePaginatedList';
 
+// A descriptor built per parent entity (e.g. `entityTasksList(type, id)`) is a
+// new object when that entity changes, and the list must refetch then. Number
+// each identity so it can be part of the request fingerprint; callers memoize
+// descriptors, so a stable list keeps a stable number.
+const descriptorIds = new WeakMap<object, number>();
+let nextDescriptorId = 0;
+function descriptorId(descriptor: object): number {
+  let id = descriptorIds.get(descriptor);
+  if (id === undefined) {
+    id = nextDescriptorId++;
+    descriptorIds.set(descriptor, id);
+  }
+  return id;
+}
+
 interface UseListOptions<T, S extends FilterSpecMap> {
   filters: FiltersOf<S>;
   /**
@@ -79,7 +94,12 @@ export function useList<T, S extends FilterSpecMap>(
           extraFilters ?? []
         )
       ),
-    filterFingerprint: JSON.stringify({ filters, sort, extraFilters }),
+    filterFingerprint: JSON.stringify({
+      descriptor: descriptorId(descriptor),
+      filters,
+      sort,
+      extraFilters,
+    }),
     defaultPageSize: descriptor.defaultPageSize,
     initialData,
     initialTotalCount,

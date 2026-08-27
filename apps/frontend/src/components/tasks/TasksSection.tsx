@@ -1,9 +1,7 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import { AddIcon } from '@/components/icons';
 import TasksIcon from '@/components/TasksIcon';
 import { Task, EntityType } from '@/types/tasks';
@@ -12,17 +10,14 @@ import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { SectionCard } from '@/components/common/SectionCard';
-import {
-  GridColDef,
-  GridPaginationModel,
-  GridRowParams,
-} from '@mui/x-data-grid';
+import { GridColDef, GridRowParams } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { taskKeys } from '@/constants/query-keys';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useList } from '@/hooks/useList';
+import { entityTasksList } from './list';
+
+const NO_FILTERS = {};
 
 interface TasksSectionProps {
   entityType: EntityType;
@@ -32,6 +27,11 @@ interface TasksSectionProps {
   onDeleteTask?: (taskId: string) => Promise<void>;
   /** Opens the in-context task creation drawer */
   onOpenCreateDrawer?: (commentId?: string) => void;
+  /** Server-prefetched first page; undefined falls back to a client fetch. */
+  initialTasks?: Task[];
+  initialTotalCount?: number;
+  /** Bump to re-read the list after a task is created or deleted elsewhere. */
+  refreshToken?: number;
 }
 
 export function TasksSection({
@@ -41,63 +41,41 @@ export function TasksSection({
   onEditTask: _onEditTask,
   onDeleteTask,
   onOpenCreateDrawer,
+  initialTasks,
+  initialTotalCount,
+  refreshToken = 0,
 }: TasksSectionProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { status } = useSession();
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
 
-  const currentPage = paginationModel.page;
-  const currentPageSize = paginationModel.pageSize;
-  const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
-
-  const queryKey = taskKeys.list(
-    `${entityType}:${entityId}`,
-    currentPage,
-    currentPageSize,
-    'created_at',
-    'desc'
+  const descriptor = useMemo(
+    () => entityTasksList(entityType, entityId),
+    [entityType, entityId]
   );
 
   const {
-    data,
+    data: tasks,
+    totalCount,
     isLoading: loading,
     error,
-  } = useQuery({
-    queryKey,
-    queryFn: async () => {
-      const clientFactory = new ApiClientFactory();
-      const tasksClient = clientFactory.getTasksClient();
-      return tasksClient.getTasks({
-        skip: currentPage * currentPageSize,
-        limit: currentPageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-        $filter: filter,
-      });
-    },
-    enabled: isAuthenticated(status) && !!entityType && !!entityId,
-    placeholderData: prev => prev,
+    refresh,
+    paginationModel,
+    onPaginationModelChange: handlePaginationModelChange,
+  } = useList(descriptor, {
+    filters: NO_FILTERS,
+    enabled: !!entityType && !!entityId,
+    initialData: initialTasks,
+    initialTotalCount,
   });
 
-  const tasks: Task[] = data?.data ?? [];
-  const totalCount: number = data?.pagination.totalCount ?? 0;
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
+  useEffect(() => {
+    if (refreshToken > 0) refresh();
+  }, [refreshToken, refresh]);
 
   const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+        refresh();
       } catch (err) {
         console.error('Failed to delete task:', err);
       }

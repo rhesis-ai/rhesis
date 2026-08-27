@@ -48,3 +48,24 @@ export async function prefetchList<T>(
     return { initialData: undefined, initialTotalCount: 0 };
   }
 }
+
+/**
+ * `prefetchList` for a single value: a detail record, an unpaginated list, a
+ * lookup. Same contract -- capability-gated (a tuple is OR'd), never throws,
+ * `undefined` means "let the client fetch it" -- and the result is passed to
+ * the client component as an `initial*` prop that seeds its existing hook.
+ */
+export async function prefetch<T>(
+  capability: string | readonly string[],
+  fetch: () => Promise<T>
+): Promise<T | undefined> {
+  const capabilities: readonly string[] =
+    typeof capability === 'string' ? [capability] : capability;
+  const checks = await Promise.all(capabilities.map(hasServerCapability));
+  if (!checks.some(Boolean)) return undefined;
+  try {
+    return JSON.parse(JSON.stringify(await fetch()));
+  } catch {
+    return undefined;
+  }
+}

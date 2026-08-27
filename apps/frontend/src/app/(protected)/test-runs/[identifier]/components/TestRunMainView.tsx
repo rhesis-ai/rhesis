@@ -35,6 +35,7 @@ import {
   type BatchRunOutcome,
 } from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
+import { hasOtherRunsForTestSet } from './comparison-runs';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import {
   getTestEvaluationSummary,
@@ -108,6 +109,10 @@ interface TestRunMainViewProps {
   initialSelectedTestId?: string;
   /** Drawer tab to open when deep-linking via selectedresult (e.g. "reviews"). */
   initialDetailTab?: string;
+  /** Server-prefetched results (small runs only); see `useTestRunDetailData`. */
+  initialTestResults?: TestResultDetail[];
+  /** Whether the test set has other runs to compare with, when the server already checked. */
+  initialHasComparisonRuns?: boolean;
 }
 
 export default function TestRunMainView({
@@ -119,6 +124,8 @@ export default function TestRunMainView({
   currentUserPicture,
   initialSelectedTestId,
   initialDetailTab,
+  initialTestResults,
+  initialHasComparisonRuns,
 }: TestRunMainViewProps) {
   const testRun = useLiveTestRun(testRunId, initialTestRun);
   // Already watching this run live on screen -- a completion notification
@@ -155,6 +162,7 @@ export default function TestRunMainView({
   } = useTestRunDetailData({
     testRunId,
     enabled: needsTestResults.current,
+    initialTestResults,
   });
 
   const handleTabChange = useCallback(
@@ -172,7 +180,10 @@ export default function TestRunMainView({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   // Whether another test run exists on the same test set to compare against.
-  const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
+  const [hasComparisonRuns, setHasComparisonRuns] = useState(
+    initialHasComparisonRuns ?? false
+  );
+  const comparisonSeededRef = useRef(initialHasComparisonRuns !== undefined);
   const [testSetExists, setTestSetExists] = useState<boolean | null>(null);
   const [testSetCheckError, setTestSetCheckError] = useState(false);
 
@@ -438,6 +449,8 @@ export default function TestRunMainView({
   }, [testSetId]);
 
   useEffect(() => {
+    // Already answered by the server for this run's test set.
+    if (comparisonSeededRef.current) return;
     if (!testSetId) {
       setHasComparisonRuns(false);
       return;
@@ -445,18 +458,12 @@ export default function TestRunMainView({
     let cancelled = false;
     (async () => {
       try {
-        const testRunsClient = new ApiClientFactory().getTestRunsClient();
-        const response = await testRunsClient.getTestRuns({
-          limit: 2,
-          skip: 0,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-          filter: `test_configuration/test_set/id eq '${testSetId}'`,
-        });
-        if (!cancelled) {
-          const others = response.data.filter(run => run.id !== testRunId);
-          setHasComparisonRuns(others.length > 0);
-        }
+        const has = await hasOtherRunsForTestSet(
+          new ApiClientFactory(),
+          testSetId,
+          testRunId
+        );
+        if (!cancelled) setHasComparisonRuns(has);
       } catch {
         if (!cancelled) setHasComparisonRuns(false);
       }
