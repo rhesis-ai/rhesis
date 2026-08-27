@@ -709,12 +709,19 @@ def update_trace_turn_metrics(
     span_id: str,
     turn_metrics: dict,
     status_id: Optional[str] = None,
+    execution: Optional[str] = None,
+    verdict: Optional[str] = None,
     processed_at: Optional[datetime] = None,
 ) -> int:
     """Update turn-level trace metrics on a single span row.
 
     Merges turn_metrics into trace_metrics.turn_metrics without
     overwriting conversation_metrics if already present.
+
+    ``execution``/``verdict`` are the source of truth (app/outcomes.py) and
+    are written together with the legacy ``status_id``; see
+    jobs/telemetry/evaluate.py's _derive_outcome, which produces all three
+    from one classification.
     """
     span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
     if not span:
@@ -731,6 +738,12 @@ def update_trace_turn_metrics(
     }
     if status_id is not None:
         update_values["trace_metrics_status_id"] = status_id
+    if execution is not None:
+        # verdict is written unconditionally alongside execution: the
+        # ck_trace_verdict_requires_ok constraint means leaving a stale
+        # verdict behind when execution moves off 'ok' would fail the write.
+        update_values["execution"] = execution
+        update_values["verdict"] = verdict
 
     result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
     db.commit()
@@ -742,6 +755,8 @@ def update_trace_conversation_metrics(
     trace_id: str,
     conversation_metrics: dict,
     status_id: Optional[str] = None,
+    execution: Optional[str] = None,
+    verdict: Optional[str] = None,
     processed_at: Optional[datetime] = None,
 ) -> int:
     """Update conversation-level trace metrics on all spans sharing a trace_id.
@@ -771,6 +786,10 @@ def update_trace_conversation_metrics(
         span.updated_at = datetime.now(timezone.utc)
         if status_id is not None:
             span.trace_metrics_status_id = status_id
+        if execution is not None:
+            # Paired write -- see update_trace_turn_metrics.
+            span.execution = execution
+            span.verdict = verdict
         count += 1
 
     db.commit()

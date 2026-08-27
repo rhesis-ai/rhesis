@@ -26,7 +26,7 @@ interface UseTestRunDetailDataReturn {
   refetch: () => Promise<void>;
 }
 
-async function fetchAllTestResults(
+export async function fetchAllTestResults(
   testRunId: string
 ): Promise<TestResultDetail[]> {
   const testResultsClient = new ApiClientFactory().getTestResultsClient();

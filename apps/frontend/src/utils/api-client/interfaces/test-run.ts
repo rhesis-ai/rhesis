@@ -45,3 +45,57 @@ export interface TestRunBulkDeleteResponse {
   not_found_ids: string[];
   forbidden_ids: string[];
 }
+
+export interface VerdictKpis {
+  pass_rate: number | null;
+  tests_executed: number;
+  tests_total: number;
+  verdicts_resolved: number;
+  verdicts_planned: number;
+  failures: number;
+  reviews_count: number;
+}
+
+export interface VerdictRequirement {
+  id: string | null;
+  name: string;
+  metric_keys: string[];
+}
+
+export interface VerdictRow {
+  requirement_id: string | null;
+  metric_key: string;
+  metric_name: string;
+  metric_id: string | null;
+  ambiguous: boolean;
+  verdicts: string;
+  overrides: string;
+  passed: number;
+  failed: number;
+  pending: number;
+}
+
+export interface VerdictMatrix {
+  test_run_id: string;
+  project_id: string | null;
+  status: string;
+  is_terminal: boolean;
+  version: number;
+  test_ids: string[] | null;
+  test_status: string;
+  /**
+   * Execution phase offsets in deciseconds from the run's timing origin,
+   * aligned to test_ids' order. null where a phase wasn't reached or wasn't
+   * recorded; the whole array is null when no timing exists (an old run whose
+   * cache lapsed, or one too large to be worth animating), in which case the
+   * grid renders settled.
+   */
+  test_started_ds: (number | null)[] | null;
+  test_generated_ds: (number | null)[] | null;
+  test_resolved_ds: (number | null)[] | null;
+  /** How far into the run the server is, same units and origin. */
+  elapsed_ds: number | null;
+  requirements: VerdictRequirement[];
+  rows: VerdictRow[];
+  kpis: VerdictKpis;
+}

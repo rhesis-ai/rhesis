@@ -38,7 +38,10 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
-import { findStatusByCategory } from '@/utils/test-result-status';
+import {
+  findStatusByCategory,
+  getEffectiveTestResultStatus,
+} from '@/utils/test-result-status';
 import {
   getEvaluationContent,
   getExecutionErrorTooltip,
@@ -241,17 +244,11 @@ export default function TestsTableView({
         entity_type: EntityType.TEST_RESULT,
       });
 
-      const metrics = test.test_metrics?.metrics || {};
-      const metricValues = Object.values(metrics);
-      const totalMetrics = metricValues.length;
-      let automatedPassed = false;
-      if (totalMetrics > 0) {
-        const passedMetrics = metricValues.filter(m => m.is_successful).length;
-        automatedPassed = passedMetrics === totalMetrics;
-      } else if (isMultiTurn && test.test_output?.goal_evaluation) {
-        automatedPassed =
-          test.test_output.goal_evaluation.all_criteria_met || false;
-      }
+      // Confirm the outcome the reviewer is actually looking at. Deriving it
+      // from raw metrics here risked submitting a verdict that contradicted
+      // the chip on screen. The review flow only offers pass/fail, so any
+      // non-Pass outcome is confirmed as a fail.
+      const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
       const targetStatus = findStatusByCategory(
         statuses,

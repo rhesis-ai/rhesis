@@ -2,11 +2,12 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
     has_http_error_in_result,
@@ -168,6 +169,7 @@ class SingleTurnRunner(BaseRunner):
         test_set: Optional[Any] = None,
         test_configuration: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
+        on_test_phase: Optional[Callable[[str, TestPhase], None]] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute single-turn test.
@@ -189,6 +191,12 @@ class SingleTurnRunner(BaseRunner):
                 execution-time metric override
             output_provider: Optional OutputProvider to obtain output.
                 If None, uses default SingleTurnOutput (live endpoint).
+            on_test_phase: Optional (test_id, phase) callback, fired with
+                "evaluating" right after output is obtained -- the seam
+                between the model call and metric evaluation. Same
+                vocabulary as the batch execution path's callback, so the
+                grid animation gets a real evaluating boundary for
+                sequential runs too.
 
         Returns:
             Tuple of (execution_time_ms, processed_result, metrics_results)
@@ -226,6 +234,16 @@ class SingleTurnRunner(BaseRunner):
 
         execution_time = output.execution_time
         processed_result = output.response
+
+        # The model has answered; whatever happens next (metrics, or the
+        # early-outs below) is post-generation. Fired unconditionally here,
+        # matching the batch path's placement -- it doesn't gate on whether
+        # metrics actually run, only on generation having finished.
+        if on_test_phase:
+            try:
+                on_test_phase(test_id, TestPhase.EVALUATING)
+            except Exception:
+                logger.debug("on_test_phase(evaluating) failed", exc_info=True)
 
         # HTTP errors are not model answers; skip metrics and leave status Error.
         if is_http_error_response(processed_result):
@@ -339,6 +357,7 @@ class MultiTurnRunner(BaseRunner):
         test_set: Optional[Any] = None,
         test_configuration: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
+        on_test_phase: Optional[Callable[[str, TestPhase], None]] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute multi-turn test with Penelope.
@@ -358,6 +377,10 @@ class MultiTurnRunner(BaseRunner):
                 execution-time metric override
             output_provider: Optional OutputProvider to obtain output.
                 If None, uses default MultiTurnOutput (live Penelope).
+            on_test_phase: Optional (test_id, phase) callback, fired with
+                "evaluating" right after output is obtained. See
+                SingleTurnRunner.run's docstring for why this fires
+                unconditionally rather than only when metrics run.
 
         Returns:
             Tuple of (execution_time_ms, penelope_trace, metrics_results)
@@ -368,6 +391,8 @@ class MultiTurnRunner(BaseRunner):
             provider is injected, metrics are evaluated externally via
             evaluate_multi_turn_metrics().
         """
+        test_id = str(test.id)
+
         # --- Entity 1: Get output ---
         if output_provider is None:
             output_provider = MultiTurnOutput(model=execution_model)
@@ -379,11 +404,17 @@ class MultiTurnRunner(BaseRunner):
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
-            test_id=str(test.id),
+            test_id=test_id,
         )
 
         execution_time = output.execution_time
         penelope_trace = output.response
+
+        if on_test_phase:
+            try:
+                on_test_phase(test_id, TestPhase.EVALUATING)
+            except Exception:
+                logger.debug("on_test_phase(evaluating) failed", exc_info=True)
 
         # First target message HTTP error → no metrics, status Error.
         if has_http_error_in_result(penelope_trace):

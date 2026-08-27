@@ -12,6 +12,7 @@ function makeRow(
     id: 'result-1',
     testRunId: 'run-1',
     testRunName: 'run-one',
+    status: 'Pass',
     passed: true,
     passedMetrics: 2,
     totalMetrics: 2,
@@ -28,6 +29,8 @@ describe('mapTestResultToHistoryRow', () => {
       updated_at: '2026-07-01T10:00:00Z',
       test_configuration_id: 'c1111111-1111-4111-8111-111111111111',
       created_at: '2026-07-01T10:00:00Z',
+      execution: 'ok',
+      verdict: 'pass',
       test_metrics: {
         metrics: {
           a: { is_successful: true },
@@ -42,6 +45,7 @@ describe('mapTestResultToHistoryRow', () => {
       new Map([['b1111111-1111-4111-8111-111111111111', 'spinning-caracal']])
     );
 
+    expect(row.status).toBe('Pass');
     expect(row.passed).toBe(true);
     expect(row.passedMetrics).toBe(2);
     expect(row.totalMetrics).toBe(2);
@@ -59,6 +63,8 @@ describe('mapTestResultToHistoryRow', () => {
       updated_at: '2026-07-01T10:00:00Z',
       test_configuration_id: 'c1111111-1111-4111-8111-111111111111',
       created_at: '2026-07-01T10:00:00Z',
+      execution: 'error',
+      verdict: null,
       test_metrics: { metrics: {}, execution_time: 0 },
     } as unknown as TestResultDetail;
 
@@ -77,6 +83,8 @@ describe('mapTestResultToHistoryRow', () => {
       updated_at: '2026-07-02T10:00:00Z',
       test_configuration_id: 'c1111111-1111-4111-8111-111111111111',
       created_at: '2026-07-02T10:00:00Z',
+      execution: 'ok',
+      verdict: 'fail',
       test_metrics: {
         metrics: {
           a: { is_successful: true },
@@ -88,6 +96,7 @@ describe('mapTestResultToHistoryRow', () => {
 
     const row = mapTestResultToHistoryRow(result, new Map());
 
+    expect(row.status).toBe('Fail');
     expect(row.passed).toBe(false);
     expect(row.passedMetrics).toBe(1);
     expect(row.totalMetrics).toBe(2);

@@ -30,8 +30,8 @@ export default function TestExecutionHistoryTable({
         sortable: false,
         renderCell: params => (
           <StatusChip
-            passed={params.row.passed}
-            label={params.row.passed ? 'Pass' : 'Fail'}
+            status={params.row.status}
+            label={params.row.status}
             size="small"
             variant="outlined"
           />

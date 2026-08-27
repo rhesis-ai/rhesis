@@ -13,6 +13,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestExecutionHistoryTable from '@/components/tests/TestExecutionHistoryTable';
 import { useTestExecutionHistory } from '@/components/tests/useTestExecutionHistory';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { passRate, getReviewBand } from '@/constants/outcomes';
 
 interface TestDetailHistoryTabProps {
   test: TestResultDetail;
@@ -30,8 +31,11 @@ export default function TestDetailHistoryTab({
   });
 
   const stats = useMemo(() => {
-    const passedCount = rows.filter(h => h.passed).length;
-    const passRate = rows.length > 0 ? (passedCount / rows.length) * 100 : 0;
+    const passedCount = rows.filter(h => h.status === 'Pass').length;
+    const failedCount = rows.filter(h => h.status === 'Fail').length;
+    // Rate is over executions that actually resolved -- an errored run is
+    // excluded rather than silently counted as a failure.
+    const rate = passRate(passedCount, failedCount);
 
     return [
       {
@@ -41,8 +45,10 @@ export default function TestDetailHistoryTab({
       },
       {
         label: 'Pass Rate',
-        value: `${passRate.toFixed(1)}%`,
-        color: (passRate >= 80 ? 'success' : 'error') as StatColor,
+        value: rate === null ? '—' : `${rate.toFixed(1)}%`,
+        color: (rate === null
+          ? 'primary'
+          : getReviewBand(rate).colorKey) as StatColor,
       },
       {
         label: 'Passed',

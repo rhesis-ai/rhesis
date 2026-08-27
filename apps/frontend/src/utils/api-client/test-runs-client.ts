@@ -6,6 +6,7 @@ import {
   TestRunUpdate,
   TestRunDetail,
   TestRunBulkDeleteResponse,
+  VerdictMatrix,
 } from './interfaces/test-run';
 import { Requirement } from './interfaces/requirement';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -137,6 +138,16 @@ export class TestRunsClient extends BaseApiClient {
       ...params,
       test_configuration_id: testConfigurationId,
     });
+  }
+
+  async getVerdictMatrix(
+    testRunId: string,
+    columns?: string
+  ): Promise<VerdictMatrix> {
+    const params = columns ? `?columns=${columns}` : '';
+    return this.fetch<VerdictMatrix>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}/verdict-matrix${params}`
+    );
   }
 
   async cancelTestRun(id: string): Promise<TestRun> {

@@ -4,6 +4,7 @@ import React from 'react';
 import { Box, LinearProgress, Typography } from '@mui/material';
 import { PassFailStats } from '@/utils/api-client/interfaces/test-results';
 import { formatInsightsSummaryDetail } from '../utils/insights-failed-tests';
+import { getReviewBand } from '@/constants/outcomes';
 
 interface InsightsSummaryBarProps {
   summary: PassFailStats | null;
@@ -11,10 +12,11 @@ interface InsightsSummaryBarProps {
   loading?: boolean;
 }
 
+// One shared scale (constants/outcomes.ts). This widget used to band at
+// 70/40 while the requirement columns on the same page banded at 100/70, so
+// the same rate could be green here and red one card over.
 function progressColor(passRate: number): 'success' | 'warning' | 'error' {
-  if (passRate >= 70) return 'success';
-  if (passRate >= 40) return 'warning';
-  return 'error';
+  return getReviewBand(passRate).colorKey;
 }
 
 export default function InsightsSummaryBar({

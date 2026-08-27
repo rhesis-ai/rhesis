@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.outcomes import classify_metrics
 from rhesis.backend.app.services.test_run import get_verdict_matrix
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
@@ -53,6 +54,16 @@ def _link_metric(db, requirement, metric, org_id, user_id):
             user_id=user_id,
         )
     )
+
+
+def _execution_verdict(metrics: dict) -> dict:
+    """Derive execution/verdict from a metrics dict the way the real write
+    path (classify_metrics) does, so fixtures that build TestResult rows
+    directly still populate the source of truth v_test_result_stats.result
+    reads -- status_id alone no longer drives it.
+    """
+    execution, verdict = classify_metrics(metrics)
+    return {"execution": execution.value, "verdict": verdict.value if verdict else None}
 
 
 def _add_to_set(db, test, test_set, org_id, user_id):
@@ -158,6 +169,7 @@ def verdict_matrix_setup(test_db: Session, test_organization, db_user, db_endpoi
         test_db, TestResultStatus.PASS.value, "TestResult", organization_id=str(org_id)
     )
 
+    passed_metrics = {"Accuracy": {"is_successful": True, "score": 0.95}}
     passed_result = models.TestResult(
         test_run_id=test_run.id,
         test_configuration_id=test_config.id,
@@ -165,7 +177,8 @@ def verdict_matrix_setup(test_db: Session, test_organization, db_user, db_endpoi
         organization_id=org_id,
         user_id=user_id,
         status_id=pass_status.id,
-        test_metrics={"metrics": {"Accuracy": {"is_successful": True, "score": 0.95}}},
+        test_metrics={"metrics": passed_metrics},
+        **_execution_verdict(passed_metrics),
     )
     test_db.add(passed_result)
     test_db.commit()
@@ -279,6 +292,7 @@ def two_requirement_setup(test_db: Session, test_organization, db_user, db_endpo
         status = get_or_create_status(
             test_db, status_name, "TestResult", organization_id=str(org_id)
         )
+        metrics = {"Accuracy": {"is_successful": is_successful}}
         test_db.add(
             models.TestResult(
                 test_run_id=test_run.id,
@@ -287,7 +301,8 @@ def two_requirement_setup(test_db: Session, test_organization, db_user, db_endpo
                 organization_id=org_id,
                 user_id=user_id,
                 status_id=status.id,
-                test_metrics={"metrics": {"Accuracy": {"is_successful": is_successful}}},
+                test_metrics={"metrics": metrics},
+                **_execution_verdict(metrics),
             )
         )
     test_db.commit()
@@ -689,6 +704,7 @@ class TestDuplicateResults:
             "TestResult",
             organization_id=setup["org_id"],
         )
+        newer_metrics = {"Accuracy": {"is_successful": False}}
         newer = models.TestResult(
             test_run_id=test_run.id,
             test_configuration_id=setup["test_config"].id,
@@ -696,8 +712,9 @@ class TestDuplicateResults:
             organization_id=uuid.UUID(setup["org_id"]),
             user_id=setup["test_a"].user_id,
             status_id=fail_status.id,
-            test_metrics={"metrics": {"Accuracy": {"is_successful": False}}},
+            test_metrics={"metrics": newer_metrics},
             created_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            **_execution_verdict(newer_metrics),
         )
         test_db.add(newer)
         test_db.commit()
@@ -770,6 +787,10 @@ class TestPassRateIsOverTests:
         )
         test_db.add(test_run)
         test_db.flush()
+        mixed_metrics = {
+            "Good": {"is_successful": True},
+            "Bad": {"is_successful": False},
+        }
         test_db.add(
             models.TestResult(
                 test_run_id=test_run.id,
@@ -778,12 +799,8 @@ class TestPassRateIsOverTests:
                 organization_id=org_id,
                 user_id=user_id,
                 status_id=fail_status.id,
-                test_metrics={
-                    "metrics": {
-                        "Good": {"is_successful": True},
-                        "Bad": {"is_successful": False},
-                    }
-                },
+                test_metrics={"metrics": mixed_metrics},
+                **_execution_verdict(mixed_metrics),
             )
         )
         test_db.commit()
@@ -798,6 +815,66 @@ class TestPassRateIsOverTests:
         assert matrix.kpis.pass_rate == 0.0, "pass rate must be over tests, not verdicts"
         assert matrix.kpis.failures == 1
         assert matrix.kpis.verdicts_resolved == 2
+
+
+class TestReviewsCount:
+    """kpis.reviews_count backs the Reviews KPI card -- a coarse "how many
+    tests have at least one review" count, cheap enough to compute on every
+    live poll (unlike BreakdownsDrawer's full test-result fetch).
+    """
+
+    def test_zero_when_no_result_has_a_review(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.reviews_count == 0
+
+    def test_counts_a_test_with_a_review(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+
+        passed_result = (
+            test_db.query(models.TestResult)
+            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
+            .one()
+        )
+        passed_result.test_reviews = {"reviews": [{"review_id": "r1", "status": {"name": "Pass"}}]}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.reviews_count == 1
+
+    def test_an_empty_reviews_array_does_not_count(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+
+        passed_result = (
+            test_db.query(models.TestResult)
+            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
+            .one()
+        )
+        passed_result.test_reviews = {"reviews": []}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.reviews_count == 0
 
 
 class TestIsNewer:
@@ -829,50 +906,66 @@ class TestIsNewer:
         assert _is_newer(None, None) is False
 
 
-class TestResultStatusNormalization:
-    """Outcome bucketing uses the shared TEST_RESULT_STATUS_* vocabularies.
-
-    Matching only the three TestResultStatus enum values would report a row
-    carrying any of the wider accepted names -- "Completed", "Success",
-    "Done" -- as never executed, which silently undercounts tests_executed,
-    skews pass_rate, and leaves those columns rendering as pending forever.
+class TestGetTestOutcomesForRun:
+    """get_test_outcomes_for_run reads v_test_result_stats.result directly,
+    which now derives from test_result.execution/verdict (see
+    app/outcomes.py) instead of a status-name synonym list. Exercised
+    against a real Postgres view -- see the module docstring.
     """
 
-    @pytest.mark.parametrize(
-        "status_name,expected",
-        [
-            ("Pass", "passed"),
-            ("Passed", "passed"),
-            ("Completed", "passed"),
-            ("Complete", "passed"),
-            ("Success", "passed"),
-            ("Successful", "passed"),
-            ("Finished", "passed"),
-            ("Done", "passed"),
-            ("Fail", "failed"),
-            ("Failed", "failed"),
-            ("Error", "error"),
-            ("Aborted", "error"),
-            ("Cancelled", "error"),
-            # Ran but has no verdict yet -- not a terminal outcome.
-            ("Pending", "pending"),
-            ("Review", "pending"),
-            # Unknown names are errors, not silently pending: a column that
-            # will never resolve must not keep animating as in-flight.
-            ("Some Unknown Status", "error"),
-            ("", "error"),
-            (None, "error"),
-        ],
-    )
-    def test_status_names_bucket_correctly(self, status_name, expected):
-        from rhesis.backend.app.crud.test_run import _classify_result_status
+    def test_distinguishes_error_and_cancelled_from_pending(
+        self,
+        test_db: Session,
+        test_organization,
+        db_user,
+        db_test_configuration,
+        db_test_run,
+        db_status,
+    ):
+        """Bug this migration fixes: the old status-name CASE had no branch
+        for Error or Cancelled, so both silently read as pending --
+        indistinguishable from a test that hasn't run yet.
+        """
+        from rhesis.backend.app.crud.test_run import get_test_outcomes_for_run
 
-        assert _classify_result_status(status_name) == expected
+        org_id = test_organization.id
+        user_id = db_user.id
 
-    def test_agrees_with_the_shared_passed_vocabulary(self):
-        """Guards against the two lists drifting apart later."""
-        from rhesis.backend.app.constants import TEST_RESULT_STATUS_PASSED
-        from rhesis.backend.app.crud.test_run import _classify_result_status
+        tests = {
+            label: models.Test(user_id=user_id, organization_id=org_id)
+            for label in ("passed", "failed", "error", "cancelled", "not_run")
+        }
+        test_db.add_all(tests.values())
+        test_db.flush()
 
-        for name in TEST_RESULT_STATUS_PASSED:
-            assert _classify_result_status(name) == "passed", name
+        for label, execution, verdict in (
+            ("passed", "ok", "pass"),
+            ("failed", "ok", "fail"),
+            ("error", "error", None),
+            ("cancelled", "cancelled", None),
+            ("not_run", "not_run", None),
+        ):
+            test_db.add(
+                models.TestResult(
+                    test_run_id=db_test_run.id,
+                    test_configuration_id=db_test_configuration.id,
+                    test_id=tests[label].id,
+                    organization_id=org_id,
+                    user_id=user_id,
+                    # v_test_result_stats inner-joins status -- a row with
+                    # no status_id would be invisible to the view entirely,
+                    # regardless of execution/verdict.
+                    status_id=db_status.id,
+                    execution=execution,
+                    verdict=verdict,
+                )
+            )
+        test_db.commit()
+
+        outcomes = get_test_outcomes_for_run(test_db, db_test_run.id, organization_id=str(org_id))
+
+        assert outcomes[str(tests["passed"].id)] == "passed"
+        assert outcomes[str(tests["failed"].id)] == "failed"
+        assert outcomes[str(tests["error"].id)] == "error"
+        assert outcomes[str(tests["cancelled"].id)] == "cancelled"
+        assert outcomes[str(tests["not_run"].id)] == "pending"

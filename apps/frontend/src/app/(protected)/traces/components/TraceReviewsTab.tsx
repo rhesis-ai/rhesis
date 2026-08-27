@@ -261,16 +261,25 @@ export default function TraceReviewsTab({
       >;
       for (const m of Object.values(metrics)) {
         totalMetrics++;
-        if (m.is_successful) passedMetrics++;
+        // Pre-review value: this is the automated baseline the conflict
+        // indicator compares the human verdict against.
+        if (
+          (m as { override?: { original_value?: boolean } }).override
+            ?.original_value ??
+          m.is_successful
+        )
+          passedMetrics++;
       }
     }
 
+    // Deliberately the AUTOMATED result, not the span's current outcome:
+    // this sits beside the human verdict so a reviewer can see what they
+    // changed. displayStatusOf(selectedSpan) already folds the review in,
+    // which would make the two sides always agree.
+    const automatedPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
     return {
-      passed: totalMetrics > 0 && passedMetrics === totalMetrics,
-      label:
-        totalMetrics > 0 && passedMetrics === totalMetrics
-          ? 'Passed'
-          : 'Failed',
+      passed: automatedPassed,
+      label: automatedPassed ? 'Passed' : 'Failed',
       count: `${passedMetrics}/${totalMetrics}`,
     };
   };

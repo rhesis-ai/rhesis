@@ -50,6 +50,8 @@ import {
   ELEVATION,
 } from '@/styles/theme-constants';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import { passRate } from '@/constants/outcomes';
 
 interface RunExperimentInfo {
   experiment_id?: string;
@@ -381,32 +383,20 @@ export default function ComparisonView({
 
   const baselineRun = availableTestRuns.find(r => r.id === selectedBaselineId);
 
-  // Helper to check if test passed
-  const isTestPassed = (test: TestResultDetail) => {
-    const metrics = test.test_metrics?.metrics || {};
-    const metricValues = Object.values(metrics);
-    const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return totalMetrics > 0 && passedMetrics === totalMetrics;
-  };
+  // Whether a test passed, per the backend's own verdict -- never
+  // re-derived from raw metrics, so a reviewed or errored result compares
+  // the same way here as it renders everywhere else.
+  const isTestPassed = (test: TestResultDetail) =>
+    getEffectiveTestResultStatus(test) === 'Pass';
 
   // Calculate baseline pass rate from test results
   const baselinePassRate = useMemo(() => {
     if (!baselineTestResults || baselineTestResults.length === 0)
       return undefined;
     const passed = baselineTestResults.filter(isTestPassed).length;
-    return (passed / baselineTestResults.length) * 100;
+    const failed = baselineTestResults.length - passed;
+    return passRate(passed, failed) ?? undefined;
   }, [baselineTestResults]);
-
-  // Helper to get pass rate
-  const _getPassRate = (test: TestResultDetail) => {
-    const metrics = test.test_metrics?.metrics || {};
-    const metricValues = Object.values(metrics);
-    const totalMetrics = metricValues.length;
-    if (totalMetrics === 0) return 0;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return (passedMetrics / totalMetrics) * 100;
-  };
 
   // Create all comparison data (unfiltered for statistics)
   const allComparisonTests: ComparisonTest[] = useMemo(() => {
@@ -504,7 +494,11 @@ export default function ComparisonView({
   // Calculate current run pass rate
   const currentPassRate = useMemo(() => {
     const passed = currentTestResults.filter(isTestPassed).length;
-    return Math.round((passed / currentTestResults.length) * 100);
+    const failed = currentTestResults.length - passed;
+    const rate = passRate(passed, failed);
+    // null (nothing resolved) renders as a dash rather than NaN% -- the old
+    // expression divided by length with no zero guard.
+    return rate === null ? null : Math.round(rate);
   }, [currentTestResults]);
 
   const _getPromptSnippet = (
@@ -785,9 +779,9 @@ export default function ComparisonView({
                   component="span"
                   sx={{ fontWeight: 700, color: 'text.primary' }}
                 >
-                  {currentPassRate}%
+                  {currentPassRate === null ? '—' : `${currentPassRate}%`}
                 </Box>
-                {baselinePassRate !== undefined && (
+                {baselinePassRate !== undefined && currentPassRate !== null && (
                   <Box
                     component="span"
                     sx={{
@@ -1022,6 +1016,9 @@ export default function ComparisonView({
                             </Typography>
                             {baselinePassed !== null && (
                               <MetricStatusChip
+                                status={getEffectiveTestResultStatus(
+                                  test.baseline as TestResultDetail
+                                )}
                                 passedCount={baselinePassedCount}
                                 totalCount={baselineTotalCount}
                                 size="small"
@@ -1098,6 +1095,9 @@ export default function ComparisonView({
                               Current
                             </Typography>
                             <MetricStatusChip
+                              status={getEffectiveTestResultStatus(
+                                test.current
+                              )}
                               passedCount={currentPassedCount}
                               totalCount={currentTotalCount}
                               size="small"
@@ -1263,6 +1263,9 @@ export default function ComparisonView({
                         </Typography>
                         {selectedTest.baseline ? (
                           <MetricStatusChip
+                            status={getEffectiveTestResultStatus(
+                              selectedTest.baseline
+                            )}
                             passedCount={
                               Object.values(
                                 selectedTest.baseline.test_metrics?.metrics ||
@@ -1356,6 +1359,9 @@ export default function ComparisonView({
                           Current Run
                         </Typography>
                         <MetricStatusChip
+                          status={getEffectiveTestResultStatus(
+                            selectedTest.current
+                          )}
                           passedCount={
                             Object.values(
                               selectedTest.current.test_metrics?.metrics || {}
@@ -1460,6 +1466,9 @@ export default function ComparisonView({
                       </Typography>
                       {selectedTest.baseline ? (
                         <MetricStatusChip
+                          status={getEffectiveTestResultStatus(
+                            selectedTest.baseline
+                          )}
                           passedCount={
                             Object.values(
                               selectedTest.baseline.test_metrics?.metrics || {}
@@ -1496,6 +1505,9 @@ export default function ComparisonView({
                         Current Run
                       </Typography>
                       <MetricStatusChip
+                        status={getEffectiveTestResultStatus(
+                          selectedTest.current
+                        )}
                         passedCount={
                           Object.values(
                             selectedTest.current.test_metrics?.metrics || {}

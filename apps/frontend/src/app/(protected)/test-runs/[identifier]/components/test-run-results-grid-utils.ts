@@ -4,6 +4,8 @@ import {
 } from '@/utils/api-client/interfaces/test-results';
 import {
   getTestEvaluationSummary,
+  getEffectiveTestResultStatus,
+  getTestResultLabel,
   isPassedStatusName,
 } from '@/utils/test-result-status';
 import { getLatestMetricReviewForResult } from './test-run-summary-utils';
@@ -85,8 +87,8 @@ export function getTestResultDisplayStatus(
       const hasConflict = reviewPassed !== originalPassed;
 
       return {
-        passed: reviewPassed,
-        label: reviewPassed ? 'Passed' : 'Failed',
+        passed: getEffectiveTestResultStatus(test) === 'Pass',
+        label: getTestResultLabel(test),
         count: `${metCriteria}/${totalCriteria}`,
         isOverruled: true,
         hasConflict,
@@ -101,13 +103,15 @@ export function getTestResultDisplayStatus(
       };
     }
 
-    const hasExecutionError = test.test_output.status === 'error';
-    const hasExecutionFailure = test.test_output.status === 'failure';
-
-    if (hasExecutionError) {
+    // test_output.status is a legacy per-run marker; it decides only whether
+    // to show the execution-error affordance and its reason. The outcome
+    // itself always comes from the backend, so this can no longer contradict
+    // the chip a reviewer sees elsewhere.
+    const status = getEffectiveTestResultStatus(test);
+    if (status === 'Error' || test.test_output.status === 'error') {
       return {
         passed: false,
-        label: 'Error',
+        label: getTestResultLabel(test),
         count: `${metCriteria}/${totalCriteria}`,
         isOverruled: false,
         hasConflict: false,
@@ -118,25 +122,14 @@ export function getTestResultDisplayStatus(
       };
     }
 
-    if (hasExecutionFailure) {
-      return {
-        passed: false,
-        label: 'Failed',
-        count: `${metCriteria}/${totalCriteria}`,
-        isOverruled: false,
-        hasConflict: false,
-        hasExecutionError: false,
-      };
-    }
-
     // No entity-level review, but a metric-targeted review may still exist.
     const latestMetricReview = getLatestMetricReviewForResult(test);
     if (latestMetricReview?.status?.name) {
       const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
 
       return {
-        passed: originalPassed,
-        label: originalPassed ? 'Passed' : 'Failed',
+        passed: getEffectiveTestResultStatus(test) === 'Pass',
+        label: getTestResultLabel(test),
         count: `${metCriteria}/${totalCriteria}`,
         isOverruled: true,
         hasConflict: false,
@@ -152,8 +145,8 @@ export function getTestResultDisplayStatus(
     }
 
     return {
-      passed: originalPassed,
-      label: originalPassed ? 'Passed' : 'Failed',
+      passed: getEffectiveTestResultStatus(test) === 'Pass',
+      label: getTestResultLabel(test),
       count: `${metCriteria}/${totalCriteria}`,
       isOverruled: false,
       hasConflict: false,
@@ -165,7 +158,12 @@ export function getTestResultDisplayStatus(
   const metrics = test.test_metrics?.metrics || {};
   const metricValues = Object.values(metrics);
   const totalMetrics = metricValues.length;
-  const passedMetrics = metricValues.filter(m => m.is_successful).length;
+  // Pre-review values: `originalPassed` below is the automated baseline the
+  // conflict indicator compares the human verdict against, so a metric a
+  // review already flipped must not move it.
+  const passedMetrics = metricValues.filter(
+    m => m.override?.original_value ?? m.is_successful
+  ).length;
   const hasExecutionError = !test.test_metrics || totalMetrics === 0;
 
   if (hasExecutionError) {
@@ -189,8 +187,8 @@ export function getTestResultDisplayStatus(
     const hasConflict = reviewPassed !== originalPassed;
 
     return {
-      passed: reviewPassed,
-      label: reviewPassed ? 'Passed' : 'Failed',
+      passed: getEffectiveTestResultStatus(test) === 'Pass',
+      label: getTestResultLabel(test),
       count: `${passedMetrics}/${totalMetrics}`,
       isOverruled: true,
       hasConflict,
@@ -214,8 +212,8 @@ export function getTestResultDisplayStatus(
     const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
 
     return {
-      passed: originalPassed,
-      label: originalPassed ? 'Passed' : 'Failed',
+      passed: getEffectiveTestResultStatus(test) === 'Pass',
+      label: getTestResultLabel(test),
       count: `${passedMetrics}/${totalMetrics}`,
       isOverruled: true,
       hasConflict: false,
@@ -231,8 +229,8 @@ export function getTestResultDisplayStatus(
   }
 
   return {
-    passed: originalPassed,
-    label: originalPassed ? 'Passed' : 'Failed',
+    passed: getEffectiveTestResultStatus(test) === 'Pass',
+    label: getTestResultLabel(test),
     count: `${passedMetrics}/${totalMetrics}`,
     isOverruled: false,
     hasConflict: false,

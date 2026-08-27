@@ -431,6 +431,30 @@ def get_ordered_tests_for_test_set(
     ]
 
 
+def get_review_count_for_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+) -> int:
+    """Count distinct tests with at least one review recorded, for this run.
+
+    A coarse presence count, not the detailed test-vs-metric /
+    review-vs-correction breakdown ``BreakdownsDrawer`` computes lazily from
+    full test result bodies -- this only answers "has anything been
+    reviewed yet" for the KPI row, so it stays a single indexed-by-run
+    aggregate instead of hydrating every result. Same JSONB presence
+    predicate as ``_test_run_experiment_filter``'s ``has_reviews`` filter
+    above.
+    """
+    query = db.query(func.count(func.distinct(models.TestResult.test_id))).filter(
+        models.TestResult.test_run_id == test_run_id,
+        models.TestResult.test_reviews.isnot(None),
+        func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
+        func.coalesce(func.jsonb_array_length(models.TestResult.test_reviews["reviews"]), 0) > 0,
+    )
+    if organization_id:
+        query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))
+    return query.scalar() or 0
+
+
 def get_metric_verdicts_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
 ) -> List[Row]:
@@ -457,51 +481,20 @@ def get_metric_verdicts_for_run(
     return query.all()
 
 
-# Result statuses that mean "ran, but has no verdict yet" rather than a
-# terminal outcome. Everything outside the passed/failed vocabularies is an
-# error for grid purposes -- an aborted or cancelled test will never resolve,
-# so it must not keep rendering as pending forever.
-_UNRESOLVED_RESULT_STATUSES = frozenset(["pending", "review"])
-
-
-def _classify_result_status(status_name: Optional[str]) -> str:
-    """Bucket a test result's status name for the verdict grid.
-
-    Uses the shared TEST_RESULT_STATUS_* vocabularies rather than matching
-    the three TestResultStatus enum values: ``v_test_result_stats`` and
-    ``categorize_test_result_status`` both accept a much wider set (
-    "Completed", "Success", "Done", ...), and rows carrying those exist.
-    Matching only Pass/Fail/Error would report them as never executed.
-    """
-    from rhesis.backend.app.constants import (
-        TEST_RESULT_STATUS_FAILED,
-        TEST_RESULT_STATUS_PASSED,
-    )
-
-    normalized = (status_name or "").lower()
-    if normalized in TEST_RESULT_STATUS_PASSED:
-        return "passed"
-    if normalized in TEST_RESULT_STATUS_FAILED:
-        return "failed"
-    if normalized in _UNRESOLVED_RESULT_STATUSES:
-        return "pending"
-    return "error"
-
-
 def get_test_outcomes_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
 ) -> Dict[str, str]:
-    """Map ``test_id`` to its most recent result's status for this run.
+    """Map ``test_id`` to its most recent result's outcome for this run.
 
-    Reads ``status_name`` directly rather than ``v_test_result_stats.result``:
-    that computed column only distinguishes passed/failed/pending and folds
-    an "Error" status into pending (its CASE expression has no branch for
-    it), which would make an execution error indistinguishable from a test
-    that hasn't run yet.
+    Reads ``v_test_result_stats.result`` directly: it now derives from
+    ``test_result.execution``/``verdict`` (the outcome-model source of
+    truth, see ``app/outcomes.py``) and distinguishes passed/failed/error/
+    cancelled/pending on its own, so there is no synonym list left to run
+    here.
     """
     query = db.query(
         models.TestResultStatsView.test_id,
-        models.TestResultStatsView.status_name,
+        models.TestResultStatsView.result,
         models.TestResultStatsView.created_at,
     ).filter(models.TestResultStatsView.test_run_id == test_run_id)
     if organization_id:
@@ -511,12 +504,9 @@ def get_test_outcomes_for_run(
     rows = query.all()
 
     latest: Dict[str, Tuple[Any, str]] = {}
-    for test_id, status_name, created_at in rows:
+    for test_id, result, created_at in rows:
         key = str(test_id)
         if key not in latest or created_at > latest[key][0]:
-            latest[key] = (created_at, status_name)
+            latest[key] = (created_at, result)
 
-    return {
-        test_id: _classify_result_status(status_name)
-        for test_id, (_, status_name) in latest.items()
-    }
+    return {test_id: result for test_id, (_, result) in latest.items()}

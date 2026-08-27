@@ -25,7 +25,10 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { findStatusByCategory } from '@/utils/test-result-status';
+import {
+  findStatusByCategory,
+  getEffectiveTestResultStatus,
+} from '@/utils/test-result-status';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { EntityType } from '@/types/entity-type';
 
@@ -221,9 +224,9 @@ export default function TestResultDrawer({
         entity_type: EntityType.TEST_RESULT,
       });
 
-      // Determine the automated status from goal_evaluation
-      const automatedPassed =
-        test.test_output?.goal_evaluation?.all_criteria_met || false;
+      // Confirm the outcome the reviewer is looking at, not a re-derivation
+      // from goal_evaluation that could contradict it.
+      const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
       // Find appropriate status ID using centralized utility
       const targetStatus = findStatusByCategory(

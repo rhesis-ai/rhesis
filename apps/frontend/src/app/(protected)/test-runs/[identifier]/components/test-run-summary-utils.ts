@@ -1,31 +1,48 @@
 import {
   REVIEW_TARGET_TYPES,
   TestResultDetail,
+  MetricResult,
 } from '@/utils/api-client/interfaces/test-results';
 import {
-  getAutomatedMetricPass,
   getEffectiveTestResultStatus,
-  getTestResultStatus,
   isPassedStatusName,
 } from '@/utils/test-result-status';
+import { passRate } from '@/constants/outcomes';
 
-export type ReviewBand = 'ok' | 'watch' | 'review';
-
-export interface ReviewBandInfo {
-  band: ReviewBand;
-  label: string;
-  colorKey: 'success' | 'warning' | 'error';
+/**
+ * A metric's pre-review automated value. `override.original_value` is set
+ * by the backend the moment a review changes the metric (see
+ * _apply_metric_override); falls back to the live value when there's no
+ * override.
+ */
+function metricAutomatedPass(metric: MetricResult): boolean {
+  return metric.override?.original_value ?? metric.is_successful;
 }
 
-export function getReviewBand(passRate: number): ReviewBandInfo {
-  if (passRate >= 100) {
-    return { band: 'ok', label: 'OK', colorKey: 'success' };
-  }
-  if (passRate >= 70) {
-    return { band: 'watch', label: 'Watch', colorKey: 'warning' };
-  }
-  return { band: 'review', label: 'Needs Review', colorKey: 'error' };
+/**
+ * The pre-review automated pass/fail for the whole result, from its metrics
+ * alone. Every metric is read at its *automated* value (via
+ * metricAutomatedPass), so a metric-level review that already flipped one
+ * does not move this baseline -- otherwise a test-level review would be
+ * compared against a number a human had already changed, and the
+ * human-correction counts below would silently drift.
+ *
+ * The backend has no field for this yet, which is why it is still computed
+ * here; see getEffectiveTestResultStatus for the trusted, backend-computed
+ * *display* outcome, which is what everything other than correction
+ * detection should use.
+ */
+function metricsOnlyAutomatedPass(result: TestResultDetail): boolean {
+  const metrics = result.test_metrics?.metrics ?? {};
+  const metricNames = Object.keys(metrics);
+  if (metricNames.length === 0) return false;
+  return metricNames.every(name => metricAutomatedPass(metrics[name]));
 }
+
+// The band scale lives in constants/outcomes.ts so every widget shares one.
+// Re-exported here because this module is the established import site.
+export type { ReviewBand, ReviewBandInfo } from '@/constants/outcomes';
+export { getReviewBand } from '@/constants/outcomes';
 
 export interface RequirementStat {
   name: string;
@@ -357,7 +374,7 @@ export function isMetricCorrected(
     return true;
   }
 
-  const automatedPass = getAutomatedMetricPass(metric);
+  const automatedPass = metricAutomatedPass(metric);
 
   for (const review of iterMetricTargetReviews(result, metricKey)) {
     const reviewedPass = isPassedStatusName(review.status?.name ?? '');
@@ -397,7 +414,7 @@ export function testHasHumanCorrection(result: TestResultDetail): boolean {
         ? [result.last_review]
         : [];
 
-  const automatedPass = getTestResultStatus(result) === 'Pass';
+  const automatedPass = metricsOnlyAutomatedPass(result);
 
   return reviewsToCheck.some(review => {
     const reviewedPass = isPassedStatusName(review.status?.name ?? '');
@@ -500,7 +517,7 @@ export function computeReviewSummary(
             isExplicitTestLevelReview(result, result.last_review)
           ? [result.last_review]
           : [];
-    const automatedPass = getTestResultStatus(result) === 'Pass';
+    const automatedPass = metricsOnlyAutomatedPass(result);
 
     const hasTestCorrection = reviewsToCheck.some(review => {
       const reviewedPass = isPassedStatusName(review.status?.name ?? '');
@@ -618,7 +635,7 @@ export function aggregateRequirementStats(
       total,
       passed,
       failed: total - passed,
-      passRate: total > 0 ? (passed / total) * 100 : 0,
+      passRate: passRate(passed, total - passed) ?? 0,
       hasHumanCorrection: humanCorrectionCount > 0,
       humanCorrectionCount,
       humanCorrectionTooltip: buildRequirementCorrectionTooltip(

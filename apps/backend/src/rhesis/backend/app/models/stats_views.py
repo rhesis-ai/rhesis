@@ -100,6 +100,7 @@ class TestStatsView(Base):
     passed_count = Column(Integer)
     failed_count = Column(Integer)
     pending_count = Column(Integer)
+    error_count = Column(Integer)
     is_unrun = Column(Boolean)
     last_run_at = Column(DateTime(timezone=True))
 

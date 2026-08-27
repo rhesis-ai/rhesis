@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -94,6 +95,12 @@ class Trace(
 
     # Trace metrics evaluation
     trace_metrics = Column(JSONB, nullable=True)
+    # Source of truth for this trace's pass/fail/error -- see app/outcomes.py.
+    # `trace_metrics_status_id` stays alongside as the display/review artefact
+    # and the column the traces list filters on; nothing should derive an
+    # outcome from it going forward.
+    execution = Column(Text, nullable=False, server_default="not_run")
+    verdict = Column(Text)
     trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
     trace_metrics_processed_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -138,6 +145,20 @@ class Trace(
             "idx_trace_metrics_unprocessed",
             "created_at",
             postgresql_where=(trace_metrics_processed_at.is_(None)),
+        ),
+        CheckConstraint(
+            "execution IN ('not_run','running','ok','error','cancelled')",
+            name="ck_trace_execution",
+        ),
+        CheckConstraint(
+            "verdict IS NULL OR verdict IN ('pass','fail','inconclusive')",
+            name="ck_trace_verdict",
+        ),
+        # The invariant the model exists to express: a verdict means
+        # something only once evaluation succeeded. See app/outcomes.py.
+        CheckConstraint(
+            "(execution = 'ok') = (verdict IS NOT NULL)",
+            name="ck_trace_verdict_requires_ok",
         ),
     )
 

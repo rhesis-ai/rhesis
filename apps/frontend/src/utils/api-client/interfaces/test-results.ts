@@ -3,6 +3,7 @@ import { Status } from './tests';
 import { Tag } from './tag';
 import { FileResponse } from './file';
 import type { WithPermittedActions } from '@/types/affordances';
+import type { Execution, Verdict } from '@/constants/outcomes';
 
 // Override marker added by backend when a human review changes a metric or turn value
 export interface OverrideMarker {
@@ -212,6 +213,11 @@ export interface TestResultBase {
   test_run_id?: UUID;
   prompt_id?: UUID;
   test_id?: UUID;
+  // Source of truth for pass/fail/error -- see constants/outcomes.ts and the
+  // backend's app/outcomes.py. Always present; `verdict` is set only when
+  // `execution === 'ok'`.
+  execution: Execution;
+  verdict: Verdict | null;
   test_metrics?: TestMetrics;
   test_reviews?: TestReviews;
   test_output?: TestOutput;

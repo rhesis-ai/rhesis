@@ -8,6 +8,9 @@ future edit that reintroduces one of them fails loudly.
 import pytest
 
 from rhesis.backend.app.outcomes import (
+    GRID_RESULT,
+    NOT_APPLICABLE_CHAR,
+    VERDICT_CHAR,
     Execution,
     Outcome,
     Verdict,
@@ -179,3 +182,49 @@ class TestOutcomeToTestResultStatusName:
         """
         with pytest.raises(ValueError, match="No test-result status name"):
             outcome_to_test_result_status_name(outcome)
+
+
+@pytest.mark.unit
+class TestVerdictChar:
+    """The verdict-grid character alphabet the frontend's verdict-model.ts
+    decodes -- see playground/outcome-model/phase-4-5-in-pr2.md.
+    """
+
+    def test_every_outcome_has_a_character(self):
+        for outcome in Outcome:
+            assert outcome in VERDICT_CHAR, outcome
+
+    def test_every_character_is_a_single_character(self):
+        for char in VERDICT_CHAR.values():
+            assert len(char) == 1
+
+    def test_cancelled_and_pending_share_the_not_yet_resolved_glyph(self):
+        assert VERDICT_CHAR[Outcome.CANCELLED] == VERDICT_CHAR[Outcome.PENDING] == "."
+
+    def test_not_applicable_char_is_distinct_from_every_outcome_char(self):
+        """X (structurally out of scope) must never collide with a real
+        outcome's glyph, or a not-applicable cell would decode as a result.
+        """
+        assert NOT_APPLICABLE_CHAR not in VERDICT_CHAR.values()
+
+
+@pytest.mark.unit
+class TestGridResult:
+    """The grid outcome strings v_test_result_stats.result and
+    result_processor.py's aggregation use.
+    """
+
+    def test_every_outcome_has_a_grid_result(self):
+        for outcome in Outcome:
+            assert outcome in GRID_RESULT, outcome
+
+    def test_inconclusive_and_pending_both_read_as_pending(self):
+        assert GRID_RESULT[Outcome.INCONCLUSIVE] == GRID_RESULT[Outcome.PENDING] == "pending"
+
+    def test_error_and_cancelled_are_distinct_grid_results(self):
+        """The bug this migration fixes: the old status-name CASE folded
+        both into 'pending' for having no branch of their own.
+        """
+        assert GRID_RESULT[Outcome.ERROR] == "error"
+        assert GRID_RESULT[Outcome.CANCELLED] == "cancelled"
+        assert GRID_RESULT[Outcome.ERROR] != GRID_RESULT[Outcome.CANCELLED]

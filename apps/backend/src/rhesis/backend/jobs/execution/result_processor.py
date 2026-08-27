@@ -19,8 +19,9 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     """
     Calculate test statistics from test run data using efficient SQL aggregation.
 
-    The test status is determined once during execution based on whether all metrics
-    passed. This stored status is then the source of truth for all statistics.
+    Grouped by ``execution``/``verdict`` (see ``app/outcomes.py``) -- the
+    source of truth every write path sets atomically -- rather than the
+    legacy ``status`` name and its synonym lists.
     Uses database-level aggregation for optimal performance.
 
     Args:
@@ -33,45 +34,39 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     from sqlalchemy import func
 
     from rhesis.backend.app import models
-    from rhesis.backend.app.constants import (
-        TEST_RESULT_STATUS_ERROR,
-        TEST_RESULT_STATUS_FAILED,
-        TEST_RESULT_STATUS_PASSED,
-    )
 
     # Build base filter conditions
     base_filters = [models.TestResult.test_run_id == test_run.id]
     if test_run.organization_id:
         base_filters.append(models.TestResult.organization_id == test_run.organization_id)
 
-    # Use SQL aggregation to count tests by status category
+    # Use SQL aggregation to count tests by (execution, verdict)
     # This is much more efficient than loading all results into memory
-    status_counts = (
+    counts = (
         db.query(
-            func.lower(models.Status.name).label("status_name"),
+            models.TestResult.execution,
+            models.TestResult.verdict,
             func.count(models.TestResult.id).label("count"),
         )
-        .join(models.Status, models.TestResult.status_id == models.Status.id)
         .filter(*base_filters)
-        .group_by(func.lower(models.Status.name))
+        .group_by(models.TestResult.execution, models.TestResult.verdict)
         .all()
     )
 
-    # Categorize status counts using centralized mappings
     tests_passed = 0
     tests_failed = 0
     execution_errors = 0
 
-    for status_name, count in status_counts:
-        if status_name in TEST_RESULT_STATUS_PASSED:
+    for execution, verdict, count in counts:
+        if execution == "ok" and verdict == "pass":
             tests_passed += count
-        elif status_name in TEST_RESULT_STATUS_FAILED:
+        elif execution == "ok" and verdict == "fail":
             tests_failed += count
-        elif status_name in TEST_RESULT_STATUS_ERROR:
+        elif execution in ("error", "cancelled"):
             execution_errors += count
-        else:
-            # Unknown status - treat as execution error
-            execution_errors += count
+        # ok/inconclusive and not_run/running carry neither a pass, a fail,
+        # nor an error -- they fall out of all three buckets, same as an
+        # unrecognized status name used to.
 
     # Get total count efficiently
     total_tests = (db.query(func.count(models.TestResult.id)).filter(*base_filters).scalar()) or 0
@@ -91,13 +86,12 @@ def get_test_statistics_for_runs(
     counts for many runs at once without paying the N+1 cost of one
     query per run.
 
-    Counts are derived from ``test_result.status`` joined to ``status``,
-    classified through the same ``TEST_RESULT_STATUS_*`` frozensets the
-    single-run helper uses. This mirrors what the test run detail page
-    renders via ``getEffectiveTestResultStatus``'s priority-2 path
-    (backend status, which already reflects metric and turn overrides);
-    it does not apply per-result human review overrides, which are a
-    UI-side refinement.
+    Counts are derived from ``test_result.execution``/``verdict`` (see
+    ``app/outcomes.py``), the same source of truth the single-run helper
+    uses. This mirrors what the test run detail page renders via
+    ``getEffectiveTestResultStatus``'s priority-2 path (backend status,
+    which already reflects metric and turn overrides); it does not apply
+    per-result human review overrides, which are a UI-side refinement.
 
     Args:
         db: Database session.
@@ -111,15 +105,14 @@ def get_test_statistics_for_runs(
         Dict mapping each ``str(test_run_id)`` to a dict with keys
         ``total``, ``passed``, ``failed``, ``errors``. Runs absent from
         the query (no test_results yet) get a zero-filled entry so the
-        caller can index unconditionally.
+        caller can index unconditionally. ``total`` counts every result
+        row for the run, including ones that land in none of
+        passed/failed/errors (an inconclusive verdict, or a result still
+        in flight) -- the three buckets need not sum to it.
     """
     from sqlalchemy import func
 
     from rhesis.backend.app import models
-    from rhesis.backend.app.constants import (
-        TEST_RESULT_STATUS_FAILED,
-        TEST_RESULT_STATUS_PASSED,
-    )
 
     run_id_strs = [str(rid) for rid in test_run_ids]
     stats: Dict[str, Dict[str, int]] = {
@@ -135,28 +128,28 @@ def get_test_statistics_for_runs(
     rows = (
         db.query(
             models.TestResult.test_run_id.label("run_id"),
-            func.lower(models.Status.name).label("status_name"),
+            models.TestResult.execution,
+            models.TestResult.verdict,
             func.count(models.TestResult.id).label("count"),
         )
-        .join(models.Status, models.TestResult.status_id == models.Status.id)
         .filter(*filters)
-        .group_by(models.TestResult.test_run_id, func.lower(models.Status.name))
+        .group_by(
+            models.TestResult.test_run_id, models.TestResult.execution, models.TestResult.verdict
+        )
         .all()
     )
 
-    for run_id, status_name, count in rows:
+    for run_id, execution, verdict, count in rows:
         bucket = stats.setdefault(
             str(run_id),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
         bucket["total"] += count
-        if status_name in TEST_RESULT_STATUS_PASSED:
+        if execution == "ok" and verdict == "pass":
             bucket["passed"] += count
-        elif status_name in TEST_RESULT_STATUS_FAILED:
+        elif execution == "ok" and verdict == "fail":
             bucket["failed"] += count
-        else:
-            # Unknown / pending / cancelled all fall through to errors,
-            # matching get_test_statistics' classification.
+        elif execution in ("error", "cancelled"):
             bucket["errors"] += count
 
     return stats

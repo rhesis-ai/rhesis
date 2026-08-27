@@ -4,6 +4,7 @@ import type {
   ConversationTurn,
   TestResultDetail,
 } from '@/utils/api-client/interfaces/test-results';
+import { allMetricsPassed } from '@/constants/outcomes';
 
 function getAutomatedTurnSuccess(rootSpans: SpanNode[]): boolean | undefined {
   const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
@@ -20,7 +21,8 @@ function getAutomatedTurnSuccess(rootSpans: SpanNode[]): boolean | undefined {
     | Record<string, { is_successful?: boolean }>
     | undefined;
   if (metrics && Object.keys(metrics).length > 0) {
-    return Object.values(metrics).every(m => m?.is_successful);
+    // Per-turn: finer than anything the backend stores an outcome for.
+    return allMetricsPassed(Object.values(metrics));
   }
 
   return undefined;
