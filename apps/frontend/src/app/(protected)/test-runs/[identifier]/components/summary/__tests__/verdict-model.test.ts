@@ -8,6 +8,7 @@ import type {
   VerdictRequirement,
   VerdictRow,
 } from '@/utils/api-client/interfaces/test-run';
+import { passRate } from '@/constants/outcomes';
 
 // Time-dependent state derivation lives in verdict-timeline.ts and is covered
 // by verdict-timeline.test.ts; this file covers what stays time-independent.
@@ -46,9 +47,9 @@ describe('CHAR_TO_STATE', () => {
 });
 
 describe('aggregateMetric', () => {
-  it('computes pass rate from row counts', () => {
+  it('computes pass rate from row counts, as a percentage', () => {
     expect(aggregateMetric(makeRow({ passed: 3, failed: 1 }))).toEqual({
-      passRate: 0.75,
+      passRate: 75,
     });
   });
 
@@ -61,7 +62,15 @@ describe('aggregateMetric', () => {
   it('excludes pending from the denominator', () => {
     expect(
       aggregateMetric(makeRow({ passed: 1, failed: 1, pending: 8 }))
-    ).toEqual({ passRate: 0.5 });
+    ).toEqual({ passRate: 50 });
+  });
+
+  it('agrees with the shared pass-rate formula', () => {
+    // Same scale, same helper -- so a row's number and its review-status
+    // chip can never band off different arithmetic.
+    expect(aggregateMetric(makeRow({ passed: 7, failed: 3 })).passRate).toBe(
+      passRate(7, 3)
+    );
   });
 });
 

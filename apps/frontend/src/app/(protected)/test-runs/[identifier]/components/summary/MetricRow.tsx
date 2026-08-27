@@ -84,8 +84,7 @@ function MetricRowInner({
   const totalStr = `${row.passed + row.failed + row.pending}`;
   const passedStr = `${row.passed}`;
   const failedStr = `${row.failed}`;
-  const passRateStr =
-    passRate !== null ? `${Math.round(passRate * 100)}%` : '--';
+  const passRateStr = passRate !== null ? `${Math.round(passRate)}%` : '--';
 
   const hasDrilldown = row.failed > 0 && !!onViewMetric;
 

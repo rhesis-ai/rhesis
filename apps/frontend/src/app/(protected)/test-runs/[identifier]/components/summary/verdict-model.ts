@@ -2,6 +2,7 @@ import type {
   VerdictRequirement,
   VerdictRow,
 } from '@/utils/api-client/interfaces/test-run';
+import { passRate } from '@/constants/outcomes';
 
 // 'generating' and 'evaluating' are deliberately distinct: the first covers a
 // whole test column (no metric can be scored until the model has answered),
@@ -33,10 +34,9 @@ export interface GroupTestAggregate {
   rollup: CellState[];
 }
 
+/** A metric's pass rate as a percentage (0-100), or null if nothing resolved. */
 export function aggregateMetric(row: VerdictRow): { passRate: number | null } {
-  const resolved = row.passed + row.failed;
-  if (resolved === 0) return { passRate: null };
-  return { passRate: row.passed / resolved };
+  return { passRate: passRate(row.passed, row.failed) };
 }
 
 export interface VerdictBlock {
