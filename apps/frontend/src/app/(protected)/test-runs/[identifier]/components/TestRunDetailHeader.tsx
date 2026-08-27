@@ -54,7 +54,7 @@ export function TestRunTitle({
           color: theme => theme.palette.greyscale.title,
         }}
       >
-        {testRun.name || 'Test Run'}
+        {testRun.name?.trim() || 'Test Run'}
       </Typography>
       {canRename && (
         <Tooltip title="Rename test run">

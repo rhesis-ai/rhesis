@@ -578,7 +578,7 @@ export default function TestRunMainView({
               ? 'Checking test set…'
               : 'Re-run test';
 
-  const title = testRun.name || `Test Run ${testRunId}`;
+  const title = testRun.name?.trim() || `Test Run ${testRunId}`;
 
   return (
     <PageLayout
