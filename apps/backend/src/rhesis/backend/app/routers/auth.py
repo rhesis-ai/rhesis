@@ -946,7 +946,6 @@ async def change_password(
     token is returned so the current session survives.
     """
     from rhesis.backend.app.auth.session_invalidation import (
-        clear_user_logout,
         invalidate_user_sessions,
     )
     from rhesis.backend.app.utils.encryption import hash_password, verify_password
@@ -979,7 +978,6 @@ async def change_password(
     db.commit()
 
     invalidate_user_sessions(str(db_user.id))
-    clear_user_logout(str(db_user.id))
 
     logger.info("Password changed for user: %s", redact_email(db_user.email))
 
