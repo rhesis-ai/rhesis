@@ -87,29 +87,27 @@ def get_test_sets(
         def has_runs_filter(query):
             logger.info(f"Applying has_runs filter: {has_runs}")
 
+            # Filter by an id subquery, not a direct join + .distinct() on `query` --
+            # that query eager-loads Organization.sso_config (plain `json`), which
+            # Postgres can't compare for DISTINCT.
+            subquery_builder = QueryBuilder(db, models.TestSet).with_organization_filter(
+                organization_id
+            )
+            subquery = (
+                subquery_builder.build()
+                .join(models.TestConfiguration)
+                .join(models.TestRun)
+                .distinct()
+                .with_entities(models.TestSet.id)
+                .subquery()
+            )
             if has_runs:
-                # Only test sets that have test runs
-                filtered_query = (
-                    query.join(models.TestConfiguration).join(models.TestRun).distinct()
-                )
+                filtered_query = query.filter(models.TestSet.id.in_(subquery))
                 logger.info("Applied filter for test sets WITH runs")
-                return filtered_query
             else:
-                # Only test sets that don't have test runs
-                subquery_builder = QueryBuilder(db, models.TestSet).with_organization_filter(
-                    organization_id
-                )
-                subquery = (
-                    subquery_builder.build()
-                    .join(models.TestConfiguration)
-                    .join(models.TestRun)
-                    .distinct()
-                    .with_entities(models.TestSet.id)
-                    .subquery()
-                )
                 filtered_query = query.filter(~models.TestSet.id.in_(subquery))
                 logger.info("Applied filter for test sets WITHOUT runs")
-                return filtered_query
+            return filtered_query
 
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
