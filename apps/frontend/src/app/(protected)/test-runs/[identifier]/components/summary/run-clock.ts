@@ -25,6 +25,20 @@ export const LAG_SECONDS = 2;
 /** Catch-up rate when joining a run already in progress. */
 export const REPLAY_RATE = 10;
 
+/**
+ * How much history a mid-run join replays.
+ *
+ * Opening a live run replays it from the start so the fill reads as motion
+ * rather than a static grid. Replaying *everything* does not scale: a run
+ * that has been going an hour would spend six minutes at REPLAY_RATE
+ * re-animating work the viewer already missed, and every reload would start
+ * that over. Past this window the clock joins near the present instead.
+ *
+ * Short runs are unaffected -- the cap only bites once elapsed time exceeds
+ * it, so the common "launch it and watch" case still plays from zero.
+ */
+export const MAX_JOIN_REPLAY_SECONDS = 30;
+
 /** Rate used to close the lag gap once a run finishes, so the strip settles promptly. */
 export const TERMINAL_CATCHUP_RATE = 3;
 
@@ -134,12 +148,22 @@ export interface RunClockFrame {
   /** Seconds since the run finished; negative while it is still going. */
   sinceComplete: number;
   isTerminal: boolean;
+  /**
+   * Real seconds elapsed on screen, unaffected by playback rate.
+   *
+   * `clock` is run time, which speeds up to REPLAY_RATE while catching up.
+   * Anything that is a property of the *display* rather than of the run --
+   * the in-flight pulses -- must read this instead, or it oscillates at
+   * playback speed and reads as flicker rather than a breath.
+   */
+  wall: number;
 }
 
 export function toFrame(
   clock: number,
   runDuration: number | null,
-  isTerminal: boolean
+  isTerminal: boolean,
+  wall: number = clock
 ): RunClockFrame {
   const duration = runDuration ?? Infinity;
   return {
@@ -147,6 +171,7 @@ export function toFrame(
     t: Math.min(clock, duration),
     sinceComplete: runDuration === null ? -Infinity : clock - runDuration,
     isTerminal,
+    wall,
   };
 }
 
@@ -172,10 +197,17 @@ export function isSettled(
  */
 export function initialClock(
   runDuration: number | null,
-  isTerminal: boolean
+  isTerminal: boolean,
+  serverElapsed: number | null = null
 ): number {
-  if (!isTerminal) return 0;
-  return (runDuration ?? 0) + SETTLE_TAIL;
+  if (isTerminal) return (runDuration ?? 0) + SETTLE_TAIL;
+  if (serverElapsed === null) return 0;
+
+  // Join near the present rather than replaying hours of history. Negative
+  // for any run shorter than the window, which clamps to 0 -- so a run you
+  // just launched still plays from the very beginning.
+  const target = Math.max(0, serverElapsed - LAG_SECONDS);
+  return Math.max(0, target - MAX_JOIN_REPLAY_SECONDS);
 }
 
 /**
