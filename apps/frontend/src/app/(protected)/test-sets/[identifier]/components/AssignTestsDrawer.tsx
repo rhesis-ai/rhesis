@@ -67,6 +67,12 @@ export default function AssignTestsDrawer({
   const [resolvedLinkedIds, setResolvedLinkedIds] = useState<Set<string>>(
     new Set()
   );
+  // Gates rendering rows until we know which tests are already linked --
+  // otherwise the first page of "all tests" briefly renders unfiltered
+  // (before `resolvedLinkedIds` arrives), then immediately collapses once
+  // the already-linked ones are excluded. Most visible on a small test set
+  // whose own tests are also the most recently created ones overall.
+  const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
   const testsByIdRef = useRef<Map<string, TestDetail>>(new Map());
   const isMountedRef = useRef(true);
 
@@ -97,6 +103,8 @@ export default function AssignTestsDrawer({
     } catch {
       if (!isMountedRef.current) return;
       setResolvedLinkedIds(new Set());
+    } finally {
+      if (isMountedRef.current) setLinkedIdsLoaded(true);
     }
   }, [testSetId]);
 
@@ -145,6 +153,7 @@ export default function AssignTestsDrawer({
     setDrawerFilters(EMPTY_TEST_FILTERS);
     setFilterModel({ items: [] });
     setPaginationModel({ page: 0, pageSize: 25 });
+    setLinkedIdsLoaded(false);
     void fetchLinkedIds();
   }, [open, fetchLinkedIds]);
 
@@ -177,16 +186,19 @@ export default function AssignTestsDrawer({
     [testSetType]
   );
 
-  const availableFiltered = useMemo(
-    () =>
-      available
-        .filter(test => test.id && !resolvedLinkedIds.has(String(test.id)))
-        .map(test => ({
-          ...test,
-          name: getTestDisplayContent(test),
-        })) as GridRowModel[],
-    [available, resolvedLinkedIds]
-  );
+  const availableFiltered = useMemo(() => {
+    // Don't hand the grid any rows until we know which tests are already
+    // linked -- a loading overlay is translucent, so rows that are about to
+    // be filtered out would still show through it as a flash before
+    // collapsing to empty.
+    if (!linkedIdsLoaded) return [] as GridRowModel[];
+    return available
+      .filter(test => test.id && !resolvedLinkedIds.has(String(test.id)))
+      .map(test => ({
+        ...test,
+        name: getTestDisplayContent(test),
+      })) as GridRowModel[];
+  }, [available, resolvedLinkedIds, linkedIdsLoaded]);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
@@ -206,7 +218,7 @@ export default function AssignTestsDrawer({
         title="Assign tests"
         rows={availableFiltered}
         columns={columns}
-        loading={loading}
+        loading={loading || !linkedIdsLoaded}
         getRowId={row => String(row.id)}
         onAssign={handleAssign}
         saveButtonText="Assign"
