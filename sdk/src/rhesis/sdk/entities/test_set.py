@@ -1491,7 +1491,7 @@ class TestSet(BaseEntity):
         tests: List[Test] = []
 
         with open(filepath, "r", encoding="utf-8") as jsonlfile:
-            for line_num, line in enumerate(jsonlfile, 1):
+            for _line_num, line in enumerate(jsonlfile, 1):
                 line = line.strip()
                 if not line:
                     continue  # Skip empty lines

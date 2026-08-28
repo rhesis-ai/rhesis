@@ -134,6 +134,16 @@ class BaseModel(ABC):
     def __init__(self, model_name: str, *args, **kwargs):
         self.model_name = model_name
 
+    @abstractmethod
+    def generate_batch(self, *args, **kwargs) -> List[Any]:
+        """Run the model over multiple inputs.
+
+        The one contract every model type shares — BaseLLM and BaseEmbedder both
+        redeclare it abstract with their own signature. Declared here so this class
+        is genuinely abstract: an ABC with no abstract method enforces nothing, and
+        subclasses rely on inheriting ABCMeta from it (B024).
+        """
+
     def get_model_name(self) -> str:
         return f"{self.__class__.__name__}: {self.model_name}"
 

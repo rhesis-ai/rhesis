@@ -464,7 +464,7 @@ class TestSetSynthesizer(ABC):
             )
 
         all_tests: List[Dict[str, Any]] = []
-        for i, (response, expected_size) in enumerate(zip(responses, batch_sizes)):
+        for i, (response, expected_size) in enumerate(zip(responses, batch_sizes, strict=True)):
             tests = self._process_batch_response(response, expected_size, i + 1)
             all_tests.extend(tests)
 
