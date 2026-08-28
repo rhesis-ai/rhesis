@@ -64,17 +64,18 @@ export default function LinkedTestSetsSection({
     try {
       const testSetsClient = new TestSetsClient();
       const response = await testSetsClient.getTestSets({
-        limit: 500,
+        limit: 100,
         sort_by: 'name',
         sort_order: 'asc',
       });
       setAvailable(response.data);
     } catch {
       setAvailable([]);
+      showNotification('Failed to load test sets', { severity: 'error' });
     } finally {
       setLoadingAvailable(false);
     }
-  }, []);
+  }, [showNotification]);
 
   const linkedIds = useMemo(
     () => new Set(testSets.map(ts => String(ts.id))),
