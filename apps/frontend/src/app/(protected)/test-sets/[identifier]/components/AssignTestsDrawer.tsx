@@ -67,14 +67,13 @@ export default function AssignTestsDrawer({
   const [resolvedLinkedIds, setResolvedLinkedIds] = useState<Set<string>>(
     new Set()
   );
-  // Gates rendering rows until we know which tests are already linked --
-  // otherwise the first page of "all tests" briefly renders unfiltered
-  // (before `resolvedLinkedIds` arrives), then immediately collapses once
-  // the already-linked ones are excluded. Most visible on a small test set
-  // whose own tests are also the most recently created ones overall.
+  // Gates rows until we know which tests are already linked, so the
+  // unfiltered page never renders before collapsing to the excluded set.
   const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
   const testsByIdRef = useRef<Map<string, TestDetail>>(new Map());
   const isMountedRef = useRef(true);
+  // Guards against a stale response (rapid close/reopen) overwriting a newer one.
+  const linkedIdsRequestRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -92,19 +91,23 @@ export default function AssignTestsDrawer({
   }, [available]);
 
   const fetchLinkedIds = useCallback(async () => {
+    const requestId = ++linkedIdsRequestRef.current;
+    const isStale = () =>
+      !isMountedRef.current || requestId !== linkedIdsRequestRef.current;
+
     try {
       const factory = new ApiClientFactory();
       const testSetsClient = factory.getTestSetsClient();
       const linkedTests = await testSetsClient.getAllTestSetTests(testSetId);
-      if (!isMountedRef.current) return;
+      if (isStale()) return;
       setResolvedLinkedIds(
         new Set(linkedTests.map(test => String(test.id)).filter(Boolean))
       );
     } catch {
-      if (!isMountedRef.current) return;
+      if (isStale()) return;
       setResolvedLinkedIds(new Set());
     } finally {
-      if (isMountedRef.current) setLinkedIdsLoaded(true);
+      if (!isStale()) setLinkedIdsLoaded(true);
     }
   }, [testSetId]);
 
