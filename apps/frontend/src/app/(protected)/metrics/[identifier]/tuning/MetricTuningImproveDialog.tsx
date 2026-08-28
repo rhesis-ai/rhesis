@@ -207,6 +207,9 @@ function FieldDiff({
         WebkitBoxOrient: 'vertical' as const,
       };
 
+  // No `label` on the box: the caption above it already names the side, and a
+  // floating label repeating it sits on the caption's baseline. The name stays
+  // in `aria-label`, which is where a screen reader looks for it anyway.
   const shared = {
     value,
     error: Boolean(error),
@@ -214,7 +217,7 @@ function FieldDiff({
       onChange(event.target.value),
     fullWidth: true,
     size: 'small' as const,
-    label: `${label}, proposed`,
+    slotProps: { htmlInput: { 'aria-label': `${label}, proposed` } },
   };
 
   return (

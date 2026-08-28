@@ -172,14 +172,27 @@ function MetricReasoningCell({ params }: { params: GridRenderCellParams }) {
 }
 
 /**
- * Weight for a mark that records a judgement.
+ * The two marks: hollow while the judgement is open, solid once it stands.
  *
- * These icons are filled paths with no bolder variant to switch to, so the
- * weight has to come from stroking the glyph in its own colour. Colour alone
- * did not carry the pressed state at this size: a thin green tick and a thin
- * grey one read as the same mark until you look for the hue.
+ * Neither glyph ships an outlined variant, so the outline is drawn from the same
+ * path — its fill dropped and its edge stroked. That keeps the mark the same
+ * shape in both states, which is what makes the fill read as the state rather
+ * than as a different control. Colour alone did not carry it at this size: a
+ * thin green tick and a thin grey one read alike until you look for the hue.
  */
-const MARK_PRESSED_SX = { stroke: 'currentColor', strokeWidth: 1.5 };
+const MARK_OPEN_SX = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinejoin: 'round' as const,
+};
+
+/** The same path kept filled and stroked, so the mark that stands reads bold. */
+const MARK_SET_SX = {
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinejoin: 'round' as const,
+};
 
 /**
  * The judgement that stands for this case, and the two buttons that change it.
@@ -227,11 +240,11 @@ function ReviewCell({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {invalidated && <InvalidatedMark />}
         {accepted && (
-          <CheckIcon fontSize="small" color="success" sx={MARK_PRESSED_SX} />
+          <CheckIcon fontSize="small" color="success" sx={MARK_SET_SX} />
         )}
         {rejected && (
           <Tooltip title={review?.comment ?? ''}>
-            <CloseIcon fontSize="small" color="error" sx={MARK_PRESSED_SX} />
+            <CloseIcon fontSize="small" color="error" sx={MARK_SET_SX} />
           </Tooltip>
         )}
         {!accepted && !rejected && <span>—</span>}
@@ -250,12 +263,12 @@ function ReviewCell({
           // as well as visible in the fill.
           aria-pressed={accepted}
           color={accepted ? 'success' : 'default'}
-          sx={{ opacity: accepted ? 1 : 0.55 }}
+          sx={{ opacity: accepted ? 1 : 0.6 }}
           onClick={() => onAccept(tuningCase)}
         >
           <CheckIcon
             fontSize="small"
-            sx={accepted ? MARK_PRESSED_SX : undefined}
+            sx={accepted ? MARK_SET_SX : MARK_OPEN_SX}
           />
         </IconButton>
       </Tooltip>
@@ -271,12 +284,12 @@ function ReviewCell({
           aria-label="Reject this verdict"
           aria-pressed={rejected}
           color={rejected ? 'error' : 'default'}
-          sx={{ opacity: rejected ? 1 : 0.55 }}
+          sx={{ opacity: rejected ? 1 : 0.6 }}
           onClick={() => onReject(tuningCase)}
         >
           <CloseIcon
             fontSize="small"
-            sx={rejected ? MARK_PRESSED_SX : undefined}
+            sx={rejected ? MARK_SET_SX : MARK_OPEN_SX}
           />
         </IconButton>
       </Tooltip>
@@ -383,7 +396,7 @@ function RunSummary({ run }: { run: MetricTuningRun | null }) {
 
   if (run.status === 'running') {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={16} />
         <Typography variant="body2" color="text.secondary">
           Running the metric over {run.total_cases}{' '}
@@ -396,7 +409,7 @@ function RunSummary({ run }: { run: MetricTuningRun | null }) {
 
   if (run.status === 'failed') {
     return (
-      <Typography variant="body2" color="error" sx={{ mb: 1.5 }}>
+      <Typography variant="body2" color="error">
         The last run failed{run.error ? `: ${run.error}` : '.'}
       </Typography>
     );
@@ -408,7 +421,7 @@ function RunSummary({ run }: { run: MetricTuningRun | null }) {
       ? ` ${run.errored_cases} of them could not be reached.`
       : '';
   return (
-    <Box sx={{ mb: 1.5 }}>
+    <Box>
       <Typography variant="body2" color="text.secondary">
         Last run {finished ? finished.toLocaleString() : ''} over{' '}
         {run.completed_cases} {run.completed_cases === 1 ? 'case' : 'cases'}.
@@ -471,7 +484,7 @@ function toMetricUpdate(fields: ImprovedMetricFields): MetricUpdate {
  */
 function ImprovingSummary({ rejections }: { rejections: number }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <CircularProgress size={16} />
       <Typography variant="body2" color="text.secondary">
         Rewriting this metric from {rejections}{' '}
@@ -962,64 +975,87 @@ export default function MetricTuningTab({
       : IMPROVE_HINT;
   // Right above the grid rather than in the card header: every one of these
   // acts on the table below it, and the header sits three summary blocks away.
+  //
+  // The status line shares this row instead of sitting above it. It comes and
+  // goes as runs start and finish, and a line that appears above the buttons
+  // pushes the whole grid down every time it does; beside them it changes only
+  // its own text. The row keeps the height of a button either way, so an empty
+  // status slot is the same height as a full one.
   const actions = (
     <Box
       sx={{
         display: 'flex',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        gap: 1.5,
+        gap: 2,
         mb: 2,
+        minHeight: 40,
       }}
     >
-      {canEdit && cases.length > 0 && (
-        <Button
-          variant="outlined"
-          startIcon={<PlayArrowIcon />}
-          onClick={handleRun}
-          disabled={isRunning || starting}
-        >
-          {isRunning ? 'Running…' : 'Run metric'}
-        </Button>
-      )}
-      {canEdit && (
-        <Button
-          variant="outlined"
-          startIcon={<CheckIcon />}
-          onClick={handleAcceptRest}
-          disabled={!unreviewedWithVerdict || acceptingRest}
-        >
-          Accept the rest
-        </Button>
-      )}
-      {/* The tooltip sits on a span because MUI drops pointer events on a
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {improving ? (
+          <ImprovingSummary rejections={standingRejections} />
+        ) : (
+          <RunSummary run={run} />
+        )}
+      </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexShrink: 0,
+        }}
+      >
+        {canEdit && cases.length > 0 && (
+          <Button
+            variant="outlined"
+            startIcon={<PlayArrowIcon />}
+            onClick={handleRun}
+            disabled={isRunning || starting}
+          >
+            {isRunning ? 'Running…' : 'Run metric'}
+          </Button>
+        )}
+        {canEdit && (
+          <Button
+            variant="outlined"
+            startIcon={<CheckIcon />}
+            onClick={handleAcceptRest}
+            disabled={!unreviewedWithVerdict || acceptingRest}
+          >
+            Accept the rest
+          </Button>
+        )}
+        {/* The tooltip sits on a span because MUI drops pointer events on a
           disabled button, and the disabled state is the one whose reason a
           reader actually needs. */}
-      {canEdit && (
-        <Tooltip title={improveHint}>
-          <span>
-            <Button
-              variant="outlined"
-              startIcon={
-                improving ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <AutoFixHighIcon />
-                )
-              }
-              onClick={handleImprove}
-              disabled={!canImprove}
-            >
-              {improving ? 'Improving…' : 'Improve'}
-            </Button>
-          </span>
-        </Tooltip>
-      )}
-      {canEdit && (
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
-          Add case
-        </Button>
-      )}
+        {canEdit && (
+          <Tooltip title={improveHint}>
+            <span>
+              <Button
+                variant="outlined"
+                startIcon={
+                  improving ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <AutoFixHighIcon />
+                  )
+                }
+                onClick={handleImprove}
+                disabled={!canImprove}
+              >
+                {improving ? 'Improving…' : 'Improve'}
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+        {canEdit && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
+            Add case
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 
@@ -1040,15 +1076,13 @@ export default function MetricTuningTab({
           />
         ) : (
           <>
-            {/* Nothing while a run is going: until the worker has cleared the
-                last run's results, the number is the previous run's, and one
-                sitting above a progress line reads as this run's. The progress
-                line says what is happening instead. */}
-            {hasResults && run && !isRunning && (
-              <AgreementSummary agreement={run.agreement} />
-            )}
-            <RunSummary run={run} />
-            {improving && <ImprovingSummary rejections={standingRejections} />}
+            {/* Kept on screen through a run rather than pulled out from under
+                the reviewer: it is the number they pressed Run to move, and a
+                dashboard that vanishes on the press takes the whole page up
+                with it. A run clears the verdicts it is about to replace, so
+                the tiles empty out on their own while it goes — the progress
+                line beside the buttons says why. */}
+            {run && <AgreementSummary agreement={run.agreement} />}
             {/* Not while the list is still loading: a toolbar that appears and
                 then goes away again when the metric turns out to have no cases
                 is worse than one that arrives with the rows it acts on. */}
