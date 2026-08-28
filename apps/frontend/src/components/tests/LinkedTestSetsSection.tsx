@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
@@ -82,10 +82,17 @@ export default function LinkedTestSetsSection({
     [testSets]
   );
 
-  const availableFiltered = useMemo<GridRowModel[]>(
-    () => available.filter(ts => !linkedIds.has(String(ts.id))),
-    [available, linkedIds]
-  );
+  // Settles once and stays true -- unlike `loading`, which flips again on
+  // every refetch (pagination, `refresh()` after an assign).
+  const [linkedIdsSettled, setLinkedIdsSettled] = useState(!loading);
+  useEffect(() => {
+    if (!loading) setLinkedIdsSettled(true);
+  }, [loading]);
+
+  const availableFiltered = useMemo<GridRowModel[]>(() => {
+    if (!linkedIdsSettled) return [];
+    return available.filter(ts => !linkedIds.has(String(ts.id)));
+  }, [available, linkedIds, linkedIdsSettled]);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
@@ -270,7 +277,7 @@ export default function LinkedTestSetsSection({
           title="Assign Test Set"
           rows={availableFiltered}
           columns={drawerColumns}
-          loading={loadingAvailable}
+          loading={loadingAvailable || !linkedIdsSettled}
           getRowId={row => String(row.id)}
           onAssign={handleAssign}
           searchPlaceholder="Search test sets…"
