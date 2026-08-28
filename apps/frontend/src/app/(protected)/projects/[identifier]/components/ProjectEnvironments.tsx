@@ -346,6 +346,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           field: 'version',
           headerName: 'Version',
           width: 90,
+          flex: 0,
           sortable: false,
           valueGetter: (_value, row) =>
             row.pointer ? shortVersion(row.pointer.version) : '',
@@ -363,6 +364,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           field: 'status',
           headerName: 'Status',
           width: 90,
+          flex: 0,
           sortable: false,
           valueGetter: (_value, row) => (row.pointer ? 'Bound' : 'Unbound'),
           renderCell: (params: GridRenderCellParams<EnvironmentRow>) => (

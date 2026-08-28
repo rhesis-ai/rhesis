@@ -100,9 +100,8 @@ export function TasksSection({
     {
       field: 'title',
       headerName: 'Title',
-      width: 200,
+      flex: 2,
       minWidth: 120,
-      resizable: true,
       renderCell: params => (
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {params.row.title}
@@ -112,9 +111,8 @@ export function TasksSection({
     {
       field: 'description',
       headerName: 'Description',
-      width: 250,
+      flex: 2.5,
       minWidth: 120,
-      resizable: true,
       renderCell: params => (
         <Typography
           variant="body2"
@@ -132,9 +130,8 @@ export function TasksSection({
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      flex: 1.2,
       minWidth: 90,
-      resizable: true,
       renderCell: params => {
         const getStatusColor = (status?: string) => {
           switch (status) {
@@ -170,9 +167,8 @@ export function TasksSection({
     {
       field: 'assignee',
       headerName: 'Assignee',
-      width: 150,
+      flex: 1.5,
       minWidth: 120,
-      resizable: true,
       renderCell: params => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Avatar

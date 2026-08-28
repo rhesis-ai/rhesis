@@ -681,7 +681,8 @@ export default function SuggestionsDialog({
     {
       field: 'model_score',
       headerName: 'Score',
-      width: 100,
+      flex: 1,
+      minWidth: 100,
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => {

@@ -144,7 +144,7 @@ export default function ProjectMembers({
       ? {
           field: 'role',
           headerName: 'Role',
-          width: 150,
+          flex: 1.5,
           sortable: false,
           filterable: false,
           renderCell: params => (
@@ -157,7 +157,7 @@ export default function ProjectMembers({
       : {
           field: 'role',
           headerName: 'Role',
-          width: 120,
+          flex: 1.2,
           sortable: false,
           filterable: false,
           valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',

@@ -842,6 +842,7 @@ export default function MetricTuningTab({
         field: 'metric_verdict',
         headerName: 'Metric verdict',
         width: 140,
+        flex: 0,
         // Reads the nested `result`, which no single field sorts by.
         sortable: false,
         disableColumnMenu: true,
@@ -870,6 +871,7 @@ export default function MetricTuningTab({
             field: 'review',
             headerName: 'Review',
             width: 120,
+            flex: 0,
             // The cell reads `outcome`, `review` and `result` together.
             sortable: false,
             disableColumnMenu: true,
