@@ -608,15 +608,15 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
           root: {
             borderRadius: 8,
             ...(mode === 'dark' && {
-              color: '#ffffff',
+              color: gs.title,
+              backgroundColor: gs.fieldSurface,
             }),
           },
           notchedOutline: {
-            borderColor:
-              mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border,
+            borderColor: gs.border,
           },
           input: {
-            ...(mode === 'dark' && { color: '#ffffff' }),
+            ...(mode === 'dark' && { color: gs.title }),
           },
         },
       },
