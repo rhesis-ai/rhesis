@@ -24,6 +24,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "execution_trace",
+        sa.Column(
+            "id",
+            rhesis.backend.app.models.guid.GUID(),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
+        sa.Column("nano_id", sa.String(12), unique=True, nullable=False),
         sa.Column("project_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
         sa.Column("organization_id", rhesis.backend.app.models.guid.GUID(), nullable=False),
         sa.Column("environment", sa.String(length=50), nullable=False),
@@ -34,6 +41,19 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("error", sa.Text(), nullable=True),
         sa.Column("executed_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
             ["project_id"],
             ["project.id"],

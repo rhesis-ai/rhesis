@@ -347,10 +347,10 @@ def receive_trace(
     user_id = str(current_user.id)
 
     with get_db_with_tenant_variables(organization_id, user_id, "") as db:
-        _assert_project_membership(db, trace.project_id, current_user)
+        _assert_project_membership(db, str(trace.project_id), current_user)
 
         record = ExecutionTraceModel(
-            project_id=uuid.UUID(trace.project_id),
+            project_id=trace.project_id,
             organization_id=current_user.organization_id,
             environment=trace.environment,
             function_name=trace.function_name,

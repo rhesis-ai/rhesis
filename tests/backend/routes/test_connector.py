@@ -27,8 +27,9 @@ _MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_member
 
 
 @pytest.fixture
-def seeded_project(test_db, test_org_id):
-    """Real project row so persisted execution traces satisfy the FK."""
+def seeded_project(test_db, test_org_id, authenticated_user_id):
+    """Real project row (plus the API user's membership) so persisted
+    execution traces satisfy the FK and the real membership guard."""
     from rhesis.backend.app import models
 
     project = models.Project(
@@ -36,6 +37,14 @@ def seeded_project(test_db, test_org_id):
         organization_id=uuid.UUID(test_org_id),
     )
     test_db.add(project)
+    test_db.flush()
+    test_db.add(
+        models.ProjectMembership(
+            project_id=project.id,
+            user_id=uuid.UUID(authenticated_user_id),
+            organization_id=uuid.UUID(test_org_id),
+        )
+    )
     test_db.flush()
     yield project
     test_db.rollback()

@@ -1,6 +1,7 @@
 """Schemas for connector REST API."""
 
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -40,7 +41,7 @@ class ExecutionTrace(BaseModel):
     status: str = Field(..., description="Execution status: success or error")
     error: Optional[str] = Field(None, description="Error message if failed")
     timestamp: float = Field(..., description="Unix timestamp of execution")
-    project_id: str = Field(..., description="Project identifier")
+    project_id: UUID = Field(..., description="Project identifier")
     environment: str = Field(..., description="Environment name")
 
 
