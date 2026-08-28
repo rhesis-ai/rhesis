@@ -8,8 +8,7 @@ import time
 import uuid
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
@@ -18,6 +17,7 @@ from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.connector import (
     ConnectionStatusResponse,
     ExecutionTrace,

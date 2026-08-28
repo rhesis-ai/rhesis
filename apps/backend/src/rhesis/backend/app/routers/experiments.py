@@ -19,7 +19,6 @@ import uuid
 from fastapi import Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
@@ -52,6 +51,7 @@ from rhesis.backend.app.services.experiment import (
     to_read,
     unbind_environment,
 )
+from rhesis.backend.app.utils.crud_utils import delete_item
 
 router = RhesisRouter(
     prefix="/experiments",
@@ -229,7 +229,7 @@ def delete_experiment(
             unbind_environment(db, project=project, environment_name=env_name)
 
     snapshot = to_read(db_experiment)
-    crud.delete_item(
+    delete_item(
         db,
         Experiment,
         experiment_id,

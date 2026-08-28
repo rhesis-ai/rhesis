@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
-    REQUIREMENT_LIST_KEY,
     ERROR_BULK_CREATE_FAILED,
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
+    REQUIREMENT_LIST_KEY,
     EntityType,
     TestResultStatus,
     TestSetType,
@@ -572,7 +572,7 @@ def update_test_set_attributes(
     """
     from uuid import UUID
 
-    from rhesis.backend.app.crud import get_test_set
+    from rhesis.backend.app.crud.test_set import get_test_set
     from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
     # Validate UUID
@@ -629,9 +629,9 @@ def get_last_completed_test_run(
 
     Raises:
         ItemDeletedException: If test_set_identifier resolves to a
-            soft-deleted test set (via crud.resolve_test_set).
+            soft-deleted test set (via test_set_crud.resolve_test_set).
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import test_set as test_set_crud
     from rhesis.backend.app.models.status import Status
     from rhesis.backend.app.models.test_configuration import (
         TestConfiguration,
@@ -640,7 +640,9 @@ def get_last_completed_test_run(
     from rhesis.backend.jobs.enums import RunStatus
 
     # Resolve test set
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         return None
 
@@ -741,8 +743,8 @@ def execute_test_set_on_endpoint(
         PermissionError: For access control errors
         RuntimeError: For execution errors
     """
-    from rhesis.backend.app import crud
     from rhesis.backend.app.crud import endpoint as endpoint_crud
+    from rhesis.backend.app.crud import test_set as test_set_crud
 
     logger.info(
         f"Starting test set execution for identifier: {test_set_identifier} "
@@ -757,7 +759,7 @@ def execute_test_set_on_endpoint(
 
     # Resolve test set
     logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-    db_test_set = crud.resolve_test_set(
+    db_test_set = test_set_crud.resolve_test_set(
         test_set_identifier, db, organization_id=str(current_user.organization_id)
     )
     if db_test_set is None:

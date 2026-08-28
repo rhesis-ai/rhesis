@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.query_utils import include
 from rhesis.backend.jobs.execution.metrics_utils import get_requirement_metrics
 
 logger = logging.getLogger(__name__)

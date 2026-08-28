@@ -42,7 +42,7 @@ def mock_db():
 def service(mock_db, mock_user, mock_llm):
     """Create AutoConfigureService with a mocked LLM."""
     with patch(
-        "rhesis.backend.app.services.endpoint.auto_configure.get_user_generation_model",
+        "rhesis.backend.app.services.endpoint.auto_configure.resolve_model",
         return_value=mock_llm,
     ):
         from rhesis.backend.app.services.endpoint.auto_configure import (

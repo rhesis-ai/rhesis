@@ -1,9 +1,5 @@
 """CRUD operations for embeddings.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 An ``Embedding`` row stores its vector in a dimension-specific column
 (``embedding_768``, ``embedding_1536``, ...) because pgvector needs a fixed width per
 column. The ``ck_embedding_exactly_one_embedding`` constraint requires exactly one of them

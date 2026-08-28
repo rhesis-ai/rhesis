@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
 from rhesis.backend.app.crud.metric import get_metrics
 from rhesis.backend.app.schemas.explorer import (
@@ -26,7 +26,7 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
-from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
@@ -166,7 +166,7 @@ def resolve_sdk_metrics(
     if missing:
         raise ValueError(f"Metric does not exist: {', '.join(missing)}")
 
-    model = get_evaluation_model(db, user_id)
+    model = resolve_model(db, user_id, "evaluation")
 
     sdk_metrics: List[Tuple[Any, MetricConfig]] = []
     for m in resolved:
@@ -324,7 +324,9 @@ async def evaluate_tests_for_explorer_set(
     """
     sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
 

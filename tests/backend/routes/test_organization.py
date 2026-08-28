@@ -414,7 +414,9 @@ class TestOrganizationOnboarding(OrganizationTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "not initialized yet" in response.json()["detail"].lower()
 
-    @pytest.mark.skip(reason="Test hangs - rollback_initial_data recursive relationship walker OOMs the worker")
+    @pytest.mark.skip(
+        reason="Test hangs - rollback_initial_data recursive relationship walker OOMs the worker"
+    )
     def test_onboarding_workflow_complete_cycle(
         self, authenticated_client: TestClient, organization_incomplete_onboarding
     ):
@@ -541,26 +543,14 @@ class TestOrganizationLimitsAndSubscription(OrganizationTestMixin, BaseEntityTes
 class TestOrganizationDeletion(OrganizationTestMixin, BaseEntityTests):
     """Organization deletion and authorization tests"""
 
-    def test_delete_organization_requires_superuser(
-        self, authenticated_client: TestClient, organization_with_owner, authenticated_user
+    def test_delete_endpoint_is_not_exposed(
+        self, authenticated_client: TestClient, organization_with_owner
     ):
-        """🔒 Test organization deletion - endpoint was removed"""
-        # Create organization
+        """🔒 DELETE /organizations/{id} was removed and must stay removed"""
         org = organization_with_owner()
 
-        # Try to delete - endpoint no longer exists
         response = authenticated_client.delete(self.endpoints.remove(org["id"]))
 
-        # Organization delete endpoint was removed, so method not allowed
-        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
-
-    def test_delete_nonexistent_organization(self, authenticated_client: TestClient):
-        """❌ Test deleting non-existent organization - endpoint removed"""
-        fake_org_id = str(uuid.uuid4())
-
-        response = authenticated_client.delete(self.endpoints.remove(fake_org_id))
-
-        # Organization delete endpoint was removed, so method not allowed
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 

@@ -16,11 +16,7 @@ from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.user_model_utils import (
-    validate_user_evaluation_model,
-    validate_user_execution_model,
-    validate_user_generation_model,
-)
+from rhesis.backend.app.utils.user_model_utils import validate_model
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +44,8 @@ def validate_execution_model(
             ...
     """
     try:
-        validate_user_evaluation_model(db, current_user)
-        validate_user_execution_model(db, current_user)
+        validate_model(db, current_user, "evaluation")
+        validate_model(db, current_user, "execution")
     except ModelConfigurationError as e:
         raise _convert_model_error_to_http_exception(e, "execution")
 
@@ -77,7 +73,7 @@ def validate_generation_model(
             ...
     """
     try:
-        validate_user_generation_model(db, current_user)
+        validate_model(db, current_user, "generation")
     except ModelConfigurationError as e:
         raise _convert_model_error_to_http_exception(e, "generation")
 

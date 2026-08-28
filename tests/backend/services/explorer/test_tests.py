@@ -6,7 +6,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import create_explorer_test, get_test_ids_in_test_sets
 from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
@@ -1291,7 +1292,7 @@ class TestExportRegularTestSetFromExplorer:
         assert new_set.explorer_row is False
         assert (new_set.attributes or {}).get("adaptive_settings") is None
 
-        items, total = crud.get_test_set_tests(
+        items, total = test_set_crud.get_test_set_tests(
             db=test_db,
             test_set_id=new_set.id,
             skip=0,
@@ -1359,7 +1360,7 @@ class TestExportRegularTestSetFromExplorer:
         assert result.skipped == 3
         assert len(result.skipped_test_ids) == 3
 
-        items, total = crud.get_test_set_tests(
+        items, total = test_set_crud.get_test_set_tests(
             db=test_db,
             test_set_id=result.test_set.id,
             skip=0,

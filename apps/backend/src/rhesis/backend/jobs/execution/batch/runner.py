@@ -202,10 +202,10 @@ async def run_batch(
 
         # Penelope is a separate package and cannot stamp usage provenance
         # itself, so both branches have to be handled from this side:
-        #   - a model we resolved: ensure_language_model stamps it before it
-        #     crosses, since ctx.execution_model can still be a bare provider
-        #     string (resolve_default_hosted_model's construction fallback)
-        #     and PenelopeAgent's own string branch is an unstamped get_model.
+        #   - a model we resolved: already stamped by resolve_model, and
+        #     ensure_language_model keeps the guarantee if a bare provider
+        #     string ever reaches here, since PenelopeAgent's own string
+        #     branch is an unstamped get_model.
         #   - Penelope's own default: stamp the instance it built. It runs on
         #     this deployment's credentials, exactly like any other default.
         # Together these mean no model reaches an LLM call unstamped, which

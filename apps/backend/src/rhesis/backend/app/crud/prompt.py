@@ -1,9 +1,5 @@
 """CRUD operations for prompts and prompt templates.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Prompt templates live here too rather than in their own module: a template is a prompt with
 placeholders left in, so it is the same domain.
 """

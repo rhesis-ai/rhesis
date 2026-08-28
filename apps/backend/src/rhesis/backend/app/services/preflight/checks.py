@@ -8,9 +8,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.metric import Metric, requirement_metric_association
 from rhesis.backend.app.models.prompt import Prompt
+from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
 from rhesis.backend.app.models.user import User
@@ -19,12 +19,12 @@ from rhesis.backend.app.schemas.preflight import PreflightCheckResult, Preflight
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 
 from .constants import (
-    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
     CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_TEST_SET_NOT_EMPTY,
 )
 from .utils import (
@@ -263,12 +263,10 @@ async def check_evaluation_model(
         )
 
     try:
-        from rhesis.backend.app.utils.user_model_utils import (
-            get_evaluation_model_with_override,
-        )
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
 
         model = await asyncio.to_thread(
-            get_evaluation_model_with_override, db, user, model_id=evaluation_model_id
+            resolve_model, db, user, "evaluation", override=evaluation_model_id
         )
         await _verify_model_responds(model)
         model_detail = _build_model_detail(model, evaluation_model_id, db, user, "evaluation")
@@ -315,12 +313,10 @@ async def check_execution_model(
         )
 
     try:
-        from rhesis.backend.app.utils.user_model_utils import (
-            get_execution_model_with_override,
-        )
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
 
         model = await asyncio.to_thread(
-            get_execution_model_with_override, db, user, model_id=execution_model_id
+            resolve_model, db, user, "execution", override=execution_model_id
         )
         await _verify_model_responds(model)
         model_detail = _build_model_detail(model, execution_model_id, db, user, "execution")
@@ -359,9 +355,7 @@ async def _validate_metrics_loadable(
     """Validate metrics can be instantiated without running full LLM evaluation."""
     check_id = CHECK_METRIC_FUNCTIONALITY
 
-    from rhesis.backend.app.utils.user_model_utils import (
-        get_evaluation_model_with_override,
-    )
+    from rhesis.backend.app.utils.user_model_utils import resolve_model
     from rhesis.backend.metrics.metric_config import validate_metric_configs
     from rhesis.backend.metrics.strategies.local import prepare_metrics
 
@@ -372,10 +366,11 @@ async def _validate_metrics_loadable(
 
     if metric_configs:
         model = await asyncio.to_thread(
-            get_evaluation_model_with_override,
+            resolve_model,
             db,
             user,
-            model_id=evaluation_model_id,
+            "evaluation",
+            override=evaluation_model_id,
         )
         org_id = str(user.organization_id) if user.organization_id else None
 

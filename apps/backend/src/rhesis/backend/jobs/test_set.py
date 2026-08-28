@@ -1,8 +1,8 @@
 import logging
 from typing import Any, List, Optional, Union
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.enums import NotificationEventType
@@ -18,9 +18,7 @@ from rhesis.backend.app.services.test_set import (
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.app.utils.user_model_utils import (
-    get_generation_model_with_override,
-)
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import (
     BaseJob,
@@ -65,7 +63,7 @@ def count_test_sets(self):
         # Use tenant-aware database session with explicit organization_id and user_id
         with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             # Get all test sets with the proper tenant context
-            test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
+            test_sets = test_set_crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
             total_count = len(test_sets)
             self.log_with_context("info", "Total test sets counted", total_count=total_count)
 
@@ -212,7 +210,7 @@ def _resolve_generation_model(
         if not user:
             raise ValueError(f"User not found: {user_id}")
 
-        model = get_generation_model_with_override(db, user, model_id=model_id)
+        model = resolve_model(db, user, "generation", override=model_id)
         self.log_with_context(
             "info",
             "Resolved generation model",

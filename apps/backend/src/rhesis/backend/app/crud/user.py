@@ -1,9 +1,5 @@
 """CRUD operations for users.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Users are the one entity that regularly exists *outside* an organization, so most of these
 functions deliberately sidestep the tenant machinery the rest of ``crud`` relies on.
 ``create_user`` builds the ``User`` row directly instead of going through ``create_item``

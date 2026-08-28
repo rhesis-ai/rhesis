@@ -10,7 +10,7 @@ Tests focus on:
 - Proper transaction isolation
 - Data integrity after operations
 
-Functions tested from app/crud.py:
+Functions tested from app/crud/:
 - create_organization
 - update_user
 - create_user

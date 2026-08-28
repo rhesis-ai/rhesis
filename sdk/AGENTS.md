@@ -3,30 +3,8 @@
 Python SDK for interacting with the Rhesis platform and running evaluations. See root `AGENTS.md`
 for repo-wide rules.
 
-## Directory layout
-
-- `src/rhesis/sdk/client.py` — main `RhesisClient`
-- `entities/` — API entity wrappers (Pythonic wrappers per resource)
-- `decorators/` — `@endpoint` and `@observe` for instrumentation
-- `connector/` — bidirectional connector for test execution
-- `metrics/providers/` — pluggable metric providers (DeepEval, RAGAS, native)
-- `models/providers/` — pluggable LLM providers (OpenAI, Anthropic, Gemini, Polyphemus, …)
-- `synthesizers/` — test data generation
-- `telemetry/` — OpenTelemetry integration, incl. `integrations/` for LangChain/LangGraph/AutoGen
-
-## Imports
-
-**Always absolute, never relative.** Write the full dotted path, including for a module's own
-siblings:
-
-```python
-from rhesis.sdk.metrics.providers.native import NativeMetric  # yes
-from .providers.native import NativeMetric  # no
-from ..client import RhesisClient  # no
-```
-
-This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
-as the files around them are touched.
+Everything lives under `src/rhesis/sdk/`. `metrics/providers/` and `models/providers/` are both
+plugin points — a new metric backend or LLM provider goes in one of those, not in the caller.
 
 ## Testing
 

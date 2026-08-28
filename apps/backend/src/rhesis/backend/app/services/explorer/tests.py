@@ -6,11 +6,13 @@ from uuid import UUID
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 
 # Imported as a module rather than by name: this file's own public
 # get_explorer_test_sets() wraps the crud function of the same name.
 from rhesis.backend.app.crud import explorer as crud_explorer
+from rhesis.backend.app.crud import test as test_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.explorer import (
     ExportExplorerTestSetResponse,
@@ -181,7 +183,7 @@ def create_explorer_test_set(
         description=description,
         test_set_type_id=test_set_type_lookup.id,
     )
-    new_set = crud.create_test_set(
+    new_set = test_set_crud.create_test_set(
         db=db,
         test_set=test_set_data,
         organization_id=organization_id,
@@ -211,7 +213,7 @@ def _delete_session_tests(
     test_ids = crud_explorer.get_test_ids_in_test_sets(db, test_set_ids, organization_id)
     if not test_ids:
         return
-    crud.bulk_delete_tests(
+    test_crud.bulk_delete_tests(
         db,
         test_ids,
         organization_id=organization_id,
@@ -230,7 +232,7 @@ def delete_explorer_test_set(
     Resolves the test set by UUID, nano_id, or slug. Raises ValueError if the
     set is missing or is not flagged as Explorer-owned.
     """
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id)
+    db_test_set = test_set_crud.resolve_test_set(test_set_identifier, db, organization_id)
     if db_test_set is None:
         raise ValueError("Test set not found with provided identifier")
     if not is_explorer_test_set(db_test_set):
@@ -242,7 +244,7 @@ def delete_explorer_test_set(
 
     _delete_session_tests(db, [db_test_set.id], organization_id, user_id)
 
-    deleted = crud.delete_test_set(
+    deleted = test_set_crud.delete_test_set(
         db,
         test_set_id=db_test_set.id,
         organization_id=organization_id,
@@ -354,12 +356,12 @@ def _copy_test_set_tests(
     copied = 0
     skipped = 0
     skipped_test_ids: List[str] = []
-    # Must stay within crud.get_test_set_tests pagination max (100).
+    # Must stay within test_set_crud.get_test_set_tests pagination max (100).
     batch_size = 100
     skip = 0
 
     while True:
-        items, total = crud.get_test_set_tests(
+        items, total = test_set_crud.get_test_set_tests(
             db=db,
             test_set_id=source_test_set_id,
             skip=skip,
@@ -429,7 +431,7 @@ def import_explorer_test_set_from_source(
     ItemDeletedException
         If source_test_set_identifier resolves to a soft-deleted test set.
     """
-    db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
+    db_source = test_set_crud.resolve_test_set(source_test_set_identifier, db, organization_id)
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
@@ -523,7 +525,7 @@ def export_regular_test_set_from_explorer(
     ItemDeletedException
         If source_test_set_identifier resolves to a soft-deleted test set.
     """
-    db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
+    db_source = test_set_crud.resolve_test_set(source_test_set_identifier, db, organization_id)
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
@@ -546,7 +548,7 @@ def export_regular_test_set_from_explorer(
         attributes=None,
         test_set_type_id=test_set_type_lookup.id,
     )
-    new_set = crud.create_test_set(
+    new_set = test_set_crud.create_test_set(
         db=db,
         test_set=test_set_data,
         organization_id=organization_id,
@@ -896,12 +898,12 @@ def delete_test_node(
     if db_test is None:
         return False
 
-    # Detach before deleting: crud.delete_test reads the association table to decide
+    # Detach before deleting: test_crud.delete_test reads the association table to decide
     # which test sets to recalculate, and this one is going away regardless.
     crud_explorer.remove_tests_from_test_set(db, test_set_id, [test_id])
 
     # Soft-delete the test via the existing CRUD helper
-    crud.delete_test(
+    test_crud.delete_test(
         db=db,
         test_id=test_id,
         organization_id=organization_id,

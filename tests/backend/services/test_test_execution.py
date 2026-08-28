@@ -17,9 +17,9 @@ from rhesis.backend.app import models
 from rhesis.backend.app.services import test_execution
 from rhesis.backend.jobs.enums import ResultStatus
 from tests.backend.routes.fixtures.data_factories import (
-    RequirementDataFactory,
     CategoryDataFactory,
     PromptDataFactory,
+    RequirementDataFactory,
     TopicDataFactory,
 )
 
@@ -156,7 +156,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -226,7 +226,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -294,7 +294,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.MultiTurnRunner"
@@ -363,7 +363,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -419,7 +419,7 @@ class TestExecuteTestInPlace:
 
         # Mock the evaluation model
         with patch(
-            "rhesis.backend.app.services.test_execution.get_evaluation_model"
+            "rhesis.backend.app.services.test_execution.resolve_model"
         ) as mock_get_model:
             mock_get_model.return_value = "gpt-4"
 
@@ -452,7 +452,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -512,7 +512,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -869,7 +869,7 @@ class TestEdgeCases:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -927,7 +927,7 @@ class TestEdgeCases:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -991,7 +991,7 @@ class TestEdgeCases:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.get_evaluation_model"
+                "rhesis.backend.app.services.test_execution.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.MultiTurnRunner"

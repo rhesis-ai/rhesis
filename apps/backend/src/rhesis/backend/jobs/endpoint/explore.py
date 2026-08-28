@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.architect.progress import publish_task_progress
 from rhesis.backend.jobs.base import SilentJob
@@ -135,7 +135,7 @@ def run_exploration_task(
         user = user_crud.get_user(db, user_id=user_id)
         if user is None:
             raise RuntimeError(f"User {user_id} not found")
-        model = get_user_generation_model(db, user)
+        model = resolve_model(db, user, "generation")
 
     # Exploration: open a *separate* DB session that stays alive for the
     # entire multi-turn conversation, then create BackendEndpointTarget

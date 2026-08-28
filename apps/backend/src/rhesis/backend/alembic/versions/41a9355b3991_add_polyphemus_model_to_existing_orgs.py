@@ -14,11 +14,9 @@ Create Date: 2026-01-14
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from sqlalchemy import text
-
-from rhesis.backend.app import models
 from rhesis.backend.app.utils.crud_utils import create_default_rhesis_model
 
 # revision identifiers, used by Alembic.

@@ -1,9 +1,5 @@
 """CRUD operations for file attachments.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 A ``File`` is always an attachment to something else — it carries a generic
 ``(entity_id, entity_type)`` pair rather than a real foreign key, so every read here
 filters on both. ``entity_type`` is stored as a plain string; ``create_file`` unwraps a

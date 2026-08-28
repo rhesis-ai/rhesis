@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.crud import prompt as prompt_crud
 from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
@@ -101,11 +101,6 @@ def get_test_results_for_test_run(
 
     for result in all_test_results:
         # Get related data with organization filtering
-        test = (
-            crud.get_test(db, result.test_id, organization_id=organization_id)
-            if result.test_id
-            else None
-        )
         prompt = (
             prompt_crud.get_prompt(db, result.prompt_id, organization_id=organization_id)
             if result.prompt_id

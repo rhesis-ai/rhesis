@@ -1,6 +1,6 @@
 """CRUD operations for OpenTelemetry traces and spans.
 
-Split out of ``crud/__init__.py``. Import the functions directly::
+Import the functions directly::
 
     from rhesis.backend.app.crud.telemetry import query_traces
 """

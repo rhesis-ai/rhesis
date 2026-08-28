@@ -130,15 +130,21 @@ def check_prerequisites(repo_root: Path, gemini_api_key: Optional[str] = None) -
 
 GEMINI_MODEL = "gemini-3.5-flash"
 
+# Reasoning tokens count against maxOutputTokens, and the model spends 1-4k of them thinking before
+# it writes a word, so a budget sized for the visible text alone comes back empty with
+# finishReason: MAX_TOKENS. Worst case across every changelog we've shipped is ~5.8k (2k of text
+# plus 3.7k of reasoning); this is deliberately far above it. A cap is not a reservation -- billing
+# is on tokens actually generated -- so the headroom costs nothing.
+LLM_MAX_OUTPUT_TOKENS = 32768
 
-def call_gemini_api(api_key: str, prompt: str, max_tokens: int = 4096) -> Optional[str]:
+
+def call_gemini_api(
+    api_key: str, prompt: str, max_tokens: int = LLM_MAX_OUTPUT_TOKENS
+) -> Optional[str]:
     """Call Gemini API with the given prompt.
 
-    Returns None (triggering the caller's fallback) rather than truncated
-    markdown if the model hits the token budget before finishing — a release
-    with 20+ commits previously produced a `finishReason: MAX_TOKENS` response
-    at the old 2048-token budget, which got committed as broken, cut-off
-    changelog markdown since nothing checked for that.
+    Returns None rather than truncated markdown if the model hits the token budget before
+    finishing, so the caller writes a visible placeholder instead of half a changelog.
     """
     if not api_key:
         return None

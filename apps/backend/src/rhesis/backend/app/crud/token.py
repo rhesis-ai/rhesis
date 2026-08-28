@@ -1,9 +1,5 @@
 """CRUD operations for API tokens.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Token rows are exempt from the ambient scope auto-filter, so organization scoping here is
 explicit: ``get_user_tokens``, ``count_user_tokens``, ``revoke_user_tokens`` and
 ``get_token_by_value`` all take ``organization_id`` and apply the filter by hand. Passing

@@ -2,7 +2,6 @@
 from .annotations import router as annotations_router
 from .architect import router as architect_router
 from .auth import router as auth_router
-from .requirement import router as requirement_router
 from .capabilities import router as capabilities_router
 from .category import router as category_router
 from .comment import router as comment_router
@@ -39,6 +38,7 @@ from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
 from .recycle import router as recycle_router
+from .requirement import router as requirement_router
 from .resolve import router as resolve_router
 from .services import router as services_router
 from .source import router as source_router

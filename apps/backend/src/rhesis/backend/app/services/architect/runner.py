@@ -165,7 +165,7 @@ async def build_agent(
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.main import app as fastapi_app
     from rhesis.backend.app.mcp_server.local_tools import LocalToolProvider
-    from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+    from rhesis.backend.app.utils.user_model_utils import resolve_model
     from rhesis.sdk.agents.architect.agent import ArchitectAgent
     from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
     from rhesis.sdk.agents.tools import ExploreEndpointTool
@@ -177,7 +177,7 @@ async def build_agent(
         if not user.is_active:
             raise ValueError(f"User {user_id} is inactive")
         delegation_token = create_service_delegation_token(user, "backend")
-        model = get_user_generation_model(db, user)
+        model = resolve_model(db, user, "generation")
         project_context = _resolve_project_context(db, project_id, organization_id)
 
     agent_state = session_data["agent_state"]

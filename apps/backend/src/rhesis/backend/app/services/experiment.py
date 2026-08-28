@@ -31,7 +31,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import DetachedInstanceError
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.project import Project
@@ -53,6 +53,8 @@ from rhesis.backend.app.schemas.parameters import (
     validate_environment_name,
     validate_values_against_schema,
 )
+from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.query_utils import include
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +80,13 @@ def get_visible_experiment(
     - Anything else surfaces as 404 (never 403). Returning 404 keeps
       experiment existence from leaking across users / orgs.
     """
-    db_experiment = crud.get_item_detail(
+    db_experiment = get_item_detail(
         db,
         Experiment,
         experiment_id,
         organization_id=organization_id,
         user_id=user_id,
-        related_fields=(crud.include(Experiment.project),),
+        related_fields=(include(Experiment.project),),
     )
     if db_experiment is None:
         raise HTTPException(

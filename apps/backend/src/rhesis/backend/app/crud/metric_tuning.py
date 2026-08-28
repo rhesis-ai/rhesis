@@ -1,9 +1,5 @@
 """CRUD operations for metric tuning.
 
-Part of the incremental split of the ``crud`` monolith: per-entity modules like
-this one take over as the code around them is touched, and nothing new is added
-to ``crud/__init__.py``.
-
 Every function here flushes and never commits -- the request session owns the
 commit (see ``get_db_with_tenant_variables`` in ``database.py``).
 
@@ -225,7 +221,7 @@ def remove_case_from_test_set(db: Session, test_set_id: uuid.UUID, test_id: uuid
     """Drop the association row linking a tuning case to its test set.
 
     Detaches only -- soft-deleting the test itself is a separate
-    ``crud.delete_test`` call, and the order matters: ``delete_test`` reads the
+    ``test_crud.delete_test`` call, and the order matters: ``delete_test`` reads the
     association table to decide which test sets to recalculate, so a case
     detached first is deliberately left out of that.
     """

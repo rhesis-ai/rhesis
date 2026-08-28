@@ -1,9 +1,5 @@
 """CRUD operations for tasks.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``get_task`` and ``get_tasks`` pass ``selectin_chains=[["comments"]]`` explicitly.
 ``Task.comments`` is a custom polymorphic relationship (``viewonly``, matched on
 ``Comment.entity_id`` plus ``entity_type == "Task"``), not one of the CommentsMixin

@@ -29,8 +29,10 @@ from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
 from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
-from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
-from rhesis.sdk.models.factory import get_model
+
+# Aliased: this module exports its own `resolve_embedder`, the explorer-flavoured
+# one that pins the dimension and guards against the native-provider recursion.
+from rhesis.backend.app.utils.user_model_utils import resolve_embedder as resolve_user_embedder
 
 if TYPE_CHECKING:
     from rhesis.backend.app.services.explorer.diversity_strategies import (
@@ -131,13 +133,7 @@ def resolve_embedder(db: Session, user_id: str):
     if not user:
         raise ValueError(f"User not found: {user_id}")
 
-    target_dim = EXPLORER_EMBEDDING_DIMENSION
-    resolved = get_user_embedding_model(db, user)
-    embedder = (
-        get_model(resolved, model_type="embedding", dimensions=target_dim)
-        if isinstance(resolved, str)
-        else resolved
-    )
+    embedder = resolve_user_embedder(db, user, dimensions=EXPLORER_EMBEDDING_DIMENSION)
 
     # Same latent recursion as EmbeddingGenerator._resolve_embedder: a
     # misconfigured DEFAULT_EMBEDDING_MODEL resolves to the Rhesis native

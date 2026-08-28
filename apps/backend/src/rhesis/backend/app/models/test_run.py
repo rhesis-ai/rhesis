@@ -67,7 +67,9 @@ class TestRun(
     # Comment relationship (polymorphic)
     comments = relationship(
         "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestRun.id), Comment.entity_type == 'TestRun')",
+        primaryjoin=(
+            "and_(Comment.entity_id == foreign(TestRun.id), Comment.entity_type == 'TestRun')"
+        ),
         viewonly=True,
         uselist=True,
     )

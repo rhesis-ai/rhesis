@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import TestSetType
-from rhesis.backend.app.crud import create_test_set
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
+from rhesis.backend.app.crud.test_set import create_test_set
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
 logger = logging.getLogger(__name__)

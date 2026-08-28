@@ -6,7 +6,7 @@ allowing MetricEvaluator to dispatch to different strategies (local, sdk, etc.)
 without being coupled to their concrete implementations.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Callable, Dict, List, Optional, Protocol
 
 from rhesis.sdk.metrics import MetricConfig
 

@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.schemas.evaluation_contract import (
-    EVALUATION_CONTRACT_KEY,
     CONTRACT_VERSION,
+    EVALUATION_CONTRACT_KEY,
     EvaluationContract,
     authored_fields_digest,
     store_contract,
@@ -61,10 +61,7 @@ def stub_interpreter():
     model = Mock()
     model.model_name = "stub-model"
     model.generate.return_value = MODEL_RESPONSE
-    with (
-        patch(f"{_SERVICE}.get_evaluation_model", return_value="stub/model"),
-        patch(f"{_SERVICE}.ensure_language_model", return_value=model),
-    ):
+    with patch(f"{_SERVICE}.resolve_model", return_value=model):
         yield model
 
 
@@ -223,10 +220,7 @@ class TestInterpretTest:
         model = Mock()
         model.model_name = "stub-model"
         model.generate.side_effect = RuntimeError("provider down")
-        with (
-            patch(f"{_SERVICE}.get_evaluation_model", return_value="stub/model"),
-            patch(f"{_SERVICE}.ensure_language_model", return_value=model),
-        ):
+        with patch(f"{_SERVICE}.resolve_model", return_value=model):
             response = authenticated_client.post(f"/tests/{multi_turn_test.id}/interpretation")
 
         assert response.status_code == status.HTTP_200_OK
