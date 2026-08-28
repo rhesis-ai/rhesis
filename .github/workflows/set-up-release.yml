@@ -65,6 +65,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
+          persist-credentials: true  # the version-bump push below needs the app token on disk
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Set up Git

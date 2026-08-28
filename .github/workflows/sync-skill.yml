@@ -36,6 +36,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           path: source
 
       - name: Set up Python
@@ -55,6 +56,7 @@ jobs:
       - name: Checkout mirror
         uses: actions/checkout@v6
         with:
+          persist-credentials: true  # the mirror push below needs the app token on disk
           repository: ${{ github.repository_owner }}/skills
           token: ${{ steps.generate-token.outputs.token }}
           path: mirror

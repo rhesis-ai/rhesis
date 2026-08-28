@@ -23,6 +23,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+      with:
+        persist-credentials: false
 
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
@@ -50,6 +52,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+      with:
+        persist-credentials: false
 
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
