@@ -977,7 +977,7 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
 
     # Always include organization_id in search if available
     if "organization_id" in columns and "organization_id" in search_data:
-        search_filters.append(getattr(model, "organization_id") == search_data["organization_id"])
+        search_filters.append(model.organization_id == search_data["organization_id"])
 
     # Handle model-specific identifying fields
     if model.__name__ == "TypeLookup":

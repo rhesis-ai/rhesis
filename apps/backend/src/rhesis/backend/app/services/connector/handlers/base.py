@@ -1,14 +1,17 @@
 """Base handler class for SDK WebSocket message handlers."""
 
 import logging
-from abc import ABC
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class BaseHandler(ABC):
-    """Base class for SDK WebSocket message handlers."""
+class BaseHandler:
+    """Shared logging helpers for SDK WebSocket message handlers.
+
+    Not an ABC: handlers share these helpers but declare no common contract, and
+    an ABC with no abstract methods enforces nothing anyway.
+    """
 
     def __init__(self):
         """Initialize the handler."""

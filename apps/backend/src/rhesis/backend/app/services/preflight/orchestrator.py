@@ -244,7 +244,7 @@ async def run_preflight_checks_multi(
         check_keys = [k for k, _ in tasks]
         coros = [coro for _, coro in tasks]
         task_results = await asyncio.gather(*coros, return_exceptions=True)
-        for comp_key, tr in zip(check_keys, task_results):
+        for comp_key, tr in zip(check_keys, task_results, strict=True):
             if isinstance(tr, Exception):
                 base_check_id = comp_key.split(":")[0]
                 logger.error(

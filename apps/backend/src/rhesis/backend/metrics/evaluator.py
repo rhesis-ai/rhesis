@@ -228,7 +228,7 @@ class MetricEvaluator:
         )
 
         results: Dict[str, Any] = {}
-        for bv, br in zip(configs_by_backend.keys(), backend_results):
+        for bv, br in zip(configs_by_backend.keys(), backend_results, strict=True):
             if isinstance(br, Exception):
                 logger.error(f"Backend '{bv}' async evaluation failed: {br}")
                 continue

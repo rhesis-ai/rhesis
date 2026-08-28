@@ -214,7 +214,8 @@ class LocalStrategy:
                 return key, result
 
         coros = [
-            _eval_one(key, cn, m, mc, b) for (cn, m, mc, b), key in zip(metric_tasks, metric_keys)
+            _eval_one(key, cn, m, mc, b)
+            for (cn, m, mc, b), key in zip(metric_tasks, metric_keys, strict=True)
         ]
 
         try:
@@ -405,7 +406,7 @@ class LocalStrategy:
         future_to_metric: Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]] = {}
 
         for (class_name, metric, metric_config, backend), unique_key in zip(
-            metric_tasks, metric_keys
+            metric_tasks, metric_keys, strict=True
         ):
             # ThreadPoolExecutor does not carry contextvars into its workers
             # the way asyncio.to_thread does, and an LLM judge running here

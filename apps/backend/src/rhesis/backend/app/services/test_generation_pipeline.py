@@ -48,7 +48,7 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 
 def _resolve_config_llm(db: Session, user: User):
     """Resolve the LLM for test-config generation (same logic as TestConfigGeneratorService)."""
-    gen_settings = getattr(user.settings.models, "generation")
+    gen_settings = user.settings.models.generation
     model_id = gen_settings.model_id
     use_fast_default = False
     if model_id:
