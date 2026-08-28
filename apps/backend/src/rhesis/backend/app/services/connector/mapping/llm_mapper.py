@@ -9,10 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.utils.user_model_utils import (
-    ensure_language_model,
-    get_user_generation_model,
-)
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +80,7 @@ class LLMMapper:
         logger.info(f"Generating mappings with LLM for function: {function_name}")
 
         try:
-            # Get user's generation model (can be string or BaseLLM instance)
-            model_or_provider = get_user_generation_model(db, user)
-            model = ensure_language_model(model_or_provider)
+            model = resolve_model(db, user, "generation")
 
             # Render prompt with function details
             prompt = self.prompt_template.render(

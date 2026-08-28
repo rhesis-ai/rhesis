@@ -10,7 +10,7 @@ from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.usage_attribution import with_usage_attribution
-from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.sdk.services.extractor import SourceSpecification, SourceType
 from rhesis.sdk.synthesizers import ConfigSynthesizer
 
@@ -124,7 +124,7 @@ async def generate_tests(
             user_id=str(user.id),
         )
 
-    model = get_generation_model_with_override(db, user, model_id=model_id)
+    model = resolve_model(db, user, "generation", override=model_id)
 
     # Create synthesizer
     synthesizer = ConfigSynthesizer(
@@ -153,7 +153,7 @@ async def generate_tests_stream(
     model_id: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Yield test dicts one-by-one as they parse from the LLM token stream."""
-    model = get_generation_model_with_override(db, user, model_id=model_id)
+    model = resolve_model(db, user, "generation", override=model_id)
     synthesizer = ConfigSynthesizer(config=config, model=model)
     async for test in synthesizer.generate_stream(num_tests=num_tests):
         yield test
@@ -172,7 +172,7 @@ async def generate_multiturn_tests_stream(
         MultiTurnSynthesizer,
     )
 
-    model = get_generation_model_with_override(db, user, model_id=model_id)
+    model = resolve_model(db, user, "generation", override=model_id)
     generation_config = GenerationConfig(**config)
     synthesizer = MultiTurnSynthesizer(config=generation_config, model=model)
     async for test in synthesizer.generate_stream(num_tests=num_tests):
@@ -210,7 +210,7 @@ async def generate_multiturn_tests(
     """
     from rhesis.sdk.synthesizers.multi_turn.base import GenerationConfig, MultiTurnSynthesizer
 
-    model = get_generation_model_with_override(db, user, model_id=model_id)
+    model = resolve_model(db, user, "generation", override=model_id)
 
     # Create configuration for multi-turn synthesizer from dict
     generation_config = GenerationConfig(**config)

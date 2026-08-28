@@ -18,7 +18,7 @@ class TestResolveEmbedder:
         with pytest.raises(ValueError, match="User not found"):
             resolve_embedder(test_db, "00000000-0000-0000-0000-000000000000")
 
-    @patch("rhesis.backend.app.services.explorer.embeddings.get_user_embedding_model")
+    @patch("rhesis.backend.app.services.explorer.embeddings.resolve_user_embedder")
     def test_recursive_native_provider_fails_before_any_network_call(
         self,
         mock_get_user_embedding_model,
@@ -50,25 +50,20 @@ class TestResolveEmbedder:
         assert isinstance(exc_info.value, ModelConfigurationError)
         fake_native_embedder.generate.assert_not_called()
 
-    @patch("rhesis.backend.app.services.explorer.embeddings.get_model")
-    @patch("rhesis.backend.app.services.explorer.embeddings.get_user_embedding_model")
-    def test_ordinary_provider_string_is_resolved_normally(
+    @patch("rhesis.backend.app.services.explorer.embeddings.resolve_user_embedder")
+    def test_ordinary_provider_is_resolved_normally(
         self,
-        mock_get_user_embedding_model,
-        mock_get_model,
+        mock_resolve_user_embedder,
         test_db: Session,
         test_org_id: str,
         authenticated_user_id: str,
     ):
         """A correctly configured provider still resolves — the recursion
         guard must not fire on an unrelated embedder type."""
-        mock_get_user_embedding_model.return_value = "vertex_ai/text-embedding-005"
         mock_embedder = Mock()
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_user_embedder.return_value = mock_embedder
 
         result = resolve_embedder(test_db, authenticated_user_id)
 
         assert result is mock_embedder
-        mock_get_model.assert_called_once_with(
-            "vertex_ai/text-embedding-005", model_type="embedding", dimensions=768
-        )
+        assert mock_resolve_user_embedder.call_args[1]["dimensions"] == 768

@@ -29,7 +29,7 @@ from rhesis.backend.app.schemas.evaluation_contract import (
     read_contract,
     store_contract,
 )
-from rhesis.backend.app.utils.user_model_utils import ensure_language_model, get_evaluation_model
+from rhesis.backend.app.utils.user_model_utils import ensure_language_model, resolve_model
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
@@ -205,10 +205,12 @@ def ensure_contract(
 
     resolved = model if isinstance(model, BaseLLM) else None
     if resolved is None:
-        source = (
-            model if model is not None else get_evaluation_model(db, user_id or str(test.user_id))
+        # A caller-supplied model can still be a bare provider string.
+        resolved = (
+            ensure_language_model(model)
+            if model is not None
+            else resolve_model(db, user_id or str(test.user_id), "evaluation")
         )
-        resolved = ensure_language_model(source)
 
     contract = interpret_test_configuration(
         config,

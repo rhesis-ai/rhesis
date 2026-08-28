@@ -198,14 +198,14 @@ def _prepare_evaluation(
     if not _should_evaluate(config):
         return None
 
-    from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
+    from rhesis.backend.app.utils.user_model_utils import resolve_model
     from rhesis.backend.metrics.evaluator import MetricEvaluator
 
     default_model = None
     project_user = project.owner or project.user
     if project_user:
         try:
-            default_model = get_user_evaluation_model(db, project_user)
+            default_model = resolve_model(db, project_user, "evaluation")
         except Exception as e:
             logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
 

@@ -10,14 +10,11 @@ Covers:
 import base64
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rhesis.backend.app.services.endpoint.files import (
     endpoint_supports_files,
     enrich_files_with_extraction,
     inject_file_content_into_input,
 )
-
 
 # ---------------------------------------------------------------------------
 # endpoint_supports_files
@@ -177,7 +174,7 @@ class TestEnrichFilesWithExtraction:
         with (
             patch("rhesis.backend.app.crud.user.get_user_by_id", return_value=mock_user),
             patch(
-                "rhesis.backend.app.utils.user_model_utils.get_user_generation_model",
+                "rhesis.backend.app.utils.user_model_utils.resolve_model",
                 return_value="openai/gpt-4o",
             ),
             patch(f"{_FILES_PATH}.resolve_model_for_extraction", return_value=mock_model),

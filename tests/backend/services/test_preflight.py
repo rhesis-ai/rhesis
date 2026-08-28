@@ -1,19 +1,19 @@
 """Tests for preflight check service."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
+from rhesis.backend.app.schemas.preflight import PreflightCheckStatus
 from rhesis.backend.app.services.preflight import (
-    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
     CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
     compute_summary,
@@ -191,7 +191,7 @@ class TestCheckTestSetNotEmpty:
 
 
 class TestCheckEvaluationModel:
-    MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
+    MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.resolve_model"
 
     @pytest.mark.asyncio
     async def test_model_passes(self):
@@ -300,7 +300,7 @@ class TestCheckEndpointConnectivity:
 
 
 class TestValidateMetricsLoadable:
-    MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
+    MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.resolve_model"
     VALIDATE_CONFIGS = "rhesis.backend.metrics.metric_config.validate_metric_configs"
     PREPARE_METRICS = "rhesis.backend.metrics.strategies.local.prepare_metrics"
 

@@ -72,9 +72,8 @@ def execute_tests_sequentially(
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.utils.user_model_utils import (
-            get_evaluation_model_with_override,
-            get_execution_model_with_override,
             resolve_default_hosted_model,
+            resolve_model,
         )
 
         model_settings = get_model_settings()
@@ -87,11 +86,11 @@ def execute_tests_sequentially(
         if seq_user_id:
             user = user_crud.get_user_by_id(session, seq_user_id)
             if user:
-                execution_model = get_execution_model_with_override(
-                    session, user, model_id=override_execution_model_id
+                execution_model = resolve_model(
+                    session, user, "execution", override=override_execution_model_id
                 )
-                evaluation_model = get_evaluation_model_with_override(
-                    session, user, model_id=override_evaluation_model_id
+                evaluation_model = resolve_model(
+                    session, user, "evaluation", override=override_evaluation_model_id
                 )
             else:
                 # Resolve rather than passing the bare default string on:

@@ -110,8 +110,8 @@ def resolve_metric_model(
     2. otherwise the model configured as the default for evaluation.
 
     What it deliberately will not do is reach the *system* default underneath
-    those. ``get_user_evaluation_model`` conflates the two -- a user who has
-    configured nothing gets the hosted Rhesis model handed back as though it
+    those. ``resolve_model(..., "evaluation")`` conflates the two -- a user who
+    has configured nothing gets the hosted Rhesis model handed back as though it
     were their choice -- so the setting is read directly instead. A tuning run
     scored by a judge nobody picked measures nothing, and worse, says nothing
     about it: change the metric's model afterwards and every stored verdict

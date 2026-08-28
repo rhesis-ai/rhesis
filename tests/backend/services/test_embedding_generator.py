@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session, joinedload
@@ -64,8 +64,8 @@ def test_entity(
     db_status,
 ):
     """Create a test entity that implements to_searchable_text."""
-    from rhesis.backend.app.models import Requirement, Category, Prompt, Test, TypeLookup, Topic
     from rhesis.backend.app.constants import TestType
+    from rhesis.backend.app.models import Category, Prompt, Requirement, Test, Topic, TypeLookup
 
     # Create TypeLookup entries
     single_turn_type = TypeLookup(
@@ -210,10 +210,10 @@ class TestEmbeddingGenerator:
                 "00000000-0000-0000-0000-000000000000", "InvalidType", test_org_id
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_creates_new_embedding(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -225,7 +225,7 @@ class TestEmbeddingGenerator:
 
         mock_embedder = Mock()
         mock_embedder.generate.return_value = [0.1] * 768
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_embedder.return_value = mock_embedder
 
         result = generator.generate(
             entity_id=str(test_entity.id),
@@ -251,10 +251,10 @@ class TestEmbeddingGenerator:
         assert embedding.dimension == 768
         assert len(embedding.embedding) == 768
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_with_entity_provided(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -266,7 +266,7 @@ class TestEmbeddingGenerator:
 
         mock_embedder = Mock()
         mock_embedder.generate.return_value = [0.1] * 768
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_embedder.return_value = mock_embedder
 
         result = generator.generate(
             entity_id=str(test_entity.id),
@@ -280,10 +280,10 @@ class TestEmbeddingGenerator:
         assert result["status"] == "success"
         assert "embedding_id" in result
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_returns_existing_embedding(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -295,7 +295,7 @@ class TestEmbeddingGenerator:
 
         mock_embedder = Mock()
         mock_embedder.generate.return_value = [0.1] * 768
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_embedder.return_value = mock_embedder
 
         result1 = generator.generate(
             entity_id=str(test_entity.id),
@@ -316,10 +316,10 @@ class TestEmbeddingGenerator:
         assert result1["embedding_id"] == result2["embedding_id"]
         assert mock_embedder.generate.call_count == 1
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_marks_old_embeddings_stale(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -331,7 +331,7 @@ class TestEmbeddingGenerator:
 
         mock_embedder = Mock()
         mock_embedder.generate.return_value = [0.1] * 768
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_embedder.return_value = mock_embedder
 
         result1 = generator.generate(
             entity_id=str(test_entity.id),
@@ -418,10 +418,10 @@ class TestEmbeddingGenerator:
                 model_id="00000000-0000-0000-0000-000000000000",
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_permanent_provider_error_raises_model_configuration_error(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -442,7 +442,7 @@ class TestEmbeddingGenerator:
 
         mock_embedder = Mock()
         mock_embedder.generate.side_effect = NotFoundError("Publisher model was not found")
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_embedder.return_value = mock_embedder
 
         with pytest.raises(ModelConfigurationError, match="Failed to generate embedding"):
             generator.generate(
@@ -453,10 +453,10 @@ class TestEmbeddingGenerator:
                 model_id=str(embedding_model.id),
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_user_embedding_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_recursive_native_provider_skips_before_any_network_call(
         self,
-        mock_get_user_embedding_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -474,7 +474,7 @@ class TestEmbeddingGenerator:
         # isinstance() against a Mock(spec=...) succeeds, so this stands in for
         # a real RhesisEmbedder without needing RHESIS_API_KEY configured.
         fake_native_embedder = Mock(spec=RhesisEmbedder)
-        mock_get_user_embedding_model.return_value = fake_native_embedder
+        mock_resolve_embedder.return_value = fake_native_embedder
 
         generator = EmbeddingGenerator(test_db)
 
@@ -489,10 +489,10 @@ class TestEmbeddingGenerator:
         assert result == {"status": "skipped_no_provider", "embedding_id": None}
         fake_native_embedder.generate.assert_not_called()
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_transient_provider_error_stays_retryable(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -504,7 +504,7 @@ class TestEmbeddingGenerator:
 
         mock_embedder = Mock()
         mock_embedder.generate.side_effect = TimeoutError("upstream timed out")
-        mock_get_model.return_value = mock_embedder
+        mock_resolve_embedder.return_value = mock_embedder
 
         with pytest.raises(ValueError, match="Failed to generate embedding") as exc_info:
             generator.generate(
@@ -518,10 +518,10 @@ class TestEmbeddingGenerator:
         assert not isinstance(exc_info.value, ModelConfigurationError)
 
     @pytest.mark.parametrize("empty_text", ["", "   ", "\n\t"])
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_skips_when_searchable_text_empty(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         embedding_model,
@@ -542,12 +542,12 @@ class TestEmbeddingGenerator:
         )
 
         assert result == {"status": "skipped_empty_text", "embedding_id": None}
-        mock_get_model.assert_not_called()
+        mock_resolve_embedder.assert_not_called()
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_different_dimensions(
         self,
-        mock_get_model,
+        mock_resolve_embedder,
         test_db,
         test_entity,
         test_org_id,
@@ -598,7 +598,7 @@ class TestEmbeddingGenerator:
 
             mock_embedder = Mock()
             mock_embedder.generate.return_value = [0.1] * dim
-            mock_get_model.return_value = mock_embedder
+            mock_resolve_embedder.return_value = mock_embedder
 
             generator = EmbeddingGenerator(test_db)
             result = generator.generate(

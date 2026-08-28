@@ -42,9 +42,7 @@ class TestGenerateContentEndpoint:
         mock_user = MagicMock()
         http_response = Response()
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock()
             mock_model.a_generate = AsyncMock(return_value=expected_response)
             mock_get_gen.return_value = mock_model
@@ -58,7 +56,7 @@ class TestGenerateContentEndpoint:
                 "Generate a test function",
                 schema={"type": "object", "properties": {"code": {"type": "string"}}},
             )
-            mock_get_gen.assert_called_once_with(mock_db, mock_user)
+            mock_get_gen.assert_called_once_with(mock_db, mock_user, "generation")
 
     @pytest.mark.asyncio
     async def test_provider_error_keeps_the_providers_reason(self):
@@ -72,9 +70,7 @@ class TestGenerateContentEndpoint:
         mock_user = MagicMock()
         http_response = Response()
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_get_gen.side_effect = ProviderError("invalid api key", status_code=401)
 
             with pytest.raises(HTTPException) as exc_info:
@@ -98,9 +94,7 @@ class TestGenerateContentEndpoint:
         mock_user = MagicMock()
         http_response = Response()
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_get_gen.side_effect = Exception("Model initialization failed")
 
             with pytest.raises(HTTPException) as exc_info:
@@ -133,7 +127,7 @@ class TestGenerateEmbeddingEndpoint:
         mock_user = MagicMock()
 
         with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
+            "rhesis.backend.app.utils.user_model_utils.resolve_embedder"
         ) as mock_get_embedding_model:
             mock_get_embedding_model.side_effect = ProviderError(
                 "context length exceeded", status_code=400
@@ -155,7 +149,7 @@ class TestGenerateEmbeddingEndpoint:
         mock_user = MagicMock()
 
         with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
+            "rhesis.backend.app.utils.user_model_utils.resolve_embedder"
         ) as mock_get_embedding_model:
             mock_get_embedding_model.side_effect = ModelConfigurationError(
                 "Your configured embedding model 'e5' requires an API key that is missing."
@@ -175,7 +169,7 @@ class TestGenerateEmbeddingEndpoint:
         mock_user = MagicMock()
 
         with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model"
+            "rhesis.backend.app.utils.user_model_utils.resolve_embedder"
         ) as mock_get_embedding_model:
             mock_get_embedding_model.side_effect = TypeError("embedder object is not callable")
 
@@ -201,7 +195,7 @@ class TestGenerateEmbeddingEndpoint:
         fake_native_embedder = MagicMock(spec=RhesisEmbedder)
 
         with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_user_embedding_model",
+            "rhesis.backend.app.utils.user_model_utils.resolve_embedder",
             return_value=fake_native_embedder,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -236,9 +230,7 @@ class TestGenerateContentEndpointUsageForwarding:
 
         original_on_usage_calls = []
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock()
             mock_model.on_usage = lambda usage: original_on_usage_calls.append(usage)
 
@@ -267,9 +259,7 @@ class TestGenerateContentEndpointUsageForwarding:
         mock_user = MagicMock()
         http_response = Response()
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock()
             mock_model.on_usage = None
             mock_model.a_generate = AsyncMock(return_value="hi there")
@@ -282,26 +272,18 @@ class TestGenerateContentEndpointUsageForwarding:
             assert "X-Rhesis-Usage" not in http_response.headers
 
     @pytest.mark.asyncio
-    async def test_string_model_from_get_model_has_no_on_usage_and_is_not_wrapped(self):
-        """A bare-string model resolution (get_model() fallback path) is
-        constructed without on_usage wiring -- hasattr guards against
-        AttributeError, and no header is ever set for that case."""
+    async def test_model_without_on_usage_is_not_wrapped(self):
+        """Not every provider exposes on_usage wiring -- hasattr guards
+        against AttributeError, and no header is ever set for that case."""
         mock_request = GenerateContentRequest(prompt="hello")
         mock_db = MagicMock()
         mock_user = MagicMock()
         http_response = Response()
 
-        with (
-            patch(
-                "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-            ) as mock_get_gen,
-            patch("rhesis.sdk.models.factory.get_model") as mock_sdk_get_model,
-        ):
-            mock_get_gen.return_value = "openai/gpt-4o"
-
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock(spec=["a_generate"])
             mock_model.a_generate = AsyncMock(return_value="hi there")
-            mock_sdk_get_model.return_value = mock_model
+            mock_get_gen.return_value = mock_model
 
             result = await generate_content_endpoint(
                 mock_request, http_response, db=mock_db, current_user=mock_user
@@ -321,9 +303,7 @@ class TestGenerateContentEndpointUsageForwarding:
         mock_user = MagicMock()
         http_response = Response()
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock()
             mock_model.on_usage = None
 
@@ -355,9 +335,7 @@ class TestGenerateContentEndpointUsageForwarding:
         def original_callback(usage):
             pass
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock()
             mock_model.on_usage = original_callback
             mock_model.a_generate = AsyncMock(return_value="hi there")
@@ -379,9 +357,7 @@ class TestGenerateContentEndpointUsageForwarding:
         def original_callback(usage):
             pass
 
-        with patch(
-            "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-        ) as mock_get_gen:
+        with patch("rhesis.backend.app.utils.user_model_utils.resolve_model") as mock_get_gen:
             mock_model = MagicMock()
             mock_model.on_usage = original_callback
             mock_model.a_generate = AsyncMock(side_effect=RuntimeError("boom"))

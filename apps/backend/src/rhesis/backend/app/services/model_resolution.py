@@ -33,7 +33,7 @@ def resolve_model_for_extraction(model) -> Optional["BaseLLM"]:
     Goes through ``ensure_language_model`` rather than the SDK factory
     directly so the resulting instance is stamped: the only caller,
     ``resolve_model_for_extraction`` at the endpoint-files layer, feeds it
-    ``get_user_generation_model(db, user)``, which returns a bare string
+    ``resolve_model(db, user, "generation")``, which returns a bare string
     precisely when the user's default model construction failed once
     already and is being retried -- the same case
     ``ensure_language_model`` exists to stamp correctly.

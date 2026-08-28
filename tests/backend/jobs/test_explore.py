@@ -28,7 +28,7 @@ class TestRunExplorationTaskSuccess:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_returns_findings_dict(
         self,
@@ -65,7 +65,7 @@ class TestRunExplorationTaskSuccess:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_update_state_called(
         self,
@@ -105,7 +105,7 @@ class TestRunExplorationTaskFailure:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_raises_on_tool_failure(
         self,

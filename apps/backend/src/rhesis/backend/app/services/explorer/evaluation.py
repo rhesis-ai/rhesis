@@ -26,7 +26,7 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
-from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
@@ -166,7 +166,7 @@ def resolve_sdk_metrics(
     if missing:
         raise ValueError(f"Metric does not exist: {', '.join(missing)}")
 
-    model = get_evaluation_model(db, user_id)
+    model = resolve_model(db, user_id, "evaluation")
 
     sdk_metrics: List[Tuple[Any, MetricConfig]] = []
     for m in resolved:
