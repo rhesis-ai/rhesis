@@ -299,14 +299,21 @@ class TestEnsureContract:
 
     def test_resolves_the_evaluation_model_when_none_is_given(self, _flag):
         test = _stub_test()
-        with (
-            patch(f"{_SERVICE}.get_evaluation_model", return_value="provider/model") as get_model,
-            patch(f"{_SERVICE}.ensure_language_model", return_value=_model()) as ensure_model,
-        ):
+        resolved = _model()
+        with patch(f"{_SERVICE}.resolve_model", return_value=resolved) as get_model:
             ensure_contract(Mock(), test, user_id="explicit-user")
 
         get_model.assert_called_once()
         assert get_model.call_args.args[1] == "explicit-user"
+        resolved.generate.assert_called_once()
+
+    def test_a_caller_supplied_model_string_is_still_unwrapped(self, _flag):
+        """resolve_model hands back a built model, but a *caller* can still
+        pass a bare provider string in, so that unwrap stays."""
+        test = _stub_test()
+        with patch(f"{_SERVICE}.ensure_language_model", return_value=_model()) as ensure_model:
+            ensure_contract(Mock(), test, model="provider/model")
+
         ensure_model.assert_called_once_with("provider/model")
 
     def test_a_failed_interpretation_is_still_stored_as_unusable(self, _flag):

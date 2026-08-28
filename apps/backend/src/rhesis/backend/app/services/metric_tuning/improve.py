@@ -49,10 +49,7 @@ from rhesis.backend.app.schemas.metric_tuning_metadata import (
 from rhesis.backend.app.services.metric_tuning.outcome import current_verdict, standing_review
 from rhesis.backend.app.services.metric_tuning.payload import parse_payload
 from rhesis.backend.app.services.metric_tuning.test_sets import get_tuning_test_set
-from rhesis.backend.app.utils.user_model_utils import (
-    ensure_language_model,
-    get_user_generation_model,
-)
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 
 logger = logging.getLogger(__name__)
 
@@ -181,8 +178,8 @@ def _unwrap(value: Any) -> Any:
 def _ask_model(db: Session, user: models.User, prompt: str) -> dict:
     """Put the prompt to the user's generation model and take back its answer.
 
-    ``get_user_generation_model`` then ``ensure_language_model``: writing an
-    evaluation prompt is a generation task, so the user's *generation* choice is
+    ``resolve_model(..., "generation")``: writing an evaluation prompt is a
+    generation task, so the user's *generation* choice is
     the one that applies, with the system setting as a fallback only. Not
     ``resolve_metric_model`` -- that is the metric's judge, and it refuses to fall
     back because a stored verdict has to name the judge that produced it, which
@@ -194,7 +191,7 @@ def _ask_model(db: Session, user: models.User, prompt: str) -> dict:
     twice for tokens it paid for directly.
     """
     try:
-        model = ensure_language_model(get_user_generation_model(db, user))
+        model = resolve_model(db, user, "generation")
         answer = model.generate(prompt, schema=ImprovedMetricFields)
     except Exception as e:
         raise ImprovementUnavailable(str(e)) from e

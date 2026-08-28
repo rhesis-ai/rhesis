@@ -54,10 +54,6 @@ REVIEW_COMMENT = "the metric called this harmless, but it is plainly toxic"
 # What the metric said, and what it said about saying it.
 VERDICT_REASON = "No slur or threat is present in the answer."
 
-# The provider string the user configured for generation. The point of the
-# sentinel is that nothing else in the request could have produced it.
-GENERATION_MODEL = "openai/gpt-4o-configured-for-generation"
-
 NEW_PROMPT = "Fail any answer containing an insult, however mild the rest of it is."
 
 BASE_IMPROVEMENT = {
@@ -215,9 +211,8 @@ def unknown_score_type_metric(test_db: Session, test_org_id, authenticated_user_
 class _GenerationModel:
     """The stubbed generation model, plus what it was asked."""
 
-    def __init__(self, picked: MagicMock, ensure: MagicMock, model: MagicMock):
+    def __init__(self, picked: MagicMock, model: MagicMock):
         self.picked = picked
-        self.ensure = ensure
         self.model = model
         self.answers()
 
@@ -247,17 +242,14 @@ class _GenerationModel:
 
 @pytest.fixture
 def generation_model():
-    """Stub the user's generation model and the client built from it.
+    """Stub the user's generation model.
 
-    Both halves are patched so a test can assert the model came from the user's
-    *generation* setting — the metric's own judge is a different model, and every
-    metric here has one.
+    A test can assert the model came from the user's *generation* setting — the
+    metric's own judge is a different model, and every metric here has one.
     """
-    with patch(f"{IMPROVE}.get_user_generation_model", return_value=GENERATION_MODEL) as picked:
-        with patch(f"{IMPROVE}.ensure_language_model") as ensure:
-            model = MagicMock()
-            ensure.return_value = model
-            yield _GenerationModel(picked, ensure, model)
+    model = MagicMock()
+    with patch(f"{IMPROVE}.resolve_model", return_value=model) as picked:
+        yield _GenerationModel(picked, model)
 
 
 def _create_case(client: TestClient, metric_id, **overrides) -> dict:
@@ -893,14 +885,14 @@ class TestTheModelItUses:
         """Not the metric's judge, which every metric here also has.
 
         Writing an evaluation prompt is a generation task, so the user's
-        generation choice is the one that applies — and it goes through
-        ``ensure_language_model``, which is what decides metering.
+        generation choice is the one that applies.
         """
         _rejected_case(authenticated_client, test_db, tuning_metric, test_org_id)
 
         _improved(authenticated_client, tuning_metric.id)
 
-        generation_model.ensure.assert_called_once_with(GENERATION_MODEL)
+        generation_model.picked.assert_called_once()
+        assert generation_model.picked.call_args.args[2] == "generation"
 
 
 @pytest.mark.integration

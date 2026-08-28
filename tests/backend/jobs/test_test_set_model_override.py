@@ -2,9 +2,9 @@
 Unit tests for _resolve_generation_model used by generate_and_save_test_set.
 
 Verifies that:
-- With no model_id, the user's default is resolved
-  (get_generation_model_with_override called with model_id=None)
-- With a model_id, that override is passed through
+- With no override, the user's default is resolved
+  (resolve_model called with override=None)
+- With an override, that model id is passed through
 - A missing user raises ValueError (no silent fallback to the default model)
 """
 
@@ -30,7 +30,7 @@ def _mock_db_session(mock_get_db, mock_db):
 class TestResolveGenerationModel:
     """Tests for _resolve_generation_model."""
 
-    @patch("rhesis.backend.jobs.test_set.get_generation_model_with_override")
+    @patch("rhesis.backend.jobs.test_set.resolve_model")
     @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.jobs.test_set.get_db_with_tenant_variables")
     def test_resolves_user_default_when_no_model_id(
@@ -47,10 +47,10 @@ class TestResolveGenerationModel:
 
         result = _resolve_generation_model(task, "org-1", "user-1", "project-1")
 
-        mock_override.assert_called_once_with(mock_db, mock_user, model_id=None)
+        mock_override.assert_called_once_with(mock_db, mock_user, "generation", override=None)
         assert result == "user-default-model"
 
-    @patch("rhesis.backend.jobs.test_set.get_generation_model_with_override")
+    @patch("rhesis.backend.jobs.test_set.resolve_model")
     @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.jobs.test_set.get_db_with_tenant_variables")
     def test_passes_through_override_model_id(
@@ -70,11 +70,11 @@ class TestResolveGenerationModel:
         )
 
         mock_override.assert_called_once_with(
-            mock_db, mock_user, model_id="model-uuid-789"
+            mock_db, mock_user, "generation", override="model-uuid-789"
         )
         assert result == "override-model"
 
-    @patch("rhesis.backend.jobs.test_set.get_generation_model_with_override")
+    @patch("rhesis.backend.jobs.test_set.resolve_model")
     @patch("rhesis.backend.app.crud.user.get_user")
     @patch("rhesis.backend.jobs.test_set.get_db_with_tenant_variables")
     def test_passes_project_id_to_session(

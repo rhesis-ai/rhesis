@@ -22,8 +22,7 @@ from rhesis.backend.app.utils.model_errors import (
     ModelConfigurationError,
     is_permanent_model_error,
 )
-from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.user_model_utils import resolve_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -77,16 +76,7 @@ class EmbeddingGenerator:
         if not user:
             raise ValueError(f"User not found: {user_id}")
 
-        resolved = get_user_embedding_model(self.db, user)
-        resolved_embedder = (
-            get_model(
-                resolved,
-                model_type="embedding",
-                dimensions=db_model.dimension,
-            )
-            if isinstance(resolved, str)
-            else resolved
-        )
+        resolved_embedder = resolve_embedder(self.db, user, dimensions=db_model.dimension)
 
         # Caught here, in-process, rather than left to surface as an HTTP error
         # from generate_embedding_endpoint's own recursion guard: this path runs

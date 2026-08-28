@@ -17,7 +17,6 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.conversation.tracker import (
     mapping_has_template_variable,
 )
-from rhesis.backend.app.services.model_resolution import resolve_model_for_extraction
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +103,11 @@ def enrich_files_with_extraction(
     if db and user_id:
         try:
             from rhesis.backend.app.crud import user as user_crud
-            from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+            from rhesis.backend.app.utils.user_model_utils import resolve_model
 
             user = user_crud.get_user_by_id(db, user_id)
             if user:
-                resolved_model = resolve_model_for_extraction(get_user_generation_model(db, user))
+                resolved_model = resolve_model(db, user, "generation")
         except Exception as exc:
             logger.warning("Could not resolve generation model for file extraction: %s", exc)
 

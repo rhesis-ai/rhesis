@@ -18,9 +18,7 @@ from rhesis.backend.app.services.test_set import (
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.app.utils.user_model_utils import (
-    get_generation_model_with_override,
-)
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import (
     BaseJob,
@@ -212,7 +210,7 @@ def _resolve_generation_model(
         if not user:
             raise ValueError(f"User not found: {user_id}")
 
-        model = get_generation_model_with_override(db, user, model_id=model_id)
+        model = resolve_model(db, user, "generation", override=model_id)
         self.log_with_context(
             "info",
             "Resolved generation model",

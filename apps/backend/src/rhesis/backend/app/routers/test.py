@@ -494,9 +494,9 @@ async def execute_test_endpoint(
 
     try:
         # Validate user's evaluation model configuration before execution
-        from rhesis.backend.app.utils.user_model_utils import validate_user_evaluation_model
+        from rhesis.backend.app.utils.user_model_utils import validate_model
 
-        validate_user_evaluation_model(db, current_user)
+        validate_model(db, current_user, "evaluation")
 
         # Validate endpoint exists
         db_endpoint = endpoint_crud.get_endpoint(

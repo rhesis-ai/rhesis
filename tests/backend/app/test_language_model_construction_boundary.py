@@ -2,20 +2,22 @@
 
 Before this test existed, roughly a dozen call sites across the backend
 built a language model straight from ``get_model()`` -- most commonly to
-unwrap a string that ``get_user_generation_model()`` returns when the org
-has no model configured. Each one was an unstamped model: no record of
-whose credentials paid for it, so it fell back to the process-wide sink's
-"unstamped" heuristic instead of being definitively attributed.
+unwrap a bare provider string that model resolution used to hand back.
+Each one was an unstamped model: no record of whose credentials paid for
+it, so it fell back to the process-wide sink's "unstamped" heuristic
+instead of being definitively attributed.
 
-The fix was to consolidate that unwrap into
-``user_model_utils.ensure_language_model()``, which stamps. This test is
-what keeps it consolidated: it fails the moment a new call site imports the
-SDK factory directly instead of going through the resolution layer, rather
-than relying on someone noticing an ``usage.unstamped_model`` log line in
-production.
+The fix landed in two steps. First the unwrap was consolidated into
+``user_model_utils.ensure_language_model()``, which stamps. Then
+``resolve_model()`` stopped handing back strings at all, so there is
+nothing left for a caller to unwrap. This test is what keeps it that way:
+it fails the moment a new call site imports the SDK factory directly
+instead of going through the resolution layer, rather than relying on
+someone noticing an ``usage.unstamped_model`` log line in production.
 
-Embedding construction is deliberately exempt -- ``BaseEmbedder`` has no
-usage-emission path at all, so there is nothing for it to skip.
+Embedding construction would be exempt -- ``BaseEmbedder`` has no
+usage-emission path at all -- but ``resolve_embedder()`` means no module
+outside the resolution layer builds one either.
 """
 
 from __future__ import annotations
@@ -39,15 +41,6 @@ _ALLOWED_IMPORTERS = {
     # Per-metric judge model override. Stamps directly via
     # `stamp_usage_provenance`, mirroring `_is_hosted_model` at the call site.
     "metrics/strategies/local.py",
-    # Relays a generation call for a self-hosted deployment / SaaS loopback.
-    # Stamps directly (system default -- see the function's docstring) and
-    # also constructs an embedder (exempt) in the same module.
-    "app/routers/services.py",
-    # Embedding construction: BaseEmbedder never emits usage, so there is no
-    # accrual decision for these to skip.
-    "app/services/embedding/generator.py",
-    "app/services/embedding/graph_builder.py",
-    "app/services/explorer/embeddings.py",
     # Connection tests run a real generation against credentials the user
     # just typed into the form. Stamped `metered=False` explicitly -- these
     # tokens are never ours to bill, so ensure_language_model's `metered=True`

@@ -110,7 +110,7 @@ class TestLLMFailureHandling:
     def test_llm_api_failure_returns_fallback(self, llm_mapper, mock_db_session, mock_user):
         """Test that LLM mapper returns fallback when API call fails."""
         with patch(
-            "rhesis.backend.app.services.connector.mapping.llm_mapper.get_user_generation_model"
+            "rhesis.backend.app.services.connector.mapping.llm_mapper.resolve_model"
         ) as mock_get_model:
             # Mock the model to raise an exception
             mock_model = Mock()
@@ -134,7 +134,7 @@ class TestLLMFailureHandling:
     def test_llm_invalid_response_returns_fallback(self, llm_mapper, mock_db_session, mock_user):
         """Test that invalid LLM response triggers fallback."""
         with patch(
-            "rhesis.backend.app.services.connector.mapping.llm_mapper.get_user_generation_model"
+            "rhesis.backend.app.services.connector.mapping.llm_mapper.resolve_model"
         ) as mock_get_model:
             # Mock the model to return invalid data
             mock_model = Mock()

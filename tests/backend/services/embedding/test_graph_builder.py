@@ -42,11 +42,8 @@ def _mock_embedding(
 
 @pytest.mark.unit
 class TestGenerateClusterLabels:
-    @patch.object(graph_builder, "get_model")
-    @patch.object(graph_builder, "get_user_generation_model")
-    def test_empty_centroids_skips_model_resolution(
-        self, mock_get_user_model, mock_get_model, test_db
-    ):
+    @patch.object(graph_builder, "resolve_model")
+    def test_empty_centroids_skips_model_resolution(self, mock_resolve_model, test_db):
         user = MagicMock()
         embeddings = [_mock_embedding(), _mock_embedding()]
         cluster_ids = np.array([-1, -1])
@@ -55,10 +52,9 @@ class TestGenerateClusterLabels:
         result = _generate_cluster_labels(embeddings, cluster_ids, umap_50d, {}, test_db, user)
 
         assert result == {}
-        mock_get_user_model.assert_not_called()
-        mock_get_model.assert_not_called()
+        mock_resolve_model.assert_not_called()
 
-    @patch.object(graph_builder, "get_user_generation_model")
+    @patch.object(graph_builder, "resolve_model")
     def test_model_resolution_failure_returns_empty(self, mock_get_user_model, test_db):
         mock_get_user_model.side_effect = ModelConfigurationError("misconfigured")
         user = MagicMock()
@@ -196,7 +192,7 @@ class TestBuild2DGraph:
         assert graph.clusters[0].label == "Alpha"
         assert graph.clusters[0].size == 2
 
-    @patch.object(graph_builder, "get_user_generation_model")
+    @patch.object(graph_builder, "resolve_model")
     @patch.object(graph_builder, "_cluster_with_hdbscan")
     @patch.object(graph_builder, "_reduce_dimensions")
     def test_graph_uses_unlabeled_when_label_model_unavailable(

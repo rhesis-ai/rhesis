@@ -442,7 +442,7 @@ class TestSDKEndpointSync:
             "reasoning": "mocked for test speed",
         }
         with patch(
-            "rhesis.backend.app.services.connector.mapping.llm_mapper.get_user_generation_model",
+            "rhesis.backend.app.services.connector.mapping.llm_mapper.resolve_model",
             return_value=mock_model,
         ):
             yield

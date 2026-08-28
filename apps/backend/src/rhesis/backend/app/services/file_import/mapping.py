@@ -268,13 +268,10 @@ def is_llm_available(
     if db is None or user is None:
         return False
     try:
-        from rhesis.backend.app.utils.user_model_utils import (
-            ensure_language_model,
-            get_user_generation_model,
-        )
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
 
         # Verify the default provider can actually be instantiated.
-        ensure_language_model(get_user_generation_model(db, user))
+        resolve_model(db, user, "generation")
         return True
     except Exception:
         return False
@@ -297,12 +294,9 @@ def llm_map_columns(
         return auto_map_columns(headers)
 
     try:
-        from rhesis.backend.app.utils.user_model_utils import (
-            ensure_language_model,
-            get_user_generation_model,
-        )
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
 
-        model = ensure_language_model(get_user_generation_model(db, user))
+        model = resolve_model(db, user, "generation")
 
         template_path = os.path.join(os.path.dirname(__file__), "mapping_prompt.jinja")
         with open(template_path, "r") as f:

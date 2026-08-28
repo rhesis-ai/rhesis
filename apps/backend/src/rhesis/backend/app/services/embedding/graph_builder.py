@@ -15,8 +15,7 @@ from rhesis.backend.app.crud.embedding import get_active_embeddings_for_entities
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.embedding import Cluster, Scatter2DGraph, ScatterPoint2D
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +125,7 @@ def _generate_cluster_labels(
         return {}
 
     try:
-        _model = get_user_generation_model(db, user)
-        if isinstance(_model, str):
-            _model = get_model(_model)
+        _model = resolve_model(db, user, "generation")
     except Exception as e:
         logger.warning(
             "Skipping cluster labels: generation model unavailable (%s)",
