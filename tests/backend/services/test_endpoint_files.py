@@ -102,10 +102,10 @@ class TestInjectFileContentIntoInput:
 # ---------------------------------------------------------------------------
 
 
-# files.py imports resolve_model_for_extraction from model_resolution; patch there.
 _FILES_PATH = "rhesis.backend.app.services.endpoint.files"
-# output_providers still has _resolve_model_for_extraction as a re-exported alias.
 _PROVIDERS_PATH = "rhesis.backend.jobs.execution.executors.output_providers"
+# files.py imports resolve_model inside the function, so patch it at its source.
+_RESOLVE_MODEL = "rhesis.backend.app.utils.user_model_utils.resolve_model"
 _SDK_EXTRACTOR_PATH = "rhesis.sdk.services.extractor"
 
 
@@ -115,8 +115,7 @@ class TestEnrichFilesWithExtraction:
     The extraction strategy is now fully encapsulated in
     ``extract_with_vision_fallback`` (SDK), so these tests mock that single
     entry-point rather than the internal _select_extractor / ImageExtractor
-    chain.  Model resolution is mocked at the site where files.py looks it
-    up (model_resolution module) to keep tests DB-free.
+    chain.  Model resolution is mocked at its source to keep tests DB-free.
     """
 
     def _file_dict(self, filename="doc.txt", content_type="text/plain", data=None):
@@ -132,12 +131,12 @@ class TestEnrichFilesWithExtraction:
             {"filename": "a.txt", "data": "x", "extracted_text": "text A"},
             {"filename": "b.txt", "data": "y", "extracted_text": "text B"},
         ]
-        with patch(f"{_FILES_PATH}.resolve_model_for_extraction") as mock_resolve:
+        with patch(_RESOLVE_MODEL) as mock_resolve:
             result = enrich_files_with_extraction(files, db=None, user_id=None)
         mock_resolve.assert_not_called()
         assert result == files
 
-    @patch(f"{_FILES_PATH}.resolve_model_for_extraction")
+    @patch(_RESOLVE_MODEL)
     def test_skips_individual_file_that_already_has_extracted_text(self, mock_resolve):
         mock_resolve.return_value = None
         pre_extracted = {"filename": "done.txt", "data": "x", "extracted_text": "already done"}
@@ -149,7 +148,7 @@ class TestEnrichFilesWithExtraction:
         assert result[0]["extracted_text"] == "already done"
         assert result[1]["extracted_text"] == "fresh"
 
-    @patch(f"{_FILES_PATH}.resolve_model_for_extraction")
+    @patch(_RESOLVE_MODEL)
     def test_extracts_text_via_vision_fallback(self, mock_resolve):
         mock_resolve.return_value = None
 
@@ -160,7 +159,7 @@ class TestEnrichFilesWithExtraction:
 
         assert result[0]["extracted_text"] == "Extracted content"
 
-    @patch(f"{_FILES_PATH}.resolve_model_for_extraction")
+    @patch(_RESOLVE_MODEL)
     def test_passes_through_non_dict_entries(self, mock_resolve):
         mock_resolve.return_value = None
         result = enrich_files_with_extraction(["not-a-dict"], db=None, user_id=None)
@@ -173,11 +172,7 @@ class TestEnrichFilesWithExtraction:
 
         with (
             patch("rhesis.backend.app.crud.user.get_user_by_id", return_value=mock_user),
-            patch(
-                "rhesis.backend.app.utils.user_model_utils.resolve_model",
-                return_value="openai/gpt-4o",
-            ),
-            patch(f"{_FILES_PATH}.resolve_model_for_extraction", return_value=mock_model),
+            patch(_RESOLVE_MODEL, return_value=mock_model),
             patch(
                 f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback", return_value="diagram"
             ) as mock_fn,

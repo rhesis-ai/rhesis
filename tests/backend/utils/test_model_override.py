@@ -30,6 +30,8 @@ _FETCH = "rhesis.backend.app.utils.user_model_utils._fetch_and_configure_model"
 _DEFAULT = "rhesis.backend.app.utils.user_model_utils.resolve_default_hosted_model"
 _FETCH_EMBEDDER = "rhesis.backend.app.utils.user_model_utils._fetch_and_configure_embedder"
 _GET_MODEL = "rhesis.backend.app.utils.user_model_utils.get_model"
+_LOAD_ROW = "rhesis.backend.app.utils.user_model_utils._load_model_row"
+_BUILD = "rhesis.backend.app.utils.user_model_utils._build_configured_model"
 
 
 @pytest.fixture
@@ -198,18 +200,37 @@ class TestResolveEmbedder:
         )
         assert result is embedder
 
-    def test_dimensions_reach_the_default_but_not_a_configured_row(self, mock_db, mock_user):
-        """A Model row the org configured carries its own vector width."""
+    def test_dimensions_reach_the_system_default(self, mock_db, mock_user):
         _configure(mock_user, "embedding", None)
 
         with patch(_GET_MODEL, return_value=Mock()) as mock_get:
             resolve_embedder(mock_db, mock_user, dimensions=768)
+
         assert mock_get.call_args[1]["dimensions"] == 768
 
+    def test_dimensions_are_still_threaded_past_a_configured_row(self, mock_db, mock_user):
+        """Not dead weight on this path: the row may be missing or keyless, and
+        the default built in its place still has to come out the right width."""
         _configure(mock_user, "embedding", "configured-embedder")
+
         with patch(_FETCH_EMBEDDER, return_value=Mock()) as mock_fetch:
             resolve_embedder(mock_db, mock_user, dimensions=768)
+
         assert mock_fetch.call_args[1]["dimensions"] == 768
+
+    def test_a_configured_row_is_built_at_its_own_width(self, mock_db, mock_user):
+        """Where the docstring's claim actually bites: a row that resolves is
+        built from its own stored settings, and never sees `dimensions`."""
+        _configure(mock_user, "embedding", "configured-embedder")
+
+        with (
+            patch(_LOAD_ROW, return_value=Mock(provider_type=Mock(type_value="openai"))),
+            patch(_BUILD, return_value=Mock()) as mock_build,
+        ):
+            resolve_embedder(mock_db, mock_user, dimensions=768)
+
+        assert "dimensions" not in mock_build.call_args.kwargs
+        assert 768 not in mock_build.call_args.args
 
 
 @pytest.mark.unit
