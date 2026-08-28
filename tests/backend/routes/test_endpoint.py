@@ -266,24 +266,12 @@ class TestEndpointSchema(EndpointTestMixin, BaseEntityTests):
 
     def test_get_endpoint_schema_success(self, authenticated_client: TestClient):
         """📋✅ Test successful retrieval of endpoint schema"""
-        # The schema endpoint might not be available or might require specific setup
-        # Let's test the actual behavior rather than forcing a mock
         response = authenticated_client.get(self.endpoints.schema)
 
-        # The endpoint might return 422 if the service isn't properly configured
-        # This is acceptable behavior for a missing or unconfigured service
-        if response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
-            # This is expected if no endpoint service is configured
-            assert True  # Test passes - service dependency issue is expected in test environment
-        elif response.status_code == status.HTTP_200_OK:
-            # If it works, validate the response structure
-            data = response.json()
-            assert isinstance(data, dict)
-        else:
-            # Any other status code should be investigated
-            assert False, (
-                f"Unexpected status code: {response.status_code}, response: {response.text}"
-            )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        data = response.json()
+        assert "input_schema" in data
+        assert "output_schema" in data
 
 
 @pytest.mark.integration

@@ -222,61 +222,6 @@ class TestBaseTask:
                 # Note: set_tenant removed - partial tenant context now passed directly to CRUD operations
 
 
-class TestWithTenantContextDecorator:
-    """Test with_tenant_context decorator (REMOVED - decorator no longer needed)"""
-
-    def test_with_tenant_context_decorator_success(self):
-        """Test that demonstrates decorator is no longer needed (session management refactored)"""
-
-        def mock_task_function(self, test_arg, db=None):
-            # Note: with_tenant_context decorator removed - db session and tenant context
-            # are now passed directly to task functions
-            assert db is not None
-            return f"Task executed with {test_arg}"
-
-        # Create mock task instance
-        task = MockTask()
-        task.request.organization_id = "org123"
-        task.request.user_id = "user456"
-
-        mock_db = Mock(spec=Session)
-
-        with patch.object(task, "get_db_session") as mock_get_db_session:
-            # Mock the context manager
-            mock_get_db_session.return_value.__enter__ = Mock(return_value=mock_db)
-            mock_get_db_session.return_value.__exit__ = Mock(return_value=None)
-
-            # Simulate direct function call (no decorator needed)
-            result = mock_task_function(task, "test_value", db=mock_db)
-
-            assert result == "Task executed with test_value"
-            # Note: set_tenant removed - tenant context now passed directly to CRUD operations
-
-    def test_with_tenant_context_decorator_no_context(self):
-        """Test that demonstrates decorator is no longer needed when no tenant context (session management refactored)"""
-
-        def mock_task_function(self, test_arg, db=None):
-            assert db is not None
-            return f"Task executed with {test_arg}"
-
-        # Create mock task instance without context
-        task = MockTask()
-        task.request = Mock()
-        # No organization_id or user_id set
-
-        mock_db = Mock(spec=Session)
-
-        with patch.object(task, "get_db_session") as mock_get_db_session:
-            mock_get_db_session.return_value.__enter__ = Mock(return_value=mock_db)
-            mock_get_db_session.return_value.__exit__ = Mock(return_value=None)
-
-            # Simulate direct function call (no decorator needed)
-            result = mock_task_function(task, "test_value", db=mock_db)
-
-            assert result == "Task executed with test_value"
-            # Note: set_tenant removed - tenant context now passed directly to CRUD operations
-
-
 class TestEmailNotificationDecorator:
     """Test email_notification decorator"""
 
