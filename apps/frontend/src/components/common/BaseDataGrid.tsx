@@ -240,9 +240,11 @@ function isFixedWidthColumn(col: GridColDef): boolean {
  * - Explicit `flex` columns grow proportionally.
  * - `width` without `flex` is treated as a fixed cap (`maxWidth`).
  * - Unsized columns receive `flex: 1` to absorb remaining grid width.
+ * - When no column would receive flex, the first non-fixed column is
+ *   promoted to `flex: 1` so the grid always fills its container.
  */
 export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
-  return columns.map(col => {
+  const mapped = columns.map(col => {
     const field = String(col.field);
     const normalized =
       field === 'actions' ? { ...col, hideable: false } : { ...col };
@@ -268,6 +270,22 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
       minWidth: normalized.minWidth ?? 50,
     };
   });
+
+  const hasFlexColumn = mapped.some(col => col.flex != null && col.flex > 0);
+  if (!hasFlexColumn) {
+    const idx = columns.findIndex(
+      (orig, i) =>
+        !isFixedWidthColumn(mapped[i]) &&
+        orig.width != null &&
+        orig.maxWidth == null
+    );
+    if (idx !== -1) {
+      const { maxWidth: _mw, ...rest } = mapped[idx];
+      mapped[idx] = { ...rest, flex: 1, minWidth: rest.minWidth ?? rest.width ?? 50 };
+    }
+  }
+
+  return mapped;
 }
 
 // Create a styled version of DataGrid with Figma-aligned borders and headers
