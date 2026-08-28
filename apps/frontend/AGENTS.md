@@ -1,20 +1,15 @@
 # Frontend Rules
 
-Next.js 14+ with App Router and Material UI. See root `AGENTS.md` for repo-wide rules.
+Next.js 16 with App Router and Material UI. See root `AGENTS.md` for repo-wide rules.
 
-## Directory layout
-
-- `src/app/(protected)/` — authenticated routes, file-based, `[identifier]` dynamic routes
-- `src/components/common/` — reusable UI (BaseDataGrid, BaseTable, ActionBar, etc.)
-- `src/utils/api-client/` — typed backend API clients
-- `src/hooks/` — custom React hooks
-- `src/constants/capabilities.ts`, `src/constants/features.ts` — mirror backend enums, keep in sync
+Authenticated routes live under `src/app/(protected)/`; backend calls go through the typed clients
+in `src/utils/api-client/`.
 
 ## Affordances (Server-Driven Permissions)
 
-The backend resolves permitted actions per object and exposes them as `permitted_actions: string[]`
-via `WithPermittedActions`. The frontend consumes them through **three primitives only** — never
-roll your own ownership logic (`user.id === currentUserId`).
+The backend resolves permitted actions per object (see `apps/backend/AGENTS.md`). The frontend
+consumes them through **three primitives only** — never roll your own ownership logic
+(`user.id === currentUserId`).
 
 | Primitive                           | When to use                                                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -36,14 +31,20 @@ if (!canRead) return <AccessDenied resource="test runs" />;
 </Can>;
 ```
 
-Types carrying object-level affordances: `TestResult`, `ExperimentRead`, `Task`, `TestRun`,
-`Comment`. Everything else (Requirement, Metric, Endpoint, TestSet, Source, …) uses `useCan`/`<Can>`.
+A type carries object-level affordances if it extends `WithPermittedActions` — check with
+`grep -rn "extends WithPermittedActions" src`. Everything else uses `useCan`/`<Can>`.
 
 Every protected page must guard its READ capability with the `useCan` pattern above.
 
 Adding affordances to a new resource: extend the TS interface with `WithPermittedActions` from
 `@/types/affordances`, use `can(subject, …)` instead of `useCan`, and add the new capability string
 to `src/constants/capabilities.ts` (must mirror the backend `Permission` enum).
+
+**Import all four primitives from `@/components/common/Can`**, including `can` — that module
+re-exports it from `@/utils/affordances`. Both paths work at runtime, but only one is mockable in
+one place: a test that mocks `@/components/common/Can` does not intercept a component importing
+`can` from `@/utils/affordances`, and the check silently runs for real. Import `@/utils/affordances`
+directly only from non-React code (e.g. `src/utils/server-permissions.ts`).
 
 Tests rendering a component that uses any affordance primitive must mock the module:
 
@@ -55,9 +56,6 @@ jest.mock('@/components/common/Can', () => ({
   can: () => true,
 }));
 ```
-
-Key files: `src/components/common/Can.tsx` (primitives), `src/contexts/PermissionsContext.tsx`
-(ambient scope provider), `src/types/affordances.ts` (`WithPermittedActions` interface).
 
 ## BFF Auth Pattern (no client-side session tokens)
 
@@ -90,11 +88,13 @@ client component, follow the pattern above rather than copying an older prop-dri
 
 ## Feature Gating — frontend side
 
-Mirror `FeatureName` from the backend enum in `src/constants/features.ts`. `FeaturesProvider`
-(mounted in the protected layout) + `useFeature(name)` + `<FeatureGate feature={...}>` consume
-`GET /features` to conditionally render gated UI. Fail-closed: features are `false` during the
-initial fetch and on error. Typed client: `src/utils/api-client/features-client.ts`. See
-`apps/backend/AGENTS.md` for the full registration flow.
+`src/constants/features.ts` (`FeatureName`) and `src/constants/capabilities.ts` (`Capability`) are
+hand-mirrored from the backend enums and must stay in sync with them.
+
+`FeaturesProvider` (mounted in the protected layout) + `useFeature(name)` +
+`<FeatureGate feature={...}>` consume `GET /features` to conditionally render gated UI.
+Fail-closed: features are `false` during the initial fetch and on error. See
+`apps/backend/AGENTS.md` for the registration flow behind them.
 
 ## TypeScript & ESLint Conventions
 

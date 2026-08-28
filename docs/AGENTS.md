@@ -1,7 +1,8 @@
 # Documentation Rules
 
-Apply whenever creating, modifying, or generating any documentation in this directory. Framework:
-Nextra, which processes MDX (Markdown + JSX).
+Rules for the docs site in `docs/` — apply whenever creating, modifying, or generating content
+here. Framework: Nextra, which processes MDX (Markdown + JSX). See root `AGENTS.md` for repo-wide
+rules.
 
 ## Writing rules
 
@@ -49,7 +50,7 @@ or restate what the page structure already shows.
   processing, request flow), one mermaid diagram with a one-line annotation beats paragraphs.
 - **Don't explain standard tools** (what ruff/pytest/Docker/git are). Show the command.
 - **Don't list obvious prerequisites** ("Git installed"). Compress to one line only when a version
-  constraint matters (Python 3.10+). Non-obvious prerequisites are a one-line link, not a section.
+  constraint matters (Python 3.12+). Non-obvious prerequisites are a one-line link, not a section.
 - **No file trees or tables describing self-describing files** (`docker-compose.yml` — "Docker
   Compose configuration"). Keep such listings only when the description is non-obvious.
 - **Keep code-block comments to non-obvious facts.** `# 1. Clone the repository` above
@@ -132,8 +133,7 @@ MDX files cannot directly import Material-UI icons — module resolution fails. 
 
 3. Use it in MDX with no imports: `<MyComponent />`
 
-Examples already following this pattern: `FeatureOverview.jsx`, `ArchitectureOverview.jsx`,
-`PlatformFeatures.jsx`.
+For existing examples: `grep -rln "@mui/icons-material" src/components/`.
 
 ### Colour, type, and design tokens
 
@@ -188,19 +188,8 @@ crawlers do not render webp reliably).
 
 - Kebab-case file names (`test-result-status.mdx`); organize by feature/topic, not file type.
 - Include code examples with a language tag (` ```python `, ` ```typescript `, ` ```bash `).
-
-```
-docs/
-├── src/
-│   ├── components/               # Reusable JSX components for MDX
-│   ├── app/                      # Next.js app directory
-│   └── mdx-components.js         # MDX component registry
-├── content/                      # All documentation content (MDX files)
-│   ├── _meta.tsx                 # Root navigation config
-│   ├── getting-started/, platform/, sdk/
-│   └── development/{backend,frontend,worker}/
-└── README.md
-```
+- MDX content lives in `content/`, JSX components in `src/components/`, registered in
+  `src/mdx-components.js`.
 
 Each directory needs a `_meta.tsx` for navigation:
 

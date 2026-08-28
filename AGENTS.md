@@ -1,8 +1,14 @@
 # Rhesis Project Rules
 
 Read natively by Cursor and imported by Claude Code (`CLAUDE.md` → `@AGENTS.md`). This file holds
-rules that apply repo-wide. Scoped rules live in each area's own `AGENTS.md`:
-`apps/backend/AGENTS.md`, `apps/frontend/AGENTS.md`, `sdk/AGENTS.md`, `docs/AGENTS.md`.
+rules that apply repo-wide. Each area has its own `AGENTS.md` for rules scoped to it, pulled in
+automatically when you read files there via a sibling `CLAUDE.md`:
+
+- `apps/backend/AGENTS.md` — ambient request scope, usage attribution, feature gating
+- `apps/frontend/AGENTS.md` — affordances, BFF auth, TypeScript/ESLint conventions
+- `sdk/AGENTS.md` — imports, test invocation
+- `docs/AGENTS.md` — docs writing rules, Nextra/MDX mechanics
+- `skills/rhesis/AGENTS.md` — the published public skill (everything there ships to users)
 
 ## Answering
 
@@ -23,7 +29,20 @@ not for ordinary code. Never restate what the next line does.
 
 ## Technology Stack
 
-Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, pytest.
+Backend and Python SDK: Python 3.12+, `uv` with `pyproject.toml`, Pydantic 2.x, pytest.
+
+### Python imports
+
+**Always absolute, never relative.** Write the full dotted path, including for a module's own
+siblings and inside a package's own `__init__.py`:
+
+```python
+from rhesis.backend.app.services.explorer.utils import build_test_tree  # yes
+from .utils import build_test_tree  # no
+from ..database import get_db  # no
+```
+
+Existing relative imports are being converted as the files around them are touched.
 
 ## Local Development
 
@@ -38,11 +57,11 @@ Backend and Python SDK: Python 3.10+, `uv` with `pyproject.toml`, Pydantic 2.x, 
 ## Worktrees
 
 Every worktree must come from `./rh worktree`, never from a bare `git worktree add`. Only
-`./rh worktree` symlinks `playground/` and `simulations/` back to the main checkout, so notes
-written there survive the worktree being removed — they're gitignored, so nothing else preserves
-them. It also gives the worktree its own dev ports and container names; a worktree without
-`.rhesis-ports` shares the main checkout's stack, and `./rh dev clean` in one would delete main's
-dev database.
+`./rh worktree` symlinks `playground/`, `simulations/` and `domain.local/` back to the main
+checkout, so notes written there survive the worktree being removed — they're gitignored, so
+nothing else preserves them. It also gives the worktree its own dev ports and container names; a
+worktree without `.rhesis-ports` shares the main checkout's stack, and `./rh dev clean` in one
+would delete main's dev database.
 
 A worktree that already exists without that setup isn't stuck — run `./rh worktree --init` from
 inside it.
@@ -62,9 +81,11 @@ Port blocks run out after 20 concurrent worktrees, so remove yours when done:
 
 ## Testing
 
-Tests live in `tests/backend/` and `tests/sdk/`, not next to source. See `apps/backend/AGENTS.md`
-and `sdk/AGENTS.md` for exact invocation commands (backend and SDK have different working-directory
-requirements).
+Tests live under `tests/` — `backend/`, `sdk/`, `frontend/`, plus `k6/`, `load/`, `notifications/`,
+`penelope/`, `polyphemus/`, `release_tools/` — never next to source.
+
+Each suite has different working-directory and Docker requirements. Backend: invoke the
+`backend-testing` skill. SDK: see `sdk/AGENTS.md`.
 
 ## Git Commits
 

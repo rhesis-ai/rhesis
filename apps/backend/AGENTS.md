@@ -1,36 +1,12 @@
 # Backend Rules
 
-FastAPI REST API with Celery task processing. Layered: routers → services → models/crud.
+FastAPI REST API with Celery task processing. Layered: routers → services → crud. Alongside
+`app/`: `alembic/` (migrations), `jobs/` (Celery tasks), `metrics/` (evaluation).
 See root `AGENTS.md` for repo-wide rules (commits, PRs, testing overview, tech stack).
-
-## Directory layout
-
-- `src/rhesis/backend/app/` — FastAPI core: `models/` (SQLAlchemy ORM), `schemas/` (Pydantic),
-  `routers/`, `services/` (business logic), `auth/`, `scope.py`/`models/scope_events.py` (tenant
-  scope), `features/` (feature gating)
-- `alembic/` — DB migrations
-- `jobs/` — Celery background tasks (`execution/`, `telemetry/`)
-- `metrics/` — evaluation metrics (DeepEval, RAGAS, native providers)
-
-## Imports
-
-**Always absolute, never relative.** Write the full dotted path, including for a module's own
-siblings:
-
-```python
-from rhesis.backend.app.schemas.explorer import TestTreeNode  # yes
-from rhesis.backend.app.services.explorer.utils import build_test_tree  # yes
-from .utils import build_test_tree  # no
-from ..database import get_db  # no
-```
-
-This holds inside a package's own `__init__.py` too. Existing relative imports are being converted
-as the files around them are touched.
 
 ## CRUD layout
 
-`app/crud/` is one module per entity — `crud/test.py`, `crud/test_set.py`, `crud/explorer.py`, and so on.
-`crud/__init__.py` is empty on purpose; **a new CRUD function goes in its entity's module**, and a
+`app/crud/` is one module per entity. **A new CRUD function goes in its entity's module**, and a
 new entity gets a new module.
 
 Layering is routers → services → crud, and the same "split, don't grow" rule runs down it: touching
@@ -134,11 +110,9 @@ Set `RHESIS_DISABLE_SCOPE_LISTENER=1` to disable both listeners without redeploy
 
 ### Test fixtures
 
-`tests/backend/conftest.py` provides:
-
-- `isolate_request_scope` (autouse) — resets `ContextVar`s to defaults per test; existing tests
-  are unaffected because the listener no-ops when `organization_id is None`
-- `bound_scope` — opt-in fixture for tests that exercise the listeners directly
+`tests/backend/conftest.py` provides `isolate_request_scope` (autouse, resets the `ContextVar`s
+per test) and `bound_scope` (opt-in, for tests that exercise the listeners directly). The autouse
+one is safe for existing tests because the listener no-ops when `organization_id is None`.
 
 ### Side-channel and in-request scope binding
 
@@ -160,25 +134,6 @@ queries silently return empty results or wrong counts with no error raised.
 block. Any `db.commit()` inside the block (which triggers the `after_begin` re-apply listener) uses
 the temporary project scope, not the caller's original scope. Safe to use repeatedly within a single
 request session.
-
-`bind_scope_to_session` callers (sessions they own outright):
-
-- `jobs/execution/batch/context.py`
-- `celery/signals.py`
-- `jobs/telemetry/evaluate.py`
-- `jobs/telemetry/post_ingest.py`
-- `jobs/execution/executors/data.py`
-- `routers/parameters.py`
-- `services/telemetry/conversation_linking.py`
-- `services/websocket/handlers/architect.py`
-
-`temporary_project_scope` callers (in-request, short project windows):
-
-- `services/organization.py` (three sites — onboarding endpoint/project seeding)
-
-`set_session_variables` callers (explicit GUC-only re-apply):
-
-- `routers/organization.py` (re-applies GUCs after mid-request `db.commit()` during onboarding)
 
 ### GUC reset ordering invariant
 
@@ -226,21 +181,22 @@ on response schemas that mixin `WithPermittedActions`. See `apps/frontend/AGENTS
 three-primitives frontend contract.
 
 Adding affordances to a new resource: add `WithPermittedActions` to the Pydantic response schema
-and annotate `resource_type` on the class. Key files: `schemas/affordances.py` (mixin),
-`auth/capabilities.py` (`Permission` enum, keep in sync with frontend `Capability` enum).
+and annotate `resource_type` on the class. The `Permission` enum in `auth/capabilities.py` must
+stay in sync with the frontend `Capability` enum.
 
 ## Feature Gating
 
 Gated capabilities (e.g. SSO) flow through a single primitive on the backend and a mirrored one on
 the frontend. No ad-hoc `if` checks scattered across routers or components.
 
-- `app/features/__init__.py` — the `FeatureRegistry`, `Feature` dataclass, `FeatureName` str-Enum,
-  and `LicenseProvider` protocol. `DefaultLicenseProvider` is the stub used today; a real one
-  installs via `FeatureRegistry.set_license_provider(...)` when licensing lands.
-- `app/features_bootstrap.py` — declarative list of features, called once from `main.py` lifespan.
-- `app/auth/feature_gates.py` — FastAPI dependencies `require_feature` (404 on denial, no
-  enumeration leak) and `has_feature` (bool for branching).
-- `app/routers/features.py` — `GET /features` returns license info and enabled feature names.
+`app/features/` holds the `FeatureRegistry`, the `FeatureName` str-Enum and the `LicenseProvider`
+protocol; `app/auth/feature_gates.py` has the `require_feature` dependency (404 on denial, so
+denied features don't leak by enumeration) and `has_feature` for branching.
+
+EE code is loaded through `app/ee_bootstrap.py`, the **only** core-side import of
+`rhesis.backend.ee` — a `try/except ImportError` so a Community build runs without it. That
+boundary is enforced by the `community-boundary` CI job; no other file under `apps/backend/src/`
+may import from `rhesis.backend.ee.*`.
 
 Community features are never registered. `FeatureRegistry` is for EE features only; if a
 capability ships in `apps/backend/` under MIT, it is unconditionally available and needs no gating.
