@@ -48,12 +48,13 @@ export default function InviteTeamStep({
 
   const limits = useLimits();
   const seatLimit = limits[QuotaResource.SEATS];
-  // The onboarding user occupies one seat, so invitable slots = limit - 1.
-  // null means unlimited; fall back to a sensible cap when limits haven't loaded.
+  // null = unlimited (licensed with no cap), undefined = not loaded yet.
   const maxInvites =
-    typeof seatLimit === 'number'
-      ? Math.max(1, seatLimit - 1)
-      : FALLBACK_MAX_INVITES;
+    seatLimit === null
+      ? FALLBACK_MAX_INVITES
+      : typeof seatLimit === 'number'
+        ? Math.max(0, seatLimit - 1)
+        : FALLBACK_MAX_INVITES;
 
   const step = ONBOARDING_STEPS[1];
 
@@ -229,9 +230,7 @@ export default function InviteTeamStep({
             fontSize: 16,
             lineHeight: '24px',
             cursor:
-              formData.invites.length >= maxInvites
-                ? 'not-allowed'
-                : 'pointer',
+              formData.invites.length >= maxInvites ? 'not-allowed' : 'pointer',
             opacity: formData.invites.length >= maxInvites ? 0.5 : 1,
             alignSelf: 'flex-start',
           }}

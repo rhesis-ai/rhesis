@@ -169,7 +169,8 @@ export default function OnboardingPageClient({
 
             // Send invitations sequentially so the backend quota gate
             // sees each new seat before checking the next one.
-            for (const email of validEmails) {
+            for (let i = 0; i < validEmails.length; i++) {
+              const email = validEmails[i];
               const userData = {
                 email: email,
                 organization_id: organization.id as UUID,
@@ -187,9 +188,7 @@ export default function OnboardingPageClient({
                     success: false,
                     error: 'Seat limit reached',
                   });
-                  // Mark remaining emails as skipped and stop.
-                  const currentIndex = validEmails.indexOf(email);
-                  for (const remaining of validEmails.slice(currentIndex + 1)) {
+                  for (const remaining of validEmails.slice(i + 1)) {
                     invitationResults.push({
                       email: remaining,
                       success: false,
