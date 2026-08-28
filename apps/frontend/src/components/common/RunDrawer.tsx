@@ -760,11 +760,19 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Metric helpers
   // -----------------------------------------------------------------------
 
-  const handleAddMetric = (metric: { id: UUID; name: string; metric_scope?: MetricScope[] }) => {
-    setSelectedMetrics(prev => [
-      ...prev,
-      { id: metric.id, name: metric.name, scope: metric.metric_scope },
-    ]);
+  const handleAddMetric = (metric: {
+    id: UUID;
+    name: string;
+    metric_scope?: MetricScope[];
+  }) => {
+    setSelectedMetrics(prev =>
+      prev.some(m => m.id === metric.id)
+        ? prev
+        : [
+            ...prev,
+            { id: metric.id, name: metric.name, scope: metric.metric_scope },
+          ]
+    );
   };
 
   const handleRemoveMetric = (metricId: UUID) => {
