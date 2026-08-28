@@ -55,10 +55,17 @@ def get_test_facets(
             .filter(col.isnot(None), *test_predicates)
         )
         if test_set_id is not None:
+            # The association table is tenant-scoped too, so it carries the org
+            # predicate as well: Test being filtered already rules out
+            # cross-org rows, but neither join should be the one thing holding
+            # that line.
             query = query.join(
                 test_test_set_association,
                 test_test_set_association.c.test_id == Test.id,
-            ).filter(test_test_set_association.c.test_set_id == test_set_id)
+            ).filter(
+                test_test_set_association.c.test_set_id == test_set_id,
+                test_test_set_association.c.organization_id == organization_id,
+            )
         return [name for (name,) in query.distinct().order_by(col).all()]
 
     return {
