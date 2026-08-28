@@ -18,6 +18,8 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from rhesis.backend.app.auth.capabilities import get_all_capabilities
@@ -130,7 +132,7 @@ class TestPrincipal:
 
     def test_principal_is_frozen(self):
         p = _principal()
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             p.user_id = uuid.uuid4()  # type: ignore[misc]
 
     def test_principal_equality_ignores_scopes(self):

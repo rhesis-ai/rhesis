@@ -103,7 +103,7 @@ class TestServiceTransactionManagement:
         }
 
         # Create a test set with invalid organization_id to trigger exception
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Failed to create test set: Invalid UUID format"):
             test_set_service.bulk_create_test_set(
                 test_db, test_set_data, "invalid-org-id", authenticated_user_id
             )
@@ -173,7 +173,7 @@ class TestServiceTransactionManagement:
         ]
 
         # Create tests with invalid organization_id to trigger exception
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Failed to create tests: Invalid UUID format"):
             test_service.bulk_create_tests(
                 test_db, tests_data, "invalid-org-id", authenticated_user_id
             )
@@ -510,7 +510,7 @@ class TestServiceTransactionManagement:
             ],
         }
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Failed to create test set: Invalid UUID format"):
             test_set_service.bulk_create_test_set(
                 test_db, test_set_data2, "invalid-org-id", authenticated_user_id
             )

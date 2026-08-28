@@ -907,7 +907,7 @@ def set_processor_exporter(processor: SpanProcessor, exporter: SpanExporter) -> 
         return
     # Older OTEL Batch SDK or SimpleSpanProcessor: span_exporter is a plain
     # attribute we can set directly.
-    setattr(processor, "span_exporter", exporter)
+    processor.span_exporter = exporter
 
 
 # ---------------------------------------------------------------------------

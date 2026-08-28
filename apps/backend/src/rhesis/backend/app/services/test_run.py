@@ -118,7 +118,7 @@ def get_test_results_for_test_run(
         # Add requirement metrics columns
         test_metrics = result.test_metrics.get("metrics", {}) if result.test_metrics else {}
 
-        for requirement_id, requirement_data in requirement_map.items():
+        for _requirement_id, requirement_data in requirement_map.items():
             requirement = requirement_data["requirement"]
             metrics = requirement_data["metrics"]
 

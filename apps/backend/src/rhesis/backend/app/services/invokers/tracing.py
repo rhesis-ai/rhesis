@@ -206,18 +206,20 @@ async def create_invocation_trace(
         "error": None,
     }
 
+    # Nothing below the yield can run without a project to attach the span to, so
+    # skip tracing up front. Returning out of the finally instead would cancel the
+    # re-raise below and report a failed invocation as a success (B012).
+    if endpoint.project_id is None:
+        logger.debug(f"Skipping trace creation for endpoint {endpoint.id} - no project_id assigned")
+        yield trace_context
+        return
+
     try:
         yield trace_context
     except Exception as e:
         trace_context["error"] = e
         raise
     finally:
-        if endpoint.project_id is None:
-            logger.debug(
-                f"Skipping trace creation for endpoint {endpoint.id} - no project_id assigned"
-            )
-            return
-
         end_time = datetime.now(timezone.utc)
         result = trace_context.get("result")
         error = trace_context.get("error")

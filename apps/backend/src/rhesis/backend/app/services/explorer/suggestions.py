@@ -355,7 +355,7 @@ async def generate_suggestions(
                 user_id,
                 embedder=embedder,
             )
-            for item, vec in zip(suggestions, vectors):
+            for item, vec in zip(suggestions, vectors, strict=True):
                 item["embedding"] = vec
 
             suggestions = sort_by_diversity(suggestions)

@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from rhesis.sdk.models.providers.litellm_proxy import (
     DEFAULT_API_BASE,
@@ -201,7 +201,7 @@ class TestLiteLLMProxyGenerate:
         mock_post.return_value = _mock_openai_response('{"name": "Alice"}')
 
         llm = LiteLLMProxy(model_name="gemini")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             llm.generate("test", schema=StrictSchema)
 
     @patch("rhesis.sdk.models.providers.litellm_proxy.requests.post")

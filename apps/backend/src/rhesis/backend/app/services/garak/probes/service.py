@@ -87,7 +87,7 @@ class GarakProbeService:
         import garak.probes
 
         modules = []
-        for importer, modname, ispkg in pkgutil.iter_modules(garak.probes.__path__):
+        for _importer, modname, _ispkg in pkgutil.iter_modules(garak.probes.__path__):
             if modname not in self.EXCLUDED_MODULES:
                 modules.append(modname)
 

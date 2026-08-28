@@ -157,7 +157,7 @@ class TestQueryBuilderSoftDelete:
         """Test that only_deleted() chains with pagination methods."""
         # Create and delete multiple requirements
         deleted_requirements = []
-        for i in range(5):
+        for _i in range(5):
             requirement = crud_utils.create_item(
                 test_db,
                 models.Requirement,

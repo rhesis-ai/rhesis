@@ -56,7 +56,7 @@ class TestConfigGeneratorService:
         which is too slow for this interactive step; in that case use the fast
         system generation model setting.
         """
-        gen_settings = getattr(self.user.settings.models, "generation")
+        gen_settings = self.user.settings.models.generation
         model_id = gen_settings.model_id
         use_fast_default = False
         if model_id:

@@ -508,7 +508,7 @@ class TestAuthPerformance:
                 start_time = time.time()
 
                 # Make 20 verify requests
-                for i in range(20):
+                for _i in range(20):
                     response = client.post(
                         "/auth/verify",
                         json={"session_token": "test_token"},

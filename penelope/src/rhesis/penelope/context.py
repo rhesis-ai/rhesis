@@ -823,7 +823,7 @@ class TestState:
 
         metrics = {}
 
-        for i, metric_result in enumerate(self.metric_results):
+        for _i, metric_result in enumerate(self.metric_results):
             # Flatten the metric result
             metric_dict = self._flatten_metric_result(metric_result)
 

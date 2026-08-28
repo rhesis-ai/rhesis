@@ -30,8 +30,14 @@ class TestUniqueMetricKeyDeterminism:
         # The lower id ("111...") always gets the bare key, the higher id
         # always gets the suffix -- independent of which came first in the
         # input list.
-        assert dict(zip([a.id, b.id], keys_forward)) == {a.id: "Accuracy", b.id: "Accuracy_1"}
-        assert dict(zip([b.id, a.id], keys_reversed)) == {a.id: "Accuracy", b.id: "Accuracy_1"}
+        assert dict(zip([a.id, b.id], keys_forward, strict=True)) == {
+            a.id: "Accuracy",
+            b.id: "Accuracy_1",
+        }
+        assert dict(zip([b.id, a.id], keys_reversed, strict=True)) == {
+            a.id: "Accuracy",
+            b.id: "Accuracy_1",
+        }
 
     def test_keys_align_positionally_with_input_tasks(self):
         strategy = LocalStrategy()

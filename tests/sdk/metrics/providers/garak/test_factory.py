@@ -274,7 +274,7 @@ class TestFactoryDetectorPaths:
 
     def test_all_paths_follow_naming_convention(self, factory):
         """Test that all paths follow the garak.detectors.<module>.<Class> convention."""
-        for detector_name, path in factory.DETECTOR_PATHS.items():
+        for _detector_name, path in factory.DETECTOR_PATHS.items():
             if path is not None:
                 parts = path.split(".")
                 assert len(parts) == 4, f"Path {path} doesn't have 4 parts"

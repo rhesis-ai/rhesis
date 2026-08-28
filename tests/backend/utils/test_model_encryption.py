@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from cryptography.fernet import Fernet
 from faker import Faker
 from sqlalchemy import text
@@ -202,7 +203,7 @@ class TestModelEncryption:
         test_db.add(model)
 
         # Should raise IntegrityError due to nullable=False
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             test_db.commit()
 
         test_db.rollback()

@@ -131,6 +131,7 @@ class LiteLLM(BaseLLM):
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
         timeout = kwargs.pop("timeout", self.timeout)
         response = await acompletion(
+            *args,
             model=self.model_name,
             messages=messages,
             response_format=schema,
@@ -139,7 +140,6 @@ class LiteLLM(BaseLLM):
             api_version=self.api_version,
             extra_headers=extra_headers,
             timeout=timeout,
-            *args,
             **kwargs,
         )
 
@@ -198,6 +198,7 @@ class LiteLLM(BaseLLM):
         # requested. A caller-supplied stream_options still wins.
         stream_options = kwargs.pop("stream_options", None) or {"include_usage": True}
         response = await acompletion(
+            *args,
             model=self.model_name,
             messages=messages,
             response_format=schema,
@@ -208,7 +209,6 @@ class LiteLLM(BaseLLM):
             api_version=self.api_version,
             extra_headers=extra_headers,
             timeout=timeout,
-            *args,
             **kwargs,
         )
         async for chunk in response:  # type: ignore[union-attr]
@@ -263,6 +263,7 @@ class LiteLLM(BaseLLM):
 
         timeout = kwargs.pop("timeout", self.timeout)
         responses = batch_completion(
+            *args,
             model=self.model_name,
             messages=messages,
             response_format=response_format,
@@ -271,7 +272,6 @@ class LiteLLM(BaseLLM):
             api_version=self.api_version,
             n=n,
             timeout=timeout,
-            *args,
             **kwargs,
         )
 

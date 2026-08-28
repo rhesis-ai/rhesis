@@ -186,7 +186,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
         counts = self._distribute(num_tests, len(sections))
         all_tests: List[Dict[str, Any]] = []
 
-        for section, n in zip(sections, counts):
+        for section, n in zip(sections, counts, strict=True):
             if n == 0:
                 continue
             logger.info(

@@ -34,7 +34,7 @@ class TestCreateObserver:
         observer.add_method("query", "ai.database.query")
 
         assert hasattr(observer, "query")
-        assert callable(getattr(observer, "query"))
+        assert callable(observer.query)
 
     def test_add_method_with_operation_type(self):
         """Test adding method with operation type."""
@@ -374,7 +374,7 @@ class TestCustomObserverIntegration:
             "query", "ai.database.query", operation_type="database.query", table="default"
         )
 
-        query_method = getattr(observer, "query")
+        query_method = observer.query
         docstring = query_method.__doc__
 
         assert "Convenience decorator for query operations" in docstring

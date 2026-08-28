@@ -6,7 +6,7 @@ pytest.importorskip("torch")
 pytest.importorskip("transformers")
 
 import torch
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from rhesis.sdk.errors import (
     HUGGINGFACE_MODEL_NOT_LOADED,
@@ -504,7 +504,7 @@ class TestHuggingFaceLLM:
         # Mock decode to return invalid JSON (missing age field)
         mock_tokenizer.decode.return_value = '{"name": "John"}'
 
-        with pytest.raises(Exception):  # Should raise validation error
+        with pytest.raises(ValidationError):  # Should raise validation error
             llm.generate("Generate person data", schema=TestSchema)
 
     # Tests for metadata tracking

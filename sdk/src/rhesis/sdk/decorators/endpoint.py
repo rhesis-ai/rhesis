@@ -339,7 +339,7 @@ def endpoint(
             provided_params = set(kwargs.keys())
 
             # Map positional args to parameter names
-            for i, arg_value in enumerate(args):
+            for i, _arg_value in enumerate(args):
                 if i < len(param_names):
                     provided_params.add(param_names[i])
 

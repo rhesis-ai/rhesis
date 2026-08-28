@@ -115,6 +115,52 @@ def load_requirements_from_initial_data() -> List[Dict[str, Any]]:
     return data.get("requirement") or data.get("behavior", [])
 
 
+def _cached_type_lookup(
+    session: Session,
+    cache: Dict[tuple, Any],
+    organization_id: str,
+    user_id: str,
+    type_name: str,
+    type_value: str,
+) -> Any:
+    """get_or_create_type_lookup, memoised per organization.
+
+    Module-level and explicitly parameterised rather than a closure over the
+    per-org loop variables, which would capture them by reference (B023).
+    """
+    key = (type_name, type_value)
+    if key not in cache:
+        cache[key] = get_or_create_type_lookup(
+            db=session,
+            type_name=type_name,
+            type_value=type_value,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        )
+    return cache[key]
+
+
+def _cached_status(
+    session: Session,
+    cache: Dict[str, Any],
+    organization_id: str,
+    user_id: str,
+    name: str,
+) -> Any:
+    """get_or_create_status for metrics, memoised per organization."""
+    if name not in cache:
+        cache[name] = get_or_create_status(
+            db=session,
+            name=name,
+            entity_type=EntityType.METRIC,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        )
+    return cache[name]
+
+
 def sync_metrics_to_organizations(
     session: Session,
     metric_names: List[str] | None = None,
@@ -223,31 +269,12 @@ def sync_metrics_to_organizations(
             # so memoising avoids re-querying it once per metric.
             type_lookup_cache: Dict[tuple, Any] = {}
             status_cache: Dict[str, Any] = {}
-
-            def _cached_type_lookup(type_name: str, type_value: str):
-                key = (type_name, type_value)
-                if key not in type_lookup_cache:
-                    type_lookup_cache[key] = get_or_create_type_lookup(
-                        db=session,
-                        type_name=type_name,
-                        type_value=type_value,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
-                    )
-                return type_lookup_cache[key]
-
-            def _cached_status(name: str):
-                if name not in status_cache:
-                    status_cache[name] = get_or_create_status(
-                        db=session,
-                        name=name,
-                        entity_type=EntityType.METRIC,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
-                    )
-                return status_cache[name]
+            cached_type_lookup = functools.partial(
+                _cached_type_lookup, session, type_lookup_cache, organization_id, user_id
+            )
+            cached_status = functools.partial(
+                _cached_status, session, status_cache, organization_id, user_id
+            )
 
             org_created = 0
             org_skipped = 0
@@ -263,13 +290,13 @@ def sync_metrics_to_organizations(
 
                 try:
                     # Get or create the metric type
-                    metric_type = _cached_type_lookup("MetricType", metric_item["metric_type"])
+                    metric_type = cached_type_lookup("MetricType", metric_item["metric_type"])
 
                     # Get or create the backend type
-                    backend_type = _cached_type_lookup("BackendType", metric_item["backend_type"])
+                    backend_type = cached_type_lookup("BackendType", metric_item["backend_type"])
 
                     # Get or create the status
-                    status = _cached_status(metric_item["status"])
+                    status = cached_status(metric_item["status"])
 
                     # Create metric data
                     metric_data = {

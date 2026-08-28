@@ -149,7 +149,7 @@ async def _run_gather(
         await asyncio.gather(watchdog, return_exceptions=True)
 
     results: List[Dict[str, Any]] = []
-    for test_id, result in zip(test_ids, raw):
+    for test_id, result in zip(test_ids, raw, strict=True):
         if isinstance(result, asyncio.CancelledError):
             logger.info(f"[BATCH] Test {test_id} cancelled mid-flight")
             results.append({"test_id": test_id, "status": "cancelled", "execution_time": 0})

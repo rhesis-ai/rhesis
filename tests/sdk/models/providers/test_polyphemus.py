@@ -2,7 +2,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from rhesis.sdk.models.providers.polyphemus import (
     DEFAULT_POLYPHEMUS_URL,
@@ -168,7 +168,7 @@ class TestPolyphemusLLM:
         llm = PolyphemusLLM(api_key="test_key")
         prompt = "Generate a person's information"
 
-        with pytest.raises(Exception):  # Should raise validation error
+        with pytest.raises(ValidationError):  # Should raise validation error
             llm.generate(prompt, schema=TestSchema)
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")

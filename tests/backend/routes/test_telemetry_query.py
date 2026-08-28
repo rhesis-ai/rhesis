@@ -274,7 +274,7 @@ class TestTraceListEndpoint:
         """
         # Create traces with different characteristics
         # 3 development + 3 production traces
-        for i in range(3):
+        for _i in range(3):
             dev_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
             dev_span["environment"] = "development"
             dev_span["span_name"] = "ai.llm.invoke"

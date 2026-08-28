@@ -422,7 +422,12 @@ async def evaluate_tests_for_explorer_set(
 
     # gather preserves order, so each outcome still lines up with its test.
     set_explorer_test_metadata(
-        db, [(test, meta) for test, (_, meta) in zip(eligible, evaluated) if meta is not None]
+        db,
+        [
+            (test, meta)
+            for test, (_, meta) in zip(eligible, evaluated, strict=True)
+            if meta is not None
+        ],
     )
     all_outcomes = [outcome for outcome, _ in evaluated]
 

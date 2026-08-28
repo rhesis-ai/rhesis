@@ -332,10 +332,10 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         kwargs["vertex_credentials"] = self.model["vertex_credentials"]
 
         return await super().a_generate(
+            *args,
             prompt=prompt,
             system_prompt=system_prompt,
             schema=schema,
-            *args,
             **kwargs,
         )
 
@@ -369,11 +369,11 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         kwargs["vertex_credentials"] = self.model["vertex_credentials"]
 
         return super().generate_batch(
+            *args,
             prompts=prompts,
             system_prompt=system_prompt,
             schema=schema,
             n=n,
-            *args,
             **kwargs,
         )
 

@@ -140,7 +140,7 @@ def _generate_cluster_labels(
 
         # Get all embeddings in this cluster
         mask = cluster_ids == cluster_id
-        cluster_embeddings = [e for e, m in zip(embeddings, mask) if m]
+        cluster_embeddings = [e for e, m in zip(embeddings, mask, strict=True) if m]
         cluster_coords = umap_50d[mask]
 
         # Find closest to centroid
@@ -297,7 +297,7 @@ def build_2d_graph(
 
     # Build scatter points
     points = []
-    for embedding, cluster_id, coords_2d in zip(embeddings, cluster_ids, umap_2d):
+    for embedding, cluster_id, coords_2d in zip(embeddings, cluster_ids, umap_2d, strict=True):
         points.append(
             _scatter_point(
                 embedding,

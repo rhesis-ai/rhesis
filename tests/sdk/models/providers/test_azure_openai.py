@@ -2,7 +2,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from rhesis.sdk.models.providers.azure_openai import (
     DEFAULT_MODEL_NAME,
@@ -181,7 +181,7 @@ class TestAzureOpenAILLMGenerate:
             api_key="test_key",
             api_base="https://resource.openai.azure.com/",
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             llm.generate("test", schema=StrictSchema)
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")

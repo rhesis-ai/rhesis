@@ -439,7 +439,8 @@ class TestGarakUpgradeReadiness:
 
             warnings.warn(
                 f"{len(failed_imports)} taxonomy detectors not found in current "
-                f"garak version - review GarakTaxonomy.MODULE_MAPPINGS"
+                f"garak version - review GarakTaxonomy.MODULE_MAPPINGS",
+                stacklevel=2,
             )
 
     def test_garak_version_tracking(self):
