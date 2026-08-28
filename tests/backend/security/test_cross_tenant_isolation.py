@@ -109,18 +109,6 @@ class TestCrudTaskSecurity:
 
 
 @pytest.mark.security
-class TestAuthPermissionsSecurity:
-    """Test authentication and permission security"""
-
-    @pytest.mark.skip(
-        "Test implementation deferred - functionality covered by other security tests"
-    )
-    def test_resource_permission_cross_tenant_prevention(self, test_db):
-        """🔒 SECURITY: Test that ResourcePermission prevents cross-tenant access"""
-        pass
-
-
-@pytest.mark.security
 class TestStatusUtilitySecurity:
     """Test status utility functions maintain organization isolation"""
 
@@ -177,22 +165,3 @@ class TestStatusUtilitySecurity:
 
         assert retrieved_org1.id == status_org1.id
         assert retrieved_org1.organization_id == org1.id
-
-
-@pytest.mark.security
-class TestComprehensiveSecuritySuite:
-    """Comprehensive security test suite for cross-tenant isolation"""
-
-    @pytest.mark.skip(
-        "Test implementation deferred - functionality covered by other security tests"
-    )
-    def test_get_task_with_comment_count_cross_tenant_prevention(self, test_db):
-        """🔒 SECURITY: Test cross-tenant prevention in task with comment count"""
-        pass
-
-    @pytest.mark.skip(
-        "Test implementation deferred - functionality covered by other security tests"
-    )
-    def test_remove_tag_cross_tenant_prevention(self, test_db):
-        """🔒 SECURITY: Test cross-tenant prevention in tag removal"""
-        pass
