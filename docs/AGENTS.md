@@ -1,7 +1,8 @@
 # Documentation Rules
 
-Apply whenever creating, modifying, or generating any documentation in this directory. Framework:
-Nextra, which processes MDX (Markdown + JSX).
+Rules for the docs site in `docs/` — apply whenever creating, modifying, or generating content
+here. Framework: Nextra, which processes MDX (Markdown + JSX). See root `AGENTS.md` for repo-wide
+rules.
 
 ## Writing rules
 
@@ -49,7 +50,7 @@ or restate what the page structure already shows.
   processing, request flow), one mermaid diagram with a one-line annotation beats paragraphs.
 - **Don't explain standard tools** (what ruff/pytest/Docker/git are). Show the command.
 - **Don't list obvious prerequisites** ("Git installed"). Compress to one line only when a version
-  constraint matters (Python 3.10+). Non-obvious prerequisites are a one-line link, not a section.
+  constraint matters (Python 3.12+). Non-obvious prerequisites are a one-line link, not a section.
 - **No file trees or tables describing self-describing files** (`docker-compose.yml` — "Docker
   Compose configuration"). Keep such listings only when the description is non-obvious.
 - **Keep code-block comments to non-obvious facts.** `# 1. Clone the repository` above
@@ -132,75 +133,14 @@ MDX files cannot directly import Material-UI icons — module resolution fails. 
 
 3. Use it in MDX with no imports: `<MyComponent />`
 
-Examples already following this pattern: `FeatureOverview.jsx`, `ArchitectureOverview.jsx`,
-`PlatformFeatures.jsx`.
-
-### Colour, type, and design tokens
-
-Design tokens live in `src/styles/tokens.css` as `--rh-*` custom properties, synced by hand from the
-marketing site's `@theme` block (`website/src/styles/tailwind.css`). Rules:
-
-- **No hex for anything on the theme or brand scale** — surfaces, text, borders, accents, CTAs — in
-  components or in `globals.css`. Use a token; if none fits, add one to `tokens.css` rather than
-  inlining a value. That includes CSS-variable *fallbacks*: write
-  `var(--card-bg, var(--rh-surface))`, not `var(--card-bg, #ffffff)`, or the fallback silently
-  renders a light surface in dark mode.
-- **Literal hex is correct for fixed decorative artwork**, and tokenising it would be wrong: the
-  German flag in `FooterOriginBadge`, the macOS window dots in `CodeBlock`/`FileTree`, and the
-  terminal palette and tint ramps in `FileTree`/`ChatExchange`/`ToolPurposeChip`. These carry meaning
-  independent of the theme. If a value would look broken in the other theme, it wants a token; if it
-  would look broken in any *other colour*, it wants to stay literal.
-- The `--rhesis-*` names are legacy aliases kept pointing at `--rh-*`; prefer `--rh-*` in new code.
-- **Colour is neutral by default.** Chrome (navbar, sidebar, footer, body copy, headings, primary
-  buttons) sits on the neutral scale; the brand blues are for accents and links. Orange is for CTAs
-  only — don't reintroduce it as an icon or card accent.
-- **Check whether a surface is theme-following before tokenising it.** `CodeBlock` and `FileTree`
-  render a dark terminal surface in *both* themes, with Shiki colours chosen for a dark background.
-  They use the theme-invariant `--rh-codeblock-*` tokens; pointing them at `--rh-surface`/`--rh-text`
-  turns them white in light mode and makes the syntax colours unreadable.
-- **Fonts**: Sora for display/headings, Geist for UI and body, Geist Mono for code and the uppercase
-  eyebrow labels. All self-hosted woff2 in `public/fonts/`.
-- **Nextra's own accent ramp is not set in CSS.** It comes from the `color` prop on `<Head>` in
-  `src/app/layout.jsx`, which Nextra emits as an inline `<style>` that beats any stylesheet. Nextra
-  derives `primary-50` … `primary-800` from those HSL values, and the active sidebar link is
-  `bg-primary-100` + `text-primary-800`. Change the prop; do not override the generated `x:` classes.
-
-### Social preview images
-
-Every page's `og:image` is generated per page by `src/app/api/og/route.jsx` — title, description
-and section come from the page's own MDX, resolved through `lib/og-page.js`. Nothing to do when
-adding a page. Three rules:
-
-- **Changing the card design means bumping `OG_VERSION`** in `lib/og-theme.js`. Crawlers cache
-  social images by URL; without a new `v=`, LinkedIn and Slack keep serving the old picture.
-  Editing a page's own title or description needs nothing — `h=` in the URL is a hash of the card
-  text, so it changes on its own.
-- **Card colours are literal hex in `lib/og-theme.js`, copied from `tokens.css`.** satori never
-  sees a stylesheet, so `var(--rh-*)` resolves to nothing. This is the one place hex is expected —
-  change both files together.
-- **Fonts are TTF subsets in `public/fonts/og/`**, not the woff2 the site uses: satori cannot
-  decode woff2. Regenerate with `docs/scripts/generate-og-fonts.py` after a font change.
-
-A page that needs a hand-made image sets `ogImage: /path.png` in frontmatter (PNG or JPEG — social
-crawlers do not render webp reliably).
+For existing examples: `grep -rln "@mui/icons-material" src/components/`.
 
 ### Files and structure
 
 - Kebab-case file names (`test-result-status.mdx`); organize by feature/topic, not file type.
 - Include code examples with a language tag (` ```python `, ` ```typescript `, ` ```bash `).
-
-```
-docs/
-├── src/
-│   ├── components/               # Reusable JSX components for MDX
-│   ├── app/                      # Next.js app directory
-│   └── mdx-components.js         # MDX component registry
-├── content/                      # All documentation content (MDX files)
-│   ├── _meta.tsx                 # Root navigation config
-│   ├── getting-started/, platform/, sdk/
-│   └── development/{backend,frontend,worker}/
-└── README.md
-```
+- MDX content lives in `content/`, JSX components in `src/components/`, registered in
+  `src/mdx-components.js`.
 
 Each directory needs a `_meta.tsx` for navigation:
 
