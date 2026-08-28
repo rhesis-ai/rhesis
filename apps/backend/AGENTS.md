@@ -34,11 +34,6 @@ Use `app/utils/` over `app/services/<domain>/` when more than one unrelated serv
 helper — e.g. `app/utils/response_extractor.py` is used by explorer's invocation *and* by metric
 evaluation, batch execution, and Penelope, none of which are endpoint-specific.
 
-## Testing and debugging
-
-Running the test suite and debugging the backend directly each have their own skill —
-invoke `backend-testing` or `backend-debug` when doing that task.
-
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 
 All tenant context (`organization_id`, `user_id`, `project_id`) is stored **once per request** on
@@ -200,17 +195,3 @@ may import from `rhesis.backend.ee.*`.
 
 Community features are never registered. `FeatureRegistry` is for EE features only; if a
 capability ships in `apps/backend/` under MIT, it is unconditionally available and needs no gating.
-
-### Adding a new EE feature
-
-1. Add a member to `FeatureName` in `app/features/__init__.py`.
-2. Implement the feature under `ee/backend/src/rhesis/backend/ee/<feature>/`.
-3. Register it in `ee/backend/src/rhesis/backend/ee/__init__.py:bootstrap()` by calling
-   `FeatureRegistry.register(Feature(...))` with an optional `runtime_check`, then
-   `app.include_router(...)` for any new endpoints.
-4. Gate routes with `Depends(require_feature(FeatureName.X))`. Use
-   `FeatureRegistry.is_available(name, org)` for org-aware checks elsewhere and
-   `FeatureRegistry.is_registered(name)` for early-bailout checks before an org has been resolved
-   (e.g. inside an OIDC callback).
-5. Mirror the name in `apps/frontend/src/constants/features.ts` and wrap the UI in
-   `<FeatureGate feature={FeatureName.X}>` — see `apps/frontend/AGENTS.md`.
