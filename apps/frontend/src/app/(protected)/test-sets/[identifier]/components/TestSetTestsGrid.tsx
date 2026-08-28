@@ -46,19 +46,6 @@ function toFilters(state: EntityGridFilterState<TestFilters>) {
   };
 }
 
-const drawerAdapter: EntityGridDrawerAdapter<TestFilters> = {
-  empty: EMPTY_TEST_FILTERS,
-  countActive: countActiveTestFilters,
-  render: props => (
-    <TestFilterDrawer
-      open={props.open}
-      onClose={props.onClose}
-      filters={props.filters}
-      onApply={props.onApply}
-    />
-  ),
-};
-
 export default function TestSetTestsGrid({
   testSetId,
   testSetType,
@@ -70,6 +57,23 @@ export default function TestSetTestsGrid({
   const notifications = useNotifications();
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const canExport = useCan(Capability.TestSet.EXPORT);
+
+  const drawerAdapter: EntityGridDrawerAdapter<TestFilters> = useMemo(
+    () => ({
+      empty: EMPTY_TEST_FILTERS,
+      countActive: countActiveTestFilters,
+      render: props => (
+        <TestFilterDrawer
+          open={props.open}
+          onClose={props.onClose}
+          filters={props.filters}
+          onApply={props.onApply}
+          testSetId={testSetId}
+        />
+      ),
+    }),
+    [testSetId]
+  );
 
   const descriptor = useMemo(() => testSetTestsList(testSetId), [testSetId]);
   const columns: GridColDef[] = useMemo(

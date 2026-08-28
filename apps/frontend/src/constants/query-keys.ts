@@ -7,7 +7,12 @@ function createEntityKeys<T extends string>(root: T) {
   };
 }
 
-export const testKeys = createEntityKeys('tests');
+export const testKeys = {
+  ...createEntityKeys('tests'),
+  /** Distinct filter values, optionally narrowed to one test set. */
+  facets: (testSetId?: string) =>
+    ['tests', 'facets', testSetId ?? null] as const,
+};
 export const testSetKeys = createEntityKeys('test-sets');
 export const testRunKeys = createEntityKeys('test-runs');
 export const endpointKeys = createEntityKeys('endpoints');

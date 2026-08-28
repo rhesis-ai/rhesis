@@ -5,9 +5,9 @@ from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import (
-    RequirementReference,
     CategoryReference,
     PromptReference,
+    RequirementReference,
     StatusReference,
     TopicReference,
     TypeLookupReference,
@@ -342,3 +342,12 @@ class ConversationTestExtractionResponse(BaseModel):
     expected_response: Optional[str] = None
     # Multi-turn fields
     test_configuration: Optional[Dict[str, Any]] = None
+
+
+class TestFacets(BaseModel):
+    """Distinct filterable values across tests."""
+
+    requirements: List[str]
+    categories: List[str]
+    topics: List[str]
+    test_types: List[str]

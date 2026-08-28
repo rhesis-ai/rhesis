@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import file as file_crud
+from rhesis.backend.app.crud.test import get_test_facets
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -236,6 +238,26 @@ def read_tests(
         serialized = jsonable_encoder(tests)
         return JSONResponse(content=apply_select(serialized, select))
     return tests
+
+
+@router.get("/facets", response_model=schemas.TestFacets)
+def read_test_facets(
+    test_set_id: UUID | None = Query(None, description="Scope facets to a specific test set"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Return the distinct values a test filter drawer can offer.
+
+    Optionally scoped to a single test set via ``test_set_id``.
+    """
+    organization_id, _ = tenant_context
+    return get_test_facets(
+        db,
+        organization_id=organization_id,
+        project_id=project_id_from_scope(db),
+        test_set_id=test_set_id,
+    )
 
 
 @router.get("/{test_id}/test_sets", response_model=List[schemas.TestSet])
