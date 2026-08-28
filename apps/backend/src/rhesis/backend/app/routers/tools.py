@@ -3,8 +3,7 @@ import uuid
 from typing import List, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -18,6 +17,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
     CreateJiraTicketFromTaskRequest,
     CreateJiraTicketFromTaskResponse,
@@ -32,16 +32,20 @@ from rhesis.backend.app.services.tool.actions import (
     resolve_provider,
     route,
 )
-from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
-from rhesis.backend.app.services.tool.credential_merge import (
-    merge_azure_devops_credentials_on_update as _merge_azure_devops_credentials_on_update,
-    merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
-    resolve_mcp_test_connection_credentials,
-)
 from rhesis.backend.app.services.tool.azure_devops import (
     normalize_azure_devops_org,
     prepare_azure_devops_credentials,
 )
+from rhesis.backend.app.services.tool.credential_merge import (
+    merge_azure_devops_credentials_on_update as _merge_azure_devops_credentials_on_update,
+)
+from rhesis.backend.app.services.tool.credential_merge import (
+    merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
+)
+from rhesis.backend.app.services.tool.credential_merge import (
+    resolve_mcp_test_connection_credentials,
+)
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     mcp_extract,

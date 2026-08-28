@@ -31,10 +31,13 @@ jobs:
               - 'docs/scripts/**'
             sdk:
               - 'sdk/**'
+              - 'ruff.toml'
             backend:
               - 'apps/backend/**'
+              - 'ruff.toml'
             penelope:
               - 'penelope/**'
+              - 'ruff.toml'
             migrations:
               - 'apps/backend/src/rhesis/backend/alembic/versions/**'
             skill:

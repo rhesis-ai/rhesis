@@ -14,7 +14,7 @@ from sqlalchemy.orm import Query, Session
 from rhesis.backend.app.constants import EntityType
 
 # Removed unused imports - legacy tenant functions no longer needed
-from rhesis.backend.app.models import Requirement, Category, Model, Status, Topic, TypeLookup
+from rhesis.backend.app.models import Category, Model, Requirement, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert

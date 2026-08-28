@@ -8,11 +8,11 @@ from rhesis.backend.app.constants import (
     REVIEW_TARGET_TEST_RESULT,
     ReviewTarget,
 )
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
+from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import (
-    RequirementReference,
     PromptReference,
+    RequirementReference,
 )
 from rhesis.backend.app.schemas.tag import TagRead
 

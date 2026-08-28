@@ -258,7 +258,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 on_emit=self.emit,
                 on_test_phase=on_test_phase,
             )
-            self.emit(f"Execution complete")
+            self.emit("Execution complete")
 
             # Accrue TEST_EXECUTIONS for the count actually processed by this
             # run -- result["total_tests"] is computed once at the start of

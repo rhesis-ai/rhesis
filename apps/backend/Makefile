@@ -8,12 +8,12 @@ DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter
 
 
 lint:
-	# uvx ruff check $(ALL_FILES)
+	uvx ruff check $(ALL_FILES)
 	uvx ruff format $(ALL_FILES) --check
 
 format:
-	# uvx ruff check --fix $(ALL_FILES)
 	uvx ruff format $(ALL_FILES)
+	uvx ruff check --fix $(ALL_FILES)
 
 
 lint_diff:

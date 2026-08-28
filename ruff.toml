@@ -12,6 +12,12 @@ select = [
 "__init__.py" = [
     "F401",
 ]
+# Migrations are frozen historical records built around long SQL literals, and
+# some need sys.path patched before they can import their helpers.
+"**/alembic/versions/*.py" = [
+    "E501",
+    "E402",
+]
 
 [lint.isort]
 known-first-party = [

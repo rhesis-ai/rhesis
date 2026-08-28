@@ -85,7 +85,8 @@ def get_insights(
     Every param is checked against the registry entry for `entity` before it
     reaches SQL -- an unknown group_by/measure/filter returns 400, not a query.
 
-    Example: `GET /insights/?entity=test_result&group_by=requirement&measures=count&measures=pass_rate`
+    Example:
+    `GET /insights/?entity=test_result&group_by=requirement&measures=count&measures=pass_rate`
     """
     try:
         return run_query(
@@ -123,7 +124,8 @@ def get_insights_ids(
     Returns a flat ID list (not the aggregation envelope). Use this for drill-down
     from a chart slice to a test list -- e.g. failed tests for a requirement/metric/topic.
 
-    Example: `GET /insights/ids?entity=test_result&outcome=fail&test_run_ids=...&requirement_ids=...`
+    Example:
+    `GET /insights/ids?entity=test_result&outcome=fail&test_run_ids=...&requirement_ids=...`
     """
     try:
         return run_ids(

@@ -109,11 +109,11 @@ __all__ = [
 ]
 
 # Set up soft delete event listener
-from .soft_delete_events import setup_soft_delete_listener
+from .soft_delete_events import setup_soft_delete_listener  # noqa: E402
 
 setup_soft_delete_listener()
 
 # Set up ambient scope event listeners (auto-filter + auto-stamp)
-from .scope_events import setup_scope_listeners
+from .scope_events import setup_scope_listeners  # noqa: E402
 
 setup_scope_listeners()
