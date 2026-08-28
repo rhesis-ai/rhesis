@@ -31,6 +31,7 @@ interface InviteTeamStepProps {
   onBack: () => void;
 }
 
+const UNLIMITED_MAX_INVITES = 10;
 const FALLBACK_MAX_INVITES = 5;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -51,7 +52,7 @@ export default function InviteTeamStep({
   // null = unlimited (licensed with no cap), undefined = not loaded yet.
   const maxInvites =
     seatLimit === null
-      ? FALLBACK_MAX_INVITES
+      ? UNLIMITED_MAX_INVITES
       : typeof seatLimit === 'number'
         ? Math.max(0, seatLimit - 1)
         : FALLBACK_MAX_INVITES;
