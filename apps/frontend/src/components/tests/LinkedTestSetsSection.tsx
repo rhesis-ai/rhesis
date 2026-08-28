@@ -82,10 +82,15 @@ export default function LinkedTestSetsSection({
     [testSets]
   );
 
-  const availableFiltered = useMemo<GridRowModel[]>(
-    () => available.filter(ts => !linkedIds.has(String(ts.id))),
-    [available, linkedIds]
-  );
+  const availableFiltered = useMemo<GridRowModel[]>(() => {
+    // `linkedIds` comes from the same list this section already renders, not
+    // a fetch scoped to opening the drawer -- if that list is still loading
+    // (e.g. no SSR initial data and the user clicks Assign immediately),
+    // filtering against it now would show every candidate, then collapse to
+    // the correct set once it resolves. Wait for it to settle first.
+    if (loading) return [];
+    return available.filter(ts => !linkedIds.has(String(ts.id)));
+  }, [available, linkedIds, loading]);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
@@ -270,7 +275,7 @@ export default function LinkedTestSetsSection({
           title="Assign Test Set"
           rows={availableFiltered}
           columns={drawerColumns}
-          loading={loadingAvailable}
+          loading={loadingAvailable || loading}
           getRowId={row => String(row.id)}
           onAssign={handleAssign}
           searchPlaceholder="Search test sets…"
