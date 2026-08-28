@@ -176,7 +176,7 @@ export function createRowActionsColumn({
   canEdit,
   canDelete,
   extraActions,
-  width = 88,
+  width = 100,
   editTooltip = 'Edit',
   deleteTooltip = 'Delete',
   deleteIcon: DeleteIconComponent = DeleteIcon,

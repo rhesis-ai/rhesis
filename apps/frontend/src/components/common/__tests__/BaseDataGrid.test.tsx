@@ -80,7 +80,7 @@ const sampleRows = [
 ];
 
 describe('applyFlexColumnSizing', () => {
-  it('caps width-only columns with maxWidth instead of converting to flex', () => {
+  it('promotes first non-fixed column to flex when no flex column exists', () => {
     const columns: GridColDef[] = [
       { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
       { field: 'status', headerName: 'Status', width: 120, minWidth: 90 },
@@ -89,15 +89,27 @@ describe('applyFlexColumnSizing', () => {
 
     const sized = applyFlexColumnSizing(columns);
 
-    expect(sized[0]).toMatchObject({
-      width: 300,
-      maxWidth: 300,
-      minWidth: 150,
-    });
-    expect(sized[0].flex).toBeUndefined();
+    expect(sized[0]).toMatchObject({ flex: 1, minWidth: 150 });
+    expect(sized[0].maxWidth).toBeUndefined();
     expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
+    expect(sized[1].flex).toBeUndefined();
     expect(sized[2]).toMatchObject({ width: 88, hideable: false });
     expect(sized[2].flex).toBeUndefined();
+  });
+
+  it('caps width-only columns when another column already has flex', () => {
+    const columns: GridColDef[] = [
+      { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
+      { field: 'desc', headerName: 'Description' },
+      { field: 'actions', headerName: '', width: 88 },
+    ];
+
+    const sized = applyFlexColumnSizing(columns);
+
+    expect(sized[0]).toMatchObject({ width: 300, maxWidth: 300, minWidth: 150 });
+    expect(sized[0].flex).toBeUndefined();
+    expect(sized[1]).toMatchObject({ flex: 1, minWidth: 50 });
+    expect(sized[2]).toMatchObject({ width: 88, hideable: false });
   });
 
   it('gives unsized columns flex to fill remaining width', () => {
