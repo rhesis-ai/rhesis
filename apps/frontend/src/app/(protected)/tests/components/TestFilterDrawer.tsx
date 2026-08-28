@@ -89,12 +89,14 @@ export default function TestFilterDrawer({
   const categoryOptions = facets?.categories ?? [];
   const topicOptions = facets?.topics ?? [];
 
-  // An empty facet means "not loaded yet" or "no tests here" -- in both cases
-  // show every type rather than a chipless section. `draft.testType` is kept so
-  // an already-applied type stays clickable (and so unsettable) either way.
+  // Until the facets land there is nothing to narrow by, so show every type
+  // rather than a chipless section. Once they have, offer only the types in
+  // scope -- an empty list is a real answer and leaves no chips, the same way
+  // an empty test set leaves the dropdowns above with no options. Any applied
+  // type stays listed so the filter can still be clicked off.
   const testTypeOptions = React.useMemo(
     () =>
-      facets?.test_types.length
+      facets
         ? TEST_TYPE_FILTER_OPTIONS.filter(
             o =>
               facets.test_types.includes(o.value) || draft.testType === o.value
