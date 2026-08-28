@@ -38,6 +38,7 @@ import {
   GridInitialState,
   GridRowParams,
   GridColumnMenu,
+  gridClasses,
   type GridColumnGroupingModel,
   type GridColumnMenuProps,
 } from '@mui/x-data-grid';
@@ -814,12 +815,22 @@ export default function BaseDataGrid({
     return React.forwardRef<HTMLButtonElement, CheckboxProps>(
       function RowSelectionCheckbox(props, ref) {
         const checkbox = <Checkbox {...props} ref={ref} />;
-        // baseCheckbox also renders the header and the columns panel; only the
-        // per-row ones carry this input name.
-        const isRowCheckbox =
+        // baseCheckbox also renders the columns panel, where `disabled` means
+        // "column can't be hidden" — only selection checkboxes carry this class.
+        const isSelectionCheckbox = props.className?.includes(
+          gridClasses.checkboxInput
+        );
+        // The header's select-all is disabled for a different reason
+        // (disableMultipleRowSelection), so it gets no tooltip. Unlike the
+        // class above, this name is internal to MUI: if it ever changes, a
+        // disabled header checkbox picks up the row wording, which is the
+        // worst that happens.
+        const isHeaderCheckbox =
           (props.inputProps as { name?: string } | undefined)?.name ===
-          'select_row';
-        if (!props.disabled || !isRowCheckbox) return checkbox;
+          'select_all_rows';
+        if (!props.disabled || !isSelectionCheckbox || isHeaderCheckbox) {
+          return checkbox;
+        }
         return (
           <Tooltip title={rowSelectionDisabledTooltip}>
             <span style={{ display: 'inline-flex' }}>{checkbox}</span>

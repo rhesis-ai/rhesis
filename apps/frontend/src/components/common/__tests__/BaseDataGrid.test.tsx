@@ -18,6 +18,7 @@ jest.mock('@mui/x-data-grid', () => {
     onRowClick,
     checkboxSelection,
     isRowSelectable,
+    disableMultipleRowSelection,
     slots,
   }: {
     rows: GridRowModel[];
@@ -27,18 +28,23 @@ jest.mock('@mui/x-data-grid', () => {
     onRowClick?: (params: { row: GridRowModel }) => void;
     checkboxSelection?: boolean;
     isRowSelectable?: (params: { row: GridRowModel }) => boolean;
+    disableMultipleRowSelection?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     slots?: { baseCheckbox?: React.ComponentType<any> };
   }) => {
     if (loading) return <div data-testid="datagrid-loading">Loading…</div>;
-    // Mirrors GridCellCheckboxRenderer: the row checkbox comes from the
-    // baseCheckbox slot and is disabled by isRowSelectable.
+    // Mirrors GridCellCheckboxRenderer and GridHeaderCheckbox: both come from
+    // the baseCheckbox slot with the same class, and are disabled for
+    // different reasons — the row by isRowSelectable, the header by
+    // disableMultipleRowSelection.
     const BaseCheckbox = slots?.baseCheckbox;
+    const checkboxClass = original.gridClasses.checkboxInput;
     const renderCheckbox = (row: GridRowModel) =>
       checkboxSelection && BaseCheckbox ? (
         <td>
           <BaseCheckbox
             disabled={isRowSelectable ? !isRowSelectable({ row }) : false}
+            className={checkboxClass}
             inputProps={{ name: 'select_row' }}
           />
         </td>
@@ -47,6 +53,15 @@ jest.mock('@mui/x-data-grid', () => {
       <table role="grid" data-testid="data-grid">
         <thead>
           <tr>
+            {checkboxSelection && BaseCheckbox && (
+              <th>
+                <BaseCheckbox
+                  disabled={disableMultipleRowSelection === true}
+                  className={checkboxClass}
+                  inputProps={{ name: 'select_all_rows' }}
+                />
+              </th>
+            )}
             {columns.map((col: GridColDef) => (
               <th key={String(col.field)}>
                 {String(col.headerName ?? col.field)}
@@ -76,6 +91,21 @@ jest.mock('@mui/x-data-grid', () => {
             );
           })}
         </tbody>
+        {/* Stands in for the columns panel: same slot, no grid class, and
+            `disabled` there means the column can't be hidden. */}
+        {checkboxSelection && BaseCheckbox && (
+          <tfoot>
+            <tr>
+              <td>
+                <BaseCheckbox
+                  disabled={true}
+                  inputProps={{ name: 'status' }}
+                  data-testid="panel-checkbox"
+                />
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     );
   };
@@ -265,13 +295,17 @@ describe('BaseDataGrid', () => {
 describe('BaseDataGrid disabled row selection', () => {
   const REASON = 'Only the owner can delete this test run';
 
-  const renderGrid = async (tooltip?: string) => {
+  const renderGrid = async (
+    tooltip?: string,
+    { singleSelection = false }: { singleSelection?: boolean } = {}
+  ) => {
     render(
       <BaseDataGrid
         columns={sampleColumns}
         rows={sampleRows}
         checkboxSelection={true}
         isRowSelectable={params => params.row.status === 'active'}
+        {...(singleSelection && { disableMultipleRowSelection: true })}
         {...(tooltip && { rowSelectionDisabledTooltip: tooltip })}
       />
     );
@@ -293,5 +327,25 @@ describe('BaseDataGrid disabled row selection', () => {
   it('adds no tooltip when no reason is given', async () => {
     await renderGrid();
     expect(screen.queryByLabelText(REASON)).toBeNull();
+  });
+
+  it('leaves the disabled select-all header alone', async () => {
+    // Its checkbox is disabled because selection is single-row, which the
+    // row-level reason would misdescribe.
+    await renderGrid(REASON, { singleSelection: true });
+
+    const labelled = screen.getAllByLabelText(REASON);
+    expect(labelled).toHaveLength(1);
+    expect(screen.getByTestId('row-2')).toContainElement(labelled[0]);
+  });
+
+  it('leaves checkboxes outside the grid selection alone', async () => {
+    await renderGrid(REASON);
+
+    // The columns panel renders through the same slot, where `disabled` means
+    // "column can't be hidden" — see the mock's panel checkbox.
+    const panel = screen.getByTestId('panel-checkbox');
+    expect(panel).not.toHaveAttribute('aria-label');
+    expect(screen.getAllByLabelText(REASON)).toHaveLength(1);
   });
 });
