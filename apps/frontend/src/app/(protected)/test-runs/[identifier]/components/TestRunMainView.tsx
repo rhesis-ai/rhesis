@@ -28,6 +28,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useViewingEntity } from '@/contexts/NotificationsContext';
 import { NotificationSection } from '@/constants/notifications';
@@ -118,6 +119,9 @@ interface TestRunMainViewProps {
   initialTestResults?: TestResultDetail[];
   /** Whether the test set has other runs to compare with, when the server already checked. */
   initialHasComparisonRuns?: boolean;
+  /** Server-prefetched first page of this run's traces; see `TestRunTracesTab`. */
+  initialTraces?: TraceSummary[];
+  initialTracesTotalCount?: number;
 }
 
 export default function TestRunMainView({
@@ -131,6 +135,8 @@ export default function TestRunMainView({
   initialDetailTab,
   initialTestResults,
   initialHasComparisonRuns,
+  initialTraces,
+  initialTracesTotalCount,
 }: TestRunMainViewProps) {
   const testRun = useLiveTestRun(testRunId, initialTestRun);
   // Already watching this run live on screen -- a completion notification
@@ -143,9 +149,14 @@ export default function TestRunMainView({
   const queryClient = useQueryClient();
 
   const preferLinkedEntities = Boolean(initialSelectedTestId);
-  const activeTab = tabIndexFromKey(
-    searchParams.get('tab'),
-    preferLinkedEntities && !searchParams.get('tab')
+  // Resolved once from the URL on load (so deep links like ?selectedresult=
+  // or a legacy ?tab= alias land on the right tab). Later switches are local
+  // state -- see handleTabChange -- so they don't force a server round trip.
+  const [activeTab, setActiveTab] = useState(() =>
+    tabIndexFromKey(
+      searchParams.get('tab'),
+      preferLinkedEntities && !searchParams.get('tab')
+    )
   );
 
   // Fetch test results for the Tests tab.
@@ -170,15 +181,9 @@ export default function TestRunMainView({
     initialTestResults,
   });
 
-  const handleTabChange = useCallback(
-    (newValue: number) => {
-      const key = TAB_KEYS[newValue];
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', key);
-      router.push(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  const handleTabChange = useCallback((newValue: number) => {
+    setActiveTab(newValue);
+  }, []);
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
@@ -703,6 +708,8 @@ export default function TestRunMainView({
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
+          initialTraces={initialTraces}
+          initialTracesTotalCount={initialTracesTotalCount}
         />
       </TabPanel>
 
