@@ -151,18 +151,16 @@ export default function TestRunsGrid({
       {
         field: 'name',
         headerName: 'Name',
-        width: 180,
+        flex: 1.8,
         minWidth: 120,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => row.name || '',
       },
       {
         field: 'test_configuration.test_set.name',
         headerName: 'Test Sets',
-        width: 160,
+        flex: 1.6,
         minWidth: 100,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           const testSet = row.test_configuration?.test_set;
@@ -172,9 +170,8 @@ export default function TestRunsGrid({
       {
         field: 'total_tests',
         headerName: 'Total Tests',
-        width: 110,
+        flex: 1.1,
         minWidth: 80,
-        resizable: true,
         align: 'right',
         headerAlign: 'right',
         valueGetter: (_, row) => {
@@ -185,9 +182,8 @@ export default function TestRunsGrid({
       {
         field: 'pass_rate',
         headerName: 'Pass Rate',
-        width: 110,
+        flex: 1.1,
         minWidth: 90,
-        resizable: true,
         align: 'right',
         headerAlign: 'right',
         sortable: false,
@@ -213,8 +209,8 @@ export default function TestRunsGrid({
         field: 'status',
         headerName: 'Status',
         width: 120,
+        flex: 0,
         minWidth: 90,
-        resizable: true,
         renderCell: params => {
           const status = params.row.status?.name;
           if (!status) return null;
@@ -226,8 +222,8 @@ export default function TestRunsGrid({
         field: 'test_set_type',
         headerName: 'Type',
         width: 120,
+        flex: 0,
         minWidth: 90,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           return (
@@ -299,9 +295,8 @@ export default function TestRunsGrid({
       {
         field: 'user.name',
         headerName: 'Executor',
-        width: 160,
+        flex: 1.6,
         minWidth: 120,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           const executor = row.user;
@@ -334,9 +329,8 @@ export default function TestRunsGrid({
       {
         field: 'counts.reviewed_tests',
         headerName: 'Reviews',
-        width: 100,
+        flex: 1,
         minWidth: 80,
-        resizable: true,
         sortable: false,
         filterable: false,
         valueGetter: (_, row) => row.counts?.reviewed_tests ?? 0,
@@ -369,9 +363,8 @@ export default function TestRunsGrid({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        width: 100,
+        flex: 1,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.comments ?? 0,
@@ -389,9 +382,8 @@ export default function TestRunsGrid({
       {
         field: 'counts.tasks',
         headerName: 'Tasks',
-        width: 100,
+        flex: 1,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.tasks ?? 0,
@@ -409,9 +401,8 @@ export default function TestRunsGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        width: 180,
+        flex: 1.8,
         minWidth: 140,
-        resizable: true,
         sortable: true,
         filterable: true,
         valueGetter: (_, row) =>
