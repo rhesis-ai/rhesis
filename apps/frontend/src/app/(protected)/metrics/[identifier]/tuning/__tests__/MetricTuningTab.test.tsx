@@ -804,13 +804,14 @@ describe('MetricTuningTab — agreement', () => {
     ).toBeInTheDocument();
   });
 
-  it('says nothing about agreement before the metric has been run', async () => {
+  it('reports no agreement before the metric has been run, rather than a number', async () => {
     mockGetTuningCases.mockResolvedValue([CASE]);
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await screen.findByText('How are you?');
-    expect(screen.queryByText('Agreement')).not.toBeInTheDocument();
+    expect(screen.getByText('Agreement')).toBeInTheDocument();
+    expect(screen.getByText(/nothing judged yet/i)).toBeInTheDocument();
   });
 
   it('re-reads the agreement after a review, since judging a case moves it', async () => {
@@ -839,11 +840,12 @@ describe('MetricTuningTab — agreement', () => {
     expect(await screen.findByText('100%')).toBeInTheDocument();
   });
 
-  it('shows no number while a run is going, since it is about to change', async () => {
-    // Until the worker clears the last run's results this is the *previous*
-    // run's number, and one sitting above a progress line reads as this run's.
+  it('keeps the tiles on screen while a run is going', async () => {
+    // Pressing Run must not pull the numbers out from under the reviewer: they
+    // are what the press is about. The run clears the verdicts as it goes, so
+    // the tiles empty out on their own; the progress line says why.
     mockGetTuningRun.mockResolvedValue({
-      ...runWith({ ratio: 1, judged: 3, accepted: 3 }),
+      ...runWith({ unreviewed: 3 }),
       status: 'running',
       completed_at: null,
       completed_cases: 1,
@@ -852,8 +854,8 @@ describe('MetricTuningTab — agreement', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     expect(await screen.findByText(/1 done/i)).toBeInTheDocument();
-    expect(screen.queryByText('Agreement')).not.toBeInTheDocument();
-    expect(screen.queryByText('100%')).not.toBeInTheDocument();
+    expect(screen.getByText('Agreement')).toBeInTheDocument();
+    expect(screen.getByText(/nothing judged yet/i)).toBeInTheDocument();
   });
 });
 
