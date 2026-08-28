@@ -6,6 +6,15 @@ select = [
     "I",
     "E",
     "F",
+    # bugbear: legal, typed code that is still a trap — zip() truncation,
+    # loop-variable closures, return inside finally.
+    "B",
+]
+ignore = [
+    # FastAPI puts Depends() in argument defaults by design.
+    "B008",
+    # Bare `raise` inside except is idiomatic here; we re-raise more than we chain.
+    "B904",
 ]
 
 [lint.per-file-ignores]
@@ -17,6 +26,11 @@ select = [
 "**/alembic/versions/*.py" = [
     "E501",
     "E402",
+]
+# RequestScope is @dataclass(frozen=True), so the shared default instance cannot
+# be mutated and cannot leak between requests. B039 is wrong here.
+"apps/backend/src/rhesis/backend/app/scope.py" = [
+    "B039",
 ]
 
 [lint.isort]
