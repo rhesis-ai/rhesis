@@ -281,7 +281,11 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
     );
     if (idx !== -1) {
       const { maxWidth: _mw, ...rest } = mapped[idx];
-      mapped[idx] = { ...rest, flex: 1, minWidth: rest.minWidth ?? rest.width ?? 50 };
+      mapped[idx] = {
+        ...rest,
+        flex: 1,
+        minWidth: rest.minWidth ?? rest.width ?? 50,
+      };
     }
   }
 
