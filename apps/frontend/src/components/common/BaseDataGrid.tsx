@@ -16,6 +16,9 @@ import {
   CircularProgress,
   Menu,
   alpha,
+  Checkbox,
+  Tooltip,
+  type CheckboxProps,
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import IconButton from '@mui/material/IconButton';
@@ -91,6 +94,12 @@ interface BaseDataGridProps {
    * default.
    */
   isRowSelectable?: (params: GridRowParams) => boolean;
+  /**
+   * Tooltip shown on row checkboxes that `isRowSelectable` disabled — without
+   * it a greyed-out checkbox gives no reason, e.g. "Only the owner can delete
+   * this test run".
+   */
+  rowSelectionDisabledTooltip?: string;
   // Server-side sorting props
   sortingMode?: 'client' | 'server';
   sortModel?: GridSortModel;
@@ -281,7 +290,11 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
     );
     if (idx !== -1) {
       const { maxWidth: _mw, ...rest } = mapped[idx];
-      mapped[idx] = { ...rest, flex: 1, minWidth: rest.minWidth ?? rest.width ?? 50 };
+      mapped[idx] = {
+        ...rest,
+        flex: 1,
+        minWidth: rest.minWidth ?? rest.width ?? 50,
+      };
     }
   }
 
@@ -540,6 +553,7 @@ export default function BaseDataGrid({
   onRowSelectionModelChange,
   rowSelectionModel,
   isRowSelectable,
+  rowSelectionDisabledTooltip,
   sortingMode = 'client',
   sortModel,
   onSortModelChange,
@@ -792,6 +806,29 @@ export default function BaseDataGrid({
     [resolveRowUrl, apiRef]
   );
 
+  // Row checkbox that explains why it is disabled. MUI marks a row's checkbox
+  // disabled from `isRowSelectable` but offers no way to say why, and the
+  // checkbox itself swallows pointer events while disabled — hence the span.
+  const TooltipCheckbox = React.useMemo(() => {
+    if (!rowSelectionDisabledTooltip) return undefined;
+    return React.forwardRef<HTMLButtonElement, CheckboxProps>(
+      function RowSelectionCheckbox(props, ref) {
+        const checkbox = <Checkbox {...props} ref={ref} />;
+        // baseCheckbox also renders the header and the columns panel; only the
+        // per-row ones carry this input name.
+        const isRowCheckbox =
+          (props.inputProps as { name?: string } | undefined)?.name ===
+          'select_row';
+        if (!props.disabled || !isRowCheckbox) return checkbox;
+        return (
+          <Tooltip title={rowSelectionDisabledTooltip}>
+            <span style={{ display: 'inline-flex' }}>{checkbox}</span>
+          </Tooltip>
+        );
+      }
+    );
+  }, [rowSelectionDisabledTooltip]);
+
   // Wait for initialization and persisted state to be loaded before rendering DataGrid
   // This ensures initialState is correctly set before the grid mounts
   const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
@@ -816,6 +853,9 @@ export default function BaseDataGrid({
   }
   if (toolbarSlot) {
     resolvedSlots.toolbar = toolbarSlot;
+  }
+  if (TooltipCheckbox) {
+    resolvedSlots.baseCheckbox = TooltipCheckbox;
   }
 
   const dataGridSx: SxProps<Theme> = [

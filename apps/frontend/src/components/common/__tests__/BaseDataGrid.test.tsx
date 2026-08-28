@@ -16,14 +16,33 @@ jest.mock('@mui/x-data-grid', () => {
     loading,
     getRowId,
     onRowClick,
+    checkboxSelection,
+    isRowSelectable,
+    slots,
   }: {
     rows: GridRowModel[];
     columns: GridColDef[];
     loading?: boolean;
     getRowId?: (row: GridRowModel) => string | number;
     onRowClick?: (params: { row: GridRowModel }) => void;
+    checkboxSelection?: boolean;
+    isRowSelectable?: (params: { row: GridRowModel }) => boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    slots?: { baseCheckbox?: React.ComponentType<any> };
   }) => {
     if (loading) return <div data-testid="datagrid-loading">Loading…</div>;
+    // Mirrors GridCellCheckboxRenderer: the row checkbox comes from the
+    // baseCheckbox slot and is disabled by isRowSelectable.
+    const BaseCheckbox = slots?.baseCheckbox;
+    const renderCheckbox = (row: GridRowModel) =>
+      checkboxSelection && BaseCheckbox ? (
+        <td>
+          <BaseCheckbox
+            disabled={isRowSelectable ? !isRowSelectable({ row }) : false}
+            inputProps={{ name: 'select_row' }}
+          />
+        </td>
+      ) : null;
     return (
       <table role="grid" data-testid="data-grid">
         <thead>
@@ -47,6 +66,7 @@ jest.mock('@mui/x-data-grid', () => {
                 onClick={() => onRowClick && onRowClick({ row })}
                 data-testid={`row-${rowKey}`}
               >
+                {renderCheckbox(row)}
                 {columns.map((col: GridColDef) => (
                   <td key={String(col.field)}>
                     {String(row[col.field] ?? '')}
@@ -106,7 +126,11 @@ describe('applyFlexColumnSizing', () => {
 
     const sized = applyFlexColumnSizing(columns);
 
-    expect(sized[0]).toMatchObject({ width: 300, maxWidth: 300, minWidth: 150 });
+    expect(sized[0]).toMatchObject({
+      width: 300,
+      maxWidth: 300,
+      minWidth: 150,
+    });
     expect(sized[0].flex).toBeUndefined();
     expect(sized[1]).toMatchObject({ flex: 1, minWidth: 50 });
     expect(sized[2]).toMatchObject({ width: 88, hideable: false });
@@ -233,5 +257,41 @@ describe('BaseDataGrid', () => {
       );
       expect(container.querySelector('.MuiPaper-root')).not.toBeInTheDocument();
     });
+  });
+});
+
+// Real timers: the tooltip's enter delay and userEvent's hover are easier to
+// drive without the fake-timer setup the suite above needs.
+describe('BaseDataGrid disabled row selection', () => {
+  const REASON = 'Only the owner can delete this test run';
+
+  const renderGrid = async (tooltip?: string) => {
+    render(
+      <BaseDataGrid
+        columns={sampleColumns}
+        rows={sampleRows}
+        checkboxSelection={true}
+        isRowSelectable={params => params.row.status === 'active'}
+        {...(tooltip && { rowSelectionDisabledTooltip: tooltip })}
+      />
+    );
+    await screen.findByRole('grid');
+  };
+
+  it('explains a disabled checkbox on hover', async () => {
+    const user = userEvent.setup();
+    await renderGrid(REASON);
+
+    // Only Bob is unselectable, so the reason labels exactly one element.
+    const anchor = screen.getByLabelText(REASON);
+    expect(screen.getByTestId('row-2')).toContainElement(anchor);
+    await user.hover(anchor);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(REASON);
+  });
+
+  it('adds no tooltip when no reason is given', async () => {
+    await renderGrid();
+    expect(screen.queryByLabelText(REASON)).toBeNull();
   });
 });
