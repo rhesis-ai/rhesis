@@ -24,6 +24,8 @@ export interface AnnotationListItem {
   test_result_id?: string | null;
   test_run_id?: string | null;
   trace_id?: string | null;
+  /** Internal DB id of the trace span row -- required by the review edit/delete endpoints. */
+  trace_db_id?: string | null;
   project_id?: string | null;
   requirement_id?: string | null;
   requirement_name?: string | null;

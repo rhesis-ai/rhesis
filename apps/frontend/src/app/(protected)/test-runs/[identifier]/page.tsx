@@ -1,9 +1,15 @@
 import { Metadata } from 'next';
-import { PageLayout } from '@/components/layout/PageLayout';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import TestRunMainView from './components/TestRunMainViewClient';
+import { prefetch, prefetchList } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { fetchSmallTestRunResults } from './hooks/test-run-results';
+import { hasOtherRunsForTestSet } from './components/comparison-runs';
+import { getServerActiveProjectId } from '@/utils/server-active-project';
+import { emptyFilters, listParams } from '@/utils/list';
+import { tracesList } from '@/app/(protected)/traces/components/list';
 
 interface _PageProps {
   params: Promise<{ identifier: string }>;
@@ -58,36 +64,70 @@ export default async function TestRunPage({
     throw error;
   }
 
-  const title = testRun.name || `Test Run ${identifier}`;
-  const breadcrumbs = [
-    { label: 'Test Runs', href: '/test-runs' },
-    { label: title, href: `/test-runs/${identifier}` },
-  ];
+  // Results for the Summary/Test Cases tabs (small runs only), the "can
+  // compare" check, and page 1 of this run's traces -- so all three tabs
+  // open with their real content (or empty state) instead of a grid
+  // skeleton that flips to empty a moment later.
+  const testSetId = testRun.test_configuration?.test_set?.id;
+  const scopedProjectId = (await getServerActiveProjectId()) ?? null;
+  const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
 
+  const [testResults, hasComparisonRuns, tracesPage] = await Promise.all([
+    prefetch(Capability.TestResult.READ, () =>
+      fetchSmallTestRunResults(apiFactory, identifier)
+    ),
+    testSetId
+      ? prefetch(Capability.TestRun.READ, () =>
+          hasOtherRunsForTestSet(apiFactory, testSetId, identifier)
+        )
+      : Promise.resolve(false),
+    scopedProjectId
+      ? prefetchList(tracesDescriptor.capability, () =>
+          tracesDescriptor.list(
+            apiFactory,
+            listParams(tracesDescriptor, {
+              page: 1,
+              pageSize: tracesDescriptor.defaultPageSize,
+              sort: tracesDescriptor.defaultSort,
+              filters: {
+                ...emptyFilters(tracesDescriptor),
+                testRunId: identifier,
+              },
+            })
+          )
+        )
+      : Promise.resolve({ initialData: undefined, initialTotalCount: 0 }),
+  ]);
+
+  // PageLayout is rendered by TestRunMainView, not here: its title carries a
+  // rename control and its actions are FABs, both of which need the client
+  // component's handlers. Same shape as RequirementsClient.
   return (
-    <PageLayout title="" breadcrumbs={breadcrumbs}>
-      <TestRunMainView
-        testRunId={identifier}
-        testRunData={{
-          id: testRun.id,
-          name: testRun.name,
-          created_at:
-            (typeof testRun.attributes?.started_at === 'string'
-              ? testRun.attributes.started_at
-              : null) ||
-            testRun.created_at ||
-            '',
-          test_configuration_id: testRun.test_configuration_id,
-        }}
-        testRun={testRun}
-        currentUserId={session.user?.id || ''}
-        currentUserName={session.user?.name || ''}
-        currentUserPicture={session.user?.picture || undefined}
-        initialSelectedTestId={
-          typeof selectedResult === 'string' ? selectedResult : undefined
-        }
-        initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
-      />
-    </PageLayout>
+    <TestRunMainView
+      testRunId={identifier}
+      testRunData={{
+        id: testRun.id,
+        name: testRun.name,
+        created_at:
+          (typeof testRun.attributes?.started_at === 'string'
+            ? testRun.attributes.started_at
+            : null) ||
+          testRun.created_at ||
+          '',
+        test_configuration_id: testRun.test_configuration_id,
+      }}
+      testRun={testRun}
+      currentUserId={session.user?.id || ''}
+      currentUserName={session.user?.name || ''}
+      currentUserPicture={session.user?.picture || undefined}
+      initialSelectedTestId={
+        typeof selectedResult === 'string' ? selectedResult : undefined
+      }
+      initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
+      initialTestResults={testResults}
+      initialHasComparisonRuns={hasComparisonRuns}
+      initialTraces={tracesPage.initialData}
+      initialTracesTotalCount={tracesPage.initialTotalCount}
+    />
   );
 }

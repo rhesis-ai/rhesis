@@ -1,18 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import { testKeys } from '@/constants/query-keys';
 import {
-  dedupeHistoryByTestRun,
-  mapTestResultToHistoryRow,
-  TestExecutionHistoryRow,
+  fetchTestExecutionHistory,
+  type TestExecutionHistoryRow,
 } from './test-execution-history';
-
-const MAX_RESULTS = 100;
 
 interface UseTestExecutionHistoryOptions {
   testId: string | undefined;
   enabled?: boolean;
+  /** Server-prefetched rows; when present the hook skips its mount fetch. */
+  initialRows?: TestExecutionHistoryRow[];
 }
 
 interface UseTestExecutionHistoryResult {
@@ -22,116 +23,36 @@ interface UseTestExecutionHistoryResult {
   refetch: () => void;
 }
 
+const EMPTY_ROWS: TestExecutionHistoryRow[] = [];
+
 export function useTestExecutionHistory({
   testId,
   enabled = true,
+  initialRows,
 }: UseTestExecutionHistoryOptions): UseTestExecutionHistoryResult {
-  const [rows, setRows] = useState<TestExecutionHistoryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [fetchKey, setFetchKey] = useState(0);
+  const isAuthenticated = useIsAuthenticated();
 
-  const refetch = useCallback(() => {
-    setFetchKey(key => key + 1);
-  }, []);
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: [...testKeys.detail(testId ?? ''), 'execution-history'],
+    queryFn: () =>
+      fetchTestExecutionHistory(new ApiClientFactory(), testId as string),
+    enabled: enabled && isAuthenticated && !!testId,
+    initialData: initialRows,
+  });
 
-  useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      return;
-    }
-
-    if (!testId) {
-      setError('No test ID available');
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fetchHistory() {
-      try {
-        setLoading(true);
-        const clientFactory = new ApiClientFactory();
-        const testResultsClient = clientFactory.getTestResultsClient();
-
-        const results = await testResultsClient.getTestResults({
-          filter: `test_id eq '${testId}'`,
-          limit: MAX_RESULTS,
-          skip: 0,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-
-        if (cancelled) return;
-
-        const testRunNamesMap = new Map<string, string>();
-        for (const result of results.data) {
-          if (result.test_run_id && result.test_run?.name) {
-            testRunNamesMap.set(result.test_run_id, result.test_run.name);
-          }
-        }
-
-        const missingTestRunIds = [
-          ...new Set(
-            results.data
-              .filter(
-                (r): r is typeof r & { test_run_id: string } =>
-                  !!r.test_run_id && !testRunNamesMap.has(r.test_run_id)
-              )
-              .map(r => r.test_run_id)
-          ),
-        ];
-
-        if (missingTestRunIds.length > 0) {
-          const testRunsClient = clientFactory.getTestRunsClient();
-          const testRunsData = await Promise.allSettled(
-            missingTestRunIds.map(id => testRunsClient.getTestRun(id))
-          );
-
-          if (cancelled) return;
-
-          testRunsData.forEach((result, index) => {
-            if (result.status === 'fulfilled') {
-              const testRun = result.value;
-              testRunNamesMap.set(
-                testRun.id,
-                testRun.name || missingTestRunIds[index]
-              );
-            } else {
-              testRunNamesMap.set(
-                missingTestRunIds[index],
-                missingTestRunIds[index]
-              );
-            }
-          });
-        }
-
-        const historicalData = results.data.map(result =>
-          mapTestResultToHistoryRow(result, testRunNamesMap)
-        );
-
-        setRows(dedupeHistoryByTestRun(historicalData));
-        setError(null);
-      } catch {
-        if (!cancelled) {
-          setError('Failed to load execution history');
-          setRows([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    fetchHistory();
-
-    return () => {
-      cancelled = true;
+  if (!testId) {
+    return {
+      rows: EMPTY_ROWS,
+      loading: false,
+      error: 'No test ID available',
+      refetch: () => {},
     };
-  }, [testId, enabled, fetchKey]);
+  }
 
-  return { rows, loading, error, refetch };
+  return {
+    rows: data ?? EMPTY_ROWS,
+    loading: enabled && isPending,
+    error: error ? 'Failed to load execution history' : null,
+    refetch: () => void refetch(),
+  };
 }

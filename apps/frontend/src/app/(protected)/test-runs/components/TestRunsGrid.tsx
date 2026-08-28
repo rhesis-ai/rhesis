@@ -2,16 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { GridColDef } from '@mui/x-data-grid';
-import {
-  Typography,
-  Box,
-  Avatar,
-  Chip,
-  Button,
-  ButtonGroup,
-  Tooltip,
-} from '@mui/material';
-import ListIcon from '@mui/icons-material/List';
+import { Typography, Box, Avatar, Chip, Tooltip } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
@@ -24,13 +15,7 @@ import TagLabel from '@/components/common/Tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import {
-  ChatIcon,
-  DescriptionIcon,
-  ScienceIcon,
-  BiotechIcon,
-  PlayArrowIcon,
-} from '@/components/icons';
+import { ChatIcon, DescriptionIcon, PlayArrowIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { NotificationSection } from '@/constants/notifications';
@@ -46,8 +31,6 @@ import TestRunFilterDrawer, {
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
 import { passRate } from '@/constants/outcomes';
-
-type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 interface TestRunsGridProps {
   canCreate?: boolean;
@@ -86,8 +69,7 @@ function toFilters(state: EntityGridFilterState<TestRunFilters>) {
     tagsPresence: state.drawer.tags,
     commentsPresence: state.drawer.comments,
     tasksPresence: state.drawer.tasks,
-    // Owned by the toolbar's run-kind toggle, merged in via externalFilters.
-    runKind: 'all',
+    runKind: state.drawer.runKind,
     reviews: state.drawer.reviews ?? 'all',
   };
 }
@@ -122,43 +104,8 @@ export default function TestRunsGrid({
 }: TestRunsGridProps) {
   const notifications = useNotifications();
 
-  const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-
-  const externalFilters = useMemo(
-    () => ({ runKind: runKindFilter }),
-    [runKindFilter]
-  );
-
-  const runKindToolbar = useMemo(
-    () => (
-      <ButtonGroup size="small" variant="outlined">
-        <Button
-          onClick={() => setRunKindFilter('all')}
-          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
-          startIcon={<ListIcon fontSize="small" />}
-        >
-          All
-        </Button>
-        <Button
-          onClick={() => setRunKindFilter('tests')}
-          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
-          startIcon={<ScienceIcon fontSize="small" />}
-        >
-          Tests
-        </Button>
-        <Button
-          onClick={() => setRunKindFilter('experiments')}
-          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
-          startIcon={<BiotechIcon fontSize="small" />}
-        >
-          Experiments
-        </Button>
-      </ButtonGroup>
-    ),
-    [runKindFilter]
-  );
 
   const handleCancelClose = useCallback(() => {
     setPendingCancelId(null);
@@ -204,18 +151,16 @@ export default function TestRunsGrid({
       {
         field: 'name',
         headerName: 'Name',
-        width: 180,
+        flex: 1.8,
         minWidth: 120,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => row.name || '',
       },
       {
         field: 'test_configuration.test_set.name',
         headerName: 'Test Sets',
-        width: 160,
+        flex: 1.6,
         minWidth: 100,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           const testSet = row.test_configuration?.test_set;
@@ -225,9 +170,8 @@ export default function TestRunsGrid({
       {
         field: 'total_tests',
         headerName: 'Total Tests',
-        width: 110,
+        flex: 1.1,
         minWidth: 80,
-        resizable: true,
         align: 'right',
         headerAlign: 'right',
         valueGetter: (_, row) => {
@@ -238,9 +182,8 @@ export default function TestRunsGrid({
       {
         field: 'pass_rate',
         headerName: 'Pass Rate',
-        width: 110,
+        flex: 1.1,
         minWidth: 90,
-        resizable: true,
         align: 'right',
         headerAlign: 'right',
         sortable: false,
@@ -266,8 +209,8 @@ export default function TestRunsGrid({
         field: 'status',
         headerName: 'Status',
         width: 120,
+        flex: 0,
         minWidth: 90,
-        resizable: true,
         renderCell: params => {
           const status = params.row.status?.name;
           if (!status) return null;
@@ -279,8 +222,8 @@ export default function TestRunsGrid({
         field: 'test_set_type',
         headerName: 'Type',
         width: 120,
+        flex: 0,
         minWidth: 90,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           return (
@@ -352,9 +295,8 @@ export default function TestRunsGrid({
       {
         field: 'user.name',
         headerName: 'Executor',
-        width: 160,
+        flex: 1.6,
         minWidth: 120,
-        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           const executor = row.user;
@@ -387,9 +329,8 @@ export default function TestRunsGrid({
       {
         field: 'counts.reviewed_tests',
         headerName: 'Reviews',
-        width: 100,
+        flex: 1,
         minWidth: 80,
-        resizable: true,
         sortable: false,
         filterable: false,
         valueGetter: (_, row) => row.counts?.reviewed_tests ?? 0,
@@ -422,9 +363,8 @@ export default function TestRunsGrid({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        width: 100,
+        flex: 1,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.comments ?? 0,
@@ -442,9 +382,8 @@ export default function TestRunsGrid({
       {
         field: 'counts.tasks',
         headerName: 'Tasks',
-        width: 100,
+        flex: 1,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.tasks ?? 0,
@@ -462,9 +401,8 @@ export default function TestRunsGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        width: 180,
+        flex: 1.8,
         minWidth: 140,
-        resizable: true,
         sortable: true,
         filterable: true,
         valueGetter: (_, row) =>
@@ -509,7 +447,6 @@ export default function TestRunsGrid({
       descriptor={testRunsList}
       columns={columns}
       toFilters={toFilters}
-      externalFilters={externalFilters}
       emptyState={
         <EntityEmptyState
           card
@@ -527,7 +464,6 @@ export default function TestRunsGrid({
       searchPlaceholder="Search test runs…"
       pills={{ tabs: STATUS_TABS }}
       drawer={drawerAdapter}
-      toolbarRight={runKindToolbar}
       selectionLabel="Select test runs"
       getRowUrl={row => `/test-runs/${row.id}`}
       highlightSection={NotificationSection.TEST_RUNS}

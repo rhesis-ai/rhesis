@@ -16,18 +16,52 @@ jest.mock('@mui/x-data-grid', () => {
     loading,
     getRowId,
     onRowClick,
+    checkboxSelection,
+    isRowSelectable,
+    disableMultipleRowSelection,
+    slots,
   }: {
     rows: GridRowModel[];
     columns: GridColDef[];
     loading?: boolean;
     getRowId?: (row: GridRowModel) => string | number;
     onRowClick?: (params: { row: GridRowModel }) => void;
+    checkboxSelection?: boolean;
+    isRowSelectable?: (params: { row: GridRowModel }) => boolean;
+    disableMultipleRowSelection?: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    slots?: { baseCheckbox?: React.ComponentType<any> };
   }) => {
     if (loading) return <div data-testid="datagrid-loading">Loading…</div>;
+    // Mirrors GridCellCheckboxRenderer and GridHeaderCheckbox: both come from
+    // the baseCheckbox slot with the same class, and are disabled for
+    // different reasons — the row by isRowSelectable, the header by
+    // disableMultipleRowSelection.
+    const BaseCheckbox = slots?.baseCheckbox;
+    const checkboxClass = original.gridClasses.checkboxInput;
+    const renderCheckbox = (row: GridRowModel) =>
+      checkboxSelection && BaseCheckbox ? (
+        <td>
+          <BaseCheckbox
+            disabled={isRowSelectable ? !isRowSelectable({ row }) : false}
+            className={checkboxClass}
+            inputProps={{ name: 'select_row' }}
+          />
+        </td>
+      ) : null;
     return (
       <table role="grid" data-testid="data-grid">
         <thead>
           <tr>
+            {checkboxSelection && BaseCheckbox && (
+              <th>
+                <BaseCheckbox
+                  disabled={disableMultipleRowSelection === true}
+                  className={checkboxClass}
+                  inputProps={{ name: 'select_all_rows' }}
+                />
+              </th>
+            )}
             {columns.map((col: GridColDef) => (
               <th key={String(col.field)}>
                 {String(col.headerName ?? col.field)}
@@ -47,6 +81,7 @@ jest.mock('@mui/x-data-grid', () => {
                 onClick={() => onRowClick && onRowClick({ row })}
                 data-testid={`row-${rowKey}`}
               >
+                {renderCheckbox(row)}
                 {columns.map((col: GridColDef) => (
                   <td key={String(col.field)}>
                     {String(row[col.field] ?? '')}
@@ -56,6 +91,21 @@ jest.mock('@mui/x-data-grid', () => {
             );
           })}
         </tbody>
+        {/* Stands in for the columns panel: same slot, no grid class, and
+            `disabled` there means the column can't be hidden. */}
+        {checkboxSelection && BaseCheckbox && (
+          <tfoot>
+            <tr>
+              <td>
+                <BaseCheckbox
+                  disabled={true}
+                  inputProps={{ name: 'status' }}
+                  data-testid="panel-checkbox"
+                />
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     );
   };
@@ -80,10 +130,27 @@ const sampleRows = [
 ];
 
 describe('applyFlexColumnSizing', () => {
-  it('caps width-only columns with maxWidth instead of converting to flex', () => {
+  it('promotes first non-fixed column to flex when no flex column exists', () => {
     const columns: GridColDef[] = [
       { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
       { field: 'status', headerName: 'Status', width: 120, minWidth: 90 },
+      { field: 'actions', headerName: '', width: 88 },
+    ];
+
+    const sized = applyFlexColumnSizing(columns);
+
+    expect(sized[0]).toMatchObject({ flex: 1, minWidth: 150 });
+    expect(sized[0].maxWidth).toBeUndefined();
+    expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
+    expect(sized[1].flex).toBeUndefined();
+    expect(sized[2]).toMatchObject({ width: 88, hideable: false });
+    expect(sized[2].flex).toBeUndefined();
+  });
+
+  it('caps width-only columns when another column already has flex', () => {
+    const columns: GridColDef[] = [
+      { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
+      { field: 'desc', headerName: 'Description' },
       { field: 'actions', headerName: '', width: 88 },
     ];
 
@@ -95,9 +162,8 @@ describe('applyFlexColumnSizing', () => {
       minWidth: 150,
     });
     expect(sized[0].flex).toBeUndefined();
-    expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
+    expect(sized[1]).toMatchObject({ flex: 1, minWidth: 50 });
     expect(sized[2]).toMatchObject({ width: 88, hideable: false });
-    expect(sized[2].flex).toBeUndefined();
   });
 
   it('gives unsized columns flex to fill remaining width', () => {
@@ -221,5 +287,65 @@ describe('BaseDataGrid', () => {
       );
       expect(container.querySelector('.MuiPaper-root')).not.toBeInTheDocument();
     });
+  });
+});
+
+// Real timers: the tooltip's enter delay and userEvent's hover are easier to
+// drive without the fake-timer setup the suite above needs.
+describe('BaseDataGrid disabled row selection', () => {
+  const REASON = 'Only the owner can delete this test run';
+
+  const renderGrid = async (
+    tooltip?: string,
+    { singleSelection = false }: { singleSelection?: boolean } = {}
+  ) => {
+    render(
+      <BaseDataGrid
+        columns={sampleColumns}
+        rows={sampleRows}
+        checkboxSelection={true}
+        isRowSelectable={params => params.row.status === 'active'}
+        {...(singleSelection && { disableMultipleRowSelection: true })}
+        {...(tooltip && { rowSelectionDisabledTooltip: tooltip })}
+      />
+    );
+    await screen.findByRole('grid');
+  };
+
+  it('explains a disabled checkbox on hover', async () => {
+    const user = userEvent.setup();
+    await renderGrid(REASON);
+
+    // Only Bob is unselectable, so the reason labels exactly one element.
+    const anchor = screen.getByLabelText(REASON);
+    expect(screen.getByTestId('row-2')).toContainElement(anchor);
+    await user.hover(anchor);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(REASON);
+  });
+
+  it('adds no tooltip when no reason is given', async () => {
+    await renderGrid();
+    expect(screen.queryByLabelText(REASON)).toBeNull();
+  });
+
+  it('leaves the disabled select-all header alone', async () => {
+    // Its checkbox is disabled because selection is single-row, which the
+    // row-level reason would misdescribe.
+    await renderGrid(REASON, { singleSelection: true });
+
+    const labelled = screen.getAllByLabelText(REASON);
+    expect(labelled).toHaveLength(1);
+    expect(screen.getByTestId('row-2')).toContainElement(labelled[0]);
+  });
+
+  it('leaves checkboxes outside the grid selection alone', async () => {
+    await renderGrid(REASON);
+
+    // The columns panel renders through the same slot, where `disabled` means
+    // "column can't be hidden" — see the mock's panel checkbox.
+    const panel = screen.getByTestId('panel-checkbox');
+    expect(panel).not.toHaveAttribute('aria-label');
+    expect(screen.getAllByLabelText(REASON)).toHaveLength(1);
   });
 });

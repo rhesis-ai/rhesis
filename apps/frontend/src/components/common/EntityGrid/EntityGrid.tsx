@@ -489,6 +489,12 @@ export default function EntityGrid<
               ? params => canDeleteRow(params.row)
               : undefined
           }
+          rowSelectionDisabledTooltip={
+            checkboxSelectionMode && deleteSpec?.capabilityMode === 'row'
+              ? (deleteSpec.notSelectableReason ??
+                `Only the owner can delete this ${deleteSpec.labelSingular}`)
+              : undefined
+          }
         />
 
         {deleteEnabled && (

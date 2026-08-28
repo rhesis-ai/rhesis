@@ -140,6 +140,7 @@ from .test import (
     TestDetail,
     TestExecuteRequest,
     TestExecuteResponse,
+    TestFacets,
     TestPromptCreate,
     TestTag,
     TestUpdate,

@@ -4,6 +4,9 @@ import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import RequirementDetailClient from './components/RequirementDetailClient';
+import { prefetch } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { fetchRequirementLinkedTests } from './components/linked-tests';
 import type { UUID } from 'crypto';
 
 interface PageProps {
@@ -34,7 +37,8 @@ export default async function RequirementDetailPage({ params }: PageProps) {
   // object no longer exposes the access token (session.session_token is
   // always undefined post-BFF), and the factory also threads the active
   // project header.
-  const client = (await createServerApiFactory()).getRequirementClient();
+  const apiFactory = await createServerApiFactory();
+  const client = apiFactory.getRequirementClient();
 
   let requirement;
   try {
@@ -46,10 +50,16 @@ export default async function RequirementDetailPage({ params }: PageProps) {
 
   const serializedRequirement = JSON.parse(JSON.stringify(requirement));
 
+  // Linked Tests tab; Linked Metrics already arrive on the requirement.
+  const linkedTests = await prefetch(Capability.Test.READ, () =>
+    fetchRequirementLinkedTests(apiFactory, identifier)
+  );
+
   return (
     <RequirementDetailClient
       requirement={serializedRequirement}
       identifier={identifier}
+      initialLinkedTests={linkedTests}
     />
   );
 }

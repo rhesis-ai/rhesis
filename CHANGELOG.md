@@ -13,6 +13,38 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.14.0**
+- **Frontend 0.14.0**
+- **SDK 0.14.0**
+- **Polyphemus 0.7.0**
+
+### Summary of Changes
+
+**Backend v0.14.0:**
+Unified outcome model (execution vs. verdict), job tracking with activity logs, real-time WebSocket events, evaluation contracts, metric tuning, live verdict matrix, bulk delete endpoints, and advisory-locked migrations.
+
+**Frontend v0.14.0:**
+Live verdict grid for test runs with canvas rendering and WebSocket updates, user settings page with profile editing and password management, metric tuning tab with AI-powered prompt improvement, quota and usage UI, SSR prefetching across list and detail pages, and unified grid architecture.
+
+**SDK v0.14.0:**
+Google ADK and Haystack integrations, app-owned conversation turns, evaluation contract scoring, progress callbacks for synthesizers, connector startup hook and identity override, and deterministic judging.
+
+**Polyphemus v0.7.0:**
+Backend startup probe, prune protection for prd-base, changelog summary generation, optimized OWASP resync queries, and migration conflict fixes.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.13.0] - 2026-08-20
 
 ### Platform Release

@@ -210,6 +210,34 @@ describe('RequirementTable', () => {
     expect(screen.getByText('Safety')).toBeInTheDocument();
   });
 
+  it('renders a requirement-less group without a group header', () => {
+    // Execution-time/test-set metrics never linked to a requirement --
+    // "Unassigned" would misleadingly present them as a requirement.
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          requirements: [
+            { id: null, name: 'Unassigned', metric_keys: ['m1', 'm2'] },
+          ],
+        })}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    // The metric rows themselves still render (shared-prefix trimmed, same
+    // as any other group)...
+    expect(screen.getByText('Toxicity Score')).toBeInTheDocument();
+    expect(screen.getByText('Bias Check')).toBeInTheDocument();
+    // ...but there is no clickable/collapsible group header for them, and
+    // no "Unassigned" label presented as if it were a requirement.
+    expect(
+      screen.queryByRole('button', { expanded: true })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument();
+  });
+
   it('derives group header Total/Passed/Failed from the per-test rollup', () => {
     // m1 verdicts 'PF.', m2 verdicts 'PP.' across 3 tests:
     // t1: P,P -> passed. t2: F,P -> failed. t3: .,. -> pending (neither).
@@ -589,6 +617,45 @@ describe('RequirementTable', () => {
     it('is present in Numbers + Shape too', () => {
       renderAt('shape', baseRow);
       expect(screen.getAllByText('OK').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('verdict cell shape', () => {
+    // Cells fill their strip's full height and share a cell width, so equal
+    // strip heights are what make a rollup cell and the cells under it the
+    // same shape. The rollup used to be pinned to its own 16px, which drew
+    // the requirement row as squares above rectangular metric rows.
+    function stripHeights(density: 'numbers' | 'shape' | 'detail'): string[] {
+      const { container } = renderWithClock(
+        <RequirementTable
+          matrix={makeMatrix()}
+          density={density}
+          onDensityChange={jest.fn()}
+          timings={EMPTY_TIMINGS}
+        />
+      );
+      return Array.from(container.querySelectorAll('canvas[role="img"]')).map(
+        c => (c.parentElement as HTMLElement).style.height
+      );
+    }
+
+    it.each(['numbers', 'shape', 'detail'] as const)(
+      'gives the requirement rollup and its metric rows one height in %s',
+      density => {
+        const heights = stripHeights(density);
+        // One rollup + two metric rows in the default matrix.
+        expect(heights).toHaveLength(3);
+        expect(new Set(heights).size).toBe(1);
+      }
+    );
+
+    it('still grows the cells from Shape to Detail', () => {
+      // Guards the fix from being "make everything 0" -- the modes must
+      // stay visually distinct.
+      const shape = parseFloat(stripHeights('shape')[0]);
+      const detail = parseFloat(stripHeights('detail')[0]);
+      expect(shape).toBeGreaterThan(0);
+      expect(detail).toBeGreaterThan(shape);
     });
   });
 

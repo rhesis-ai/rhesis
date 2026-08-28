@@ -2,11 +2,10 @@
 
 import React, { useCallback, useState } from 'react';
 import { Box } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
-import { EntityType } from '@/types/tasks';
+import { EntityType, type Task } from '@/types/tasks';
+import type { Comment } from '@/types/comments';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
-import { taskKeys } from '@/constants/query-keys';
 import { TasksSection } from './TasksSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { TaskCreationDrawer } from './TaskCreationDrawer';
@@ -19,6 +18,10 @@ interface TasksAndCommentsWrapperProps {
   currentUserPicture?: string;
   onCountsChange?: () => void;
   additionalMetadata?: Record<string, unknown>;
+  /** Server-prefetched first page of tasks; see `TasksSection`. */
+  initialTasks?: Task[];
+  initialTasksTotalCount?: number;
+  initialComments?: Comment[];
 }
 
 export function TasksAndCommentsWrapper({
@@ -29,8 +32,16 @@ export function TasksAndCommentsWrapper({
   currentUserPicture,
   onCountsChange,
   additionalMetadata,
+  initialTasks,
+  initialTasksTotalCount,
+  initialComments,
 }: TasksAndCommentsWrapperProps) {
-  const queryClient = useQueryClient();
+  // Bumped after a create/delete so the tasks grid re-reads its page.
+  const [tasksRefreshToken, setTasksRefreshToken] = useState(0);
+  const refreshTasks = useCallback(
+    () => setTasksRefreshToken(token => token + 1),
+    []
+  );
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [pendingCommentId, setPendingCommentId] = useState<
     string | undefined
@@ -58,7 +69,7 @@ export function TasksAndCommentsWrapper({
         await createTask(enrichedTaskData);
         setCreateDrawerOpen(false);
         setPendingCommentId(undefined);
-        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+        refreshTasks();
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
@@ -66,7 +77,7 @@ export function TasksAndCommentsWrapper({
         setIsCreating(false);
       }
     },
-    [createTask, onCountsChange, additionalMetadata, queryClient]
+    [createTask, onCountsChange, additionalMetadata, refreshTasks]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
@@ -77,13 +88,13 @@ export function TasksAndCommentsWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+        refreshTasks();
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
       }
     },
-    [deleteTask, onCountsChange, queryClient]
+    [deleteTask, onCountsChange, refreshTasks]
   );
 
   const handleOpenCreateDrawer = useCallback((commentId?: string) => {
@@ -115,6 +126,9 @@ export function TasksAndCommentsWrapper({
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
           onOpenCreateDrawer={handleOpenCreateDrawer}
+          initialTasks={initialTasks}
+          initialTotalCount={initialTasksTotalCount}
+          refreshToken={tasksRefreshToken}
         />
 
         <CommentsWrapper
@@ -126,6 +140,7 @@ export function TasksAndCommentsWrapper({
           onCreateTask={commentId => handleOpenCreateDrawer(commentId)}
           onCreateTaskFromEntity={() => handleOpenCreateDrawer()}
           onCountsChange={onCountsChange}
+          initialComments={initialComments}
         />
       </Box>
 

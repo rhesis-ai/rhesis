@@ -21,9 +21,95 @@ import {
   RUN_STATUS_ICON,
 } from '@/constants/test-runs';
 
-interface TestRunDetailHeaderProps {
+/**
+ * The three pieces of this page's header, shaped to fill `PageLayout`'s
+ * `title` / `metadata` / `actions` slots.
+ *
+ * They are not one component any more. Rendering a self-contained header
+ * inside the page body meant `PageLayout` drew its own header block for the
+ * breadcrumbs -- margin and all -- and this one drew a second below it, so
+ * the page paid for two headers where every other screen pays for one.
+ * Requirements is the reference: hand the parts to `PageLayout` and let it
+ * own the spacing.
+ */
+
+export function TestRunTitle({
+  testRun,
+  onRename,
+  canRename = true,
+}: {
   testRun: TestRunDetail;
   onRename: () => void;
+  /** Gate the rename button on server-driven affordances (default true). */
+  canRename?: boolean;
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+      <Typography
+        variant="h4"
+        component="h1"
+        noWrap
+        sx={{
+          fontWeight: 700,
+          color: theme => theme.palette.greyscale.title,
+        }}
+      >
+        {testRun.name?.trim() || 'Test Run'}
+      </Typography>
+      {canRename && (
+        <Tooltip title="Rename test run">
+          <IconButton size="small" onClick={onRename} aria-label="Rename">
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
+export function TestRunMetadata({ testRun }: { testRun: TestRunDetail }) {
+  const creatorName =
+    testRun.user?.name || testRun.user?.email || 'Unknown user';
+  const createdOn = formatDate(getTestRunDisplayTimestamp(testRun));
+
+  return (
+    <Box>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography
+          variant="body2"
+          sx={{ color: theme => theme.palette.greyscale.subtitle }}
+        >
+          created by: {creatorName}
+          <Box component="span" sx={{ mx: 2 }}>
+            |
+          </Box>
+          created on: {createdOn}
+        </Typography>
+        <RunStatusPill testRun={testRun} />
+      </Box>
+      <ExperimentLink testRun={testRun} />
+    </Box>
+  );
+}
+
+export function TestRunActions({
+  testRun,
+  onCompare,
+  onDownload,
+  onRerun,
+  isDownloading = false,
+  canRerun = true,
+  rerunTooltip = 'Re-run test',
+  canCompare = true,
+}: {
+  testRun: TestRunDetail;
   onCompare: () => void;
   onDownload: () => void;
   onRerun: () => void;
@@ -32,102 +118,36 @@ interface TestRunDetailHeaderProps {
   /** Tooltip for the re-run FAB (e.g. when disabled because the test set was deleted). */
   rerunTooltip?: string;
   canCompare?: boolean;
-  /** Gate the rename button on server-driven affordances (default true). */
-  canRename?: boolean;
-}
-
-export default function TestRunDetailHeader({
-  testRun,
-  onRename,
-  onCompare,
-  onDownload,
-  onRerun,
-  isDownloading = false,
-  canRerun = true,
-  rerunTooltip = 'Re-run test',
-  canCompare = true,
-  canRename = true,
-}: TestRunDetailHeaderProps) {
-  const creatorName =
-    testRun.user?.name || testRun.user?.email || 'Unknown user';
-  const createdOn = formatDate(getTestRunDisplayTimestamp(testRun));
-
+}) {
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: 2,
-        mb: 3,
-        flexWrap: 'wrap',
-      }}
-    >
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{
-              fontWeight: 700,
-              color: theme => theme.palette.greyscale.title,
-            }}
-          >
-            {testRun.name || 'Test Run'}
-          </Typography>
-          {canRename && (
-            <Tooltip title="Rename test run">
-              <IconButton size="small" onClick={onRename} aria-label="Rename">
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
-          <Typography
-            variant="body2"
-            sx={{ color: theme => theme.palette.greyscale.subtitle }}
-          >
-            created by: {creatorName}
-            <Box component="span" sx={{ mx: 2 }}>
-              |
-            </Box>
-            created on: {createdOn}
-          </Typography>
-          <RunStatusPill testRun={testRun} />
-        </Box>
-        <ExperimentLink testRun={testRun} />
-      </Box>
-
-      <FabGroup>
-        <TestRunSummarizeFab testRun={testRun} />
-        <Fab
-          icon={<CompareArrowsOutlinedIcon />}
-          tooltip={
-            canCompare
-              ? 'Compare runs'
-              : 'No other test runs on this test set to compare against'
-          }
-          onClick={onCompare}
-          disabled={!canCompare}
-          aria-label="Compare runs"
-        />
-        <Fab
-          icon={<DownloadIcon />}
-          tooltip="Download results"
-          onClick={onDownload}
-          loading={isDownloading}
-          aria-label="Download results"
-        />
-        <Fab
-          icon={<RestartAltOutlinedIcon />}
-          tooltip={rerunTooltip}
-          onClick={onRerun}
-          disabled={!canRerun}
-          aria-label="Re-run test"
-        />
-      </FabGroup>
-    </Box>
+    <FabGroup>
+      <TestRunSummarizeFab testRun={testRun} />
+      <Fab
+        icon={<CompareArrowsOutlinedIcon />}
+        tooltip={
+          canCompare
+            ? 'Compare runs'
+            : 'No other test runs on this test set to compare against'
+        }
+        onClick={onCompare}
+        disabled={!canCompare}
+        aria-label="Compare runs"
+      />
+      <Fab
+        icon={<DownloadIcon />}
+        tooltip="Download results"
+        onClick={onDownload}
+        loading={isDownloading}
+        aria-label="Download results"
+      />
+      <Fab
+        icon={<RestartAltOutlinedIcon />}
+        tooltip={rerunTooltip}
+        onClick={onRerun}
+        disabled={!canRerun}
+        aria-label="Re-run test"
+      />
+    </FabGroup>
   );
 }
 

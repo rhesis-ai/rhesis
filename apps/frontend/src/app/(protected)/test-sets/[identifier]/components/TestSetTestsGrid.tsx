@@ -1,185 +1,178 @@
 'use client';
 
-import React, { useCallback, useContext, useMemo, useState } from 'react';
-import {
-  GridColDef,
-  GridRowParams,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { Alert } from '@mui/material';
-import GridToolbar from '@/components/common/GridToolbar';
-import { useRouter } from 'next/navigation';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import type { GridColDef } from '@mui/x-data-grid';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { getTestSetTestColumns } from './testSetTestColumns';
 import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
-  hasActiveTestFilters,
+  countActiveTestFilters,
 } from '@/app/(protected)/tests/components/TestFilterDrawer';
-import { useList } from '@/hooks/useList';
 import { testSetTestsList } from './list';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-
-interface LinkedTestsToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-}
-
-const LinkedTestsToolbarContext = React.createContext<LinkedTestsToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-});
-
-function LinkedTestsUnifiedToolbar() {
-  const canExport = useCan(Capability.TestSet.EXPORT);
-  const {
-    searchQuery,
-    setSearchQuery,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-  } = useContext(LinkedTestsToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search tests…"
-      searchWidth={288}
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      sx={{ px: '30px', pt: 0, pb: '30px', minHeight: 'auto' }}
-      rightContent={
-        <>
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          {canExport && <GridToolbarExport />}
-        </>
-      }
-    />
-  );
-}
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { LinkOffIcon } from '@/components/icons';
+import type { RowExtraAction } from '@/components/common/createRowActionsColumn';
+import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 
 interface TestSetTestsGridProps {
   testSetId: string;
   testSetType?: string;
-  /** When true, grid is rendered inside embedding atlas (spacing only). */
-  embedded?: boolean;
+  /** Server-prefetched first page (default sort, no filters); skips the mount fetch. */
+  initialTests?: TestDetail[];
+  initialTotalCount?: number;
   onTotalCountChange?: (count: number) => void;
+  /** Bumped by the page (e.g. after an assign) to trigger a re-fetch. */
+  refreshTrigger?: number;
+}
+
+function toFilters(state: EntityGridFilterState<TestFilters>) {
+  return {
+    search: state.search,
+    testType: state.drawer.testType,
+    requirement: state.drawer.requirement,
+    category: state.drawer.category,
+    topic: state.drawer.topic,
+    tagsPresence: state.drawer.tags,
+    commentsPresence: state.drawer.comments,
+    tasksPresence: state.drawer.tasks,
+  };
 }
 
 export default function TestSetTestsGrid({
   testSetId,
   testSetType,
+  initialTests,
+  initialTotalCount,
   onTotalCountChange,
+  refreshTrigger,
 }: TestSetTestsGridProps) {
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [drawerFilters, setDrawerFilters] =
-    useState<TestFilters>(EMPTY_TEST_FILTERS);
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [errorDismissed, setErrorDismissed] = useState(false);
+  const notifications = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
+  const canExport = useCan(Capability.TestSet.EXPORT);
 
-  const descriptor = useMemo(() => testSetTestsList(testSetId), [testSetId]);
-
-  const filters = useMemo(
+  const drawerAdapter: EntityGridDrawerAdapter<TestFilters> = useMemo(
     () => ({
-      search: searchQuery,
-      testType: drawerFilters.testType,
-      requirement: drawerFilters.requirement,
-      category: drawerFilters.category,
-      topic: drawerFilters.topic,
-      tagsPresence: drawerFilters.tags,
-      commentsPresence: drawerFilters.comments,
-      tasksPresence: drawerFilters.tasks,
+      empty: EMPTY_TEST_FILTERS,
+      countActive: countActiveTestFilters,
+      render: props => (
+        <TestFilterDrawer
+          open={props.open}
+          onClose={props.onClose}
+          filters={props.filters}
+          onApply={props.onApply}
+          testSetId={testSetId}
+        />
+      ),
     }),
-    [searchQuery, drawerFilters]
+    [testSetId]
   );
 
-  const filtersActive = !!searchQuery || hasActiveTestFilters(drawerFilters);
-
-  const {
-    data: tests,
-    totalCount,
-    isLoading: loading,
-    error: rawError,
-    paginationModel,
-    onPaginationModelChange: handlePaginationModelChange,
-  } = useList(descriptor, {
-    filters,
-    enabled: !!testSetId,
-    onError: () => setErrorDismissed(false),
-  });
-
-  React.useEffect(() => {
-    setErrorDismissed(false);
-  }, [rawError]);
-
-  const error = rawError && !errorDismissed ? rawError : null;
-  const dismissError = useCallback(() => setErrorDismissed(true), []);
-
-  React.useEffect(() => {
-    if (!loading && !filtersActive) onTotalCountChange?.(totalCount);
-  }, [loading, filtersActive, totalCount, onTotalCountChange]);
-
-  const columns: GridColDef[] = React.useMemo(
+  const descriptor = useMemo(() => testSetTestsList(testSetId), [testSetId]);
+  const columns: GridColDef[] = useMemo(
     () => getTestSetTestColumns(testSetType),
     [testSetType]
   );
 
-  const handleRowClick = useCallback(
-    (params: GridRowParams) => {
-      const testId = params.id;
-      router.push(`/tests/${testId}`);
+  const onTotalCountChangeRef = useRef(onTotalCountChange);
+  onTotalCountChangeRef.current = onTotalCountChange;
+  const handleDataChange = useCallback(
+    (_data: TestDetail[], totalCount: number, filtersActive: boolean) => {
+      if (!filtersActive) {
+        onTotalCountChangeRef.current?.(totalCount);
+      }
     },
-    [router]
+    []
   );
 
-  const toolbarContextValue = useMemo(
-    () => ({
-      searchQuery,
-      setSearchQuery,
-      openFilterDrawer: () => setFilterDrawerOpen(true),
-      hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
-    }),
-    [searchQuery, drawerFilters]
+  const [removeTarget, setRemoveTarget] = useState<TestDetail | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  const handleRemoveClick = useCallback((row: TestDetail) => {
+    setRemoveTarget(row);
+  }, []);
+
+  const handleCancelRemove = useCallback(() => setRemoveTarget(null), []);
+
+  const makeConfirmRemove = useCallback(
+    (refresh: () => void) => async () => {
+      if (!removeTarget) return;
+      try {
+        setRemoving(true);
+        const factory = new ApiClientFactory();
+        await factory
+          .getTestSetsClient()
+          .disassociateTestsFromTestSet(testSetId, [String(removeTarget.id)]);
+        notifications.show('Test removed from test set', {
+          severity: 'success',
+          autoHideDuration: 4000,
+        });
+        setRemoveTarget(null);
+        refresh();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to remove test from test set. Please try again.';
+        notifications.show(message, { severity: 'error' });
+      } finally {
+        setRemoving(false);
+      }
+    },
+    [removeTarget, testSetId, notifications]
+  );
+
+  const extraRowActions: RowExtraAction[] = useMemo(
+    () => [
+      {
+        key: 'remove',
+        icon: LinkOffIcon,
+        tooltip: 'Remove from test set',
+        onClick: (_id: string, row: Record<string, unknown>) =>
+          handleRemoveClick(row as unknown as TestDetail),
+        can: () => canEditTestSet,
+        hoverColor: 'error.main' as const,
+      },
+    ],
+    [handleRemoveClick, canEditTestSet]
   );
 
   return (
-    <LinkedTestsToolbarContext.Provider value={toolbarContextValue}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
+    <EntityGrid<TestDetail, typeof descriptor.filters, TestFilters>
+      descriptor={descriptor}
+      columns={columns}
+      toFilters={toFilters}
+      emptyState={null}
+      embedded
+      initialData={initialTests}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      onDataChange={handleDataChange}
+      searchPlaceholder="Search tests…"
+      drawer={drawerAdapter}
+      showExport={canExport}
+      getRowUrl={row => `/tests/${row.id}`}
+      editAction={false}
+      extraRowActions={extraRowActions}
+      pageSizeOptions={[10, 25, 50]}
+      renderSelectionExtras={ctx => (
+        <DeleteModal
+          open={removeTarget !== null}
+          onClose={handleCancelRemove}
+          onConfirm={makeConfirmRemove(ctx.refresh)}
+          isLoading={removing}
+          title="Remove from Test Set"
+          message="Remove this test from the test set? The test itself will not be deleted."
+          confirmButtonText={removing ? 'Removing…' : 'Remove'}
+        />
       )}
-
-      <BaseDataGrid
-        rows={tests}
-        columns={columns}
-        loading={loading}
-        getRowId={row => row.id}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        onRowClick={handleRowClick}
-        serverSidePagination={true}
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50]}
-        disablePaperWrapper={true}
-        toolbarSlot={LinkedTestsUnifiedToolbar}
-      />
-
-      <TestFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={setDrawerFilters}
-      />
-    </LinkedTestsToolbarContext.Provider>
+    />
   );
 }

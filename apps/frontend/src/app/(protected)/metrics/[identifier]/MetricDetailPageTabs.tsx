@@ -1,6 +1,18 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  fetchMetricLinkedRequirements,
+  type LinkedRequirementRow,
+  type MetricTuningData,
+} from './metric-data';
 import { useRouter } from 'next/navigation';
 import { Box, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
@@ -42,9 +54,6 @@ import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
-/** Linked requirements come back with the status relationship at runtime. */
-type LinkedRequirementRow = RequirementReference & { status?: Status | null };
-
 const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
@@ -56,10 +65,15 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 export default function MetricDetailPageTabs({
   metricId,
   initialMetric,
+  initialRequirements,
+  initialTuning,
 }: {
   metricId: string;
   /** Fetched by the server page so the first paint already has content. */
   initialMetric: MetricDetail;
+  /** Same, for the other tabs; undefined falls back to a client fetch. */
+  initialRequirements?: LinkedRequirementRow[];
+  initialTuning?: MetricTuningData;
 }) {
   const { status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
@@ -112,10 +126,12 @@ export default function MetricDetailPageTabs({
           <MetricLinkedRequirements
             metricId={metricId}
             sessionStatus={status}
+            initialRequirements={initialRequirements}
           />
         ) : activeTab === 2 && showTuning ? (
           <MetricTuningTab
             metricId={metricId}
+            initialData={initialTuning}
             onMetricChanged={() => setMetricRevision(revision => revision + 1)}
           />
         ) : undefined
@@ -127,15 +143,21 @@ export default function MetricDetailPageTabs({
 function MetricLinkedRequirements({
   metricId,
   sessionStatus,
+  initialRequirements,
 }: {
   metricId: string;
   sessionStatus: 'loading' | 'authenticated' | 'unauthenticated';
+  initialRequirements?: LinkedRequirementRow[];
 }) {
   const router = useRouter();
   const notifications = useNotifications();
   const canEditMetric = useCan(Capability.Metric.UPDATE);
-  const [requirements, setRequirements] = useState<LinkedRequirementRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [requirements, setRequirements] = useState<LinkedRequirementRow[]>(
+    initialRequirements ?? []
+  );
+  const [loading, setLoading] = useState(!initialRequirements);
+  // The metric id the server-rendered rows belong to: no mount fetch for it.
+  const seededMetricIdRef = useRef(initialRequirements ? metricId : null);
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
@@ -158,11 +180,9 @@ function MetricLinkedRequirements({
     if (!isAuthenticated(sessionStatus)) return;
     setLoading(true);
     try {
-      const client = new MetricsClient();
-      const result = await client.getMetricRequirements(metricId as UUID);
-      const data =
-        (result as unknown as { data: LinkedRequirementRow[] }).data ?? [];
-      setRequirements(data);
+      setRequirements(
+        await fetchMetricLinkedRequirements(new ApiClientFactory(), metricId)
+      );
     } catch {
       setRequirements([]);
     } finally {
@@ -171,6 +191,7 @@ function MetricLinkedRequirements({
   }, [metricId, sessionStatus]);
 
   useEffect(() => {
+    if (seededMetricIdRef.current === metricId) return;
     fetchLinked();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
   }, [metricId]);

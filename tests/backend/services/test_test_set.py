@@ -269,7 +269,7 @@ class TestTestSetExecution:
             # Mock task result
             mock_task = MagicMock()
             mock_task.id = "task_id_123"
-            mock_submit.return_value = (mock_task, "test_run_id_123")
+            mock_submit.return_value = (mock_task, "test_run_id_123", "witty-otter")
 
             # Call the function
             result = test_set_service.execute_test_set_on_endpoint(
@@ -288,6 +288,9 @@ class TestTestSetExecution:
             assert result["endpoint_name"] == endpoint.name
             assert result["test_configuration_id"] == "test_config_id"
             assert result["test_run_id"] == "test_run_id_123"
+            # The run's name travels with the id so callers can name the new run
+            # without a follow-up get_test_run.
+            assert result["test_run_name"] == "witty-otter"
             assert result["task_id"] == "task_id_123"
 
             # Verify all mocks were called
@@ -560,7 +563,7 @@ class TestTestSetExecution:
             # Mock task result
             mock_task = MagicMock()
             mock_task.id = "task_id_123"
-            mock_submit.return_value = (mock_task, "test_run_id_123")
+            mock_submit.return_value = (mock_task, "test_run_id_123", "witty-otter")
 
             # Call the function with metrics
             result = test_set_service.execute_test_set_on_endpoint(

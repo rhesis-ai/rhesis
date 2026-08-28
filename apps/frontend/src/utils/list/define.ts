@@ -137,6 +137,12 @@ export interface ListDeleteSpec<TResp = unknown> {
   getSkippedCount?(response: TResp): number;
   /** Reason shown alongside the skipped count, e.g. "not yours to delete". */
   skippedReason?: string;
+  /**
+   * Tooltip on the disabled checkbox of a row the caller can't delete, when
+   * `capabilityMode` is `'row'`. Defaults to "Only the owner can delete this
+   * <labelSingular>".
+   */
+  notSelectableReason?: string;
   /** Confirm-modal body override; `count` is 1 for a single-row delete. */
   confirmMessage?: (count: number) => string;
 }

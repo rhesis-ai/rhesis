@@ -15,7 +15,13 @@ import { DescriptionIcon, ErrorIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
-import { TestsClient } from '@/utils/api-client/tests-client';
+import { useQuery } from '@tanstack/react-query';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import { requirementKeys } from '@/constants/query-keys';
+import { fetchRequirementLinkedTests } from './linked-tests';
+
+const EMPTY_TESTS: TestDetail[] = [];
 import {
   getTestDisplayContent,
   renderTestContentCell,
@@ -24,50 +30,43 @@ import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 
 interface RequirementLinkedTestsProps {
   requirement: RequirementWithMetrics;
-}
-
-function escapeODataValue(value: string): string {
-  return value.replace(/'/g, "''");
+  /** Server-prefetched rows; when present the grid renders without a fetch. */
+  initialTests?: TestDetail[];
 }
 
 export default function RequirementLinkedTests({
   requirement,
+  initialTests,
 }: RequirementLinkedTestsProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const [tests, setTests] = useState<TestDetail[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const isAuthenticated = useIsAuthenticated();
   const [typePill, setTypePill] = useState('all');
 
-  const fetchLinked = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const client = new TestsClient();
-      const result = await client.getAllTests({
-        filter: `requirement_id eq '${escapeODataValue(String(requirement.id))}'`,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
-      setTests(result);
-    } catch (error) {
-      setLoadError(true);
-      setTests([]);
-      notifications.show(
-        error instanceof Error
-          ? `Failed to load linked tests: ${error.message}`
-          : 'Failed to load linked tests',
-        { severity: 'error', autoHideDuration: 6000 }
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [requirement.id, notifications]);
+  const requirementId = String(requirement.id);
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: [...requirementKeys.detail(requirementId), 'linked-tests'],
+    queryFn: () =>
+      fetchRequirementLinkedTests(new ApiClientFactory(), requirementId),
+    enabled: isAuthenticated,
+    initialData: initialTests,
+  });
+  const tests = error ? EMPTY_TESTS : (data ?? EMPTY_TESTS);
+  const loadError = !!error;
 
   useEffect(() => {
-    fetchLinked();
-  }, [fetchLinked]);
+    if (!error) return;
+    notifications.show(
+      error instanceof Error
+        ? `Failed to load linked tests: ${error.message}`
+        : 'Failed to load linked tests',
+      { severity: 'error', autoHideDuration: 6000 }
+    );
+  }, [error, notifications]);
 
   const rows = useMemo<GridRowModel[]>(
     () =>

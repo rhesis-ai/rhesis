@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import { fetchAllTestResults } from './test-run-results';
 
 export interface RequirementWithMetrics {
   id: string;
@@ -14,6 +16,8 @@ export interface RequirementWithMetrics {
 interface UseTestRunDetailDataOptions {
   testRunId: string;
   enabled?: boolean;
+  /** Server-prefetched results (whole run); when present the mount fetch is skipped. */
+  initialTestResults?: TestResultDetail[];
 }
 
 interface UseTestRunDetailDataReturn {
@@ -24,36 +28,6 @@ interface UseTestRunDetailDataReturn {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
-}
-
-export async function fetchAllTestResults(
-  testRunId: string
-): Promise<TestResultDetail[]> {
-  const testResultsClient = new ApiClientFactory().getTestResultsClient();
-
-  let testResults: TestResultDetail[] = [];
-  let skip = 0;
-  const batchSize = 100;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await testResultsClient.getTestResults({
-      filter: `test_run_id eq '${testRunId}'`,
-      limit: batchSize,
-      skip,
-      sort_by: 'created_at',
-      sort_order: 'desc',
-    });
-
-    testResults = [...testResults, ...response.data];
-    const totalCount = response.pagination?.totalCount || 0;
-    hasMore = testResults.length < totalCount;
-    skip += batchSize;
-
-    if (skip > 10000) break;
-  }
-
-  return testResults;
 }
 
 function buildPromptsMap(
@@ -128,15 +102,32 @@ function extractRequirementsWithMetrics(results: TestResultDetail[]): {
 export function useTestRunDetailData({
   testRunId,
   enabled = true,
+  initialTestResults,
 }: UseTestRunDetailDataOptions): UseTestRunDetailDataReturn {
   const isAuthenticated = useIsAuthenticated();
-  const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
-  const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [requirements, setRequirements] = useState<RequirementWithMetrics[]>(
-    []
+  const [seed] = useState(() =>
+    initialTestResults
+      ? {
+          ...extractRequirementsWithMetrics(initialTestResults),
+          prompts: buildPromptsMap(initialTestResults),
+        }
+      : null
   );
-  const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [testResults, setTestResults] = useState<TestResultDetail[]>(
+    initialTestResults ?? []
+  );
+  const [prompts, setPrompts] = useState<Record<string, Prompt>>(
+    seed?.prompts ?? {}
+  );
+  const [requirements, setRequirements] = useState<RequirementWithMetrics[]>(
+    seed?.requirements ?? []
+  );
+  const [availableMetrics, setAvailableMetrics] = useState<string[]>(
+    seed?.availableMetrics ?? []
+  );
+  const [loading, setLoading] = useState(!initialTestResults);
+  // The run the server-rendered results belong to: no mount fetch for it.
+  const seededRunIdRef = useRef(initialTestResults ? testRunId : null);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -147,6 +138,9 @@ export function useTestRunDetailData({
   useEffect(() => {
     if (!enabled || !isAuthenticated || !testRunId) {
       setLoading(false);
+      return;
+    }
+    if (seededRunIdRef.current === testRunId && reloadToken === 0) {
       return;
     }
 

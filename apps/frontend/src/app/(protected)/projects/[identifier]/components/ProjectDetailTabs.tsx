@@ -6,7 +6,9 @@ import { Alert, Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
-import { Project } from '@/utils/api-client/interfaces/project';
+import { Project, ProjectMember } from '@/utils/api-client/interfaces/project';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type { ProjectEnvironmentsData } from './project-data';
 import ProjectOverviewTab from './ProjectOverviewTab';
 import ProjectEndpoints from './ProjectEndpoints';
 import ProjectConfigurationTab from './ProjectConfigurationTab';
@@ -44,16 +46,25 @@ function normalizeTabParam(param: string | null): ProjectTabKey {
   return 'overview';
 }
 
+/** Server-prefetched tab data, threaded through from `page.tsx`. */
+export interface ProjectDetailInitialData {
+  members?: ProjectMember[];
+  environments?: ProjectEnvironmentsData;
+  traceMetrics?: MetricDetail[];
+}
+
 interface ProjectDetailTabsProps {
   project: Project;
   projectId: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
+  initialData?: ProjectDetailInitialData;
 }
 
 export default function ProjectDetailTabs({
   project,
   projectId,
   onProjectUpdate,
+  initialData,
 }: ProjectDetailTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,7 +108,11 @@ export default function ProjectDetailTabs({
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={1} prefix="project-detail">
-        <ProjectMembersTab project={project} projectId={projectId} />
+        <ProjectMembersTab
+          project={project}
+          projectId={projectId}
+          initialMembers={initialData?.members}
+        />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="project-detail">
@@ -112,6 +127,8 @@ export default function ProjectDetailTabs({
           project={project}
           projectId={projectId}
           onProjectUpdate={onProjectUpdate}
+          initialTraceMetrics={initialData?.traceMetrics}
+          initialEnvironments={initialData?.environments}
         />
       </DetailTabPanel>
     </Box>

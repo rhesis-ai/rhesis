@@ -510,8 +510,8 @@ def get_test_set_tests(
     response: Response,
     skip: int = 0,
     limit: int = 10,
-    order_by: str = "created_at",
-    order: str = "desc",
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -525,8 +525,8 @@ def get_test_set_tests(
         test_set_id=db_test_set.id,
         skip=skip,
         limit=limit,
-        sort_by=order_by,
-        sort_order=order,
+        sort_by=sort_by,
+        sort_order=sort_order,
         filter=filter,
     )
 

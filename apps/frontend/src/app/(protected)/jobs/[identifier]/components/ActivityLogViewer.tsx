@@ -131,6 +131,7 @@ export default function ActivityLogViewer({
               key={entry.id}
               sx={{
                 display: 'flex',
+                alignItems: 'baseline',
                 gap: 1.5,
                 py: 0.25,
                 color:

@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
+    get_db_session,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -45,14 +46,20 @@ def registered_sso():
 def mock_current_user():
     """Stub the auth/tenant chain.
 
-    The ``/features`` endpoint depends on ``get_tenant_context`` and
-    ``get_tenant_db_session`` (which transitively depend on
-    ``require_current_user_or_token``). Overriding those two deps directly
-    bypasses the entire auth/session machinery without needing a real DB.
+    ``/features`` resolves its organization through
+    ``get_current_organization_optional``, which reads
+    ``current_user.organization_id`` and loads the row with ``get_db_session``.
+    Both of those are stubbed here, along with the tenant pair other
+    dependencies on the route resolve through, so the endpoint never touches a
+    real session.
+
+    ``organization_id`` has to be set explicitly on the user stub: a bare
+    ``Mock`` would hand back a truthy child mock, which passes the dependency's
+    "has an org" guard and then reaches Postgres as an invalid UUID.
 
     The app's defense-in-depth backstop (``apply_auth_backstop``) also injects
     ``require_current_user_or_token`` directly on the route, so we override it
-    too — otherwise the backstop would reject the mocked request with 401.
+    too, otherwise the backstop would reject the mocked request with 401.
     """
     org_stub = Mock(spec=Organization)
     org_stub.id = _TEST_ORG_ID
@@ -61,16 +68,17 @@ def mock_current_user():
     db_stub.get.return_value = org_stub
 
     user_id = UUID("11111111-1111-1111-1111-111111111111")
-    user_stub = Mock(organization=org_stub, id=user_id)
+    user_stub = Mock(organization=org_stub, organization_id=_TEST_ORG_ID, id=user_id)
 
     def _override_tenant_context():
         return (_TEST_ORG_ID, user_id)
 
-    def _override_tenant_db_session():
+    def _override_db_session():
         yield db_stub
 
     app.dependency_overrides[get_tenant_context] = _override_tenant_context
-    app.dependency_overrides[get_tenant_db_session] = _override_tenant_db_session
+    app.dependency_overrides[get_tenant_db_session] = _override_db_session
+    app.dependency_overrides[get_db_session] = _override_db_session
     app.dependency_overrides[require_current_user_or_token] = lambda: user_stub
     yield user_stub
     app.dependency_overrides.clear()

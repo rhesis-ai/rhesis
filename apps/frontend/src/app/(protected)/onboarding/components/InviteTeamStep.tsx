@@ -17,6 +17,8 @@ import { useState } from 'react';
 import OnboardingStepHeader from './OnboardingStepHeader';
 import OnboardingNavButtons from './OnboardingNavButtons';
 import { ONBOARDING_STEPS } from './onboarding-steps';
+import { useLimits } from '@/contexts/FeaturesContext';
+import { QuotaResource } from '@/constants/quota';
 
 interface FormData {
   invites: { id: string; email: string }[];
@@ -29,7 +31,8 @@ interface InviteTeamStepProps {
   onBack: () => void;
 }
 
-const MAX_TEAM_MEMBERS = 10;
+const UNLIMITED_MAX_INVITES = 10;
+const FALLBACK_MAX_INVITES = 5;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function InviteTeamStep({
@@ -44,6 +47,16 @@ export default function InviteTeamStep({
     [key: number]: { hasError: boolean; message: string };
   }>({});
 
+  const limits = useLimits();
+  const seatLimit = limits[QuotaResource.SEATS];
+  // null = unlimited (licensed with no cap), undefined = not loaded yet.
+  const maxInvites =
+    seatLimit === null
+      ? UNLIMITED_MAX_INVITES
+      : typeof seatLimit === 'number'
+        ? Math.max(0, seatLimit - 1)
+        : FALLBACK_MAX_INVITES;
+
   const step = ONBOARDING_STEPS[1];
 
   const nonEmptyInvites = formData.invites.filter(invite =>
@@ -57,9 +70,9 @@ export default function InviteTeamStep({
       {};
     let hasError = false;
 
-    if (nonEmptyInvites.length > MAX_TEAM_MEMBERS) {
+    if (nonEmptyInvites.length > maxInvites) {
       setErrorMessage(
-        `You can invite a maximum of ${MAX_TEAM_MEMBERS} team members during onboarding.`
+        `You can invite a maximum of ${maxInvites} team members during onboarding.`
       );
       return false;
     }
@@ -136,9 +149,9 @@ export default function InviteTeamStep({
   };
 
   const addEmailField = () => {
-    if (formData.invites.length >= MAX_TEAM_MEMBERS) {
+    if (formData.invites.length >= maxInvites) {
       setErrorMessage(
-        `You can invite a maximum of ${MAX_TEAM_MEMBERS} team members during onboarding.`
+        `You can invite a maximum of ${maxInvites} team members during onboarding.`
       );
       return;
     }
@@ -218,13 +231,11 @@ export default function InviteTeamStep({
             fontSize: 16,
             lineHeight: '24px',
             cursor:
-              formData.invites.length >= MAX_TEAM_MEMBERS
-                ? 'not-allowed'
-                : 'pointer',
-            opacity: formData.invites.length >= MAX_TEAM_MEMBERS ? 0.5 : 1,
+              formData.invites.length >= maxInvites ? 'not-allowed' : 'pointer',
+            opacity: formData.invites.length >= maxInvites ? 0.5 : 1,
             alignSelf: 'flex-start',
           }}
-          disabled={formData.invites.length >= MAX_TEAM_MEMBERS}
+          disabled={formData.invites.length >= maxInvites}
         >
           <AddIcon sx={{ fontSize: 24 }} />
           Add another email

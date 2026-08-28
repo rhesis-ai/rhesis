@@ -145,6 +145,7 @@ def _seed_annotated_run(
     test_db.flush()
 
     test_run = TestRun(
+        name=f"{marker}-run",
         test_configuration_id=test_config.id,
         organization_id=organization_id,
         user_id=user_id,
@@ -491,6 +492,11 @@ class TestAnnotationScoping:
         trace_item = by_id[trace_review["review_id"]]
         assert trace_item["test_run_id"] == str(test_run.id)
         assert trace_item["test_result_id"] == str(test_result.id)
+
+        # Both sources carry the run's name, so an agent reading annotations can
+        # name the run without a second lookup.
+        assert by_id[result_review["review_id"]]["test_run_name"] == test_run.name
+        assert trace_item["test_run_name"] == test_run.name
 
     def test_pre_project_scoping_rows_are_visible(
         self,

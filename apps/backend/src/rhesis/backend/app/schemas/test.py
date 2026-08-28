@@ -342,3 +342,12 @@ class ConversationTestExtractionResponse(BaseModel):
     expected_response: Optional[str] = None
     # Multi-turn fields
     test_configuration: Optional[Dict[str, Any]] = None
+
+
+class TestFacets(BaseModel):
+    """Distinct filterable values across tests."""
+
+    requirements: List[str]
+    categories: List[str]
+    topics: List[str]
+    test_types: List[str]

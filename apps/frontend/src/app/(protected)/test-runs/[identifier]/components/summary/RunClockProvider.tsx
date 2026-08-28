@@ -14,6 +14,7 @@ import {
   initialClock,
   isSettled,
   toFrame,
+  MAX_FRAME_DT,
   type ClockState,
   type ClockTargets,
   type RunClockFrame,
@@ -72,13 +73,20 @@ export default function RunClockProvider({
   // an old run is never replayed as if it were happening now.
   const state = useRef<ClockState | null>(null);
   if (state.current === null) {
-    state.current = { clock: initialClock(runDuration, isTerminal), rate: 1 };
+    state.current = {
+      clock: initialClock(runDuration, isTerminal, serverElapsed),
+      rate: 1,
+    };
   }
+
+  // Real seconds on screen. Kept apart from `clock`, which runs fast while
+  // catching up, so the pulses keep a steady rhythm through a replay.
+  const wall = useRef(0);
 
   const emit = useCallback((textToo: boolean) => {
     const { runDuration: dur, isTerminal: terminal } = targetsRef.current;
     const clock = state.current?.clock ?? 0;
-    const frame = toFrame(clock, dur, terminal);
+    const frame = toFrame(clock, dur, terminal, wall.current);
     for (const cb of frameSubscribers.current) cb(frame);
     if (textToo) {
       for (const cb of textSubscribers.current) cb(frame);
@@ -100,6 +108,10 @@ export default function RunClockProvider({
       const previous = lastTime.current;
       lastTime.current = now;
       const dt = previous === null ? 0 : (now - previous) / 1000;
+
+      // Same clamp advanceClock applies, minus the rate: a backgrounded tab
+      // resumes its pulse where it left off instead of jumping.
+      wall.current += Math.min(Math.max(dt, 0), MAX_FRAME_DT);
 
       if (state.current) {
         state.current = advanceClock(state.current, dt, targetsRef.current);

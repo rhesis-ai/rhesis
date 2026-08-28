@@ -268,7 +268,6 @@ export default function TestsTable({
         headerName: 'Content',
         flex: 2,
         minWidth: 200,
-        resizable: true,
         filterable: true,
         valueGetter: getTestContentValue,
         renderCell: renderTestContentCell,
@@ -276,9 +275,8 @@ export default function TestsTable({
       {
         field: 'requirement.name',
         headerName: 'Requirement',
-        width: 140,
+        flex: 1.4,
         minWidth: 100,
-        resizable: true,
         filterable: true,
         valueGetter: (_value: unknown, row: TestDetail) =>
           row.requirement?.name || '',
@@ -292,9 +290,8 @@ export default function TestsTable({
       {
         field: 'topic.name',
         headerName: 'Topic',
-        width: 140,
+        flex: 1.4,
         minWidth: 100,
-        resizable: true,
         filterable: true,
         valueGetter: (_value: unknown, row: TestDetail) =>
           row.topic?.name || '',
@@ -308,9 +305,8 @@ export default function TestsTable({
       {
         field: 'category.name',
         headerName: 'Category',
-        width: 140,
+        flex: 1.4,
         minWidth: 100,
-        resizable: true,
         filterable: true,
         valueGetter: (_value: unknown, row: TestDetail) =>
           row.category?.name || '',
@@ -324,9 +320,8 @@ export default function TestsTable({
       {
         field: 'test_type.type_value',
         headerName: 'Test Type',
-        width: 120,
+        flex: 1.2,
         minWidth: 90,
-        resizable: true,
         filterable: true,
         valueGetter: (_value: unknown, row: TestDetail) =>
           row.test_type?.type_value || '',
@@ -340,9 +335,8 @@ export default function TestsTable({
       {
         field: 'created_at',
         headerName: 'Created',
-        width: 120,
+        flex: 1.2,
         minWidth: 100,
-        resizable: true,
         filterable: false,
         renderCell: params => {
           return (
@@ -355,9 +349,8 @@ export default function TestsTable({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        width: 100,
+        flex: 0.8,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.comments ?? 0,
@@ -375,9 +368,8 @@ export default function TestsTable({
       {
         field: 'counts.tasks',
         headerName: 'Tasks',
-        width: 100,
+        flex: 0.8,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.tasks ?? 0,
@@ -397,9 +389,8 @@ export default function TestsTable({
       {
         field: 'counts.files',
         headerName: 'Attachments',
-        width: 100,
+        flex: 0.8,
         minWidth: 80,
-        resizable: true,
         sortable: false,
         filterable: false,
         renderCell: params => {
@@ -418,9 +409,8 @@ export default function TestsTable({
       {
         field: 'test_metadata.sources',
         headerName: 'Sources',
-        width: 80,
+        flex: 0.6,
         minWidth: 60,
-        resizable: true,
         sortable: false,
         filterable: false,
         align: 'center',
@@ -446,9 +436,8 @@ export default function TestsTable({
       {
         field: 'tags',
         headerName: 'Tags',
-        width: 180,
+        flex: 1.5,
         minWidth: 140,
-        resizable: true,
         sortable: true,
         valueGetter: (_, row) =>
           row.tags?.filter((tag: Tag) => tag && tag.id && tag.name).length ?? 0,

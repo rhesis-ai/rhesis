@@ -2,17 +2,10 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { taskKeys } from '@/constants/query-keys';
 import { TasksAndCommentsWrapper } from '../TasksAndCommentsWrapper';
 
 const mockCreateTask = jest.fn();
 const mockDeleteTask = jest.fn();
-const mockInvalidateQueries = jest.fn();
-
-jest.mock('@tanstack/react-query', () => ({
-  ...jest.requireActual('@tanstack/react-query'),
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
-}));
 
 jest.mock('@/hooks/useTasks', () => ({
   useTasks: jest.fn(() => ({
@@ -42,11 +35,13 @@ jest.mock('../TasksSection', () => ({
   TasksSection: ({
     onCreateTask,
     onDeleteTask,
+    refreshToken,
   }: {
     onCreateTask: (data: Record<string, unknown>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
+    refreshToken?: number;
   }) => (
-    <div data-testid="tasks-section">
+    <div data-testid="tasks-section" data-refresh-token={refreshToken}>
       <button type="button" onClick={() => onCreateTask({ title: 'New Task' })}>
         create
       </button>
@@ -86,20 +81,25 @@ describe('TasksAndCommentsWrapper', () => {
     expect(screen.getByTestId('comments-wrapper')).toBeInTheDocument();
   });
 
-  it('invalidates the task cache after creating a task', async () => {
+  it('asks the tasks grid to refresh after creating a task', async () => {
     const user = userEvent.setup();
     mockCreateTask.mockResolvedValue({ id: 'task-1' });
 
     render(<TasksAndCommentsWrapper {...DEFAULT_PROPS} />);
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-token',
+      '0'
+    );
     await user.click(screen.getByRole('button', { name: 'create' }));
 
     expect(mockCreateTask).toHaveBeenCalledWith({ title: 'New Task' });
-    expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: taskKeys.all(),
-    });
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-token',
+      '1'
+    );
   });
 
-  it('invalidates the task cache after deleting a task', async () => {
+  it('asks the tasks grid to refresh after deleting a task', async () => {
     const user = userEvent.setup();
     mockDeleteTask.mockResolvedValue(true);
 
@@ -107,9 +107,10 @@ describe('TasksAndCommentsWrapper', () => {
     await user.click(screen.getByRole('button', { name: 'delete' }));
 
     expect(mockDeleteTask).toHaveBeenCalledWith('task-1');
-    expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: taskKeys.all(),
-    });
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-token',
+      '1'
+    );
   });
 
   it('calls parent onCountsChange when CommentsWrapper triggers it', async () => {

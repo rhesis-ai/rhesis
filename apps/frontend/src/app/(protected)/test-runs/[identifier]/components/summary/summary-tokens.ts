@@ -19,13 +19,15 @@ export const COLUMN_TEMPLATES: Record<DensityMode, string> = {
   detail: '252px 0px 0px 52px 0px 0px 1fr',
 };
 
+// Cells fill their strip's full height, so this also sets their aspect
+// ratio. The requirement rollup and the metric rows below it share one
+// height per mode -- given a fixed cell width, two heights would draw the
+// same verdict as two different shapes in the same column.
 export const STRIP_HEIGHTS: Record<DensityMode, number> = {
   numbers: 0,
   shape: 13,
   detail: 21,
 };
-
-export const ROLLUP_HEIGHT = 16;
 
 export const LAST_COLUMN_LABEL: Record<DensityMode, string> = {
   numbers: '',

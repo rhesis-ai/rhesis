@@ -64,8 +64,8 @@ export function useEndpoint(
     queryFn: () =>
       new ApiClientFactory().getEndpointsClient().getEndpoint(identifier),
     enabled: enabled && isAuthenticated && !!identifier,
-    staleTime: STALE_TIME,
     initialData,
+    staleTime: STALE_TIME,
   });
 }
 
@@ -75,8 +75,8 @@ export function useProject(id: string, enabled = true, initialData?: Project) {
     queryKey: projectKeys.detail(id),
     queryFn: () => new ApiClientFactory().getProjectsClient().getProject(id),
     enabled: enabled && isAuthenticated && !!id,
-    staleTime: STALE_TIME,
     initialData,
+    staleTime: STALE_TIME,
   });
 }
 

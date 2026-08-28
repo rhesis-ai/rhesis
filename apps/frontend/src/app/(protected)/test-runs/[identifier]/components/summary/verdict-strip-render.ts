@@ -17,7 +17,6 @@ export interface StripPaintOptions {
   reducedMotion: boolean;
 }
 
-const CELL_MAX_WIDTH = 24;
 const CELL_BORDER_RADIUS = 2;
 const MIN_CELL_WIDTH = 3;
 
@@ -112,7 +111,10 @@ export function alphaFor(
     }
     const freq = isGenerating ? GENERATING_FREQ : EVALUATING_FREQ;
     const depth = isGenerating ? GENERATING_DEPTH : EVALUATING_DEPTH;
-    const phase = freq * frame.clock - COLUMN_PHASE_LAG * columnIndex;
+    // Wall time, not run time: the pulse says "this is in flight", which is
+    // a property of the display. Driving it from `clock` made it oscillate
+    // at REPLAY_RATE during a catch-up, reading as flicker.
+    const phase = freq * frame.wall - COLUMN_PHASE_LAG * columnIndex;
     return clamp01(base * (1 + depth * Math.sin(phase)));
   }
 
@@ -200,7 +202,9 @@ function paintPerCell(
   opts: StripPaintOptions
 ): void {
   const { width, height, cells, palette, frame, reducedMotion } = opts;
-  const drawWidth = Math.min(CELL_MAX_WIDTH, width / cells.length);
+  // No max: a strip with few tests fills the full width rather than
+  // clustering a handful of fixed-size cells at the left edge.
+  const drawWidth = width / cells.length;
   const gap = cells.length > 1 ? 1 : 0;
   const cellWidth = Math.max(1, drawWidth - gap);
   const ringAlpha = failRingAlpha(frame, reducedMotion);

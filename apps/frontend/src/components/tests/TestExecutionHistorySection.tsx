@@ -6,16 +6,20 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TestExecutionHistoryTable from './TestExecutionHistoryTable';
 import { useTestExecutionHistory } from './useTestExecutionHistory';
+import type { TestExecutionHistoryRow } from './test-execution-history';
 
 interface TestExecutionHistorySectionProps {
   testId: string;
+  initialRows?: TestExecutionHistoryRow[];
 }
 
 export default function TestExecutionHistorySection({
   testId,
+  initialRows,
 }: TestExecutionHistorySectionProps) {
   const { rows, loading, error } = useTestExecutionHistory({
     testId,
+    initialRows,
   });
 
   if (loading) {

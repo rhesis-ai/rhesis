@@ -4,6 +4,12 @@ import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { prefetch, prefetchList } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { fetchTestExecutionHistory } from '@/components/tests/test-execution-history';
+import { firstPageParams } from '@/utils/list';
+import { linkedTestSetsList } from '@/components/tests/list';
+import { entityTasksList } from '@/components/tasks/list';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -69,6 +75,26 @@ export default async function TestDetailPage({ params }: PageProps) {
     content = test.prompt?.content || '';
   }
 
+  // First pages of the Linked Test Sets and Tasks tabs, so they open with
+  // rows in place instead of a spinner.
+  const linkedTestSets = linkedTestSetsList(identifier);
+  const tasks = entityTasksList('Test', identifier);
+  const [linkedTestSetsPage, tasksPage, comments, executionHistory] =
+    await Promise.all([
+      prefetchList(linkedTestSets.capability, () =>
+        linkedTestSets.list(apiFactory, firstPageParams(linkedTestSets))
+      ),
+      prefetchList(tasks.capability, () =>
+        tasks.list(apiFactory, firstPageParams(tasks))
+      ),
+      prefetch(Capability.Comment.READ, () =>
+        apiFactory.getCommentsClient().getComments('Test', identifier)
+      ),
+      prefetch(Capability.TestResult.READ, () =>
+        fetchTestExecutionHistory(apiFactory, identifier)
+      ),
+    ]);
+
   const title = content
     ? content.length > 45
       ? `${content.substring(0, 45)}...`
@@ -131,6 +157,14 @@ export default async function TestDetailPage({ params }: PageProps) {
         >
           <TestDetailTabs
             test={test}
+            initialLinkedTestSets={linkedTestSetsPage.initialData}
+            initialLinkedTestSetsTotalCount={
+              linkedTestSetsPage.initialTotalCount
+            }
+            initialTasks={tasksPage.initialData}
+            initialTasksTotalCount={tasksPage.initialTotalCount}
+            initialComments={comments}
+            initialExecutionHistory={executionHistory}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
             currentUserPicture={session.user?.picture || undefined}

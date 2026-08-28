@@ -8,6 +8,9 @@ import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import ExperimentDetailClient, {
   type ExperimentDetailData,
 } from './components/ExperimentDetailClient';
+import { prefetch } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { fetchExperimentRuns } from './components/experiment-data';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -27,7 +30,8 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
   }
 
   const { identifier } = await params;
-  const client = (await createServerApiFactory()).getParametersClient();
+  const apiFactory = await createServerApiFactory();
+  const client = apiFactory.getParametersClient();
 
   let initialExperiment: ExperimentDetailData;
   try {
@@ -42,10 +46,15 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
     throw error;
   }
 
+  const runs = await prefetch(Capability.Experiment.READ, () =>
+    fetchExperimentRuns(apiFactory, identifier)
+  );
+
   return (
     <ExperimentDetailClient
       experimentId={identifier}
       initialExperiment={JSON.parse(JSON.stringify(initialExperiment))}
+      initialRuns={runs}
     />
   );
 }

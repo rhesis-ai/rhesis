@@ -1,41 +1,33 @@
 'use client';
 
-import { useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useState } from 'react';
 
 /**
- * Shared hook for URL-based tab navigation on entity detail pages.
+ * Shared hook for tab navigation on entity detail pages.
  *
- * Reads `?tab=<key>` from the URL and returns the active tab index.
- * `handleTabChange` updates the URL param without scrolling.
+ * Tab state is local to the client and doesn't sync to the URL, so switching
+ * tabs never triggers a server round-trip -- the detail page's data is
+ * server-fetched once on load and already sits in props for every tab.
  *
  * @example
  * const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
  * const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
  */
 export function useDetailTabNav<T extends string>(
-  tabKeys: readonly T[],
-  paramName = 'tab'
+  tabKeys: readonly T[]
 ): {
   activeTab: number;
   handleTabChange: (newIndex: number) => void;
 } {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const activeTab = (() => {
-    const idx = tabKeys.indexOf(searchParams.get(paramName) as T);
-    return idx >= 0 ? idx : 0;
-  })();
+  const [activeTab, setActiveTab] = useState(0);
 
   const handleTabChange = useCallback(
     (newIndex: number) => {
-      const key = tabKeys[newIndex];
-      const params = new URLSearchParams(searchParams.toString());
-      params.set(paramName, key);
-      router.push(`?${params.toString()}`, { scroll: false });
+      if (newIndex >= 0 && newIndex < tabKeys.length) {
+        setActiveTab(newIndex);
+      }
     },
-    [router, searchParams, tabKeys, paramName]
+    [tabKeys.length]
   );
 
   return { activeTab, handleTabChange };

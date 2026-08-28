@@ -176,14 +176,14 @@ export function createRowActionsColumn({
   canEdit,
   canDelete,
   extraActions,
-  width = 88,
+  width = 100,
   editTooltip = 'Edit',
   deleteTooltip = 'Delete',
   deleteIcon: DeleteIconComponent = DeleteIcon,
 }: RowActionsColumnOptions): GridColDef {
   return {
     field: 'actions',
-    headerName: '',
+    headerName: 'Actions',
     width,
     sortable: false,
     hideable: false,

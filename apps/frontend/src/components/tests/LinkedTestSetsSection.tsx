@@ -5,79 +5,58 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
-import {
-  GridColDef,
-  GridPaginationModel,
-  GridRowModel,
-} from '@mui/x-data-grid';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { GridColDef, GridRowModel } from '@mui/x-data-grid';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useList } from '@/hooks/useList';
+import { linkedTestSetsList } from './list';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
+const NO_FILTERS = {};
+
 interface LinkedTestSetsSectionProps {
   testId: string;
+  /** Server-prefetched first page; undefined falls back to a client fetch. */
+  initialTestSets?: TestSet[];
+  initialTotalCount?: number;
 }
 
 export default function LinkedTestSetsSection({
   testId,
+  initialTestSets,
+  initialTotalCount,
 }: LinkedTestSetsSectionProps) {
   const { show: showNotification } = useNotifications();
-  const { status } = useSession();
   const canEditTest = useCan(Capability.TestSet.UPDATE);
-
-  const [testSets, setTestSets] = useState<TestSet[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
   const [available, setAvailable] = useState<TestSet[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
-  const fetchLinkedTestSets = useCallback(async () => {
-    if (!testId || !isAuthenticated(status)) return;
-    setLoading(true);
-    try {
-      const apiFactory = new ApiClientFactory();
-      const testsClient = apiFactory.getTestsClient();
-      const response = await testsClient.getLinkedTestSets(testId, {
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
-      setTestSets(response.data);
-      setTotalCount(response.pagination.totalCount);
-    } catch {
+  const descriptor = useMemo(() => linkedTestSetsList(testId), [testId]);
+  const {
+    data: testSets,
+    totalCount,
+    isLoading: loading,
+    refresh: fetchLinkedTestSets,
+    paginationModel,
+    onPaginationModelChange: setPaginationModel,
+  } = useList(descriptor, {
+    filters: NO_FILTERS,
+    enabled: !!testId,
+    initialData: initialTestSets,
+    initialTotalCount,
+    onError: () =>
       showNotification('Failed to load linked test sets', {
         severity: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    testId,
-    paginationModel.page,
-    paginationModel.pageSize,
-    showNotification,
-    status,
-  ]);
-
-  useEffect(() => {
-    fetchLinkedTestSets();
-  }, [fetchLinkedTestSets]);
+      }),
+  });
 
   const handleAssignClick = useCallback(async () => {
     setLoadingAvailable(true);
@@ -85,27 +64,35 @@ export default function LinkedTestSetsSection({
     try {
       const testSetsClient = new TestSetsClient();
       const response = await testSetsClient.getTestSets({
-        limit: 500,
+        limit: 100,
         sort_by: 'name',
         sort_order: 'asc',
       });
       setAvailable(response.data);
     } catch {
       setAvailable([]);
+      showNotification('Failed to load test sets', { severity: 'error' });
     } finally {
       setLoadingAvailable(false);
     }
-  }, []);
+  }, [showNotification]);
 
   const linkedIds = useMemo(
     () => new Set(testSets.map(ts => String(ts.id))),
     [testSets]
   );
 
-  const availableFiltered = useMemo<GridRowModel[]>(
-    () => available.filter(ts => !linkedIds.has(String(ts.id))),
-    [available, linkedIds]
-  );
+  // Settles once and stays true -- unlike `loading`, which flips again on
+  // every refetch (pagination, `refresh()` after an assign).
+  const [linkedIdsSettled, setLinkedIdsSettled] = useState(!loading);
+  useEffect(() => {
+    if (!loading) setLinkedIdsSettled(true);
+  }, [loading]);
+
+  const availableFiltered = useMemo<GridRowModel[]>(() => {
+    if (!linkedIdsSettled) return [];
+    return available.filter(ts => !linkedIds.has(String(ts.id)));
+  }, [available, linkedIds, linkedIdsSettled]);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
@@ -134,7 +121,7 @@ export default function LinkedTestSetsSection({
         );
       }
       setAssignOpen(false);
-      await fetchLinkedTestSets();
+      fetchLinkedTestSets();
     },
     [testId, showNotification, fetchLinkedTestSets]
   );
@@ -174,7 +161,7 @@ export default function LinkedTestSetsSection({
     {
       field: 'created_at',
       headerName: 'Created',
-      width: 200,
+      flex: 2,
       renderCell: params => (
         <Typography variant="body2">
           {params.value ? formatDate(params.value) : '—'}
@@ -290,7 +277,7 @@ export default function LinkedTestSetsSection({
           title="Assign Test Set"
           rows={availableFiltered}
           columns={drawerColumns}
-          loading={loadingAvailable}
+          loading={loadingAvailable || !linkedIdsSettled}
           getRowId={row => String(row.id)}
           onAssign={handleAssign}
           searchPlaceholder="Search test sets…"

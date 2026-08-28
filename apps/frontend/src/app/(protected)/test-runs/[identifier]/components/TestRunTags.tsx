@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Paper, Typography } from '@mui/material';
+import { Paper } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import BaseTag from '@/components/common/BaseTag';
 import { drawerTagFieldSx } from '@/components/common/drawerFormFieldSx';
@@ -29,7 +29,6 @@ export default function TestRunTags({ testRun }: TestRunTagsProps) {
       elevation={0}
       sx={{
         p: '30px',
-        mt: 3,
         borderRadius: BORDER_RADIUS.md,
         boxShadow: (theme: Theme) =>
           theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
@@ -43,18 +42,11 @@ export default function TestRunTags({ testRun }: TestRunTagsProps) {
         gap: '20px',
       }}
     >
-      <Typography
-        component="h2"
-        sx={{
-          fontSize: 20,
-          fontWeight: 600,
-          lineHeight: '24px',
-          color: 'primary.main',
-        }}
-      >
-        Tags
-      </Typography>
-
+      {/* No section heading: the field's own label already says "Tags", and
+          a card whose only content is one field does not need the word twice.
+          Matches TestResultTags, the sibling section on this page. Keeping the
+          label rather than the heading is deliberate -- it is what gives the
+          input its accessible name. */}
       <BaseTag
         value={tagNames}
         onChange={setTagNames}

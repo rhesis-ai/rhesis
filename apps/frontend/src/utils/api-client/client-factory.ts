@@ -87,6 +87,11 @@ export class ApiClientFactory {
     this.projectId = projectId;
   }
 
+  /** Same credentials, requests scoped to `projectId` instead of the active project. */
+  forProject(projectId: string): ApiClientFactory {
+    return new ApiClientFactory(this.sessionToken, projectId);
+  }
+
   getExplorerClient(): ExplorerClient {
     if (!this.explorerClient) {
       this.explorerClient = new ExplorerClient(

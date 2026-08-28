@@ -151,9 +151,8 @@ export default function TracesTable({
       {
         field: 'trace_id',
         headerName: 'Trace ID',
-        width: 140,
+        flex: 1.4,
         minWidth: 100,
-        resizable: true,
         renderCell: params => {
           const traceId = params.value as string;
           const truncated = `${traceId.slice(0, 8)}\u2026`;
@@ -190,9 +189,8 @@ export default function TracesTable({
       {
         field: 'root_operation',
         headerName: 'Operation',
-        width: 240,
+        flex: 2.4,
         minWidth: 120,
-        resizable: true,
         renderCell: params => (
           <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
             {params.value}
@@ -202,9 +200,8 @@ export default function TracesTable({
       {
         field: 'conversation_input',
         headerName: 'Input',
-        width: 320,
+        flex: 3.2,
         minWidth: 160,
-        resizable: true,
         renderCell: params => {
           const input = params.value as string | undefined;
           if (!input) {
@@ -237,9 +234,8 @@ export default function TracesTable({
       {
         field: 'endpoint_name',
         headerName: 'Endpoint',
-        width: 180,
+        flex: 1.8,
         minWidth: 100,
-        resizable: true,
         renderCell: params => {
           const endpointName = params.value as string | undefined;
           if (!endpointName) {
@@ -265,9 +261,8 @@ export default function TracesTable({
       {
         field: 'start_time',
         headerName: 'Started',
-        width: 150,
+        flex: 1.5,
         minWidth: 100,
-        resizable: true,
         renderCell: params => {
           const timeAgo = formatDistanceToNowStrict(new Date(params.value), {
             addSuffix: true,
@@ -282,9 +277,8 @@ export default function TracesTable({
       {
         field: 'duration_ms',
         headerName: 'Duration',
-        width: 120,
+        flex: 1.2,
         minWidth: 80,
-        resizable: true,
         align: 'right',
         renderCell: params => {
           const ms = params.value as number;
@@ -294,17 +288,15 @@ export default function TracesTable({
       {
         field: 'span_count',
         headerName: 'Spans',
-        width: 80,
+        flex: 0.8,
         minWidth: 60,
-        resizable: true,
         align: 'center',
       },
       {
         field: 'trace_metrics_status',
         headerName: 'Evaluation',
-        width: 140,
+        flex: 1.4,
         minWidth: 100,
-        resizable: true,
         renderCell: params => {
           const evalStatus = params.value as string | undefined;
           const row = params.row as TraceSummary;
@@ -356,9 +348,8 @@ export default function TracesTable({
       {
         field: 'environment',
         headerName: 'Environment',
-        width: 120,
+        flex: 1.2,
         minWidth: 90,
-        resizable: true,
         renderCell: params => {
           const env = params.value as string;
           if (!env) return null;

@@ -9,6 +9,7 @@ import {
   LAG_SECONDS,
   REPLAY_RATE,
   MAX_FRAME_DT,
+  MAX_JOIN_REPLAY_SECONDS,
   SETTLE_TAIL,
   MIN_ANIMATION_SECONDS,
   TERMINAL_CATCHUP_RATE,
@@ -206,6 +207,38 @@ describe('initialClock', () => {
 
   it('starts a live run from the beginning, so it can replay', () => {
     expect(initialClock(null, false)).toBe(0);
+  });
+
+  it('still replays a short run from zero', () => {
+    // 12s elapsed is well inside the join window, so nothing is skipped.
+    expect(initialClock(null, false, 12)).toBe(0);
+  });
+
+  // A run that has been going a long time -- or one wedged in Running --
+  // would otherwise replay its whole history at REPLAY_RATE on every single
+  // page load.
+  it('joins near the present rather than replaying hours of history', () => {
+    const elapsed = 3600;
+    const clock = initialClock(null, false, elapsed);
+    const target = clockTarget({
+      serverElapsed: elapsed,
+      runDuration: null,
+      isTerminal: false,
+    });
+    expect(target).not.toBeNull();
+    expect(target === null ? 0 : target - clock).toBe(MAX_JOIN_REPLAY_SECONDS);
+  });
+
+  it('bounds the catch-up to a few seconds of real time', () => {
+    const elapsed = 3600;
+    const clock = initialClock(null, false, elapsed);
+    const target = clockTarget({
+      serverElapsed: elapsed,
+      runDuration: null,
+      isTerminal: false,
+    });
+    const realSeconds = ((target ?? 0) - clock) / REPLAY_RATE;
+    expect(realSeconds).toBeLessThanOrEqual(5);
   });
 });
 

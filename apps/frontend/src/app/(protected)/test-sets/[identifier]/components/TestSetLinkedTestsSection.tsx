@@ -11,7 +11,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import AssignTestsDrawer from './AssignTestsDrawer';
 import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -19,7 +18,6 @@ import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { testSetKeys } from '@/constants/query-keys';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
 
@@ -36,6 +34,7 @@ interface TestSetLinkedTestsSectionProps {
   testSetId: string;
   testSetType?: string;
   testCount: number;
+  initialTests?: TestDetail[];
   isGenerating?: boolean;
 }
 
@@ -43,15 +42,16 @@ export default function TestSetLinkedTestsSection({
   testSetId,
   testSetType,
   testCount: initialTestCount,
+  initialTests,
   isGenerating: initialIsGenerating = false,
 }: TestSetLinkedTestsSectionProps) {
   const { show: showNotification } = useNotifications();
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [totalCount, setTotalCount] = useState(initialTestCount);
   const [isGenerating, setIsGenerating] = useState(initialIsGenerating);
+  const [testsRefreshTrigger, setTestsRefreshTrigger] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -134,11 +134,9 @@ export default function TestSetLinkedTestsSection({
       // Optimistically grow the count so the empty state gives way to the grid
       // immediately after the first assignment.
       setTotalCount(prev => prev + tests.length);
-      // Drop cached test-list pages so the grid refetches with the new rows
-      // (React Query keeps them fresh for 5 min otherwise).
-      await queryClient.invalidateQueries({
-        queryKey: [...testSetKeys.detail(testSetId), 'tests'],
-      });
+      // Bump so the grid (mounted throughout this flow -- the tab doesn't
+      // switch) actually refetches and shows the newly assigned rows.
+      setTestsRefreshTrigger(prev => prev + 1);
       // Sync the server-rendered testCount prop for this page.
       router.refresh();
     } catch (error) {
@@ -256,7 +254,10 @@ export default function TestSetLinkedTestsSection({
           <EmbeddingTestsPanel
             testSetId={testSetId}
             testSetType={testSetType}
+            initialTests={initialTests}
+            initialTotalCount={initialTestCount}
             onTotalCountChange={setTotalCount}
+            refreshTrigger={testsRefreshTrigger}
           />
         </>
       )}

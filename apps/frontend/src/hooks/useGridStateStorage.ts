@@ -16,7 +16,7 @@ const STORAGE_KEY_PREFIX = 'rhesis_grid_state_';
  * mask — e.g. adding or removing a column. On load, any persisted state with a
  * different version is discarded so the code-defined column layout wins.
  */
-const GRID_STATE_VERSION = 2;
+const GRID_STATE_VERSION = 3;
 
 interface VersionedGridState {
   version: number;
