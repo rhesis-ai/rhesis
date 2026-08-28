@@ -453,7 +453,7 @@ def plot_metric_breakdown(data, output_dir):
     colors = ["#2ecc71", "#3498db", "#e74c3c", "#f39c12"]
     positions = [x - 1.5 * width, x - 0.5 * width, x + 0.5 * width, x + 1.5 * width]
 
-    for i, (metric, color, pos) in enumerate(zip(metrics_data.keys(), colors, positions)):
+    for _i, (metric, color, pos) in enumerate(zip(metrics_data.keys(), colors, positions, strict=True)):
         ax.bar(pos, metrics_data[metric], width, label=metric, color=color, alpha=0.8)
 
     ax.set_xlabel("Models (Sorted by Overall Quality)", fontsize=12, fontweight="bold")
@@ -655,7 +655,7 @@ def plot_quality_vs_compliance_scatter(data, output_dir):
         )
 
     # Find best model (highest combined score)
-    combined_scores = [(c + o) / 2 for c, o in zip(compliance_rates, overall_scores)]
+    combined_scores = [(c + o) / 2 for c, o in zip(compliance_rates, overall_scores, strict=True)]
     best_idx = np.argmax(combined_scores)
     ax.scatter(
         [compliance_rates[best_idx]],
@@ -1001,7 +1001,7 @@ def plot_precision_comparison(data, output_dir):
             if max(gen_times) > 0:
                 ax2_twin = ax2.twinx()
                 efficiency = [score / time if time > 0 else 0
-                             for score, time in zip(overall_scores, gen_times)]
+                             for score, time in zip(overall_scores, gen_times, strict=True)]
                 ax2_twin.plot(x, efficiency, 'go--', linewidth=2, markersize=8,
                              label='Efficiency (Score/Time)', alpha=0.7)
                 ax2_twin.set_ylabel('Efficiency (Score/Time)', fontsize=11,

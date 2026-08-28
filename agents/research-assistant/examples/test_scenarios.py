@@ -934,7 +934,7 @@ MULTI_TURN_SCENARIOS = {
 def run_all_multi_turn_scenarios(verbose: bool = True) -> list[dict]:
     """Run all multi-turn scenarios."""
     all_results = []
-    for scenario_id, scenario_info in MULTI_TURN_SCENARIOS.items():
+    for _scenario_id, scenario_info in MULTI_TURN_SCENARIOS.items():
         if verbose:
             print(f"\n\n{'#' * 70}")
             print(f"# Running: {scenario_info['name']}")

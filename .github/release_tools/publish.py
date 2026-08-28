@@ -267,7 +267,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
 
     if dry_run:
         info("DRY RUN - Would create the following tags:")
-        for component, version, tag_name in tags_to_create:
+        for component, _version, tag_name in tags_to_create:
             info(f"  {tag_name}")
             info("    • Create and push tag")
             latest_info = " (marked as latest)" if component == "platform" else ""
@@ -311,7 +311,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
 
     if created_tags:
         info("Published releases:")
-        for component, version, tag_name in created_tags:
+        for _component, _version, tag_name in created_tags:
             info(f"  • {tag_name}")
 
     return True
