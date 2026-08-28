@@ -268,7 +268,7 @@ export default function AnnotationsGrid({
       {
         field: 'source',
         headerName: 'Type',
-        width: 140,
+        flex: 1.4,
         sortable: false,
         valueGetter: (_value, row) =>
           ANNOTATION_SOURCE_LABELS[row.source as AnnotationSource] ||
@@ -285,7 +285,7 @@ export default function AnnotationsGrid({
       {
         field: 'rating',
         headerName: 'Rating',
-        width: 120,
+        flex: 1.2,
         sortable: false,
         valueGetter: (_value, row) => row.status?.name || '',
         renderCell: params => {
@@ -320,7 +320,7 @@ export default function AnnotationsGrid({
       {
         field: 'user',
         headerName: 'Annotator',
-        width: 160,
+        flex: 1.6,
         sortable: false,
         valueGetter: (_value, row) => row.user?.name || '—',
       },
@@ -349,7 +349,7 @@ export default function AnnotationsGrid({
       {
         field: 'resolved',
         headerName: 'Status',
-        width: 120,
+        flex: 1.2,
         sortable: false,
         valueGetter: (_value, row) => (row.resolved ? 'Resolved' : 'Open'),
         renderCell: params => {

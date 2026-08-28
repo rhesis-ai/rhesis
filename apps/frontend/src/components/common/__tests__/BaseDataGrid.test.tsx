@@ -106,7 +106,11 @@ describe('applyFlexColumnSizing', () => {
 
     const sized = applyFlexColumnSizing(columns);
 
-    expect(sized[0]).toMatchObject({ width: 300, maxWidth: 300, minWidth: 150 });
+    expect(sized[0]).toMatchObject({
+      width: 300,
+      maxWidth: 300,
+      minWidth: 150,
+    });
     expect(sized[0].flex).toBeUndefined();
     expect(sized[1]).toMatchObject({ flex: 1, minWidth: 50 });
     expect(sized[2]).toMatchObject({ width: 88, hideable: false });

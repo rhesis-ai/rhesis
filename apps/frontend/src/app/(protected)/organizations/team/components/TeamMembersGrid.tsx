@@ -236,7 +236,7 @@ export default function TeamMembersGrid({
       cols.push({
         field: 'orgRole',
         headerName: 'Role',
-        width: 150,
+        flex: 1.5,
         sortable: false,
         renderCell: params => (
           <Box
@@ -253,7 +253,7 @@ export default function TeamMembersGrid({
     cols.push({
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      flex: 1.2,
       sortable: false,
       valueGetter: (_, row) =>
         getMemberJoinStatus(row as User) === 'active' ? 'Active' : 'Invited',

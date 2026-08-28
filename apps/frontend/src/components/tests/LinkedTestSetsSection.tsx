@@ -154,7 +154,7 @@ export default function LinkedTestSetsSection({
     {
       field: 'created_at',
       headerName: 'Created',
-      width: 200,
+      flex: 2,
       renderCell: params => (
         <Typography variant="body2">
           {params.value ? formatDate(params.value) : '—'}

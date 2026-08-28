@@ -85,9 +85,8 @@ export default function TasksGrid({
       {
         field: 'title',
         headerName: 'Title',
-        width: 300,
+        flex: 3,
         minWidth: 150,
-        resizable: true,
         renderCell: params => (
           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
             {params.row.title}
@@ -97,9 +96,8 @@ export default function TasksGrid({
       {
         field: 'description',
         headerName: 'Description',
-        width: 400,
+        flex: 4,
         minWidth: 150,
-        resizable: true,
         renderCell: params => (
           <Typography
             variant="body2"
@@ -119,7 +117,7 @@ export default function TasksGrid({
         headerName: 'Status',
         width: 120,
         minWidth: 90,
-        resizable: true,
+        flex: 0,
         sortable: false,
         renderCell: params => (
           <GridBadge label={params.row.status?.name || 'Unknown'} />
@@ -128,9 +126,8 @@ export default function TasksGrid({
       {
         field: 'assignee',
         headerName: 'Assignee',
-        width: 150,
+        flex: 1.5,
         minWidth: 120,
-        resizable: true,
         sortable: false,
         renderCell: params => {
           if (!params.row.assignee?.name) {
