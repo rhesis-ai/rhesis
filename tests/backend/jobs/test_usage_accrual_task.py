@@ -89,7 +89,7 @@ class TestAccrueUsage:
 
         monkeypatch.setattr("rhesis.backend.jobs.usage.increment_usage", boom)
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             accrue_usage("org-1", QuotaResource.TRACING_SPANS.value, 10)
 
     def test_closes_session_even_when_retrying(self, fake_session, fake_bind_scope, monkeypatch):
@@ -98,7 +98,7 @@ class TestAccrueUsage:
             lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db unreachable")),
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             accrue_usage("org-1", QuotaResource.TRACING_SPANS.value, 10)
 
         assert fake_session.closed is True

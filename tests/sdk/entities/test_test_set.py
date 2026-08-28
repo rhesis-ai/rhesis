@@ -734,7 +734,7 @@ class TestJsonRoundTrip:
 
             # Verify
             assert len(imported.tests) == len(sample_test_set.tests)
-            for orig, imp in zip(sample_test_set.tests, imported.tests):
+            for orig, imp in zip(sample_test_set.tests, imported.tests, strict=True):
                 assert orig.category == imp.category
                 assert orig.topic == imp.topic
                 assert orig.requirement == imp.requirement
@@ -1046,7 +1046,7 @@ class TestJsonlRoundTrip:
 
             # Verify
             assert len(imported.tests) == len(sample_test_set.tests)
-            for orig, imp in zip(sample_test_set.tests, imported.tests):
+            for orig, imp in zip(sample_test_set.tests, imported.tests, strict=True):
                 assert orig.category == imp.category
                 assert orig.topic == imp.topic
                 assert orig.requirement == imp.requirement
@@ -1129,7 +1129,7 @@ class TestJsonlRoundTrip:
             )
 
             assert len(imported.tests) == len(sample_test_set.tests)
-            for orig, imp in zip(sample_test_set.tests, imported.tests):
+            for orig, imp in zip(sample_test_set.tests, imported.tests, strict=True):
                 assert orig.category == imp.category
                 assert orig.topic == imp.topic
                 assert orig.requirement == imp.requirement
@@ -1190,7 +1190,7 @@ class TestJsonlRoundTrip:
 
             # Both should have same data
             assert len(from_json.tests) == len(from_jsonl.tests)
-            for json_test, jsonl_test in zip(from_json.tests, from_jsonl.tests):
+            for json_test, jsonl_test in zip(from_json.tests, from_jsonl.tests, strict=True):
                 assert json_test.category == jsonl_test.category
                 assert json_test.prompt.content == jsonl_test.prompt.content
         finally:

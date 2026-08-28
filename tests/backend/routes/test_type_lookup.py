@@ -593,7 +593,7 @@ class TestTypeLookupPerformance(TypeLookupTestMixin, BaseEntityTests):
 
         created_type_lookups = []
         for category in categories:
-            for i in range(3):  # 3 type lookups per category
+            for _i in range(3):  # 3 type lookups per category
                 type_lookup_data = TypeLookupDataFactory.edge_case_data(category)
                 response = authenticated_client.post(
                     self.endpoints.create,
@@ -652,7 +652,7 @@ class TestTypeLookupPerformance(TypeLookupTestMixin, BaseEntityTests):
         """Test performance with diverse reference data distribution"""
         # Create type lookups across different reference types using the factory's categories
         reference_types = []
-        for i in range(10):  # Create 10 different reference type lookups
+        for _i in range(10):  # Create 10 different reference type lookups
             type_lookup_data = TypeLookupDataFactory.edge_case_data("entity_types")
             response = authenticated_client.post(
                 self.endpoints.create,

@@ -11,6 +11,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -261,7 +262,7 @@ class TestPublicRemoved:
     """The migration should have removed 'public' from the CHECK constraint."""
 
     def test_public_rejected_by_db(self, test_db: Session, test_org_id, authenticated_user_id):
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             _insert_test_set(
                 test_db,
                 visibility="public",

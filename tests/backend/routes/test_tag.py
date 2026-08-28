@@ -620,7 +620,7 @@ class TestTagPerformance(TagTestMixin, BaseEntityTests):
         """Test tag assignment performance with multiple entities"""
         # Create multiple requirements
         requirements = []
-        for i in range(5):
+        for _i in range(5):
             requirement = self._create_test_requirement(authenticated_client)
             requirements.append(requirement)
 

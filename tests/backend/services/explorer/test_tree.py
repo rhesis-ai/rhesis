@@ -102,7 +102,7 @@ class TestTestTreeData:
         data = TestTreeData(sample_nodes)
         nodes = list(data)
         assert len(nodes) == len(sample_nodes)
-        for iterated, original in zip(nodes, sample_nodes):
+        for iterated, original in zip(nodes, sample_nodes, strict=True):
             assert iterated is original
 
     def test_init_deduplicates_by_id(self):

@@ -584,7 +584,7 @@ class TestExporterDeadlineAndShutdown:
         # should see strictly less than the previous (budget shrinking).
         assert len(timeouts_seen) >= 2
         assert timeouts_seen[0] <= 10
-        for prev, curr in zip(timeouts_seen, timeouts_seen[1:]):
+        for prev, curr in zip(timeouts_seen, timeouts_seen[1:], strict=False):
             assert curr < prev, f"timeout did not shrink: {timeouts_seen}"
 
 

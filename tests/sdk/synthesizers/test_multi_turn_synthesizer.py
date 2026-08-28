@@ -1,6 +1,8 @@
 import os
 from unittest.mock import Mock, patch
 
+import pytest
+
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.multi_turn.base import (
     FlatTests,
@@ -530,8 +532,5 @@ def test_generate_raises_with_reason_when_all_batches_fail(mock_generate_batch):
     synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
     synthesizer.last_error = "Polyphemus did not respond in time."
 
-    try:
+    with pytest.raises(ValueError, match="Polyphemus did not respond in time."):
         synthesizer.generate(num_tests=5)
-        assert False, "expected ValueError"
-    except ValueError as e:
-        assert "Polyphemus did not respond in time." in str(e)

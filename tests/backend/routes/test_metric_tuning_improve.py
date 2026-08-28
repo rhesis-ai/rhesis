@@ -828,7 +828,7 @@ class TestWhatTheModelIsShown:
             for index in range(len(comments))
         ]
         _run(test_db, tuning_metric, test_org_id)
-        for case, comment in zip(created, comments):
+        for case, comment in zip(created, comments, strict=True):
             _reject(authenticated_client, tuning_metric.id, case["id"], comment)
 
         body = _improved(authenticated_client, tuning_metric.id)

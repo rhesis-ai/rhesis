@@ -414,7 +414,7 @@ class TestE2EFlow:
         assert isinstance(result["metrics"], dict)
 
         # Verify metrics structure has expected fields
-        for metric_name, metric_data in result["metrics"].items():
+        for _metric_name, metric_data in result["metrics"].items():
             assert isinstance(metric_data, dict)
             # Should have key metric fields (exact structure may vary)
             assert "score" in metric_data or "passed" in metric_data

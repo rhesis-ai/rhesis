@@ -12,6 +12,7 @@ import uuid
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from starlette.websockets import WebSocketDisconnect
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
@@ -66,7 +67,7 @@ class TestConnectorWebSocket:
         with patch("rhesis.backend.app.routers.connector.authenticate_websocket") as mock_auth:
             mock_auth.side_effect = HTTPException(status_code=401, detail="Invalid token")
 
-            with pytest.raises(Exception):  # WebSocket will raise on auth failure
+            with pytest.raises(WebSocketDisconnect):  # WebSocket will raise on auth failure
                 with authenticated_client.websocket_connect(
                     "/connector/ws",
                     headers={

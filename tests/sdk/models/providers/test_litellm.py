@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.models import LiteLLM
@@ -181,7 +181,7 @@ class TestLiteLLM:
         llm = LiteLLM(model_name=model_name)
         prompt = "Generate a person's information"
 
-        with pytest.raises(Exception):  # Should raise validation error
+        with pytest.raises(ValidationError):  # Should raise validation error
             llm.generate(prompt, schema=TestSchema)
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -428,7 +428,7 @@ class TestLiteLLM:
         llm = LiteLLM(model_name)
         prompts = ["Generate data"]
 
-        with pytest.raises(Exception):  # Should raise validation error
+        with pytest.raises(ValidationError):  # Should raise validation error
             llm.generate_batch(prompts, schema=TestSchema)
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
