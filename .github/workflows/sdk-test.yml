@@ -20,6 +20,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
       with:
+        persist-credentials: false
         fetch-depth: 0  # Needed for git diff
 
     - name: Set up Python
