@@ -16,6 +16,9 @@ import {
   CircularProgress,
   Menu,
   alpha,
+  Checkbox,
+  Tooltip,
+  type CheckboxProps,
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import IconButton from '@mui/material/IconButton';
@@ -35,6 +38,7 @@ import {
   GridInitialState,
   GridRowParams,
   GridColumnMenu,
+  gridClasses,
   type GridColumnGroupingModel,
   type GridColumnMenuProps,
 } from '@mui/x-data-grid';
@@ -91,6 +95,12 @@ interface BaseDataGridProps {
    * default.
    */
   isRowSelectable?: (params: GridRowParams) => boolean;
+  /**
+   * Tooltip shown on row checkboxes that `isRowSelectable` disabled — without
+   * it a greyed-out checkbox gives no reason, e.g. "Only the owner can delete
+   * this test run".
+   */
+  rowSelectionDisabledTooltip?: string;
   // Server-side sorting props
   sortingMode?: 'client' | 'server';
   sortModel?: GridSortModel;
@@ -544,6 +554,7 @@ export default function BaseDataGrid({
   onRowSelectionModelChange,
   rowSelectionModel,
   isRowSelectable,
+  rowSelectionDisabledTooltip,
   sortingMode = 'client',
   sortModel,
   onSortModelChange,
@@ -796,6 +807,39 @@ export default function BaseDataGrid({
     [resolveRowUrl, apiRef]
   );
 
+  // Row checkbox that explains why it is disabled. MUI marks a row's checkbox
+  // disabled from `isRowSelectable` but offers no way to say why, and the
+  // checkbox itself swallows pointer events while disabled — hence the span.
+  const TooltipCheckbox = React.useMemo(() => {
+    if (!rowSelectionDisabledTooltip) return undefined;
+    return React.forwardRef<HTMLButtonElement, CheckboxProps>(
+      function RowSelectionCheckbox(props, ref) {
+        const checkbox = <Checkbox {...props} ref={ref} />;
+        // baseCheckbox also renders the columns panel, where `disabled` means
+        // "column can't be hidden" — only selection checkboxes carry this class.
+        const isSelectionCheckbox = props.className?.includes(
+          gridClasses.checkboxInput
+        );
+        // The header's select-all is disabled for a different reason
+        // (disableMultipleRowSelection), so it gets no tooltip. Unlike the
+        // class above, this name is internal to MUI: if it ever changes, a
+        // disabled header checkbox picks up the row wording, which is the
+        // worst that happens.
+        const isHeaderCheckbox =
+          (props.inputProps as { name?: string } | undefined)?.name ===
+          'select_all_rows';
+        if (!props.disabled || !isSelectionCheckbox || isHeaderCheckbox) {
+          return checkbox;
+        }
+        return (
+          <Tooltip title={rowSelectionDisabledTooltip}>
+            <span style={{ display: 'inline-flex' }}>{checkbox}</span>
+          </Tooltip>
+        );
+      }
+    );
+  }, [rowSelectionDisabledTooltip]);
+
   // Wait for initialization and persisted state to be loaded before rendering DataGrid
   // This ensures initialState is correctly set before the grid mounts
   const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
@@ -820,6 +864,9 @@ export default function BaseDataGrid({
   }
   if (toolbarSlot) {
     resolvedSlots.toolbar = toolbarSlot;
+  }
+  if (TooltipCheckbox) {
+    resolvedSlots.baseCheckbox = TooltipCheckbox;
   }
 
   const dataGridSx: SxProps<Theme> = [
