@@ -326,6 +326,25 @@ def get_current_organization(
     return org
 
 
+def get_current_organization_optional(
+    current_user: User = Depends(require_current_user_or_token),
+    db: Session = Depends(get_db_session),
+) -> Optional[Organization]:
+    """Return the caller's organization, or ``None`` if they have none yet.
+
+    Unlike :func:`get_current_organization`, this never raises on a missing
+    org -- it returns ``None`` so endpoints like ``GET /features`` can
+    degrade gracefully for users mid-onboarding (no org created yet)
+    instead of 403-ing.
+
+    Uses a plain (non-tenant-scoped) session since we only read the org
+    by primary key, not run tenant-filtered queries.
+    """
+    if not current_user.organization_id:
+        return None
+    return db.get(Organization, current_user.organization_id)
+
+
 async def bind_affordance_context(
     request: Request,
     db: Session = Depends(get_tenant_db_session),
