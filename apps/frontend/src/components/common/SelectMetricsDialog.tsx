@@ -218,7 +218,7 @@ export default function SelectMetricsDialog({
   const handleSelect = (metric: MetricDetail) => {
     onSelect({
       id: metric.id as UUID,
-      name: metric.name,
+      name: metric.name || 'Unnamed metric',
       metric_scope: metric.metric_scope,
     });
     onClose();
