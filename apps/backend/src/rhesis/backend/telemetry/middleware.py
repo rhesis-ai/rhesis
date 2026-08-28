@@ -110,7 +110,8 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
             duration_ms = (time.time() - start_time) * 1000
 
             with tracer.start_as_current_span(f"http.{method}.{route}") as span:
-                # Store telemetry enabled status in span attribute for BatchSpanProcessor background thread
+                # The BatchSpanProcessor background thread reads this off the span,
+                # so it has to be an attribute rather than ambient state.
                 span.set_attribute("_rhesis.telemetry_enabled", True)
 
                 # Set HTTP attributes

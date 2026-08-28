@@ -129,8 +129,8 @@ class Test(
         from rhesis.backend.jobs.execution.modes import get_test_type
 
         from .category import Category
-        from .requirement import Requirement
         from .prompt import Prompt
+        from .requirement import Requirement
         from .topic import Topic
 
         test_type = get_test_type(self)

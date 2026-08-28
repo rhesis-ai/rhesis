@@ -170,7 +170,7 @@ def get_test_runs(
 def get_test_run_requirements(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None
 ) -> List[models.Requirement]:
-    """Get requirements that have test results for a specific test run with organization filtering"""
+    """Get requirements that have test results for a test run, filtered by organization."""
     # Verify the test run exists (UUID lookup is safe)
     test_run = get_test_run(db, test_run_id, organization_id=organization_id)
     if not test_run:

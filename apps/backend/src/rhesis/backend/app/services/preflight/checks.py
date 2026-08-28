@@ -8,9 +8,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.metric import Metric, requirement_metric_association
 from rhesis.backend.app.models.prompt import Prompt
+from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
 from rhesis.backend.app.models.user import User
@@ -19,12 +19,12 @@ from rhesis.backend.app.schemas.preflight import PreflightCheckResult, Preflight
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 
 from .constants import (
-    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
     CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_TEST_SET_NOT_EMPTY,
 )
 from .utils import (

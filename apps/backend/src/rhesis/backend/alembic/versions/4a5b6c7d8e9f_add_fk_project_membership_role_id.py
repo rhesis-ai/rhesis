@@ -22,7 +22,6 @@ Create Date: 2026-06-08
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
 
 from rhesis.backend.alembic.utils.idempotency import fk_exists

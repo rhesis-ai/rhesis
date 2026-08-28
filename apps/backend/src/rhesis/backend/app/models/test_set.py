@@ -117,7 +117,9 @@ class TestSet(
     # Comment relationship (polymorphic)
     comments = relationship(
         "Comment",
-        primaryjoin="and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')",
+        primaryjoin=(
+            "and_(Comment.entity_id == foreign(TestSet.id), Comment.entity_type == 'TestSet')"
+        ),
         viewonly=True,
         uselist=True,
     )

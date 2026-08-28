@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 from uuid import UUID, uuid4
 
 from fastapi import Depends, HTTPException, Query, Request, Response
@@ -35,7 +35,6 @@ from rhesis.backend.app.services.review_override import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
-
 
 router = RhesisRouter(
     prefix="/test_results",

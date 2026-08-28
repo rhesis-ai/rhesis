@@ -5,9 +5,9 @@ from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import (
-    RequirementReference,
     CategoryReference,
     PromptReference,
+    RequirementReference,
     StatusReference,
     TopicReference,
     TypeLookupReference,

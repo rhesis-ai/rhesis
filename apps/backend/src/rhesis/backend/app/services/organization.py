@@ -1657,8 +1657,8 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
 
                 try:
                     # Special handling for Status deletion
-                    # Status entities are referenced by many other entities with NOT NULL constraints
-                    # We need to delete or update those entities before deleting the Status
+                    # Status entities are referenced by many other entities with
+                    # NOT NULL constraints, so those have to go first.
                     if entity.__class__.__name__ == "Status":
                         # Nullify trace_metrics_status_id references before deletion
                         db.query(models.Trace).filter(

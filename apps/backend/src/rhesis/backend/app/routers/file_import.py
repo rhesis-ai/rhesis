@@ -7,8 +7,7 @@ files (JSON, JSONL, CSV, Excel).
 
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, File, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -18,6 +17,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.file_import import (
     AnalyzeResponse,
     ConfirmRequest,

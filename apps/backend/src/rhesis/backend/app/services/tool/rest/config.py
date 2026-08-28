@@ -46,7 +46,7 @@ def validate_base_url(url: str, field: str = "URL") -> None:
         raise ValueError(f"{field} has no hostname.")
     # Reject raw IP literals
     try:
-        addr = ipaddress.ip_address(host)
+        ipaddress.ip_address(host)
         raise ValueError(f"{field} must be a hostname, not an IP address ({host}).")
     except ValueError as exc:
         # ip_address() raises ValueError for non-IP strings — that's expected
@@ -71,10 +71,11 @@ def validate_base_url(url: str, field: str = "URL") -> None:
                 )
 
 
-from .confluence import ConfluenceRestClient
-from .github import GitHubRestClient
-from .jira import JiraRestClient
-from .notion import NotionRestClient
+# Imported here, not at the top: each client module imports back from this one.
+from .confluence import ConfluenceRestClient  # noqa: E402
+from .github import GitHubRestClient  # noqa: E402
+from .jira import JiraRestClient  # noqa: E402
+from .notion import NotionRestClient  # noqa: E402
 
 # Maps provider type_value → factory(credentials) → RestClient
 _PROVIDER_REGISTRY: Dict[str, Callable[[Dict[str, str]], RestClient]] = {
