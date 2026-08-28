@@ -9,6 +9,7 @@ import {
   tagKeys,
   userKeys,
   typeLookupKeys,
+  testKeys,
   testSetKeys,
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -19,6 +20,7 @@ import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import type { TestFacets } from '@/utils/api-client/interfaces/tests';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { getPriorities } from '@/utils/task-lookup';
 import type { Priority } from '@/utils/api-client/interfaces/task';
@@ -180,6 +182,21 @@ export function useTypeLookups(filter: string, enabled = true) {
         });
       return types;
     },
+    enabled: enabled && isAuthenticated,
+    staleTime: STALE_TIME,
+  });
+}
+
+/**
+ * Distinct requirement/category/topic/test-type values that actually appear on
+ * tests. Pass `testSetId` to scope to a single test set.
+ */
+export function useTestFacets(testSetId?: string, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery<TestFacets>({
+    queryKey: testKeys.facets(testSetId),
+    queryFn: () =>
+      new ApiClientFactory().getTestsClient().getTestFacets(testSetId),
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });

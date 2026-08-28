@@ -180,3 +180,10 @@ export interface ConversationTestExtractionResponse {
   expected_response?: string;
   test_configuration?: Record<string, unknown>;
 }
+
+export interface TestFacets {
+  requirements: string[];
+  categories: string[];
+  topics: string[];
+  test_types: string[];
+}
