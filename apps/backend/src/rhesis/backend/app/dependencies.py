@@ -337,8 +337,18 @@ def get_current_organization_optional(
     degrade gracefully for users mid-onboarding (no org created yet)
     instead of 403-ing.
 
-    Uses a plain (non-tenant-scoped) session since we only read the org
-    by primary key, not run tenant-filtered queries.
+    Why this cannot resolve the org through the tenant context (see
+    :func:`get_tenant_context`): users mid-onboarding are exactly the
+    constituency here, and the tenant context raises 403 when
+    ``organization_id`` is missing -- routing through it would reintroduce
+    the 403 this dependency exists to avoid. The org id still comes from the
+    same authenticated user record (both dependencies deduplicate
+    ``require_current_user_or_token``), never from user-supplied input, so
+    the security invariant documented on :func:`get_current_organization`
+    holds in substance. The plain (non-tenant-scoped) session is safe
+    because we only read the row by primary key, not run tenant-filtered
+    queries. Downstream consumers accept ``None`` by design: the default
+    providers return the community/free-tier state for an org-less user.
     """
     if not current_user.organization_id:
         return None
