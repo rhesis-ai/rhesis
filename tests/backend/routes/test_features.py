@@ -22,7 +22,7 @@ from rhesis.backend.app.features import (
 )
 from rhesis.backend.app.main import app
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource, limits_to_wire
 
 _TEST_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -167,6 +167,44 @@ class TestFeaturesEndpoint:
         assert isinstance(body["limits"], dict)
         assert isinstance(body["is_local"], bool)
         assert isinstance(body["rhesis_key_enabled"], bool)
+
+    def test_no_org_degrades_to_community(self, client: TestClient, registered_sso):
+        """A user without an organization gets the designed no-org state.
+
+        Deliberate settlement of the "never None" expectation: ``None`` is a
+        first-class input on the no-org path — the optional dependency passes
+        it through, and the default providers answer with the community
+        edition and free-tier limits, so the endpoint degrades gracefully
+        instead of 403-ing mid-onboarding users. The org-bearing invariant
+        stays covered by ``test_license_info_reflects_org``.
+        """
+        org_stub = Mock(spec=Organization)
+
+        db_stub = Mock()
+        db_stub.get.return_value = org_stub
+
+        user_id = UUID("22222222-2222-2222-2222-222222222222")
+        user_stub = Mock(organization_id=None, id=user_id)
+
+        def _override_db_session():
+            yield db_stub
+
+        # get_tenant_context is intentionally NOT overridden: the no-org path
+        # must never reach it (the route resolves the org without it).
+        app.dependency_overrides[get_tenant_db_session] = _override_db_session
+        app.dependency_overrides[get_db_session] = _override_db_session
+        app.dependency_overrides[require_current_user_or_token] = lambda: user_stub
+        try:
+            response = client.get("/features")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["license"] == {"edition": "community", "licensed": False}
+        assert body["enabled"] == []
+        assert body["warnings"] == {}
+        assert body["limits"] == limits_to_wire(FREE_TIER_LIMITS)
 
     def test_license_info_reflects_org(self, client: TestClient, registered_sso, mock_current_user):
         """license_info() must always receive the org object, never None.
