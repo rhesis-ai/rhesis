@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import AnnotationsPageClient from './components/AnnotationsPageClient';
 import { annotationsList } from './components/list';
 
@@ -16,15 +16,7 @@ export default async function AnnotationsPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     annotationsList.capability,
     () =>
-      annotationsList.list(
-        factory,
-        listParams(annotationsList, {
-          page: 1,
-          pageSize: annotationsList.defaultPageSize,
-          sort: annotationsList.defaultSort,
-          filters: emptyFilters(annotationsList),
-        })
-      )
+      annotationsList.list(factory, firstPageParams(annotationsList))
   );
 
   return (

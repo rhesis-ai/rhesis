@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import TasksPageClient from './components/TasksPageClient';
 import { tasksList } from './components/list';
@@ -16,15 +16,7 @@ export default async function TasksPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Task.READ,
     () =>
-      tasksList.list(
-        factory,
-        listParams(tasksList, {
-          page: 1,
-          pageSize: tasksList.defaultPageSize,
-          sort: tasksList.defaultSort,
-          filters: emptyFilters(tasksList),
-        })
-      )
+      tasksList.list(factory, firstPageParams(tasksList))
   );
 
   return (

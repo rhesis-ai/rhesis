@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import JobsPageClient from './components/JobsPageClient';
 import { jobsList } from './components/list';
 
@@ -15,15 +15,7 @@ export default async function JobsPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     jobsList.capability,
     () =>
-      jobsList.list(
-        factory,
-        listParams(jobsList, {
-          page: 1,
-          pageSize: jobsList.defaultPageSize,
-          sort: jobsList.defaultSort,
-          filters: emptyFilters(jobsList),
-        })
-      )
+      jobsList.list(factory, firstPageParams(jobsList))
   );
 
   return (

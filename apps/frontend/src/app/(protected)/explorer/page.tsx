@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import ExplorerClient from './ExplorerClient';
 import { explorerList } from './components/list';
@@ -16,14 +16,7 @@ export default async function ExplorerPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Explorer.READ,
     () =>
-      client.getExplorerTestSets(
-        listParams(explorerList, {
-          page: 1,
-          pageSize: explorerList.defaultPageSize,
-          sort: explorerList.defaultSort,
-          filters: emptyFilters(explorerList),
-        })
-      )
+      client.getExplorerTestSets(firstPageParams(explorerList))
   );
 
   return (

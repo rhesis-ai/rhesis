@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import RequirementsClient from './components/RequirementsClient';
 import { requirementsList } from './components/list';
@@ -26,14 +26,7 @@ export default async function RequirementsPage() {
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Requirement.READ,
     () =>
-      client.getRequirementsPage(
-        listParams(requirementsList, {
-          page: 1,
-          pageSize: requirementsList.defaultPageSize,
-          sort: requirementsList.defaultSort,
-          filters: emptyFilters(requirementsList),
-        })
-      )
+      client.getRequirementsPage(firstPageParams(requirementsList))
   );
 
   return (
