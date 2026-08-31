@@ -34,10 +34,12 @@ database:
   enabled: true
   type: "postgresql"
   postgresql:
-    # Image configuration - pull from mirror.gcr.io (avoids Docker Hub for restricted networks)
+    # Image configuration - pull from mirror.gcr.io (avoids Docker Hub for restricted networks).
+    # Must be the pgvector image (not plain postgres) — the backend's Alembic migrations
+    # run `CREATE EXTENSION IF NOT EXISTS vector`, which plain postgres images don't ship.
     image:
-      repository: mirror.gcr.io/library/postgres
-      tag: "16-alpine"
+      repository: mirror.gcr.io/pgvector/pgvector
+      tag: "pg16"
       pullPolicy: "IfNotPresent"  # Changed from "Never" to pull from cloud
     persistence:
       enabled: true
