@@ -2,7 +2,7 @@
 
 A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual merge and a manual production deploy. Each one is triggered by hand — nothing starts a release automatically.
 
-Components are versioned independently and tagged `<component>-v<version>`. The platform is the coordinated snapshot across them, tagged `v<version>` and marked as the latest GitHub release.
+The platform is the coordinated snapshot of the repository, tagged `v<version>` and marked as the latest GitHub release. The backend and the frontend ship as part of it: they take the platform's version and are covered by its tag, though each still keeps its own changelog. The SDK and Polyphemus are versioned independently and tagged `<component>-v<version>`.
 
 <Steps>
 
@@ -10,7 +10,7 @@ Components are versioned independently and tagged `<component>-v<version>`. The 
 
 Run `[Release] 1. Set up release config`.
 
-Choose a bump — `patch`, `minor`, or `major` — for each component going out, and leave everything else on `none`. The workflow records the selection in `release_config.json` and commits it to `main`.
+Choose a bump — `patch`, `minor`, or `major` — for each component going out, and leave everything else on `none`. Bumping the platform also moves the backend and the frontend to the new version, so there is nothing to select for them. The workflow records the selection in `release_config.json` and commits it to `main`.
 
 ### Create the release branch
 
@@ -58,7 +58,7 @@ Publishing tags the release and pushes the packages, but does not deploy product
 
 Publishing sets off several workflows that run independently of each other, so `[Release] 3. Publish` can succeed while one of them fails. After a release, confirm:
 
-- **Tags** — one `<component>-v<version>` per released component, plus `v<version>` for the platform.
+- **Tags** — `v<version>` for the platform, plus one `<component>-v<version>` per independently released component.
 - **GitHub releases** — created from the changelog entries, with the platform release marked as latest.
 - **PyPI** — `rhesis` and `rhesis-sdk` published. This is triggered by the `sdk-v*` tag, not by the publish workflow.
 - **GHCR images** — built from the `v*` platform tag.
