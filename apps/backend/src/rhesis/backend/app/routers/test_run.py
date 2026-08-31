@@ -206,7 +206,9 @@ def get_verdict_matrix(
     return services_test_run.get_verdict_matrix(db, db_test_run, columns=columns)
 
 
-@router.get("/{test_run_id}/has-comparison-runs")
+@router.get(
+    "/{test_run_id}/has-comparison-runs", response_model=schemas.TestRunComparisonRunsResponse
+)
 def get_has_comparison_runs(
     test_run_id: UUID,
     test_set_id: UUID = Query(...),

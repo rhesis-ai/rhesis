@@ -61,6 +61,10 @@ class TestRunBulkDeleteResponse(BaseModel):
     forbidden_ids: List[str]
 
 
+class TestRunComparisonRunsResponse(BaseModel):
+    has_comparison_runs: bool
+
+
 class EndpointReference(Base, ServerIdentity):
     id: UUID4
     name: Optional[str] = None
