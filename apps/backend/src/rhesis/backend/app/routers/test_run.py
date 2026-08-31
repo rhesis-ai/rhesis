@@ -554,6 +554,8 @@ def get_test_run_traces(
             test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
             test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
             test_id=str(trace.test_id) if trace.test_id else None,
+            tags_count=row.tags_count,
+            comments_count=row.comments_count,
         )
         summaries.append(summary)
 
