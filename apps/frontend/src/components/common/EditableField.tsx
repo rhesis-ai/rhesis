@@ -2,7 +2,10 @@
 
 import React from 'react';
 import { TextField, type TextFieldProps } from '@mui/material';
-import { readOnlyOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import {
+  editableOutlinedFieldSx,
+  readOnlyOutlinedFieldSx,
+} from '@/components/common/drawerFormFieldSx';
 
 export type EditableFieldProps = Omit<TextFieldProps, 'slotProps'> & {
   editing: boolean;
@@ -27,7 +30,7 @@ export default function EditableField({
       }}
       sx={[
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-        ...(!editing ? [readOnlyOutlinedFieldSx] : []),
+        ...(!editing ? [readOnlyOutlinedFieldSx] : [editableOutlinedFieldSx]),
       ]}
     />
   );
