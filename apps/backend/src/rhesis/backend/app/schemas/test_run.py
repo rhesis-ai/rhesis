@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict
@@ -81,6 +82,10 @@ class TestSetReference(Base, ServerIdentity):
     status_id: Optional[UUID4] = None
     attributes: Optional[Dict[str, Any]] = None
     test_set_type: Optional[TypeLookupReference] = None
+    # Soft-delete filtering only applies to a query's root model, so a deleted test set
+    # still arrives here with deleted_at set. Exposed so a caller holding the run can
+    # check the test set still exists without a second GET /test_sets/{id}.
+    deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

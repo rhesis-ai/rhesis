@@ -109,7 +109,12 @@ def get_test_run_for_verdict_matrix(
     user_id: str | None = None,
 ) -> Optional[models.TestRun]:
     """Minimal ``TestRun`` load for the verdict-matrix endpoint -- see
-    ``_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS`` for what it does and doesn't load."""
+    ``_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS`` for what it does and doesn't load.
+
+    ``derived_fields=False`` because TestRun carries the comments/tasks/tags mixins:
+    the default cascade would add 3 selectin queries this response never reads, and
+    re-add the ``organization`` joinedload the list above deliberately excludes.
+    """
     return get_item_detail(
         db,
         models.TestRun,
@@ -117,7 +122,34 @@ def get_test_run_for_verdict_matrix(
         organization_id=organization_id,
         user_id=user_id,
         related_fields=_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS,
+        derived_fields=False,
     )
+
+
+def has_sibling_test_runs(
+    db: Session,
+    test_set_id: uuid.UUID,
+    exclude_run_id: uuid.UUID,
+    organization_id: str | None = None,
+) -> bool:
+    """Whether any other non-deleted TestRun exists on ``test_set_id`` besides
+    ``exclude_run_id`` -- gates the Compare FAB. A single indexed EXISTS query
+    (``ix_test_configuration_test_set_id``, ``ix_test_run_test_configuration_id``)
+    in place of a full paginated TestRun list plus its per-run stats aggregation.
+    """
+    query = (
+        db.query(models.TestRun.id)
+        .join(
+            models.TestConfiguration,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+        )
+        .filter(models.TestConfiguration.test_set_id == test_set_id)
+        .filter(models.TestRun.id != exclude_run_id)
+        .filter(models.TestRun.deleted_at.is_(None))
+    )
+    if organization_id:
+        query = query.filter(models.TestRun.organization_id == uuid.UUID(str(organization_id)))
+    return db.query(query.exists()).scalar()
 
 
 def _test_run_experiment_filter(

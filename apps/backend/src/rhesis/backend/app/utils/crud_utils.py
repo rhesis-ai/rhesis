@@ -367,6 +367,7 @@ def get_item_detail(
     related_fields: tuple | list | None = None,
     selectin_chains: list | None = None,
     extra_filter: Callable[[Query], Query] | None = None,
+    derived_fields: bool = True,
 ) -> Optional[T]:
     """
     Get a single item with explicitly declared relationships eagerly loaded.
@@ -398,6 +399,12 @@ def get_item_detail(
         extra_filter: Optional query transform for entity-specific needs that
             don't fit the generic filters above -- e.g. deferring a large
             column (``TestRun``'s ``endpoint.last_token``).
+        derived_fields: Set False for a response schema that serializes none of
+            comments/tasks/tags. The default cascade costs 3+ selectin queries
+            and can re-add a joinedload ``related_fields`` deliberately left out
+            (any one-hop relation carrying ``TagsMixin``, e.g. ``organization``).
+            Also skips ``selectin_chains``, which is applied through the same
+            call.
 
     Returns:
         Item with relationships loaded or None if not found
@@ -410,11 +417,12 @@ def get_item_detail(
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_related(*(related_fields or ()))
-        .with_default_derived_field_loads(selectin_chains)
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
         .with_visibility_filter(user_id)
     )
+    if derived_fields:
+        builder = builder.with_default_derived_field_loads(selectin_chains)
     if extra_filter:
         builder = builder.with_custom_filter(extra_filter)
     item = builder.filter_by_id(item_id)

@@ -6,7 +6,6 @@ import TestRunMainView from './components/TestRunMainViewClient';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { fetchSmallTestRunResults } from './hooks/test-run-results';
-import { hasOtherRunsForTestSet } from './components/comparison-runs';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { emptyFilters, listParams } from '@/utils/list';
 import { tracesList } from '@/app/(protected)/traces/components/list';
@@ -53,20 +52,10 @@ export default async function TestRunPage({
   const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
 
-  let testRun;
-  try {
-    testRun = await testRunsClient.getTestRun(identifier);
-  } catch (error) {
-    notFoundIfEntityMissing(error);
-    throw error;
-  }
-
   // Which tab actually opens first -- same resolution TestRunMainView's own
   // useState initializer runs client-side (see ../utils/tab-key), so the
-  // two agree on what "the tab that's opening" means. Everything below is
-  // prefetched only for that tab: fetching all three unconditionally used
-  // to hold up first paint on two tabs' worth of data the visit doesn't
-  // start on.
+  // two agree on what "the tab that's opening" means. Depends only on the
+  // URL, not on the run itself, so it's resolved before the run fetch below.
   const tabParam =
     typeof resolvedSearchParams?.tab === 'string'
       ? resolvedSearchParams.tab
@@ -83,25 +72,20 @@ export default async function TestRunPage({
   const scopedProjectId = (await getServerActiveProjectId()) ?? null;
   const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
 
-  const testSetId = testRun.test_configuration?.test_set?.id;
-
-  const [
-    testResults,
-    verdictMatrix,
-    tracesPage,
-    testSetExists,
-    hasComparisonRuns,
-  ] = await Promise.all([
-    wantsLinkedEntities
-      ? prefetch(Capability.TestResult.READ, () =>
-          fetchSmallTestRunResults(apiFactory, identifier)
-        )
-      : Promise.resolve(undefined),
-    // Always: it's what the default Summary tab renders, so unlike the
-    // other two this one is never conditional on which tab is opening.
-    prefetch(Capability.TestRun.READ, () =>
-      testRunsClient.getVerdictMatrix(identifier)
-    ),
+  // Started before the run fetch below, not after: these need only the
+  // identifier from the URL, so awaiting the run first would just serialize an
+  // unrelated round trip in front of the verdict matrix -- the one fetch the
+  // default Summary tab renders. Safe to leave floating until the Promise.all
+  // below because `prefetch`/`prefetchList` never reject.
+  const testResultsPromise = wantsLinkedEntities
+    ? prefetch(Capability.TestResult.READ, () =>
+        fetchSmallTestRunResults(apiFactory, identifier)
+      )
+    : Promise.resolve(undefined);
+  const verdictMatrixPromise = prefetch(Capability.TestRun.READ, () =>
+    testRunsClient.getVerdictMatrix(identifier)
+  );
+  const tracesPagePromise =
     wantsTraces && scopedProjectId
       ? prefetchList(tracesDescriptor.capability, () =>
           tracesDescriptor.list(
@@ -117,21 +101,34 @@ export default async function TestRunPage({
             })
           )
         )
-      : Promise.resolve({ initialData: undefined, initialTotalCount: 0 }),
-    testSetId
-      ? prefetch(Capability.TestSet.READ, () =>
-          apiFactory
-            .getTestSetsClient()
-            .getTestSet(testSetId)
-            .then(() => true)
-        )
-      : Promise.resolve(false),
-    testSetId
-      ? prefetch(Capability.TestRun.READ, () =>
-          hasOtherRunsForTestSet(apiFactory, testSetId, testRun.id)
-        )
-      : Promise.resolve(false),
-  ]);
+      : Promise.resolve({ initialData: undefined, initialTotalCount: 0 });
+
+  let testRun;
+  try {
+    testRun = await testRunsClient.getTestRun(identifier);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
+  }
+
+  const testSet = testRun.test_configuration?.test_set;
+  const testSetId = testSet?.id;
+  // A soft-deleted test set still arrives on the run (the filter only applies to
+  // a query's root model), so this costs nothing versus a second GET /test_sets.
+  const testSetExists = Boolean(testSetId) && !testSet?.deleted_at;
+  const hasComparisonRunsPromise = testSetId
+    ? prefetch(Capability.TestRun.READ, () =>
+        testRunsClient.hasComparisonRuns(testRun.id, testSetId)
+      )
+    : Promise.resolve(false);
+
+  const [testResults, verdictMatrix, tracesPage, hasComparisonRuns] =
+    await Promise.all([
+      testResultsPromise,
+      verdictMatrixPromise,
+      tracesPagePromise,
+      hasComparisonRunsPromise,
+    ]);
 
   // PageLayout is rendered by TestRunMainView, not here: its title carries a
   // rename control and its actions are FABs, both of which need the client
@@ -162,7 +159,7 @@ export default async function TestRunPage({
       initialVerdictMatrix={verdictMatrix}
       initialTraces={tracesPage.initialData}
       initialTracesTotalCount={tracesPage.initialTotalCount}
-      initialTestSetExists={testSetExists ?? undefined}
+      initialTestSetExists={testSetExists}
       initialHasComparisonRuns={hasComparisonRuns ?? false}
     />
   );
