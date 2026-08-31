@@ -15,8 +15,7 @@ export default async function EndpointsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Endpoint.READ,
-    () =>
-      client.getEndpoints(firstPageParams(endpointsList))
+    () => client.getEndpoints(firstPageParams(endpointsList))
   );
 
   return (

@@ -39,8 +39,7 @@ export default async function ExperimentsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Experiment.READ,
-    () =>
-      experimentsList.list(factory, firstPageParams(experimentsList))
+    () => experimentsList.list(factory, firstPageParams(experimentsList))
   );
 
   return (

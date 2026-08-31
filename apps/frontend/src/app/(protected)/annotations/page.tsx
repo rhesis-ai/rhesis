@@ -15,8 +15,7 @@ export default async function AnnotationsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     annotationsList.capability,
-    () =>
-      annotationsList.list(factory, firstPageParams(annotationsList))
+    () => annotationsList.list(factory, firstPageParams(annotationsList))
   );
 
   return (

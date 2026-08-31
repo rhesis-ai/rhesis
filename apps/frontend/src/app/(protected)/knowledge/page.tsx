@@ -31,8 +31,7 @@ export default async function KnowledgePage() {
 
     const { initialData, initialTotalCount } = await prefetchList(
       Capability.Source.READ,
-      () =>
-        sourcesList.list(factory, firstPageParams(sourcesList))
+      () => sourcesList.list(factory, firstPageParams(sourcesList))
     );
 
     return (

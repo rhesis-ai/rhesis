@@ -32,8 +32,7 @@ export default async function TokensPage() {
   const factory = await createServerApiFactory();
   const { initialData, initialTotalCount } = await prefetchList(
     tokensList.capability,
-    () =>
-      tokensList.list(factory, firstPageParams(tokensList))
+    () => tokensList.list(factory, firstPageParams(tokensList))
   );
 
   return (

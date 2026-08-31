@@ -14,8 +14,7 @@ export default async function JobsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     jobsList.capability,
-    () =>
-      jobsList.list(factory, firstPageParams(jobsList))
+    () => jobsList.list(factory, firstPageParams(jobsList))
   );
 
   return (

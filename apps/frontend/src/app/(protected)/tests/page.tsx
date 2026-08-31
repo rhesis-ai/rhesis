@@ -37,8 +37,7 @@ export default async function TestsPage({ searchParams }: TestsPageProps) {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Test.READ,
-    () =>
-      testsList.list(factory, firstPageParams(testsList))
+    () => testsList.list(factory, firstPageParams(testsList))
   );
 
   return (

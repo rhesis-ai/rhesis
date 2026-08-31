@@ -15,8 +15,7 @@ export default async function TasksPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Task.READ,
-    () =>
-      tasksList.list(factory, firstPageParams(tasksList))
+    () => tasksList.list(factory, firstPageParams(tasksList))
   );
 
   return (

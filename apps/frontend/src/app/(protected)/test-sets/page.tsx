@@ -15,8 +15,7 @@ export default async function TestSetsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.TestSet.READ,
-    () =>
-      testSetsList.list(factory, firstPageParams(testSetsList))
+    () => testSetsList.list(factory, firstPageParams(testSetsList))
   );
 
   return (

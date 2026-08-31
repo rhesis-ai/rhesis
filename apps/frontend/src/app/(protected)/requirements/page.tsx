@@ -25,8 +25,7 @@ export default async function RequirementsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Requirement.READ,
-    () =>
-      client.getRequirementsPage(firstPageParams(requirementsList))
+    () => client.getRequirementsPage(firstPageParams(requirementsList))
   );
 
   return (

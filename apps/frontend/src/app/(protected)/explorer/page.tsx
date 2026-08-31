@@ -15,8 +15,7 @@ export default async function ExplorerPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Explorer.READ,
-    () =>
-      client.getExplorerTestSets(firstPageParams(explorerList))
+    () => client.getExplorerTestSets(firstPageParams(explorerList))
   );
 
   return (

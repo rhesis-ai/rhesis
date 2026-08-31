@@ -24,8 +24,7 @@ export default async function MetricsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Metric.READ,
-    () =>
-      client.getMetrics(firstPageParams(metricsList))
+    () => client.getMetrics(firstPageParams(metricsList))
   );
 
   return (
