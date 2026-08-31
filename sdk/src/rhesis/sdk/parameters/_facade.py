@@ -14,7 +14,7 @@ from typing import Any
 
 import requests
 
-from rhesis.sdk.config import get_api_key, get_base_url
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, get_api_key, get_base_url
 from rhesis.sdk.models.parameters import (
     ParameterSchema,
     ProjectEnvironments,
@@ -139,7 +139,11 @@ class Parameters:
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
         url = f"{base}/projects/{pid}/parameters/schema"
-        resp = requests.get(url, headers={"Authorization": f"Bearer {api_key}"})
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=DEFAULT_API_TIMEOUT,
+        )
         resp.raise_for_status()
         return ParameterSchema.model_validate(resp.json())
 
@@ -155,7 +159,11 @@ class Parameters:
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
         url = f"{base}/projects/{pid}/parameters/environments"
-        resp = requests.get(url, headers={"Authorization": f"Bearer {api_key}"})
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=DEFAULT_API_TIMEOUT,
+        )
         resp.raise_for_status()
         return ProjectEnvironments.model_validate(resp.json())
 
@@ -181,6 +189,7 @@ class Parameters:
             url,
             headers={"Authorization": f"Bearer {api_key}"},
             json=schema.model_dump(mode="json"),
+            timeout=DEFAULT_API_TIMEOUT,
         )
         resp.raise_for_status()
 
@@ -208,6 +217,7 @@ class Parameters:
                 "experiment_id": str(experiment_id),
                 "version": version,
             },
+            timeout=DEFAULT_API_TIMEOUT,
         )
         resp.raise_for_status()
 
@@ -245,6 +255,7 @@ class Parameters:
             url,
             headers={"Authorization": f"Bearer {api_key}"},
             params=params,
+            timeout=DEFAULT_API_TIMEOUT,
         )
         resp.raise_for_status()
         return ResolveResponse.model_validate(resp.json())
