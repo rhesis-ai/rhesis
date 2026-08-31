@@ -3,7 +3,6 @@ import logging
 from typing import Any
 
 from sqlalchemy import Column, ForeignKey, and_, event
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
@@ -18,8 +17,14 @@ def safe_relationship(default_factory=list):
     After delete_item() commits, the RLS session variable
     (app.current_organization) may no longer be set on the DB connection.
     Any lazy-load of a relationship during response serialization would
-    then fail.  This decorator catches those errors and returns a safe
-    default so the response can still be serialized.
+    then fail with DetachedInstanceError. This decorator catches only that
+    case and returns a safe default so the response can still be
+    serialized.
+
+    Deliberately NOT a broad SQLAlchemyError catch: that used to also
+    swallow raiseload/InvalidRequestError from a missing eager-load,
+    which made the tests/backend/conftest.py raiseload trip-wire blind to
+    any caller of this property. A missing eager-load should fail loudly.
     """
 
     def decorator(method):
@@ -27,7 +32,7 @@ def safe_relationship(default_factory=list):
         def wrapper(self):
             try:
                 return method(self)
-            except (DetachedInstanceError, SQLAlchemyError) as exc:
+            except DetachedInstanceError as exc:
                 logger.warning(
                     "Suppressed lazy-load error on %s.%s: %s",
                     type(self).__name__,
