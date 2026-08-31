@@ -87,6 +87,11 @@ Tests live under `tests/` — `backend/`, `sdk/`, `frontend/`, plus `k6/`, `load
 Each suite has different working-directory and Docker requirements. Backend: invoke the
 `backend-testing` skill. SDK: see `sdk/AGENTS.md`.
 
+## Complexity Ceilings
+
+`ruff.toml` caps paths, branches and statements per function. When you trip one, split the
+function; don't silence it with a `per-file-ignores` entry. That debt list only shrinks.
+
 ## Git Commits
 
 - **Never commit, push, or open a PR without asking first.** Show what changed, then wait for the
