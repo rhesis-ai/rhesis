@@ -6,10 +6,16 @@ on:
     branches: [ main ]
     paths:
       - 'sdk/**'
+      - 'tests/sdk/**'
+      - 'tests/docker-compose.test.yml'
+      - '.github/workflows/sdk-test.yml'
   push:
     branches: [ main ]
     paths:
       - 'sdk/**'
+      - 'tests/sdk/**'
+      - 'tests/docker-compose.test.yml'
+      - '.github/workflows/sdk-test.yml'
   schedule:
     - cron: '0 0 * * *'
 
