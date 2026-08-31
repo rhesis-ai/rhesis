@@ -193,11 +193,22 @@ export default function TestResultDrawer({
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
   const needsTranscript =
     activeTab === TAB.conversation || activeTab === TAB.reviews;
+
+  // Dropped only when the drawer closes or swaps to a different result -- not on
+  // every run of the fetch effect below, which also reruns on tab changes and
+  // would then refetch the transcript each time the user came back to it.
   React.useEffect(() => {
     setFetchedTest(null);
+  }, [open, test?.id]);
+
+  React.useEffect(() => {
     const testId = test?.id;
     if (!open || !testId || !isMultiTurn || !needsTranscript) return;
     if (test?.test_output?.conversation_summary) return;
+    // Compared by id, not truthiness: on a swap to another result the reset above
+    // has not landed yet, and a bare null-check would read the outgoing result's
+    // transcript as this one's and skip the fetch.
+    if (fetchedTest?.id === testId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -219,9 +230,13 @@ export default function TestResultDrawer({
     test?.test_output?.conversation_summary,
     isMultiTurn,
     needsTranscript,
+    fetchedTest,
   ]);
 
-  const conversationTest = fetchedTest ?? test;
+  // Same id check as the fetch guard, so the outgoing result's transcript is never
+  // rendered against an incoming one during the render before the reset lands.
+  const conversationTest =
+    fetchedTest?.id === test?.id ? (fetchedTest ?? test) : test;
 
   const mentionableMetrics: MentionOption[] = useMemo(() => {
     if (!test?.test_metrics?.metrics) return [];
@@ -446,7 +461,7 @@ export default function TestResultDrawer({
 
           <TabPanel value={activeTab} index={TAB.conversation}>
             <TestDetailConversationTab
-              test={fetchedTest ?? test}
+              test={conversationTest ?? test}
               testSetType={testSetType}
               project={project}
               projectName={projectName}

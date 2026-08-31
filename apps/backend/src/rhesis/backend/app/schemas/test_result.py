@@ -69,11 +69,6 @@ class TestResult(TestResultBase, WithPermittedActions, ServerIdentity):
     last_review: Optional[Dict[str, Any]] = None
     matches_review: bool = False
     review_summary: Optional[Dict[str, Any]] = None
-    # TestResult carries CountsMixin (comments/tasks/files), but nothing serialized it --
-    # the Tests tab's comment/task filters (test.counts?.comments, test.counts?.tasks) have
-    # been reading a field that was always undefined. Already eager-loaded wherever
-    # TestResult itself is the root query (see crud/test_result.py), so this costs nothing.
-    counts: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -98,6 +93,13 @@ class TestResultDetail(TestResult):
     tags: Optional[List[TagRead]] = None
     test: Optional[TestReference] = None
     test_run: Optional[TestRunReference] = None
+    # TestResult carries CountsMixin but nothing serialized it, so the Tests tab's
+    # comment/task filters (test.counts?.comments/.tasks) read an undefined field.
+    # Declared here rather than on TestResult: the read paths that return this schema
+    # eager-load comments/tasks/files (see crud/test_result.py), while the create/
+    # update/delete routes return the base schema off a row with no eager loads, where
+    # serializing counts would lazy-load all three relationships per response.
+    counts: Optional[Dict[str, Any]] = None
 
 
 # Review schemas
