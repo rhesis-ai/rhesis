@@ -685,6 +685,10 @@ export default function BaseDataGrid({
   // before revealing so that snap isn't visible.
   const [columnsMeasured, setColumnsMeasured] = useState(false);
   useLayoutEffect(() => {
+    if (!isReady) {
+      setColumnsMeasured(false);
+      return;
+    }
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
       secondFrame = requestAnimationFrame(() => setColumnsMeasured(true));
