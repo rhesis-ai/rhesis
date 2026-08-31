@@ -34,6 +34,14 @@ Use `app/utils/` over `app/services/<domain>/` when more than one unrelated serv
 helper — e.g. `app/utils/response_extractor.py` is used by explorer's invocation *and* by metric
 evaluation, batch execution, and Penelope, none of which are endpoint-specific.
 
+## Migrations
+
+**Casts in `sa.text()`: write `CAST(:x AS type)`, never `:x::type`.** SQLAlchemy skips any `:name`
+followed directly by another `:` — that's how it leaves `::` casts alone — so `ANY(:ids::uuid[])`
+binds nothing, sends the literal `:ids` to the server and fails with `syntax error at or near ":"`.
+Nothing warns you until the statement runs. Guarded by
+`tests/backend/alembic/test_bind_param_casts.py`.
+
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 
 All tenant context (`organization_id`, `user_id`, `project_id`) is stored **once per request** on
