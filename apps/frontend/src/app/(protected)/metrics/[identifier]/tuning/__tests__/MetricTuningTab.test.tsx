@@ -428,9 +428,17 @@ describe('MetricTuningTab — the grid', () => {
    * Header text, groups included. Read off the grid rather than the whole page:
    * the add-case drawer stays mounted while closed, so its own Input and Output
    * fields would otherwise count as matches.
+   *
+   * Waits for the query to succeed: the grid stays visibility-hidden (and so
+   * absent from the accessible tree `getAllByRole` reads) for two animation
+   * frames after mount, to avoid a visible column-width snap.
    */
   const headerLabels = () =>
-    screen.getAllByRole('columnheader').map(header => header.textContent ?? '');
+    waitFor(() =>
+      screen
+        .getAllByRole('columnheader')
+        .map(header => header.textContent ?? '')
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -443,7 +451,7 @@ describe('MetricTuningTab — the grid', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await screen.findByText('How are you?');
-    const labels = headerLabels();
+    const labels = await headerLabels();
     expect(labels).toContain('Case');
     expect(labels).toContain('Metric output');
     // Review stands outside the group bands, so its name appears exactly once.
@@ -458,7 +466,7 @@ describe('MetricTuningTab — the grid', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await screen.findByText('How are you?');
-    const labels = headerLabels();
+    const labels = await headerLabels();
     expect(labels).toContain('Input');
     expect(labels).toContain('Output');
     expect(labels).toContain('Reference answer');
@@ -471,7 +479,7 @@ describe('MetricTuningTab — the grid', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await screen.findByText('How are you?');
-    expect(headerLabels()).not.toContain('Reference answer');
+    expect(await headerLabels()).not.toContain('Reference answer');
   });
 
   it('leaves out the run and review groups before anything has been run', async () => {
@@ -480,7 +488,7 @@ describe('MetricTuningTab — the grid', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await screen.findByText('How are you?');
-    const labels = headerLabels();
+    const labels = await headerLabels();
     expect(labels).not.toContain('Metric output');
     expect(labels).not.toContain('Review');
     expect(labels).not.toContain('Metric verdict');
@@ -619,6 +627,7 @@ describe('MetricTuningTab — reviewing', () => {
     expect(
       await screen.findByLabelText(/review invalidated/i)
     ).toBeInTheDocument();
+    await waitFor(() => expect(acceptMark()).toBeInTheDocument());
     expect(acceptMark()).toHaveAttribute('aria-pressed', 'false');
     expect(rejectMark()).toHaveAttribute('aria-pressed', 'false');
   });
