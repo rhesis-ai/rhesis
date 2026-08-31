@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.scope import bypass_tenant_filter
-from rhesis.backend.app.services.organization import (
+from rhesis.backend.app.services.project_membership import (
     ProjectOwnerRemovalError,
     ProjectSelfRemovalError,
     enroll_user_in_project,

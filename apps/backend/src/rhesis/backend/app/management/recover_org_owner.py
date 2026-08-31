@@ -111,7 +111,7 @@ def run(
         # ownership change takes effect on the next authorize() call rather than
         # waiting out the TTL. Reuses the canonical helper (it swallows and logs
         # its own failures, so a cache outage never blocks recovery).
-        from rhesis.backend.app.services.organization import _bust_permission_cache
+        from rhesis.backend.app.services.project_membership import _bust_permission_cache
 
         if previous_owner_id:
             _bust_permission_cache(previous_owner_id, org_uuid)
