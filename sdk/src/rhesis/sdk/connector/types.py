@@ -2,7 +2,7 @@
 
 import os
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from pydantic import BaseModel
 
@@ -142,14 +142,14 @@ class WebSocketCloseCode:
     MESSAGE_TOO_BIG = 1009
 
     # Permanent failure codes
-    PERMANENT_CODES = {1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011}
+    PERMANENT_CODES: ClassVar[set[int]] = {1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011}
 
 
 class ErrorClassification:
     """Error classification rules for retry logic."""
 
     # HTTP status code -> (is_retryable, error_template)
-    HTTP_STATUS_RULES = {
+    HTTP_STATUS_RULES: ClassVar[dict[int, tuple[bool, str]]] = {
         400: (
             False,
             (
@@ -177,14 +177,14 @@ class ErrorClassification:
     }
 
     # WebSocket close codes -> (is_retryable, error_template)
-    WS_CLOSE_CODE_RULES = {
+    WS_CLOSE_CODE_RULES: ClassVar[dict[int, tuple[bool, str]]] = {
         1002: (False, "Protocol error"),
         1003: (False, "Unsupported data format"),
         1008: (False, "Connection rejected by server due to policy violation"),
     }
 
     # Keywords in error messages that indicate transient failures
-    TRANSIENT_KEYWORDS = [
+    TRANSIENT_KEYWORDS: ClassVar[list[str]] = [
         "connection refused",
         "timeout",
         "network",
@@ -201,4 +201,4 @@ class Environment:
     DEVELOPMENT = "development"
     LOCAL = "local"
 
-    ALL = [PRODUCTION, STAGING, DEVELOPMENT, LOCAL]
+    ALL: ClassVar[list[str]] = [PRODUCTION, STAGING, DEVELOPMENT, LOCAL]

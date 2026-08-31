@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import ClassVar, List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class DeepEvalMetricFactory(BaseMetricFactory):
     """Factory for creating DeepEval metric instances."""
 
-    _metrics = {
+    _metrics: ClassVar[dict[str, type[BaseMetric]]] = {
         "DeepEvalAnswerRelevancy": DeepEvalAnswerRelevancy,
         "DeepEvalBias": DeepEvalBias,
         "DeepEvalFaithfulness": DeepEvalFaithfulness,
@@ -56,10 +56,10 @@ class DeepEvalMetricFactory(BaseMetricFactory):
     }
 
     # Common parameters supported by all metrics
-    _common_params = {"model"}
+    _common_params: ClassVar[set[str]] = {"model"}
 
     # Metric-specific parameters (in addition to common params)
-    _supported_params = {
+    _supported_params: ClassVar[dict[str, set[str]]] = {
         # Most DeepEval metrics support threshold
         "DeepEvalAnswerRelevancy": {"threshold"},
         "DeepEvalBias": {"threshold"},

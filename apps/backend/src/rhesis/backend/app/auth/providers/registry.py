@@ -6,7 +6,7 @@ Providers are automatically registered based on environment configuration.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 from rhesis.backend.app.auth.providers.base import AuthProvider
 
@@ -41,10 +41,10 @@ class ProviderRegistry:
 
     # All available provider classes - add new providers here
     # Import is deferred to avoid circular imports
-    AVAILABLE_PROVIDERS: List[Type[AuthProvider]] = []
+    AVAILABLE_PROVIDERS: ClassVar[List[Type[AuthProvider]]] = []
 
     # Initialized provider instances
-    _providers: Dict[str, AuthProvider] = {}
+    _providers: ClassVar[Dict[str, AuthProvider]] = {}
     _initialized: bool = False
 
     @classmethod

@@ -1,7 +1,7 @@
 """Sophisticated pattern matching for SDK function parameter detection."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import ClassVar, Dict, List, Tuple
 
 
 @dataclass
@@ -31,7 +31,7 @@ class MappingPatterns:
     # Add new fields here to automatically include them in auto-mapping
     # REQUEST fields: input parameters to the function
     # RESPONSE fields: output fields from the function
-    STANDARD_FIELDS = [
+    STANDARD_FIELDS: ClassVar[List[FieldConfig]] = [
         # REQUEST FIELDS (function inputs)
         FieldConfig(
             name="input",
@@ -78,8 +78,8 @@ class MappingPatterns:
 
     # ==================== INPUT PATTERNS ====================
     # Main user query/message/prompt
-    INPUT_EXACT = ["input", "query", "prompt", "message", "text"]
-    INPUT_COMPOUND = [
+    INPUT_EXACT: ClassVar[List[str]] = ["input", "query", "prompt", "message", "text"]
+    INPUT_COMPOUND: ClassVar[List[str]] = [
         "user_input",
         "user_query",
         "user_message",
@@ -93,11 +93,11 @@ class MappingPatterns:
         "chat_message",
         "chat_query",
     ]
-    INPUT_PARTIAL = ["question", "ask", "request", "instruction"]
+    INPUT_PARTIAL: ClassVar[List[str]] = ["question", "ask", "request", "instruction"]
 
     # ==================== SESSION PATTERNS ====================
     # Conversation/session identifiers (often with _id suffix)
-    SESSION_EXACT = [
+    SESSION_EXACT: ClassVar[List[str]] = [
         "session_id",
         "session",
         "conversation_id",
@@ -107,7 +107,7 @@ class MappingPatterns:
         "chat_id",
         "chat",
     ]
-    SESSION_COMPOUND = [
+    SESSION_COMPOUND: ClassVar[List[str]] = [
         "conv_id",
         "convo_id",
         "session_key",
@@ -122,12 +122,12 @@ class MappingPatterns:
         "user_session_id",
         "session_token",
     ]
-    SESSION_PARTIAL = ["conv", "convo", "sess"]
+    SESSION_PARTIAL: ClassVar[List[str]] = ["conv", "convo", "sess"]
 
     # ==================== CONTEXT PATTERNS ====================
     # Additional context like documents, RAG results
-    CONTEXT_EXACT = ["context", "documents", "sources", "knowledge"]
-    CONTEXT_COMPOUND = [
+    CONTEXT_EXACT: ClassVar[List[str]] = ["context", "documents", "sources", "knowledge"]
+    CONTEXT_COMPOUND: ClassVar[List[str]] = [
         "rag_context",
         "rag_documents",
         "rag_sources",
@@ -143,12 +143,12 @@ class MappingPatterns:
         "context_data",
         "additional_context",
     ]
-    CONTEXT_PARTIAL = ["docs", "chunks", "passages", "retrieval", "rag"]
+    CONTEXT_PARTIAL: ClassVar[List[str]] = ["docs", "chunks", "passages", "retrieval", "rag"]
 
     # ==================== METADATA PATTERNS ====================
     # Extra metadata, user info, preferences
-    METADATA_EXACT = ["metadata", "meta", "info", "data"]
-    METADATA_COMPOUND = [
+    METADATA_EXACT: ClassVar[List[str]] = ["metadata", "meta", "info", "data"]
+    METADATA_COMPOUND: ClassVar[List[str]] = [
         "user_metadata",
         "user_info",
         "user_data",
@@ -161,12 +161,18 @@ class MappingPatterns:
         "request_metadata",
         "meta_data",
     ]
-    METADATA_PARTIAL = ["extras", "props", "properties", "attributes", "params"]
+    METADATA_PARTIAL: ClassVar[List[str]] = [
+        "extras",
+        "props",
+        "properties",
+        "attributes",
+        "params",
+    ]
 
     # ==================== TOOL CALLS PATTERNS ====================
     # Tool/function call information
-    TOOL_CALLS_EXACT = ["tool_calls", "tools", "function_calls", "functions"]
-    TOOL_CALLS_COMPOUND = [
+    TOOL_CALLS_EXACT: ClassVar[List[str]] = ["tool_calls", "tools", "function_calls", "functions"]
+    TOOL_CALLS_COMPOUND: ClassVar[List[str]] = [
         "tool_results",
         "tool_outputs",
         "function_results",
@@ -176,12 +182,19 @@ class MappingPatterns:
         "tools_list",
         "functions_list",
     ]
-    TOOL_CALLS_PARTIAL = ["tool", "func", "action", "capability"]
+    TOOL_CALLS_PARTIAL: ClassVar[List[str]] = ["tool", "func", "action", "capability"]
 
     # ==================== OUTPUT PATTERNS ====================
     # Response/result fields (often nested)
-    OUTPUT_EXACT = ["output", "response", "result", "answer", "reply", "message"]
-    OUTPUT_COMPOUND = [
+    OUTPUT_EXACT: ClassVar[List[str]] = [
+        "output",
+        "response",
+        "result",
+        "answer",
+        "reply",
+        "message",
+    ]
+    OUTPUT_COMPOUND: ClassVar[List[str]] = [
         "text_output",
         "text_response",
         "response_text",
@@ -198,7 +211,7 @@ class MappingPatterns:
         "ai_response",
         "bot_response",
     ]
-    OUTPUT_PARTIAL = ["content", "generated", "completion", "text"]
+    OUTPUT_PARTIAL: ClassVar[List[str]] = ["content", "generated", "completion", "text"]
 
     @classmethod
     def get_field_config(cls, field_name: str) -> FieldConfig | None:

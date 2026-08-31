@@ -7,6 +7,8 @@ call site actually produces, not the classifier's internal rules (already
 pinned in test_outcomes.py).
 """
 
+from typing import ClassVar
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -228,7 +230,7 @@ class TestTestResultRouterOutcome:
         update_payload = schemas.TestResultUpdate(status_id=error_status.id)
 
         class _Request:
-            headers = {}
+            headers: ClassVar[dict] = {}
             url = type("U", (), {"path": "/test_results/x"})()
 
         with (

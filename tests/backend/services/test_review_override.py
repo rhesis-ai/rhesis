@@ -1,5 +1,6 @@
 """Unit tests for test-result review override metric key resolution."""
 
+from typing import ClassVar
 from unittest.mock import patch
 
 from rhesis.backend.app.constants import REVIEW_TARGET_TEST_RESULT
@@ -31,7 +32,7 @@ class TestApplyMetricOverride:
     @patch("rhesis.backend.app.services.review_override.flag_modified")
     def test_applies_override_with_slug_reference(self, _mock_flag_modified):
         class StubResult:
-            test_metrics = {
+            test_metrics: ClassVar[dict] = {
                 "metrics": {
                     "Bias Detection": {"is_successful": False},
                 }
@@ -65,14 +66,14 @@ class TestHasEvaluableContent:
 
     def test_empty_metrics_dict_is_not_evaluable(self):
         class StubResult:
-            test_metrics = {"metrics": {}}
+            test_metrics: ClassVar[dict] = {"metrics": {}}
             test_output = None
 
         assert _has_evaluable_content(StubResult()) is False
 
     def test_metrics_present_is_evaluable(self):
         class StubResult:
-            test_metrics = {"metrics": {"Accuracy": {"is_successful": True}}}
+            test_metrics: ClassVar[dict] = {"metrics": {"Accuracy": {"is_successful": True}}}
             test_output = None
 
         assert _has_evaluable_content(StubResult()) is True
@@ -80,7 +81,7 @@ class TestHasEvaluableContent:
     def test_goal_evaluation_without_metrics_is_evaluable(self):
         class StubResult:
             test_metrics = None
-            test_output = {"goal_evaluation": {"achieved": True}}
+            test_output: ClassVar[dict] = {"goal_evaluation": {"achieved": True}}
 
         assert _has_evaluable_content(StubResult()) is True
 
@@ -105,7 +106,7 @@ class TestApplyReviewOverrideTestResultTarget:
     @patch("rhesis.backend.app.services.review_override._apply_outcome")
     def test_review_on_evaluable_result_sets_pass_fail(self, mock_apply_outcome):
         class StubResult:
-            test_metrics = {"metrics": {"Accuracy": {"is_successful": False}}}
+            test_metrics: ClassVar[dict] = {"metrics": {"Accuracy": {"is_successful": False}}}
             test_output = None
 
         result = StubResult()

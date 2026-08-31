@@ -1,4 +1,4 @@
-from typing import List
+from typing import ClassVar, List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
@@ -10,7 +10,7 @@ from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 class RhesisMetricFactory(BaseMetricFactory):
     """Factory for creating Rhesis' custom metric instances."""
 
-    _metrics = {
+    _metrics: ClassVar[dict[str, type[BaseMetric]]] = {
         "CategoricalJudge": CategoricalJudge,
         "ConversationalJudge": ConversationalJudge,
         "NumericJudge": NumericJudge,
@@ -18,10 +18,10 @@ class RhesisMetricFactory(BaseMetricFactory):
     }
 
     # Common parameters supported by all metrics
-    _common_params = {"model"}
+    _common_params: ClassVar[set[str]] = {"model"}
 
     # Base parameters from MetricConfig (inherited by all configs)
-    _base_metric_params = {
+    _base_metric_params: ClassVar[set[str]] = {
         "name",
         "description",
         "metric_type",
@@ -34,7 +34,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     }
 
     # Base judge parameters from BaseJudgeConfig (inherited by all judge configs)
-    _base_judge_params = {
+    _base_judge_params: ClassVar[set[str]] = {
         "evaluation_prompt",
         "evaluation_steps",
         "reasoning",
@@ -42,7 +42,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     }
 
     # Numeric scoring parameters (for NumericJudgeConfig and ConversationalNumericConfig)
-    _numeric_params = {
+    _numeric_params: ClassVar[set[str]] = {
         "min_score",
         "max_score",
         "threshold",
@@ -51,7 +51,7 @@ class RhesisMetricFactory(BaseMetricFactory):
 
     # Categorical-specific params (subset of base params that CategoricalJudge accepts)
     # Note: CategoricalJudge hardcodes score_type and metric_type, so they're not in __init__
-    _categorical_base_params = {
+    _categorical_base_params: ClassVar[set[str]] = {
         "name",
         "description",
         "requires_ground_truth",
@@ -59,7 +59,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     }
 
     # Metric-specific parameters (in addition to common, base metric, and base judge params)
-    _supported_params = {
+    _supported_params: ClassVar[dict[str, set[str]]] = {
         "CategoricalJudge": _categorical_base_params
         | _base_judge_params
         | {
@@ -72,7 +72,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     }
 
     # Define required parameters for each metric class
-    _required_params = {
+    _required_params: ClassVar[dict[str, set[str]]] = {
         "CategoricalJudge": {"categories", "passing_categories"},
         "ConversationalJudge": set(),  # All params are optional with defaults
         "NumericJudge": {"evaluation_prompt"},

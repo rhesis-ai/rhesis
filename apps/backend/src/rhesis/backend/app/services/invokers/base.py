@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Union
 
 if TYPE_CHECKING:
     from .context import InvocationContext
@@ -39,7 +39,7 @@ class BaseEndpointInvoker(ABC):
 
     # Keys in request_mapping that are used by Rhesis for configuration
     # but must NOT appear in the wire request body sent to the endpoint.
-    RESERVED_META_KEYS: set = {"system_prompt"}
+    RESERVED_META_KEYS: ClassVar[set[str]] = {"system_prompt"}
 
     def __init__(self, context: "InvocationContext | None" = None):
         self.context = context

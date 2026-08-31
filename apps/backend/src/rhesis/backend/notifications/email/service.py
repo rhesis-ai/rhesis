@@ -6,7 +6,7 @@ import logging
 import os
 import re
 from email.mime.text import MIMEText
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 from urllib.parse import quote
 
 from rhesis.backend.app.config.settings import get_frontend_settings
@@ -22,7 +22,7 @@ class EmailService:
     """Main email service for sending HTML notifications."""
 
     # List of regex patterns for email addresses that should not receive welcome emails
-    WELCOME_EMAIL_EXCLUSION_PATTERNS: List[str] = [
+    WELCOME_EMAIL_EXCLUSION_PATTERNS: ClassVar[List[str]] = [
         r"new_user_",  # Exclude test users with new_user_ prefix
         # Add more patterns here as needed, e.g.:
         # r"test@",

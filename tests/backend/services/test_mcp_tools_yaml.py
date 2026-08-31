@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 import yaml
@@ -258,7 +259,7 @@ class TestCreateMetricDocumentsDescriptiveFields:
 class TestMcpToolsYamlStructure:
     """Every tool entry must declare name, method, and path."""
 
-    EXPECTED_NEW_PATHS = {
+    EXPECTED_NEW_PATHS: ClassVar[set[tuple[str, str, str]]] = {
         ("get_test_set", "GET", "/test_sets/{test_set_identifier}"),
         ("list_test_set_tests", "GET", "/test_sets/{test_set_identifier}/tests"),
         ("get_endpoint", "GET", "/endpoints/{endpoint_id}"),
@@ -301,7 +302,7 @@ class TestToolParameterDocumentation:
     # are the ones users actually see, so these must be fully documented.
     # The rest of the catalog (update_*, endpoint config) still has gaps —
     # widen this set as they get cleaned up rather than relaxing the rule.
-    CREATION_TOOLS = {
+    CREATION_TOOLS: ClassVar[set[str]] = {
         "create_project",
         "create_requirement",
         "create_metric",
@@ -315,13 +316,13 @@ class TestToolParameterDocumentation:
 
     # Described by the OpenAPI schema itself, so a YAML override would only
     # duplicate them.
-    EXEMPT = {"skip", "limit", "sort_by", "sort_order", "filter", "select"}
+    EXEMPT: ClassVar[set[str]] = {"skip", "limit", "sort_by", "sort_order", "filter", "select"}
 
     # Mirrors _SERVER_MANAGED_FIELDS in rhesis.sdk.agents.base, which strips
     # these before the agent ever sees them. Duplicated rather than imported
     # so the backend suite does not depend on the SDK being installed, and
     # does not reach into a private name across package boundaries.
-    SERVER_MANAGED = {
+    SERVER_MANAGED: ClassVar[set[str]] = {
         "id",
         "nano_id",
         "user_id",

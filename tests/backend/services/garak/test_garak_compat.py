@@ -10,6 +10,7 @@ which compatibility helper needs updating before touching the rest of the codeba
 """
 
 import inspect
+from typing import ClassVar
 
 import pytest
 
@@ -83,7 +84,7 @@ class TestGetProbeDetector:
 
         class FakeProbe:
             primary_detector = "garak.detectors.some.Detector"
-            recommended_detector = ["garak.detectors.old.Detector"]
+            recommended_detector: ClassVar[list[str]] = ["garak.detectors.old.Detector"]
 
         result = get_probe_detector(FakeProbe)
         assert result == "garak.detectors.some.Detector"
@@ -93,7 +94,7 @@ class TestGetProbeDetector:
 
         class FakeProbe:
             primary_detector = None
-            recommended_detector = ["garak.detectors.old.Detector"]
+            recommended_detector: ClassVar[list[str]] = ["garak.detectors.old.Detector"]
 
         result = get_probe_detector(FakeProbe)
         assert result == "garak.detectors.old.Detector"
@@ -199,7 +200,7 @@ class TestTaxonomyCompleteness:
     # These were valid probe modules in older versions but were removed or renamed
     # in 0.14.0+. They are intentionally preserved so existing test-set records
     # referencing these module names remain resolvable via the default mapping fallback.
-    KNOWN_LEGACY_MODULES = {
+    KNOWN_LEGACY_MODULES: ClassVar[set[str]] = {
         "gcg",  # Removed in garak 0.14.0
         "xss",  # Removed in garak 0.14.0
         "base64",  # Historical mapping for base64-encoded probes
