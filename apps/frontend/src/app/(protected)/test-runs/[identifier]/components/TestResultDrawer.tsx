@@ -191,10 +191,12 @@ export default function TestResultDrawer({
   // directly, e.g. after a review action already re-fetches via
   // getTestResult), so this never re-fetches data already in hand.
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
+  const needsTranscript =
+    activeTab === TAB.conversation || activeTab === TAB.reviews;
   React.useEffect(() => {
     setFetchedTest(null);
     const testId = test?.id;
-    if (!open || !testId || !isMultiTurn) return;
+    if (!open || !testId || !isMultiTurn || !needsTranscript) return;
     if (test?.test_output?.conversation_summary) return;
     let cancelled = false;
     (async () => {
@@ -211,7 +213,13 @@ export default function TestResultDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, test?.id, test?.test_output?.conversation_summary, isMultiTurn]);
+  }, [
+    open,
+    test?.id,
+    test?.test_output?.conversation_summary,
+    isMultiTurn,
+    needsTranscript,
+  ]);
 
   const conversationTest = fetchedTest ?? test;
 

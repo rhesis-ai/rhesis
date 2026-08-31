@@ -108,8 +108,8 @@ def get_test_results(
     in memory before it's returned -- that's the full multi-turn transcript (every turn's
     reasoning, message, response, tool calls), useful to a caller rendering a conversation
     view but dead weight on a results grid that only reads ``goal_evaluation``/``status``/
-    ``test_configuration.goal``. Mutates the in-memory attribute only; nothing is persisted,
-    since this is always a read path.
+    ``test_configuration.goal``. Expunges the rows from the session before
+    mutating so the change can never be flushed back to the database.
     """
     results = (
         QueryBuilder(db, models.TestResult)
@@ -123,6 +123,7 @@ def get_test_results(
     )
     if strip_conversation:
         for result in results:
+            db.expunge(result)
             if (
                 isinstance(result.test_output, dict)
                 and "conversation_summary" in result.test_output
