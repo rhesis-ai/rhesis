@@ -56,11 +56,8 @@ export default async function TestRunPage({
   const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
 
-  // Results for the Summary/Test Cases tabs (small runs only) and page 1 of
-  // this run's traces only need `identifier` (and the active-project cookie,
-  // which is free to read), so they fetch alongside `getTestRun` instead of
-  // waiting behind it. Only the "can compare" check genuinely needs the
-  // fetched test run (its test set id).
+  // Test results and traces only need `identifier`; only "can compare"
+  // needs the fetched test run's test set id.
   const scopedProjectId = (await getServerActiveProjectId()) ?? null;
   const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
 

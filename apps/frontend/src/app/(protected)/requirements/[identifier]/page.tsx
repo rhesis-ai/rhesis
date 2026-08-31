@@ -40,9 +40,8 @@ export default async function RequirementDetailPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const client = apiFactory.getRequirementClient();
 
-  // Linked Tests tab; Linked Metrics already arrive on the requirement. This
-  // only needs `identifier`, so it fetches alongside the requirement instead
-  // of waiting behind it.
+  // Linked Tests tab; Linked Metrics already arrive on the requirement.
+  // Only needs `identifier`, not the requirement itself.
   const linkedTestsPromise = prefetch(Capability.Test.READ, () =>
     fetchRequirementLinkedTests(apiFactory, identifier)
   );

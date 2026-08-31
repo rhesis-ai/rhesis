@@ -46,10 +46,8 @@ export default async function TestSetPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const testSetsClient = apiFactory.getTestSetsClient();
 
-  // First pages of the Tests and Tasks tabs, so they render with rows in
-  // place instead of a client-side spinner. The tests total doubles as the
-  // header count. These only need `identifier`, so they fetch alongside
-  // `getTestSet` instead of waiting behind it.
+  // First pages of the Tests and Tasks tabs; the tests total doubles as the
+  // header count. Only needs `identifier`, not `testSet`.
   const linkedTests = testSetTestsList(identifier);
   const tasks = entityTasksList('TestSet', identifier);
   const tabsPromise = Promise.all([

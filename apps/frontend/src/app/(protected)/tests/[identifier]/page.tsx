@@ -52,9 +52,8 @@ export default async function TestDetailPage({ params }: PageProps) {
   const promptsClient = apiFactory.getPromptsClient();
   const { identifier } = await params;
 
-  // First pages of the Linked Test Sets and Tasks tabs, so they open with
-  // rows in place instead of a spinner. These only need `identifier`, so
-  // they fetch alongside `getTest` instead of waiting behind it.
+  // First pages of the Linked Test Sets and Tasks tabs; only need
+  // `identifier`, not `test`.
   const linkedTestSets = linkedTestSetsList(identifier);
   const tasks = entityTasksList('Test', identifier);
   const tabsPromise = Promise.all([

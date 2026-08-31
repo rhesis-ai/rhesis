@@ -32,8 +32,7 @@ export default async function ProjectEndpointPage({ params }: PageProps) {
 
   const factory = await createServerApiFactory();
 
-  // `project` is looked up from the route param, not from `endpoint`, so it
-  // can fetch alongside the endpoint instead of waiting behind it.
+  // `project` is looked up from the route param, not from `endpoint`.
   const [endpointResult, projectResult] = await Promise.allSettled([
     factory.getEndpointsClient().getEndpoint(endpointId),
     factory.getProjectsClient().getProject(identifier),

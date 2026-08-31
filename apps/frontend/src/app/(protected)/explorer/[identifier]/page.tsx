@@ -22,9 +22,7 @@ export default async function ExplorerDetailPage({
   const clientFactory = await createServerApiFactory();
   const explorerClient = clientFactory.getExplorerClient();
 
-  // The test set name lookup only needs `identifier`, so it fetches
-  // alongside the tree/topics instead of waiting behind them. A failure
-  // here fails open to the identifier as a fallback name, same as before.
+  // Only needs `identifier`; fails open to the identifier as a fallback name.
   const testSetsClient = clientFactory.getTestSetsClient();
   const testSetNamePromise = testSetsClient
     .getTestSet(identifier)
