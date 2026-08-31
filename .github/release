@@ -4,8 +4,6 @@ Rhesis Platform Release Tool
 
 This script manages releases for individual components and platform-wide releases
 with automatic version bumping, changelog generation, and git tagging.
-
-This is a modular version that imports functionality from the release_tools/ directory.
 """
 
 import sys

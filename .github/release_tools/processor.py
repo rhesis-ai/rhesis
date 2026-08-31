@@ -13,6 +13,7 @@ from .changelog import (
     update_component_changelog,
     update_platform_changelog,
 )
+from .config import COMPONENTS, platform_followers
 from .git_ops import create_release_branch, get_commits_since_tag, get_last_tag
 from .utils import check_prerequisites, info, log, success, warn
 from .version import bump_version, get_current_version, update_version_file
@@ -52,6 +53,12 @@ class ReleaseProcessor:
             self.dry_run,
         )
 
+    @staticmethod
+    def _in_canonical_order(versions: Dict[str, str]) -> Dict[str, str]:
+        """Reorder versions to COMPONENTS order, platform first"""
+        order = ["platform"] + list(COMPONENTS)
+        return {name: versions[name] for name in order if name in versions}
+
     def process_releases(self) -> bool:
         """Process all releases"""
         log("Starting release process...")
@@ -71,9 +78,24 @@ class ReleaseProcessor:
             version_changes[component] = f"v{current_version} -> v{new_version}"
 
         # Save version changes to a JSON file. This will be used to create the PR title and body in
-        # the create-release.yml workflow.
+        # the create-release.yml workflow. Platform followers are deliberately absent: they carry
+        # the platform's number, so listing them would repeat it once per component.
         with open("/tmp/version_changes.json", "w") as f:
             json.dump(version_changes, f)
+
+        # Platform followers take the platform's version rather than a bump of their own. Added
+        # after version_changes above, and before the second pass below, so they still get their
+        # version file and changelog written like any other component.
+        platform_version = self.component_versions.get("platform")
+        if platform_version:
+            for component in platform_followers():
+                self.component_versions[component] = platform_version
+                info(f"Component: {component} (follows platform)")
+                info(f"  Version: {platform_version}")
+                print()
+            # Canonical order, so the platform changelog's sections don't reshuffle from release to
+            # release depending on which components were bumped
+            self.component_versions = self._in_canonical_order(self.component_versions)
 
         if self.dry_run:
             warn("DRY RUN MODE - No changes will be made")
@@ -89,7 +111,6 @@ class ReleaseProcessor:
                 new_version,
                 self.repo_root,
                 self.dry_run,
-                self.component_bumps,
             ):
                 return False
 
@@ -174,16 +195,5 @@ class ReleaseProcessor:
 
         print()
         success("Release process completed! 🎉")
-
-        if not self.dry_run:
-            print()
-            info("Next steps:")
-            info("1. Review the changes made to version files and changelogs")
-            info(
-                '2. Commit the changes: git add . && git commit -m "Prepare release: <description>"'
-            )
-            info("3. Push and create PR: git push origin $(git branch --show-current)")
-            info("   • Use ./.github/create-pr.sh or ./.github/pr to create the PR")
-            info("4. After PR merge, use --publish to create tags and GitHub releases")
 
         return True
