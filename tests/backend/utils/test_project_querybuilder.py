@@ -57,7 +57,6 @@ def test_project2(test_db: Session, test_org_id):
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestHasProjectId:
     """Unit tests for the has_project_id() helper."""
 
@@ -84,7 +83,6 @@ class TestHasProjectId:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestQueryBuilderProjectFilter:
     """Tests for QueryBuilder.with_project_filter()."""
 
@@ -182,7 +180,6 @@ class TestQueryBuilderProjectFilter:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestValidateSameProject:
     """Unit tests for validate_same_project()."""
 

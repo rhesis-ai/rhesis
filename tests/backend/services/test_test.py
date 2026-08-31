@@ -49,7 +49,6 @@ def create_bulk_test_data(**overrides):
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestBulkCreateTests:
     """Test bulk_create_tests function."""
 
@@ -413,7 +412,6 @@ class TestBulkCreateTests:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestTestSetAssociationsInTestService:
     """Test test set association functions in test service."""
 

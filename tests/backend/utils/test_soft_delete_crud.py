@@ -29,7 +29,6 @@ from tests.backend.routes.fixtures.data_factories import (
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestSoftDeletion:
     """Test soft deletion functionality in CRUD utilities."""
 
@@ -321,7 +320,6 @@ class TestSoftDeletion:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestSoftDeleteContext:
     """Test the without_soft_delete_filter context manager."""
 
@@ -388,7 +386,6 @@ class TestSoftDeleteContext:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestBaseModelSoftDeleteMethods:
     """Test soft delete methods on the Base model."""
 

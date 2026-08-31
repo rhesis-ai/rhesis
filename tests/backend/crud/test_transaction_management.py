@@ -44,8 +44,6 @@ from tests.backend.routes.fixtures.data_factories import (
 
 
 @pytest.mark.unit
-@pytest.mark.crud
-@pytest.mark.transaction
 class TestCRUDTransactionManagement:
     """🔄 Test automatic transaction management in CRUD operations"""
 

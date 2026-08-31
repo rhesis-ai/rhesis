@@ -146,7 +146,6 @@ def test_entity(
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestEmbeddingGenerator:
     """Test EmbeddingGenerator functionality."""
 

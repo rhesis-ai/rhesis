@@ -20,7 +20,6 @@ from rhesis.backend.app.services import organization as organization_service
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestLoadInitialData:
     """Test load_initial_data function."""
 
@@ -523,7 +522,6 @@ class TestLoadInitialData:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestRollbackInitialData:
     """Test rollback_initial_data function."""
 

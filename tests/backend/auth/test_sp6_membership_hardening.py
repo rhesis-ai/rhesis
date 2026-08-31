@@ -170,7 +170,6 @@ class TestRoleIdColumn:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestMemberEndpointGating:
     """GET/POST/DELETE /projects/{id}/members authorization.
 

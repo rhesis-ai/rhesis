@@ -41,7 +41,6 @@ class StorageServiceTestMixin(StorageServiceTestMixin):
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestStorageServiceInitialization(StorageServiceTestMixin, BaseStorageServiceTests):
     """Test StorageService initialization and configuration."""
 
@@ -119,7 +118,6 @@ class TestStorageServiceInitialization(StorageServiceTestMixin, BaseStorageServi
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestStorageServiceFilePaths(StorageServiceTestMixin, BaseStorageServiceTests):
     """Test file path generation methods."""
 
@@ -150,7 +148,6 @@ class TestStorageServiceFilePaths(StorageServiceTestMixin, BaseStorageServiceTes
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestStorageServiceFileOperations(StorageServiceTestMixin, BaseStorageServiceTests):
     """Test file operations with mocked file system."""
 
@@ -280,7 +277,6 @@ class TestStorageServiceFileOperations(StorageServiceTestMixin, BaseStorageServi
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTests):
     """Test edge cases and error scenarios for StorageService."""
 
@@ -430,7 +426,6 @@ class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTes
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestStorageServicePathBuilders:
     """Tests for domain-scoped path builder methods."""
 

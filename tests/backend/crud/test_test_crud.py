@@ -28,7 +28,6 @@ from rhesis.backend.app.utils.crud_utils import count_items
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestTestOperations:
     """🧪 Test test operations"""
 
@@ -225,7 +224,6 @@ class TestTestOperations:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestBulkDeleteTests:
     """🧪 test_crud.bulk_delete_tests"""
 
@@ -406,7 +404,6 @@ class TestBulkDeleteTests:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestGetTestsExcludesExplorer:
     """test_crud.get_tests must omit explorer tests (general test list API)."""
 

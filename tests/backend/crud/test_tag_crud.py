@@ -23,7 +23,6 @@ from rhesis.backend.app.crud import tag as tag_crud
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestTagOperations:
     """🏷️ Test tag CRUD operations"""
 

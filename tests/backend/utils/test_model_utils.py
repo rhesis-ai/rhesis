@@ -15,7 +15,6 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestQueryBuilder:
     """Test QueryBuilder class."""
 

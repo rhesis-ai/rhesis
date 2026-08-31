@@ -79,7 +79,6 @@ def create_test_with_id_request_data(test_id: str, **overrides):
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestExecuteTestInPlace:
     """Test execute_test_in_place function with various scenarios."""
 
@@ -546,7 +545,6 @@ class TestExecuteTestInPlace:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestCreateInplaceTest:
     """Test _create_inplace_test helper function."""
 
@@ -679,7 +677,6 @@ class TestCreateInplaceTest:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestExecutionHelpers:
     """Test helper functions for single-turn and multi-turn execution."""
 
@@ -832,7 +829,6 @@ class TestExecutionHelpers:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestEdgeCases:
     """Test edge cases and error handling."""
 

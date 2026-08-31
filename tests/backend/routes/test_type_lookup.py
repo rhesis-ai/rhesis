@@ -557,7 +557,6 @@ class TestTypeLookupCategorization(TypeLookupTestMixin, BaseEntityTests):
 # === TYPE LOOKUP PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestTypeLookupPerformance(TypeLookupTestMixin, BaseEntityTests):
     """Type lookup performance tests"""
 

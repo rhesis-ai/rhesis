@@ -44,14 +44,22 @@ tests/backend/
     └── test_helpers.py
 ```
 
-### 🎯 Backend-Specific Markers
+### 🎯 Markers
+
+There are no backend-specific markers. The whole set is declared in
+`tests/pytest.ini` and shared across every suite:
+
 ```python
-# Use these markers in combination with global ones
-@pytest.mark.database     # Tests requiring database
-@pytest.mark.auth        # Authentication/authorization tests
-@pytest.mark.api         # API endpoint tests
-@pytest.mark.celery      # Celery worker tests
+@pytest.mark.unit         # fast tests with mocked dependencies
+@pytest.mark.integration  # tests with real external services
+@pytest.mark.slow         # tests that take >5 seconds
+@pytest.mark.security     # security and vulnerability tests
+@pytest.mark.ee           # tests that need the rhesis-backend-ee package
 ```
+
+Markers are labels only — no CI job or Makefile target selects on them, and area
+markers were removed because the directory layout already says the same thing
+(use a path, e.g. `../../tests/backend/crud/`, instead of `-m crud`).
 
 ## ⚙️ Configuration & Setup
 
@@ -599,12 +607,6 @@ pytest tests/backend/ -m unit -v
 
 # Integration tests only  
 pytest tests/backend/ -m integration -v
-
-# Database tests
-pytest tests/backend/ -m database -v
-
-# API tests
-pytest tests/backend/ -m api -v
 
 # Security tests
 pytest tests/backend/ -m security -v

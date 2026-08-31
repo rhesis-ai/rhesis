@@ -26,8 +26,6 @@ from rhesis.backend.app.utils.encryption import hash_token
 
 
 @pytest.mark.unit
-@pytest.mark.auth
-@pytest.mark.transaction
 class TestAuthTransactionManagement:
     """🔄 Test automatic transaction management in auth utilities"""
 

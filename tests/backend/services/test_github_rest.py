@@ -13,7 +13,6 @@ from rhesis.backend.app.services.tool.rest.github import (
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestParseGithubUrl:
     """Test _parse_github_url for the supported URL shapes."""
 
@@ -50,7 +49,6 @@ class TestParseGithubUrl:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestDecode:
     """Test _decode base64 handling."""
 
@@ -68,7 +66,6 @@ class TestDecode:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestGithubHealthCheck:
     async def test_authenticated(self):
@@ -111,7 +108,6 @@ class TestGithubHealthCheck:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestGithubFetch:
     """Test fetch / fetch_all for files, directories, and errors."""

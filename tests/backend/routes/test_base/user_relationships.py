@@ -18,7 +18,6 @@ fake = Faker()
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class BaseUserRelationshipTests(BaseEntityTests):
     """Base class for testing user relationship fields (user_id, owner_id, assignee_id)"""
 

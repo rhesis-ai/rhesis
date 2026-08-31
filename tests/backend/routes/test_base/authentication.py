@@ -15,7 +15,6 @@ from .core import BaseEntityTests
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class BaseAuthenticationTests(BaseEntityTests):
     """Base class for authentication tests"""
 

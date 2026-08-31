@@ -482,7 +482,6 @@ class TestPromptTemplateRelationships(PromptTemplateTestMixin, BaseEntityTests):
 # === PROMPT TEMPLATE PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestPromptTemplatePerformance(PromptTemplateTestMixin, BaseEntityTests):
     """Prompt template performance tests"""
 

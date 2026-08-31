@@ -22,7 +22,6 @@ from rhesis.backend.app.utils.encryption import hash_token
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestTokenOperations:
     """🔑 Test token operations"""
 

@@ -67,7 +67,6 @@ def _create_metric(db: Session, organization_id: str, user_id: str, name: str) -
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerSettings:
     def test_get_settings_empty(self, test_db: Session, test_org_id, authenticated_user_id):
         test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)

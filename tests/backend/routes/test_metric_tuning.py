@@ -138,7 +138,6 @@ def _load_case(db: Session, case_id) -> models.Test:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestListTuningCases:
     """GET /metrics/{metric_id}/tuning/cases"""
 
@@ -200,7 +199,6 @@ class TestListTuningCases:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestOnlyCustomMetricsCanBeTuned:
     """A framework-provided metric has no prompt the organization owns."""
 
@@ -242,7 +240,6 @@ class TestOnlyCustomMetricsCanBeTuned:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateTuningCase:
     """POST /metrics/{metric_id}/tuning/cases"""
 
@@ -421,7 +418,6 @@ class TestCreateTuningCase:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestACaseNobodyHasRun:
     """A case can be captured now and judged after a run."""
 
@@ -451,7 +447,6 @@ class TestACaseNobodyHasRun:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestUpdateTuningCase:
     """PUT /metrics/{metric_id}/tuning/cases/{case_id}"""
 
@@ -561,7 +556,6 @@ class TestUpdateTuningCase:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCasesStoredBeforeTheRename:
     """`expected_output` was renamed `reference_answer`."""
 
@@ -620,7 +614,6 @@ class TestCasesStoredBeforeTheRename:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteTuningCase:
     """DELETE /metrics/{metric_id}/tuning/cases/{case_id}"""
 
@@ -658,7 +651,6 @@ class TestDeleteTuningCase:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestTuningRowsAreUnreachable:
     """Metric-owned rows are reachable only through their metric.
 

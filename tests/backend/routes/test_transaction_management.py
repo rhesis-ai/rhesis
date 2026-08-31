@@ -25,8 +25,6 @@ from tests.backend.routes.fixtures.data_factories import OrganizationDataFactory
 
 
 @pytest.mark.unit
-@pytest.mark.routes
-@pytest.mark.transaction
 class TestRouterTransactionManagement:
     """🔄 Test automatic transaction management in router operations"""
 

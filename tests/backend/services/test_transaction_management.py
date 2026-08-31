@@ -32,8 +32,6 @@ from rhesis.backend.app.services import test_set as test_set_service
 
 
 @pytest.mark.unit
-@pytest.mark.services
-@pytest.mark.transaction
 class TestServiceTransactionManagement:
     """🔄 Test automatic transaction management in service functions"""
 
