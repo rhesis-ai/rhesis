@@ -27,7 +27,8 @@ minikube start --driver=docker --memory=8192 --cpus=4
 # creates rhesis-secrets.yaml and fills in the 4 secrets with no safe default
 ./generate-secrets.sh
 
-# builds all images, loads them into Minikube, applies secrets/configmaps, installs the Helm release
+# builds all images, loads them into Minikube, creates rhesis-config.yaml if missing,
+# applies secrets/configmaps, installs the Helm release
 ./k8s-deploy.sh reset`}
 </CodeBlock>
 
@@ -91,8 +92,9 @@ it and paste the result into `rhesis-secrets.yaml` next to the matching key:
 </CodeBlock>
 
 Non-sensitive configuration (model names, ports, URLs) lives separately in
-`manifests/configmaps/rhesis-config.yaml` — copy it from `rhesis-config.yaml.example` and edit
-directly; no encoding needed.
+`manifests/configmaps/rhesis-config.yaml`. `./k8s-deploy.sh apply`/`reset` creates it from
+`rhesis-config.yaml.example` if it doesn't exist yet; edit it directly afterward — no encoding
+needed.
 
 Apply either file after editing:
 

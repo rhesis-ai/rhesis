@@ -267,6 +267,18 @@ check_secrets_exist() {
     fi
 }
 
+# Auto-create rhesis-config.yaml from the example if it's missing. Unlike
+# secrets, nothing here is sensitive, so a straight copy is enough — no
+# generate-secrets.sh equivalent needed.
+check_config_exists() {
+    local config_file="$PROJECT_ROOT/infrastructure/k8s/manifests/configmaps/rhesis-config.yaml"
+    local config_example="$PROJECT_ROOT/infrastructure/k8s/manifests/configmaps/rhesis-config.yaml.example"
+    if [ ! -f "$config_file" ]; then
+        echo -e "${YELLOW}📋 Creating rhesis-config.yaml from the example template...${NC}"
+        cp "$config_example" "$config_file"
+    fi
+}
+
 # Create the namespace if it doesn't exist yet.
 create_namespace() {
     if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
@@ -282,6 +294,7 @@ create_namespace() {
 # Uses whatever images are already loaded into Minikube — never rebuilds.
 apply_all() {
     check_secrets_exist
+    check_config_exists
     create_namespace
 
     echo -e "${YELLOW}📋 Applying secrets and configmaps...${NC}"
