@@ -6,10 +6,10 @@ import TestRunMainView from './components/TestRunMainViewClient';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { fetchSmallTestRunResults } from './hooks/test-run-results';
-import { hasOtherRunsForTestSet } from './components/comparison-runs';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { emptyFilters, listParams } from '@/utils/list';
 import { tracesList } from '@/app/(protected)/traces/components/list';
+import { TAB_KEYS, tabIndexFromKey } from './utils/tab-key';
 
 interface _PageProps {
   params: Promise<{ identifier: string }>;
@@ -52,31 +52,6 @@ export default async function TestRunPage({
   const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
 
-  // Test results and traces only need `identifier`; only "can compare"
-  // needs the fetched test run's test set id.
-  const scopedProjectId = (await getServerActiveProjectId()) ?? null;
-  const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
-
-  const testResultsPromise = prefetch(Capability.TestResult.READ, () =>
-    fetchSmallTestRunResults(apiFactory, identifier)
-  );
-  const tracesPagePromise = scopedProjectId
-    ? prefetchList(tracesDescriptor.capability, () =>
-        tracesDescriptor.list(
-          apiFactory,
-          listParams(tracesDescriptor, {
-            page: 1,
-            pageSize: tracesDescriptor.defaultPageSize,
-            sort: tracesDescriptor.defaultSort,
-            filters: {
-              ...emptyFilters(tracesDescriptor),
-              testRunId: identifier,
-            },
-          })
-        )
-      )
-    : Promise.resolve({ initialData: undefined, initialTotalCount: 0 });
-
   let testRun;
   try {
     testRun = await testRunsClient.getTestRun(identifier);
@@ -85,16 +60,55 @@ export default async function TestRunPage({
     throw error;
   }
 
-  const testSetId = testRun.test_configuration?.test_set?.id;
+  // Which tab actually opens first -- same resolution TestRunMainView's own
+  // useState initializer runs client-side (see ../utils/tab-key), so the
+  // two agree on what "the tab that's opening" means. Everything below is
+  // prefetched only for that tab: fetching all three unconditionally used
+  // to hold up first paint on two tabs' worth of data the visit doesn't
+  // start on.
+  const tabParam =
+    typeof resolvedSearchParams?.tab === 'string'
+      ? resolvedSearchParams.tab
+      : null;
+  const hasSelectedResult = typeof selectedResult === 'string';
+  const initialTabIndex = tabIndexFromKey(
+    tabParam,
+    hasSelectedResult && !tabParam
+  );
+  const wantsLinkedEntities =
+    initialTabIndex === TAB_KEYS.indexOf('linked_entities');
+  const wantsTraces = initialTabIndex === TAB_KEYS.indexOf('traces');
 
-  const [testResults, hasComparisonRuns, tracesPage] = await Promise.all([
-    testResultsPromise,
-    testSetId
-      ? prefetch(Capability.TestRun.READ, () =>
-          hasOtherRunsForTestSet(apiFactory, testSetId, identifier)
+  const scopedProjectId = (await getServerActiveProjectId()) ?? null;
+  const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
+
+  const [testResults, verdictMatrix, tracesPage] = await Promise.all([
+    wantsLinkedEntities
+      ? prefetch(Capability.TestResult.READ, () =>
+          fetchSmallTestRunResults(apiFactory, identifier)
         )
-      : Promise.resolve(false),
-    tracesPagePromise,
+      : Promise.resolve(undefined),
+    // Always: it's what the default Summary tab renders, so unlike the
+    // other two this one is never conditional on which tab is opening.
+    prefetch(Capability.TestRun.READ, () =>
+      testRunsClient.getVerdictMatrix(identifier)
+    ),
+    wantsTraces && scopedProjectId
+      ? prefetchList(tracesDescriptor.capability, () =>
+          tracesDescriptor.list(
+            apiFactory,
+            listParams(tracesDescriptor, {
+              page: 1,
+              pageSize: tracesDescriptor.defaultPageSize,
+              sort: tracesDescriptor.defaultSort,
+              filters: {
+                ...emptyFilters(tracesDescriptor),
+                testRunId: identifier,
+              },
+            })
+          )
+        )
+      : Promise.resolve({ initialData: undefined, initialTotalCount: 0 }),
   ]);
 
   // PageLayout is rendered by TestRunMainView, not here: its title carries a
@@ -123,7 +137,7 @@ export default async function TestRunPage({
       }
       initialDetailTab={typeof detailTab === 'string' ? detailTab : undefined}
       initialTestResults={testResults}
-      initialHasComparisonRuns={hasComparisonRuns}
+      initialVerdictMatrix={verdictMatrix}
       initialTraces={tracesPage.initialData}
       initialTracesTotalCount={tracesPage.initialTotalCount}
     />

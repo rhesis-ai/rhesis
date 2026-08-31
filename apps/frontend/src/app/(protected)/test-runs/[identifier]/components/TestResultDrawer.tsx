@@ -183,6 +183,40 @@ export default function TestResultDrawer({
     // effect — the Conversation tab stays active so context isn't lost.
   };
 
+  // `test` comes from a results-grid fetch, which strips
+  // test_output.conversation_summary (the full multi-turn transcript --
+  // dead weight on a grid that never renders it). Fetch the one result this
+  // drawer is actually showing when it needs that transcript. Skipped when
+  // `test` already carries it (a caller that fetched the single result
+  // directly, e.g. after a review action already re-fetches via
+  // getTestResult), so this never re-fetches data already in hand.
+  const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(
+    null
+  );
+  React.useEffect(() => {
+    setFetchedTest(null);
+    const testId = test?.id;
+    if (!open || !testId || !isMultiTurn) return;
+    if (test?.test_output?.conversation_summary) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const full = await new ApiClientFactory()
+          .getTestResultsClient()
+          .getTestResult(testId);
+        if (!cancelled) setFetchedTest(full);
+      } catch {
+        // Conversation tab and turn mentions fall back to an empty
+        // transcript; not worth surfacing an error for.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, test?.id, test?.test_output?.conversation_summary, isMultiTurn]);
+
+  const conversationTest = fetchedTest ?? test;
+
   const mentionableMetrics: MentionOption[] = useMemo(() => {
     if (!test?.test_metrics?.metrics) return [];
     return Object.keys(test.test_metrics.metrics).map(name => ({
@@ -196,14 +230,14 @@ export default function TestResultDrawer({
   }, [test]);
 
   const mentionableTurns: MentionOption[] = useMemo(() => {
-    const summary = test?.test_output?.conversation_summary;
+    const summary = conversationTest?.test_output?.conversation_summary;
     if (!summary || !Array.isArray(summary)) return [];
     return summary.map((turn: { turn: number }) => ({
       id: String(turn.turn),
       display: `Turn ${turn.turn}`,
       type: 'turn' as const,
     }));
-  }, [test]);
+  }, [conversationTest]);
 
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
@@ -406,7 +440,7 @@ export default function TestResultDrawer({
 
           <TabPanel value={activeTab} index={TAB.conversation}>
             <TestDetailConversationTab
-              test={test}
+              test={fetchedTest ?? test}
               testSetType={testSetType}
               project={project}
               projectName={projectName}
