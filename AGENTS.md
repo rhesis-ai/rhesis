@@ -87,6 +87,23 @@ Tests live under `tests/` — `backend/`, `sdk/`, `frontend/`, plus `k6/`, `load
 Each suite has different working-directory and Docker requirements. Backend: invoke the
 `backend-testing` skill. SDK: see `sdk/AGENTS.md`.
 
+## Complexity Ceiling
+
+Cyclomatic complexity is capped at 20 per function — ruff's `C901`, configured in `ruff.toml` and
+enforced on every PR.
+
+It's a ceiling, not a target. The number doesn't say the code below it is fine; it stops the slow
+drift that produced a 1,700-line `services/organization.py` without any single change ever looking
+unreasonable.
+
+Every function already over the line is listed under `[lint.per-file-ignores]` with a one-line
+reason. That list is the debt register, and it only shrinks: when you split a listed function up,
+delete its entry in the same PR. Adding an entry is possible but is a real decision, so say why in
+the PR.
+
+Don't work around the ceiling with a helper that exists only to dodge the count. Split the function
+along a seam that makes sense on its own.
+
 ## Git Commits
 
 - **Never commit, push, or open a PR without asking first.** Show what changed, then wait for the
