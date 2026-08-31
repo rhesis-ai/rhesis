@@ -817,6 +817,29 @@ services:
       - "10001:5432"
 ```
 
+**Java SDK tests** use the same file's `--profile java` (Backend 10003). This is the monorepo
+side of the [`[Test] Java SDK`](../.github/workflows/java-sdk-test.yml) workflow: it runs the
+[rhesis-ai/rhesis-java](https://github.com/rhesis-ai/rhesis-java) suite against a backend built
+from this checkout. The Java repo's own CI pins `ghcr.io/rhesis-ai/backend:latest`, which is only
+rebuilt on `v*` tags, so it never sees unreleased backend changes.
+
+The profile enables Quick Start so `local_init` seeds the org, project and `rh-local-token` the
+Java tests authenticate with. `token` is encrypted at rest, so scope the token by its plaintext
+`token_obfuscated` value:
+
+```bash
+docker compose -f tests/docker-compose.test.yml --profile java up -d --build --wait
+docker compose -f tests/docker-compose.test.yml exec -T java-test-postgres \
+  psql -U rhesis-user -d rhesis-db -c \
+  "UPDATE token SET project_id = (SELECT id FROM project LIMIT 1)
+   WHERE token_obfuscated = 'rh-...oken';"
+
+cd /path/to/rhesis-java
+RHESIS_API_KEY=rh-local-token RHESIS_BASE_URL=http://localhost:10003 make test-integration
+```
+
+The `sdk` and `java` profiles both publish the backend on 10003 — never run both at once.
+
 ### ⚙️ Environment Configuration
 
 ```bash

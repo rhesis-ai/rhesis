@@ -1,0 +1,152 @@
+name: "[Test] Java SDK"
+
+# Guards the monorepo against breaking the rhesis-ai/rhesis-java SDK.
+#
+# The Java repo's own CI tests against ghcr.io/rhesis-ai/backend:latest, which is
+# only rebuilt on v* tags — so it never sees unreleased backend changes, and the
+# platform-released dispatch fires only after prd promotion. This workflow runs the
+# Java suite against a backend built from the PR, so breakage blocks the merge.
+#
+# PR runs: Java main only.
+# Nightly: Java main AND the latest Java release — what users actually have
+#          installed, and what Java main may already have adapted away from.
+#
+# Both run `make test`. The Java repo's `make test-integration` passes
+# -Dsurefire.skip=true, which is not a real Surefire property and is not defined
+# in their pom, so it does not actually skip the unit tests — and those are
+# Wiremock-based and finish in seconds, so there is nothing to save by trying.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/src/rhesis/backend/app/routers/**'
+      - 'apps/backend/src/rhesis/backend/app/schemas/**'
+      - 'apps/backend/src/rhesis/backend/app/models/**'
+      - 'apps/backend/src/rhesis/backend/app/auth/**'
+      - 'tests/docker-compose.test.yml'
+      - '.github/workflows/java-sdk-test.yml'
+  schedule:
+    - cron: '0 2 * * *'
+
+concurrency:
+  group: java-sdk-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      refs: ${{ steps.plan.outputs.refs }}
+    steps:
+      - name: Decide which Java refs to test
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_NIGHTLY: ${{ github.event_name == 'schedule' }}
+        run: |
+          set -euo pipefail
+
+          if [ "$IS_NIGHTLY" != "true" ]; then
+            # PRs get the cheap signal: one backend build, Java main.
+            echo 'refs=["main"]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Nightly also tests the newest published SDK, so we catch breakage that
+          # affects users on the released version even if Java main has moved on.
+          LATEST=$(gh api repos/rhesis-ai/rhesis-java/releases/latest --jq '.tag_name' 2>/dev/null || echo "")
+          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
+            echo "::warning::Could not resolve the latest rhesis-java release; testing main only."
+            echo 'refs=["main"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "Latest rhesis-java release: ${LATEST}"
+            printf 'refs=["main","%s"]\n' "$LATEST" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-java-sdk:
+    name: Java ${{ matrix.ref }} vs this backend
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: ${{ fromJSON(needs.plan.outputs.refs) }}
+    steps:
+      - name: Check out monorepo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check out rhesis-java (${{ matrix.ref }})
+        uses: actions/checkout@v6
+        with:
+          repository: rhesis-ai/rhesis-java
+          ref: ${{ matrix.ref }}
+          path: rhesis-java
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and start backend from this checkout
+        run: |
+          docker compose -f tests/docker-compose.test.yml --profile java \
+            up -d --build --wait
+
+      - name: Seed project scope on the local token
+        run: |
+          set -euo pipefail
+          # The Java suite lists projects in BaseIntegrationTest and needs a
+          # project-scoped token; local_init creates the token unscoped.
+          # token is encrypted at rest, so match on the plaintext obfuscated form.
+          docker compose -f tests/docker-compose.test.yml exec -T java-test-postgres \
+            psql -U rhesis-user -d rhesis-db -v ON_ERROR_STOP=1 -c \
+            "UPDATE token SET project_id = (SELECT id FROM project LIMIT 1)
+             WHERE token_obfuscated = 'rh-...oken';"
+
+          SCOPED=$(docker compose -f tests/docker-compose.test.yml exec -T java-test-postgres \
+            psql -U rhesis-user -d rhesis-db -tAc \
+            "SELECT count(*) FROM token
+             WHERE token_obfuscated = 'rh-...oken' AND project_id IS NOT NULL;")
+          if [ "${SCOPED//[[:space:]]/}" != "1" ]; then
+            echo "::error::rh-local-token was not project-scoped — Quick Start seeding did not produce both a token and a project."
+            exit 1
+          fi
+
+      - name: Run Java SDK tests
+        working-directory: rhesis-java
+        env:
+          RHESIS_API_KEY: rh-local-token
+          RHESIS_BASE_URL: http://localhost:10003
+        run: make test
+
+      - name: Backend logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.test.yml logs --tail 500 java-test-backend
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-sdk-reports-${{ matrix.ref }}
+          path: |
+            rhesis-java/target/surefire-reports/**
+            rhesis-java/target/failsafe-reports/**
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f tests/docker-compose.test.yml --profile java down -v
