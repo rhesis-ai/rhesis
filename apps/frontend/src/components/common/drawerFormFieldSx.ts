@@ -78,6 +78,13 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
   },
 };
 
+/** Editable outlined field: transparent background so the border stands out against the card surface. */
+export const editableOutlinedFieldSx: SxProps<Theme> = {
+  '& .MuiOutlinedInput-root': {
+    backgroundColor: 'transparent',
+  },
+};
+
 /** Read-only outlined field: filled background, no border. */
 export const readOnlyOutlinedFieldSx: SxProps<Theme> = {
   '& .MuiOutlinedInput-notchedOutline': {
