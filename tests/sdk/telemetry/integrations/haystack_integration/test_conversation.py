@@ -4,17 +4,17 @@ import pytest
 
 pytest.importorskip("haystack")
 
-from haystack import Pipeline, component  # noqa: E402
-from rhesis.telemetry.constants import ConversationContext  # noqa: E402
-from rhesis.telemetry.context import get_root_trace_id  # noqa: E402
+from haystack import Pipeline, component
+from rhesis.telemetry.constants import ConversationContext
+from rhesis.telemetry.context import get_root_trace_id
 
-from rhesis.sdk.telemetry.integrations.haystack.conversation import (  # noqa: E402
+from rhesis.sdk.telemetry.integrations.haystack.conversation import (
     DEFAULT_TURN_SPAN_NAME,
     ConversationTurn,
     RhesisTracing,
     _conversation_parent_context,
 )
-from rhesis.sdk.telemetry.integrations.haystack.integration import (  # noqa: E402
+from rhesis.sdk.telemetry.integrations.haystack.integration import (
     HaystackIntegration,
 )
 

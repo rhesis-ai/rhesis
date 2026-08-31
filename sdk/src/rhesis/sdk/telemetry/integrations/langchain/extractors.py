@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 # Re-exported for backwards compatibility; canonical home is attributes.py
-from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH  # noqa: F401
+from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH
 
 logger = logging.getLogger(__name__)
 

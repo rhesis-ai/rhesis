@@ -8,14 +8,14 @@ import pytest
 
 pytest.importorskip("haystack")
 
-from haystack import tracing  # noqa: E402
-from opentelemetry import trace as otel_trace  # noqa: E402
+from haystack import tracing
+from opentelemetry import trace as otel_trace
 
-from rhesis.sdk.telemetry.integrations import get_all_integrations  # noqa: E402
+from rhesis.sdk.telemetry.integrations import get_all_integrations
 from rhesis.sdk.telemetry.integrations.haystack import (
-    integration as integration_module,  # noqa: E402
+    integration as integration_module,
 )
-from rhesis.sdk.telemetry.integrations.haystack.integration import (  # noqa: E402
+from rhesis.sdk.telemetry.integrations.haystack.integration import (
     HaystackIntegration,
     get_integration,
     get_trace_id,
