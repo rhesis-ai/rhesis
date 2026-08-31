@@ -56,6 +56,31 @@ export default async function TestRunPage({
   const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();
 
+  // Test results and traces only need `identifier`; only "can compare"
+  // needs the fetched test run's test set id.
+  const scopedProjectId = (await getServerActiveProjectId()) ?? null;
+  const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
+
+  const testResultsPromise = prefetch(Capability.TestResult.READ, () =>
+    fetchSmallTestRunResults(apiFactory, identifier)
+  );
+  const tracesPagePromise = scopedProjectId
+    ? prefetchList(tracesDescriptor.capability, () =>
+        tracesDescriptor.list(
+          apiFactory,
+          listParams(tracesDescriptor, {
+            page: 1,
+            pageSize: tracesDescriptor.defaultPageSize,
+            sort: tracesDescriptor.defaultSort,
+            filters: {
+              ...emptyFilters(tracesDescriptor),
+              testRunId: identifier,
+            },
+          })
+        )
+      )
+    : Promise.resolve({ initialData: undefined, initialTotalCount: 0 });
+
   let testRun;
   try {
     testRun = await testRunsClient.getTestRun(identifier);
@@ -64,39 +89,16 @@ export default async function TestRunPage({
     throw error;
   }
 
-  // Results for the Summary/Test Cases tabs (small runs only), the "can
-  // compare" check, and page 1 of this run's traces -- so all three tabs
-  // open with their real content (or empty state) instead of a grid
-  // skeleton that flips to empty a moment later.
   const testSetId = testRun.test_configuration?.test_set?.id;
-  const scopedProjectId = (await getServerActiveProjectId()) ?? null;
-  const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
 
   const [testResults, hasComparisonRuns, tracesPage] = await Promise.all([
-    prefetch(Capability.TestResult.READ, () =>
-      fetchSmallTestRunResults(apiFactory, identifier)
-    ),
+    testResultsPromise,
     testSetId
       ? prefetch(Capability.TestRun.READ, () =>
           hasOtherRunsForTestSet(apiFactory, testSetId, identifier)
         )
       : Promise.resolve(false),
-    scopedProjectId
-      ? prefetchList(tracesDescriptor.capability, () =>
-          tracesDescriptor.list(
-            apiFactory,
-            listParams(tracesDescriptor, {
-              page: 1,
-              pageSize: tracesDescriptor.defaultPageSize,
-              sort: tracesDescriptor.defaultSort,
-              filters: {
-                ...emptyFilters(tracesDescriptor),
-                testRunId: identifier,
-              },
-            })
-          )
-        )
-      : Promise.resolve({ initialData: undefined, initialTotalCount: 0 }),
+    tracesPagePromise,
   ]);
 
   // PageLayout is rendered by TestRunMainView, not here: its title carries a

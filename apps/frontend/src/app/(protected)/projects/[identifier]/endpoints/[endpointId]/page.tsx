@@ -32,22 +32,22 @@ export default async function ProjectEndpointPage({ params }: PageProps) {
 
   const factory = await createServerApiFactory();
 
-  let endpoint: Endpoint;
-  try {
-    endpoint = await factory.getEndpointsClient().getEndpoint(endpointId);
-  } catch (error) {
-    notFoundIfEntityMissing(error);
-    throw error;
+  // `project` is looked up from the route param, not from `endpoint`.
+  const [endpointResult, projectResult] = await Promise.allSettled([
+    factory.getEndpointsClient().getEndpoint(endpointId),
+    factory.getProjectsClient().getProject(identifier),
+  ]);
+
+  if (endpointResult.status === 'rejected') {
+    notFoundIfEntityMissing(endpointResult.reason);
+    throw endpointResult.reason;
   }
+  const endpoint: Endpoint = endpointResult.value;
 
   // The project only feeds breadcrumbs, so a failure here falls back to the
   // client fetch instead of failing the page.
-  let project: Project | undefined;
-  try {
-    project = await factory.getProjectsClient().getProject(identifier);
-  } catch {
-    project = undefined;
-  }
+  const project: Project | undefined =
+    projectResult.status === 'fulfilled' ? projectResult.value : undefined;
 
   return (
     <ProjectEndpointDetailPageClient

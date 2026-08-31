@@ -52,6 +52,25 @@ export default async function TestDetailPage({ params }: PageProps) {
   const promptsClient = apiFactory.getPromptsClient();
   const { identifier } = await params;
 
+  // First pages of the Linked Test Sets and Tasks tabs; only need
+  // `identifier`, not `test`.
+  const linkedTestSets = linkedTestSetsList(identifier);
+  const tasks = entityTasksList('Test', identifier);
+  const tabsPromise = Promise.all([
+    prefetchList(linkedTestSets.capability, () =>
+      linkedTestSets.list(apiFactory, firstPageParams(linkedTestSets))
+    ),
+    prefetchList(tasks.capability, () =>
+      tasks.list(apiFactory, firstPageParams(tasks))
+    ),
+    prefetch(Capability.Comment.READ, () =>
+      apiFactory.getCommentsClient().getComments('Test', identifier)
+    ),
+    prefetch(Capability.TestResult.READ, () =>
+      fetchTestExecutionHistory(apiFactory, identifier)
+    ),
+  ]);
+
   let test;
   try {
     test = await testsClient.getTest(identifier);
@@ -75,25 +94,8 @@ export default async function TestDetailPage({ params }: PageProps) {
     content = test.prompt?.content || '';
   }
 
-  // First pages of the Linked Test Sets and Tasks tabs, so they open with
-  // rows in place instead of a spinner.
-  const linkedTestSets = linkedTestSetsList(identifier);
-  const tasks = entityTasksList('Test', identifier);
   const [linkedTestSetsPage, tasksPage, comments, executionHistory] =
-    await Promise.all([
-      prefetchList(linkedTestSets.capability, () =>
-        linkedTestSets.list(apiFactory, firstPageParams(linkedTestSets))
-      ),
-      prefetchList(tasks.capability, () =>
-        tasks.list(apiFactory, firstPageParams(tasks))
-      ),
-      prefetch(Capability.Comment.READ, () =>
-        apiFactory.getCommentsClient().getComments('Test', identifier)
-      ),
-      prefetch(Capability.TestResult.READ, () =>
-        fetchTestExecutionHistory(apiFactory, identifier)
-      ),
-    ]);
+    await tabsPromise;
 
   const title = content
     ? content.length > 45
