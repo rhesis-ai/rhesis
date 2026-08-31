@@ -239,6 +239,8 @@ class WebSocketConnection:
         self.state = ConnectionState.DISCONNECTED
         self.websocket: Optional[ClientConnection] = None
         self._connection_task: Optional[asyncio.Task] = None
+        # Held so the loop's weak reference cannot collect the callback mid-flight.
+        self._on_connect_task: Optional[asyncio.Task] = None
         self._should_reconnect = True
         self._failure_reason: Optional[str] = None
 
@@ -283,6 +285,10 @@ class WebSocketConnection:
             except Exception:
                 pass  # Ignore errors during close
             self.websocket = None
+
+        if self._on_connect_task:
+            self._on_connect_task.cancel()
+            self._on_connect_task = None
 
         if self._connection_task:
             self._connection_task.cancel()
@@ -440,7 +446,7 @@ class WebSocketConnection:
             # Trigger on_connect callback (for registration)
             if self.on_connect:
                 # Assuming on_connect is an async function that returns a coroutine
-                asyncio.create_task(self.on_connect())
+                self._on_connect_task = asyncio.create_task(self.on_connect())
 
             # Listen for messages (blocks until connection closes)
             logger.debug("Starting message listener loop")
