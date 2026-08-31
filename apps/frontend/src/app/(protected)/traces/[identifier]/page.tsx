@@ -1,9 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { Alert, Paper } from '@mui/material';
+import { requireSession } from '@/utils/require-session';
 
 interface TraceByIdPageProps {
   params: Promise<{ identifier: string }>;
@@ -18,44 +17,13 @@ interface TraceByIdPageProps {
 export default async function TraceByIdPage({ params }: TraceByIdPageProps) {
   const { identifier } = await params;
 
-  try {
-    const session = await auth();
-    if (!session || session.error) {
-      return (
-        <Paper sx={{ p: 3 }}>
-          <Alert severity="error">
-            Authentication required. Please sign in to view traces.
-          </Alert>
-        </Paper>
-      );
-    }
+  await requireSession();
 
-    const clientFactory = await createServerApiFactory();
-    const client = clientFactory.getTelemetryClient();
-    const lookup = await client.lookupSpan(identifier);
+  const clientFactory = await createServerApiFactory();
+  const client = clientFactory.getTelemetryClient();
+  const lookup = await client.lookupSpan(identifier);
 
-    redirect(
-      `/traces?open_trace=${encodeURIComponent(lookup.trace_id)}&project_id=${encodeURIComponent(lookup.project_id)}`
-    );
-  } catch (error) {
-    if (
-      error &&
-      typeof error === 'object' &&
-      'digest' in error &&
-      typeof (error as { digest: unknown }).digest === 'string' &&
-      (error as { digest: string }).digest.startsWith('NEXT_REDIRECT')
-    ) {
-      throw error;
-    }
-
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Alert severity="error">
-          {error instanceof Error
-            ? error.message
-            : 'Failed to resolve trace. The trace may have been deleted.'}
-        </Alert>
-      </Paper>
-    );
-  }
+  redirect(
+    `/traces?open_trace=${encodeURIComponent(lookup.trace_id)}&project_id=${encodeURIComponent(lookup.project_id)}`
+  );
 }

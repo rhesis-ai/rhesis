@@ -1,21 +1,17 @@
 import * as React from 'react';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import TaskDetailClient from './components/TaskDetailClient';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
+import { requireSession } from '@/utils/require-session';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
 }
 
 export default async function TaskDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   const { identifier } = await params;
   const apiFactory = await createServerApiFactory();

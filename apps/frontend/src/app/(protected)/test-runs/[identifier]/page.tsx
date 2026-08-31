@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { requireSession } from '@/utils/require-session';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import TestRunMainView from './components/TestRunMainViewClient';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
@@ -47,11 +47,7 @@ export default async function TestRunPage({
   const selectedResult = resolvedSearchParams?.selectedresult;
   const detailTab = resolvedSearchParams?.detailTab;
 
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  const session = await requireSession();
 
   const apiFactory = await createServerApiFactory();
   const testRunsClient = apiFactory.getTestRunsClient();

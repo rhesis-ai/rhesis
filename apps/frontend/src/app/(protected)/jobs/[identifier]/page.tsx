@@ -1,19 +1,15 @@
 import * as React from 'react';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import JobDetailClient from './components/JobDetailClient';
+import { requireSession } from '@/utils/require-session';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
 }
 
 export default async function JobDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   const { identifier } = await params;
   const client = (await createServerApiFactory()).getJobsClient();

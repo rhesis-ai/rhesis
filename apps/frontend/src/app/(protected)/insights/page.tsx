@@ -5,10 +5,10 @@ import {
   QueryClient,
   dehydrate,
 } from '@tanstack/react-query';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { hasServerCapability } from '@/utils/server-permissions';
+import { requireSession } from '@/utils/require-session';
 import { Capability } from '@/constants/capabilities';
 import { endpointKeys } from '@/constants/query-keys';
 import { INSIGHTS_ENDPOINT_COOKIE } from '@/utils/insights-endpoint';
@@ -37,11 +37,7 @@ const ENDPOINT_LIST_PARAMS = {
  * open to "no initial data" so the client falls back to its own fetches.
  */
 export default async function InsightsRoutePage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  await requireSession();
 
   const queryClient = new QueryClient();
   let initialEndpointId: string | undefined;

@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import RequirementDetailClient from './components/RequirementDetailClient';
@@ -8,6 +7,7 @@ import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { fetchRequirementLinkedTests } from './components/linked-tests';
 import type { UUID } from 'crypto';
+import { requireSession } from '@/utils/require-session';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -26,11 +26,7 @@ export async function generateMetadata({
 }
 
 export default async function RequirementDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   const { identifier } = await params;
   // Server-side calls must go through createServerApiFactory: the session

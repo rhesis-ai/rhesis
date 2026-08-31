@@ -1,8 +1,8 @@
-import { auth } from '@/auth';
 import { Capability } from '@/constants/capabilities';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import type { UsageResponse } from '@/utils/api-client/usage-client';
 import { hasServerCapability } from '@/utils/server-permissions';
+import { requireSession } from '@/utils/require-session';
 import UsagePageClient from './components/UsagePageClient';
 
 /**
@@ -12,11 +12,7 @@ import UsagePageClient from './components/UsagePageClient';
  * client falls back to its own fetch (fail open).
  */
 export default async function OrganizationUsagePage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   let initialUsage: UsageResponse | undefined;
   if (await hasServerCapability(Capability.Usage.READ)) {

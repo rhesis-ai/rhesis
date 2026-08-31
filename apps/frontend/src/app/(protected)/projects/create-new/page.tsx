@@ -1,17 +1,11 @@
 import { Box } from '@mui/material';
-import { auth } from '@/auth';
 import CreateProjectClient from './components/CreateProjectClient';
 import { UUID } from 'crypto';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { requireSession } from '@/utils/require-session';
 
 export default async function CreateProjectPage() {
-  const session = await auth();
-
-  // Debug session information
-
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  const session = await requireSession();
 
   if (!session?.user?.id) {
     throw new Error('No user ID available in session');

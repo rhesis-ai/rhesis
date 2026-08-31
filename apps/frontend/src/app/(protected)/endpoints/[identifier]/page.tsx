@@ -1,22 +1,18 @@
 import * as React from 'react';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
 import EndpointDetailPageClient from './components/EndpointDetailPageClient';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { Project } from '@/utils/api-client/interfaces/project';
+import { requireSession } from '@/utils/require-session';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
 }
 
 export default async function EndpointPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   const { identifier } = await params;
 

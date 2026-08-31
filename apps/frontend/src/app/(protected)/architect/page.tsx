@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { hasServerCapability } from '@/utils/server-permissions';
 import { Capability } from '@/constants/capabilities';
 import type { ArchitectSession } from '@/utils/api-client/architect-client';
 import ArchitectClient from './components/ArchitectClient';
+import { requireSession } from '@/utils/require-session';
 
 export const metadata: Metadata = {
   title: 'Architect',
@@ -16,11 +16,7 @@ export const metadata: Metadata = {
  * "no initial data" so the client falls back to its own fetch.
  */
 export default async function ArchitectPage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  await requireSession();
 
   let initialSessions: ArchitectSession[] | undefined;
   if (await hasServerCapability(Capability.Architect.READ)) {

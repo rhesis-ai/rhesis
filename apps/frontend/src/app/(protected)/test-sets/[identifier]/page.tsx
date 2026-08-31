@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { firstPageParams } from '@/utils/list';
+import { requireSession } from '@/utils/require-session';
 import { entityTasksList } from '@/components/tasks/list';
 import { format } from 'date-fns';
 
@@ -36,11 +36,7 @@ export async function generateMetadata({
 }
 
 export default async function TestSetPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  const session = await requireSession();
 
   const { identifier } = await params;
   const apiFactory = await createServerApiFactory();

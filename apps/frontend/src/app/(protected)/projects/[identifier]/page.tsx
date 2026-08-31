@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { requireSession } from '@/utils/require-session';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import type { Project } from '@/utils/api-client/interfaces/project';
 import ClientWrapper from './client-wrapper';
@@ -18,11 +18,7 @@ interface PageProps {
 }
 
 export default async function ProjectDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  await requireSession();
 
   const apiFactory = await createServerApiFactory();
   const projectsClient = apiFactory.getProjectsClient();
