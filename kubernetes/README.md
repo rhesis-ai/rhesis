@@ -77,7 +77,7 @@ kubectl apply -f ./kubernetes/clusters/dev/base.yaml
 kubectl apply -f ./kubernetes/clusters/stg/base.yaml
 
 # prd
-kubectl apply -f ./kubernetes/clusters/prd/base.yaml
+kubectl apply -f ./kubernetes/bootstrap/prd-base.yaml
 ```
 
 After this, ArgoCD manages itself and all resources under `clusters/<env>/` automatically via Git.
@@ -101,12 +101,13 @@ kubernetes/
 ├── base/
 │   ├── cnpg-system/               # CNPG namespace, AppProject, nested Argo CD Application
 │   └── external-secrets/          # Kustomize base (shared templates with placeholders)
-├── bootstrap/argocd/              # ArgoCD installation (Kustomize)
+├── bootstrap/
+│   ├── argocd/                    # ArgoCD installation (Kustomize)
+│   └── prd-base.yaml              # prd's root Application (entry point) — see below for why
 └── clusters/
     ├── dev/                       # Dev environment
     ├── stg/                       # Staging environment
     └── prd/                       # Production environment
-        ├── base.yaml              # Root Application (entry point)
         ├── external-secrets.yaml  # ArgoCD Application for ESO (Kustomize overlay)
         ├── argocd/                # ArgoCD self-management + ingress
         ├── cert-manager/          # TLS certificates
@@ -124,7 +125,7 @@ Any YAML added under `clusters/<env>/` and pushed to `main` is automatically dep
 
 ### Production promotion gate
 
-Dev and stg's root Applications track `targetRevision: main` directly, so config changes roll out as soon as they merge. Prod is different: **every Application manifest under `kubernetes/clusters/prd/` that sources from this repo** — the root `prd-base` (`base.yaml`) and every nested Application it deploys (`cert-manager.yaml`, `cluster-dns-application.yaml`, `rhesis/rhesis-application.yaml`, etc.) — pins `targetRevision` to a **commit SHA**, not `main` and not a release branch name. The only exception is `cnpg-operator.yaml` (see below), which has automated sync disabled and is promoted manually on purpose.
+Dev and stg's root Applications track `targetRevision: main` directly, so config changes roll out as soon as they merge. Prod is different: **every Application manifest that sources from this repo and feeds prd** — the root `prd-base` (`kubernetes/bootstrap/prd-base.yaml`) and every nested Application it deploys (`cert-manager.yaml`, `cluster-dns-application.yaml`, `rhesis/rhesis-application.yaml`, etc.) — pins `targetRevision` to a **commit SHA**, not `main` and not a release branch name. The only exception is `cnpg-operator.yaml` (see below), which has automated sync disabled and is promoted manually on purpose.
 
 Each of these is its own independent ArgoCD Application with its own `syncPolicy.automated` (prune + selfHeal): the root only controls what these child Application *manifests* say, not how the children themselves reconcile. Pinning only the root and leaving children on `release/vX.Y.Z` would leave every child with the exact same dangling-ref risk described below — just one layer deeper.
 
@@ -132,15 +133,23 @@ Each of these is its own independent ArgoCD Application with its own `syncPolicy
 - **Why not a release branch name (the old approach):** this repo has `delete_branch_on_merge` enabled, and `.github/workflows/publish-release.yml` merges the release PR as its last step — which deletes the `release/vX.Y.Z` branch immediately after. An Application pinned to that branch name would be left pointing at a dangling ref. A branch name also has to be hand-edited every sprint.
 - **Why a commit SHA works:** it's immutable and stays reachable (and therefore never garbage-collected) once merged into `main`, even after the branch that carried it is deleted. Promotion becomes "point at a specific commit," decoupled entirely from branch lifecycle.
 
-The SHA is bumped automatically, not by hand: the `promote-prd-config` job in `.github/workflows/publish-release.yml` first commits `targetRevision: $GITHUB_SHA` (the tip of the release branch — the exact commit already validated on stg) into `kubernetes/clusters/prd/base.yaml` **and every other prd Application manifest listed in its `FILES` array** on `main`, then runs `argocd app set prd-base --revision <that write-back commit>` and syncs, as part of the same manual, deliberate "publish this release to prd" action that already ships the backend/frontend/worker images. No separate manual manifest edit is needed, and prd only ever advances when that workflow runs.
+The SHA is bumped automatically, not by hand: the `promote-prd-config` job in `.github/workflows/publish-release.yml` first commits `targetRevision: $GITHUB_SHA` (the tip of the release branch — the exact commit already validated on stg) into `kubernetes/bootstrap/prd-base.yaml` **and every other prd Application manifest listed in its `FILES` array** on `main`, then runs `argocd app set prd-base --revision <that write-back commit>` and syncs, as part of the same manual, deliberate "publish this release to prd" action that already ships the backend/frontend/worker images. No separate manual manifest edit is needed, and prd only ever advances when that workflow runs. If `prd-base` doesn't exist on the cluster yet, the same job creates it from the checked-in manifest before pinning it — see "Why prd's root Application lives in `bootstrap/`" below.
 
 The git write-back has to happen *before* `prd-base` is synced, and `prd-base` is pinned to the **resulting write-back commit**, not to `$GITHUB_SHA` directly. If `prd-base` were pinned straight to `$GITHUB_SHA`, its tree would still show whatever `targetRevision` was last committed for each child — the previous release's, since `$GITHUB_SHA` predates this run's write-back — and because `prd-base`'s own `selfHeal` continuously reconciles against that fixed, immutable commit, it would keep reverting the children to the stale value indefinitely, not just in a brief window. Committing first and pinning `prd-base` to that commit keeps its own source of truth self-consistent from the moment it's synced, so the normal cascade below is actually correct.
 
-Once `prd-base` syncs at that commit, it re-applies every child Application manifest under its path — which now correctly carries the new pinned SHA — so each child's own `automated` policy picks up and reconciles it without any extra per-app `argocd app set`/`sync` call. This keeps every checked-in `targetRevision` truthful: none of them are just a one-time bootstrap value, they always reflect the last commit actually promoted to prd. That matters for disaster recovery — the bootstrap step below (`kubectl apply -f ./kubernetes/clusters/prd/base.yaml`) reads `targetRevision` straight from this file, so a stale value would resurrect prd at an old release instead of the latest one. Adding a new prd Application that sources from this repo means adding it to the `FILES` array and to `kustomization.yaml`.
-
-`base.yaml` itself is deliberately **not** listed in `kustomization.yaml`'s resources — unlike every child, and unlike dev/stg's own `base.yaml`. If it were, `prd-base` would manage its own Application manifest, and every sync would re-apply whatever `targetRevision` is committed *at the commit `prd-base` is currently pinned to* — which can never be that same commit's own hash (a commit can't embed a value that depends on its own not-yet-computed hash). `prd-base`'s live pin would get reverted on every sync. dev/stg don't have this problem because their roots track `targetRevision: main` (a moving branch ref, not an imperative SHA pin), so self-managing `base.yaml` there is a legitimate drift guard rather than a self-defeating one.
+Once `prd-base` syncs at that commit, it re-applies every child Application manifest under its path — which now correctly carries the new pinned SHA — so each child's own `automated` policy picks up and reconciles it without any extra per-app `argocd app set`/`sync` call. This keeps every checked-in `targetRevision` truthful: none of them are just a one-time bootstrap value, they always reflect the last commit actually promoted to prd. That matters for disaster recovery — the bootstrap step below (`kubectl apply -f ./kubernetes/bootstrap/prd-base.yaml`) reads `targetRevision` straight from this file, so a stale value would resurrect prd at an old release instead of the latest one. Adding a new prd Application that sources from this repo means adding it to the `FILES` array and to `kustomization.yaml`.
 
 This is a variant of the manual stg→prd promotion pattern used below for the CNPG operator Application (validate on stg, then bump the ref on prd) — here the "bump the ref" step is automated because it happens at a moment a human already triggered on purpose.
+
+### Why prd's root Application lives in `bootstrap/`
+
+Unlike dev/stg, `prd-base` is not defined anywhere under `kubernetes/clusters/prd/` — it lives in `kubernetes/bootstrap/prd-base.yaml`, outside every tree ArgoCD syncs. Two separate problems make that necessary:
+
+**The self-reference problem.** If `prd-base`'s own manifest were listed in `kubernetes/clusters/prd/kustomization.yaml` like every child Application, `prd-base` would manage its own Application object, and every sync would re-apply whatever `targetRevision` is committed *at the commit `prd-base` is currently pinned to* — which can never be that same commit's own hash (a commit can't embed a value that depends on its own not-yet-computed hash). `prd-base`'s live pin would get reverted on every sync. dev/stg don't have this problem because their roots track `targetRevision: main` (a moving branch ref, not an imperative SHA pin), so self-managing their own `base.yaml` there is a legitimate drift guard rather than a self-defeating one.
+
+**The prune problem.** Keeping `prd-base`'s manifest out of `kustomization.yaml` while still committing it under `kubernetes/clusters/prd/` doesn't work either: ArgoCD would see a resource it once tracked (because it's inside the synced path) but no longer finds referenced from `kustomization.yaml`, and `prune: true` would delete `prd-base` itself — taking every child Application with it. That's why the manifest has to sit fully outside `kubernetes/clusters/prd/`, in `kubernetes/bootstrap/`, where ArgoCD's prune logic for that Application never looks at it at all. The manifest also carries `argocd.argoproj.io/sync-options: Prune=false` as a second layer of protection — read off the live object when there's no target manifest — and a `argocd.argoproj.io/tracking-id` annotation must never be reintroduced on the live object (e.g. by briefly re-listing the manifest in a synced kustomization), since ArgoCD would then flag `prd-base` for pruning, skip the prune because of `Prune=false`, and fail the sync outright with `N resources require pruning`.
+
+Because `prd-base` is bootstrap rather than GitOps-managed, nothing on the cluster recreates it if it's ever deleted — a missing `prd-base` used to surface as a confusing ArgoCD `PermissionDenied` (its response for any nonexistent app) rather than a clear "not found." `promote-prd-config` now checks for `prd-base` before pinning it and creates it from `kubernetes/bootstrap/prd-base.yaml` if missing, so a missing root Application self-heals during the next release instead of failing as an auth error.
 
 ### CloudNativePG operator (`cnpg-system`)
 
