@@ -38,7 +38,6 @@ import {
   type BatchRunOutcome,
 } from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
-import { hasOtherRunsForTestSet } from './comparison-runs';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import {
   getTestEvaluationSummary,
@@ -97,6 +96,11 @@ interface TestRunMainViewProps {
    * see `TestRunTracesTab`. */
   initialTraces?: TraceSummary[];
   initialTracesTotalCount?: number;
+  /** Whether the test set for this run still exists (server-prefetched). `undefined` means the
+   * check was skipped (no capability or no test set ID). */
+  initialTestSetExists?: boolean;
+  /** Whether other runs exist on the same test set (server-prefetched). */
+  initialHasComparisonRuns?: boolean;
 }
 
 export default function TestRunMainView({
@@ -112,6 +116,8 @@ export default function TestRunMainView({
   initialVerdictMatrix,
   initialTraces,
   initialTracesTotalCount,
+  initialTestSetExists,
+  initialHasComparisonRuns = false,
 }: TestRunMainViewProps) {
   const testRun = useLiveTestRun(testRunId, initialTestRun);
   // Already watching this run live on screen -- a completion notification
@@ -164,12 +170,8 @@ export default function TestRunMainView({
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  // Whether another test run exists on the same test set to compare against.
-  // Client-only: it only gates the Compare FAB's enabled state, not any
-  // rendered content, so it isn't worth a server round trip on every load.
-  const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
-  const [testSetExists, setTestSetExists] = useState<boolean | null>(null);
-  const [testSetCheckError, setTestSetCheckError] = useState(false);
+  const hasComparisonRuns = initialHasComparisonRuns;
+  const testSetExists = initialTestSetExists ?? null;
 
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
@@ -398,63 +400,6 @@ export default function TestRunMainView({
     setIsRerunDrawerOpen(true);
   }, [testRun, notifications, testSetExists]);
 
-  const testSetId = testRun.test_configuration?.test_set?.id;
-
-  useEffect(() => {
-    if (!testSetId) {
-      setTestSetExists(false);
-      setTestSetCheckError(false);
-      return;
-    }
-    let cancelled = false;
-    setTestSetCheckError(false);
-    (async () => {
-      try {
-        await new ApiClientFactory().getTestSetsClient().getTestSet(testSetId);
-        if (!cancelled) {
-          setTestSetExists(true);
-          setTestSetCheckError(false);
-        }
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const status = (err as { status?: number })?.status;
-        if (status === 404 || status === 410) {
-          setTestSetExists(false);
-          setTestSetCheckError(false);
-        } else {
-          setTestSetExists(null);
-          setTestSetCheckError(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [testSetId]);
-
-  useEffect(() => {
-    if (!testSetId) {
-      setHasComparisonRuns(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const has = await hasOtherRunsForTestSet(
-          new ApiClientFactory(),
-          testSetId,
-          testRunId
-        );
-        if (!cancelled) setHasComparisonRuns(has);
-      } catch {
-        if (!cancelled) setHasComparisonRuns(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [testSetId, testRunId]);
-
   const handleCompare = useCallback(() => {
     window.open(
       `/test-runs/${testRunId}/compare`,
@@ -549,11 +494,7 @@ export default function TestRunMainView({
         ? 'You do not have permission to re-run tests'
         : !testRun.test_configuration_id
           ? 'Cannot re-run: No test configuration found'
-          : testSetCheckError
-            ? "Couldn't verify test set availability"
-            : testSetExists === null
-              ? 'Checking test set…'
-              : 'Re-run test';
+          : 'Re-run test';
 
   const title = testRun.name?.trim() || `Test Run ${testRunId}`;
 

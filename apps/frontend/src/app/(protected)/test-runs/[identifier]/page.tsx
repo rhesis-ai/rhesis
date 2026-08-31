@@ -6,6 +6,7 @@ import TestRunMainView from './components/TestRunMainViewClient';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { fetchSmallTestRunResults } from './hooks/test-run-results';
+import { hasOtherRunsForTestSet } from './components/comparison-runs';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { emptyFilters, listParams } from '@/utils/list';
 import { tracesList } from '@/app/(protected)/traces/components/list';
@@ -82,7 +83,15 @@ export default async function TestRunPage({
   const scopedProjectId = (await getServerActiveProjectId()) ?? null;
   const tracesDescriptor = tracesList(scopedProjectId, apiFactory);
 
-  const [testResults, verdictMatrix, tracesPage] = await Promise.all([
+  const testSetId = testRun.test_configuration?.test_set?.id;
+
+  const [
+    testResults,
+    verdictMatrix,
+    tracesPage,
+    testSetExists,
+    hasComparisonRuns,
+  ] = await Promise.all([
     wantsLinkedEntities
       ? prefetch(Capability.TestResult.READ, () =>
           fetchSmallTestRunResults(apiFactory, identifier)
@@ -109,6 +118,19 @@ export default async function TestRunPage({
           )
         )
       : Promise.resolve({ initialData: undefined, initialTotalCount: 0 }),
+    testSetId
+      ? prefetch(Capability.TestSet.READ, () =>
+          apiFactory
+            .getTestSetsClient()
+            .getTestSet(testSetId)
+            .then(() => true)
+        )
+      : Promise.resolve(false),
+    testSetId
+      ? prefetch(Capability.TestRun.READ, () =>
+          hasOtherRunsForTestSet(apiFactory, testSetId, testRun.id)
+        )
+      : Promise.resolve(false),
   ]);
 
   // PageLayout is rendered by TestRunMainView, not here: its title carries a
@@ -140,6 +162,8 @@ export default async function TestRunPage({
       initialVerdictMatrix={verdictMatrix}
       initialTraces={tracesPage.initialData}
       initialTracesTotalCount={tracesPage.initialTotalCount}
+      initialTestSetExists={testSetExists ?? undefined}
+      initialHasComparisonRuns={hasComparisonRuns ?? false}
     />
   );
 }
