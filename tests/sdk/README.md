@@ -1,97 +1,97 @@
-# 📦 SDK Testing Guide
+# SDK tests
 
-> **Python SDK testing patterns for the Rhesis SDK** 🐍
+Tests for the Python SDK in `sdk/`. The layout mirrors `sdk/src/rhesis/sdk/`, so a test file sits
+in the same relative path as the module it covers.
 
-This guide covers testing patterns specific to the Rhesis Python SDK, including HTTP client testing, mocking, and integration testing.
-
-## 📋 Table of Contents
-
-- [🏗️ SDK Test Architecture](#%EF%B8%8F-sdk-test-architecture)
-- [⚙️ Configuration & Setup](#%EF%B8%8F-configuration--setup)
-- [🧩 Unit Testing](#-unit-testing)
-- [🔗 Integration Testing](#-integration-testing)
-- [🌐 HTTP Client Testing](#-http-client-testing)
-- [📚 Documentation Testing](#-documentation-testing)
-
-## 🏗️ SDK Test Architecture
-
-### 📁 Directory Structure
 ```
 tests/sdk/
-├── 📖 README.md              # This guide
-├── ⚙️ conftest.py           # SDK-specific fixtures
-├── 🧪 test_client.py        # Core SDK client tests
-├── 🧪 test_entities.py      # Entity model tests
-├── 🧪 test_authentication.py # Auth handling tests
-└── 📁 integration/          # Integration tests
-    ├── test_api_integration.py
-    └── test_full_workflow.py
+├── pytest.ini          # testpaths + markers for this suite
+├── conftest.py         # API key env vars, source-specification fixtures
+├── agents/             # incl. agents/mcp/ — MCP client, executor, provider templates
+├── connector/          # executor, manager, registry, serializer, bind params
+├── entities/           # Test, TestSet, TestResult, Endpoint, Model, File, Insights
+├── metrics/            # providers/{native,deepeval,garak}/ and conversational/
+├── models/             # providers/ — one file per LLM provider
+├── services/           # chunker, extractor
+├── synthesizers/       # prompt, multi-turn, OWASP
+├── telemetry/          # tracing, exporter, integrations/ per framework
+├── test_client.py      # APIClient, plus other root-level cross-cutting tests
+└── integration/        # needs the Docker stack; everything else is offline
 ```
 
-## ⚙️ Configuration & Setup
+## Running
 
-*This section will be expanded with SDK-specific testing configuration, including:*
-- HTTP client mocking strategies
-- Authentication testing patterns
-- Retry logic testing
-- Error handling verification
-
-## 🧩 Unit Testing
-
-*This section will cover:*
-- SDK method testing patterns
-- Entity validation testing
-- Configuration testing
-- Client initialization
-
-## 🔗 Integration Testing
-
-*This section will include:*
-- Real API integration tests
-- End-to-end workflow testing
-- Network error simulation
-- Authentication flow testing
-
-## 🌐 HTTP Client Testing
-
-*This section will detail:*
-- HTTP request/response mocking
-- Request header validation
-- Rate limiting testing
-- Timeout handling
-
-## 📚 Documentation Testing
-
-*This section will cover:*
-- Docstring example testing
-- README code block validation
-- Tutorial verification
-- API documentation accuracy
-
-## 🚀 Running SDK Tests
+Run from `sdk`, so `uv` resolves that project's environment (which has the SDK installed as an
+editable package). Config comes from `tests/sdk/pytest.ini`, which pytest picks as the configfile —
+not from `sdk/pyproject.toml`.
 
 ```bash
-# All SDK tests
-pytest tests/sdk/ -v
-
-# Unit tests only
-pytest tests/sdk/ -m unit -v
-
-# Integration tests only
-pytest tests/sdk/ -m integration -v
-
-# Coverage report
-pytest tests/sdk/ --cov=rhesis_sdk --cov-report=html
+cd sdk
+make test                  # unit tests only; ignores ../tests/sdk/integration
+make test-integration      # starts the Docker stack via docker-up, then runs everything
+make test-coverage         # --cov=src/rhesis, term-missing + html
+uv run pytest ../tests/sdk/entities/test_test_set.py -v   # single file
+uv run pytest ../tests/sdk/integration/test_entities.py::test_endpoint
 ```
 
-## 📚 Additional Resources
+Imports in test files are absolute, like the rest of the repo:
+`from rhesis.sdk.clients import APIClient`.
 
-- [Main Testing Guide](../README.md) - Universal testing principles
-- [Backend Testing Guide](../backend/) - Backend API patterns
-- [Requests-Mock Documentation](https://requests-mock.readthedocs.io/) - HTTP mocking
+## Unit tests
 
----
+No HTTP mocking library — `unittest.mock`'s `patch`/`Mock` for the transport, `monkeypatch` for
+environment variables:
 
-**📦 Happy SDK Testing!** 🐍
+```python
+from unittest.mock import Mock, patch
 
-*This guide is under development. Contributions welcome!* 
+from rhesis.sdk.clients import APIClient
+
+
+def test_client_uses_env_api_key(monkeypatch):
+    monkeypatch.setenv("RHESIS_API_KEY", "env_test_key")
+    assert APIClient().api_key == "env_test_key"
+```
+
+`conftest.py` sets `RHESIS_API_KEY` (to `rh-test-token`) and `GEMINI_API_KEY` on every test via an
+autouse fixture, so nothing reaches a real provider by accident. It also provides `text_source`,
+`document_source` and `website_source` fixtures returning `SourceSpecification` objects for the
+extractor tests.
+
+## Integration tests
+
+`integration/` runs against a real backend from `tests/docker-compose.test.yml`'s `sdk` profile:
+PostgreSQL on 10001, Redis on 10002, backend on 10003. Docker must be running; `make
+test-integration` brings the stack up itself, or start it separately with `make docker-up`.
+
+```bash
+cd sdk
+make docker-up
+uv run pytest ../tests/sdk/integration -v
+make docker-down     # docker-clean also drops volumes
+
+# backend logs:
+docker compose -f ../tests/docker-compose.test.yml --profile sdk logs sdk-test-backend
+```
+
+If the tests fail with connection or container errors, that's Docker — don't work around it in the
+test code.
+
+`integration/conftest.py` does the setup, session-scoped and autouse:
+
+1. Polls `http://localhost:10003/health` for up to 60s.
+2. Truncates `token`, `user`, `organization`, `metric`.
+3. Inserts an organization, user, API token and a fixed project (`1234…`) with a membership row,
+   straight over psycopg2 — not through the API.
+
+Two constraints that break things silently if missed:
+
+- The token value must be Fernet-encrypted with the same `DB_ENCRYPTION_KEY` as the compose file.
+  The backend reads `token.token` as an `EncryptedString`, so a plaintext row makes every
+  authenticated request fail with `DecryptionError`.
+- The token is scoped to the fixed project. Without `project_id`, the `project_isolation` RLS
+  policy hides project-scoped rows from routes that take no project in their path — the SDK never
+  sends `X-Project-Id`, so it has no other way to set `app.current_project`.
+
+Tests that write entities should take the `db_cleanup` fixture, which truncates `metric`,
+`requirement` and `model` before and after each test.
