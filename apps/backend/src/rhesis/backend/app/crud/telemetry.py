@@ -336,15 +336,13 @@ def query_traces(
     #    Uses a window function so pagination total comes from the same query.
     total_col = func.count().over().label("total_count")
 
-    # -- Columns 4/5: tags_count/comments_count — correlated counts, same
-    #    style as span_count_col, so the list view doesn't need to eager-load
-    #    the full tag/comment rows just to know how many there are.
     tags_count_col = (
         select(func.count(models.TaggedItem.id))
         .where(
             and_(
                 models.TaggedItem.entity_id == models.Trace.id,
                 models.TaggedItem.entity_type == models.Trace.__name__,
+                models.TaggedItem.deleted_at.is_(None),
             )
         )
         .scalar_subquery()
