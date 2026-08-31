@@ -20,6 +20,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.outcomes import classify_metrics
 from rhesis.backend.app.services.test_run import get_verdict_matrix
+from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
 
@@ -1169,3 +1170,133 @@ class TestGetTestOutcomesForRun:
         assert outcomes[str(tests["error"].id)] == "error"
         assert outcomes[str(tests["cancelled"].id)] == "cancelled"
         assert outcomes[str(tests["not_run"].id)] == "pending"
+
+
+class TestVerdictMatrixCaching:
+    """A terminal run's matrix is cached in VerdictMatrixCache; a live run's never is.
+
+    See services/verdict_matrix_cache.py's module docstring for why only terminal
+    runs are cached, and routers/test_result.py's three review endpoints for the
+    invalidation call sites this exercises.
+    """
+
+    @staticmethod
+    def _mark_terminal(test_db: Session, test_run, org_id, user_id):
+        """Give *test_run* a terminal status -- verdict_matrix_setup's own
+        db_status fixture is named "Active", which is never terminal."""
+        terminal_status = get_or_create_status(
+            test_db, "Completed", "TestRun", organization_id=str(org_id), user_id=str(user_id)
+        )
+        test_run.status_id = terminal_status.id
+        test_db.commit()
+        test_db.refresh(test_run)
+        return test_run
+
+    def test_completed_run_is_cached(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        assert get_verdict_matrix_cache().get(str(test_run.id), None) is None
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        assert matrix.is_terminal is True
+        cached = get_verdict_matrix_cache().get(str(test_run.id), None)
+        assert cached is not None
+
+    def test_completed_run_serves_stale_data_until_invalidated(
+        self, test_db: Session, verdict_matrix_setup
+    ):
+        """Demonstrates the cache actually short-circuits recomputation: a
+        metrics change made without going through the invalidating write path
+        (add/update/delete review) is invisible until invalidate() runs."""
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        first = get_verdict_matrix(test_db, test_run)
+        assert first.kpis.reviews_count == 0
+
+        # Simulate a review landing on test_a's result -- bypassing the real
+        # add_review endpoint (and its cache invalidation) on purpose.
+        passed_result = (
+            test_db.query(models.TestResult)
+            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
+            .one()
+        )
+        passed_result.test_reviews = {
+            "reviews": [{"review_id": "r1", "status": {"name": "Passed"}}]
+        }
+        test_db.commit()
+
+        stale = get_verdict_matrix(test_db, test_run)
+        assert stale.kpis.reviews_count == 0  # still the cached value, not recomputed
+
+        get_verdict_matrix_cache().invalidate(str(test_run.id))
+
+        fresh = get_verdict_matrix(test_db, test_run)
+        assert fresh.kpis.reviews_count == 1
+
+    def test_live_run_is_never_cached(self, test_db: Session, verdict_matrix_setup):
+        """verdict_matrix_setup's db_status ("Active") is non-terminal by construction --
+        this asserts the cache is never populated for it, not just that reads bypass it."""
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        assert matrix.is_terminal is False
+        assert get_verdict_matrix_cache().get(str(test_run.id), None) is None
+
+    def test_columns_none_and_default_are_cached_separately(
+        self, test_db: Session, verdict_matrix_setup
+    ):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        with_ids = get_verdict_matrix(test_db, test_run, columns=None)
+        without_ids = get_verdict_matrix(test_db, test_run, columns="none")
+
+        assert with_ids.test_ids is not None
+        assert without_ids.test_ids is None
+
+    def test_unparseable_cache_entry_recomputes_instead_of_raising(
+        self, test_db: Session, verdict_matrix_setup
+    ):
+        """An entry written before a VerdictMatrix schema change must not 500 the
+        grid -- it is discarded and recomputed, then overwritten."""
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        get_verdict_matrix_cache().set(str(test_run.id), None, '{"obsolete_shape": true}')
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        assert matrix.test_run_id == test_run.id
+        # The bad entry is replaced, so the next read is a normal hit.
+        assert get_verdict_matrix_cache().get(str(test_run.id), None) != '{"obsolete_shape": true}'

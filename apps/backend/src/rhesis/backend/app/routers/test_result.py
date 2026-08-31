@@ -32,6 +32,7 @@ from rhesis.backend.app.services.review_override import (
     apply_review_override,
     revert_override,
 )
+from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
@@ -377,6 +378,8 @@ def add_review(
     # immediately following GET /test_results/{id} call on the frontend.
     # Without this, FastAPI's dependency-cleanup commit races the next request.
     db.commit()
+    # A new review can change kpis.reviews_count on the run's verdict matrix.
+    get_verdict_matrix_cache().invalidate(str(db_test_result.test_run_id))
 
     populate_review_permitted_actions([new_review])
     return new_review
@@ -505,6 +508,9 @@ def update_review(
     db.flush()
     db.refresh(db_test_result)
     db.commit()
+    # A status/target change can flip has_override/effective_success on the
+    # run's verdict matrix, and a status change can affect reviews_count.
+    get_verdict_matrix_cache().invalidate(str(db_test_result.test_run_id))
 
     populate_review_permitted_actions([review_to_update])
     return review_to_update
@@ -609,6 +615,8 @@ def delete_review(
 
     db.flush()
     db.commit()
+    # Deleting a review reverts its override and changes reviews_count.
+    get_verdict_matrix_cache().invalidate(str(db_test_result.test_run_id))
 
     return {
         "message": "Review deleted successfully",
