@@ -103,7 +103,10 @@ _TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS = (
 
 
 def get_test_run_for_verdict_matrix(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_run_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestRun]:
     """Minimal ``TestRun`` load for the verdict-matrix endpoint -- see
     ``_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS`` for what it does and doesn't load."""
