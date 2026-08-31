@@ -587,7 +587,6 @@ class TestTagAssignments(TagTestMixin, BaseEntityTests):
 # === TAG PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestTagPerformance(TagTestMixin, BaseEntityTests):
     """Tag performance tests"""
 

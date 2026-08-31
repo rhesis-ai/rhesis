@@ -99,7 +99,6 @@ def _create_test(
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestFindUnusedTestSetName:
     """🏷️ Explorer import naming"""
 
@@ -160,7 +159,6 @@ class TestFindUnusedTestSetName:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestGetTestInTestSet:
     """🔎 Membership-scoped test lookup"""
 
@@ -233,7 +231,6 @@ class TestGetTestInTestSet:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestGetTestsUnderTopic:
     """🌳 Topic subtree matching"""
 
@@ -342,7 +339,6 @@ class TestGetTestsUnderTopic:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestCreateExplorerTest:
     """➕ The prompt+test insert pair"""
 
@@ -406,7 +402,6 @@ class TestCreateExplorerTest:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestUpdateExplorerTest:
     """✏️ Selective test updates"""
 
@@ -492,7 +487,6 @@ class TestUpdateExplorerTest:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestReassignTestsTopic:
     """🔀 Moving tests between topics"""
 
@@ -538,7 +532,6 @@ class TestReassignTestsTopic:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestRemoveTestsFromTestSet:
     """✂️ Detaching tests from a set"""
 
@@ -618,7 +611,6 @@ class TestRemoveTestsFromTestSet:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestAdaptiveSettingsWrites:
     """⚙️ Replace vs patch on adaptive_settings"""
 
@@ -674,7 +666,6 @@ class TestAdaptiveSettingsWrites:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestSetExplorerTestMetadata:
     """📝 Batched metadata writes"""
 

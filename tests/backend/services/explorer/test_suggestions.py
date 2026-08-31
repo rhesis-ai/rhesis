@@ -58,7 +58,6 @@ async def _collect(stream):
 
 
 @pytest.mark.integration
-@pytest.mark.service
 @pytest.mark.asyncio
 class TestInvokeEndpointForSuggestionsStream:
     """Test the NDJSON stream that generates outputs for non-persisted suggestions."""
@@ -194,7 +193,6 @@ class TestInvokeEndpointForSuggestionsStream:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 @pytest.mark.asyncio
 class TestEvaluateSuggestionsStream:
     """Test the NDJSON stream that evaluates non-persisted suggestion outputs."""
@@ -331,7 +329,6 @@ async def _fake_suggestion_stream(items):
 
 
 @pytest.mark.integration
-@pytest.mark.service
 @pytest.mark.asyncio
 class TestSuggestionPipelineStream:
     """Test the unified generate → embed → invoke → evaluate NDJSON stream."""

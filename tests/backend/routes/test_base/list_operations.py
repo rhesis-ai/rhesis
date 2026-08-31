@@ -18,7 +18,6 @@ fake = Faker()
 
 
 @pytest.mark.integration
-@pytest.mark.critical
 class BaseListOperationTests(BaseEntityTests):
     """Base class for list operation tests"""
 

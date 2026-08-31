@@ -609,7 +609,6 @@ class TestStatusHierarchy(StatusTestMixin, BaseEntityTests):
 # === STATUS PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestStatusPerformance(StatusTestMixin, BaseEntityTests):
     """Status performance tests"""
 

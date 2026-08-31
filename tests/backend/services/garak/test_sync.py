@@ -17,7 +17,6 @@ fake = Faker()
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestSyncResultDataclass:
     """Tests for SyncResult dataclass."""
 
@@ -39,7 +38,6 @@ class TestSyncResultDataclass:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceInit:
     """Tests for GarakSyncService initialization."""
 
@@ -52,7 +50,6 @@ class TestGarakSyncServiceInit:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceCanSync:
     """Tests for can_sync method."""
 
@@ -130,7 +127,6 @@ class TestGarakSyncServiceCanSync:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceSoftDeleteContract:
     """A soft-deleted test set must not be treated as syncable, and must not
     crash any of the four lookups with an unhandled ItemDeletedException."""
@@ -187,7 +183,6 @@ class TestGarakSyncServiceSoftDeleteContract:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceProbeIds:
     """Tests for probe ID extraction."""
 
@@ -295,7 +290,6 @@ class TestGarakSyncServiceProbeIds:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceSyncTestSet:
     """Tests for sync_test_set method."""
 
@@ -333,7 +327,6 @@ class TestGarakSyncServiceSyncTestSet:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceLegacySyncSafety:
     """Regression tests for a critical PR review finding: preloaded probe data
     that resolves to zero probes for a non-empty legacy module list must never
@@ -404,7 +397,6 @@ class TestGarakSyncServiceLegacySyncSafety:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceSyncPreview:
     """Tests for get_sync_preview method."""
 
@@ -541,7 +533,6 @@ class TestGarakSyncServiceSyncPreview:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceGetProbe:
     """Tests for _get_probe helper method."""
 
@@ -598,7 +589,6 @@ class TestGarakSyncServiceGetProbe:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceResolveSyncTarget:
     """Tests for resolve_sync_target.
 

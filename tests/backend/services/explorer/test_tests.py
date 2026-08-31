@@ -108,7 +108,6 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerTreeNodes:
     """Test get_tree_nodes - returns all nodes including topic markers."""
 
@@ -164,7 +163,6 @@ class TestExplorerTreeNodes:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerTreeTests:
     """Test get_tree_tests - returns only test nodes (no topic markers)."""
 
@@ -219,7 +217,6 @@ class TestExplorerTreeTests:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerTreeTopics:
     """Test get_tree_topics - returns TopicNode objects."""
 
@@ -267,7 +264,6 @@ class TestExplorerTreeTopics:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestGetExplorerTestSets:
     """Test get_explorer_test_sets - returns test sets flagged as Explorer-owned."""
 
@@ -401,7 +397,6 @@ class TestGetExplorerTestSets:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestCreateExplorerTestSet:
     """Test create_explorer_test_set - creates a test set for adaptive testing."""
 
@@ -457,7 +452,6 @@ class TestCreateExplorerTestSet:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestDeleteExplorerTestSet:
     """Test delete_explorer_test_set - removes adaptive test sets only."""
 
@@ -656,7 +650,6 @@ class TestBulkDeleteExplorerTestSets:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestCreateTestNode:
     """Test create_test_node - creates test nodes in a test set."""
 
@@ -829,7 +822,6 @@ class TestCreateTestNode:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestUpdateTestNode:
     """Test update_test_node - updates test nodes in a test set."""
 
@@ -964,7 +956,6 @@ class TestUpdateTestNode:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestDeleteTestNode:
     """Test delete_test_node - deletes test nodes from a test set."""
 
@@ -1086,7 +1077,6 @@ class TestDeleteTestNode:
 # ============================================================================
 
 
-@pytest.mark.service
 class TestImportExplorerTestSetFromSource:
     """Test import_explorer_test_set_from_source."""
 
@@ -1234,7 +1224,6 @@ class TestImportExplorerTestSetFromSource:
 # ============================================================================
 
 
-@pytest.mark.service
 class TestExportRegularTestSetFromExplorer:
     """Test export_regular_test_set_from_explorer."""
 

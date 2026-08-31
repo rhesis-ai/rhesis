@@ -366,7 +366,6 @@ def _run(test_db: Session, metric: models.Metric, org_id, *results, user_id=None
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestStartTuningRun:
     """POST /metrics/{metric_id}/tuning/run"""
 
@@ -532,7 +531,6 @@ class TestStartTuningRun:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestReadTuningRun:
     """GET /metrics/{metric_id}/tuning/run"""
 
@@ -572,7 +570,6 @@ class TestReadTuningRun:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRunResults:
     """What a finished run leaves on the cases."""
 
@@ -908,7 +905,6 @@ class TestRunResults:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRunsAndStandingReviews:
     """What a re-run does to the reviews already on the cases.
 
@@ -1012,7 +1008,6 @@ class TestRunsAndStandingReviews:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestAgreement:
     """The one number for the whole set, read off GET /tuning/run.
 
@@ -1243,7 +1238,6 @@ class TestAgreement:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestARunThatNeverFinishes:
     """A `running` claim nobody is behind must not wedge the metric forever.
 
@@ -1372,7 +1366,6 @@ class TestARunThatNeverFinishes:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestADispatchThatNeverReachesAWorker:
     """The claim is committed before dispatch, so a broker failure needs releasing.
 
@@ -1427,7 +1420,6 @@ class TestADispatchThatNeverReachesAWorker:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestARunThatPredatesItsMetric:
     """Whether the numbers on screen still belong to the metric above them.
 

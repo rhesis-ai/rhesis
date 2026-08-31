@@ -62,7 +62,6 @@ class StorageIntegrationTestMixin(StorageIntegrationTestMixin):
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestStorageServiceIntegration(StorageIntegrationTestMixin, BaseStorageIntegrationTests):
     """Integration tests for StorageService with real file operations."""
 
@@ -234,7 +233,6 @@ class TestStorageServiceIntegration(StorageIntegrationTestMixin, BaseStorageInte
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageIntegrationTests):
     """Integration tests for DocumentHandler with real storage operations."""
 
@@ -408,7 +406,6 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestStorageServiceEnvironmentConfigurations(
     StorageIntegrationTestMixin, BaseStorageIntegrationTests
 ):

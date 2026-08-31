@@ -20,7 +20,7 @@ from rhesis.backend.app.services.test_interpretation import (
     interpret_test_configuration,
 )
 
-pytestmark = [pytest.mark.integration, pytest.mark.ai, pytest.mark.slow]
+pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 
 # One intent, phrased the three ways authors actually phrase it. These must be indistinguishable

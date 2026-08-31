@@ -18,7 +18,6 @@ from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestTestSetSoftDeleteContract:
     """A soft-deleted test set must raise ItemDeletedException, not return None."""
 
@@ -74,7 +73,6 @@ class TestTestSetSoftDeleteContract:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestUpdateTestSetAttributesSoftDeleteHandling:
     """update_test_set_attributes must still no-op when a linked test set is deleted.
 

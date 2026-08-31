@@ -625,7 +625,6 @@ class TestTokenManagement(TokenTestMixin, BaseEntityTests):
 # === TOKEN PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestTokenPerformance(TokenTestMixin, BaseEntityTests):
     """Token performance tests"""
 

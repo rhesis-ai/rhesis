@@ -16,7 +16,6 @@ from rhesis.backend.app.services.garak.probes.service import _get_enumeration_lo
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeInfoDataclass:
     """Tests for GarakProbeInfo dataclass."""
 
@@ -56,7 +55,6 @@ class TestGarakProbeInfoDataclass:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakModuleInfoDataclass:
     """Tests for GarakModuleInfo dataclass."""
 
@@ -92,7 +90,6 @@ class TestGarakModuleInfoDataclass:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceInit:
     """Tests for GarakProbeService initialization."""
 
@@ -195,7 +192,6 @@ class TestGarakProbeServiceInit:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceProbeChecking:
     """Tests for probe class checking."""
 
@@ -233,7 +229,6 @@ class TestGarakProbeServiceProbeChecking:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceEnumeration:
     """Tests for probe enumeration."""
 
@@ -315,7 +310,6 @@ class TestGarakProbeServiceEnumeration:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceExtraction:
     """Tests for probe extraction."""
 
@@ -368,7 +362,6 @@ class TestGarakProbeServiceExtraction:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceHelpers:
     """Tests for helper methods."""
 
@@ -408,7 +401,6 @@ class TestGarakProbeServiceHelpers:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGeneratorPlaceholder:
     """Tests for the generator placeholder constant."""
 
@@ -418,7 +410,6 @@ class TestGeneratorPlaceholder:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceGetProbe:
     """Tests for get_probe/get_probes_for_module cache-preferring lookups."""
 
@@ -482,7 +473,6 @@ class TestGarakProbeServiceGetProbe:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakProbeServiceEnumerateCachedConcurrency:
     """Regression test for a cache-stampede bug: enumerate_probe_modules_cached
     offloads the cold-cache "enumerate + populate" path to a worker thread so

@@ -58,7 +58,6 @@ def create_endpoint_data(**overrides):
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestTestSetAssociations:
     """Test test set association operations."""
 
@@ -200,7 +199,6 @@ class TestTestSetAssociations:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestTestSetExecution:
     """Test test set execution operations."""
 
@@ -587,7 +585,6 @@ class TestTestSetExecution:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestTestSetGeneration:
     """Test test set generation with custom names."""
 
@@ -654,7 +651,6 @@ class TestTestSetGeneration:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestBulkCreateEnforcesUniformTestType:
     def test_prompt_only_test_rejected_for_multi_turn_set(self):
         with pytest.raises(ValidationError, match="does not match test set type"):
@@ -783,7 +779,6 @@ class TestBulkCreateEnforcesUniformTestType:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGetTestSetsExcludesExplorer:
     """test_set_crud.get_test_sets must omit explorer sets (general test set list API)."""
 

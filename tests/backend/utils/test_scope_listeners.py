@@ -63,7 +63,6 @@ def test_org2_id(test_db: Session):
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestScopeContextVar:
     """Unit tests for the RequestScope ContextVar helpers."""
 
@@ -101,7 +100,6 @@ class TestScopeContextVar:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestAutoFilterNoOp:
     """Auto-filter is a no-op when scope is unbound (isolate_request_scope resets to None)."""
 
@@ -124,7 +122,6 @@ class TestAutoFilterNoOp:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestAutoFilterWhenBound:
     """Auto-filter applies WHERE clauses when scope IS bound."""
 
@@ -254,7 +251,6 @@ class TestAutoFilterWhenBound:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestBypassFiltering:
     """bypass_tenant_filter() suppresses the listener."""
 
@@ -285,7 +281,6 @@ class TestBypassFiltering:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestAutoStamp:
     """Auto-stamp fills identity columns from the ambient scope on INSERT."""
 
@@ -348,7 +343,6 @@ class TestAutoStamp:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestProjectFailClosed:
     """Project auto-filter is fail-closed: no active project => org-level rows only."""
 
@@ -452,7 +446,6 @@ class TestProjectFailClosed:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestExemptModels:
     """User, Organization bypass auto-filter."""
 
@@ -470,7 +463,6 @@ class TestExemptModels:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestKillSwitch:
     """RHESIS_DISABLE_SCOPE_LISTENER=1 - verifies env-var check at query time."""
 
@@ -502,7 +494,6 @@ class TestKillSwitch:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestBulkInsertGap:
     """
     Explicit assertion that bulk_insert_mappings bypasses auto-stamp.
@@ -536,7 +527,6 @@ class TestBulkInsertGap:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestSessionInfoScope:
     """
     Regression guard for the async-safe scope path.

@@ -7,7 +7,6 @@ response formats, and user experience flows.
 
 from unittest.mock import Mock, patch
 
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -489,7 +488,6 @@ class TestHomePerformance:
     ⚡ Performance tests for home endpoints
     """
 
-    @pytest.mark.performance
     def test_home_endpoint_response_time(self, client: TestClient):
         """
         ⚡ Test home endpoint response time
@@ -507,7 +505,6 @@ class TestHomePerformance:
         response_time = end_time - start_time
         assert response_time < 1.0  # Should respond within 1 second
 
-    @pytest.mark.performance
     def test_protected_endpoint_response_time(self, client: TestClient):
         """
         ⚡ Test protected endpoint response time

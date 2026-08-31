@@ -9,7 +9,6 @@ from rhesis.backend.app.services.tool.rest.confluence import ConfluenceRestClien
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestConfluenceInit:
     def test_base_url_trailing_slash_stripped(self):
         client = ConfluenceRestClient(
@@ -22,7 +21,6 @@ class TestConfluenceInit:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestConfluenceHealthCheck:
     def _client(self):

@@ -26,7 +26,6 @@ from tests.backend.routes.fixtures.data_factories import (
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestQueryBuilderSoftDelete:
     """Test QueryBuilder soft deletion methods."""
 
@@ -317,7 +316,6 @@ class TestQueryBuilderSoftDelete:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestQueryBuilderWithEventListener:
     """Test QueryBuilder interaction with soft delete event listener."""
 
@@ -410,7 +408,6 @@ class TestQueryBuilderWithEventListener:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestQueryBuilderEdgeCases:
     """Test edge cases and error conditions for QueryBuilder soft deletion."""
 

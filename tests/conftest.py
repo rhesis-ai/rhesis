@@ -7,17 +7,6 @@ that applies to all test modules across the entire monorepo.
 
 import pytest
 
-
-def pytest_configure(config):
-    """🔧 Configure pytest markers for better test organization"""
-    config.addinivalue_line("markers", "unit: fast tests with mocked dependencies")
-    config.addinivalue_line("markers", "integration: tests with real external services")
-    config.addinivalue_line("markers", "slow: tests that take >5 seconds")
-    config.addinivalue_line("markers", "ai: tests involving AI model calls")
-    config.addinivalue_line("markers", "critical: core functionality tests")
-    config.addinivalue_line("markers", "security: security and vulnerability tests")
-
-
 # 🎭 Global fixtures that can be used across all components
 
 @pytest.fixture

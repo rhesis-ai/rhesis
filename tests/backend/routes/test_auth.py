@@ -235,7 +235,6 @@ class TestEmailRegistration:
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class TestAuthLogout:
     """Test authentication logout endpoint"""
 
@@ -312,7 +311,6 @@ class TestAuthLogout:
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class TestAuthVerify:
     """Test authentication verification endpoint"""
 
@@ -421,7 +419,6 @@ class TestAuthVerify:
 
 
 @pytest.mark.integration
-@pytest.mark.critical
 class TestAuthenticationFlow:
     """Test complete authentication flow integration"""
 

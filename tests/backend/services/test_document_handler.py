@@ -39,7 +39,6 @@ class DocumentHandlerTestMixin(DocumentHandlerTestMixin):
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestDocumentHandlerInitialization(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test DocumentHandler initialization and configuration."""
 
@@ -84,7 +83,6 @@ class TestDocumentHandlerInitialization(DocumentHandlerTestMixin, BaseDocumentHa
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test document validation methods."""
 
@@ -173,7 +171,6 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestDocumentHandlerFileOperations(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test document file operations."""
 
@@ -224,7 +221,6 @@ class TestDocumentHandlerFileOperations(DocumentHandlerTestMixin, BaseDocumentHa
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestDocumentHandlerMetadataExtraction(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test metadata extraction methods."""
 
@@ -326,7 +322,6 @@ class TestDocumentHandlerMetadataExtraction(DocumentHandlerTestMixin, BaseDocume
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Integration tests for DocumentHandler with real file operations."""
 
@@ -451,7 +446,6 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandlerTests):
     """Test edge cases and error scenarios for DocumentHandler."""
 

@@ -55,7 +55,6 @@ def _unique_user(test_db: Session, org_id: str) -> models.User:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestOrgOwnerCreation:
     """POST /organizations/ must ignore client-supplied owner_id and use the
     authenticated caller's user_id instead."""
@@ -138,7 +137,6 @@ class TestSuperuserJwtRemoval:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestUserUpdateAuthorization:
     """PUT /users/{id} authorization matrix after is_superuser removal.
 
@@ -228,7 +226,6 @@ class TestUserUpdateAuthorization:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestRecycleBinOrgScoped:
     """Recycle bin endpoints are org-scoped for all authenticated members.
     require_superuser was confirmed dead code (never wired) and has been removed.

@@ -258,7 +258,6 @@ def _by_id(cases: List[dict]) -> dict:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestTheFourOutcomes:
     """Every outcome is reachable, and each one reports itself rather than another."""
 
@@ -333,7 +332,6 @@ class TestTheFourOutcomes:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestARejectionNeedsAComment:
     """The comment is the thing the feature produces, so a rejection without one
     records nothing worth keeping."""
@@ -389,7 +387,6 @@ class TestARejectionNeedsAComment:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestReviewingOneCase:
     """POST /metrics/{metric_id}/tuning/cases/{case_id}/review"""
 
@@ -494,7 +491,6 @@ class TestReviewingOneCase:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestAcceptTheRest:
     """POST /metrics/{metric_id}/tuning/reviews/accept-rest"""
 
@@ -625,7 +621,6 @@ class TestAcceptTheRest:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestReviewHistory:
     """What the stored list of reviews does as judgements pile up."""
 
@@ -757,7 +752,6 @@ class TestReviewHistory:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestReviewsAreInvisibleToTheMetric:
     """A scorecard has to reflect the metric's judgement, not its ability to
     read a reviewer's hint."""

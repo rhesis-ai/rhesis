@@ -29,8 +29,6 @@ from tests.backend.routes.fixtures.data_factories import TestDataFactory
 
 
 @pytest.mark.unit
-@pytest.mark.tasks
-@pytest.mark.transaction
 class TestTaskTransactionManagement:
     """🔄 Test automatic transaction management in task execution"""
 

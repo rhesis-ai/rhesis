@@ -24,7 +24,7 @@ from rhesis.polyphemus.services.services import (
     generate_text_via_vertex_endpoint,
 )
 
-pytestmark = [pytest.mark.slow, pytest.mark.performance]
+pytestmark = [pytest.mark.slow]
 
 _CONFIGURED_MODELS = {
     "polyphemus-default": "projects/p/locations/us-central1/endpoints/default",

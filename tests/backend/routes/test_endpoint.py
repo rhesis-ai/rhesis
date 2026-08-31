@@ -134,7 +134,6 @@ class TestEndpointStandardRoutes(EndpointTestMixin, BaseEntityRouteTests):
 
 # Endpoint-specific tests for invocation and schema functionality
 @pytest.mark.integration
-@pytest.mark.critical
 class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
     """Test endpoint invocation functionality"""
 
@@ -496,7 +495,6 @@ class TestEndpointSpecificEdgeCases(EndpointTestMixin, BaseEntityTests):
         assert data["name"] == ""  # Empty name is preserved
 
 
-@pytest.mark.performance
 class TestEndpointPerformance(EndpointTestMixin, BaseEntityTests):
     """Performance tests for endpoint operations"""
 

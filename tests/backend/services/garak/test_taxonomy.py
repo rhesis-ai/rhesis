@@ -11,7 +11,6 @@ from rhesis.backend.app.services.garak.taxonomy import (
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakMapping:
     """Tests for the GarakMapping dataclass."""
 
@@ -31,7 +30,6 @@ class TestGarakMapping:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakTaxonomyMappings:
     """Tests for module mappings."""
 
@@ -114,7 +112,6 @@ class TestGarakTaxonomyMappings:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakTaxonomyDefaultMapping:
     """Tests for default mapping requirement."""
 
@@ -137,7 +134,6 @@ class TestGarakTaxonomyDefaultMapping:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakTaxonomyHelpers:
     """Tests for taxonomy get_mapping and MODULE_MAPPINGS access."""
 
@@ -173,7 +169,6 @@ class TestGarakTaxonomyHelpers:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakTaxonomyConsistency:
     """Tests for taxonomy consistency."""
 
@@ -214,7 +209,6 @@ class TestGarakTaxonomyConsistency:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakTaxonomyV013Modules:
     """Tests for garak v0.13.3 taxonomy additions and renames."""
 
@@ -356,7 +350,6 @@ class TestGarakTaxonomyV013Modules:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestResolveRequirement:
     """Tests for resolve_requirement tag-to-requirement resolution."""
 

@@ -122,7 +122,6 @@ def project_via_api(authenticated_client, project_factory):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestProjectListingMembership:
     """GET /projects/ must only return projects the authenticated user is a member of."""
 
@@ -247,7 +246,6 @@ class TestProjectListingMembership:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestProjectCreatorAutoEnroll:
     """When creating a project via the API, the creator is automatically enrolled."""
 
@@ -275,7 +273,6 @@ class TestProjectCreatorAutoEnroll:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestProjectMembersAPI:
     """Tests for GET / POST / DELETE /projects/{id}/members."""
 
@@ -410,7 +407,6 @@ class TestProjectMembersAPI:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.routes
 class TestProjectByIdMembershipEnforcement:
     """GET / PUT / DELETE /projects/{id} must require project membership.
 

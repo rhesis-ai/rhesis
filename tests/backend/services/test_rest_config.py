@@ -16,7 +16,6 @@ from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestBuildClient:
     """Test build_client provider → client resolution."""
 
@@ -64,7 +63,6 @@ class TestBuildClient:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestGetRestClient:
     """Test get_rest_client DB → client resolution and error handling."""
 

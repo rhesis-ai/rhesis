@@ -359,7 +359,6 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestListExplorerTestSetsEndpoint:
     """Test GET /explorer"""
 
@@ -543,7 +542,6 @@ class TestListExplorerTestSetsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateExplorerTestSetEndpoint:
     """Test POST /explorer"""
 
@@ -612,7 +610,6 @@ class TestCreateExplorerTestSetEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestImportExplorerTestSetEndpoint:
     """Test POST /explorer/import/{source_test_set_id}"""
 
@@ -699,7 +696,6 @@ class TestImportExplorerTestSetEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExportRegularTestSetFromExplorerEndpoint:
     """Test POST /explorer/export/{source_test_set_id}"""
 
@@ -831,7 +827,6 @@ class TestExportRegularTestSetFromExplorerEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteExplorerTestSetEndpoint:
     """Test DELETE /explorer/{test_set_identifier}"""
 
@@ -907,7 +902,6 @@ class TestDeleteExplorerTestSetEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestBulkDeleteExplorerTestSetsEndpoint:
     """Test DELETE /explorer/bulk"""
 
@@ -948,7 +942,6 @@ class TestBulkDeleteExplorerTestSetsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExplorerTreeEndpoint:
     """Test GET /explorer/{test_set_id}/tree"""
 
@@ -1051,7 +1044,6 @@ class TestExplorerTreeEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExplorerTestsEndpoint:
     """Test GET /explorer/{test_set_id}/tests"""
 
@@ -1113,7 +1105,6 @@ class TestExplorerTestsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExplorerTopicsEndpoint:
     """Test GET /explorer/{test_set_id}/topics"""
 
@@ -1181,7 +1172,6 @@ class TestExplorerTopicsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateExplorerTopicEndpoint:
     """Test POST /explorer/{test_set_id}/topics"""
 
@@ -1297,7 +1287,6 @@ class TestCreateExplorerTopicEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateExplorerTestEndpoint:
     """Test POST /explorer/{test_set_id}/tests"""
 
@@ -1479,7 +1468,6 @@ class TestCreateExplorerTestEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestUpdateExplorerTestEndpoint:
     """Test PUT /explorer/{test_set_id}/tests/{test_id}"""
 
@@ -1619,7 +1607,6 @@ class TestUpdateExplorerTestEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteExplorerTestEndpoint:
     """Test DELETE /explorer/{test_set_id}/tests/{test_id}"""
 
@@ -1816,7 +1803,6 @@ def deep_topic_test_set(test_db: Session, test_org_id, authenticated_user_id):
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestUpdateExplorerTopicEndpoint:
     """Test PUT /explorer/{test_set_id}/topics/{topic_path}"""
 
@@ -1966,7 +1952,6 @@ class TestUpdateExplorerTopicEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteExplorerTopicEndpoint:
     """Test DELETE /explorer/{test_set_id}/topics/{topic_path}"""
 
@@ -2059,7 +2044,6 @@ class TestDeleteExplorerTopicEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestGenerateOutputsEndpoint:
     """Test POST /explorer/{test_set_id}/generate_outputs"""
 
@@ -2206,7 +2190,6 @@ class TestGenerateOutputsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestEvaluateEndpoint:
     """Test POST /explorer/{test_set_id}/evaluate"""
 

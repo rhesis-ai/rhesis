@@ -44,7 +44,6 @@ def _is_loaded(instance, attr_name: str) -> bool:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestIncludeConstruction:
     def test_rejects_non_relationship_attribute(self):
         """A plain column has no .uselist to dispatch joinedload/selectinload on."""
@@ -58,7 +57,6 @@ class TestIncludeConstruction:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestWithRelatedColumnScoping:
     def test_scopes_columns_on_eager_loaded_relationship(
         self, test_db: Session, test_org_id, test_test, test_requirement
@@ -146,7 +144,6 @@ class TestWithRelatedColumnScoping:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestMetricRequirementNestedM2MLoads:
     """Regression coverage for the N+1 gap in nested many-to-many collections.
 
@@ -277,7 +274,6 @@ class TestMetricRequirementNestedM2MLoads:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestODataAnyNavigationFilter:
     """Regression coverage for OData $filter expressions that navigate a
     many-to-many relationship with `any(...)`, e.g. the frontend's

@@ -53,7 +53,6 @@ def _make_ctx(org_id="test-org-id", user_id="test-user-id", db=None):
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestHandleMCPException:
     """Test exception handling and HTTP exception mapping"""
 
@@ -170,7 +169,6 @@ class TestHandleMCPException:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestGetMCPClientByToolId:
     """Test client creation from tool ID"""
 
@@ -265,7 +263,6 @@ class TestGetMCPClientByToolId:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestGetMCPClientFromParams:
     """Test client creation from parameters"""
 
@@ -322,7 +319,6 @@ class TestGetMCPClientFromParams:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestQueryMCP:
     """Test query_mcp function"""
