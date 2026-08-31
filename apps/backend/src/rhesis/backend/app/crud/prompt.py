@@ -88,9 +88,7 @@ def delete_prompt(
 def get_prompt_template(
     db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return get_item_detail(
-        db, models.PromptTemplate, prompt_template_id, organization_id, user_id
-    )
+    return get_item_detail(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 def get_prompt_templates(
