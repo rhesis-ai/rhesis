@@ -159,6 +159,7 @@ def get_test_set_by_nano_id_or_slug(
         QueryBuilder(db, models.TestSet)
         .with_deleted()
         .with_related(*_TEST_SET_RELATED_FIELDS)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -234,6 +235,7 @@ def get_test_sets_for_test(
     query_builder = (
         QueryBuilder(db, models.TestSet)
         .with_related(*_TEST_SET_RELATED_FIELDS)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(
@@ -298,6 +300,7 @@ def get_test_set_tests(
             include(models.Test.category),
             include(models.Test.status),
         )
+        .with_default_derived_field_loads()
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.join(models.test.test_test_set_association).filter(

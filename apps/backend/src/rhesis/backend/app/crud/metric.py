@@ -379,6 +379,7 @@ def get_metric_requirements(
     return (
         QueryBuilder(db, models.Requirement)
         .with_related(include(models.Requirement.user))
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.requirement_metric_association).filter(
@@ -425,6 +426,7 @@ def get_requirement_metrics(
     return (
         QueryBuilder(db, models.Metric)
         .with_related(include(models.Metric.metric_type), include(models.Metric.backend_type))
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_custom_filter(
             lambda q: q.join(models.requirement_metric_association).filter(
