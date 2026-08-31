@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

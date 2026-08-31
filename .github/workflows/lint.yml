@@ -6,6 +6,12 @@ on:
     branches: [main, release/*]
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
