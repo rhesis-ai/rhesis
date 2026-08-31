@@ -27,6 +27,7 @@ def _create_metric(name: str) -> dict:
             "min_score": 0,
             "max_score": 1,
             "threshold": 0.5,
+            "metric_scope": ["Single-Turn"],
         },
     )
 
