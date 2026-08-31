@@ -190,9 +190,7 @@ export default function TestResultDrawer({
   // `test` already carries it (a caller that fetched the single result
   // directly, e.g. after a review action already re-fetches via
   // getTestResult), so this never re-fetches data already in hand.
-  const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(
-    null
-  );
+  const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
   React.useEffect(() => {
     setFetchedTest(null);
     const testId = test?.id;
