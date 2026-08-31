@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import TestSetsPageClient from './components/TestSetsPageClient';
 import { testSetsList } from './components/list';
@@ -15,16 +15,7 @@ export default async function TestSetsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.TestSet.READ,
-    () =>
-      testSetsList.list(
-        factory,
-        listParams(testSetsList, {
-          page: 1,
-          pageSize: testSetsList.defaultPageSize,
-          sort: testSetsList.defaultSort,
-          filters: emptyFilters(testSetsList),
-        })
-      )
+    () => testSetsList.list(factory, firstPageParams(testSetsList))
   );
 
   return (

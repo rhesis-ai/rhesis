@@ -3,7 +3,7 @@ import { Alert, Paper } from '@mui/material';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import TokensPageClient from './components/TokensPageClient';
 import { tokensList } from './components/list';
 
@@ -32,16 +32,7 @@ export default async function TokensPage() {
   const factory = await createServerApiFactory();
   const { initialData, initialTotalCount } = await prefetchList(
     tokensList.capability,
-    () =>
-      tokensList.list(
-        factory,
-        listParams(tokensList, {
-          page: 1,
-          pageSize: tokensList.defaultPageSize,
-          sort: tokensList.defaultSort,
-          filters: emptyFilters(tokensList),
-        })
-      )
+    () => tokensList.list(factory, firstPageParams(tokensList))
   );
 
   return (

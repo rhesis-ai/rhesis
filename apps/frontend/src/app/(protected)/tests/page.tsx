@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import TestsPageClient from './components/TestsPageClient';
@@ -37,16 +37,7 @@ export default async function TestsPage({ searchParams }: TestsPageProps) {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Test.READ,
-    () =>
-      testsList.list(
-        factory,
-        listParams(testsList, {
-          page: 1,
-          pageSize: testsList.defaultPageSize,
-          sort: testsList.defaultSort,
-          filters: emptyFilters(testsList),
-        })
-      )
+    () => testsList.list(factory, firstPageParams(testsList))
   );
 
   return (

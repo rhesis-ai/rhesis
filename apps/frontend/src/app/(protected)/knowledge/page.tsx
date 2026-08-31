@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import KnowledgeClientWrapper from './components/KnowledgeClientWrapper';
 import { sourcesList } from './components/list';
@@ -31,16 +31,7 @@ export default async function KnowledgePage() {
 
     const { initialData, initialTotalCount } = await prefetchList(
       Capability.Source.READ,
-      () =>
-        sourcesList.list(
-          factory,
-          listParams(sourcesList, {
-            page: 1,
-            pageSize: sourcesList.defaultPageSize,
-            sort: sourcesList.defaultSort,
-            filters: emptyFilters(sourcesList),
-          })
-        )
+      () => sourcesList.list(factory, firstPageParams(sourcesList))
     );
 
     return (

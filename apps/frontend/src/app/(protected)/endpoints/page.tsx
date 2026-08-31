@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import EndpointsPageClient from './components/EndpointsPageClient';
 import { endpointsList } from './components/list';
@@ -15,15 +15,7 @@ export default async function EndpointsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Endpoint.READ,
-    () =>
-      client.getEndpoints(
-        listParams(endpointsList, {
-          page: 1,
-          pageSize: endpointsList.defaultPageSize,
-          sort: endpointsList.defaultSort,
-          filters: emptyFilters(endpointsList),
-        })
-      )
+    () => client.getEndpoints(firstPageParams(endpointsList))
   );
 
   return (

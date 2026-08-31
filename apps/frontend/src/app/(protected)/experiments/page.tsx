@@ -5,7 +5,7 @@ import { Alert, Paper } from '@mui/material';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, listParams } from '@/utils/list';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import ExperimentsClientWrapper from './components/ExperimentsClientWrapper';
 import { experimentsList } from './components/list';
@@ -39,16 +39,7 @@ export default async function ExperimentsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Experiment.READ,
-    () =>
-      experimentsList.list(
-        factory,
-        listParams(experimentsList, {
-          page: 1,
-          pageSize: experimentsList.defaultPageSize,
-          sort: experimentsList.defaultSort,
-          filters: emptyFilters(experimentsList),
-        })
-      )
+    () => experimentsList.list(factory, firstPageParams(experimentsList))
   );
 
   return (
