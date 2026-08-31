@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 from rhesis.sdk.entities.file import File
 from rhesis.sdk.entities.test import Test
 from rhesis.sdk.entities.test_result import TestResult
@@ -199,6 +200,7 @@ def test_file_download_writes_to_disk(mock_request, tmp_path):
         method="GET",
         url="http://test:8000/files/file-001/content",
         headers={"Authorization": "Bearer rh-test-token"},
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
@@ -230,6 +232,7 @@ def test_file_delete(mock_request):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
@@ -302,6 +305,7 @@ def test_test_get_files(mock_request):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
@@ -382,6 +386,7 @@ def test_test_result_get_files(mock_request):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
