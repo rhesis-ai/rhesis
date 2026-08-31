@@ -17,7 +17,7 @@ editable, so `import rhesis.backend...` resolves. From the repo root it doesn't.
 | `k6/` | Load tests against deployed environments | `tests/k6` |
 | `frontend/` | Holds only a README — see [Frontend](#frontend) | — |
 
-`pytest.ini` and `conftest.py` at this level declare the shared markers and a few fixtures. The
+`pytest.ini` at this level declares the shared markers, `conftest.py` a few fixtures. The
 two compose files here provide backing services: `docker-compose.test.yml` for the SDK integration
 suite, `docker-compose.frontend.yml` for the frontend E2E suite.
 
@@ -27,7 +27,9 @@ suite, `docker-compose.frontend.yml` for the frontend E2E suite.
 
 Run from `apps/backend`. A bare `uv run pytest` there picks up its `pyproject.toml` as the
 configfile, whose `testpaths` covers both `../../tests/backend` and `../../tests/notifications`.
-Pass an explicit path and pytest uses `tests/pytest.ini` instead — same markers, no `testpaths`.
+Pass an explicit path and pytest uses `tests/pytest.ini` instead — same markers, but its
+`addopts` and `pythonpath` are dropped, since only the winning configfile's settings apply. This is
+what CI and `make test` do.
 
 ```bash
 cd apps/backend
@@ -98,12 +100,17 @@ k6 load tests run against `api.rhesis.ai` and `app.rhesis.ai`, not a local stack
 
 ## Markers
 
-Markers categorize tests instead of separate directories. Declared in `tests/pytest.ini`; the
-backend and SDK configs repeat the subset they use.
+Declared in `tests/pytest.ini`; `apps/backend/pyproject.toml` repeats the same set. Five markers:
 
-- Scope: `unit`, `integration`, `slow`, `performance`
-- Area: `service`/`services`, `crud`, `routes`, `auth`, `utils`, `tasks`, `database`, `transaction`
-- Other: `critical`, `security`, `ai`, `ee` (needs `rhesis-backend-ee` installed)
+- Scope: `unit`, `integration`, `slow`
+- Other: `security`, `ee` (needs `rhesis-backend-ee` installed)
+
+Nothing selects on them — no CI job, Makefile target or fixture reads a marker. They exist so `-m`
+is available if a suite grows into needing it. Note that roughly half of backend tests carry no
+marker at all, so `-m unit` runs well short of the whole fast suite.
+
+There are no area markers: select a directory by path instead of by marker, e.g.
+`../../tests/backend/crud/` rather than `-m crud`.
 
 ```bash
 uv run pytest ../../tests/backend -m unit
