@@ -258,7 +258,7 @@ def downgrade() -> None:
         if rows:
             model_ids = [str(row[0]) for row in rows]
             session.execute(
-                text("DELETE FROM model WHERE id = ANY(:ids::uuid[])"),
+                text("DELETE FROM model WHERE id = ANY(CAST(:ids AS uuid[]))"),
                 {"ids": model_ids},
             )
 
