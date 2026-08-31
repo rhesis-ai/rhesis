@@ -46,6 +46,24 @@ export default async function TestSetPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const testSetsClient = apiFactory.getTestSetsClient();
 
+  // First pages of the Tests and Tasks tabs, so they render with rows in
+  // place instead of a client-side spinner. The tests total doubles as the
+  // header count. These only need `identifier`, so they fetch alongside
+  // `getTestSet` instead of waiting behind it.
+  const linkedTests = testSetTestsList(identifier);
+  const tasks = entityTasksList('TestSet', identifier);
+  const tabsPromise = Promise.all([
+    prefetchList(linkedTests.capability, () =>
+      linkedTests.list(apiFactory, firstPageParams(linkedTests))
+    ),
+    prefetchList(tasks.capability, () =>
+      tasks.list(apiFactory, firstPageParams(tasks))
+    ),
+    prefetch(Capability.Comment.READ, () =>
+      apiFactory.getCommentsClient().getComments('TestSet', identifier)
+    ),
+  ]);
+
   let testSet;
   try {
     testSet = await testSetsClient.getTestSet(identifier);
@@ -66,22 +84,7 @@ export default async function TestSetPage({ params }: PageProps) {
     }
   }
 
-  // First pages of the Tests and Tasks tabs, so they render with rows in
-  // place instead of a client-side spinner. The tests total doubles as the
-  // header count.
-  const linkedTests = testSetTestsList(identifier);
-  const tasks = entityTasksList('TestSet', identifier);
-  const [testsPage, tasksPage, comments] = await Promise.all([
-    prefetchList(linkedTests.capability, () =>
-      linkedTests.list(apiFactory, firstPageParams(linkedTests))
-    ),
-    prefetchList(tasks.capability, () =>
-      tasks.list(apiFactory, firstPageParams(tasks))
-    ),
-    prefetch(Capability.Comment.READ, () =>
-      apiFactory.getCommentsClient().getComments('TestSet', identifier)
-    ),
-  ]);
+  const [testsPage, tasksPage, comments] = await tabsPromise;
   const testCount =
     testsPage.initialData !== undefined
       ? testsPage.initialTotalCount

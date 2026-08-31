@@ -40,6 +40,13 @@ export default async function RequirementDetailPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const client = apiFactory.getRequirementClient();
 
+  // Linked Tests tab; Linked Metrics already arrive on the requirement. This
+  // only needs `identifier`, so it fetches alongside the requirement instead
+  // of waiting behind it.
+  const linkedTestsPromise = prefetch(Capability.Test.READ, () =>
+    fetchRequirementLinkedTests(apiFactory, identifier)
+  );
+
   let requirement;
   try {
     requirement = await client.getRequirementWithMetrics(identifier as UUID);
@@ -50,10 +57,7 @@ export default async function RequirementDetailPage({ params }: PageProps) {
 
   const serializedRequirement = JSON.parse(JSON.stringify(requirement));
 
-  // Linked Tests tab; Linked Metrics already arrive on the requirement.
-  const linkedTests = await prefetch(Capability.Test.READ, () =>
-    fetchRequirementLinkedTests(apiFactory, identifier)
-  );
+  const linkedTests = await linkedTestsPromise;
 
   return (
     <RequirementDetailClient

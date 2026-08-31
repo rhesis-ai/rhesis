@@ -33,6 +33,12 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const client = apiFactory.getParametersClient();
 
+  // Runs only needs `identifier`, not the experiment itself, so it can fetch
+  // alongside `getExperiment` instead of waiting behind it.
+  const runsPromise = prefetch(Capability.Experiment.READ, () =>
+    fetchExperimentRuns(apiFactory, identifier)
+  );
+
   let initialExperiment: ExperimentDetailData;
   try {
     const experiment = await client.getExperiment(identifier);
@@ -46,9 +52,7 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
     throw error;
   }
 
-  const runs = await prefetch(Capability.Experiment.READ, () =>
-    fetchExperimentRuns(apiFactory, identifier)
-  );
+  const runs = await runsPromise;
 
   return (
     <ExperimentDetailClient

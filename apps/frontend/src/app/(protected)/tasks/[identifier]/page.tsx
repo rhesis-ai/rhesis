@@ -21,6 +21,13 @@ export default async function TaskDetailPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const client = apiFactory.getTasksClient();
 
+  // Comments tab, so it opens with content in place. This only needs
+  // `identifier`, so it fetches alongside the task instead of waiting
+  // behind it.
+  const commentsPromise = prefetch(Capability.Comment.READ, () =>
+    apiFactory.getCommentsClient().getComments('Task', identifier)
+  );
+
   let task;
   try {
     task = await client.getTask(identifier);
@@ -29,10 +36,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
     throw error;
   }
 
-  // Comments tab, so it opens with content in place.
-  const comments = await prefetch(Capability.Comment.READ, () =>
-    apiFactory.getCommentsClient().getComments('Task', identifier)
-  );
+  const comments = await commentsPromise;
 
   return (
     <TaskDetailClient
