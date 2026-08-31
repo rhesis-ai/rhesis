@@ -42,6 +42,7 @@ spec:
             retention_period: PLACEHOLDER
           compactor:
             retention_enabled: true
+            delete_request_store: filesystem
             working_directory: /var/loki/compactor
             compaction_interval: 10m
             retention_delete_delay: 2h
