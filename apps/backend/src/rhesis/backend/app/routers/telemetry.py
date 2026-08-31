@@ -451,6 +451,8 @@ def list_traces(
                 has_reviews=has_reviews,
                 last_review=trace.last_review,
                 matches_review=trace.matches_review,
+                tags_count=row.tags_count,
+                comments_count=row.comments_count,
             )
             summaries.append(summary)
 

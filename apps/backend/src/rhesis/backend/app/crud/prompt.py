@@ -14,6 +14,7 @@ from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
     get_item,
+    get_item_detail,
     get_items,
     get_items_detail,
     update_item,
@@ -87,7 +88,7 @@ def delete_prompt(
 def get_prompt_template(
     db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return get_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
+    return get_item_detail(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 def get_prompt_templates(

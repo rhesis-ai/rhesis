@@ -46,8 +46,8 @@ class TestResolveContractLazy:
         with (
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
             patch(
-                "rhesis.backend.app.crud.test.get_test", return_value=fresh_test
-            ) as mock_get_test,
+                "rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=fresh_test
+            ) as mock_get_item_detail,
             patch(
                 _RESOLVE_MULTI_TURN_CONTRACT,
                 return_value=({"prohibited_behavior": ["X"]}, True),
@@ -61,7 +61,7 @@ class TestResolveContractLazy:
                 ctx, "3a51f7ae-f7b2-4ff4-8454-9e8f4826afa1"
             )
 
-        mock_get_test.assert_called_once()
+        mock_get_item_detail.assert_called_once()
         mock_resolve.assert_called_once_with(mock_db, fresh_test, ctx.user_id)
         assert contract == {"prohibited_behavior": ["X"]}
         assert usable is True
@@ -73,7 +73,7 @@ class TestResolveContractLazy:
 
         with (
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
-            patch("rhesis.backend.app.crud.test.get_test", return_value=None),
+            patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=None),
         ):
             mock_get_db.return_value.__enter__.return_value = MagicMock()
             mock_get_db.return_value.__exit__.return_value = False
@@ -131,7 +131,7 @@ class TestRunMultiTurnContractThreading:
             patch(
                 _RESOLVE_MULTI_TURN_CONTRACT, return_value=({"prohibited_behavior": ["X"]}, True)
             ),
-            patch("rhesis.backend.app.crud.test.get_test", return_value=test),
+            patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=test),
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
             patch("rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget"),
         ):
@@ -161,7 +161,7 @@ class TestRunMultiTurnContractThreading:
 
         with (
             patch(_RESOLVE_MULTI_TURN_CONTRACT, return_value=(None, False)),
-            patch("rhesis.backend.app.crud.test.get_test", return_value=test),
+            patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=test),
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
             patch("rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget"),
         ):

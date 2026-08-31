@@ -50,7 +50,12 @@ def get_test_and_prompt(
             Test,
             UUID(test_id),
             organization_id=organization_id,
-            related_fields=(include(Test.prompt),),
+            related_fields=(
+                include(Test.prompt),
+                include(Test.requirement),
+                include(Test.category),
+                include(Test.topic),
+            ),
         )
     except ItemDeletedException:
         raise ValueError(f"Test with ID {test_id} has been deleted")

@@ -204,10 +204,11 @@ def get_project_members(
 def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
     """Return all ACTIVE, non-deleted projects the given user is a member of."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options
 
     return (
         db.query(models.Project)
-        .options(include(models.Project.owner))
+        .options(include(models.Project.owner), *derived_field_load_options(models.Project))
         .join(ProjectMembership, ProjectMembership.project_id == models.Project.id)
         .filter(
             ProjectMembership.user_id == user_id,

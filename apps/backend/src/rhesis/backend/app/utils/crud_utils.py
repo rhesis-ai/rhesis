@@ -696,7 +696,7 @@ def delete_item(
     """
     from rhesis.backend.app.services import cascade as cascade_service
 
-    item = get_item(db, model, item_id, organization_id, user_id)
+    item = get_item_detail(db, model, item_id, organization_id, user_id)
 
     if not item:
         return None

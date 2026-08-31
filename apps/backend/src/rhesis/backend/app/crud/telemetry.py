@@ -38,6 +38,8 @@ class TraceRow(NamedTuple):
     trace: models.Trace
     span_count: int
     total: int
+    tags_count: int
+    comments_count: int
 
 
 # ============================================================================
@@ -334,8 +336,31 @@ def query_traces(
     #    Uses a window function so pagination total comes from the same query.
     total_col = func.count().over().label("total_count")
 
+    tags_count_col = (
+        select(func.count(models.TaggedItem.id))
+        .where(
+            and_(
+                models.TaggedItem.entity_id == models.Trace.id,
+                models.TaggedItem.entity_type == models.Trace.__name__,
+                models.TaggedItem.deleted_at.is_(None),
+            )
+        )
+        .scalar_subquery()
+    )
+    comments_count_col = (
+        select(func.count(models.Comment.id))
+        .where(
+            and_(
+                models.Comment.entity_id == models.Trace.id,
+                models.Comment.entity_type == models.Trace.__name__,
+                models.Comment.deleted_at.is_(None),
+            )
+        )
+        .scalar_subquery()
+    )
+
     query = (
-        db.query(models.Trace, span_count_col, total_col)
+        db.query(models.Trace, span_count_col, total_col, tags_count_col, comments_count_col)
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             joinedload(models.Trace.test_result)
@@ -477,7 +502,10 @@ def query_traces(
         query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
-    return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
+    return [
+        TraceRow(trace=r[0], span_count=r[1], total=r[2], tags_count=r[3], comments_count=r[4])
+        for r in results
+    ]
 
 
 def get_unprocessed_traces(
