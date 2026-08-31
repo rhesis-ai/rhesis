@@ -696,10 +696,6 @@ def delete_item(
     """
     from rhesis.backend.app.services import cascade as cascade_service
 
-    # get_item_detail, not get_item: the deleted item is returned straight to
-    # the response model, and some entities (e.g. PromptTemplate, TestSet)
-    # declare tags/counts on their write schema, not just the *Detail read
-    # schema -- an un-eager-loaded relationship there fails serialization.
     item = get_item_detail(db, model, item_id, organization_id, user_id)
 
     if not item:

@@ -367,8 +367,6 @@ def interpret_test(
     matches the current wording.
     """
     organization_id, user_id = tenant_context
-    # get_test_detail, not get_test: ensure_contract reads test.requirement/
-    # category/topic below, none of which get_test eager-loads.
     db_test = test_crud.get_test_detail(
         db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )

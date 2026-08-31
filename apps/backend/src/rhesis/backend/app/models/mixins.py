@@ -17,14 +17,9 @@ def safe_relationship(default_factory=list):
     After delete_item() commits, the RLS session variable
     (app.current_organization) may no longer be set on the DB connection.
     Any lazy-load of a relationship during response serialization would
-    then fail with DetachedInstanceError. This decorator catches only that
+    then fail with DetachedInstanceError. This decorator catches that
     case and returns a safe default so the response can still be
     serialized.
-
-    Deliberately NOT a broad SQLAlchemyError catch: that used to also
-    swallow raiseload/InvalidRequestError from a missing eager-load,
-    which made the tests/backend/conftest.py raiseload trip-wire blind to
-    any caller of this property. A missing eager-load should fail loudly.
     """
 
     def decorator(method):

@@ -74,8 +74,6 @@ async def resolve_contract_lazy(
         with get_db_with_tenant_variables(
             ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
         ) as db:
-            # get_test_detail, not get_test: resolve_multi_turn_contract -> ensure_contract
-            # reads test.requirement/category/topic below.
             test = test_crud.get_test_detail(db, UUID(test_id), ctx.organization_id, ctx.user_id)
             if test is None:
                 return None, False
