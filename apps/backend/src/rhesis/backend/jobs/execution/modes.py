@@ -53,8 +53,8 @@ def set_execution_mode(
     db: Session,
     test_config_id: str,
     execution_mode: ExecutionMode,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> bool:
     """
     Set the execution mode for a test configuration.

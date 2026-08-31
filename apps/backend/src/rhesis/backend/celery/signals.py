@@ -32,8 +32,8 @@ _usage_attribution_tokens: dict = {}
 def _update_test_run_status(
     task_id: str,
     new_status: RunStatus,
-    error_message: str = None,
-    test_run_id: str = None,
+    error_message: str | None = None,
+    test_run_id: str | None = None,
 ):
     try:
         from uuid import UUID

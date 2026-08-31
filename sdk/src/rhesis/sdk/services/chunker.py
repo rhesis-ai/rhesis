@@ -169,7 +169,7 @@ class SemanticChunker(RecursiveChunker):
     def __init__(
         self,
         chunk_size: int = 1500,
-        max_tokens_per_chunk: int = None,
+        max_tokens_per_chunk: int | None = None,
         encoding_name: str = DEFAULT_ENCODING,
     ):
         warnings.warn(

@@ -141,7 +141,7 @@ def send_task_assignment_in_app_notification(db: Session, task: models.Task) -> 
 
 
 def _get_entity_name(
-    db: Session, entity_type: str, entity_id: str, organization_id: str = None
+    db: Session, entity_type: str, entity_id: str, organization_id: str | None = None
 ) -> Optional[str]:
     """
     Get the name of an entity based on its type and ID with organization filtering.

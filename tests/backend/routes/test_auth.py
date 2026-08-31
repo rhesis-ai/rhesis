@@ -1213,7 +1213,7 @@ def _make_mock_request(
     host: str = "localhost",
     port: int = 8080,
     scheme: str = "http",
-    headers: dict = None,
+    headers: dict | None = None,
 ):
     """Create a mock Request object for testing get_callback_url."""
     from starlette.datastructures import Headers

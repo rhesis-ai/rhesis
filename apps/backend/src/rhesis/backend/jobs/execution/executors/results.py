@@ -68,8 +68,8 @@ def check_existing_result(
     test_config_id: str,
     test_run_id: str,
     test_id: str,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[Dict[str, Any]]:
     """Check if a result already exists for this test configuration."""
     filter_str = (

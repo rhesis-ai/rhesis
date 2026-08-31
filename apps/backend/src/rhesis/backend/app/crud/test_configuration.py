@@ -16,7 +16,10 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 def get_test_configuration(
-    db: Session, test_configuration_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_configuration_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
     return get_item_detail(
         db,
@@ -34,8 +37,8 @@ def get_test_configurations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.TestConfiguration]:
     return (
         QueryBuilder(db, models.TestConfiguration)
@@ -51,8 +54,8 @@ def get_test_configurations(
 def create_test_configuration(
     db: Session,
     test_configuration: schemas.TestConfigurationCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.TestConfiguration:
     return create_item(
         db,
@@ -67,8 +70,8 @@ def update_test_configuration(
     db: Session,
     test_configuration_id: uuid.UUID,
     test_configuration: schemas.TestConfigurationUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
     """Update test_configuration."""
     return update_item(
@@ -84,8 +87,8 @@ def update_test_configuration(
 def delete_test_configuration(
     db: Session,
     test_configuration_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
     """Delete test_configuration."""
     return delete_item(

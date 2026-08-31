@@ -36,7 +36,10 @@ _COMMENT_RELATED_FIELDS = (include(models.Comment.user),)
 
 
 def get_comment(
-    db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    comment_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Comment]:
     """Get comment with relationships eagerly loaded."""
     return get_item_detail(
@@ -56,8 +59,8 @@ def get_comments(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Comment]:
     """Get all comments with filtering and pagination"""
     return get_items_detail(
@@ -79,7 +82,7 @@ def get_comments_by_entity(
     entity_id: uuid.UUID,
     entity_type: str,
     organization_id: str,
-    user_id: str = None,
+    user_id: str | None = None,
     skip: int = 0,
     limit: int = 10,
     sort_by: str = "created_at",
@@ -105,8 +108,8 @@ def get_comments_by_entity(
 def create_comment(
     db: Session,
     comment: Union[schemas.CommentCreate, dict],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Comment:
     """Create comment."""
     # If it's a dict, convert it to CommentCreate schema first
@@ -124,8 +127,8 @@ def update_comment(
     db: Session,
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Comment]:
     """Update a comment with optimized tenant context"""
     return update_item(db, models.Comment, comment_id, comment, organization_id, user_id)
@@ -174,8 +177,8 @@ def add_emoji_reaction(
     emoji: str,
     user_id: uuid.UUID,
     user_name: str,
-    organization_id: str = None,
-    user_id_param: str = None,
+    organization_id: str | None = None,
+    user_id_param: str | None = None,
 ) -> Optional[models.Comment]:
     """Add an emoji reaction to a comment"""
     comment = get_comment(db, comment_id, organization_id, user_id_param)
@@ -225,8 +228,8 @@ def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
     user_id: uuid.UUID,
-    organization_id: str = None,
-    user_id_param: str = None,
+    organization_id: str | None = None,
+    user_id_param: str | None = None,
 ) -> Optional[models.Comment]:
     """Remove an emoji reaction from a comment"""
     comment = get_comment(db, comment_id, organization_id, user_id_param)

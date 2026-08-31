@@ -16,7 +16,10 @@ from rhesis.backend.app.utils.crud_utils import (
 
 
 def get_category(
-    db: Session, category_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    category_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Category]:
     """Get a single category by ID."""
     return get_item(db, models.Category, category_id, organization_id, user_id)
@@ -29,8 +32,8 @@ def get_categories(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Category]:
     return get_items(
         db,
@@ -46,7 +49,10 @@ def get_categories(
 
 
 def create_category(
-    db: Session, category: schemas.CategoryCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    category: schemas.CategoryCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Category:
     """Create category."""
     return create_item(db, models.Category, category, organization_id, user_id)
@@ -56,8 +62,8 @@ def update_category(
     db: Session,
     category_id: uuid.UUID,
     category: schemas.CategoryUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Category]:
     """Update category."""
     return update_item(db, models.Category, category_id, category, organization_id, user_id)

@@ -23,7 +23,7 @@ from ..data_factories import OrganizationDataFactory
 def organization_with_owner(authenticated_client: TestClient, authenticated_user):
     """🏢 Organization with proper owner relationship"""
 
-    def _create_organization_with_owner(data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def _create_organization_with_owner(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         if data is None:
             data = OrganizationDataFactory.sample_data()
 
@@ -43,7 +43,7 @@ def organization_with_owner(authenticated_client: TestClient, authenticated_user
 def organization_incomplete_onboarding(authenticated_client: TestClient, authenticated_user):
     """🏗️ Organization with incomplete onboarding"""
 
-    def _create_incomplete_org(data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def _create_incomplete_org(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         if data is None:
             data = OrganizationDataFactory.onboarding_incomplete_data()
 
@@ -64,7 +64,7 @@ def organization_incomplete_onboarding(authenticated_client: TestClient, authent
 def organization_complete_onboarding(authenticated_client: TestClient, authenticated_user):
     """Organization with completed onboarding"""
 
-    def _create_complete_org(data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def _create_complete_org(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         if data is None:
             data = OrganizationDataFactory.onboarding_complete_data()
 

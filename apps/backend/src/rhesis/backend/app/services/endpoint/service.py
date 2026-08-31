@@ -44,7 +44,7 @@ class EndpointService:
     SDK endpoint sync is handled by ``sdk_sync.py``.
     """
 
-    def __init__(self, schema_path: str = None):
+    def __init__(self, schema_path: str | None = None):
         if schema_path:
             self.schema_path = schema_path
         else:
@@ -56,13 +56,13 @@ class EndpointService:
         db: Optional[Session],
         endpoint_id: str,
         input_data: Dict[str, Any],
-        organization_id: str = None,
-        user_id: str = None,
+        organization_id: str | None = None,
+        user_id: str | None = None,
         test_execution_context: Optional[Dict[str, str]] = None,
         endpoint: Optional[Endpoint] = None,
         deferred_trace: bool = False,
         trace_id: Optional[str] = None,
-        project_id: str = None,
+        project_id: str | None = None,
     ) -> Dict[str, Any]:
         """Invoke an endpoint with the given input data.
 
@@ -399,8 +399,8 @@ class EndpointService:
         self,
         db: Session,
         endpoint_id: str,
-        organization_id: str = None,
-        project_id: str = None,
+        organization_id: str | None = None,
+        project_id: str | None = None,
     ) -> Endpoint:
         """Fetch an endpoint by ID, applying organization and project security filtering."""
         from rhesis.backend.app.crud import endpoint as endpoint_crud
@@ -425,8 +425,8 @@ class EndpointService:
         self,
         db: Session,
         test_config: EndpointTestRequest,
-        organization_id: str = None,
-        user_id: str = None,
+        organization_id: str | None = None,
+        user_id: str | None = None,
     ) -> Dict[str, Any]:
         """Test a transient endpoint configuration without persisting it.
 
@@ -446,9 +446,9 @@ class EndpointService:
         request_mapping: Dict[str, Any],
         response_mapping: Dict[str, Any],
         input_data: Dict[str, Any],
-        organization_id: str = None,
-        user_id: str = None,
-        response_format: str = None,
+        organization_id: str | None = None,
+        user_id: str | None = None,
+        response_format: str | None = None,
     ) -> Dict[str, Any]:
         """Test draft mappings against a stored endpoint using its stored credentials."""
         return await _test_endpoint_mapping(

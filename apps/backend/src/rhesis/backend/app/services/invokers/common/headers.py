@@ -46,7 +46,9 @@ class HeaderManager:
         return sanitized
 
     @staticmethod
-    def inject_context_headers(headers: Dict[str, str], input_data: Dict[str, Any] = None) -> None:
+    def inject_context_headers(
+        headers: Dict[str, str], input_data: Dict[str, Any] | None = None
+    ) -> None:
         """
         Inject context headers (organization_id, user_id) into headers dict.
 

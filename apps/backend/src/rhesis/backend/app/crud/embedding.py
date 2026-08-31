@@ -30,7 +30,10 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 def get_embedding(
-    db: Session, embedding_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    embedding_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Embedding]:
     """Get a single embedding by ID."""
     return get_item(db, models.Embedding, embedding_id, organization_id, user_id)
@@ -43,8 +46,8 @@ def get_embeddings(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Embedding]:
     """Get multiple embeddings."""
     return get_items(
@@ -64,8 +67,8 @@ def get_active_embeddings_for_entities(
     db: Session,
     entity_ids: List[UUID],
     entity_type: str,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Embedding]:
     from rhesis.backend.app.models.enums import EmbeddingStatus
     from rhesis.backend.app.models.status import Status
@@ -87,8 +90,8 @@ def get_active_embeddings_for_entities(
 def create_embedding(
     db: Session,
     embedding: schemas.EmbeddingCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Embedding:
     """Create embedding."""
     embedding_data = embedding.model_dump(exclude={"embedding"})
@@ -107,8 +110,8 @@ def update_embedding(
     db: Session,
     embedding_id: uuid.UUID,
     embedding: schemas.EmbeddingUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Embedding]:
     """Update embedding."""
     return update_item(db, models.Embedding, embedding_id, embedding, organization_id, user_id)

@@ -49,7 +49,7 @@ class TestFileRoutes:
         entity_type: str = "Test",
         filename: str = "test.png",
         content_type: str = "image/png",
-        content: bytes = None,
+        content: bytes | None = None,
     ) -> dict:
         """Helper to upload a single file."""
         if content is None:

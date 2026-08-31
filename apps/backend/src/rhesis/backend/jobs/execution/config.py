@@ -9,7 +9,7 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 
 
 def get_test_configuration(
-    session: Session, test_configuration_id: str, organization_id: str = None
+    session: Session, test_configuration_id: str, organization_id: str | None = None
 ) -> TestConfiguration:
     """Retrieve and validate test configuration."""
     test_config = test_configuration_crud.get_test_configuration(

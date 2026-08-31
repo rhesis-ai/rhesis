@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.uuid_utils import (
 logger = logging.getLogger(__name__)
 
 
-def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str | None = None):
     """Get test set by ID with organization filtering for security.
 
     Raises ItemDeletedException for a soft-deleted test set.
@@ -558,8 +558,8 @@ def remove_test_set_associations(
 def update_test_set_attributes(
     db: Session,
     test_set_id: str,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> None:
     """
     Regenerate and update the attributes for a test set based on its current associated tests.
@@ -707,13 +707,13 @@ def execute_test_set_on_endpoint(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
     current_user: models.User,
-    test_configuration_attributes: Dict[str, Any] = None,
-    organization_id: str = None,
-    user_id: str = None,
-    metrics: List[Dict[str, Any]] = None,
-    reference_test_run_id: uuid.UUID = None,
-    execution_model_id: uuid.UUID = None,
-    evaluation_model_id: uuid.UUID = None,
+    test_configuration_attributes: Dict[str, Any] | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+    metrics: List[Dict[str, Any]] | None = None,
+    reference_test_run_id: uuid.UUID | None = None,
+    execution_model_id: uuid.UUID | None = None,
+    evaluation_model_id: uuid.UUID | None = None,
     experiment_id: uuid.UUID | None = None,
     experiment_version: str | None = None,
     experiment_environment: str | None = None,
@@ -951,14 +951,14 @@ def _create_test_configuration(
     endpoint_id: uuid.UUID,
     test_set_id: uuid.UUID,
     current_user: models.User,
-    test_configuration_attributes: Dict[str, Any] = None,
-    organization_id: str = None,
-    user_id: str = None,
-    metrics: List[Dict[str, Any]] = None,
-    metrics_source: str = None,
-    reference_test_run_id: uuid.UUID = None,
-    execution_model_id: uuid.UUID = None,
-    evaluation_model_id: uuid.UUID = None,
+    test_configuration_attributes: Dict[str, Any] | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+    metrics: List[Dict[str, Any]] | None = None,
+    metrics_source: str | None = None,
+    reference_test_run_id: uuid.UUID | None = None,
+    execution_model_id: uuid.UUID | None = None,
+    evaluation_model_id: uuid.UUID | None = None,
     parameters_ref: Dict[str, Any] | None = None,
 ) -> str:
     """Create test configuration and return its ID as string.

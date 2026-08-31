@@ -1668,7 +1668,7 @@ class CommentDataFactory(BaseDataFactory):
 
     @classmethod
     def sample_data(
-        cls, entity_id: Optional[str] = None, entity_type: str = None
+        cls, entity_id: Optional[str] = None, entity_type: str | None = None
     ) -> Dict[str, Any]:
         """
         Generate sample comment data
@@ -1726,7 +1726,7 @@ class CommentDataFactory(BaseDataFactory):
 
     @classmethod
     def with_emoji_reactions(
-        cls, emoji_reactions: Dict[str, List[Dict[str, str]]] = None
+        cls, emoji_reactions: Dict[str, List[Dict[str, str]]] | None = None
     ) -> Dict[str, Any]:
         """
         Generate comment data with emoji reactions

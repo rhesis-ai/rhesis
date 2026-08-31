@@ -1343,7 +1343,7 @@ def refresh_tokens(
 def logout(
     request: Request,
     post_logout: bool = False,
-    session_token: str = None,
+    session_token: str | None = None,
     db: Session = Depends(get_db_session),
 ):
     """Log out the user and clear their session"""

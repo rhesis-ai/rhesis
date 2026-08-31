@@ -277,7 +277,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         url: str,
         headers: Dict,
         request_body: Any,
-        conversation_id: str = None,
+        conversation_id: str | None = None,
     ) -> Dict:
         """Handle successful response with JSON parsing."""
         try:
@@ -342,7 +342,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             )
 
     def _prepare_headers(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] = None
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] | None = None
     ) -> Dict[str, str]:
         """Prepare request headers with proper authentication and context injection."""
         headers = (endpoint.request_headers or {}).copy()

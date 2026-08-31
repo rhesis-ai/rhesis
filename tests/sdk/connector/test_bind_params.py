@@ -124,7 +124,7 @@ def test_bind_async_function(mock_client):
 def test_bind_params_excluded_from_signature(registry):
     """Test that bound parameters are excluded from function signature."""
 
-    def sample_func(db, config, input: str, session_id: str = None) -> dict:
+    def sample_func(db, config, input: str, session_id: str | None = None) -> dict:
         return {"output": "test"}
 
     # Register with bound params
@@ -250,7 +250,7 @@ def test_registry_signature_extraction_with_exclusions(registry):
     """Test signature extraction with parameter exclusions."""
 
     def complex_func(
-        db, config, user, input: str, session_id: str = None, context: list = None
+        db, config, user, input: str, session_id: str | None = None, context: list | None = None
     ) -> dict:
         return {"output": "test"}
 

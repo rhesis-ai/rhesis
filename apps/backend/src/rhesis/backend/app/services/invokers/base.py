@@ -134,7 +134,9 @@ class BaseEndpointInvoker(ABC):
         return self.auth_manager.get_client_credentials_token(db, endpoint)
 
     # Header management methods (delegated to HeaderManager)
-    def _inject_context_headers(self, headers: Dict[str, str], input_data: Dict[str, Any] = None):
+    def _inject_context_headers(
+        self, headers: Dict[str, str], input_data: Dict[str, Any] | None = None
+    ):
         """Inject context headers into headers dict."""
         return self.header_manager.inject_context_headers(headers, input_data)
 
@@ -148,7 +150,7 @@ class BaseEndpointInvoker(ABC):
         error_type: str,
         output_message: str,
         message: str,
-        request_details: Dict = None,
+        request_details: Dict | None = None,
         **kwargs,
     ) -> ErrorResponse:
         """Create standardized error response."""

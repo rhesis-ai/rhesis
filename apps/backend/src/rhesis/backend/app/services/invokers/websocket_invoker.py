@@ -624,7 +624,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         return headers
 
     def _prepare_additional_headers_with_auth(
-        self, endpoint: Endpoint, auth_token: Optional[str], input_data: Dict[str, Any] = None
+        self,
+        endpoint: Endpoint,
+        auth_token: Optional[str],
+        input_data: Dict[str, Any] | None = None,
     ) -> Dict[str, str]:
         """Prepare additional headers for WebSocket connection.
 

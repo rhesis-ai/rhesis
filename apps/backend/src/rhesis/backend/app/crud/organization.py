@@ -53,7 +53,10 @@ def get_session_variables(db: Session):
 
 
 def get_organization(
-    db: Session, organization_id: uuid.UUID, tenant_organization_id: str = None, user_id: str = None
+    db: Session,
+    organization_id: uuid.UUID,
+    tenant_organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Organization]:
     """Get organization."""
     return get_item(db, models.Organization, organization_id, tenant_organization_id, user_id)
@@ -66,8 +69,8 @@ def get_organizations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Organization]:
     return get_items(
         db,

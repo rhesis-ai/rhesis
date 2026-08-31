@@ -42,7 +42,7 @@ def get_test_run_by_config(
 
 
 def get_test_run_by_task_id(
-    db: Session, task_id: str, organization_id: str = None
+    db: Session, task_id: str, organization_id: str | None = None
 ) -> Optional[Any]:
     """Find the test run whose ``attributes->>'task_id'`` equals *task_id*.
 

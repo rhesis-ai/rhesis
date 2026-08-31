@@ -16,7 +16,7 @@ from rhesis.backend.app.utils.crud_utils import (
 
 
 def get_topic(
-    db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, topic_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Topic]:
     """Get a single topic by ID."""
     return get_item(db, models.Topic, topic_id, organization_id, user_id)
@@ -29,8 +29,8 @@ def get_topics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Topic]:
     return get_items(
         db,
@@ -46,7 +46,10 @@ def get_topics(
 
 
 def create_topic(
-    db: Session, topic: schemas.TopicCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    topic: schemas.TopicCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Topic:
     """Create topic."""
     return create_item(db, models.Topic, topic, organization_id, user_id)
@@ -56,8 +59,8 @@ def update_topic(
     db: Session,
     topic_id: uuid.UUID,
     topic: schemas.TopicUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Topic]:
     """Update topic."""
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)

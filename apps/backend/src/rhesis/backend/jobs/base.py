@@ -646,7 +646,7 @@ class BaseJob(Task):
         return None
 
     def _get_user_info(
-        self, user_id: str, organization_id: str = None
+        self, user_id: str, organization_id: str | None = None
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Get user email and name for notifications.
@@ -795,9 +795,9 @@ class BaseJob(Task):
         recipient_name: str,
         status: str,
         execution_time: str,
-        error_message: str = None,
-        test_run_id: str = None,
-        frontend_url: str = None,
+        error_message: str | None = None,
+        test_run_id: str | None = None,
+        frontend_url: str | None = None,
     ) -> bool:
         """Send email notification using the email service."""
         try:

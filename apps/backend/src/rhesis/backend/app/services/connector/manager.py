@@ -813,7 +813,7 @@ class ConnectionManager:
     async def handle_message(
         self,
         connection_id: str = "",
-        message: Dict[str, Any] = None,
+        message: Dict[str, Any] | None = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,

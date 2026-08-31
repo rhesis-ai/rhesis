@@ -11,7 +11,7 @@ from rhesis.backend.app.utils.crud_utils import get_item_detail
 
 
 def get_prompts_for_test_set(
-    db: Session, test_set_id: uuid.UUID, organization_id: str = None
+    db: Session, test_set_id: uuid.UUID, organization_id: str | None = None
 ) -> List[dict]:
     # First check if test set exists AND belongs to organization (SECURITY CRITICAL).
     # Raises ItemDeletedException for a soft-deleted test set; the sole caller

@@ -74,7 +74,9 @@ class TestSetGenerationResponse(BaseModel):
     estimated_tests: int
 
 
-def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str = None) -> TestSet:
+def resolve_test_set_or_raise(
+    identifier: str, db: Session, organization_id: str | None = None
+) -> TestSet:
     """
     Helper function to resolve a test set by identifier and raise 404 if not found.
 

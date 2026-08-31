@@ -286,7 +286,11 @@ class ItemDeletedException(Exception):
     """Raised when trying to access a soft-deleted item."""
 
     def __init__(
-        self, model_name: str, item_id: str, table_name: str = None, item_name: str = None
+        self,
+        model_name: str,
+        item_id: str,
+        table_name: str | None = None,
+        item_name: str | None = None,
     ):
         self.model_name = model_name
         self.item_id = item_id
@@ -298,7 +302,7 @@ class ItemDeletedException(Exception):
 class ItemNotFoundException(Exception):
     """Raised when trying to access an item that doesn't exist."""
 
-    def __init__(self, model_name: str, item_id: str, table_name: str = None):
+    def __init__(self, model_name: str, item_id: str, table_name: str | None = None):
         self.model_name = model_name
         self.item_id = item_id
         self.table_name = table_name or model_name.lower()
