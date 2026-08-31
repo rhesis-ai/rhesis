@@ -39,7 +39,9 @@ def get_test_and_prompt(
     from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
     from rhesis.backend.jobs.execution.modes import get_test_type
 
-    # Get the test. Reads test.prompt below for single-turn tests -- eager-load it explicitly.
+    # Get the test. Reads test.prompt below for single-turn tests, and a
+    # multi-turn test flows into ensure_contract() (via resolve_multi_turn_contract),
+    # which reads test.requirement/category/topic -- eager-load all four explicitly.
     # Raised as ValueError (not ItemDeletedException) so every failure mode of
     # this function shares one exception type -- callers only catch/re-raise
     # generically, so this is purely about message clarity ("deleted" vs
@@ -50,7 +52,12 @@ def get_test_and_prompt(
             Test,
             UUID(test_id),
             organization_id=organization_id,
-            related_fields=(include(Test.prompt),),
+            related_fields=(
+                include(Test.prompt),
+                include(Test.requirement),
+                include(Test.category),
+                include(Test.topic),
+            ),
         )
     except ItemDeletedException:
         raise ValueError(f"Test with ID {test_id} has been deleted")
