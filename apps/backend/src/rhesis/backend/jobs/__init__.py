@@ -14,16 +14,16 @@ from rhesis.backend.celery.core import app
 # Import all task modules to ensure they're registered with Celery
 # Import task functions after BaseJob is defined to avoid circular imports
 from rhesis.backend.jobs import (
-    embedding,  # noqa: F401
-    endpoint,  # noqa: F401
-    execution,  # noqa: F401
-    file,  # noqa: F401
-    garak,  # noqa: F401
-    metric_tuning,  # noqa: F401
-    test_configuration,  # noqa: F401
-    test_set,  # noqa: F401
+    embedding,
+    endpoint,
+    execution,
+    file,
+    garak,
+    metric_tuning,
+    test_configuration,
+    test_set,
     tracking,
-    usage,  # noqa: F401
+    usage,
 )
 from rhesis.backend.jobs.base import (
     BaseJob,

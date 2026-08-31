@@ -428,7 +428,7 @@ class TestBindParameterRealWorldScenario:
             db,
             user,
             organization_id: str,
-            user_id: str = None,
+            user_id: str | None = None,
         ) -> str:
             # Verify FastAPI-provided values are used, not bound values
             assert db is fastapi_db
@@ -473,7 +473,7 @@ class TestBindParameterRealWorldScenario:
             db,
             user,
             organization_id: str,
-            user_id: str = None,
+            user_id: str | None = None,
         ) -> str:
             # Verify all bound values are used
             assert db == bound_db

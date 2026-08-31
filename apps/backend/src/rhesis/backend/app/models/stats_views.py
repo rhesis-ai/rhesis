@@ -6,6 +6,8 @@ cb4b107b5daf), v_metric_stats (migration d3f8a91c5b02), and v_test_stats
 classification logic lives in the view DDL.
 """
 
+from typing import ClassVar
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -15,7 +17,7 @@ from .guid import GUID
 
 class TestRunStatsView(Base):
     __tablename__ = "v_test_run_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_run_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
@@ -45,7 +47,7 @@ class MetricStatsView(Base):
     """
 
     __tablename__ = "v_metric_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_result_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
@@ -76,7 +78,7 @@ class TestStatsView(Base):
     """
 
     __tablename__ = "v_test_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
@@ -113,7 +115,7 @@ class TestStatsView(Base):
 
 class TestResultStatsView(Base):
     __tablename__ = "v_test_result_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_result_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())

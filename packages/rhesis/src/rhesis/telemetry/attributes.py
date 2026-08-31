@@ -145,8 +145,8 @@ class AIEvents:
 def create_llm_attributes(
     provider: str,
     model_name: str,
-    tokens_input: int = None,
-    tokens_output: int = None,
+    tokens_input: int | None = None,
+    tokens_output: int | None = None,
     **kwargs,
 ) -> Dict[str, Any]:
     """

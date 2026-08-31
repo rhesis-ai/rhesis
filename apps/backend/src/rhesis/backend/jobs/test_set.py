@@ -120,7 +120,7 @@ def _save_test_set_to_database(
     test_set,
     org_id: str,
     user_id: str,
-    custom_name: str = None,
+    custom_name: str | None = None,
     extra_metadata: Optional[dict] = None,
 ):
     """Save the generated test set directly to the database.

@@ -107,7 +107,7 @@ def update_version_file(
     new_version: str,
     repo_root: Path,
     dry_run: bool = False,
-    component_bumps: dict[str, str] = None,
+    component_bumps: dict[str, str] | None = None,
 ) -> bool:
     """Update version in configuration file"""
     if component == "platform":

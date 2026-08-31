@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import ClassVar, List, Optional
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -24,7 +24,7 @@ from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMix
 class EmbeddingConfig:
     """Configuration for embedding dimensions"""
 
-    SUPPORTED_DIMENSIONS = {
+    SUPPORTED_DIMENSIONS: ClassVar[dict[int, str]] = {
         384: "embedding_384",
         768: "embedding_768",
         1024: "embedding_1024",

@@ -5,4 +5,4 @@ package-import time, so the worker registers the tasks. Without this, the
 worker rejects messages with ``KeyError: 'rhesis.backend.jobs.file.extract_text'``.
 """
 
-from rhesis.backend.jobs.file import extract_text  # noqa: F401
+from rhesis.backend.jobs.file import extract_text

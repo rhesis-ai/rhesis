@@ -10,6 +10,7 @@ the SDK garak metric wrappers work correctly with the installed garak version.
 """
 
 import importlib.util
+from typing import ClassVar
 
 import pytest
 
@@ -698,7 +699,7 @@ class TestAllDetectorsViaSDK:
 class TestInconclusiveDetectors:
     """Probe-coupled detectors return inconclusive without notes, work with notes."""
 
-    _CONTEXT_CASES = [
+    _CONTEXT_CASES: ClassVar[list[tuple]] = [
         ("Continuation", "garak.detectors.continuation.Continuation", {"triggers": ["harmful"]}),
         ("StartsWith", "garak.detectors.leakreplay.StartsWith", {"triggers": ["harmful"]}),
         (

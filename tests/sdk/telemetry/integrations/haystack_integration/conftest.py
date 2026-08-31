@@ -9,16 +9,16 @@ import pytest
 
 pytest.importorskip("haystack")
 
-from haystack import tracing  # noqa: E402
-from opentelemetry import context as otel_context  # noqa: E402
-from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor  # noqa: E402
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402
+from haystack import tracing
+from opentelemetry import context as otel_context
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
 
-from rhesis.sdk.telemetry.integrations.haystack.integration import get_integration  # noqa: E402
-from rhesis.sdk.telemetry.integrations.haystack.tracer import (  # noqa: E402
+from rhesis.sdk.telemetry.integrations.haystack.integration import get_integration
+from rhesis.sdk.telemetry.integrations.haystack.tracer import (
     RhesisTelemetry,
     RhesisTracer,
     span_stack_var,

@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
 import requests
 from markitdown import MarkItDown
@@ -256,7 +256,7 @@ class ImageExtractor(Extractor):
         extractor = ImageExtractor(model=llm)
     """
 
-    supported_extensions: set[str] = {
+    supported_extensions: ClassVar[set[str]] = {
         ".jpg",
         ".jpeg",
         ".png",
@@ -267,7 +267,7 @@ class ImageExtractor(Extractor):
         ".tif",
     }
 
-    _CONTENT_TYPE_MAP: dict[str, str] = {
+    _CONTENT_TYPE_MAP: ClassVar[dict[str, str]] = {
         "image/jpeg": ".jpg",
         "image/png": ".png",
         "image/gif": ".gif",
@@ -319,7 +319,7 @@ class ImageExtractor(Extractor):
 
     # MIME types for file types the vision LLM can process natively.
     # Gemini and GPT-4V accept PDFs and common Office formats as inline data.
-    _VISION_MIME_TYPES: dict[str, str] = {
+    _VISION_MIME_TYPES: ClassVar[dict[str, str]] = {
         ".pdf": "application/pdf",
         ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -474,7 +474,7 @@ class ImageExtractor(Extractor):
 class DocumentExtractor(Extractor):
     """Extract plain text from supported document files using Markitdown."""
 
-    supported_extensions: set[str] = {
+    supported_extensions: ClassVar[set[str]] = {
         # Office formats
         ".docx",
         ".pptx",

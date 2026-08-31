@@ -12,16 +12,16 @@ import pytest
 
 pytest.importorskip("haystack")
 
-from haystack import Pipeline, component  # noqa: E402
-from haystack.components.agents import Agent  # noqa: E402
-from haystack.components.builders import ChatPromptBuilder  # noqa: E402
-from haystack.dataclasses import ChatMessage, ToolCall  # noqa: E402
-from haystack.tools import Tool  # noqa: E402
-from rhesis.telemetry.attributes import AIAttributes, validate_span_name  # noqa: E402
-from rhesis.telemetry.constants import ConversationContext  # noqa: E402
+from haystack import Pipeline, component
+from haystack.components.agents import Agent
+from haystack.components.builders import ChatPromptBuilder
+from haystack.dataclasses import ChatMessage, ToolCall
+from haystack.tools import Tool
+from rhesis.telemetry.attributes import AIAttributes, validate_span_name
+from rhesis.telemetry.constants import ConversationContext
 
 from rhesis.sdk.telemetry.integrations.haystack.tracer import (
-    rhesis_invocation_context,  # noqa: E402
+    rhesis_invocation_context,
 )
 
 CONV = ConversationContext.SpanAttributes

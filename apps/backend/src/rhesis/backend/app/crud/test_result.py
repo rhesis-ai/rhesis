@@ -28,7 +28,10 @@ _TEST_RESULT_RELATED_FIELDS = (
 
 
 def get_test_result(
-    db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_result_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestResult]:
     """Get test_result with relationships (tags, test, test_run) eagerly loaded."""
     return get_item_detail(
@@ -48,8 +51,8 @@ def get_test_results(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.TestResult]:
     """Get test_results with relationships (tags, test, test_run) eagerly loaded."""
     return (
@@ -68,8 +71,8 @@ def get_test_results(
 def create_test_result(
     db: Session,
     test_result: schemas.TestResultCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.TestResult:
     """Create test_result."""
     return create_item(db, models.TestResult, test_result, organization_id, user_id)
@@ -79,8 +82,8 @@ def update_test_result(
     db: Session,
     test_result_id: uuid.UUID,
     test_result: schemas.TestResultUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestResult]:
     """Update test_result."""
     return update_item(db, models.TestResult, test_result_id, test_result, organization_id, user_id)

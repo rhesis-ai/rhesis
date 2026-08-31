@@ -1,5 +1,7 @@
 """Tests for Penelope exploration strategies."""
 
+from typing import ClassVar
+
 import pytest
 
 from rhesis.penelope.strategies import (
@@ -21,7 +23,6 @@ from rhesis.penelope.strategies.base import (
     _DIFFICULTY_CALIBRATION,
     register_strategy,
 )
-
 
 # -----------------------------------------------------------------------
 # Registry
@@ -312,7 +313,7 @@ class TestRegisterCustomStrategy:
             strategy_name = "_test_custom"
             strategy_description = "Custom test strategy"
             strategy_max_turns = 3
-            findings_fields = {"custom_field": ""}
+            findings_fields: ClassVar[dict] = {"custom_field": ""}
 
             def _goal_parts(self, target_name, target_description, previous_findings):
                 return [f"Custom goal for {target_name}"]

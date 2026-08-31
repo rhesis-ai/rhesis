@@ -1,13 +1,13 @@
 """Header management utilities for endpoint invokers."""
 
-from typing import Any, Dict
+from typing import Any, ClassVar, Dict
 
 
 class HeaderManager:
     """Handles header sanitization and injection for endpoint requests."""
 
     # Sensitive header keys to redact in logs
-    SENSITIVE_KEYS = {
+    SENSITIVE_KEYS: ClassVar[set[str]] = {
         "authorization",
         "auth",
         "x-api-key",
@@ -46,7 +46,9 @@ class HeaderManager:
         return sanitized
 
     @staticmethod
-    def inject_context_headers(headers: Dict[str, str], input_data: Dict[str, Any] = None) -> None:
+    def inject_context_headers(
+        headers: Dict[str, str], input_data: Dict[str, Any] | None = None
+    ) -> None:
         """
         Inject context headers (organization_id, user_id) into headers dict.
 

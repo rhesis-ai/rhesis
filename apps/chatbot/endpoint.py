@@ -145,7 +145,7 @@ class ResponseGenerator:
     async def get_assistant_response(
         self,
         prompt: str,
-        conversation_history: List[dict] = None,
+        conversation_history: List[dict] | None = None,
         file_contents: list[dict] | None = None,
         mode: OutputMode = "text",
     ) -> str:
@@ -161,7 +161,7 @@ class ResponseGenerator:
     def _build_messages(
         self,
         prompt: str,
-        conversation_history: List[dict] = None,
+        conversation_history: List[dict] | None = None,
         file_contents: list[dict] | None = None,
     ) -> List[dict]:
         """Build structured messages for the LLM with proper role separation."""
@@ -249,7 +249,7 @@ class ResponseGenerator:
     async def stream_assistant_response(
         self,
         prompt: str,
-        conversation_history: List[dict] = None,
+        conversation_history: List[dict] | None = None,
         file_contents: list[dict] | None = None,
         mode: OutputMode = "text",
     ) -> AsyncGenerator[str, None]:
@@ -570,7 +570,7 @@ def get_response_generator(
 async def get_assistant_response(
     prompt: str,
     use_case: str = "insurance",
-    conversation_history: List[dict] = None,
+    conversation_history: List[dict] | None = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
 ) -> str:
@@ -584,7 +584,7 @@ async def get_assistant_response(
 async def stream_assistant_response(
     prompt: str,
     use_case: str = "insurance",
-    conversation_history: List[dict] = None,
+    conversation_history: List[dict] | None = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
     system_prompt_override: str | None = None,
@@ -690,7 +690,7 @@ def _collect_stream_chunks(
 def stream_assistant_response_sync(
     prompt: str,
     use_case: str = "insurance",
-    conversation_history: List[dict] = None,
+    conversation_history: List[dict] | None = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
     system_prompt_override: str | None = None,

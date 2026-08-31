@@ -42,7 +42,7 @@ _TIMING_MAX_TESTS = 2000
 
 
 def get_test_results_for_test_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Dict[str, Any]]:
     """
     Get all test results for a test run with related data for CSV export.
@@ -197,7 +197,7 @@ def rescore_test_run(
     reference_test_run_id: str,
     current_user: models.User,
     metrics: Optional[List[Dict[str, Any]]] = None,
-    evaluation_model_id: uuid.UUID = None,
+    evaluation_model_id: uuid.UUID | None = None,
 ) -> Dict[str, Any]:
     """Create a new test run that re-scores an existing one.
 

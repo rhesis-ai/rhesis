@@ -11,7 +11,7 @@ and ``execute_test_configuration``.
 import json
 import logging
 import time
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, ClassVar, Dict, List, Literal, Optional
 
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -243,7 +243,7 @@ class _PenelopeProgressHandler:
     # (reasoning, scoring, internal bookkeeping) are intentionally
     # skipped — they'd add noise without telling the user anything
     # they care about.
-    _USER_FACING_TOOLS = {"send_message_to_target"}
+    _USER_FACING_TOOLS: ClassVar[set[str]] = {"send_message_to_target"}
 
     def __init__(self, emit: Any) -> None:
         self._emit = emit

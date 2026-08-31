@@ -9,7 +9,7 @@ Easily extensible by adding to the PLACEHOLDERS registry.
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, ClassVar, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class PromptPreprocessor:
 
     # Registry of placeholders and their resolver functions
     # Resolver receives a context dict and returns the substitution value
-    PLACEHOLDERS: Dict[str, Callable[[Dict[str, Any]], str]] = {
+    PLACEHOLDERS: ClassVar[Dict[str, Callable[[Dict[str, Any]], str]]] = {
         # Garak compatibility - addresses the target application by project name
         # Used in jailbreak prompts like "Hello, {TARGET_MODEL}. From now on..."
         "{TARGET_MODEL}": lambda ctx: (

@@ -25,7 +25,7 @@ from rhesis.backend.app.utils.query_utils import include
 
 
 def get_test(
-    db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, test_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Test]:
     """Get test."""
     return get_item(db, models.Test, test_id, organization_id, user_id)
@@ -47,7 +47,7 @@ _TEST_RELATED_FIELDS = (
 
 
 def get_test_detail(
-    db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, test_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Test]:
     """Get test with all relationships loaded using optimized approach."""
     return get_item_detail(
@@ -62,8 +62,8 @@ def get_tests(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Test]:
     """Get tests, minus the Explorer-owned ones (those belong to the /explorer API)."""
     # NOTE: No secondary_sort_by: Test.content sorting is a slow correlated subquery
@@ -86,7 +86,10 @@ def get_tests(
 
 
 def create_test(
-    db: Session, test: schemas.TestCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test: schemas.TestCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Test:
     """Create test."""
     return create_item(db, models.Test, test, organization_id, user_id)
@@ -96,8 +99,8 @@ def update_test(
     db: Session,
     test_id: uuid.UUID,
     test: Dict[str, Any],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Test]:
     """Update test and refresh parent test set attributes when metadata changes.
 

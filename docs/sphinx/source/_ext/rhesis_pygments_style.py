@@ -3,6 +3,8 @@ Custom Pygments style for Rhesis documentation.
 Uses Rhesis brand colors for syntax highlighting.
 """
 
+from typing import ClassVar
+
 from pygments.style import Style
 from pygments.token import (
     Comment,
@@ -29,7 +31,7 @@ class RhesisStyle(Style):
     background_color = "#161B22"
     default_style = "#E6EDF3"  # Primary text color
 
-    styles = {
+    styles: ClassVar[dict] = {
         # Comments - secondary text color (subdued but clear)
         Comment:                        '#A9B1BB',
         Comment.Multiline:              '#A9B1BB',

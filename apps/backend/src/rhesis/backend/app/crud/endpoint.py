@@ -28,7 +28,7 @@ def get_endpoint(
     endpoint_id: uuid.UUID,
     organization_id: str,
     user_id: str,
-    project_id: str = None,
+    project_id: str | None = None,
 ) -> Optional[models.Endpoint]:
     """Get endpoint with relationships eagerly loaded."""
     return get_item_detail(
@@ -49,8 +49,8 @@ def get_endpoints(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Endpoint]:
     return get_items_detail(
         db,

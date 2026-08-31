@@ -22,7 +22,7 @@ import pandas as pd
 
 
 def convert_simple_safety_tests(
-    input_path: Path, output_dir: Path, limit: int = None, random: bool = False
+    input_path: Path, output_dir: Path, limit: int | None = None, random: bool = False
 ) -> Path:
     """
     Convert simple_safety_tests.csv to test set format.
@@ -71,7 +71,7 @@ def convert_simple_safety_tests(
 
 
 def convert_harmful_qa(
-    input_path: Path, output_dir: Path, limit: int = None, random: bool = False
+    input_path: Path, output_dir: Path, limit: int | None = None, random: bool = False
 ) -> Path:
     """
     Convert harmfull_qa.json to test set format.
@@ -123,7 +123,7 @@ def convert_harmful_qa(
 
 
 def convert_safety_bingo(
-    input_path: Path, output_dir: Path, limit: int = None, random: bool = False
+    input_path: Path, output_dir: Path, limit: int | None = None, random: bool = False
 ) -> Path:
     """
     Convert final_safety_bingo.parquet to test set format.
@@ -177,7 +177,7 @@ def convert_safety_bingo(
 def convert_social_chem_101(
     input_path: Path,
     output_dir: Path,
-    limit: int = None,
+    limit: int | None = None,
     random: bool = False,
 ) -> Path:
     """

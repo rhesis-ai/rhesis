@@ -187,7 +187,7 @@ class QueryBuilder:
             self.query = self.query.filter(self.model.deleted_at.isnot(None))
         return self
 
-    def with_organization_filter(self, organization_id: str = None) -> "QueryBuilder":
+    def with_organization_filter(self, organization_id: str | None = None) -> "QueryBuilder":
         """
         Filter query by organization_id for tenant isolation.
 

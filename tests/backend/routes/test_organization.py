@@ -91,7 +91,10 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
     assignee_id_field = None  # Organizations don't have assignee_id
 
     def get_sample_data_with_users(
-        self, user_id: str = None, owner_id: str = None, assignee_id: str = None
+        self,
+        user_id: str | None = None,
+        owner_id: str | None = None,
+        assignee_id: str | None = None,
     ) -> Dict[str, Any]:
         """Override to provide organization data with user relationships"""
         data = super().get_sample_data()
@@ -235,7 +238,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         # Organization delete endpoint was removed, so method not allowed
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
-    def create_entity(self, client: TestClient, data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def create_entity(
+        self, client: TestClient, data: Dict[str, Any] | None = None
+    ) -> Dict[str, Any]:
         """Override create_entity to handle organization-specific requirements"""
         if data is None:
             data = self.get_sample_data()

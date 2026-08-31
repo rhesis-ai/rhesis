@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_token(
-    db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, token_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Token]:
     """Get token."""
     return get_item(db, models.Token, token_id, organization_id, user_id)
@@ -59,8 +59,8 @@ def get_user_tokens(
     sort_order: str = "desc",
     filter: str | None = None,
     valid_only: bool = False,
-    organization_id: str = None,
-    project_id: str = None,
+    organization_id: str | None = None,
+    project_id: str | None = None,
 ) -> List[models.Token]:
     """Get all active bearer tokens for a user with pagination and sorting
 
@@ -114,8 +114,8 @@ def count_user_tokens(
     db: Session,
     user_id: uuid.UUID,
     filter: str | None = None,
-    organization_id: str = None,
-    project_id: str = None,
+    organization_id: str | None = None,
+    project_id: str | None = None,
 ) -> int:
     """Count all active bearer tokens for a user
 
@@ -149,7 +149,10 @@ def count_user_tokens(
 
 
 def create_token(
-    db: Session, token: schemas.TokenCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    token: schemas.TokenCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Token:
     """Create token."""
     return create_item(db, models.Token, token, organization_id, user_id)
@@ -159,15 +162,15 @@ def update_token(
     db: Session,
     token_id: uuid.UUID,
     token: schemas.TokenUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Token]:
     """Update token."""
     return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
 def revoke_token(
-    db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, token_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Token]:
     """Delete token."""
     return delete_item(db, models.Token, token_id, organization_id, user_id)
@@ -176,8 +179,8 @@ def revoke_token(
 def bulk_revoke_tokens(
     db: Session,
     token_ids: List[uuid.UUID],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, List[str]]:
     """Soft delete (revoke) multiple tokens in one transaction.
 
@@ -193,7 +196,7 @@ def bulk_revoke_tokens(
     )
 
 
-def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = None) -> int:
+def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str | None = None) -> int:
     """Revoke all tokens for a user with organization filtering (SECURITY CRITICAL)"""
     query = db.query(models.Token).filter(models.Token.user_id == user_id)
 
@@ -208,7 +211,7 @@ def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str = N
     return result
 
 
-def get_token_by_value(db: Session, token_value: str, organization_id: str = None):
+def get_token_by_value(db: Session, token_value: str, organization_id: str | None = None):
     """Retrieve a token by its value with organization filtering (SECURITY CRITICAL)
 
     Uses SHA-256 hash for efficient O(1) indexed lookup instead of decrypting all tokens.

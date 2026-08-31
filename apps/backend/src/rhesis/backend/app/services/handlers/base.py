@@ -17,7 +17,7 @@ class BaseSourceHandler(ABC):
         file: UploadFile,
         organization_id: str,
         source_id: str,
-        user_id: str = None,
+        user_id: str | None = None,
         db_session=None,
     ) -> dict:
         """

@@ -57,7 +57,7 @@ def _get_mcp_tool_config(
     db: Session,
     tool_id: str,
     organization_id: str,
-    user_id: str = None,
+    user_id: str | None = None,
     tool_metadata_override: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Return MCP client, provider name, and optional provider scope context."""
@@ -96,7 +96,7 @@ def _get_mcp_client_from_params(
     credentials: Dict[str, str],
     db: Session,
     organization_id: str,
-    user_id: str = None,
+    user_id: str | None = None,
     tool_metadata: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Build an MCP client from unsaved credentials (connection test before save)."""

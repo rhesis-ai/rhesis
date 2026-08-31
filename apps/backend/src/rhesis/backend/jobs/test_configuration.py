@@ -114,7 +114,7 @@ def _make_on_test_phase(self, test_run, org_id, user_id, project_id, total_tests
     display_name="Test Set Execution",
 )
 # with_tenant_context decorator removed - tenant context now passed directly
-def execute_test_configuration(self, test_configuration_id: str, test_run_id: str = None):
+def execute_test_configuration(self, test_configuration_id: str, test_run_id: str | None = None):
     """
     Execute a test configuration by running all associated test cases.
 

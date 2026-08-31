@@ -16,7 +16,7 @@ Research influences:
       rephrasings; documenting soft vs. hard boundaries.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from rhesis.penelope.strategies.base import ExplorationStrategy, register_strategy
 
@@ -38,7 +38,7 @@ class BoundaryDiscoveryStrategy(ExplorationStrategy):
     )
     strategy_max_turns = 7
 
-    findings_fields = {
+    findings_fields: ClassVar[Dict[str, Any]] = {
         "refusal_patterns": [],
         "domain_boundaries": [],
         "safety_guardrails": [],
@@ -47,7 +47,7 @@ class BoundaryDiscoveryStrategy(ExplorationStrategy):
         "soft_boundaries": [],
     }
 
-    dimensions = [
+    dimensions: ClassVar[List[Tuple[str, str]]] = [
         (
             "domain_edge",
             "Topics adjacent to but outside the core domain.",

@@ -48,7 +48,7 @@ _METRIC_RELATED_FIELDS = (
 
 
 def get_metric(
-    db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str = None
+    db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str | None = None
 ) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships.
 
@@ -97,8 +97,8 @@ def get_metrics(
     sort_order: str = "desc",
     filter: str | None = None,
     metric_scope: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Metric]:
     """Get all metrics with their related objects, including many-to-many relationships."""
     return get_items_detail(
@@ -212,7 +212,10 @@ def _preprocess_metric_data(
 
 
 def create_metric(
-    db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    metric: schemas.MetricCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Metric:
     """Create a new metric."""
 
@@ -235,8 +238,8 @@ def update_metric(
     db: Session,
     metric_id: uuid.UUID,
     metric: schemas.MetricUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Metric]:
     """Update a metric."""
     metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)

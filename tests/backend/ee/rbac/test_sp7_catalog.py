@@ -23,6 +23,8 @@ Run with:
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
@@ -303,7 +305,7 @@ class TestPermissionsForBuiltInRole:
     correctly implements the allowlist rules — independent of any DB state.
     """
 
-    _CAPS = [
+    _CAPS: ClassVar[list[str]] = [
         "test_set:read",
         "test_set:create",
         "test_set:execute",

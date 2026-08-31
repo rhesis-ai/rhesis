@@ -103,7 +103,10 @@ def _clean_uuid_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, A
 
 
 def _auto_populate_tenant_fields(
-    model: Type[T], item_data: Dict[str, Any], organization_id: str = None, user_id: str = None
+    model: Type[T],
+    item_data: Dict[str, Any],
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, Any]:
     """Auto-populate organization_id and user_id from the provided tenant context."""
     columns = inspect(model).columns.keys()
@@ -141,8 +144,8 @@ def _auto_populate_tenant_fields(
 def _prepare_item_data(
     model: Type[T],
     item_data: Union[Dict[str, Any], BaseModel],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, Any]:
     """Prepare item data for database operations (convert, clean UUIDs, populate tenant fields)."""
     # Convert Pydantic to dict
@@ -319,8 +322,8 @@ def get_item(
     db: Session,
     model: Type[T],
     item_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     include_deleted: bool = False,
 ) -> Optional[T]:
     """
@@ -357,10 +360,10 @@ def get_item_detail(
     db: Session,
     model: Type[T],
     item_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     include_deleted: bool = False,
-    project_id: str = None,
+    project_id: str | None = None,
     related_fields: tuple | list | None = None,
     selectin_chains: list | None = None,
     extra_filter: Callable[[Query], Query] | None = None,
@@ -427,9 +430,9 @@ def get_items(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    filter: str = None,
-    organization_id: str = None,
-    user_id: str = None,
+    filter: str | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[T]:
     """Get multiple items with pagination, sorting, and filtering (no relationship loading)."""
     return (
@@ -453,8 +456,8 @@ def get_items_detail(
     filter: str | None = None,
     related_fields: tuple | list | None = None,
     selectin_chains: list | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     secondary_sort_by: str | None = None,
     secondary_sort_order: str = "asc",
     exclude_explorer_rows: bool = False,
@@ -549,8 +552,8 @@ def create_item(
     db: Session,
     model: Type[T],
     item_data: Union[Dict[str, Any], BaseModel],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
 ) -> T:
     """
@@ -592,8 +595,8 @@ def update_item(
     model: Type[T],
     item_id: uuid.UUID,
     item_data: Union[Dict[str, Any], BaseModel],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[T]:
     """
     Update an existing item.
@@ -665,8 +668,8 @@ def delete_item(
     db: Session,
     model: Type[T],
     item_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[T]:
     """
     Soft delete an item by setting deleted_at timestamp and return the deleted item.
@@ -716,8 +719,8 @@ def bulk_delete_by_ids(
     db: Session,
     model: Type[T],
     item_ids: List[uuid.UUID],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     owner_attr: Optional[str] = None,
     on_deleted: Optional[Callable[[List[uuid.UUID]], None]] = None,
 ) -> Dict[str, List[str]]:
@@ -825,8 +828,8 @@ def get_deleted_items(
     limit: int = 100,
     sort_by: str = "deleted_at",
     sort_order: str = "desc",
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[T]:
     """
     Get only soft-deleted items.
@@ -859,8 +862,8 @@ def restore_item(
     db: Session,
     model: Type[T],
     item_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[T]:
     """
     Restore a soft-deleted item.
@@ -904,8 +907,8 @@ def hard_delete_item(
     db: Session,
     model: Type[T],
     item_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> bool:
     """
     Permanently delete an item from the database.
@@ -936,9 +939,9 @@ def hard_delete_item(
 def count_items(
     db: Session,
     model: Type[T],
-    filter: str = None,
-    organization_id: str = None,
-    user_id: str = None,
+    filter: str | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     exclude_explorer_rows: bool = False,
     extra_filter: Callable[[Query], Query] | None = None,
 ) -> int:
@@ -1016,8 +1019,8 @@ def get_or_create_entity(
     db: Session,
     model: Type[T],
     entity_data: Union[Dict[str, Any], BaseModel],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
 ) -> T:
     """
@@ -1079,9 +1082,9 @@ def get_or_create_status(
     db: Session,
     name: str,
     entity_type,
-    description: str = None,
-    organization_id: str = None,
-    user_id: str = None,
+    description: str | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
 ) -> Status:
     """Get or create a status with the specified name, entity type, and optional description."""
@@ -1134,10 +1137,10 @@ def get_or_create_type_lookup(
     db: Session,
     type_name: str,
     type_value: str,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
-    description: str = None,
+    description: str | None = None,
 ) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value."""
 
@@ -1187,8 +1190,8 @@ def get_or_create_topic(
     entity_type: str | None = None,
     description: str | None = None,
     status: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
 ) -> Topic:
     """Get or create a topic with optional entity type, description, and status."""
@@ -1233,8 +1236,8 @@ def get_or_create_category(
     entity_type: str | None = None,
     description: str | None = None,
     status: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
 ) -> Category:
     """Get or create a category with optional entity type, description, and status."""
@@ -1280,8 +1283,8 @@ def get_or_create_requirement(
     name: str,
     description: str | None = None,
     status: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     commit: bool = True,
 ) -> Requirement:
     """Get or create a requirement with optional description and status."""

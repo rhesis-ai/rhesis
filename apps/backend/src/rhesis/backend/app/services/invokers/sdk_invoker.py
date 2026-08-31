@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import uuid
-from typing import Any, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, Optional, Union
 
 from fastapi import HTTPException
 
@@ -103,7 +103,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
     # passthrough mode (no request_mapping).  When a request_mapping IS
     # present these keys are still available in the Jinja template context
     # (e.g. ``{{ params.model }}``, ``{{ test_id }}``).
-    _PLATFORM_CONTEXT_KEYS: set = {
+    _PLATFORM_CONTEXT_KEYS: ClassVar[set[str]] = {
         "organization_id",
         "user_id",
         "params",

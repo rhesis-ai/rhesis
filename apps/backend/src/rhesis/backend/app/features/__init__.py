@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional, Protocol, Union
+from typing import Callable, ClassVar, Optional, Protocol, Union
 
 from rhesis.backend.app.models.organization import Organization
 
@@ -129,7 +129,7 @@ class FeatureRegistry:
     :meth:`is_available` (strictest, includes runtime check).
     """
 
-    _features: dict[FeatureName, Feature] = {}
+    _features: ClassVar[dict[FeatureName, Feature]] = {}
     _license: LicenseProvider = DefaultLicenseProvider()
 
     @classmethod

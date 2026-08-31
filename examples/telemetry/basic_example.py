@@ -110,7 +110,7 @@ def get_weather(location: str) -> dict:
 
 # Example 4: Chat endpoint with tracing
 @observe()
-def chat_endpoint(input: str, session_id: str = None) -> dict:
+def chat_endpoint(input: str, session_id: str | None = None) -> dict:
     """
     A chat endpoint with full observability via @observe.
 

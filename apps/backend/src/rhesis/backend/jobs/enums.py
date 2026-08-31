@@ -3,7 +3,7 @@
 from enum import Enum
 
 from rhesis.backend.app.constants import (
-    TestResultStatus,  # noqa: F401 — re-export
+    TestResultStatus,
     TestType,  # noqa: F401 — re-export
 )
 

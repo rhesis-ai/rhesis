@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Union
 
 if TYPE_CHECKING:
     from .context import InvocationContext
@@ -39,7 +39,7 @@ class BaseEndpointInvoker(ABC):
 
     # Keys in request_mapping that are used by Rhesis for configuration
     # but must NOT appear in the wire request body sent to the endpoint.
-    RESERVED_META_KEYS: set = {"system_prompt"}
+    RESERVED_META_KEYS: ClassVar[set[str]] = {"system_prompt"}
 
     def __init__(self, context: "InvocationContext | None" = None):
         self.context = context
@@ -134,7 +134,9 @@ class BaseEndpointInvoker(ABC):
         return self.auth_manager.get_client_credentials_token(db, endpoint)
 
     # Header management methods (delegated to HeaderManager)
-    def _inject_context_headers(self, headers: Dict[str, str], input_data: Dict[str, Any] = None):
+    def _inject_context_headers(
+        self, headers: Dict[str, str], input_data: Dict[str, Any] | None = None
+    ):
         """Inject context headers into headers dict."""
         return self.header_manager.inject_context_headers(headers, input_data)
 
@@ -148,7 +150,7 @@ class BaseEndpointInvoker(ABC):
         error_type: str,
         output_message: str,
         message: str,
-        request_details: Dict = None,
+        request_details: Dict | None = None,
         **kwargs,
     ) -> ErrorResponse:
         """Create standardized error response."""

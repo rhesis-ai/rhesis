@@ -49,7 +49,7 @@ _TASK_RELATED_FIELDS = (
 
 
 def get_task(
-    db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, task_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Task]:
     """Get task with relationships eagerly loaded."""
     # Task.comments is a custom polymorphic relationship (viewonly, matched by
@@ -74,8 +74,8 @@ def get_tasks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Task]:
     """Get tasks with filtering and sorting"""
     # See get_task -- Task.comments is a custom polymorphic relationship, not
@@ -96,7 +96,10 @@ def get_tasks(
 
 
 def create_task(
-    db: Session, task: schemas.TaskCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    task: schemas.TaskCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Task:
     """Create a new task"""
     # Check if task is being created with "Completed" status
@@ -113,8 +116,8 @@ def update_task(
     db: Session,
     task_id: uuid.UUID,
     task: schemas.TaskUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Task]:
     """Update a task with organization filtering"""
     # Check if status is being changed to "Completed"

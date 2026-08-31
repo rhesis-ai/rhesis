@@ -8,7 +8,7 @@ and other common database errors to avoid repetition across router files.
 import asyncio
 import functools
 import logging
-from typing import Callable, Dict, Optional
+from typing import Callable, ClassVar, Dict, Optional
 
 from fastapi import HTTPException
 
@@ -29,7 +29,7 @@ class DatabaseExceptionHandler:
     DEFAULT_INTERNAL_ERROR_MESSAGE = "Internal server error"
 
     # Common foreign key field mappings to user-friendly messages
-    FOREIGN_KEY_FIELD_MESSAGES = {
+    FOREIGN_KEY_FIELD_MESSAGES: ClassVar[Dict[str, str]] = {
         "dimension_id": "Invalid dimension reference",
         "parent_id": "Invalid parent reference",
         "status_id": "Invalid status reference",
@@ -286,7 +286,11 @@ class ItemDeletedException(Exception):
     """Raised when trying to access a soft-deleted item."""
 
     def __init__(
-        self, model_name: str, item_id: str, table_name: str = None, item_name: str = None
+        self,
+        model_name: str,
+        item_id: str,
+        table_name: str | None = None,
+        item_name: str | None = None,
     ):
         self.model_name = model_name
         self.item_id = item_id
@@ -298,7 +302,7 @@ class ItemDeletedException(Exception):
 class ItemNotFoundException(Exception):
     """Raised when trying to access an item that doesn't exist."""
 
-    def __init__(self, model_name: str, item_id: str, table_name: str = None):
+    def __init__(self, model_name: str, item_id: str, table_name: str | None = None):
         self.model_name = model_name
         self.item_id = item_id
         self.table_name = table_name or model_name.lower()

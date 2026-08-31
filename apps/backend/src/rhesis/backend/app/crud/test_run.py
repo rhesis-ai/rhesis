@@ -70,7 +70,10 @@ def _defer_endpoint_last_token(q):
 
 
 def get_test_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_run_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestRun]:
     """Get test_run with relationships eagerly loaded (including nested chains)."""
     return get_item_detail(
@@ -146,8 +149,8 @@ def get_test_runs(
     parameter_version: str | None = None,
     has_experiment: bool | None = None,
     has_reviews: bool | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.TestRun]:
     return get_items_detail(
         db,
@@ -168,7 +171,7 @@ def get_test_runs(
 
 
 def get_test_run_requirements(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[models.Requirement]:
     """Get requirements that have test results for a test run, filtered by organization."""
     # Verify the test run exists (UUID lookup is safe)
@@ -249,7 +252,10 @@ def get_test_run_metrics(
 
 
 def create_test_run(
-    db: Session, test_run: schemas.TestRunCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_run: schemas.TestRunCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.TestRun:
     """Create a new test run with automatic name generation if no name is provided"""
 
@@ -297,8 +303,8 @@ def update_test_run(
     db: Session,
     test_run_id: uuid.UUID,
     test_run: schemas.TestRunUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestRun]:
     """Update test_run."""
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
@@ -391,7 +397,7 @@ def get_test_run_task_ids(
 
 
 def get_ordered_tests_for_test_set(
-    db: Session, test_set_id: uuid.UUID, organization_id: str = None
+    db: Session, test_set_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Tuple[str, Optional[str], bool]]:
     """Return ``[(test_id, requirement_id, is_multi_turn)]`` for a test set, ordered by test id.
 
@@ -428,7 +434,7 @@ def get_ordered_tests_for_test_set(
 
 
 def get_review_count_for_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> int:
     """Count distinct tests with at least one review recorded, for this run.
 
@@ -452,7 +458,7 @@ def get_review_count_for_run(
 
 
 def get_metric_verdicts_for_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Row]:
     """Return one row per (test, metric) evaluated in this run, from ``v_metric_stats``.
 
@@ -478,7 +484,7 @@ def get_metric_verdicts_for_run(
 
 
 def get_test_outcomes_for_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> Dict[str, str]:
     """Map ``test_id`` to its most recent result's outcome for this run.
 

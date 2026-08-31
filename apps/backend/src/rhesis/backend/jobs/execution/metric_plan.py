@@ -113,8 +113,8 @@ def build_metric_plan(
     db: Session,
     test_config: TestConfiguration,
     test_set: TestSet,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, Any]:
     """Snapshot which metrics apply to which tests, frozen at dispatch.
 

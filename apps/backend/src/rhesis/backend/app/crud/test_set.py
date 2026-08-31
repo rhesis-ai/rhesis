@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_test_set(
-    db: Session, test_set_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_set_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestSet]:
     """
     Get a test set by its UUID, applying proper visibility filtering and organization scoping.
@@ -55,8 +58,8 @@ def get_test_sets(
     sort_order: str = "desc",
     filter: str | None = None,
     has_runs: bool | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.TestSet]:
     """
     Get test sets with detail loading and proper filtering.
@@ -114,7 +117,10 @@ def get_test_sets(
 
 
 def create_test_set(
-    db: Session, test_set: schemas.TestSetCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_set: schemas.TestSetCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.TestSet:
     """Create test_set."""
     return create_item(db, models.TestSet, test_set, organization_id, user_id)
@@ -124,8 +130,8 @@ def update_test_set(
     db: Session,
     test_set_id: uuid.UUID,
     test_set: schemas.TestSetUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestSet]:
     """Update test_set."""
     return update_item(db, models.TestSet, test_set_id, test_set, organization_id, user_id)
@@ -140,7 +146,7 @@ def delete_test_set(
 
 
 def get_test_set_by_nano_id_or_slug(
-    db: Session, identifier: str, organization_id: str = None, user_id: str = None
+    db: Session, identifier: str, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.TestSet]:
     """
     Get a test set by its nano_id or slug, applying proper visibility filtering.
@@ -166,7 +172,7 @@ def get_test_set_by_nano_id_or_slug(
 
 
 def resolve_test_set(
-    identifier: str, db: Session, organization_id: str = None
+    identifier: str, db: Session, organization_id: str | None = None
 ) -> Optional[models.TestSet]:
     """
     Resolve a test set from any valid identifier (UUID, nano_id, or slug).
@@ -202,8 +208,8 @@ def get_test_sets_for_test(
     limit: int = 10,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     filter: str | None = None,
 ) -> tuple[List[models.TestSet], int]:
     """

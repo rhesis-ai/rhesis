@@ -123,7 +123,7 @@ class TestEndpointStandardRoutes(EndpointTestMixin, BaseEntityRouteTests):
         """Override to inject project_id from autouse fixture"""
         return super().get_null_description_data(getattr(self, "_db_project", None))
 
-    def create_entity(self, client, data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def create_entity(self, client, data: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """Override helper to inject project_id into endpoint creation"""
         if data is None:
             data = self.get_sample_data()

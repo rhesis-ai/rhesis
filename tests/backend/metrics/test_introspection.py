@@ -6,6 +6,7 @@ evaluate() signatures and returns only the kwargs each metric accepts.
 """
 
 import inspect
+from typing import ClassVar
 from unittest.mock import MagicMock
 
 from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
@@ -380,7 +381,7 @@ class TestIntrospectionCompleteness:
     build_metric_evaluate_params.
     """
 
-    SUPPORTED_PARAMS = {
+    SUPPORTED_PARAMS: ClassVar[set[str]] = {
         "self",
         "input",
         "output",

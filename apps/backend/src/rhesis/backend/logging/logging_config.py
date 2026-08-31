@@ -5,6 +5,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 from rhesis.backend.app.config.settings import get_application_settings, get_logging_settings
 from rhesis.backend.app.utils.request_context import get_request_id
@@ -337,7 +338,7 @@ class _QuietProbeAccessFilter(logging.Filter):
 class ColorFormatter(logging.Formatter):
     """Formatter that adds ANSI color codes to log level names for terminal output."""
 
-    COLORS = {
+    COLORS: ClassVar[dict[int, str]] = {
         logging.DEBUG: "\033[36m",  # cyan
         logging.INFO: "\033[32m",  # green
         logging.WARNING: "\033[33m",  # yellow

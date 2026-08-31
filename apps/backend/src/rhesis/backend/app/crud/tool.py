@@ -18,7 +18,7 @@ _TOOL_RELATED_FIELDS = (include(models.Tool.tool_provider_type),)
 
 
 def get_tool(
-    db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
+    db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str | None = None
 ) -> Optional[models.Tool]:
     """Get a specific tool by ID with relationships loaded"""
     return get_item_detail(
@@ -38,8 +38,8 @@ def get_tools(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Tool]:
     """Get all tools for an organization with filtering and pagination"""
     return (
@@ -55,7 +55,7 @@ def get_tools(
 
 
 def create_tool(
-    db: Session, tool: schemas.ToolCreate, organization_id: str, user_id: str = None
+    db: Session, tool: schemas.ToolCreate, organization_id: str, user_id: str | None = None
 ) -> models.Tool:
     """Create a new tool"""
     return create_item(db, models.Tool, tool, organization_id, user_id)
@@ -66,14 +66,14 @@ def update_tool(
     tool_id: uuid.UUID,
     tool: schemas.ToolUpdate,
     organization_id: str,
-    user_id: str = None,
+    user_id: str | None = None,
 ) -> Optional[models.Tool]:
     """Update a tool"""
     return update_item(db, models.Tool, tool_id, tool, organization_id, user_id)
 
 
 def delete_tool(
-    db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str = None
+    db: Session, tool_id: uuid.UUID, organization_id: str, user_id: str | None = None
 ) -> Optional[models.Tool]:
     """Delete a tool (soft delete)"""
     return delete_item(db, models.Tool, tool_id, organization_id=organization_id, user_id=user_id)

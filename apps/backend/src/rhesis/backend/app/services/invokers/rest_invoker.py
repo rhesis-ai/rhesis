@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 _tls = threading.local()
 _HTTP_TIMEOUT = 30.0
 
+# The event loop holds only a weak reference to a running task. The close below is
+# fire-and-forget, so without a reference here it can be collected before the socket
+# is actually released — the very thing this shutdown path exists to avoid.
+_closing_tasks: set = set()
+
 
 def _get_http_client() -> httpx.AsyncClient:
     """Return the thread-local AsyncClient, creating it on first access."""
@@ -70,7 +75,9 @@ def _close_thread_local_client() -> None:
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                loop.create_task(client.aclose())
+                task = loop.create_task(client.aclose())
+                _closing_tasks.add(task)
+                task.add_done_callback(_closing_tasks.discard)
             else:
                 loop.run_until_complete(client.aclose())
         except Exception:
@@ -277,7 +284,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         url: str,
         headers: Dict,
         request_body: Any,
-        conversation_id: str = None,
+        conversation_id: str | None = None,
     ) -> Dict:
         """Handle successful response with JSON parsing."""
         try:
@@ -342,7 +349,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             )
 
     def _prepare_headers(
-        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] = None
+        self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] | None = None
     ) -> Dict[str, str]:
         """Prepare request headers with proper authentication and context injection."""
         headers = (endpoint.request_headers or {}).copy()

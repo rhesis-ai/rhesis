@@ -146,7 +146,9 @@ class BaseEntityTests(ABC):
         """Return data with null description"""
         return {self.name_field: fake.catch_phrase(), self.description_field: None}
 
-    def create_entity(self, client: TestClient, data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def create_entity(
+        self, client: TestClient, data: Dict[str, Any] | None = None
+    ) -> Dict[str, Any]:
         """Helper to create an entity and return response data"""
         if data is None:
             data = self.get_sample_data(client=client)
@@ -179,7 +181,7 @@ class BaseEntityTests(ABC):
         """Check if this entity has any user relationship fields"""
         return bool(self.get_user_fields())
 
-    def get_user_update_data(self, user_id: str = None) -> Dict[str, Any]:
+    def get_user_update_data(self, user_id: str | None = None) -> Dict[str, Any]:
         """Get data for updating user relationship fields"""
         if not self.has_user_relationships():
             return {}
@@ -201,7 +203,10 @@ class BaseEntityTests(ABC):
         return update_data
 
     def get_sample_data_with_users(
-        self, user_id: str = None, owner_id: str = None, assignee_id: str = None
+        self,
+        user_id: str | None = None,
+        owner_id: str | None = None,
+        assignee_id: str | None = None,
     ) -> Dict[str, Any]:
         """Get sample data with user relationship fields populated"""
         data = self.get_sample_data()

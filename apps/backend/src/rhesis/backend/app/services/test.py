@@ -193,7 +193,7 @@ def load_defaults():
 
 
 def _validate_test_set(
-    db: Session, test_set_id: str, organization_id: str = None, user_id: str = None
+    db: Session, test_set_id: str, organization_id: str | None = None, user_id: str | None = None
 ) -> tuple[models.TestSet | None, Dict[str, Any] | None]:
     """Validate test set exists and return it or error response."""
     try:

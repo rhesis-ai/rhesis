@@ -13,7 +13,7 @@ Research influences:
       generating probes.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from rhesis.penelope.strategies.base import ExplorationStrategy, register_strategy
 
@@ -35,7 +35,7 @@ class DomainProbingStrategy(ExplorationStrategy):
     )
     strategy_max_turns = 5
 
-    findings_fields = {
+    findings_fields: ClassVar[Dict[str, Any]] = {
         "domain": "",
         "purpose": "",
         "persona": "",
@@ -45,7 +45,7 @@ class DomainProbingStrategy(ExplorationStrategy):
         "adjacent_domains": [],
     }
 
-    dimensions = [
+    dimensions: ClassVar[List[Tuple[str, str]]] = [
         (
             "scope",
             "Open with a broad question about what the target does. "

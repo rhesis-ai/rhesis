@@ -424,8 +424,8 @@ def read_metric_requirements(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),  # SECURITY: Extract tenant context
     current_user: User = Depends(require_current_user_or_token),
-    organization_id: str = None,  # For with_count_header decorator
-    user_id: str = None,  # For with_count_header decorator
+    organization_id: str | None = None,  # For with_count_header decorator
+    user_id: str | None = None,  # For with_count_header decorator
 ):
     """Get all requirements associated with a metric"""
     try:
