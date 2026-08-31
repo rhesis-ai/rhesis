@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { fetchTestExecutionHistory } from '@/components/tests/test-execution-history';
 import { firstPageParams } from '@/utils/list';
+import { requireSession } from '@/utils/require-session';
 import { linkedTestSetsList } from '@/components/tests/list';
 import { entityTasksList } from '@/components/tasks/list';
 import Link from 'next/link';
@@ -41,11 +41,7 @@ export async function generateMetadata({
 }
 
 export default async function TestDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  const session = await requireSession();
 
   const apiFactory = await createServerApiFactory();
   const testsClient = apiFactory.getTestsClient();

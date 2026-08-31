@@ -1,7 +1,7 @@
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import ExplorerDetail from './components/ExplorerDetail';
+import { requireSession } from '@/utils/require-session';
 
 interface ExplorerDetailPageProps {
   params: Promise<{
@@ -13,11 +13,7 @@ export default async function ExplorerDetailPage({
   params,
 }: ExplorerDetailPageProps) {
   const { identifier } = await params;
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  await requireSession();
 
   const clientFactory = await createServerApiFactory();
   const explorerClient = clientFactory.getExplorerClient();

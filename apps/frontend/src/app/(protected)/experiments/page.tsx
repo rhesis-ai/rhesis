@@ -1,14 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import * as React from 'react';
-import { Alert, Paper } from '@mui/material';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import ExperimentsClientWrapper from './components/ExperimentsClientWrapper';
 import { experimentsList } from './components/list';
+import { requireSession } from '@/utils/require-session';
 
 /**
  * Server-rendered shell for the Experiments index page.
@@ -23,17 +22,7 @@ import { experimentsList } from './components/list';
  * endpoint never returns another user's private experiments.
  */
 export default async function ExperimentsPage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Alert severity="error">
-          Authentication required. Please sign in to view experiments.
-        </Alert>
-      </Paper>
-    );
-  }
+  await requireSession();
 
   const factory = await createServerApiFactory();
 

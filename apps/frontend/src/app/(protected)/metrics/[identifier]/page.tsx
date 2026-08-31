@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import MetricDetailPageTabs from './MetricDetailPageTabs';
@@ -8,6 +7,7 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
+import { requireSession } from '@/utils/require-session';
 import {
   fetchMetricLinkedRequirements,
   fetchMetricTuning,
@@ -19,11 +19,7 @@ interface PageProps {
 }
 
 export default async function MetricDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   const { identifier } = await params;
   const apiFactory = await createServerApiFactory();

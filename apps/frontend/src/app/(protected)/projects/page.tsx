@@ -1,12 +1,11 @@
 export const dynamic = 'force-dynamic';
 
-import { auth } from '@/auth';
-import { Alert, Paper } from '@mui/material';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { hasServerCapability } from '@/utils/server-permissions';
 import { Capability } from '@/constants/capabilities';
 import type { Project } from '@/utils/api-client/interfaces/project';
 import ProjectsClientWrapper from './components/ProjectsClientWrapper';
+import { requireSession } from '@/utils/require-session';
 
 /**
  * Server component for the Projects page. Prefetches the project list so the
@@ -14,17 +13,7 @@ import ProjectsClientWrapper from './components/ProjectsClientWrapper';
  * `undefined` and the client wrapper falls back to fetching on mount.
  */
 export default async function ProjectsPage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Alert severity="error">
-          Authentication required. Please sign in to view projects.
-        </Alert>
-      </Paper>
-    );
-  }
+  await requireSession();
 
   let initialData: Project[] | undefined;
   if (await hasServerCapability(Capability.Project.READ)) {

@@ -1,11 +1,10 @@
 import { Metadata } from 'next';
-import { Alert, Paper } from '@mui/material';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import TokensPageClient from './components/TokensPageClient';
 import { tokensList } from './components/list';
+import { requireSession } from '@/utils/require-session';
 
 export const metadata: Metadata = {
   title: 'API Tokens',
@@ -17,17 +16,7 @@ export const metadata: Metadata = {
  * first load. See `prefetchList` for the permission-gating rationale.
  */
 export default async function TokensPage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Alert severity="error">
-          Authentication required. Please sign in to view API tokens.
-        </Alert>
-      </Paper>
-    );
-  }
+  await requireSession();
 
   const factory = await createServerApiFactory();
   const { initialData, initialTotalCount } = await prefetchList(

@@ -1,15 +1,12 @@
-import { auth } from '@/auth';
 import OnboardingPageClient from './components/OnboardingPageClient';
 import { getOnboardingVideoUrl } from '@/utils/onboarding-video';
 import { UUID } from 'crypto';
+import { requireSession } from '@/utils/require-session';
 
 export const dynamic = 'force-dynamic';
 
 export default async function OnboardingPage() {
-  const session = await auth();
-  if (!session || session.error) {
-    throw new Error('No session token available');
-  }
+  const session = await requireSession();
 
   if (!session?.user?.id) {
     throw new Error('No user ID available in session');
