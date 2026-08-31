@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from .config import COMPONENTS, format_component_name
+from .config import COMPONENTS, follows_platform, format_component_name
 from .utils import error, find_repository_root, info, log, success, warn
 from .version import get_current_version
 
@@ -25,18 +25,18 @@ def get_current_branch() -> Optional[str]:
         return None
 
 
-def get_components_version(branch_name: str, repo_root: Path) -> Dict[str, str]:
-    """Parse component versions from a release branch name"""
+def get_components_version(repo_root: Path) -> Dict[str, str]:
+    """Read the version of every independently taggable component off the working tree"""
     components_versions = {}
 
-    # Check all components for versions different from default
     for component in COMPONENTS.keys():
+        # Platform followers are covered by the platform's own tag, so they get no tag of their own
+        if follows_platform(component):
+            continue
         try:
             current_version = get_current_version(component, repo_root)
-            if current_version and current_version != "0.1.0":
+            if current_version:
                 components_versions[component] = current_version
-            elif current_version == "0.1.0":
-                info(f"Component {component} has default version 0.1.0 - skipping")
         except Exception as e:
             warn(f"Failed to get version for component {component}: {e}")
             warn(f"Skipping component {component} due to version detection failure")
@@ -123,8 +123,9 @@ def get_changelog_content(changelog_path: Path) -> str:
     # (?=\n## \[|\Z)  - stops at next version header or end of file (positive lookahead)
     pattern = r"^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})\n(.*?)(?=\n## \[|\Z)"
     match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
-    changelog_content = match.group(3)
-    return changelog_content
+    if not match:
+        raise ValueError(f"{changelog_path} has no '## [version] - date' section to release from")
+    return match.group(3)
 
 
 def create_github_release(
@@ -218,9 +219,9 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
 
     info(f"Current branch: {current_branch}")
 
-    # Parse components from branch
+    # Read the versions currently on the release branch
     try:
-        components_version = get_components_version(current_branch, repo_root)
+        components_version = get_components_version(repo_root)
     except Exception as e:
         error(f"Failed to parse release components: {e}")
         return False

@@ -7,13 +7,18 @@ import re
 import subprocess
 from typing import Dict, List, Optional
 
-from .config import get_component_path
+from .config import follows_platform, get_component_path
 from .utils import error, info, success, warn
 
 
 def get_last_tag(component: str) -> Optional[str]:
-    """Get the last git tag for a component"""
-    if component == "platform":
+    """Get the last git tag for a component.
+
+    A platform follower is never tagged on its own, so its release boundary is the platform tag.
+    Matching `{component}-v*` here would keep finding the stale tag from before it followed the
+    platform and hand the changelog several releases' worth of commits.
+    """
+    if component == "platform" or follows_platform(component):
         tag_pattern = "v*"
     else:
         tag_pattern = f"{component}-v*"

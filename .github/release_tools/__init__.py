@@ -1,5 +1,3 @@
 """
-Rhesis Platform Release Tool - Modular Components
+Rhesis Platform Release Tool
 """
-
-__version__ = "2.0.0"

@@ -4,25 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       platform_bump:
-        description: 'Platform version bump'
-        required: false
-        type: choice
-        options:
-          - "none"
-          - patch
-          - minor
-          - major
-      backend_bump:
-        description: 'Backend version bump'
-        required: false
-        type: choice
-        options:
-          - "none"
-          - patch
-          - minor
-          - major
-      frontend_bump:
-        description: 'Frontend version bump'
+        description: 'Platform version bump (backend and frontend follow it)'
         required: false
         type: choice
         options:
@@ -80,14 +62,10 @@ jobs:
           # Create JSON using jq 
           jq -n \
             --arg platform "${{ github.event.inputs.platform_bump }}" \
-            --arg backend "${{ github.event.inputs.backend_bump }}" \
-            --arg frontend "${{ github.event.inputs.frontend_bump }}" \
             --arg sdk "${{ github.event.inputs.sdk_bump }}" \
             --arg polyphemus "${{ github.event.inputs.polyphemus_bump }}" \
             '{
               platform: $platform,
-              backend: $backend,
-              frontend: $frontend,
               sdk: $sdk,
               polyphemus: $polyphemus
             } | with_entries(select(.value != "" and .value != "none"))' > release_config.json
@@ -96,12 +74,6 @@ jobs:
           COMMIT_PARTS=()
           if [ -n "${{ github.event.inputs.platform_bump }}" ] && [ "${{ github.event.inputs.platform_bump }}" != "none" ]; then
             COMMIT_PARTS+=("platform - ${{ github.event.inputs.platform_bump }}")
-          fi
-          if [ -n "${{ github.event.inputs.backend_bump }}" ] && [ "${{ github.event.inputs.backend_bump }}" != "none" ]; then
-            COMMIT_PARTS+=("backend - ${{ github.event.inputs.backend_bump }}")
-          fi
-          if [ -n "${{ github.event.inputs.frontend_bump }}" ] && [ "${{ github.event.inputs.frontend_bump }}" != "none" ]; then
-            COMMIT_PARTS+=("frontend - ${{ github.event.inputs.frontend_bump }}")
           fi
           if [ -n "${{ github.event.inputs.sdk_bump }}" ] && [ "${{ github.event.inputs.sdk_bump }}" != "none" ]; then
             COMMIT_PARTS+=("sdk - ${{ github.event.inputs.sdk_bump }}")
