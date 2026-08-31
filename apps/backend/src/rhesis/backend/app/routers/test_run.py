@@ -198,7 +198,7 @@ def get_verdict_matrix(
     triggered refetch.
     """
     organization_id, user_id = tenant_context
-    db_test_run = test_run_crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run_for_verdict_matrix(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:

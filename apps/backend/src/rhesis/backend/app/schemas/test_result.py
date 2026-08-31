@@ -69,6 +69,11 @@ class TestResult(TestResultBase, WithPermittedActions, ServerIdentity):
     last_review: Optional[Dict[str, Any]] = None
     matches_review: bool = False
     review_summary: Optional[Dict[str, Any]] = None
+    # TestResult carries CountsMixin (comments/tasks/files), but nothing serialized it --
+    # the Tests tab's comment/task filters (test.counts?.comments, test.counts?.tasks) have
+    # been reading a field that was always undefined. Already eager-loaded wherever
+    # TestResult itself is the root query (see crud/test_result.py), so this costs nothing.
+    counts: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

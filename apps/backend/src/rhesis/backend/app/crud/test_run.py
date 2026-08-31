@@ -87,6 +87,36 @@ def get_test_run(
     )
 
 
+# Relationships get_verdict_matrix actually reads off the run: status.name, and (only on the
+# legacy-run fallback path, for a run dispatched before the metric-plan snapshot shipped)
+# test_configuration.test_set_id. Neither needs get_test_run's full detail load (endpoint, its
+# project, test_set, test_set_type, plus every derived-field tag/comment/task selectin those
+# pull in) -- this endpoint is polled every 3s while a run is live and refetched on every
+# WebSocket progress event, so the extra weight repeats often.
+_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS = (
+    include(models.TestRun.status, cols=[models.Status.id, models.Status.name]),
+    include(
+        models.TestRun.test_configuration,
+        cols=[models.TestConfiguration.id, models.TestConfiguration.test_set_id],
+    ),
+)
+
+
+def get_test_run_for_verdict_matrix(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.TestRun]:
+    """Minimal ``TestRun`` load for the verdict-matrix endpoint -- see
+    ``_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS`` for what it does and doesn't load."""
+    return get_item_detail(
+        db,
+        models.TestRun,
+        test_run_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS,
+    )
+
+
 def _test_run_experiment_filter(
     db: Session,
     experiment_id: str | None,

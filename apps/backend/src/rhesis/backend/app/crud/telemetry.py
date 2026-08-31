@@ -363,9 +363,17 @@ def query_traces(
         db.query(models.Trace, span_count_col, total_col, tags_count_col, comments_count_col)
         .filter(models.Trace.organization_id == org_uuid)
         .options(
+            # Scoped to what the loop below actually reads off this chain (existence
+            # down to endpoint.id/name) -- the full row would carry each trace's
+            # TestResult.test_output/test_metrics/test_reviews (the whole multi-turn
+            # conversation, for every row of every list request) just to report an
+            # endpoint name.
             joinedload(models.Trace.test_result)
+            .load_only(models.TestResult.id, models.TestResult.test_configuration_id)
             .joinedload(models.TestResult.test_configuration)
-            .joinedload(models.TestConfiguration.endpoint),
+            .load_only(models.TestConfiguration.id)
+            .joinedload(models.TestConfiguration.endpoint)
+            .load_only(models.Endpoint.id, models.Endpoint.name),
             joinedload(models.Trace.trace_metrics_status),
         )
     )

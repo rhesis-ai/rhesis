@@ -123,6 +123,14 @@ def read_test_results(
         alias="$select",
         description="Comma-separated list of fields to return",
     ),
+    strip_conversation: bool = Query(
+        False,
+        description=(
+            "Drop test_output.conversation_summary from each result -- the full multi-turn "
+            "transcript, useful for a caller rendering a conversation view but unneeded on a "
+            "results grid."
+        ),
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -138,6 +146,7 @@ def read_test_results(
         filter=filter,
         organization_id=organization_id,
         user_id=user_id,
+        strip_conversation=strip_conversation,
     )
     if select:
         serialized = jsonable_encoder(results)
