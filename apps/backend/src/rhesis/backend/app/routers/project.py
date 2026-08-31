@@ -47,7 +47,7 @@ def create_project(
     _quota_gate: Organization = Depends(require_quota(QuotaResource.PROJECTS)),
 ):
     """Create a new project. The creating user is automatically enrolled as a member."""
-    from rhesis.backend.app.services.organization import enroll_user_in_project
+    from rhesis.backend.app.services.project_membership import enroll_user_in_project
 
     organization_id, user_id = tenant_context
 
@@ -230,7 +230,7 @@ def remove_project_member(
     The project owner cannot be removed, and a user cannot remove themselves.
     Both rules are enforced by the service layer regardless of how it is called.
     """
-    from rhesis.backend.app.services.organization import (
+    from rhesis.backend.app.services.project_membership import (
         ProjectOwnerRemovalError,
         ProjectSelfRemovalError,
     )

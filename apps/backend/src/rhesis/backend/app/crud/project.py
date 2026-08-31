@@ -167,7 +167,7 @@ def delete_project(
     # Project soft-delete does not cascade to project_membership, so drop the
     # memberships and repair affected users' default_project first. Staged in the
     # same transaction; delete_item's commit persists both.
-    from rhesis.backend.app.services.organization import unenroll_all_project_members
+    from rhesis.backend.app.services.project_membership import unenroll_all_project_members
 
     unenroll_all_project_members(db, project_id, organization_id)
     return delete_item(
@@ -237,7 +237,7 @@ def add_project_member(
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
-    from rhesis.backend.app.services.organization import enroll_user_in_project
+    from rhesis.backend.app.services.project_membership import enroll_user_in_project
 
     with bypass_tenant_filter():
         existing = (
@@ -278,7 +278,7 @@ def remove_project_member(
         ProjectSelfRemovalError: if requester_user_id == user_id.
         ProjectOwnerRemovalError: if user_id is the project owner.
     """
-    from rhesis.backend.app.services.organization import unenroll_user_from_project
+    from rhesis.backend.app.services.project_membership import unenroll_user_from_project
 
     removed = unenroll_user_from_project(
         db, user_id, project_id, organization_id, requester_user_id=requester_user_id
