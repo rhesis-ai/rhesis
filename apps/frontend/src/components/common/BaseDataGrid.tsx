@@ -676,6 +676,25 @@ export default function BaseDataGrid({
     };
   }, []);
 
+  // Wait for initialization and persisted state to be loaded before rendering DataGrid
+  // This ensures initialState is correctly set before the grid mounts
+  const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
+
+  // `flex` columns can render at a stale width until MUI re-measures after
+  // mount (known MUI issue, see mui/mui-x#3212, #19243) — wait two frames
+  // before revealing so that snap isn't visible.
+  const [columnsMeasured, setColumnsMeasured] = useState(false);
+  useLayoutEffect(() => {
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setColumnsMeasured(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [isReady]);
+
   // Subscribe to state change events for persistence
   useEffect(() => {
     if (!persistState || !isInitialized || !apiRef.current) return;
@@ -840,10 +859,6 @@ export default function BaseDataGrid({
     );
   }, [rowSelectionDisabledTooltip]);
 
-  // Wait for initialization and persisted state to be loaded before rendering DataGrid
-  // This ensures initialState is correctly set before the grid mounts
-  const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
-
   if (!isReady) {
     return (
       <Box
@@ -870,6 +885,10 @@ export default function BaseDataGrid({
   }
 
   const dataGridSx: SxProps<Theme> = [
+    // Toolbar/footer are siblings of .MuiDataGrid-main, so they stay visible.
+    !columnsMeasured && {
+      '& .MuiDataGrid-main': { visibility: 'hidden' },
+    },
     disableColumnResize && {
       '& .MuiDataGrid-columnSeparator': {
         display: 'none',
