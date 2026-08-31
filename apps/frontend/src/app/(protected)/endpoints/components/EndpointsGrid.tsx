@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, Skeleton, Typography, useTheme } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 import { useSession } from 'next-auth/react';
 import EntityGrid, {
@@ -157,6 +157,13 @@ export default function EndpointsGrid({
           const project = endpoint.project_id
             ? projects[endpoint.project_id]
             : undefined;
+          // Unresolved project_id means "loading", not "absent".
+          const stillResolving =
+            loadingProjects && !!endpoint.project_id && !project;
+
+          if (stillResolving) {
+            return <Skeleton variant="text" width={120} />;
+          }
 
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -192,7 +199,7 @@ export default function EndpointsGrid({
         },
       },
     ],
-    [projects, theme.typography.h5.fontSize]
+    [projects, loadingProjects, theme.typography.h5.fontSize]
   );
 
   // Only the top-level Endpoints page passes `onCreateClick` — that's when
