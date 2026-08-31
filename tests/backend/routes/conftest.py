@@ -132,24 +132,5 @@ def test_debug_info(request):
     }
 
 
-# === CONDITIONAL FIXTURES ===
-
-
-@pytest.fixture
-def skip_if_slow(request):
-    """
-    🐌 Skip slow tests unless explicitly requested
-
-    Skips tests marked with @pytest.mark.slow unless --runslow is passed.
-    """
-    if hasattr(request.config, "getoption") and request.config.getoption(
-        "--runslow", default=False
-    ):
-        return
-
-    if request.node.get_closest_marker("slow"):
-        pytest.skip("Slow test skipped (use --runslow to run)")
-
-
 # This makes all fixtures automatically available to any test file
 # in the routes/ directory without explicit imports
