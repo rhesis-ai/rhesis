@@ -15,6 +15,7 @@ import requests
 
 BASE_URL = "http://localhost:8085"
 API_KEY = "test-secret-key-12345"
+REQUEST_TIMEOUT = 30
 
 
 def test_public_access():
@@ -27,6 +28,7 @@ def test_public_access():
         f"{BASE_URL}/chat",
         json={"message": "What is term life insurance?"},
         headers={"Content-Type": "application/json"},
+        timeout=REQUEST_TIMEOUT,
     )
 
     print(f"Status Code: {response.status_code}")
@@ -39,7 +41,7 @@ def test_public_access():
         print(f"❌ FAILED - {response.text}")
 
     # Check root endpoint to verify tier
-    info_response = requests.get(f"{BASE_URL}/")
+    info_response = requests.get(f"{BASE_URL}/", timeout=REQUEST_TIMEOUT)
     info_data = info_response.json()
     print(f"\nAuthentication tier: {info_data['authentication']['tier']}")
     print(
@@ -63,7 +65,10 @@ def test_authenticated_access_user1():
     }
 
     response = requests.post(
-        f"{BASE_URL}/chat", json={"message": "What is whole life insurance?"}, headers=headers
+        f"{BASE_URL}/chat",
+        json={"message": "What is whole life insurance?"},
+        headers=headers,
+        timeout=REQUEST_TIMEOUT,
     )
 
     print(f"Status Code: {response.status_code}")
@@ -76,7 +81,7 @@ def test_authenticated_access_user1():
         print(f"❌ FAILED - {response.text}")
 
     # Check root endpoint to verify tier
-    info_response = requests.get(f"{BASE_URL}/", headers=headers)
+    info_response = requests.get(f"{BASE_URL}/", headers=headers, timeout=REQUEST_TIMEOUT)
     info_data = info_response.json()
     print(f"\nAuthentication tier: {info_data['authentication']['tier']}")
     print(
@@ -100,7 +105,10 @@ def test_authenticated_access_user2():
     }
 
     response = requests.post(
-        f"{BASE_URL}/chat", json={"message": "What is auto insurance?"}, headers=headers
+        f"{BASE_URL}/chat",
+        json={"message": "What is auto insurance?"},
+        headers=headers,
+        timeout=REQUEST_TIMEOUT,
     )
 
     print(f"Status Code: {response.status_code}")
@@ -127,7 +135,12 @@ def test_invalid_api_key():
         "X-Organization-ID": "org-456",
     }
 
-    response = requests.post(f"{BASE_URL}/chat", json={"message": "Test message"}, headers=headers)
+    response = requests.post(
+        f"{BASE_URL}/chat",
+        json={"message": "Test message"},
+        headers=headers,
+        timeout=REQUEST_TIMEOUT,
+    )
 
     print(f"Status Code: {response.status_code}")
     if response.status_code == 401:
@@ -144,7 +157,7 @@ def test_rate_limit_info():
     print("=" * 60)
 
     # Public rate limit info
-    public_response = requests.get(f"{BASE_URL}/")
+    public_response = requests.get(f"{BASE_URL}/", timeout=REQUEST_TIMEOUT)
     public_data = public_response.json()
 
     print("\nPublic Access:")
@@ -157,7 +170,7 @@ def test_rate_limit_info():
         "X-User-ID": "user-123",
         "X-Organization-ID": "org-456",
     }
-    auth_response = requests.get(f"{BASE_URL}/", headers=auth_headers)
+    auth_response = requests.get(f"{BASE_URL}/", headers=auth_headers, timeout=REQUEST_TIMEOUT)
     auth_data = auth_response.json()
 
     print("\nAuthenticated Access:")
@@ -175,7 +188,7 @@ def main():
 
     try:
         # Test health endpoint first
-        health = requests.get(f"{BASE_URL}/health")
+        health = requests.get(f"{BASE_URL}/health", timeout=REQUEST_TIMEOUT)
         if health.status_code == 200:
             print("✅ Service is healthy")
         else:

@@ -17,6 +17,9 @@ select = [
     "RUF013",
     # noqa directives for violations that no longer happen.
     "RUF100",
+    # bandit: HTTP calls with no timeout. `requests` defaults to waiting forever, so one
+    # unresponsive upstream holds a worker thread or a Celery task for good.
+    "S113",
     # mccabe: cyclomatic complexity ceiling, see [lint.mccabe] below.
     "C90",
     # pylint: function size ceilings, see [lint.pylint] below. C901 counts paths

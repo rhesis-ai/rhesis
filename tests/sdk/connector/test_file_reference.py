@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.connector.types import FileReference
+from rhesis.sdk.connector.types import _READ_TIMEOUT_SECONDS, FileReference
 
 
 def _make_ref(signed_url: str | None = "https://example.test/file") -> FileReference:
@@ -36,7 +36,9 @@ class TestReadBytesSync:
         with patch("urllib.request.urlopen", return_value=mock_resp) as mock_open:
             result = ref.read_bytes()
 
-        mock_open.assert_called_once_with("https://example.test/file")
+        mock_open.assert_called_once_with(
+            "https://example.test/file", timeout=_READ_TIMEOUT_SECONDS
+        )
         assert result == b"hello bytes"
 
     def test_raises_when_signed_url_missing(self):

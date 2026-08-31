@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
-from rhesis.sdk.config import get_api_key, get_base_url
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, get_api_key, get_base_url
 
 
 class HTTPStatus:
@@ -126,7 +126,12 @@ class APIClient:
         if url_params is not None:
             url = f"{url}/{url_params}"
         response = requests.request(
-            method=method.value, url=url, headers=self.headers, json=data, params=params
+            method=method.value,
+            url=url,
+            headers=self.headers,
+            json=data,
+            params=params,
+            timeout=DEFAULT_API_TIMEOUT,
         )
         response.raise_for_status()
         return response.json()
@@ -150,7 +155,9 @@ class APIClient:
         url = self.get_url(endpoint.value)
         # Auth-only headers; Content-Type is set by requests for multipart
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        response = requests.post(url=url, headers=headers, files=files, params=params)
+        response = requests.post(
+            url=url, headers=headers, files=files, params=params, timeout=DEFAULT_API_TIMEOUT
+        )
         response.raise_for_status()
         return response.json()
 
@@ -174,6 +181,8 @@ class APIClient:
         if url_params is not None:
             url = f"{url}/{url_params}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        response = requests.request(method=method.value, url=url, headers=headers)
+        response = requests.request(
+            method=method.value, url=url, headers=headers, timeout=DEFAULT_API_TIMEOUT
+        )
         response.raise_for_status()
         return response

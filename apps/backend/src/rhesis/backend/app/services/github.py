@@ -10,6 +10,11 @@ import requests
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
 
+# read_repo_contents runs on a sync route, so it holds an anyio threadpool slot for
+# the whole download. Without a timeout an unresponsive GitHub holds it forever and
+# enough of those starve every sync route in the process.
+_GITHUB_TIMEOUT_SECONDS = 30
+
 
 def parse_github_url(github_url):
     """Parse GitHub URL into components"""
@@ -53,13 +58,13 @@ def download_github_repo(github_url, local_path):
 
     # Get the tree using GitHub API
     api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-    response = requests.get(api_url)
+    response = requests.get(api_url, timeout=_GITHUB_TIMEOUT_SECONDS)
     if response.status_code == 404 and branch == "main":
         # Fallback to master if main doesn't exist
         branch = "master"
         base_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
         api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-        response = requests.get(api_url)
+        response = requests.get(api_url, timeout=_GITHUB_TIMEOUT_SECONDS)
 
     response.raise_for_status()
 
@@ -84,7 +89,7 @@ def download_github_repo(github_url, local_path):
         # Download file content
         file_url = f"{base_url}/{item['path']}"
         print(f"Downloading: {file_url}")  # Debug line
-        response = requests.get(file_url)
+        response = requests.get(file_url, timeout=_GITHUB_TIMEOUT_SECONDS)
         if response.status_code == 200:
             file_path.write_bytes(response.content)
             downloaded_files += 1

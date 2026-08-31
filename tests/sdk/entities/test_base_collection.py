@@ -6,6 +6,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.clients import HTTPStatus
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -42,6 +43,7 @@ def test_all(mock_request):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
@@ -58,6 +60,7 @@ def test_exists(mock_request):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     """Test exists method returns False for nonexistent entity."""
@@ -99,4 +102,5 @@ def test_pull_with_name(mock_request):
         },
         json=None,
         params={"$filter": "tolower(name) eq 'test-entity'"},
+        timeout=DEFAULT_API_TIMEOUT,
     )

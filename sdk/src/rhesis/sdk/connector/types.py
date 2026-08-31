@@ -9,6 +9,10 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     import aiohttp
 
+# urlopen defaults to no timeout at all, so a stalled storage host would hang the
+# caller indefinitely. Applies per socket operation, not to the whole download.
+_READ_TIMEOUT_SECONDS = 60
+
 
 class FileReference(BaseModel):
     """A reference to a file stored in object storage.
@@ -51,7 +55,7 @@ class FileReference(BaseModel):
             )
         import urllib.request
 
-        with urllib.request.urlopen(self.signed_url) as resp:
+        with urllib.request.urlopen(self.signed_url, timeout=_READ_TIMEOUT_SECONDS) as resp:
             return resp.read()
 
     async def aread_bytes(self, session: Optional["aiohttp.ClientSession"] = None) -> bytes:

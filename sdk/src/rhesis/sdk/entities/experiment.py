@@ -11,6 +11,7 @@ import logging
 from typing import Any, ClassVar, Optional
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
@@ -63,7 +64,7 @@ class Experiment(BaseEntity):
         import requests as _requests
 
         url = client.get_url(f"projects/{project_id}/experiments")
-        resp = _requests.post(url, headers=client.headers, json=data)
+        resp = _requests.post(url, headers=client.headers, json=data, timeout=DEFAULT_API_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
 
@@ -175,6 +176,7 @@ class Experiment(BaseEntity):
                 "experiment_id": str(self.id),
                 "version": self.latest_version,
             },
+            timeout=DEFAULT_API_TIMEOUT,
         )
         resp.raise_for_status()
 

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test_result import TestResult
 
@@ -82,6 +83,7 @@ def test_pull_test_result_with_nested_status(mock_request, test_result_data):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the result has nested status
