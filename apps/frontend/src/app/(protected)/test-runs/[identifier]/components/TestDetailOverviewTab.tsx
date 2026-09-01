@@ -170,6 +170,14 @@ export default function TestDetailOverviewTab({
     [test.test_output]
   );
 
+  // `error` is a boolean flag on an invoker result and prose on a multi-turn contract
+  // failure, so only the prose form is usable as display text. Rendering the flag would
+  // put a bare "true" in the Response field.
+  const contractError =
+    typeof test.test_output?.error === 'string'
+      ? test.test_output.error
+      : undefined;
+
   const responseContent = useMemo(() => {
     if (isMultiTurn) {
       // goal_evaluation.reason is absent when no metric ran at all -- e.g. the evaluation
@@ -177,7 +185,7 @@ export default function TestDetailOverviewTab({
       // that explanation over a generic "no reasoning" dead end.
       return (
         test.test_output?.goal_evaluation?.reason ||
-        test.test_output?.error ||
+        contractError ||
         endpointFailure?.message ||
         'No evaluation reasoning available'
       );
@@ -189,10 +197,10 @@ export default function TestDetailOverviewTab({
       test.test_output?.output ||
       endpointFailure?.responseBody ||
       endpointFailure?.message ||
-      test.test_output?.error ||
+      contractError ||
       'No response available'
     );
-  }, [isMultiTurn, test, endpointFailure]);
+  }, [isMultiTurn, test, endpointFailure, contractError]);
 
   const testStatus = useMemo(() => getEffectiveTestResultStatus(test), [test]);
   const testLabel = useMemo(() => {

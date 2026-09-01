@@ -105,11 +105,19 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
             continue
 
         message = result.get("error", "Execution failed")
-        # ``output`` as well as ``error``: the detail views read ``output``, so an error
-        # record that sets only ``error`` renders as "No response available". Any
-        # status code / error_type the invoker classified is carried through too, so this
-        # row is recognised as an endpoint failure on re-score instead of being scored.
-        error_output: Dict[str, Any] = {"output": message, "error": message}
+        # Mirrors the ErrorResponse shape the primary path stores (``_run_single_turn``
+        # persists the invoker dict verbatim), so ``test_output.error`` means the same
+        # thing however the row was written: a boolean flag, with the human text in
+        # ``output``/``message``. It previously held the message here and a bool there,
+        # which left readers guessing at the type.
+        #
+        # ``output`` matters because the detail views read it: a record setting only
+        # ``error`` renders as "No response available".
+        error_output: Dict[str, Any] = {
+            "output": message,
+            "message": message,
+            "error": True,
+        }
         # ...but only when the target is actually to blame. EndpointService tags its own
         # unexpected exceptions error_type="internal_error", status_code=500; attributing
         # those would have the UI tell the user their endpoint returned HTTP 500 and send

@@ -180,6 +180,19 @@ class TestBatchRoutesPermanentFailuresAsResults:
         assert has_endpoint_failure_in_result(result["output"]) is True
 
     @pytest.mark.asyncio
+    async def test_error_field_is_a_flag_on_both_persist_paths(self):
+        """``test_output.error`` must mean one thing regardless of which path wrote the row.
+
+        The primary path stores the invoker dict verbatim, so ``error`` is the boolean
+        ``True`` with the text in ``output``. ``_persist_failed_results`` used to store the
+        message there instead, leaving readers to guess the type from the row's provenance.
+        """
+        result = await self._run_single_turn_with(_http_400_error_response())
+
+        assert result["output"]["error"] is True
+        assert isinstance(result["output"]["output"], str)
+
+    @pytest.mark.asyncio
     async def test_transient_failure_still_propagates(self):
         """Recovery rounds are a flaky endpoint's remaining chance; reporting a transient
         failure as a result here would silently retire that retry.
@@ -283,6 +296,8 @@ class TestOurOwnFailuresAreNotBlamedOnTheTarget:
 
         # The message is kept so the row still explains itself...
         assert captured["output"] == "internal boom"
+        # ...as a flag, matching what the primary path stores (see the shape test below).
+        assert captured["error"] is True
         # ...but nothing marks it as the target's failure, so the UI won't claim the
         # endpoint returned HTTP 500.
         assert "status_code" not in captured

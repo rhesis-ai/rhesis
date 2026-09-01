@@ -125,12 +125,15 @@ export interface TestOutput {
   // Status field for multi-turn tests
   status?: 'success' | 'failure' | 'timeout' | 'error';
   /**
-   * Why this result has no metrics and reports Error. Two unrelated writers set it:
-   * a multi-turn contract that was stale or too ambiguous to score against
-   * (evaluate_multi_turn_metrics / resolve_multi_turn_contract), and a failed
-   * invocation, where it holds the same text as `output`.
+   * Why this result has no metrics and reports Error. Two unrelated writers set it, with
+   * two different types, so narrow before using it as text:
+   *
+   * - A failed invocation stores the invoker's boolean flag (`true`), with the human text
+   *   in `output`/`message`. Read those, or `getEndpointFailure()`, for the reason.
+   * - A multi-turn contract that was stale or too ambiguous to score against stores prose
+   *   (evaluate_multi_turn_metrics / resolve_multi_turn_contract).
    */
-  error?: string;
+  error?: string | boolean;
 
   /**
    * Invoker failure detail, present when the target rejected or never answered the call.
