@@ -43,6 +43,7 @@ beforeEach(() => {
   mockUseUsage.mockReturnValue({
     resources: USAGE_RESOURCES,
     edition: 'community',
+    licensed: false,
     loading: false,
     error: null,
   });
@@ -103,7 +104,7 @@ describe('UsageOverviewTab', () => {
 
     expect(screen.getByText('community')).toBeInTheDocument();
     const upgradeLink = screen.getByRole('link', { name: 'Upgrade' });
-    expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/editions');
+    expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/pricing');
     expect(upgradeLink).toHaveAttribute('target', '_blank');
     expect(upgradeLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
@@ -165,6 +166,7 @@ describe('UsageOverviewTab', () => {
         },
       },
       edition: 'community',
+      licensed: false,
       loading: false,
       error: null,
     });
@@ -178,6 +180,7 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: USAGE_RESOURCES,
       edition: 'enterprise',
+      licensed: true,
       loading: false,
       error: null,
     });
@@ -188,5 +191,23 @@ describe('UsageOverviewTab', () => {
     expect(
       screen.queryByRole('link', { name: 'Upgrade' })
     ).not.toBeInTheDocument();
+  });
+
+  it('marks a lapsed paid plan inactive and offers the upgrade', () => {
+    // A canceled licence is held to community limits while still reporting
+    // its edition, so this page would otherwise show "enterprise" beside
+    // free-tier ceilings and no way to act on it.
+    mockUseUsage.mockReturnValue({
+      resources: USAGE_RESOURCES,
+      edition: 'enterprise',
+      licensed: false,
+      loading: false,
+      error: null,
+    });
+
+    render(<UsageOverviewTab />);
+
+    expect(screen.getByText('enterprise (inactive)')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Upgrade' })).toBeInTheDocument();
   });
 });

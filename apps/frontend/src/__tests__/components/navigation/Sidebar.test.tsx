@@ -69,10 +69,14 @@ const mockUsageResources: {
     }
   >;
 } = { current: {} };
+const mockUsagePlan: {
+  current: { edition: string; licensed: boolean | null };
+} = { current: { edition: 'community', licensed: false } };
 jest.mock('@/contexts/UsageContext', () => ({
   useUsage: () => ({
     resources: mockUsageResources.current,
-    edition: 'community',
+    edition: mockUsagePlan.current.edition,
+    licensed: mockUsagePlan.current.licensed,
     loading: false,
     error: null,
   }),

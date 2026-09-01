@@ -16,8 +16,41 @@ import type { UsageResourceItem } from '@/utils/api-client/usage-client';
 
 const COMMUNITY_EDITION = 'community';
 
+/** Whether *edition* names the free tier. Answers "what plan is this", which
+ * is a display question -- for "should this org be offered an upgrade", use
+ * {@link isUnlicensedPlan}: a lapsed paid plan is not the community edition
+ * but is held to community limits. */
 export function isCommunityEdition(edition: string): boolean {
   return edition.toLowerCase() === COMMUNITY_EDITION;
+}
+
+/**
+ * Whether the org has no active paid license, and should therefore be shown
+ * an upgrade path.
+ *
+ * This is the question every upgrade affordance is really asking, and it is
+ * deliberately *not* `isCommunityEdition(edition)`, which is what it used to
+ * be. The backend reports edition and licence status separately, because a
+ * lapsed licence keeps its edition name so the UI can say which one expired:
+ * a canceled enterprise licence resolves to community *limits* while still
+ * reporting `edition: "enterprise"`.
+ *
+ * Gating on the edition string stranded exactly that org. It gets free-tier
+ * ceilings and 402s at 500 test runs, but does not look like a free org, so
+ * every upgrade link, banner CTA and `canUpgrade` recourse line was withheld
+ * -- the one state where the reader most needs to be told what to do.
+ *
+ * Requires a positive `licensed === false`, so anything unknown -- a loading
+ * provider (`null`), or a response from a backend predating the field
+ * (`undefined`) -- reads as "no opinion" and shows nothing, rather than
+ * flashing an upgrade prompt at a paying customer.
+ */
+export function isUnlicensedPlan(
+  edition: string | null,
+  licensed: boolean | null | undefined
+): boolean {
+  if (edition === null) return false;
+  return licensed === false;
 }
 
 /** Narrows a wire-value string (e.g. `parseQuotaError(err).resource`) to

@@ -63,5 +63,10 @@ export const QUOTA_RESOURCE_ORDER: readonly QuotaResource[] = [
  */
 export const WARNING_THRESHOLD = 0.8;
 
-/** Where every "Upgrade" affordance in the app links to. */
-export const UPGRADE_URL = 'https://rhesis.ai/editions';
+/** Where every "Upgrade" affordance in the app links to. The page publishes
+ * the same per-tier limits this app enforces, so it is the one place a reader
+ * who just hit a ceiling can see what a higher tier would give them.
+ *
+ * `/editions` 301s here, but link to the destination directly -- an upgrade
+ * prompt is the wrong place to spend a redirect. */
+export const UPGRADE_URL = 'https://rhesis.ai/pricing';
