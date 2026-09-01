@@ -56,20 +56,17 @@ const nextConfig = {
   // Source maps: enable in prod for debugging, faster option in dev
   productionBrowserSourceMaps: isProd,
 
-  // Next.js already modularizes the app's own barrel imports for the heavy
-  // libraries (@mui/material, @mui/icons-material, lucide-react, date-fns,
-  // recharts, …) via its default optimizePackageImports list. But that default
-  // does NOT reach the barrel imports inside our transpilePackages workspace
-  // package @rhesis/ee-frontend, so its `import { X } from '@mui/material'`
-  // still pulls in the full CJS barrel. Under Turbopack that barrel eagerly
-  // evaluates @mui/material/useMediaQuery, whose CJS→ESM interop of
-  // `unstable_createUseMediaQuery` breaks in MUI v7.3.x — crashing the whole
-  // app at module-eval time (see mui/material-ui#46688). Listing the packages
-  // explicitly forces the barrel-to-deep-import rewrite for the transpiled EE
-  // sources too, sidestepping the eager useMediaQuery evaluation.
-  experimental: {
-    optimizePackageImports: ['@mui/material', '@mui/icons-material'],
-  },
+  // No experimental.optimizePackageImports entry here on purpose: @mui/material
+  // and @mui/icons-material are already in Next's default list, and Next unions
+  // the user's list with that default (`new Set([...userProvided, ...defaults])`
+  // in next/dist/server/config.js), so naming them changes nothing. The list is
+  // keyed on package name, so it never "reaches into" transpilePackages either.
+  //
+  // The crash this used to claim to fix (mui/material-ui#46688,
+  // `unstable_createUseMediaQuery is not a function`) is not an interop problem:
+  // @mui/material/useMediaQuery calls a 'use client' export at module-evaluation
+  // time, which fails whenever the module lands in the RSC server graph. That is
+  // fixed by patches/@mui+material+7.3.5.patch, which defers the call.
 
   // Environment variables available to the client
   // NEXT_PUBLIC_ prefix guarantees availability in client components
