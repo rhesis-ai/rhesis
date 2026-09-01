@@ -35,8 +35,6 @@ const generateTypeScriptFile = templates => {
     )
     .join('\n');
 
-  const iconMap = iconImports.map(icon => `  ${icon},`).join('\n');
-
   const templatesCode = templates
     .map(template => {
       const topics = JSON.stringify(template.topics);
@@ -61,11 +59,6 @@ const generateTypeScriptFile = templates => {
 
 ${imports}
 import { TestTemplate } from '@/app/(protected)/test-sets/new-generated/components/shared/types';
-
-// Icon mapping for YAML references
-const iconMap: Record<string, React.ComponentType<any>> = {
-${iconMap}
-};
 
 // Generated templates from YAML
 export const TEMPLATES: TestTemplate[] = [
