@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 import { TasksPage } from '../pages/TasksPage';
 import {
   confirmDeleteDialog,
-  openDrawer,
   waitForDrawerClosed,
 } from '../helpers/CrudHelper';
 

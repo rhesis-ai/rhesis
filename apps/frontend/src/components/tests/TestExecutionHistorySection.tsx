@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Alert, Box, CircularProgress, Paper, Typography } from '@mui/material';
+import { Alert, CircularProgress, Paper, Typography } from '@mui/material';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TestExecutionHistoryTable from './TestExecutionHistoryTable';

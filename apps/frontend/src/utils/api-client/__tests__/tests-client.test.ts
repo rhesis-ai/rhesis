@@ -1,7 +1,5 @@
 import { TestsClient } from '../tests-client';
 
-const BASE_URL = 'http://localhost/api/backend';
-
 function makeFetchResponse(
   body: unknown,
   status = 200,

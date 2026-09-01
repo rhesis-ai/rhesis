@@ -34,10 +34,9 @@ import {
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
-import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
-import { alpha, useTheme } from '@mui/material/styles';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { useTheme } from '@mui/material/styles';
+import { BORDER_RADIUS } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
@@ -67,7 +66,6 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import GradingIcon from '@mui/icons-material/GradingOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
-import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
 import { MetricDetailView } from '@/app/(protected)/metrics/[identifier]/MetricDetailView';
 import {
   TestNode,
@@ -1968,7 +1966,6 @@ export default function ExplorerDetail({
   const [deleteSessionDialogOpen, setDeleteSessionDialogOpen] = useState(false);
   const [deleteSessionSubmitting, setDeleteSessionSubmitting] = useState(false);
 
-  const theme = useTheme();
   const { status } = useSession();
   const notifications = useNotifications();
   const searchParams = useSearchParams();

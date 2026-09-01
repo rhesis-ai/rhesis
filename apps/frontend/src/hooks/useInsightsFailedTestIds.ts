@@ -109,6 +109,10 @@ export function useInsightsFailedTestIds(
   const queryClient = useQueryClient();
   const isAuthenticated = useIsAuthenticated();
 
+  // Extracted so the dependency array holds a plain value the lint rule can
+  // check statically; the join keeps testRunIds compared by value, not identity.
+  const testRunIdsKey = filters?.testRunIds?.join(',');
+
   const scope = useMemo(
     () => (filters ? toInsightsFailedTestIdsScope(filters) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- field-level deps; testRunIds by value
@@ -116,7 +120,7 @@ export function useInsightsFailedTestIds(
       filters?.endpointId,
       filters?.runFilterMode,
       filters?.timeRange,
-      filters?.testRunIds?.join(','),
+      testRunIdsKey,
       filters?.requirementId,
       filters?.metricName,
       filters?.topicName,
@@ -128,7 +132,17 @@ export function useInsightsFailedTestIds(
     queryKey: scope
       ? insightsFailedTestIdsKeys.scope(scope)
       : insightsFailedTestIdsKeys.all(),
-    queryFn: () => insightsFailedTestIdsQueryFn(queryClient, filters!),
+    queryFn: () => {
+      // `enabled` below gates on filters?.endpointId, so this cannot run with
+      // null filters. The explicit guard is what lets TypeScript drop the
+      // non-null assertion that used to sit here.
+      if (!filters) {
+        throw new Error(
+          'useInsightsFailedTestIds: queryFn ran without filters'
+        );
+      }
+      return insightsFailedTestIdsQueryFn(queryClient, filters);
+    },
     enabled: enabled && isAuthenticated && !!filters?.endpointId && !!scope,
   });
 }

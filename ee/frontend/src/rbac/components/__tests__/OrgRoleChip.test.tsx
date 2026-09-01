@@ -44,7 +44,6 @@ import type { OrgMemberRead } from '../../types';
 
 import OrgRoleChip from '../OrgRoleChip';
 
-const SESSION_TOKEN = 'session-token';
 const USER_ID = 'user-1';
 
 const VIEWER_ROLE = makeRole({

@@ -14,7 +14,6 @@ import {
   ROLE_EDITOR_DRAWER_WIDTH,
 } from '@/components/common/drawerFormFieldSx';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { RbacClient } from '../api/rbac-client';
 import { invalidateRoles } from '../api/role-cache';
 import { useActorAuthority } from '../hooks/useActorAuthority';
