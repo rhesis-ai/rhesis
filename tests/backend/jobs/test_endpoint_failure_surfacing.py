@@ -26,6 +26,8 @@ from rhesis.backend.app.services.invokers.common.errors import (
 )
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.utils.response_extractor import (
+    NARRATION_MESSAGE_LIMIT,
+    as_response_dict,
     has_endpoint_failure_in_result,
     is_endpoint_failure,
     summarize_endpoint_failure,
@@ -399,3 +401,58 @@ class TestActivityLogNarration:
 
     def test_returns_none_for_a_successful_result(self):
         assert summarize_endpoint_failure({"output": "the model answered"}) is None
+
+    def test_a_huge_response_body_is_capped(self):
+        """A target may answer a 4xx with an HTML error page or an echoed payload. Each
+        narrated test becomes an ActivityLog row on an unbounded Text column, so the
+        summary has to be bounded even though the stored test_output stays complete.
+        """
+        huge = ErrorResponse(
+            output=f"HTTP 400 error from endpoint: Bad Request. Response content: {'x' * 50_000}",
+            error=True,
+            error_type="http_error",
+            message="HTTP 400 error from endpoint",
+            status_code=400,
+            response_content="x" * 50_000,
+        )
+        processed = process_endpoint_result(huge)
+        summary = summarize_endpoint_failure(processed)
+
+        assert summary is not None
+        assert len(summary["message"]) <= NARRATION_MESSAGE_LIMIT + len("... (truncated)")
+        assert summary["message"].endswith("... (truncated)")
+        # The status code still leads the line, so the narration stays useful.
+        assert "400" in summary["summary"]
+        # ...and the untruncated body remains available for the detail view.
+        assert len(processed["response_content"]) == 50_000
+
+    def test_a_normal_reason_is_not_truncated(self):
+        """The case that prompted all this is ~100 characters; it must survive whole."""
+        summary = summarize_endpoint_failure(process_endpoint_result(_http_400_error_response()))
+
+        assert summary is not None
+        assert SAFEGUARDING_BODY in summary["message"]
+        assert "truncated" not in summary["message"]
+
+
+@pytest.mark.unit
+class TestResultNormalisation:
+    """`_run_single_turn` converts the raised ErrorResponse with the shared normalizer
+    rather than a local to_dict()/dict() pair, which missed the Pydantic v1/v2 variants
+    and could raise on anything unexpected.
+    """
+
+    def test_error_response_is_normalised(self):
+        assert as_response_dict(_http_400_error_response())["status_code"] == 400
+
+    def test_a_dict_passes_through_by_reference(self):
+        # _run_single_turn pops the deferred trace off the result, so the caller has to be
+        # handed the same object rather than a copy.
+        original = {"output": "answer"}
+        assert as_response_dict(original) is original
+
+    def test_an_unconvertible_object_does_not_raise(self):
+        class Opaque:
+            pass
+
+        assert as_response_dict(Opaque()) == {}

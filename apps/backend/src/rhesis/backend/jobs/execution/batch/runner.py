@@ -15,6 +15,7 @@ from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.app.utils.response_extractor import (
     has_endpoint_failure_in_result,
     summarize_endpoint_failure,
+    truncate_for_narration,
 )
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
@@ -119,9 +120,11 @@ def _is_retriable_failure(result: Dict[str, Any]) -> bool:
     # EndpointService also marks its own unexpected exceptions non-transient
     # (error_type="internal_error"), and those are precisely the "unexpected exceptions"
     # this function's docstring promises a recovery round to.
-    if result.get("transient") is False and result.get("error_type") in (
-        PERMANENT_TARGET_ERROR_TYPES
-    ):
+    target_rejected_it = (
+        result.get("transient") is False
+        and result.get("error_type") in PERMANENT_TARGET_ERROR_TYPES
+    )
+    if target_rejected_it:
         return False
 
     error = result.get("error", "")
@@ -204,7 +207,13 @@ async def _run_gather(
                     try:
                         label = f" — {category}" if category else ""
                         error = result.get("error", "") if isinstance(result, dict) else ""
-                        suffix = f": {error}" if error and is_failure else ""
+                        # Bounded for the same reason the count is: a stringified
+                        # invocation error carries the target's whole response body, and
+                        # this line becomes an ActivityLog row. The full text is kept in
+                        # test_output.
+                        suffix = (
+                            f": {truncate_for_narration(error)}" if error and is_failure else ""
+                        )
                         wording = _NARRATED_STATUS_WORDING.get(status, status)
                         on_emit(f"Test {current}/{progress_total} {wording}{label}{suffix}")
                         last_emit_time = now

@@ -12,8 +12,13 @@ from typing import Any, Dict, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 
-def _as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
-    """Normalize invoker results (dict or ErrorResponse) to a plain dict."""
+def as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
+    """Normalize invoker results (dict or ErrorResponse) to a plain dict.
+
+    Public because callers outside this module need the same conversion and a hand-rolled
+    ``to_dict()``/``dict()`` version misses cases and can raise. A dict is returned as-is
+    rather than copied, so a caller may still pop keys off the original.
+    """
     if not result:
         return {}
     if isinstance(result, dict):
@@ -51,7 +56,7 @@ def is_http_error_response(result: Union[Dict, Any]) -> bool:
     ``error`` with ``status_code >= 400``). Does not match on free-text
     messages.
     """
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     if not data:
         return False
 
@@ -80,7 +85,7 @@ def is_endpoint_failure(result: Union[Dict, Any]) -> bool:
     so a target whose mapped response happens to contain an ``error`` field is not mistaken
     for an invocation failure.
     """
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     if not data:
         return False
 
@@ -99,7 +104,7 @@ def has_endpoint_failure_in_result(result: Union[Dict, Any]) -> bool:
     if is_endpoint_failure(result):
         return True
 
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     target_interaction = _first_send_message_interaction(data.get("history"))
     if target_interaction is None:
         return False
@@ -114,7 +119,7 @@ def get_endpoint_error_details(result: Union[Dict, Any]) -> Dict[str, Any]:
     each needing to know that multi-turn buries them under the first turn's tool message.
     Returns ``{}`` when the result is not a failure.
     """
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     if not data:
         return {}
 
@@ -129,6 +134,21 @@ def get_endpoint_error_details(result: Union[Dict, Any]) -> Dict[str, Any]:
     return error_details if is_endpoint_failure(error_details) else {}
 
 
+# A failure summary becomes a log line and one ActivityLog row per reported test, and a
+# target is free to answer a 4xx with an arbitrarily large body: an HTML error page, a
+# stack trace, a rejected payload echoed back. ActivityLog.message is unbounded Text, so
+# nothing downstream would refuse it. Generous enough that a real explanation survives
+# whole (the safeguarding rejection that prompted this is ~100 characters).
+NARRATION_MESSAGE_LIMIT = 500
+
+
+def truncate_for_narration(text: str) -> str:
+    """Bound a message destined for a log line or an activity-log row."""
+    if len(text) <= NARRATION_MESSAGE_LIMIT:
+        return text
+    return f"{text[:NARRATION_MESSAGE_LIMIT].rstrip()}... (truncated)"
+
+
 def summarize_endpoint_failure(result: Union[Dict, Any]) -> Optional[Dict[str, Any]]:
     """Describe a failed invocation for logs and job activity narration.
 
@@ -140,13 +160,18 @@ def summarize_endpoint_failure(result: Union[Dict, Any]) -> Optional[Dict[str, A
 
     Keys: ``summary`` (log-ready line), ``message`` (the target's own reason) and
     ``status_code`` (``None`` for failures that never carried one, e.g. SDK/connector).
+
+    Both text fields are capped: see ``NARRATION_MESSAGE_LIMIT``. The untruncated text
+    stays in ``test_output`` for the detail view, which is where a reader wants all of it.
     """
     details = get_endpoint_error_details(result)
     if not details:
         return None
 
     status_code = get_http_error_status_code(result)
-    message = str(details.get("output") or details.get("message") or "").strip()
+    message = truncate_for_narration(
+        str(details.get("output") or details.get("message") or "").strip()
+    )
 
     label = f"HTTP {status_code}" if status_code is not None else "an error"
     summary = f"Endpoint returned {label}"
@@ -165,7 +190,7 @@ def summarize_endpoint_failure(result: Union[Dict, Any]) -> Optional[Dict[str, A
 
 def get_http_error_status_code(result: Union[Dict, Any]) -> Optional[int]:
     """Return HTTP status from a flat response or multi-turn first-turn error_details."""
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     if not data:
         return None
 
@@ -244,7 +269,7 @@ def has_http_error_in_result(result: Union[Dict, Any]) -> bool:
     if is_http_error_response(result):
         return True
 
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     target_interaction = _first_send_message_interaction(data.get("history"))
     if target_interaction is None:
         return False
