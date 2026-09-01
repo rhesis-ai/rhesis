@@ -46,6 +46,19 @@ export const BACKDROP_COLORS = {
 /** Horizontal gap between FAB buttons in a page-header action group (Figma) */
 export const FAB_GROUP_GAP = '20px';
 
+/** Diameter of a page-header FAB (Figma). Shared by `Fab` and its skeleton. */
+export const FAB_SIZE = 56;
+
+/**
+ * Inset for everything inside a grid card: the toolbar, the first and last
+ * column, and the pagination footer (Figma). BaseDataGrid expresses the same
+ * value as `theme.spacing(3.75)`.
+ */
+export const GRID_CARD_INSET = '30px';
+
+/** Minimum height of a grid-card toolbar row (Figma). */
+export const GRID_TOOLBAR_MIN_HEIGHT = 52;
+
 /** MUI spacing units for section-level Grid containers (EditableSection, SectionCard). */
 export const SECTION_GRID = {
   columnSpacing: 4,
