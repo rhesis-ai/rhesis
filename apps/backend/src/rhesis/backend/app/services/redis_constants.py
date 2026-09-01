@@ -23,3 +23,4 @@ class RedisDatabase:
     PERMISSION_CACHE = 5  # authorization PDP decision cache (SP5)
     OWASP_SECTIONS_CACHE = 6
     TEST_RUN_TIMING = 7  # per-test execution phase offsets, for the verdict grid animation
+    VERDICT_MATRIX_CACHE = 8  # encoded verdict grid for a terminal (finished) test run

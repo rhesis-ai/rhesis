@@ -20,9 +20,15 @@ const DEFAULT_PAGINATION: PaginationParams = {
 
 export class TestResultsClient extends BaseApiClient {
   async getTestResults(
-    params: Partial<PaginationParams> & { filter?: string } = {}
+    params: Partial<PaginationParams> & {
+      filter?: string;
+      /** Drop test_output.conversation_summary (the full multi-turn transcript)
+       * from each result -- for a caller rendering a results grid rather than
+       * a conversation view. */
+      stripConversation?: boolean;
+    } = {}
   ): Promise<PaginatedResponse<TestResultDetail>> {
-    const { filter, ...paginationParams } = params;
+    const { filter, stripConversation, ...paginationParams } = params;
 
     return this.fetchPaginated<TestResultDetail>(
       API_ENDPOINTS.testResults,
@@ -30,6 +36,7 @@ export class TestResultsClient extends BaseApiClient {
         ...DEFAULT_PAGINATION,
         ...paginationParams,
         $filter: filter,
+        ...(stripConversation ? { strip_conversation: true } : {}),
       },
       { cache: 'no-store' }
     );

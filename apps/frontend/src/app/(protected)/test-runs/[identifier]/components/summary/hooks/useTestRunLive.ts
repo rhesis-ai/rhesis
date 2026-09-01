@@ -15,7 +15,10 @@ const verdictMatrixKey = (testRunId: string) => [
   testRunId,
 ];
 
-export function useTestRunLive(testRunId: string): {
+export function useTestRunLive(
+  testRunId: string,
+  initialMatrix?: VerdictMatrix
+): {
   matrix: VerdictMatrix | undefined;
   isLoading: boolean;
   isTerminal: boolean;
@@ -32,12 +35,17 @@ export function useTestRunLive(testRunId: string): {
   const channel = `test_run:${testRunId}`;
 
   // After the first full fetch (with test_ids), subsequent refetches use
-  // ?columns=none to skip the test_ids array (client already has them).
-  // Reset per testRunId so switching runs without a remount still fetches
-  // the new run's test_ids on its first request.
-  const hasFetched = useRef(false);
+  // ?columns=none to skip the test_ids array (client already has them). A
+  // server-prefetched initialMatrix already carries test_ids, so it counts
+  // as that first fetch. Reset per testRunId -- but only on an actual
+  // change, not the mount that seeds it -- so switching runs without a
+  // remount still fetches the new run's test_ids on its first request.
+  const hasFetched = useRef(Boolean(initialMatrix));
+  const seededRunIdRef = useRef(initialMatrix ? testRunId : null);
   useEffect(() => {
+    if (seededRunIdRef.current === testRunId) return;
     hasFetched.current = false;
+    seededRunIdRef.current = testRunId;
   }, [testRunId]);
 
   const { data: matrix, isLoading } = useQuery<VerdictMatrix>({
@@ -62,6 +70,11 @@ export function useTestRunLive(testRunId: string): {
       }
       return result;
     },
+    initialData: initialMatrix,
+    // The server just fetched this -- trust it at mount instead of
+    // immediately re-requesting the same data; refetchInterval is what
+    // keeps it fresh from here.
+    refetchOnMount: false,
     refetchInterval: query => {
       if (query.state.data?.is_terminal) return false;
       if (liveUpdates) return false;

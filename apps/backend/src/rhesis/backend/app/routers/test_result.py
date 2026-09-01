@@ -32,6 +32,7 @@ from rhesis.backend.app.services.review_override import (
     apply_review_override,
     revert_override,
 )
+from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
@@ -123,6 +124,14 @@ def read_test_results(
         alias="$select",
         description="Comma-separated list of fields to return",
     ),
+    strip_conversation: bool = Query(
+        False,
+        description=(
+            "Drop test_output.conversation_summary from each result -- the full multi-turn "
+            "transcript, useful for a caller rendering a conversation view but unneeded on a "
+            "results grid."
+        ),
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -138,6 +147,7 @@ def read_test_results(
         filter=filter,
         organization_id=organization_id,
         user_id=user_id,
+        strip_conversation=strip_conversation,
     )
     if select:
         serialized = jsonable_encoder(results)
@@ -368,6 +378,8 @@ def add_review(
     # immediately following GET /test_results/{id} call on the frontend.
     # Without this, FastAPI's dependency-cleanup commit races the next request.
     db.commit()
+    # A new review can change kpis.reviews_count on the run's verdict matrix.
+    get_verdict_matrix_cache().invalidate(str(db_test_result.test_run_id))
 
     populate_review_permitted_actions([new_review])
     return new_review
@@ -496,6 +508,9 @@ def update_review(
     db.flush()
     db.refresh(db_test_result)
     db.commit()
+    # A status/target change can flip has_override/effective_success on the
+    # run's verdict matrix, and a status change can affect reviews_count.
+    get_verdict_matrix_cache().invalidate(str(db_test_result.test_run_id))
 
     populate_review_permitted_actions([review_to_update])
     return review_to_update
@@ -600,6 +615,8 @@ def delete_review(
 
     db.flush()
     db.commit()
+    # Deleting a review reverts its override and changes reviews_count.
+    get_verdict_matrix_cache().invalidate(str(db_test_result.test_run_id))
 
     return {
         "message": "Review deleted successfully",

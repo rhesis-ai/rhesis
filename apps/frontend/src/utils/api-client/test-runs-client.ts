@@ -150,6 +150,19 @@ export class TestRunsClient extends BaseApiClient {
     );
   }
 
+  /** Whether another test run exists on the same test set -- gates the Compare FAB.
+   * A single indexed EXISTS query server-side, in place of the paginated list
+   * endpoint's full per-run stats aggregation. */
+  async hasComparisonRuns(
+    testRunId: string,
+    testSetId: string
+  ): Promise<boolean> {
+    const response = await this.fetch<{ has_comparison_runs: boolean }>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}/has-comparison-runs?test_set_id=${testSetId}`
+    );
+    return response.has_comparison_runs;
+  }
+
   async cancelTestRun(id: string): Promise<TestRun> {
     return this.fetch<TestRun>(`${API_ENDPOINTS.testRuns}/${id}/cancel`, {
       method: 'POST',

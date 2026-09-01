@@ -57,6 +57,24 @@ _TEST_RUN_RELATED_FIELDS = (
         models.TestConfiguration.test_set,
         models.TestSet.test_set_type,
     ),
+    # EndpointReference and ProjectReference both serialize `tags`, and both sit too
+    # deep for get_item_detail's derived-field cascade, which only walks one hop from
+    # TestRun. Without these the two collections lazy-load during serialization -- two
+    # extra queries on every run detail response, and the first backend call the test
+    # run detail page makes.
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint._tags_relationship,
+        models.TaggedItem.tag,
+    ),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint.project,
+        models.Project._tags_relationship,
+        models.TaggedItem.tag,
+    ),
 )
 
 
@@ -85,6 +103,71 @@ def get_test_run(
         related_fields=_TEST_RUN_RELATED_FIELDS,
         extra_filter=_defer_endpoint_last_token,
     )
+
+
+# Relationships get_verdict_matrix actually reads off the run: status.name, and (only on the
+# legacy-run fallback path, for a run dispatched before the metric-plan snapshot shipped)
+# test_configuration.test_set_id. Neither needs get_test_run's full detail load (endpoint, its
+# project, test_set, test_set_type, plus every derived-field tag/comment/task selectin those
+# pull in) -- this endpoint is polled every 3s while a run is live and refetched on every
+# WebSocket progress event, so the extra weight repeats often.
+_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS = (
+    include(models.TestRun.status, cols=[models.Status.id, models.Status.name]),
+    include(
+        models.TestRun.test_configuration,
+        cols=[models.TestConfiguration.id, models.TestConfiguration.test_set_id],
+    ),
+)
+
+
+def get_test_run_for_verdict_matrix(
+    db: Session,
+    test_run_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+) -> Optional[models.TestRun]:
+    """Minimal ``TestRun`` load for the verdict-matrix endpoint -- see
+    ``_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS`` for what it does and doesn't load.
+
+    ``derived_fields=False`` because TestRun carries the comments/tasks/tags mixins:
+    the default cascade would add 3 selectin queries this response never reads, and
+    re-add the ``organization`` joinedload the list above deliberately excludes.
+    """
+    return get_item_detail(
+        db,
+        models.TestRun,
+        test_run_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS,
+        derived_fields=False,
+    )
+
+
+def has_sibling_test_runs(
+    db: Session,
+    test_set_id: uuid.UUID,
+    exclude_run_id: uuid.UUID,
+    organization_id: str | None = None,
+) -> bool:
+    """Whether any other non-deleted TestRun exists on ``test_set_id`` besides
+    ``exclude_run_id`` -- gates the Compare FAB. A single indexed EXISTS query
+    (``ix_test_configuration_test_set_id``, ``ix_test_run_test_configuration_id``)
+    in place of a full paginated TestRun list plus its per-run stats aggregation.
+    """
+    query = (
+        db.query(models.TestRun.id)
+        .join(
+            models.TestConfiguration,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+        )
+        .filter(models.TestConfiguration.test_set_id == test_set_id)
+        .filter(models.TestRun.id != exclude_run_id)
+        .filter(models.TestRun.deleted_at.is_(None))
+    )
+    if organization_id:
+        query = query.filter(models.TestRun.organization_id == uuid.UUID(str(organization_id)))
+    return db.query(query.exists()).scalar()
 
 
 def _test_run_experiment_filter(

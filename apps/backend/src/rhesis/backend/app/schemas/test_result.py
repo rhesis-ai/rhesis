@@ -93,6 +93,13 @@ class TestResultDetail(TestResult):
     tags: Optional[List[TagRead]] = None
     test: Optional[TestReference] = None
     test_run: Optional[TestRunReference] = None
+    # TestResult carries CountsMixin but nothing serialized it, so the Tests tab's
+    # comment/task filters (test.counts?.comments/.tasks) read an undefined field.
+    # Declared here rather than on TestResult: the read paths that return this schema
+    # eager-load comments/tasks/files (see crud/test_result.py), while the create/
+    # update/delete routes return the base schema off a row with no eager loads, where
+    # serializing counts would lazy-load all three relationships per response.
+    counts: Optional[Dict[str, Any]] = None
 
 
 # Review schemas

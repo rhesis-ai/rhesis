@@ -19,11 +19,17 @@ import {
   useDensityPreference,
 } from './hooks/useDensityPreference';
 import { buildTimingMap, timelineDuration } from './verdict-timeline';
-import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import type {
+  TestRunDetail,
+  VerdictMatrix,
+} from '@/utils/api-client/interfaces/test-run';
 
 interface RunSummaryProps {
   testRunId: string;
   testRun: TestRunDetail;
+  /** Server-prefetched verdict grid -- lets this tab render on first paint
+   * instead of a spinner that flips to content a moment later. */
+  initialMatrix?: VerdictMatrix;
   onViewRequirement?: (id: string) => void;
   onViewMetric?: (name: string, reqId?: string) => void;
   onViewFailures?: () => void;
@@ -34,11 +40,15 @@ const DS_PER_SECOND = 10;
 export default function RunSummary({
   testRunId,
   testRun,
+  initialMatrix,
   onViewRequirement,
   onViewMetric,
   onViewFailures,
 }: RunSummaryProps) {
-  const { matrix, isLoading, isTerminal } = useTestRunLive(testRunId);
+  const { matrix, isLoading, isTerminal } = useTestRunLive(
+    testRunId,
+    initialMatrix
+  );
 
   // A "watch it run" redirect (just launched/re-ran this test set) forces
   // Detail view for this visit via ?density=, regardless of any stored

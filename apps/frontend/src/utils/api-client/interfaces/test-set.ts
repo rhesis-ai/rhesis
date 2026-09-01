@@ -67,6 +67,10 @@ export interface TestSet {
     tasks: number;
   };
   created_at?: string;
+  /** Set only when the test set is soft-deleted. Populated on the nested
+   * `test_configuration.test_set` of a TestRunDetail, where soft-delete
+   * filtering doesn't reach; absent from a direct GET /test_sets/{id}. */
+  deleted_at?: string;
 }
 
 export interface TestSetCreate {
