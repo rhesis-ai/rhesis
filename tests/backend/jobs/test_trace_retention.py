@@ -176,6 +176,38 @@ class TestSweepDryRun:
 
 
 @pytest.mark.integration
+class TestSweepDeletesInBatches:
+    def test_all_expired_rows_go_even_when_they_span_several_batches(
+        self, monkeypatch, real_commit_test_db: Session
+    ):
+        """The delete is chunked to bound lock duration and WAL growth, so the
+        loop has to come back for the remaining rows. Batch size is patched
+        down to 2 rather than writing DELETE_BATCH_SIZE rows.
+
+        Calls ``_sweep_organization`` directly rather than the task: the task
+        sweeps every org in the database, so a total row count would also pick
+        up whatever other tests in this file left behind.
+        """
+        monkeypatch.setattr(trace_retention, "DELETE_BATCH_SIZE", 2)
+        db = real_commit_test_db
+        org, _ = _org(db, "Trace Batch Org", "trace-batch@test.com")
+        project_id = _project(db, org)
+
+        # 5 expired rows over a batch size of 2: three passes, the last short.
+        old_ids = [_trace(db, org, project_id, created_at=_OLD) for _ in range(5)]
+        recent_id = _trace(db, org, project_id, created_at=_RECENT)
+
+        deleted = trace_retention._sweep_organization(
+            org, _NOW - timedelta(days=30), dry_run=False
+        )
+
+        assert deleted == 5, "every expired row must go, not just the first batch"
+        for trace_id in old_ids:
+            assert not _trace_exists(db, trace_id)
+        assert _trace_exists(db, recent_id), "a recent trace must survive batching"
+
+
+@pytest.mark.integration
 class TestSweepUnlimitedRetention:
     def test_unlimited_retention_skips_the_org(
         self, monkeypatch, real_commit_test_db: Session
@@ -225,7 +257,7 @@ class TestSweepGlobalOverride:
         old_trace_id = _trace(db, org, project_id, created_at=_OLD)
 
         try:
-            result = sweep_expired_traces()
+            sweep_expired_traces()
 
             assert _trace_exists(db, old_trace_id), (
                 "100-day-old trace should survive a 200-day override"
@@ -288,9 +320,47 @@ class TestSweepOrgIsolation:
         monkeypatch.setattr(trace_retention, "_sweep_organization", flaky_sweep)
 
         try:
-            sweep_expired_traces()
+            result = sweep_expired_traces()
 
             assert _trace_exists(db, trace_a_id), "org_a's failure is swallowed"
             assert not _trace_exists(db, trace_b_id), "org_b is still swept"
+            assert result["orgs_failed"] >= 1, (
+                "a failed org must be counted, not reported as a clean run"
+            )
+        finally:
+            QuotaRegistry.reset()
+
+    def test_a_failed_sweep_is_not_reported_as_a_clean_run(
+        self, monkeypatch, real_commit_test_db: Session
+    ):
+        """_sweep_organization returns None on failure, not 0, so a run where
+        every org errored is distinguishable from "nothing to delete" -- the
+        two used to be identical in the returned dict."""
+        _settings(monkeypatch, enabled=True)
+        monkeypatch.setattr(
+            "rhesis.backend.app.quota.get_application_settings",
+            lambda: SimpleNamespace(usage_quotas_enabled=True),
+        )
+        QuotaRegistry.set_quota_provider(
+            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=30))
+        )
+        db = real_commit_test_db
+        org, _ = _org(db, "Trace AllFail Org", "trace-allfail@test.com")
+        project_id = _project(db, org)
+        old_trace_id = _trace(db, org, project_id, created_at=_OLD)
+
+        monkeypatch.setattr(
+            trace_retention,
+            "_sweep_organization",
+            lambda org, cutoff, *, dry_run: None,
+        )
+
+        try:
+            result = sweep_expired_traces()
+
+            assert result["traces_affected"] == 0
+            assert result["orgs_swept"] == 0
+            assert result["orgs_failed"] >= 1
+            assert _trace_exists(db, old_trace_id)
         finally:
             QuotaRegistry.reset()

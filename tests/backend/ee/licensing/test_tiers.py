@@ -387,6 +387,50 @@ class TestLoadTierConfig:
                 f"  overage: soft\n  overage_tolerance_percent: {value}\n",
             )
 
+    @pytest.mark.parametrize(
+        "value,description",
+        [
+            ('"90"', "string"),
+            ("true", "bool-true"),
+            ("false", "bool-false"),
+            ("0", "zero"),
+            ("-30", "negative"),
+            ("1.5", "float"),
+        ],
+    )
+    def test_invalid_retention_days_values_are_rejected(
+        self, tmp_path, monkeypatch, value, description
+    ):
+        """The retention sweep consumes this value, so a string "90" from a
+        mounted ConfigMap would reach timedelta(days="90") and raise per org
+        inside the sweep's blanket except -- retention would silently never
+        run for the tier. Zero or negative would set a cutoff at or after
+        "now" and delete every trace the org has."""
+        with pytest.raises(ValueError, match="retention_days"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                f"community:\n  limits:\n    seats: 3\n  retention_days: {value}\n",
+            )
+
+    def test_null_retention_days_means_unlimited(self, tmp_path, monkeypatch):
+        """Matches the config's own `null = unlimited` convention; the sweep
+        skips an org whose resolved retention is None."""
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n  retention_days: null\n",
+        )
+        assert catalog[LicenseEdition.COMMUNITY].retention_days is None
+
+    def test_valid_retention_days_is_carried(self, tmp_path, monkeypatch):
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n  retention_days: 45\n",
+        )
+        assert catalog[LicenseEdition.COMMUNITY].retention_days == 45
+
 
 class TestTierSpecToPolicy:
     def test_carries_limits_overage_and_tolerance(self):

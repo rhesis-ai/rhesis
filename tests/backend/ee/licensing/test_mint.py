@@ -262,6 +262,48 @@ class TestMintTokenOverrides:
         assert ent is not None
         assert dict(ent.custom_limits) == {}
 
+    def test_custom_retention_days_survives_a_mint_verify_round_trip(self, private_key_env):
+        """End-to-end producer check. The read path (verify -> Entitlements ->
+        provider.info -> ConfigQuotaProvider) is only reachable if minting can
+        actually write this claim, which it could not before."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.ENTERPRISE,
+                kid="test-v1",
+                custom_retention_days=180,
+            )
+        )
+        assert ent is not None
+        assert ent.custom_retention_days == 180
+
+    def test_no_custom_retention_days_leaves_the_claim_absent(self, private_key_env):
+        """Absent must stay absent so the resolver keeps the tier's own value
+        instead of seeing an override it was never given."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
+        assert ent is not None
+        assert ent.custom_retention_days is None
+
+    @pytest.mark.parametrize("bad", [0, -30, True, False])
+    def test_a_non_positive_retention_override_is_refused_at_mint_time(
+        self, private_key_env, bad
+    ):
+        """Caught when the token is issued rather than silently ignored at
+        resolution time, so a bad deal never ships as a signed licence."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="custom_retention_days"):
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.ENTERPRISE,
+                kid="test-v1",
+                custom_retention_days=bad,
+            )
+
 
 # ---------------------------------------------------------------------------
 # Error cases

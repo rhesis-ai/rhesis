@@ -46,7 +46,6 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
     LIC_CUSTOM_LIMITS,
-    LIC_CUSTOM_RETENTION_DAYS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
