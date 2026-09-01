@@ -21,7 +21,10 @@ export default async function NewMetricPage({
   await requireSession();
 
   const params = await searchParams;
-  const type = typeof params.type === 'string' ? params.type : null;
+  // First value wins on a repeated `?type=`, matching the `searchParams.get`
+  // this replaced.
+  const rawType = params.type;
+  const type = (Array.isArray(rawType) ? rawType[0] : rawType) ?? null;
 
   if (!type) {
     redirect('/metrics');
