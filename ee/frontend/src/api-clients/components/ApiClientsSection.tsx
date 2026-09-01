@@ -13,14 +13,12 @@
  */
 
 import * as React from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { Add as AddIcon } from '@mui/icons-material';
 import { SectionCard } from '@/components/common/SectionCard';
 import SectionEmptyState from '@/components/common/SectionEmptyState';

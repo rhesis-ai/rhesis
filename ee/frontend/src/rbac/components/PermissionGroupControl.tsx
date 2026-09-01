@@ -1,18 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  alpha,
-  Box,
-  Checkbox,
-  Collapse,
-  FormControlLabel,
-  IconButton,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
+import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import Collapse from '@mui/material/Collapse';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import IconButton from '@mui/material/IconButton';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Typography from '@mui/material/Typography';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {

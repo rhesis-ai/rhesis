@@ -15,8 +15,7 @@
  * Custom roles use level 50 by default (below Member).
  */
 
-import { alpha } from '@mui/material';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import type { RoleRead } from './types';
 
 /**

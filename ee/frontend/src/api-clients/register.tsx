@@ -18,7 +18,9 @@
  */
 
 import * as React from 'react';
-import { Alert, Box, CircularProgress } from '@mui/material';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import { FeatureName } from '@/constants/features';
 import { FeatureGate, useFeatureWarning } from '@/contexts/FeaturesContext';
 import { registerOrgSettingsTab } from '@/lib/extension-registries';
