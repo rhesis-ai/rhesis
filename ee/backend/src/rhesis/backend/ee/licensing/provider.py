@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import lru_cache
 from typing import Optional
 
 from rhesis.backend.app.features import Feature
@@ -51,6 +52,37 @@ from rhesis.backend.ee.licensing.tiers import is_sellable
 from rhesis.backend.ee.licensing.verify import verify_token
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=None)
+def _warn_blanket_inactive(status: str) -> None:
+    """Warn once per process that an inactive ``RHESIS_LICENSE`` was skipped.
+
+    A stale blanket token beside an org's valid licence is a **deployment
+    misconfiguration**, so this stays at ``warning`` rather than dropping to
+    ``debug``: it is exactly the state that used to hold a licensed org at
+    community limits, and it should be visible at production log levels.
+
+    But it is reached from
+    :meth:`~rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider.allows_feature`
+    and ``license_info()``, so it runs on **every** ``require_feature`` gate,
+    every ``require_quota`` gate (via ``ConfigQuotaProvider.get_policy``) and
+    both the features and usage endpoints -- several times per request. Logged
+    unconditionally it would bury the signal it exists to raise.
+
+    ``lru_cache`` is the log-once mechanism: the first call for a given status
+    logs and caches ``None``, and later calls are cache hits that do nothing. It
+    is keyed on *status* rather than cached outright so that a token changing
+    ``canceled`` -> ``expired`` is reported once more, which is a different
+    misconfiguration. Thread-safe enough for this: a race logs twice, never
+    zero times.
+    """
+    logger.warning(
+        "%s token is present but not active (status=%s); using the org's own "
+        "active licence instead. This message is logged once per process.",
+        ENV_LICENSE,
+        status,
+    )
 
 
 class SignedTokenLicenseProvider:
@@ -223,12 +255,7 @@ class SignedTokenLicenseProvider:
         per_org = self._org_entitlements(org)
         if per_org is not None and per_org.is_active():
             if blanket is not None:
-                logger.info(
-                    "%s token is present but not active (status=%s); using the "
-                    "org's own active licence instead",
-                    ENV_LICENSE,
-                    blanket.status.value,
-                )
+                _warn_blanket_inactive(blanket.status.value)
             return per_org
 
         # Nothing active. Prefer the blanket token's edition, matching the

@@ -184,6 +184,49 @@ class TestPrecedence:
         assert info["edition"] == "enterprise"
         assert allowed is True
 
+    def test_warns_once_per_process_not_once_per_request(self, provider, mint_token):
+        """The shadowing case sits on the request path, so it must not log per call.
+
+        ``_resolve_entitlements`` is reached from ``allows_feature`` (every
+        ``require_feature`` gate), from ``license_info`` (the features and usage
+        endpoints) and from ``ConfigQuotaProvider.get_policy`` (every
+        ``require_quota`` gate) -- several times per request. A misconfigured
+        deployment would otherwise bury the warning it exists to raise.
+        """
+        from rhesis.backend.ee.licensing.provider import _warn_blanket_inactive
+
+        _warn_blanket_inactive.cache_clear()
+        env_token = mint_token(sub="*", edition="team", status="canceled")
+        org_token = mint_token(sub=_ORG_UUID, edition="enterprise")
+        org = _make_org(license_token=org_token)
+
+        with patch.dict("os.environ", {"RHESIS_LICENSE": env_token}):
+            with patch("rhesis.backend.ee.licensing.provider.logger.warning") as warn:
+                for _ in range(5):
+                    provider.allows_feature(_SSO_FEATURE, org)
+                    provider.info(org=org)
+
+        assert warn.call_count == 1, f"expected one warning per process, got {warn.call_count}"
+        _warn_blanket_inactive.cache_clear()
+
+    def test_a_different_stale_status_is_reported_once_more(self, provider, mint_token):
+        """Keyed on status, so canceled -> expired is a new misconfiguration
+        worth one more line rather than being swallowed forever."""
+        from rhesis.backend.ee.licensing.provider import _warn_blanket_inactive
+
+        _warn_blanket_inactive.cache_clear()
+        org_token = mint_token(sub=_ORG_UUID, edition="enterprise")
+        org = _make_org(license_token=org_token)
+
+        with patch("rhesis.backend.ee.licensing.provider.logger.warning") as warn:
+            for status in ("canceled", "canceled", "unpaid", "unpaid"):
+                token = mint_token(sub="*", edition="team", status=status)
+                with patch.dict("os.environ", {"RHESIS_LICENSE": token}):
+                    provider.allows_feature(_SSO_FEATURE, org)
+
+        assert warn.call_count == 2
+        _warn_blanket_inactive.cache_clear()
+
     def test_active_blanket_token_still_wins_over_an_active_org_licence(self, provider, mint_token):
         """The documented precedence, unchanged: between two *active* licences
         the blanket one still takes priority."""
