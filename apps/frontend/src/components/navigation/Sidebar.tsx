@@ -63,6 +63,7 @@ import {
 } from './sidebar-utils';
 import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';
+import { SidebarPlanRow } from './SidebarPlanRow';
 import { NavSection } from './NavSection';
 import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
 import SupportDrawer from './SupportDrawer';
@@ -845,7 +846,8 @@ export function Sidebar() {
           pt: '20px',
         }}
       >
-        {/* White rounded card for external footer links (Star Rhesis, Support) */}
+        {/* White rounded card for external footer links (Star Rhesis, Support),
+            headed by the current plan */}
         {footerGroup && footerGroup.items.length > 0 && !collapsed && (
           <Box
             sx={{
@@ -857,6 +859,7 @@ export function Sidebar() {
               flexDirection: 'column',
             }}
           >
+            <SidebarPlanRow edition={edition} licensed={licensed} />
             {footerGroup.items.map(item => (
               <NavLinkItem
                 key={`footer-${item.title}`}

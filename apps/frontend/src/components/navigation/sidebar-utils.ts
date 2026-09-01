@@ -25,6 +25,38 @@ export const collapsedNavItemSx = {
 };
 
 /**
+ * Horizontal geometry every row inside a sidebar card shares: the side padding
+ * and the icon-to-label gap.
+ *
+ * Named rather than repeated inline because it is an *alignment contract*, not
+ * two loose numbers -- the plan row and the link rows below it stack in one
+ * card, and their icons and labels have to sit on the same two columns. Typed
+ * out separately in each component, they drift the moment one is nudged.
+ *
+ * Figma values, which is why they are px and not `theme.spacing` units: 14 and
+ * 10 are not multiples of the 8px spacing step, so a spacing unit would round
+ * them and shift the whole card.
+ */
+export const NAV_CARD_ROW_SX = {
+  px: '14px',
+  gap: '10px',
+} as const;
+
+/** Icon box for a full-height card row (`NavLinkItem`). */
+export const NAV_CARD_ICON_SIZE = 24;
+
+/**
+ * A card row that reports state rather than offering an action -- currently
+ * the plan row heading the footer card. Tighter vertically so it reads as a
+ * status line above the actions instead of a third thing to click, while
+ * keeping their horizontal alignment.
+ */
+export const NAV_CARD_STATUS_ROW_SX = {
+  ...NAV_CARD_ROW_SX,
+  py: '6px',
+} as const;
+
+/**
  * The count-badge pill: a small filled number shown beside something that has
  * a count -- a nav item's unread notifications, the brand row's flagged
  * quota resources, the org and user menu rows.
