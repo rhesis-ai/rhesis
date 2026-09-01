@@ -59,17 +59,22 @@ function extractRequirementsWithMetrics(results: TestResultDetail[]): {
     const requirement = result.test?.requirement;
     const metrics = result.test_metrics?.metrics ?? {};
 
-    if (requirement && !requirementMap.has(requirement.id as string)) {
-      requirementMap.set(requirement.id as string, {
-        id: requirement.id as string,
-        name: requirement.name,
-        description: requirement.description || undefined,
-        metrics: [],
-      });
-    }
-
     if (requirement) {
-      const entry = requirementMap.get(requirement.id as string)!;
+      const requirementId = requirement.id as string;
+      // Hold the entry rather than re-reading it: the has/set/get round trip
+      // is what forced a non-null assertion, since TypeScript cannot know the
+      // `set` above guarantees this `get`.
+      let entry = requirementMap.get(requirementId);
+      if (!entry) {
+        entry = {
+          id: requirementId,
+          name: requirement.name,
+          description: requirement.description || undefined,
+          metrics: [],
+        };
+        requirementMap.set(requirementId, entry);
+      }
+
       for (const [name, data] of Object.entries(metrics)) {
         if (!entry.metrics.some(m => m.name === name)) {
           entry.metrics.push({

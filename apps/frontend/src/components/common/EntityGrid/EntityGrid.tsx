@@ -199,20 +199,19 @@ export default function EntityGrid<
     [deleteSpec, ambientCanDelete]
   );
 
-  const bulkDeleteFn = useMemo(
-    () =>
-      deleteSpec?.bulk
-        ? (ids: string[]) => deleteSpec.bulk!(new ApiClientFactory(), ids)
-        : undefined,
-    [deleteSpec]
-  );
-  const deleteOneFn = useMemo(
-    () =>
-      deleteSpec?.one
-        ? (id: string) => deleteSpec.one!(new ApiClientFactory(), id)
-        : undefined,
-    [deleteSpec]
-  );
+  // Capture the method in a local before closing over it: narrowing
+  // `deleteSpec?.bulk` does not survive into the returned closure, which is
+  // what the non-null assertions here used to paper over.
+  const bulkDeleteFn = useMemo(() => {
+    const bulk = deleteSpec?.bulk;
+    return bulk
+      ? (ids: string[]) => bulk(new ApiClientFactory(), ids)
+      : undefined;
+  }, [deleteSpec]);
+  const deleteOneFn = useMemo(() => {
+    const one = deleteSpec?.one;
+    return one ? (id: string) => one(new ApiClientFactory(), id) : undefined;
+  }, [deleteSpec]);
 
   const {
     checkboxSelectionMode,
