@@ -16,6 +16,16 @@ from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
 
+
+def _decode_response_body(body: Any) -> Optional[str]:
+    """Render a handshake-rejection body as text for ``ErrorResponse.response_content``."""
+    if body is None:
+        return None
+    if isinstance(body, bytes):
+        return body.decode("utf-8", errors="replace")
+    return str(body)
+
+
 # Mapping of Unicode characters commonly produced by AI services to their
 # ASCII equivalents.  Defined once at module load rather than rebuilt on
 # every call to _normalize_unicode_text.
@@ -496,7 +506,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     response_headers=self._sanitize_headers(dict(status_err.response.headers))
                     if status_err.response.headers
                     else {},
-                    response_body=status_err.response.body,
+                    # response_content, not response_body: every reader (and the UI) keys
+                    # off the former, so a body written to the latter is invisible.
+                    response_content=_decode_response_body(status_err.response.body),
                 )
 
             except Exception as e:
