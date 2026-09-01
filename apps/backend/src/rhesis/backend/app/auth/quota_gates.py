@@ -35,7 +35,11 @@ import logging
 from fastapi import Depends, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.dependencies import get_current_organization, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_current_organization,
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaResource, QuotaResourceLike
 from rhesis.backend.app.quota.enforcement import (
@@ -98,6 +102,15 @@ def require_backstop(resource: QuotaResourceLike):
     request through. The telemetry ingest route's contract is that
     ingestion never fails because of a billing-side problem.
 
+    That contract is why this takes ``tenant_context`` and looks the org up
+    itself rather than depending on ``get_current_organization``. FastAPI
+    resolves sub-dependencies *before* the function body, so a
+    ``get_current_organization`` that 403s on a missing org row -- or 500s
+    on a transient failure in its own ``db.get`` -- would break ingestion
+    from outside the ``try``, which is exactly what this gate exists to
+    prevent. Both dependencies below are already on the ingest route, so
+    FastAPI dedupes them and this adds no new pre-body failure mode.
+
     Returns ``None`` (not the org) because the ingest route does not need
     the org from this dependency -- it already has it from its own
     ``get_tenant_context``.
@@ -105,11 +118,17 @@ def require_backstop(resource: QuotaResourceLike):
     resource = resource if isinstance(resource, QuotaResource) else QuotaResource(resource)
 
     def _dep(
-        org: Organization = Depends(get_current_organization),
+        tenant_context: tuple = Depends(get_tenant_context),
         db: Session = Depends(get_tenant_db_session),
     ) -> None:
+        organization_id = None
         try:
-            verdict = check_backstop(db, str(org.id), org, resource)
+            organization_id, _user_id = tenant_context
+            if not organization_id:
+                # No org to attribute usage to; nothing to backstop.
+                return
+            org = db.get(Organization, organization_id)
+            verdict = check_backstop(db, str(organization_id), org, resource)
             if not verdict.allowed:
                 raise QuotaExceededError(verdict)
         except QuotaExceededError:
@@ -117,7 +136,7 @@ def require_backstop(resource: QuotaResourceLike):
         except Exception:
             logger.warning(
                 "Backstop check failed for org %s, allowing request (fail-open)",
-                org.id,
+                organization_id,
                 exc_info=True,
             )
 

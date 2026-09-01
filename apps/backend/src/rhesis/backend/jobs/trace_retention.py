@@ -29,7 +29,13 @@ from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
 
-BACKSTOP_MULTIPLIER = 10
+#: Rows deleted per transaction. The first live run on an org with a long
+#: ingest history would otherwise delete its whole backlog in one statement,
+#: holding row locks and writing one large WAL burst for as long as that
+#: takes. Batching bounds both, at the cost of the sweep no longer being
+#: atomic per org -- which is fine here: a partial sweep just leaves rows for
+#: the next run, and the cutoff is recomputed from scratch each time.
+DELETE_BATCH_SIZE = 5_000
 
 
 def _resolve_retention_days(org: Organization, override_days: int | None) -> int | None:
@@ -45,35 +51,81 @@ def _resolve_retention_days(org: Organization, override_days: int | None) -> int
     return QuotaRegistry.get_policy(org).retention_days
 
 
+def _expired_traces(db, org: Organization, cutoff: datetime):
+    """Query for *org*'s trace rows older than *cutoff*.
+
+    The explicit ``organization_id`` predicate is what keeps the sweep
+    inside this org -- do not remove it. It is load-bearing rather than
+    belt-and-braces because callers run this under
+    :func:`~rhesis.backend.app.scope.bypass_tenant_filter`, so the ORM
+    auto-filter adds nothing of its own.
+    """
+    return db.query(Trace).filter(
+        Trace.organization_id == str(org.id),
+        Trace.created_at < cutoff,
+    )
+
+
+def _delete_in_batches(db, org: Organization, cutoff: datetime) -> int:
+    """Delete *org*'s expired traces in :data:`DELETE_BATCH_SIZE` chunks.
+
+    Returns the total number of rows deleted. Commits per batch, so a
+    failure part-way leaves the batches that already landed deleted and
+    the rest for the next run.
+
+    Selects primary keys first, then deletes by id: Postgres has no
+    ``DELETE ... LIMIT``, and this keeps each statement's row count bounded
+    without a correlated subquery.
+    """
+    total = 0
+    while True:
+        batch = _expired_traces(db, org, cutoff).with_entities(Trace.id).limit(DELETE_BATCH_SIZE)
+        ids = [row[0] for row in batch]
+        if not ids:
+            break
+
+        db.query(Trace).filter(Trace.id.in_(ids)).delete(synchronize_session=False)
+        db.commit()
+        total += len(ids)
+
+        # A short batch means the table had fewer than a full batch left,
+        # so there is nothing to come back for.
+        if len(ids) < DELETE_BATCH_SIZE:
+            break
+    return total
+
+
 def _sweep_organization(
     org: Organization,
     cutoff: datetime,
     *,
     dry_run: bool,
-) -> int:
+) -> int | None:
     """Delete (or count) this org's trace rows past *cutoff*.
 
     Returns the number of rows deleted (or that would be deleted in
-    dry-run mode).
+    dry-run mode), or ``None`` if the sweep failed for this org.
+
+    ``None`` rather than ``0`` on failure so the caller can tell "nothing
+    to delete" apart from "the delete blew up"; both used to report zero,
+    which made a run where every org errored indistinguishable from a
+    clean one.
+
+    Runs under ``bypass_tenant_filter``: the session's scope has no
+    project, so the ORM auto-filter would otherwise add
+    ``project_id IS NULL`` and match no traces at all.
     """
     db = SessionLocal()
     try:
         bind_scope_to_session(db, str(org.id))
         with bypass_tenant_filter():
-            query = db.query(Trace).filter(
-                Trace.organization_id == str(org.id),
-                Trace.created_at < cutoff,
-            )
             if dry_run:
-                count = query.count()
-            else:
-                count = query.delete(synchronize_session=False)
-                db.commit()
-        return count
+                return _expired_traces(db, org, cutoff).count()
+            return _delete_in_batches(db, org, cutoff)
     except Exception:
         db.rollback()
         logger.exception("Trace retention sweep failed for organization %s", org.id)
-        return 0
+        return None
     finally:
         db.close()
 
@@ -89,6 +141,7 @@ def sweep_expired_traces(self) -> dict:
     now = datetime.now(timezone.utc)
     total_deleted = 0
     orgs_swept = 0
+    orgs_failed = 0
 
     db = SessionLocal()
     try:
@@ -104,6 +157,9 @@ def sweep_expired_traces(self) -> dict:
 
             cutoff = now - timedelta(days=retention_days)
             count = _sweep_organization(org, cutoff, dry_run=settings.dry_run)
+            if count is None:
+                orgs_failed += 1
+                continue
             if count > 0:
                 logger.info(
                     "Trace retention %s: org=%s retention=%dd cutoff=%s rows=%d",
@@ -117,17 +173,20 @@ def sweep_expired_traces(self) -> dict:
                 orgs_swept += 1
         except Exception:
             logger.exception("Unexpected error sweeping organization %s", org.id)
+            orgs_failed += 1
             continue
 
     logger.info(
-        "Trace retention sweep complete (%s): %d row(s) across %d org(s)",
+        "Trace retention sweep complete (%s): %d row(s) across %d org(s), %d failed",
         "dry-run" if settings.dry_run else "live",
         total_deleted,
         orgs_swept,
+        orgs_failed,
     )
     return {
         "enabled": True,
         "dry_run": settings.dry_run,
         "traces_affected": total_deleted,
         "orgs_swept": orgs_swept,
+        "orgs_failed": orgs_failed,
     }
