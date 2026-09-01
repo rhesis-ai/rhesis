@@ -8,7 +8,7 @@
     "dev": "next dev --webpack -H 0.0.0.0 -p ${PORT:-3000}",
     "dev:turbo": "next dev --turbo -H 0.0.0.0 -p ${PORT:-3000}",
     "build": "npm run clean && next build --webpack",
-    "postinstall": "patch-package",
+    "postinstall": "patch-package --error-on-fail",
     "start": "next start -p ${PORT}",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx && npm --prefix ../../ee/frontend run lint",
     "lint:errors": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0 && npm --prefix ../../ee/frontend run lint",
