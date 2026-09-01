@@ -43,7 +43,7 @@ beforeEach(() => {
   mockUseUsage.mockReturnValue({
     resources: USAGE_RESOURCES,
     edition: 'community',
-    licensed: false,
+    plan: { name: 'Community', is_paid: false, is_active: false },
     loading: false,
     error: null,
   });
@@ -54,6 +54,7 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: {},
       edition: null,
+      plan: null,
       loading: true,
       error: null,
     });
@@ -67,6 +68,7 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: {},
       edition: null,
+      plan: null,
       loading: false,
       error: new Error('boom'),
     });
@@ -99,10 +101,10 @@ describe('UsageOverviewTab', () => {
     expect(screen.getByText(/999.*\(Unlimited\)/)).toBeInTheDocument();
   });
 
-  it('shows a plan chip and an upgrade link for the community edition', () => {
+  it('shows a plan badge and an upgrade link for a free org', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('community')).toBeInTheDocument();
+    expect(screen.getByText('Community')).toBeInTheDocument();
     const upgradeLink = screen.getByRole('link', { name: 'Upgrade' });
     expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/pricing');
     expect(upgradeLink).toHaveAttribute('target', '_blank');
@@ -166,7 +168,7 @@ describe('UsageOverviewTab', () => {
         },
       },
       edition: 'community',
-      licensed: false,
+      plan: { name: 'Community', is_paid: false, is_active: false },
       loading: false,
       error: null,
     });
@@ -176,18 +178,18 @@ describe('UsageOverviewTab', () => {
     expect(screen.getByText(/Jan 1, 2026 – Jan 31, 2026/)).toBeInTheDocument();
   });
 
-  it('hides the upgrade link for a paid edition', () => {
+  it('hides the upgrade link for an active paid plan', () => {
     mockUseUsage.mockReturnValue({
       resources: USAGE_RESOURCES,
       edition: 'enterprise',
-      licensed: true,
+      plan: { name: 'Enterprise', is_paid: true, is_active: true },
       loading: false,
       error: null,
     });
 
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('enterprise')).toBeInTheDocument();
+    expect(screen.getByText('Enterprise')).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Upgrade' })
     ).not.toBeInTheDocument();
@@ -200,14 +202,14 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: USAGE_RESOURCES,
       edition: 'enterprise',
-      licensed: false,
+      plan: { name: 'Enterprise (inactive)', is_paid: true, is_active: false },
       loading: false,
       error: null,
     });
 
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('enterprise (inactive)')).toBeInTheDocument();
+    expect(screen.getByText('Enterprise (inactive)')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Upgrade' })).toBeInTheDocument();
   });
 });

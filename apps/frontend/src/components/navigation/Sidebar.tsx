@@ -35,14 +35,14 @@ import {
 } from '@/constants/quota';
 import {
   flaggedResources,
-  isUnlicensedPlan,
   quotaCopy,
   usageMenuRows,
   usageRowFillPercent,
   zoneColor,
   type UsageRow,
 } from '@/utils/quota';
-import { PlanChip } from '@/components/common/QuotaChips';
+import { isUpgradeable } from '@/utils/plan';
+import { PlanBadge } from '@/components/common/PlanBadge';
 import { ColorModeContext } from '@/components/providers/ThemeProvider';
 import { handleSignOut } from '@/actions/auth';
 import {
@@ -304,11 +304,11 @@ export function Sidebar() {
   // keeps this quiet until there is real data, not a permission check.
   // "Can upgrade" is a narrower, separate question: Organization.UPDATE
   // (the same owner/admin gate as Org Settings), not Usage.READ.
-  const { resources: usageResources, edition, licensed } = useUsage();
+  const { resources: usageResources, plan } = useUsage();
   const flaggedUsage = flaggedResources(usageResources);
   const flaggedCount = flaggedUsage.length;
   const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const canUpgrade = canManageOrg && isUnlicensedPlan(edition, licensed);
+  const canUpgrade = canManageOrg && isUpgradeable(plan);
 
   // The badge answers "how many"; the sentence (only rendered as a tooltip
   // here, in full in the org-menu block below) answers "how bad" -- no
@@ -428,7 +428,7 @@ export function Sidebar() {
               >
                 {usagePeriodLabel ?? 'Current usage'}
               </Typography>
-              {edition && <PlanChip edition={edition} licensed={licensed} />}
+              <PlanBadge plan={plan} />
             </Box>
             {usageRows.map(row => (
               <UsageMenuRow key={row.resource} {...row} />
@@ -859,7 +859,7 @@ export function Sidebar() {
               flexDirection: 'column',
             }}
           >
-            <SidebarPlanRow edition={edition} licensed={licensed} />
+            <SidebarPlanRow plan={plan} />
             {footerGroup.items.map(item => (
               <NavLinkItem
                 key={`footer-${item.title}`}

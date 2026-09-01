@@ -27,6 +27,7 @@
 import { usageKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
+  Plan,
   UsageResourceItem,
   UsageResponse,
 } from '@/utils/api-client/usage-client';
@@ -39,14 +40,12 @@ export interface UsageState {
   resources: Readonly<Record<string, UsageResourceItem>>;
   edition: string | null;
   /**
-   * Whether the org holds an active paid license. `null` while loading or on
-   * error, matching `edition`.
+   * The org's plan. `null` while loading or on error.
    *
-   * Carried separately from `edition` because a lapsed plan keeps its edition
-   * name -- see `isUnlicensedPlan` in `utils/quota.ts`, which is what upgrade
-   * affordances should gate on.
+   * Everything the UI needs to display or style a plan: see `utils/plan.ts`.
+   * `edition` is the machine id and must not be used for either.
    */
-  licensed: boolean | null;
+  plan: Plan | null;
   loading: boolean;
   error: Error | null;
 }
@@ -54,7 +53,7 @@ export interface UsageState {
 const DEFAULT_STATE: UsageState = {
   resources: {},
   edition: null,
-  licensed: null,
+  plan: null,
   loading: true,
   error: null,
 };
@@ -93,7 +92,7 @@ export function UsageProvider({
       return {
         resources: {},
         edition: null,
-        licensed: null,
+        plan: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -101,10 +100,10 @@ export function UsageProvider({
     return {
       resources: data.resources,
       edition: data.edition,
-      // `?? null` rather than `?? false`: a response predating this field is
-      // "unknown", not "unlicensed". Defaulting to false would offer an
-      // upgrade to every paying org against an older backend.
-      licensed: data.licensed ?? null,
+      // `?? null` rather than a fabricated default: a response predating this
+      // field is "unknown", not "free". Guessing would either prompt a paying
+      // org to upgrade or style them as a tier they do not have.
+      plan: data.plan ?? null,
       loading: false,
       error: null,
     };

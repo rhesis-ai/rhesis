@@ -28,6 +28,26 @@ export const GREYSCALE = {
   },
 } as const;
 
+/**
+ * Plan badge and crown colours, per mode.
+ *
+ * The gold is its own token rather than `warning.main`: warning means "something
+ * needs your attention", and a healthy paid plan is the opposite of that. Two
+ * shades because the light-mode gold is too dark to read on a dark surface.
+ *
+ * Values live here, in the token definition file, for the same reason
+ * `GREYSCALE` does -- this is the one place a palette literal belongs.
+ */
+export const PLAN_COLORS = {
+  light: {
+    /** Crown for an active paid plan. */
+    crown: '#b8860b',
+  },
+  dark: {
+    crown: '#e3b341',
+  },
+} as const;
+
 export const BORDER_RADIUS = {
   xs: '4px',
   sm: '8px',

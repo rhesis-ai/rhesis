@@ -70,13 +70,13 @@ const mockUsageResources: {
   >;
 } = { current: {} };
 const mockUsagePlan: {
-  current: { edition: string; licensed: boolean | null };
-} = { current: { edition: 'community', licensed: false } };
+  current: { name: string; is_paid: boolean; is_active: boolean } | null;
+} = { current: { name: 'Community', is_paid: false, is_active: false } };
 jest.mock('@/contexts/UsageContext', () => ({
   useUsage: () => ({
     resources: mockUsageResources.current,
-    edition: mockUsagePlan.current.edition,
-    licensed: mockUsagePlan.current.licensed,
+    edition: 'community',
+    plan: mockUsagePlan.current,
     loading: false,
     error: null,
   }),
@@ -122,7 +122,11 @@ describe('Sidebar', () => {
     mockRouterPush.mockClear();
     mockUnreadBySection.current = {};
     mockUsageResources.current = {};
-    mockUsagePlan.current = { edition: 'community', licensed: false };
+    mockUsagePlan.current = {
+      name: 'Community',
+      is_paid: false,
+      is_active: false,
+    };
   });
 
   describe('plan row in the footer card', () => {
@@ -151,7 +155,7 @@ describe('Sidebar', () => {
       const { container } = render(<Sidebar />);
 
       const card = footerCard(container);
-      const plan = screen.getByText('community');
+      const plan = screen.getByText('Community');
       const star = screen.getByText('Star Rhesis');
 
       expect(card).toContainElement(plan);
@@ -164,19 +168,27 @@ describe('Sidebar', () => {
     });
 
     it('names an active paid plan', () => {
-      mockUsagePlan.current = { edition: 'enterprise', licensed: true };
+      mockUsagePlan.current = {
+        name: 'Enterprise',
+        is_paid: true,
+        is_active: true,
+      };
       setupMocks({ navigation: footerNav });
       render(<Sidebar />);
 
-      expect(screen.getByText('enterprise')).toBeInTheDocument();
+      expect(screen.getByText('Enterprise')).toBeInTheDocument();
     });
 
     it('marks a lapsed paid plan inactive', () => {
-      mockUsagePlan.current = { edition: 'enterprise', licensed: false };
+      mockUsagePlan.current = {
+        name: 'Enterprise (inactive)',
+        is_paid: true,
+        is_active: false,
+      };
       setupMocks({ navigation: footerNav });
       render(<Sidebar />);
 
-      expect(screen.getByText('enterprise (inactive)')).toBeInTheDocument();
+      expect(screen.getByText('Enterprise (inactive)')).toBeInTheDocument();
     });
   });
 

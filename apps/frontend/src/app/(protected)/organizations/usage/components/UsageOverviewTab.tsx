@@ -11,7 +11,8 @@ import {
 import { alpha } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
 import { FilterButton } from '@/components/common/FilterButton';
-import { PlanChip, UpgradeLink } from '@/components/common/QuotaChips';
+import { UpgradeLink } from '@/components/common/QuotaChips';
+import { PlanBadge } from '@/components/common/PlanBadge';
 import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
 import UsageOverviewFilterDrawer from './UsageOverviewFilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -20,12 +21,8 @@ import {
   QUOTA_RESOURCE_ORDER,
   type QuotaResource,
 } from '@/constants/quota';
-import {
-  classifyZone,
-  isUnlicensedPlan,
-  zoneColor,
-  type QuotaZone,
-} from '@/utils/quota';
+import { classifyZone, zoneColor, type QuotaZone } from '@/utils/quota';
+import { isUpgradeable } from '@/utils/plan';
 import type { UsageResourceItem } from '@/utils/api-client/usage-client';
 
 function formatPeriodDate(isoDate: string): string {
@@ -234,8 +231,7 @@ function ResourceList({
 export default function UsageOverviewTab() {
   const [periodStart, setPeriodStart] = React.useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const { resources, edition, licensed, loading, error } =
-    useUsageForPeriod(periodStart);
+  const { resources, plan, loading, error } = useUsageForPeriod(periodStart);
 
   // The period is the only filter here, so an active one is a count of 1.
   // Passing the number matters: given only the boolean, FilterButton draws
@@ -244,8 +240,8 @@ export default function UsageOverviewTab() {
 
   const headerActions = (
     <Stack direction="row" spacing={1.5} alignItems="center">
-      {edition && <PlanChip edition={edition} licensed={licensed} />}
-      {isUnlicensedPlan(edition, licensed) && <UpgradeLink />}
+      <PlanBadge plan={plan} />
+      {isUpgradeable(plan) && <UpgradeLink />}
       <FilterButton
         onClick={() => setDrawerOpen(true)}
         hasActiveFilters={activeFilterCount > 0}

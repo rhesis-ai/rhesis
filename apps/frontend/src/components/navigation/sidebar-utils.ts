@@ -37,23 +37,92 @@ export const collapsedNavItemSx = {
  * 10 are not multiples of the 8px spacing step, so a spacing unit would round
  * them and shift the whole card.
  */
-export const NAV_CARD_ROW_SX = {
+// Module-private: `navCardRowSx` below is the public interface. Exported
+// separately once, when NavLinkItem spread it directly; consumers now compose
+// the full row instead, so there is one way to build a card row rather than two.
+const NAV_CARD_ROW_SX = {
   px: '14px',
   gap: '10px',
 } as const;
 
-/** Icon box for a full-height card row (`NavLinkItem`). */
-export const NAV_CARD_ICON_SIZE = 24;
+/** Icon box size for a card row. Module-private: read it through
+ * `navCardIconSx`, which is what guarantees every row's gutter matches. */
+const NAV_CARD_ICON_SIZE = 24;
 
 /**
- * A card row that reports state rather than offering an action -- currently
- * the plan row heading the footer card. Tighter vertically so it reads as a
- * status line above the actions instead of a third thing to click, while
- * keeping their horizontal alignment.
+ * The complete row shell for a sidebar card row: geometry, hover and
+ * transition. Composed by both `NavLinkItem` and `SidebarPlanRow` so every row
+ * in a card is the same height and its icon sits in the same gutter.
+ *
+ * A function rather than a constant because the hover colour and the
+ * transition duration are theme reads, and `sx` callbacks cannot be spread out
+ * of a plain object without losing them.
  */
-export const NAV_CARD_STATUS_ROW_SX = {
-  ...NAV_CARD_ROW_SX,
-  py: '6px',
+export const navCardRowSx = () =>
+  ({
+    display: 'flex',
+    alignItems: 'center',
+    ...NAV_CARD_ROW_SX,
+    py: '8px',
+    borderRadius: BORDER_RADIUS.sm,
+    textDecoration: 'none',
+    cursor: 'pointer',
+    '&:hover': {
+      bgcolor: (theme: { palette: { greyscale: { surface1: string } } }) =>
+        theme.palette.greyscale.surface1,
+    },
+    // `duration.shortest` is the theme's own 150ms.
+    transition: (theme: {
+      transitions: {
+        create: (p: string, o: { duration: number }) => string;
+        duration: { shortest: number };
+      };
+    }) =>
+      theme.transitions.create('background-color', {
+        duration: theme.transitions.duration.shortest,
+      }),
+  }) as const;
+
+/**
+ * The icon gutter. Fixed size and `flexShrink: 0`, which is what puts every
+ * row's label on the same x-offset regardless of icon glyph.
+ *
+ * `color` is deliberately absent: the caller sets it, so a row can tint its
+ * icon (the plan crown) without forking the geometry.
+ */
+export const navCardIconSx = {
+  display: 'flex',
+  flexShrink: 0,
+  '& svg': { width: NAV_CARD_ICON_SIZE, height: NAV_CARD_ICON_SIZE },
+} as const;
+
+/**
+ * The row label. `minWidth: 0` lets it shrink instead of forcing a trailing
+ * element out of the row -- without it a long plan name would push the badge
+ * past the row's right padding.
+ */
+export const navCardLabelSx = {
+  fontSize: 14,
+  fontWeight: 400,
+  lineHeight: '22px',
+  whiteSpace: 'nowrap' as const,
+  overflow: 'hidden' as const,
+  textOverflow: 'ellipsis' as const,
+  minWidth: 0,
+} as const;
+
+/**
+ * A trailing element on a card row -- the plan badge today.
+ *
+ * `marginLeft: auto` is what anchors it to the row's right padding edge, at
+ * the same x for every label and badge length; `flexShrink: 0` is what stops
+ * the badge itself being compressed when the label is long.
+ */
+export const navCardTrailingSx = {
+  marginLeft: 'auto',
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
 } as const;
 
 /**

@@ -40,17 +40,18 @@ function mockUsage(
   resources: Record<string, UsageResourceItem>,
   options: {
     loading?: boolean;
-    edition?: string | null;
-    licensed?: boolean | null;
+    plan?: { name: string; is_paid: boolean; is_active: boolean } | null;
   } = {}
 ) {
-  // `licensed: false` alongside the community default, matching what the
-  // backend actually sends for a free org.
-  const { loading = false, edition = 'community', licensed = false } = options;
+  // Defaults to a free org, matching what the backend sends for one.
+  const {
+    loading = false,
+    plan = { name: 'Community', is_paid: false, is_active: false },
+  } = options;
   (useUsage as jest.Mock).mockReturnValue({
     resources,
-    edition,
-    licensed,
+    edition: 'community',
+    plan,
     loading,
     error: null,
   });
@@ -137,11 +138,8 @@ describe('QuotaBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('offers to upgrade on a community-edition org', () => {
-    mockUsage(
-      { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'community' }
-    );
+  it('offers to upgrade on a free org', () => {
+    mockUsage({ [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) }, {});
     render(<QuotaBanner />);
     expect(
       screen.getByRole('link', { name: /upgrade plan/i })
@@ -151,7 +149,7 @@ describe('QuotaBanner', () => {
   it('does not offer to upgrade a paying org', () => {
     mockUsage(
       { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'pro', licensed: true }
+      { plan: { name: 'Pro', is_paid: true, is_active: true } }
     );
     render(<QuotaBanner />);
     expect(
@@ -165,7 +163,13 @@ describe('QuotaBanner', () => {
     // exactly this org blocked at free-tier ceilings with no way forward.
     mockUsage(
       { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'enterprise', licensed: false }
+      {
+        plan: {
+          name: 'Enterprise (inactive)',
+          is_paid: true,
+          is_active: false,
+        },
+      }
     );
     render(<QuotaBanner />);
     expect(
@@ -173,12 +177,12 @@ describe('QuotaBanner', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers nothing while licence status is still unknown', () => {
-    // A response from a backend predating `licensed`. Must not read as
-    // unlicensed and prompt a paying customer to upgrade.
+  it('offers nothing while the plan is still unknown', () => {
+    // Still loading, or a response predating the `plan` field. Must not read
+    // as unlicensed and prompt a paying customer to upgrade.
     mockUsage(
       { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'enterprise', licensed: null }
+      { plan: null }
     );
     render(<QuotaBanner />);
     expect(

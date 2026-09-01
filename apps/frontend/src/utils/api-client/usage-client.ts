@@ -21,19 +21,42 @@ export interface UsageResourceItem {
   kind: 'flow' | 'stock';
 }
 
+/**
+ * The org's plan, as the API describes it.
+ *
+ * Deliberately not a union of known tiers. `name` is a display string to be
+ * rendered verbatim, and styling comes from the two booleans — so a renamed or
+ * newly added tier needs no frontend change. See `utils/plan.ts`.
+ */
+export interface Plan {
+  /**
+   * Display label. **Render verbatim.** Do not case, map, translate or append
+   * to it — the API composes the whole thing, including the qualifier a lapsed
+   * paid plan carries.
+   */
+  name: string;
+  /**
+   * Whether this is a paid tier. Describes the *tier*, not the licence, so a
+   * canceled enterprise licence is still `true`.
+   */
+  is_paid: boolean;
+  /**
+   * Whether the licence is currently active. Together with `is_paid` this
+   * separates a free org `(false, false)` from a lapsed paid one
+   * `(true, false)` — the distinction that decides both badge styling and
+   * whether an upgrade path is offered.
+   */
+  is_active: boolean;
+}
+
 export interface UsageResponse {
   resources: Record<string, UsageResourceItem>;
-  edition: string;
   /**
-   * Whether the org holds an *active* paid license.
-   *
-   * Separate from `edition`, which keeps naming a lapsed tier so the UI can
-   * say which license expired: a canceled enterprise license reports
-   * `edition: "enterprise"` with `licensed: false`, while the backend holds it
-   * to community limits. Gate upgrade affordances on this, not on the edition
-   * string -- see `isUnlicensedPlan` in `utils/quota.ts`.
+   * Machine identifier for the licence edition. Diagnostics only — never for
+   * display, and never for deciding styling. Use `plan`.
    */
-  licensed: boolean;
+  edition: string;
+  plan: Plan;
 }
 
 export interface UsageHistoryPoint {
