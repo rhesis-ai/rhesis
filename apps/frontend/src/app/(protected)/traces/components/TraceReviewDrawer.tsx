@@ -58,7 +58,8 @@ function getAllTraceMetrics(
   const result: Record<string, MetricEntry> = {};
   for (const section of ['turn_metrics', 'conversation_metrics']) {
     const sectionData = traceMetrics[section] as
-      Record<string, unknown> | undefined;
+      | Record<string, unknown>
+      | undefined;
     const metrics = (sectionData?.metrics ?? {}) as Record<string, MetricEntry>;
     Object.assign(result, metrics);
   }
@@ -126,13 +127,16 @@ export default function TraceReviewDrawer({
 
   const getTurnMetricsAutomatedStatus = useCallback((): 'passed' | 'failed' => {
     const traceMetrics = selectedSpan?.trace_metrics as
-      Record<string, unknown> | undefined;
+      | Record<string, unknown>
+      | undefined;
     const turnSection = traceMetrics?.turn_metrics as
-      Record<string, unknown> | undefined;
+      | Record<string, unknown>
+      | undefined;
     if (!turnSection) return 'failed';
 
     const metrics = turnSection.metrics as
-      Record<string, { is_successful?: boolean }> | undefined;
+      | Record<string, { is_successful?: boolean }>
+      | undefined;
     if (metrics && Object.keys(metrics).length > 0) {
       // Per-turn: finer than anything the backend records an outcome for.
       return allMetricsPassed(Object.values(metrics)) ? 'passed' : 'failed';

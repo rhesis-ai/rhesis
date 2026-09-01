@@ -166,7 +166,9 @@ export const driverConfig = {
   prevBtnText: 'Back',
   doneBtnText: 'Got it!',
   showButtons: ['next', 'previous', 'close'] as (
-    'next' | 'previous' | 'close'
+    | 'next'
+    | 'previous'
+    | 'close'
   )[],
   allowClose: true,
   overlayClickNext: false,

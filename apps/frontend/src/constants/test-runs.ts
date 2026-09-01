@@ -7,7 +7,12 @@ import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 
 export type RunStatus =
-  'queued' | 'progress' | 'completed' | 'partial' | 'failed' | 'cancelled';
+  | 'queued'
+  | 'progress'
+  | 'completed'
+  | 'partial'
+  | 'failed'
+  | 'cancelled';
 
 export const RUN_STATUS_COLOR: Record<
   RunStatus,
