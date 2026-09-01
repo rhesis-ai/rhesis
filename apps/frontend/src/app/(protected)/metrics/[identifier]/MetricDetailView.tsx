@@ -626,7 +626,7 @@ export function MetricDetailView({
 
       setEditData(sectionData);
     },
-    [metric, populateFieldRefs, notifications, tagNames, status]
+    [metric, populateFieldRefs, notifications, status]
   );
 
   const handleCancelEdit = React.useCallback(() => {

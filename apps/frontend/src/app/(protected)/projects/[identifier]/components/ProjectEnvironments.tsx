@@ -62,7 +62,6 @@ import {
   BuiltInEnvironment,
   ExperimentRead,
   EnvironmentPointer,
-  ProjectEnvironments as ProjectEnvironmentsShape,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { AddIcon, DeleteIcon, PromoteIcon } from '@/components/icons';
@@ -166,10 +165,12 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
     const [searchQuery, setSearchQuery] = useState('');
 
     const queryClient = useQueryClient();
-    const environmentsQueryKey = [
-      ...projectKeys.detail(projectId),
-      'environments',
-    ] as const;
+    // Memoised so `refresh` below keeps a stable identity; a fresh array each
+    // render made its useCallback pointless.
+    const environmentsQueryKey = useMemo(
+      () => [...projectKeys.detail(projectId), 'environments'] as const,
+      [projectId]
+    );
     const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
       string | null
     >(null);
@@ -198,7 +199,12 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
     });
 
     const bindings = envData?.bindings ?? null;
-    const experiments = envData?.experiments ?? [];
+    // Memoised for the same reason as environmentsQueryKey: the `?? []`
+    // fallback otherwise re-ran sharedExperiments and experimentName every render.
+    const experiments = useMemo(
+      () => envData?.experiments ?? [],
+      [envData?.experiments]
+    );
     const error =
       fetchError instanceof Error
         ? fetchError.message
