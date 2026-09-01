@@ -14,6 +14,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
@@ -274,10 +275,17 @@ class EndpointService:
                         result = await invoker.invoke()
                         trace_ctx["result"] = result
 
-                    if deferred_trace and isinstance(result, dict):
+                    if deferred_trace:
                         deferred_data = trace_ctx.get("_deferred_trace")
-                        if deferred_data:
+                        if deferred_data and isinstance(result, dict):
                             result["_deferred_trace"] = deferred_data
+                        elif deferred_data is not None and isinstance(result, ErrorResponse):
+                            # A failed invocation is the one you most want a trace for.
+                            # ErrorResponse allows extra fields; the batch caller pops this
+                            # off before the result is stored. Without it, every errored
+                            # batch test lost its trace, because the dict branch above
+                            # silently skipped anything that wasn't a dict.
+                            result.deferred_trace = deferred_data
             else:
                 result = await invoker.invoke()
 

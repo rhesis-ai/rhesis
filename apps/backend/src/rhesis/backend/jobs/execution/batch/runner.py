@@ -8,16 +8,32 @@ Delegates to `invocation.py` and `evaluation.py`.
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from rhesis.backend.app.services.invokers.common.errors import PERMANENT_TARGET_ERROR_TYPES
 from rhesis.backend.app.services.test_run_timing import TestPhase
-from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
+from rhesis.backend.app.utils.response_extractor import (
+    has_endpoint_failure_in_result,
+    summarize_endpoint_failure,
+)
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.jobs.execution.batch.invocation import is_multi_turn_test, run_test
 from rhesis.backend.jobs.execution.shared import is_task_revoked
 
 logger = logging.getLogger(__name__)
+
+# Per-test statuses the activity log narrates ahead of the throttle.
+_NARRATED_FAILURE_STATUSES = frozenset({"failed", "endpoint_error"})
+
+# How many of those may bypass the throttle per batch. Bounds the blast radius when an
+# endpoint rejects every test in a large run, which is otherwise one ActivityLogged row
+# (and one DB session) per test -- ~4,000 for a 4,000-test run.
+_MAX_UNTHROTTLED_FAILURE_EMITS = 20
+
+# How a per-test status reads in the activity log. "endpoint_error" would otherwise
+# surface as a bare enum value to someone reading the Jobs page.
+_NARRATED_STATUS_WORDING = {"endpoint_error": "endpoint error"}
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +69,34 @@ async def _cancellation_watchdog(
 # ---------------------------------------------------------------------------
 
 
+def _failure_result(test_id: str, exc: BaseException, execution_time: float) -> Dict[str, Any]:
+    """Build the per-test failure dict, keeping whatever the invoker classified.
+
+    ``str(exc)`` alone loses the status code and error category, which are what
+    ``_persist_failed_results`` needs to write a recognisable endpoint-failure record and
+    what ``_is_retriable_failure`` needs to avoid re-invoking a permanent rejection.
+    """
+    failure: Dict[str, Any] = {
+        "test_id": test_id,
+        "status": "failed",
+        "error": str(exc),
+        "execution_time": execution_time,
+        "exception_type": type(exc).__name__,
+    }
+
+    status_code = getattr(exc, "status_code", None)
+    if status_code is not None:
+        failure["status_code"] = status_code
+    error_type = getattr(exc, "error_type", None)
+    if error_type:
+        failure["error_type"] = error_type
+    transient = getattr(exc, "transient", None)
+    if transient is not None:
+        failure["transient"] = transient
+
+    return failure
+
+
 def _is_retriable_failure(result: Dict[str, Any]) -> bool:
     """Return True for transient failures that are worth retrying.
 
@@ -62,9 +106,24 @@ def _is_retriable_failure(result: Dict[str, Any]) -> bool:
     - ``succeeded``  — already done
     - Timeout        — the endpoint was too slow; a retry will likely timeout again
     - Missing data   — pre-fetch issue, won't resolve on retry
+    - Rejections the target issued itself (4xx, bad endpoint config) — see below
     """
     if result.get("status") != "failed":
         return False
+
+    # A rejection the target itself issued fails identically on a second attempt, so
+    # re-invoking only spends another call against the user's endpoint. A run whose every
+    # test is rejected used to hit the target twice over.
+    #
+    # Restricted to target-attributable categories rather than trusting `transient` alone:
+    # EndpointService also marks its own unexpected exceptions non-transient
+    # (error_type="internal_error"), and those are precisely the "unexpected exceptions"
+    # this function's docstring promises a recovery round to.
+    if result.get("transient") is False and result.get("error_type") in (
+        PERMANENT_TARGET_ERROR_TYPES
+    ):
+        return False
+
     error = result.get("error", "")
     if error.startswith("Timeout after") or error.startswith("Test data not pre-fetched"):
         return False
@@ -86,6 +145,7 @@ async def _run_gather(
     """Fan out test_ids as asyncio Tasks and gather results."""
     completed_count = 0
     last_emit_time = time.monotonic()
+    narrated_failures = 0
     # At most ~20 progress lines per batch, or one every 2s, whichever comes
     # first, plus always the last one. Emitting every single test completion
     # was producing ~4,000 ActivityLogged events (each opening a DB session)
@@ -93,7 +153,7 @@ async def _run_gather(
     emit_interval = max(1, progress_total // 20) if progress_total else 1
 
     async def _tracked(test_id: str) -> Dict[str, Any]:
-        nonlocal completed_count, last_emit_time
+        nonlocal completed_count, last_emit_time, narrated_failures
         td = ctx.test_data.get(test_id)
         test_obj = td.get("test") if td else None
         cat_obj = getattr(test_obj, "category", None)
@@ -122,11 +182,21 @@ async def _run_gather(
                     pass
             if on_emit and progress_total:
                 now = time.monotonic()
-                # Failures are never throttled -- they carry the error text,
-                # which is the whole reason to read the activity log, and
-                # they are rare enough not to reintroduce the volume problem.
+                # Failures skip the throttle -- they carry the error text, which is the
+                # whole reason to read the activity log. An endpoint rejection counts as
+                # one: it answers "why did this run produce nothing?", and throttling it
+                # away would leave a wholly-rejected run looking like it simply ran.
+                #
+                # Capped, though, because the old assumption that failures "are rare
+                # enough" does not hold for a rejecting endpoint: it fails *every* test,
+                # so an uncapped bypass would reintroduce the very per-test event volume
+                # the throttle exists to prevent. Past the cap they fall back to normal
+                # throttling, and the "Batch complete" line still reports the full count.
+                is_failure = status in _NARRATED_FAILURE_STATUSES
+                if is_failure:
+                    narrated_failures += 1
                 if (
-                    status == "failed"
+                    (is_failure and narrated_failures <= _MAX_UNTHROTTLED_FAILURE_EMITS)
                     or current % emit_interval == 0
                     or current == progress_total
                     or now - last_emit_time > 2.0
@@ -134,8 +204,9 @@ async def _run_gather(
                     try:
                         label = f" — {category}" if category else ""
                         error = result.get("error", "") if isinstance(result, dict) else ""
-                        suffix = f": {error}" if error and status == "failed" else ""
-                        on_emit(f"Test {current}/{progress_total} {status}{label}{suffix}")
+                        suffix = f": {error}" if error and is_failure else ""
+                        wording = _NARRATED_STATUS_WORDING.get(status, status)
+                        on_emit(f"Test {current}/{progress_total} {wording}{label}{suffix}")
                         last_emit_time = now
                     except Exception:
                         pass
@@ -415,15 +486,10 @@ async def _execute_single_test(
                 }
             except Exception as e:
                 logger.error(f"[BATCH] Test {test_id} failed: {e}", exc_info=True)
-                return {
-                    "test_id": test_id,
-                    "status": "failed",
-                    "error": str(e),
-                    "execution_time": (time.monotonic() - start_time) * 1000,
-                    "exception_type": type(e).__name__,
-                }
+                return _failure_result(test_id, e, (time.monotonic() - start_time) * 1000)
 
             # --- Async metric evaluation ---
+            endpoint_failure: Optional[Dict[str, Any]] = None
             if not contract_usable:
                 # The conversation was never run (see invocation._run_multi_turn), so there is
                 # nothing to score. Checked before the evaluator branch below: that one would
@@ -432,16 +498,16 @@ async def _execute_single_test(
                 logger.info(
                     f"[BATCH] Test {test_id} reported as Error: evaluation contract was not usable"
                 )
-            elif has_http_error_in_result(output):
+            elif has_endpoint_failure_in_result(output):
                 metrics_results = {}
-                logger.info(f"[BATCH] HTTP error for test {test_id}; skipping metrics")
-                if on_emit:
-                    from rhesis.backend.app.utils.response_extractor import (
-                        get_http_error_status_code,
-                    )
-
-                    code = get_http_error_status_code(output)
-                    on_emit(f"  Endpoint returned HTTP {code}, skipping metrics")
+                endpoint_failure = summarize_endpoint_failure(output)
+                logger.info(
+                    f"[BATCH] Endpoint failure for test {test_id} "
+                    f"(status_code={(endpoint_failure or {}).get('status_code')}); "
+                    f"skipping metrics"
+                )
+                if on_emit and endpoint_failure:
+                    on_emit(f"  {endpoint_failure['summary']}, skipping metrics")
             elif evaluator and ctx.get_metric_configs_for_test(test_id):
                 metrics_results = await evaluate_metrics(
                     ctx,
@@ -482,6 +548,21 @@ async def _execute_single_test(
                     "status": "failed",
                     "error": f"Persist failed: {e}",
                     "execution_time": execution_time,
+                }
+
+            if endpoint_failure:
+                # Persisted as an Error row, so this is not a "failed" test in the sense the
+                # recovery pass and _persist_failed_results mean (nothing to retry, nothing
+                # left to write). But it is not a success either: reporting it as one made
+                # the activity log narrate "succeeded" for a run the endpoint rejected
+                # wholesale, which is the opposite of what the reader needs.
+                return {
+                    "test_id": test_id,
+                    "status": "endpoint_error",
+                    "error": endpoint_failure["message"],
+                    "status_code": endpoint_failure.get("status_code"),
+                    "execution_time": execution_time,
+                    "metrics": metrics_results,
                 }
 
             return {
