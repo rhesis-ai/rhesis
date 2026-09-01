@@ -104,13 +104,22 @@ class ConfigQuotaProvider:
         if not overrides:
             return policy
 
-        logger.info(
-            "Applying %d custom limit override(s) for org %s (edition=%s): %s",
-            len(overrides),
-            getattr(org, "id", None),
-            edition.value if edition else None,
-            {r.value: v for r, v in overrides.items()},
-        )
+        # DEBUG, and resource names without their values. This runs on the
+        # request path -- every quota gate and every hosted-model call resolves
+        # a policy -- so INFO here is one line per request for the orgs that
+        # have overrides. The values are also a customer's negotiated caps,
+        # which is contract detail that should not be sitting in log storage;
+        # the names alone are enough to answer "did an override apply, and to
+        # what" when debugging, and the effective numbers are already visible
+        # on `GET /usage`.
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Applied %d custom limit override(s) for org %s (edition=%s) on: %s",
+                len(overrides),
+                getattr(org, "id", None),
+                edition.value if edition else None,
+                ", ".join(sorted(r.value for r in overrides)),
+            )
         return policy.with_limit_overrides(overrides)
 
 
