@@ -160,6 +160,78 @@ class TestPrecedence:
         with patch.dict("os.environ", {"RHESIS_LICENSE": ""}):
             assert provider.allows_feature(_SSO_FEATURE, org) is False
 
+    def test_inactive_blanket_token_does_not_shadow_an_active_org_licence(
+        self, provider, mint_token
+    ):
+        """The bug: a stale blanket token used to win on ``sub == "*"`` alone.
+
+        No status check meant a canceled ``RHESIS_LICENSE`` was returned ahead
+        of the org's own valid licence, so an org was reported unlicensed and
+        held to community limits right after being issued a good token -- with
+        the blanket token's edition as the only clue anything was wrong.
+
+        An active licence now beats an inactive one regardless of source.
+        """
+        env_token = mint_token(sub="*", edition="team", status="canceled")
+        org_token = mint_token(sub=_ORG_UUID, edition="enterprise")
+        org = _make_org(license_token=org_token)
+
+        with patch.dict("os.environ", {"RHESIS_LICENSE": env_token}):
+            info = provider.info(org=org)
+            allowed = provider.allows_feature(_SSO_FEATURE, org)
+
+        assert info["licensed"] is True
+        assert info["edition"] == "enterprise"
+        assert allowed is True
+
+    def test_active_blanket_token_still_wins_over_an_active_org_licence(self, provider, mint_token):
+        """The documented precedence, unchanged: between two *active* licences
+        the blanket one still takes priority."""
+        env_token = mint_token(sub="*", edition="team")
+        org_token = mint_token(sub=_ORG_UUID, edition="enterprise")
+        org = _make_org(license_token=org_token)
+
+        with patch.dict("os.environ", {"RHESIS_LICENSE": env_token}):
+            info = provider.info(org=org)
+
+        assert info["edition"] == "team"
+        assert info["licensed"] is True
+
+    def test_reports_the_lapsed_edition_when_nothing_is_active(self, provider, mint_token):
+        """With no active licence anywhere, still name the one that expired.
+
+        Returning ``None`` here would report the org as ``community`` and throw
+        away the only actionable detail -- which licence lapsed. Nothing is
+        granted either way, since callers gate on ``is_active()``.
+        """
+        env_token = mint_token(sub="*", edition="team", status="canceled")
+        org_token = mint_token(sub=_ORG_UUID, edition="enterprise", status="canceled")
+        org = _make_org(license_token=org_token)
+
+        with patch.dict("os.environ", {"RHESIS_LICENSE": env_token}):
+            info = provider.info(org=org)
+            allowed = provider.allows_feature(_SSO_FEATURE, org)
+
+        # Blanket first, matching the precedence for active licences.
+        assert info["edition"] == "team"
+        assert info["licensed"] is False
+        assert allowed is False
+
+    def test_inactive_blanket_token_with_no_org_licence_still_names_itself(
+        self, provider, mint_token
+    ):
+        """A single-tenant deployment whose blanket licence lapsed. Must read as
+        that edition, inactive -- not as community, which would hide the
+        expiry."""
+        env_token = mint_token(sub="*", edition="enterprise", status="canceled")
+        org = _make_org(license_token=None)
+
+        with patch.dict("os.environ", {"RHESIS_LICENSE": env_token}):
+            info = provider.info(org=org)
+
+        assert info["edition"] == "enterprise"
+        assert info["licensed"] is False
+
 
 class TestMissingKeys:
     def test_no_keys_denies_feature(self, provider, mint_token):
