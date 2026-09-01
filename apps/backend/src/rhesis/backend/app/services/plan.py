@@ -18,6 +18,14 @@ from __future__ import annotations
 
 __all__ = ["build_plan"]
 
+#: Editions whose public name is not just the title-cased internal one.
+#: ``community`` is advertised on the pricing page as "Free" (see the header
+#: comment in ee/.../licensing/tier_config.yaml and FREE_TIER_LIMITS), so
+#: title-casing the edition string put "Community" in the UI next to limits
+#: the pricing page attributes to "Free". The mapping belongs here because
+#: ``name`` is contractually rendered verbatim by clients.
+_PLAIN_EDITION_NAMES = {"community": "Free"}
+
 
 def build_plan(license_info: dict) -> dict:
     """Build the plan payload a client renders, from a provider's ``info`` dict.
@@ -39,12 +47,21 @@ def build_plan(license_info: dict) -> dict:
     A lapsed paid tier carries the qualifier in ``name``, so the state is
     legible even where styling is not (a screenshot, a narrow column, a
     monochrome theme).
+
+    Editions whose public name differs from their internal one are mapped
+    through :data:`_PLAIN_EDITION_NAMES`; everything else is title-cased.
     """
     edition = str(license_info.get("edition", "community"))
     is_paid = bool(license_info.get("is_paid", False))
     is_active = bool(license_info.get("licensed", False))
 
-    name = edition.replace("_", " ").replace("-", " ").strip().title() or "Unknown"
+    name = (
+        _PLAIN_EDITION_NAMES.get(
+            edition.strip().lower(),
+            edition.replace("_", " ").replace("-", " ").strip().title(),
+        )
+        or "Unknown"
+    )
     if is_paid and not is_active:
         name = f"{name} (inactive)"
 
