@@ -2,50 +2,31 @@
 
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import type { Theme } from '@mui/material/styles';
 import {
   BORDER_RADIUS,
-  ELEVATION,
-  FAB_GROUP_GAP,
-  FAB_SIZE,
   GRID_CARD_INSET,
   GRID_TOOLBAR_MIN_HEIGHT,
 } from '@/styles/theme-constants';
-import { delayedRevealSx } from './DelayedReveal';
+import DelayedReveal from './DelayedReveal';
+import SkeletonPageHeader from './SkeletonPageHeader';
+import { skeletonBorder, skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
+import SkeletonToolbar from './SkeletonToolbar';
 
 /**
- * Loading placeholder for the standard list page: `PageLayout` header (title,
- * description, FAB cluster) above a grid card holding `GridToolbar`, column
- * headers, rows and the pagination footer.
+ * Loading placeholder for the standard list page: `PageLayout` header above a
+ * grid card holding `GridToolbar`, column headers, rows and the pagination
+ * footer.
  *
  * Shared geometry comes from `theme-constants` so this cannot drift from the
- * components it stands in for. The card's border, radius and elevation mirror
- * BaseDataGrid's `GRID_PAPER_SX`, which is re-declared here rather than
- * imported because importing BaseDataGrid would pull @mui/x-data-grid into the
- * loading chunk and defeat the point of a lightweight fallback.
+ * components it stands in for.
  */
 
-/** Page header, mirroring `PageLayout`. */
+/** Placeholder widths for the header text. Layout geometry lives in
+ *  SkeletonPageHeader, which mirrors PageLayout. */
 const HEADER = {
-  /** `minHeight` of the title row. */
-  rowHeight: 56,
-  /** Gap between the title and the action cluster. */
-  titleGap: '16px',
-  /** Bottom margin of the whole header block, in MUI spacing units. */
-  marginBottom: 5,
   titleWidth: 180,
   descriptionWidth: 420,
-} as const;
-
-/** Toolbar controls, mirroring `GridToolbar`, `FilterButton` and `SearchPill`. */
-const TOOLBAR = {
-  /** Gap between controls, in MUI spacing units. */
-  gap: 1.5,
-  filterButtonSize: 36,
-  searchWidth: 240,
-  controlHeight: 38,
-  pillTabsWidth: 248,
 } as const;
 
 /** Grid rows and footer, mirroring BaseDataGrid's styled DataGrid. */
@@ -59,6 +40,8 @@ const GRID = {
   paginationLabelWidth: 64,
   /** Trailing padding on non-edge cells, in MUI spacing units. */
   cellGap: 2,
+  /** Gap between the footer's controls, in MUI spacing units. */
+  footerGap: 1.5,
 } as const;
 
 /** Column widths approximating a typical entity grid: wide first column, then
@@ -76,12 +59,6 @@ const COLUMNS = [
   { key: 'actions', width: '6%', header: 56, cell: 24, kind: 'text' },
 ] as const;
 
-/** Text links in the toolbar's right slot (Select / Columns / Density / Export). */
-const TOOLBAR_ACTIONS = [76, 62, 56, 50];
-
-/** Row and cell separator, matching BaseDataGrid's cell borders. */
-const divider = (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`;
-
 export interface PageListSkeletonProps {
   /** FAB placeholders in the header, matching the page's action cluster. */
   actionCount?: number;
@@ -97,7 +74,6 @@ export default function PageListSkeleton({
   showToolbar = true,
 }: PageListSkeletonProps = {}) {
   const rowKeys = Array.from({ length: rows }, (_, i) => `row-${i}`);
-  const fabKeys = Array.from({ length: actionCount }, (_, i) => `fab-${i}`);
 
   /** Edge cells carry the card inset; the rest carry a trailing gap. */
   const cellInsetSx = (idx: number) => ({
@@ -106,120 +82,23 @@ export default function PageListSkeleton({
   });
 
   return (
-    <Box
-      sx={{ width: '100%', ...delayedRevealSx }}
-      role="status"
-      aria-label="Loading page"
-    >
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          mb: HEADER.marginBottom,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: HEADER.titleGap,
-            minHeight: HEADER.rowHeight,
-          }}
-        >
-          <Skeleton
-            variant="text"
-            width={HEADER.titleWidth}
-            sx={skeletonTextSx('h4')}
-          />
-          {actionCount > 0 && (
-            <Box
-              sx={{ display: 'flex', gap: FAB_GROUP_GAP, flexShrink: 0 }}
-              aria-hidden
-            >
-              {fabKeys.map(key => (
-                <Skeleton
-                  key={key}
-                  variant="circular"
-                  width={FAB_SIZE}
-                  height={FAB_SIZE}
-                />
-              ))}
-            </Box>
-          )}
-        </Box>
-        <Skeleton
-          variant="text"
-          width={HEADER.descriptionWidth}
-          sx={skeletonTextSx('bodyLReg')}
-        />
-      </Box>
+    <DelayedReveal>
+      <SkeletonPageHeader
+        actionCount={actionCount}
+        titleWidth={HEADER.titleWidth}
+        descriptionWidth={HEADER.descriptionWidth}
+      />
 
-      {/* Grid card — mirrors GRID_PAPER_SX */}
-      <Box
-        sx={{
-          width: '100%',
-          borderRadius: BORDER_RADIUS.md,
-          boxShadow: ELEVATION.xs,
-          border: divider,
-          overflow: 'hidden',
-          bgcolor: 'background.paper',
-        }}
-        aria-hidden
-      >
+      <Box sx={{ width: '100%', ...skeletonSurfaceSx, overflow: 'hidden' }}>
         {showToolbar && (
-          <Box
+          <SkeletonToolbar
+            rightSlot="actions"
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: TOOLBAR.gap,
               px: GRID_CARD_INSET,
               py: GRID_CARD_INSET,
               minHeight: GRID_TOOLBAR_MIN_HEIGHT,
             }}
-          >
-            <Skeleton
-              variant="rounded"
-              width={TOOLBAR.filterButtonSize}
-              height={TOOLBAR.filterButtonSize}
-              sx={{ borderRadius: BORDER_RADIUS.sm, flexShrink: 0 }}
-            />
-            <Skeleton
-              variant="rounded"
-              width={TOOLBAR.searchWidth}
-              height={TOOLBAR.controlHeight}
-              sx={{
-                borderRadius: '30px', // Intentional: matches SearchPill's elongated pill
-                flexShrink: 0,
-              }}
-            />
-            {/* Pill tabs sit centred, as ToolbarPillTabs does */}
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-              <Skeleton
-                variant="rounded"
-                width={TOOLBAR.pillTabsWidth}
-                height={TOOLBAR.controlHeight}
-                sx={{ borderRadius: BORDER_RADIUS.pill }}
-              />
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: TOOLBAR.gap,
-                flexShrink: 0,
-              }}
-            >
-              {TOOLBAR_ACTIONS.map(width => (
-                <Skeleton
-                  key={width}
-                  variant="text"
-                  width={width}
-                  sx={skeletonTextSx('bodyMReg')}
-                />
-              ))}
-            </Box>
-          </Box>
+          />
         )}
 
         <Box
@@ -227,9 +106,10 @@ export default function PageListSkeleton({
             display: 'flex',
             alignItems: 'center',
             height: GRID.headerHeight,
-            borderTop: divider,
-            borderBottom: divider,
+            borderTop: skeletonBorder,
+            borderBottom: skeletonBorder,
           }}
+          aria-hidden
         >
           {COLUMNS.map((col, idx) => (
             <Box
@@ -252,8 +132,11 @@ export default function PageListSkeleton({
               display: 'flex',
               alignItems: 'center',
               height: GRID.rowHeight,
-              ...(rowIdx < rowKeys.length - 1 && { borderBottom: divider }),
+              ...(rowIdx < rowKeys.length - 1 && {
+                borderBottom: skeletonBorder,
+              }),
             }}
+            aria-hidden
           >
             {COLUMNS.map((col, idx) => (
               <Box
@@ -284,11 +167,12 @@ export default function PageListSkeleton({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
-            gap: TOOLBAR.gap,
+            gap: GRID.footerGap,
             height: GRID.footerHeight,
             px: GRID_CARD_INSET,
-            borderTop: divider,
+            borderTop: skeletonBorder,
           }}
+          aria-hidden
         >
           <Skeleton
             variant="circular"
@@ -307,6 +191,6 @@ export default function PageListSkeleton({
           />
         </Box>
       </Box>
-    </Box>
+    </DelayedReveal>
   );
 }

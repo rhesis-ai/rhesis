@@ -2,16 +2,14 @@
 
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import type { Theme } from '@mui/material/styles';
 import {
   BORDER_RADIUS,
-  ELEVATION,
-  FAB_GROUP_GAP,
-  FAB_SIZE,
   GRID_CARD_INSET,
   SECTION_GRID,
 } from '@/styles/theme-constants';
-import { delayedRevealSx } from './DelayedReveal';
+import DelayedReveal from './DelayedReveal';
+import SkeletonPageHeader from './SkeletonPageHeader';
+import { skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
 
 /**
@@ -25,29 +23,11 @@ import { skeletonTextSx } from './skeletonText';
  * (DetailTabPanel `pt: 5`) and `SECTION_GRID` field spacing.
  */
 
-/** Page header, mirroring `PageLayout`. */
+/** Placeholder widths for the header text. Layout geometry lives in
+ *  SkeletonPageHeader, which mirrors PageLayout. */
 const HEADER = {
-  /** `minHeight` of the title row. */
-  rowHeight: 56,
-  /** Gap between the title and the action cluster. */
-  titleGap: '16px',
-  /** Vertical gap between the breadcrumbs and the title block. */
-  stackGap: '20px',
-  /** Bottom margin of the whole header block, in MUI spacing units. */
-  marginBottom: 5,
   titleWidth: 280,
   descriptionWidth: 460,
-} as const;
-
-/** Breadcrumb trail, mirroring `PageBreadcrumbs` in PageLayout. */
-const BREADCRUMB = {
-  /** Gap between crumbs. */
-  gap: '10px',
-  /** Gap between a crumb's label and its separator. */
-  itemGap: '6px',
-  separatorSize: 6,
-  firstWidth: 72,
-  restWidth: 108,
 } as const;
 
 /** Tab bar, mirroring `DetailTabNav`. */
@@ -76,10 +56,6 @@ const SECTION = {
   fieldValueWidth: '72%',
 } as const;
 
-/** Card border, matching the grid card and SectionCard. */
-const cardBorder = (theme: Theme) =>
-  `1px solid ${theme.palette.greyscale.border}`;
-
 /** Tab label widths — detail pages run 3-5 tabs (Overview, Test Sets, …). */
 const TAB_WIDTHS = [78, 96, 132, 62];
 
@@ -92,128 +68,64 @@ const SECTIONS = [
 export interface PageDetailSkeletonProps {
   /** FAB placeholders in the header, matching the page's action cluster. */
   actionCount?: number;
-  /** Breadcrumb segments before the current page. */
+  /** Breadcrumb segments before the current page. 0 renders no trail. */
   breadcrumbCount?: number;
+  /**
+   * Render the DetailTabNav bar. Settings-style pages stack their section
+   * cards straight under the header with no tab bar, so they pass false and
+   * also drop the DetailTabPanel top inset that the bar would sit above.
+   */
+  showTabs?: boolean;
 }
 
 export default function PageDetailSkeleton({
   actionCount = 2,
   breadcrumbCount = 2,
+  showTabs = true,
 }: PageDetailSkeletonProps = {}) {
-  const fabKeys = Array.from({ length: actionCount }, (_, i) => `fab-${i}`);
-  const crumbKeys = Array.from(
-    { length: breadcrumbCount },
-    (_, i) => `crumb-${i}`
-  );
-
   return (
-    <Box
-      sx={{ width: '100%', ...delayedRevealSx }}
-      role="status"
-      aria-label="Loading page"
-    >
-      {/* PageLayout header: breadcrumbs, then title/description block, mb: 5 */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: HEADER.stackGap,
-          mb: HEADER.marginBottom,
-        }}
-        aria-hidden
-      >
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: BREADCRUMB.gap }}
-        >
-          {crumbKeys.map((key, idx) => (
+    <DelayedReveal>
+      <SkeletonPageHeader
+        actionCount={actionCount}
+        breadcrumbCount={breadcrumbCount}
+        titleWidth={HEADER.titleWidth}
+        descriptionWidth={HEADER.descriptionWidth}
+      />
+
+      {/* DetailTabNav: 18px labels at 50px gaps, active tab underlined */}
+      {showTabs && (
+        <Box sx={{ display: 'flex', gap: TABS.gap }} aria-hidden>
+          {TAB_WIDTHS.map((width, idx) => (
             <Box
-              key={key}
+              key={width}
               sx={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: BREADCRUMB.itemGap,
+                flexDirection: 'column',
+                gap: TABS.labelGap,
               }}
             >
               <Skeleton
                 variant="text"
-                width={idx === 0 ? BREADCRUMB.firstWidth : BREADCRUMB.restWidth}
-                sx={skeletonTextSx('bodyMReg')}
+                width={width}
+                sx={skeletonTextSx('h6')}
               />
-              {idx < crumbKeys.length - 1 && (
-                <Skeleton
-                  variant="circular"
-                  width={BREADCRUMB.separatorSize}
-                  height={BREADCRUMB.separatorSize}
-                />
-              )}
+              <Box
+                sx={{
+                  height: TABS.underlineHeight,
+                  borderRadius: BORDER_RADIUS.xs,
+                  bgcolor: idx === 0 ? 'primary.main' : 'transparent',
+                  opacity: idx === 0 ? TABS.underlineOpacity : 0,
+                }}
+              />
             </Box>
           ))}
         </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: HEADER.titleGap,
-              minHeight: HEADER.rowHeight,
-            }}
-          >
-            <Skeleton
-              variant="text"
-              width={HEADER.titleWidth}
-              sx={skeletonTextSx('h4')}
-            />
-            {actionCount > 0 && (
-              <Box sx={{ display: 'flex', gap: FAB_GROUP_GAP, flexShrink: 0 }}>
-                {fabKeys.map(key => (
-                  <Skeleton
-                    key={key}
-                    variant="circular"
-                    width={FAB_SIZE}
-                    height={FAB_SIZE}
-                  />
-                ))}
-              </Box>
-            )}
-          </Box>
-          <Skeleton
-            variant="text"
-            width={HEADER.descriptionWidth}
-            sx={skeletonTextSx('bodyLReg')}
-          />
-        </Box>
-      </Box>
-
-      {/* DetailTabNav: 18px labels at 50px gaps, active tab underlined */}
-      <Box sx={{ display: 'flex', gap: TABS.gap }} aria-hidden>
-        {TAB_WIDTHS.map((width, idx) => (
-          <Box
-            key={width}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: TABS.labelGap,
-            }}
-          >
-            <Skeleton variant="text" width={width} sx={skeletonTextSx('h6')} />
-            <Box
-              sx={{
-                height: TABS.underlineHeight,
-                borderRadius: BORDER_RADIUS.xs,
-                bgcolor: idx === 0 ? 'primary.main' : 'transparent',
-                opacity: idx === 0 ? TABS.underlineOpacity : 0,
-              }}
-            />
-          </Box>
-        ))}
-      </Box>
+      )}
 
       {/* Tab panel content: DetailTabPanel applies pt: 5 */}
       <Box
         sx={{
-          pt: SECTION.panelTop,
+          pt: showTabs ? SECTION.panelTop : 0,
           display: 'flex',
           flexDirection: 'column',
           gap: SECTION.gap,
@@ -224,10 +136,7 @@ export default function PageDetailSkeleton({
           <Box
             key={section.key}
             sx={{
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: cardBorder,
-              bgcolor: 'background.paper',
+              ...skeletonSurfaceSx,
               p: SECTION.inset,
             }}
           >
@@ -265,6 +174,6 @@ export default function PageDetailSkeleton({
           </Box>
         ))}
       </Box>
-    </Box>
+    </DelayedReveal>
   );
 }
