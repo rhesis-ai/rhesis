@@ -240,14 +240,20 @@ def get_usage_summary(
     period_start: Optional[date] = None,
 ) -> dict:
     """Return ``{resources: {<resource>: {used, limit, ceiling, period_start, period_end,
-    kind}}, edition, licensed}``.
+    kind}}, edition}``.
 
-    ``edition`` and ``licensed`` are reported separately because a lapsed
-    license keeps its edition name: a canceled enterprise license resolves to
-    community *limits* but still reports ``edition="enterprise"``, so that the
-    UI can name which license expired. A client reading only ``edition`` would
-    present such an org as Enterprise while it is held to free-tier ceilings,
-    and would withhold the upgrade path because it does not look free.
+    ``edition`` is a machine identifier for diagnostics and analytics, never
+    for display or for deciding styling. It is not enough on its own: a lapsed
+    licence keeps its edition name, so a canceled enterprise licence resolves
+    to community *limits* while still reporting ``edition="enterprise"``. A
+    client reading only this would present such an org as Enterprise while it
+    is held to free-tier ceilings, and would withhold the upgrade path because
+    it does not look free.
+
+    What a client should render instead is the plan
+    (:func:`~rhesis.backend.app.services.plan.build_plan`), carried on
+    ``GET /features``: a display label plus ``is_paid``/``is_active``, which is
+    the pair that separates a free org from a lapsed paid one.
 
     Flow resources report cumulative usage from the ``usage`` table for the
     requested billing period (the current one by default). ``kind``
