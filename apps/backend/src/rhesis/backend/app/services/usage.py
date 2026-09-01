@@ -240,7 +240,14 @@ def get_usage_summary(
     period_start: Optional[date] = None,
 ) -> dict:
     """Return ``{resources: {<resource>: {used, limit, ceiling, period_start, period_end,
-    kind}}, edition}``.
+    kind}}, edition, licensed}``.
+
+    ``edition`` and ``licensed`` are reported separately because a lapsed
+    license keeps its edition name: a canceled enterprise license resolves to
+    community *limits* but still reports ``edition="enterprise"``, so that the
+    UI can name which license expired. A client reading only ``edition`` would
+    present such an org as Enterprise while it is held to free-tier ceilings,
+    and would withhold the upgrade path because it does not look free.
 
     Flow resources report cumulative usage from the ``usage`` table for the
     requested billing period (the current one by default). ``kind``
@@ -311,8 +318,10 @@ def get_usage_summary(
             "kind": STOCK_KIND if counter is not None else FLOW_KIND,
         }
 
-    edition = str(FeatureRegistry.license_info(org=org).get("edition", "community"))
-    return {"resources": resources, "edition": edition}
+    license_info = FeatureRegistry.license_info(org=org)
+    edition = str(license_info.get("edition", "community"))
+    licensed = bool(license_info.get("licensed", False))
+    return {"resources": resources, "edition": edition, "licensed": licensed}
 
 
 def _recent_period_starts(months: int, today: Optional[date] = None) -> list[date]:

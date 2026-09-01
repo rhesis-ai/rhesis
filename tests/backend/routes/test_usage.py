@@ -28,9 +28,14 @@ class TestUsageEndpoint:
         response = authenticated_client.get("/usage")
         body = response.json()
 
-        assert set(body.keys()) == {"resources", "edition"}
+        assert set(body.keys()) == {"resources", "edition", "licensed"}
         assert isinstance(body["resources"], dict)
         assert isinstance(body["edition"], str)
+        # Reported separately from `edition`, which keeps naming a lapsed tier.
+        # The frontend gates its upgrade affordances on this, so a client can
+        # tell "free org" from "paid org whose licence expired" -- the latter is
+        # held to community limits while still reporting its old edition.
+        assert isinstance(body["licensed"], bool)
 
     def test_includes_every_quota_resource(self, authenticated_client: TestClient):
         response = authenticated_client.get("/usage")
