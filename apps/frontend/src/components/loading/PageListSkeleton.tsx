@@ -6,12 +6,11 @@ import type { Theme } from '@mui/material/styles';
 import {
   BORDER_RADIUS,
   ELEVATION,
-  FAB_GROUP_GAP,
-  FAB_SIZE,
   GRID_CARD_INSET,
   GRID_TOOLBAR_MIN_HEIGHT,
 } from '@/styles/theme-constants';
 import { delayedRevealSx } from './DelayedReveal';
+import SkeletonPageHeader from './SkeletonPageHeader';
 import { skeletonTextSx } from './skeletonText';
 
 /**
@@ -26,14 +25,9 @@ import { skeletonTextSx } from './skeletonText';
  * loading chunk and defeat the point of a lightweight fallback.
  */
 
-/** Page header, mirroring `PageLayout`. */
+/** Placeholder widths for the header text. Layout geometry lives in
+ *  SkeletonPageHeader, which mirrors PageLayout. */
 const HEADER = {
-  /** `minHeight` of the title row. */
-  rowHeight: 56,
-  /** Gap between the title and the action cluster. */
-  titleGap: '16px',
-  /** Bottom margin of the whole header block, in MUI spacing units. */
-  marginBottom: 5,
   titleWidth: 180,
   descriptionWidth: 420,
 } as const;
@@ -97,7 +91,6 @@ export default function PageListSkeleton({
   showToolbar = true,
 }: PageListSkeletonProps = {}) {
   const rowKeys = Array.from({ length: rows }, (_, i) => `row-${i}`);
-  const fabKeys = Array.from({ length: actionCount }, (_, i) => `fab-${i}`);
 
   /** Edge cells carry the card inset; the rest carry a trailing gap. */
   const cellInsetSx = (idx: number) => ({
@@ -111,49 +104,11 @@ export default function PageListSkeleton({
       role="status"
       aria-label="Loading page"
     >
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          mb: HEADER.marginBottom,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: HEADER.titleGap,
-            minHeight: HEADER.rowHeight,
-          }}
-        >
-          <Skeleton
-            variant="text"
-            width={HEADER.titleWidth}
-            sx={skeletonTextSx('h4')}
-          />
-          {actionCount > 0 && (
-            <Box
-              sx={{ display: 'flex', gap: FAB_GROUP_GAP, flexShrink: 0 }}
-              aria-hidden
-            >
-              {fabKeys.map(key => (
-                <Skeleton
-                  key={key}
-                  variant="circular"
-                  width={FAB_SIZE}
-                  height={FAB_SIZE}
-                />
-              ))}
-            </Box>
-          )}
-        </Box>
-        <Skeleton
-          variant="text"
-          width={HEADER.descriptionWidth}
-          sx={skeletonTextSx('bodyLReg')}
-        />
-      </Box>
+      <SkeletonPageHeader
+        actionCount={actionCount}
+        titleWidth={HEADER.titleWidth}
+        descriptionWidth={HEADER.descriptionWidth}
+      />
 
       {/* Grid card — mirrors GRID_PAPER_SX */}
       <Box
