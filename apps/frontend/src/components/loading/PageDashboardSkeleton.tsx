@@ -18,12 +18,12 @@ import SkeletonToolbar from './SkeletonToolbar';
  * `RequirementInsightsView`.
  */
 
-/** Compact filter bar, mirroring `TestResultsFilters` in its compact variant.
- *  The controls themselves live in SkeletonToolbar. */
+/** Filter bar, mirroring `TestResultsFilters`. It renders only the filter
+ *  button and the search pill: its `middleContent` is conditional on active
+ *  filters and it passes no `rightContent` at all. */
 const FILTERS = {
-  /** The compact bar spaces its controls 20px apart, not by spacing units. */
+  /** The bar spaces its controls 20px apart, not by spacing units. */
   gap: '20px',
-  chipWidths: [104, 132, 88],
 } as const;
 
 /** Pass-rate summary, mirroring `InsightsSummaryBar`. */
@@ -79,12 +79,7 @@ export default function PageDashboardSkeleton({
         aria-hidden
       >
         {/* Compact filter bar */}
-        <SkeletonToolbar
-          gap={FILTERS.gap}
-          showTabs={false}
-          rightSlot="chips"
-          chipWidths={FILTERS.chipWidths}
-        />
+        <SkeletonToolbar gap={FILTERS.gap} showTabs={false} />
 
         {/* Pass-rate summary bar */}
         <Box

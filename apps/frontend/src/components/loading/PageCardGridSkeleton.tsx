@@ -65,12 +65,18 @@ export interface PageCardGridSkeletonProps {
   cards?: number;
   /** Render the filter + search + tabs toolbar row. */
   showToolbar?: boolean;
+  /**
+   * Render the centred pill tabs in the toolbar. Tools passes false because it
+   * is the one card directory that gives GridToolbar no `middleContent`.
+   */
+  showTabs?: boolean;
 }
 
 export default function PageCardGridSkeleton({
   actionCount = 2,
   cards = 6,
   showToolbar = true,
+  showTabs = true,
 }: PageCardGridSkeletonProps = {}) {
   const cardKeys = Array.from({ length: cards }, (_, i) => `card-${i}`);
   const descriptionKeys = Array.from(
@@ -85,6 +91,7 @@ export default function PageCardGridSkeleton({
       {showToolbar && (
         <SkeletonToolbar
           gap={DIRECTORY_TOOLBAR.gap}
+          showTabs={showTabs}
           sx={{ mb: DIRECTORY_TOOLBAR.marginBottom }}
         />
       )}

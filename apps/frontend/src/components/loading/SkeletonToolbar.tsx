@@ -35,16 +35,18 @@ export interface SkeletonToolbarProps {
   gap?: number | string;
   /** Extra styles for the row, e.g. the card directory's inset and margin. */
   sx?: SxProps<Theme>;
-  /** Render the centred pill tabs. */
+  /**
+   * Render the centred pill tabs. False for toolbars whose page passes no
+   * `middleContent` to GridToolbar, which would otherwise show tabs that
+   * vanish when content arrives.
+   */
   showTabs?: boolean;
   /**
-   * Right-hand slot. `actions` draws the grid toolbar's four text links,
-   * `chips` draws filter chips as the insights bar does, `none` leaves it bare
-   * as the card directories do.
+   * Right-hand slot. `actions` draws the grid toolbar's four text links
+   * (Select / Columns / Density / Export); `none` leaves it bare, as the card
+   * directories and the insights filter bar do.
    */
-  rightSlot?: 'actions' | 'chips' | 'none';
-  /** Chip widths when `rightSlot` is `chips`. */
-  chipWidths?: readonly number[];
+  rightSlot?: 'actions' | 'none';
 }
 
 export default function SkeletonToolbar({
@@ -52,7 +54,6 @@ export default function SkeletonToolbar({
   sx,
   showTabs = true,
   rightSlot = 'none',
-  chipWidths = [104, 132, 88],
 }: SkeletonToolbarProps = {}) {
   return (
     <Box
@@ -88,7 +89,8 @@ export default function SkeletonToolbar({
           />
         </Box>
       ) : (
-        rightSlot === 'actions' && <Box sx={{ flex: 1 }} />
+        // GridToolbar inserts this spacer whenever middleContent is absent.
+        <Box sx={{ flex: 1 }} />
       )}
 
       {rightSlot === 'actions' && (
@@ -99,20 +101,6 @@ export default function SkeletonToolbar({
               variant="text"
               width={width}
               sx={skeletonTextSx('bodyMReg')}
-            />
-          ))}
-        </Box>
-      )}
-
-      {rightSlot === 'chips' && (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {chipWidths.map(width => (
-            <Skeleton
-              key={width}
-              variant="rounded"
-              width={width}
-              height={CONTROL.height}
-              sx={{ borderRadius: BORDER_RADIUS.pill }}
             />
           ))}
         </Box>
