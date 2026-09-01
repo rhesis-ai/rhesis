@@ -1,11 +1,9 @@
-import os
-
 import pytest
 from sqlalchemy.exc import IntegrityError
-from cryptography.fernet import Fernet
 from faker import Faker
 from sqlalchemy import text
 
+from rhesis.backend.app.config.settings import get_security_settings
 from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.utils.encryption import is_encrypted
 from tests.backend.routes.fixtures.data_factories import BaseDataFactory
@@ -57,17 +55,13 @@ class ModelEncryptionDataFactory(BaseDataFactory):
 
 @pytest.fixture
 def encryption_key():
-    """Provide test encryption key"""
-    # Preserve original value
-    original_key = os.environ.get("DB_ENCRYPTION_KEY")
-    key = Fernet.generate_key().decode()
-    os.environ["DB_ENCRYPTION_KEY"] = key
-    yield key
-    # Restore original value or remove if it wasn't set
-    if original_key is not None:
-        os.environ["DB_ENCRYPTION_KEY"] = original_key
-    elif "DB_ENCRYPTION_KEY" in os.environ:
-        del os.environ["DB_ENCRYPTION_KEY"]
+    """Yield the session's configured encryption key.
+
+    Deliberately does not touch ``DB_ENCRYPTION_KEY`` -- see the identical fixture in
+    ``test_endpoint_encryption.py`` for why overwriting it corrupted the encryption key for
+    the rest of the worker session. No test here needs a distinct key.
+    """
+    return get_security_settings().db_encryption_key
 
 
 class TestModelEncryption:
