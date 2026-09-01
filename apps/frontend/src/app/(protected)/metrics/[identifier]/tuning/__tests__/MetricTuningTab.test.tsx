@@ -842,8 +842,12 @@ describe('MetricTuningTab — agreement', () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
     await screen.findByText(/nothing judged yet/i);
 
+    // findByRole, not getByRole: the tile and the mark come from two independent
+    // requests (getTuningRun and getTuningCases), so awaiting the tile says nothing
+    // about whether the cases have arrived. Whichever promise settles first is a
+    // scheduling detail, which made this fail about three runs in five.
     fireEvent.click(
-      screen.getByRole('button', { name: /accept this verdict/i })
+      await screen.findByRole('button', { name: /accept this verdict/i })
     );
 
     expect(await screen.findByText('100%')).toBeInTheDocument();
