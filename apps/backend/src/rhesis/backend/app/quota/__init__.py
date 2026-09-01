@@ -112,11 +112,15 @@ class OveragePolicy(str, Enum):
 # malformed. Exported (not underscore-prefixed) so both consumers -- and a
 # test asserting the YAML's "community" entry matches -- can reference the
 # same numbers instead of duplicating them.
+#
+# Published on the pricing page as the Free plan -- see the header comment in
+# ee/.../licensing/tier_config.yaml. These must stay equal to that file's
+# `community` entry (asserted by tests/backend/ee/licensing/test_tiers.py).
 FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
     QuotaResource.TEST_EXECUTIONS: 500,
     QuotaResource.TRACING_SPANS: 50_000,
     QuotaResource.TEST_GENERATION: 100,
-    QuotaResource.MODEL_TOKENS: 5_000_000,
+    QuotaResource.MODEL_TOKENS: 1_000_000,
     QuotaResource.SEATS: 3,
     QuotaResource.PROJECTS: 3,
     QuotaResource.ENDPOINTS: 3,
