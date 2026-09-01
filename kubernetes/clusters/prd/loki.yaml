@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: 6e3be213d823df4539a793ebadfcc535d83bb52c
+    targetRevision: a1063f7b5ba89603b2caa4c82a92479c7818780c
     path: kubernetes/clusters/prd/loki
   destination:
     server: https://kubernetes.default.svc
