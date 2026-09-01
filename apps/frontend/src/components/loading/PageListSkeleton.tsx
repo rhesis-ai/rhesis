@@ -7,6 +7,7 @@ import {
   ELEVATION,
   FAB_GROUP_GAP,
 } from '@/styles/theme-constants';
+import { delayedRevealSx } from './DelayedReveal';
 
 /**
  * Loading placeholder for the standard list page: `PageLayout` header (title,
@@ -62,7 +63,11 @@ export default function PageListSkeleton({
   const fabKeys = Array.from({ length: actionCount }, (_, i) => `fab-${i}`);
 
   return (
-    <Box sx={{ width: '100%' }} role="status" aria-label="Loading page">
+    <Box
+      sx={{ width: '100%', ...delayedRevealSx }}
+      role="status"
+      aria-label="Loading page"
+    >
       {/* PageLayout header: title row (minHeight 56) then description, mb: 5 */}
       <Box sx={{ display: 'flex', flexDirection: 'column', mb: 5 }}>
         <Box

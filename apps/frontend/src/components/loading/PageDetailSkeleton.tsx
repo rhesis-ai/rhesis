@@ -8,6 +8,7 @@ import {
   FAB_GROUP_GAP,
   SECTION_GRID,
 } from '@/styles/theme-constants';
+import { delayedRevealSx } from './DelayedReveal';
 
 /**
  * Loading placeholder for entity detail pages: `PageLayout` header
@@ -50,7 +51,11 @@ export default function PageDetailSkeleton({
   );
 
   return (
-    <Box sx={{ width: '100%' }} role="status" aria-label="Loading page">
+    <Box
+      sx={{ width: '100%', ...delayedRevealSx }}
+      role="status"
+      aria-label="Loading page"
+    >
       {/* PageLayout header: breadcrumbs, then title/description block, mb: 5 */}
       <Box
         sx={{ display: 'flex', flexDirection: 'column', gap: '20px', mb: 5 }}
