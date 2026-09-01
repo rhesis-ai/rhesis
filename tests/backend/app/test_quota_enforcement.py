@@ -13,7 +13,9 @@ import pytest
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry, QuotaResource
 from rhesis.backend.app.quota.enforcement import (
+    BACKSTOP_MULTIPLIER,
     QuotaExceededError,
+    check_backstop,
     check_quota,
     enforce_quota,
     quota_exceeded_response_body,
@@ -226,3 +228,73 @@ class TestQuotaExceededResponseBody:
         assert body["kind"] == "flow"
         assert body["period_end"] == verdict.period_end
         assert "test runs" in body["message"]
+
+
+class TestCheckBackstopUnlimited:
+    """An unlimited tier (limit is None) is never backstopped."""
+
+    def test_unlimited_is_always_allowed(self, test_db, test_org_id, clean_registry):
+        _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: None}))
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, 999_999_999)
+
+        verdict = check_backstop(test_db, test_org_id, None, QuotaResource.TRACING_SPANS)
+
+        assert verdict.allowed is True
+        assert verdict.limit is None
+
+
+class TestCheckBackstopBoundary:
+    """The backstop fires at BACKSTOP_MULTIPLIER x the tier limit (10x by default).
+
+    With a limit of 100, the backstop ceiling is 1,000. Off-by-one matters:
+    999 is allowed, 1,000 is blocked.
+    """
+
+    def _install_100(self):
+        _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: 100}))
+
+    def test_below_backstop_is_allowed(self, test_db, test_org_id, clean_registry):
+        self._install_100()
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, 999)
+
+        verdict = check_backstop(test_db, test_org_id, None, QuotaResource.TRACING_SPANS)
+
+        assert verdict.allowed is True
+
+    def test_at_backstop_is_blocked(self, test_db, test_org_id, clean_registry):
+        self._install_100()
+        backstop = 100 * BACKSTOP_MULTIPLIER
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, backstop)
+
+        verdict = check_backstop(test_db, test_org_id, None, QuotaResource.TRACING_SPANS)
+
+        assert verdict.allowed is False
+        assert verdict.limit == backstop
+
+    def test_above_the_tier_limit_but_below_backstop_is_allowed(
+        self, test_db, test_org_id, clean_registry
+    ):
+        """The backstop is not normal enforcement. Usage past the tier limit
+        but below 10x is allowed -- the published limit is enforced by
+        notifications and retention, not rejection."""
+        self._install_100()
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, 500)
+
+        verdict = check_backstop(test_db, test_org_id, None, QuotaResource.TRACING_SPANS)
+
+        assert verdict.allowed is True
+        assert verdict.over_limit is True
+
+    def test_verdict_limit_is_the_backstop_ceiling_not_the_tier_limit(
+        self, test_db, test_org_id, clean_registry
+    ):
+        """The verdict.limit field carries the backstop ceiling so a 402 body
+        built from it shows the actual threshold that was crossed, not the
+        published tier limit the org passed long ago."""
+        self._install_100()
+        backstop = 100 * BACKSTOP_MULTIPLIER
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, backstop)
+
+        verdict = check_backstop(test_db, test_org_id, None, QuotaResource.TRACING_SPANS)
+
+        assert verdict.limit == backstop

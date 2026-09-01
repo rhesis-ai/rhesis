@@ -30,6 +30,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
     LIC_CUSTOM_LIMITS,
+    LIC_CUSTOM_RETENTION_DAYS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
@@ -42,6 +43,8 @@ from rhesis.backend.ee.licensing.verify import _parse_token
 
 # Test key id baked into every minted token and the patched key map.
 TEST_KID = "test-v1"
+
+_SENTINEL = object()
 
 
 @pytest.fixture(scope="session")
@@ -71,6 +74,7 @@ def mint_token(ed25519_keypair):
         features: Optional[list] = None,
         limits: Optional[dict] = None,
         custom_limits: Optional[dict] = None,
+        custom_retention_days: Any = _SENTINEL,
         exp: Optional[int] = None,
         iss: str = LICENSE_ISSUER,
         aud: str = LICENSE_AUDIENCE,
@@ -90,6 +94,8 @@ def mint_token(ed25519_keypair):
         # in the wild -- no custom_limits claim at all.
         if custom_limits is not None:
             lic[LIC_CUSTOM_LIMITS] = custom_limits
+        if custom_retention_days is not _SENTINEL:
+            lic[LIC_CUSTOM_RETENTION_DAYS] = custom_retention_days
         payload: dict[str, Any] = {
             CLAIM_ISSUER: iss,
             CLAIM_AUDIENCE: aud,

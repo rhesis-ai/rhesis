@@ -46,6 +46,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
     LIC_CUSTOM_LIMITS,
+    LIC_CUSTOM_RETENTION_DAYS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
@@ -56,7 +57,7 @@ from rhesis.backend.ee.licensing.entitlements import (
 )
 from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
 from rhesis.backend.ee.licensing.quota_provider import ConfigQuotaProvider
-from rhesis.backend.ee.licensing.tiers import resolve_limits, resolve_tier
+from rhesis.backend.ee.licensing.tiers import resolve_limits, resolve_policy, resolve_tier
 from rhesis.backend.ee.licensing.verify import _parse_token, verify_token
 
 pytestmark = pytest.mark.skipif(
@@ -178,6 +179,10 @@ def _no_env_license():
 
 def _limits_for(quota_provider, org) -> dict:
     return quota_provider.get_policy(org).limits
+
+
+def _retention_for(quota_provider, org) -> int | None:
+    return quota_provider.get_policy(org).retention_days
 
 
 # ---------------------------------------------------------------------------
@@ -656,3 +661,114 @@ class TestLicenseColumnIsNotClientWritable:
                 f"{schema_name} accepts a client-supplied 'license'. That lets an "
                 f"organization install its own license token and pick its own tier."
             )
+
+
+# ---------------------------------------------------------------------------
+# 6. Retention escalation through custom_retention_days
+# ---------------------------------------------------------------------------
+
+
+_COMMUNITY_RETENTION = resolve_policy(None).retention_days
+_ENTERPRISE_RETENTION = resolve_policy(LicenseEdition.ENTERPRISE).retention_days
+
+
+class TestRetentionEscalation:
+    """Escalation attempt: use the custom_retention_days claim to avoid data
+    deletion, or inherit unlimited retention without paying for it.
+
+    ``retention_days`` controls how long trace data is kept before the sweep
+    hard-deletes it. ``None`` means unlimited. An invalid override must fall
+    back to the tier's own value, never to ``None``.
+    """
+
+    @pytest.mark.parametrize(
+        "junk",
+        [
+            "unlimited",
+            True,
+            False,
+            -1,
+            0,
+            1.5,
+            [],
+            {},
+            "365",
+        ],
+        ids=[
+            "string",
+            "bool-true",
+            "bool-false",
+            "negative",
+            "zero",
+            "float",
+            "list",
+            "dict",
+            "numeric-string",
+        ],
+    )
+    def test_an_unparseable_override_keeps_the_tier_retention(
+        self, mint_token, quota_provider, licensed_registry, junk
+    ):
+        """A bad custom_retention_days must not become None (unlimited)."""
+        token = mint_token(sub=_VICTIM_ORG, edition="team", custom_retention_days=junk)
+        org = _make_org(license_token=token)
+        retention = _retention_for(quota_provider, org)
+
+        team_retention = resolve_policy(LicenseEdition.TEAM).retention_days
+        assert retention == team_retention
+        assert retention is not None
+
+    def test_a_valid_override_applies(
+        self, mint_token, quota_provider, licensed_registry
+    ):
+        token = mint_token(sub=_VICTIM_ORG, edition="enterprise", custom_retention_days=180)
+        org = _make_org(license_token=token)
+
+        assert _retention_for(quota_provider, org) == 180
+
+    def test_another_orgs_retention_override_does_not_apply_to_you(
+        self, mint_token, quota_provider, licensed_registry
+    ):
+        token = mint_token(
+            sub=_OTHER_ORG,
+            edition="enterprise",
+            custom_retention_days=730,
+        )
+        org = _make_org(_VICTIM_ORG, license_token=token)
+        assert _retention_for(quota_provider, org) == _COMMUNITY_RETENTION
+
+    def test_retention_override_on_a_revoked_license_does_not_apply(
+        self, mint_token, quota_provider, licensed_registry
+    ):
+        token = mint_token(
+            sub=_VICTIM_ORG,
+            edition="enterprise",
+            status="canceled",
+            custom_retention_days=730,
+        )
+        org = _make_org(license_token=token)
+        retention = _retention_for(quota_provider, org)
+
+        assert retention == _COMMUNITY_RETENTION
+        assert retention is not None
+
+    def test_absent_or_junk_license_gives_finite_community_retention(
+        self, quota_provider, licensed_registry
+    ):
+        org = _make_org(license_token=None)
+        retention = _retention_for(quota_provider, org)
+
+        assert retention == _COMMUNITY_RETENTION
+        assert retention is not None, "unlicensed org must have finite retention"
+
+    def test_expired_enterprise_token_gives_community_retention(
+        self, mint_token, quota_provider, licensed_registry
+    ):
+        import time
+
+        token = mint_token(
+            sub=_VICTIM_ORG, edition="enterprise", exp=int(time.time()) - 3600
+        )
+        org = _make_org(license_token=token)
+
+        assert _retention_for(quota_provider, org) == _COMMUNITY_RETENTION
