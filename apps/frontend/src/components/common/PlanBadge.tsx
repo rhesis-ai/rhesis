@@ -1,25 +1,36 @@
 'use client';
 
-import Chip from '@mui/material/Chip';
 import { useTheme } from '@mui/material/styles';
-import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
-import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
-import { BORDER_RADIUS, PLAN_COLORS } from '@/styles/theme-constants';
+import {
+  CrownFilledIcon,
+  CrownOutlinedIcon,
+} from '@/components/common/CrownIcon';
+import { GridBadge } from '@/components/common/GridBadge';
+import { PLAN_COLORS, PLAN_CROWN_SHADOW } from '@/styles/theme-constants';
 import { planLabel, resolvePlanStyle } from '@/utils/plan';
 import type { Plan } from '@/utils/api-client/features-client';
 
 /**
  * The plan pill. **The only one.** Every surface that shows a plan renders
- * this and takes its styling from `resolvePlanStyle`, so the sidebar, the org
- * menu and the usage page cannot drift apart.
+ * this, so the sidebar footer, the sidebar org menu and the usage page cannot
+ * drift apart.
  *
- * Every variant gets identical padding, radius, size and weight from the one
- * `Chip` below — only the colour differs, and only because the resolver
- * returned a different value. Two tiers can never differ in size or shape.
+ * It is a thin wrapper over `GridBadge`, the app's read-only pill, rather than
+ * its own styled chip. That is deliberate: the plan is metadata about the org,
+ * which is exactly what `GridBadge` is for (`Tag`'s docstring routes badges
+ * here), so the plan pill picks up the same grey fill, pill radius, type and
+ * padding as every other badge in the app. A bespoke chip here looked
+ * *almost* like the app's badges, which is worse than either matching or
+ * clearly differing.
+ *
+ * No `size` passthrough, so the plan reads identically on all three surfaces.
+ * Nothing about the badge varies by tier either — same fill, radius, type and
+ * casing for every plan. Paid-ness is signalled by the crown, which keeps the
+ * free tier from wearing the loudest pill in the UI.
  *
  * The label is whatever the API sent, rendered verbatim. Nothing here maps,
  * cases or inspects a tier name, so an unrecognized tier displays correctly
- * with no code change and falls back to the neutral style.
+ * with no code change.
  *
  * Renders nothing when there is no plan yet, rather than a placeholder: a plan
  * must not flicker from a guess to the real value.
@@ -28,52 +39,54 @@ export function PlanBadge({ plan }: { plan: Plan | null | undefined }) {
   const label = planLabel(plan);
   if (label === null) return null;
 
-  return (
-    <Chip
-      label={label}
-      size="small"
-      color={resolvePlanStyle(plan).chipColor}
-      sx={{
-        borderRadius: BORDER_RADIUS.pill,
-        // Read from the theme rather than written as 600: the semibold weight
-        // is brand-dependent (`w600` in theme.ts is 700 when a brand font is
-        // configured), so a literal would render this badge lighter than every
-        // other semibold element on a branded deployment.
-        fontWeight: theme => theme.typography.captionBold.fontWeight,
-      }}
-    />
-  );
+  return <GridBadge label={label} size="grid" />;
 }
 
 /**
  * The plan's crown, for a row that leads with an icon.
  *
- * Filled and gold for an active paid plan; outlined otherwise. Kept beside the
+ * Filled and premium-gold for an active paid plan; outlined otherwise. Kept beside the
  * badge so the crown and the pill are resolved from the same place — the icon
  * and the pill disagreeing about whether a plan is paid would be worse than
  * either being wrong alone.
  *
- * Takes no colour prop. A caller wanting the neutral row colour gets it by
- * default, because the resolver returns `crownColor: null` for the free
- * variant and this then inherits.
+ * Takes no colour prop. The resolver returns `crownColor: null` for anything
+ * not actively paid, which inherits, so a free plan's crown is the same colour
+ * as the other icons in the card. Only an active paid plan colours itself.
  */
 export function PlanCrownIcon({ plan }: { plan: Plan | null | undefined }) {
   const theme = useTheme();
   const style = resolvePlanStyle(plan);
-  const Icon = style.crownFilled
-    ? WorkspacePremiumIcon
-    : WorkspacePremiumOutlinedIcon;
+  const Icon = style.crownFilled ? CrownFilledIcon : CrownOutlinedIcon;
 
-  const palette =
-    theme.palette.mode === 'dark' ? PLAN_COLORS.dark : PLAN_COLORS.light;
-  const color =
-    style.crownColor === null
-      ? 'inherit'
-      : style.crownColor === 'warning'
-        ? theme.palette.warning.main
-        : palette[style.crownColor];
+  const isDark = theme.palette.mode === 'dark';
+  const palette = isDark ? PLAN_COLORS.dark : PLAN_COLORS.light;
+  // `inherit` rather than a token of its own: the caller sets the row's icon
+  // colour, so a non-paid crown matches the sibling nav icons ("Star Rhesis",
+  // "Support") exactly. Naming a secondary token here made it visibly lighter
+  // than the icons beside it.
+  const color = style.crownColor === null ? 'inherit' : palette.premium;
 
-  return <Icon sx={{ color }} />;
+  // Decorative: the tier is already carried by the badge text, and the
+  // filled-vs-outlined shape is the non-colour second channel. Announcing the
+  // icon too would just repeat the row.
+  return (
+    <Icon
+      aria-hidden="true"
+      sx={{
+        color,
+        // Only the active paid crown is lifted off the surface. A glow on the
+        // neutral crown would make a free plan look like it was signalling
+        // something, which is the opposite of the intent. The recipe itself is
+        // a token -- see PLAN_CROWN_SHADOW for why it is two chained shadows.
+        ...(style.crownShadow
+          ? {
+              filter: isDark ? PLAN_CROWN_SHADOW.dark : PLAN_CROWN_SHADOW.light,
+            }
+          : {}),
+      }}
+    />
+  );
 }
 
 export default PlanBadge;

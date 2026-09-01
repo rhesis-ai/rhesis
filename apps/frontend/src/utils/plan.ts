@@ -16,7 +16,6 @@
  * list of tiers to fall out of date.
  */
 
-import { PLAN_COLORS } from '@/styles/theme-constants';
 import type { Plan } from '@/utils/api-client/features-client';
 
 /**
@@ -26,7 +25,7 @@ import type { Plan } from '@/utils/api-client/features-client';
  * `is_active`) and this collapses them into the one axis styling varies on.
  *
  * - `free` — not a paid tier. Neutral; nothing to celebrate, nothing wrong.
- * - `paid` — a paid tier with an active licence. Gold crown.
+ * - `paid` — a paid tier with an active licence. Filled premium crown.
  * - `lapsed` — a paid tier whose licence is no longer active. The state an
  *   admin needs to notice, because the backend is holding them to free-tier
  *   ceilings while their plan still names the tier they bought.
@@ -35,12 +34,29 @@ export type PlanVariant = 'free' | 'paid' | 'lapsed';
 
 export interface PlanStyle {
   variant: PlanVariant;
-  /** MUI `Chip` colour prop. Same prop for every variant — only the value differs. */
-  chipColor: 'default' | 'primary' | 'warning';
   /** Whether the crown is drawn filled (an earned state) or outlined. */
   crownFilled: boolean;
-  /** Palette path for the crown, or `null` to inherit the row's own colour. */
-  crownColor: keyof typeof PLAN_COLORS.light | 'warning' | null;
+  /**
+   * Palette key for the crown, or `null` to inherit the row's icon colour.
+   *
+   * Spelled out rather than `keyof typeof PLAN_COLORS.light`, which would also
+   * admit `premiumShadow` — a shadow is not a crown colour.
+   *
+   * The crown is the **only** element whose colour varies by tier. The badge is
+   * neutral for every tier, so the free tier never ends up wearing the most
+   * saturated pill in the UI — and a paid plan is marked by the crown rather
+   * than by a louder badge.
+   */
+  crownColor: 'premium' | null;
+  /**
+   * Whether the crown is lifted off the surface with a drop shadow.
+   *
+   * Lives here rather than being inferred in the component, so "what does this
+   * tier look like" stays one decision in one place. Only an active paid plan
+   * glows: a shadow on the neutral crown would make a free plan look like it
+   * was signalling something.
+   */
+  crownShadow: boolean;
 }
 
 /**
@@ -54,21 +70,27 @@ export interface PlanStyle {
 const STYLES: Record<PlanVariant, PlanStyle> = {
   free: {
     variant: 'free',
-    chipColor: 'default',
     crownFilled: false,
     crownColor: null,
+    crownShadow: false,
   },
   paid: {
     variant: 'paid',
-    chipColor: 'primary',
     crownFilled: true,
-    crownColor: 'crown',
+    crownColor: 'premium',
+    crownShadow: true,
   },
+  // Styled identically to `free`, and honestly so: a lapsed licence is held to
+  // free-tier ceilings, so presenting it as paid would misreport what the org
+  // can actually do. The distinction is carried by the label, which the API
+  // composes with its "(inactive)" qualifier -- text, not colour, which is also
+  // what keeps it legible in a monochrome theme. The variant stays separate
+  // because `isUpgradeable` needs it.
   lapsed: {
     variant: 'lapsed',
-    chipColor: 'warning',
     crownFilled: false,
-    crownColor: 'warning',
+    crownColor: null,
+    crownShadow: false,
   },
 };
 

@@ -19,25 +19,59 @@ describe('resolvePlanStyle', () => {
       plan({ name: 'Community', is_paid: false, is_active: false })
     );
     expect(style.variant).toBe('free');
-    expect(style.chipColor).toBe('default');
     expect(style.crownFilled).toBe(false);
     expect(style.crownColor).toBeNull();
   });
 
-  it('gives an active paid plan a filled gold crown', () => {
+  it('gives an active paid plan a filled premium crown', () => {
     const style = resolvePlanStyle(plan());
     expect(style.variant).toBe('paid');
-    expect(style.chipColor).toBe('primary');
     expect(style.crownFilled).toBe(true);
-    expect(style.crownColor).toBe('crown');
+    expect(style.crownColor).toBe('premium');
+    expect(style.crownShadow).toBe(true);
   });
 
-  it('flags a paid plan whose licence lapsed', () => {
-    // The backend holds this org to free-tier ceilings while its plan still
-    // names the tier they bought, so it has to look different from both.
+  it('lifts only an active paid crown off the surface', () => {
+    // A shadow on the neutral crown would make a free plan look like it was
+    // signalling something, which is the opposite of the intent.
+    //
+    // Asserted here rather than on the rendered icon because jsdom's cssstyle
+    // does not implement `filter`: it is dropped from the emotion rule, so a
+    // DOM assertion would pass whatever the component does.
+    expect(resolvePlanStyle(plan()).crownShadow).toBe(true);
+    for (const p of [
+      plan({ is_paid: false, is_active: false }),
+      plan({ is_active: false }),
+      null,
+      undefined,
+    ]) {
+      expect(resolvePlanStyle(p).crownShadow).toBe(false);
+    }
+  });
+
+  it('does not dress a lapsed paid plan as paid', () => {
+    // The backend holds this org to free-tier ceilings, so showing it a filled
+    // premium crown would misreport what it can actually do. The distinction
+    // rides on the label ("... (inactive)"), which the API composes.
     const style = resolvePlanStyle(plan({ is_active: false }));
     expect(style.variant).toBe('lapsed');
-    expect(style.chipColor).toBe('warning');
+    expect(style.crownFilled).toBe(false);
+    expect(style.crownColor).toBeNull();
+  });
+
+  it('varies nothing but the crown across tiers', () => {
+    // The badge is neutral for every tier, so the resolver has no badge colour
+    // to return. If one is ever added, the free tier ends up wearing the
+    // loudest pill in the UI, which is what this guards.
+    const free = resolvePlanStyle(plan({ is_paid: false, is_active: false }));
+    const paid = resolvePlanStyle(plan());
+    expect(Object.keys(free).sort()).toEqual([
+      'crownColor',
+      'crownFilled',
+      'crownShadow',
+      'variant',
+    ]);
+    expect(Object.keys(paid).sort()).toEqual(Object.keys(free).sort());
   });
 
   it('styles a tier it has never heard of by its flags, not its name', () => {
@@ -48,7 +82,7 @@ describe('resolvePlanStyle', () => {
       plan({ name: 'Ultra Premium Plus', is_paid: true, is_active: true })
     );
     expect(style.variant).toBe('paid');
-    expect(style.chipColor).toBe('primary');
+    expect(style.crownFilled).toBe(true);
   });
 
   it.each([

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { GridBadge } from '@/components/common/GridBadge';
 import { PlanBadge, PlanCrownIcon } from '@/components/common/PlanBadge';
 import type { Plan } from '@/utils/api-client/features-client';
 
@@ -12,8 +13,25 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
 
 /** MUI stamps each icon with its own name — the stable way to assert
  * filled-vs-outlined without reading computed styles. */
-const FILLED = 'WorkspacePremiumIcon';
-const OUTLINED = 'WorkspacePremiumOutlinedIcon';
+const FILLED = 'CrownFilledIcon';
+const OUTLINED = 'CrownOutlinedIcon';
+
+/** The visual properties that must not vary: by tier, or from the app's own
+ * badge. Deliberately includes colour, which is where the drift was. */
+function snapshotOf(el: HTMLElement): string {
+  const cs = getComputedStyle(el);
+  return [
+    cs.backgroundColor,
+    cs.color,
+    cs.borderRadius,
+    cs.fontSize,
+    cs.fontWeight,
+    cs.lineHeight,
+    cs.paddingLeft,
+    cs.paddingRight,
+    cs.textTransform,
+  ].join('|');
+}
 
 describe('PlanBadge', () => {
   it('renders the API name verbatim', () => {
@@ -49,25 +67,41 @@ describe('PlanBadge', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('gives every variant the same shape, differing only in colour', () => {
-    // Two tiers must never differ in size or radius. One Chip, one set of sx.
-    const shapes = (
+  it('is the same pill as every other badge in the app', () => {
+    // The plan is org metadata, which is what `GridBadge` is for. Styling it
+    // separately made it look *almost* like the app's other badges, which
+    // reads as a mistake rather than as a distinction.
+    const planRender = render(<PlanBadge plan={plan()} />);
+    const planPill = planRender.container.firstElementChild as HTMLElement;
+    const planStyle = snapshotOf(planPill);
+    planRender.unmount();
+
+    const refRender = render(<GridBadge label="Team" size="grid" />);
+    const refPill = refRender.container.firstElementChild as HTMLElement;
+    const refStyle = snapshotOf(refPill);
+    refRender.unmount();
+
+    expect(planStyle).toBe(refStyle);
+  });
+
+  it('gives every tier an identical pill, colour included', () => {
+    // The badge must not vary by tier at all -- not in size, radius, type or
+    // colour. Only the crown varies. Without this, the free tier ends up
+    // wearing the most saturated pill in the UI.
+    const styles = (
       [
         plan({ is_paid: false, is_active: false }),
         plan(),
         plan({ is_active: false }),
+        plan({ name: 'Never Heard Of It' }),
       ] as Plan[]
     ).map(p => {
       const { container, unmount } = render(<PlanBadge plan={p} />);
-      const chip = container.querySelector('.MuiChip-root');
-      const cls = chip?.className ?? '';
-      // Size class is what encodes padding/height; colour classes are excluded.
-      const size = /MuiChip-size\w+/.exec(cls)?.[0] ?? '';
+      const snapshot = snapshotOf(container.firstElementChild as HTMLElement);
       unmount();
-      return size;
+      return snapshot;
     });
-    expect(new Set(shapes).size).toBe(1);
-    expect(shapes[0]).toBe('MuiChip-sizeSmall');
+    expect(new Set(styles).size).toBe(1);
   });
 });
 
