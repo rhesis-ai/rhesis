@@ -235,7 +235,11 @@ class TestReset:
         FeatureRegistry.reset()
 
         assert FeatureRegistry.is_registered(FeatureName.SSO) is False
-        assert FeatureRegistry.license_info() == {"edition": "community", "licensed": False}
+        assert FeatureRegistry.license_info() == {
+            "edition": "community",
+            "licensed": False,
+            "is_paid": False,
+        }
 
     def test_license_info_forwards_org(self, clean_registry):
         """license_info(org=...) passes org through to the provider."""
@@ -271,15 +275,29 @@ class TestDefaultLicenseProvider:
         assert provider.allows_feature(feature, org=object()) is True
 
     def test_info_marks_community_edition(self):
-        """Community build has no EE license — edition is 'community'."""
+        """Community build has no EE license — edition is 'community', and the
+        tier is never a paid one.
+
+        Compared for exact equality on purpose: this payload is a wire contract
+        the frontend reads, so a field appearing or vanishing unnoticed is the
+        thing worth failing on.
+        """
         provider = DefaultLicenseProvider()
-        assert provider.info() == {"edition": "community", "licensed": False}
+        assert provider.info() == {
+            "edition": "community",
+            "licensed": False,
+            "is_paid": False,
+        }
 
     def test_info_accepts_org_kwarg(self):
         """info() accepts org= without error (org-aware interface)."""
         provider = DefaultLicenseProvider()
         org = object()
-        assert provider.info(org=org) == {"edition": "community", "licensed": False}
+        assert provider.info(org=org) == {
+            "edition": "community",
+            "licensed": False,
+            "is_paid": False,
+        }
 
 
 class TestFeatureDataclass:
