@@ -456,7 +456,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "--limits",
             default=None,
             metavar="JSON",
-            help='JSON limits override, e.g. \'{"seats": 200}\' (merged with tier defaults).',
+            help=(
+                'JSON per-resource limit override, e.g. \'{"test_executions": 500000}\'. '
+                "Overlaid on the tier's live limits at enforcement time; resources left "
+                "out keep following the published tier. Use null for unlimited. This is "
+                'how a "custom" enterprise cap is set.'
+            ),
         )
 
     # --- mint ---

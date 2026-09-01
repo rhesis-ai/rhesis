@@ -34,6 +34,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_LICENSE,
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
+    LIC_CUSTOM_LIMITS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
@@ -121,6 +122,32 @@ def _parse_token(raw_token: str) -> Optional[Entitlements]:
     return _payload_to_entitlements(payload)
 
 
+def _mapping_claim(lic: dict, key: str) -> dict:
+    """Read *key* from *lic* as a dict, treating anything else as absent.
+
+    Guards the limit claims specifically. ``dict(...)`` on a non-mapping raises
+    ``ValueError``/``TypeError``, which the caller's except-clause turns into a
+    rejected token -- so one malformed limits claim would cost the org its whole
+    license, including every EE feature, not just the limits it got wrong.
+
+    A limits claim is signed by us, so junk there is a minting bug on our side.
+    Dropping just that claim leaves the customer on their paid tier with the
+    override ignored and a warning in the logs, which beats silently demoting
+    them to community over a field that only ever *narrows* what they get.
+    """
+    value = lic.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        logger.warning(
+            "Ignoring malformed %r claim in license token: expected a mapping, got %s",
+            key,
+            type(value).__name__,
+        )
+        return {}
+    return dict(value)
+
+
 def _payload_to_entitlements(payload: dict) -> Optional[Entitlements]:
     """Map a decoded JWT payload dict to :class:`Entitlements`, or ``None`` on error."""
     try:
@@ -138,7 +165,8 @@ def _payload_to_entitlements(payload: dict) -> Optional[Entitlements]:
             all_features=bool(lic.get(LIC_ALL_FEATURES, False)),
             features=frozenset(str(f) for f in lic.get(LIC_FEATURES, [])),
             expires_at=expires_at,
-            limits=dict(lic.get(LIC_LIMITS) or {}),
+            limits=_mapping_claim(lic, LIC_LIMITS),
+            custom_limits=_mapping_claim(lic, LIC_CUSTOM_LIMITS),
             jti=payload.get(CLAIM_JWT_ID),
         )
     except (KeyError, TypeError, ValueError) as exc:
