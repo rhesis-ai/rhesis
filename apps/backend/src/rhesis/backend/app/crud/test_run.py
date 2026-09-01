@@ -57,6 +57,24 @@ _TEST_RUN_RELATED_FIELDS = (
         models.TestConfiguration.test_set,
         models.TestSet.test_set_type,
     ),
+    # EndpointReference and ProjectReference both serialize `tags`, and both sit too
+    # deep for get_item_detail's derived-field cascade, which only walks one hop from
+    # TestRun. Without these the two collections lazy-load during serialization -- two
+    # extra queries on every run detail response, and the first backend call the test
+    # run detail page makes.
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint._tags_relationship,
+        models.TaggedItem.tag,
+    ),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint.project,
+        models.Project._tags_relationship,
+        models.TaggedItem.tag,
+    ),
 )
 
 
