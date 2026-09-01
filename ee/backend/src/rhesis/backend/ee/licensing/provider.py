@@ -96,8 +96,8 @@ class SignedTokenLicenseProvider:
         to its mint-time numbers (see :data:`~rhesis.backend.ee.licensing.entitlements.LIC_LIMITS`).
 
         Note this does *not* widen the ``GET /features`` payload:
-        ``routers/features.py`` builds its ``LicenseInfo`` from ``edition``
-        and ``licensed`` only, and reports limits separately from
+        ``routers/features.py`` builds its ``LicenseInfo`` from ``edition``,
+        ``licensed`` and ``is_paid`` only, and reports limits separately from
         :meth:`~rhesis.backend.app.quota.QuotaRegistry.get_limits` -- which
         resolves through the quota provider, so the overlay is reflected there
         already.

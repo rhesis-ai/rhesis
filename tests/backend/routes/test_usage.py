@@ -28,19 +28,13 @@ class TestUsageEndpoint:
         response = authenticated_client.get("/usage")
         body = response.json()
 
-        assert set(body.keys()) == {"resources", "edition", "plan"}
+        # No `plan` here. It moved to GET /features, which the frontend's
+        # protected layout server-seeds, so plan surfaces have it on first paint
+        # instead of one round trip late. `edition` stays as the machine id for
+        # diagnostics. Contract covered in routes/test_features.py.
+        assert set(body.keys()) == {"resources", "edition"}
         assert isinstance(body["resources"], dict)
         assert isinstance(body["edition"], str)
-
-        # `plan` is the client's whole contract for displaying a plan: a label
-        # to render verbatim, plus the two booleans that decide styling and
-        # whether an upgrade is offered. No tier enum on the wire, so a new tier
-        # needs no frontend release.
-        plan = body["plan"]
-        assert set(plan.keys()) == {"name", "is_paid", "is_active"}
-        assert isinstance(plan["name"], str) and plan["name"] != ""
-        assert isinstance(plan["is_paid"], bool)
-        assert isinstance(plan["is_active"], bool)
 
     def test_includes_every_quota_resource(self, authenticated_client: TestClient):
         response = authenticated_client.get("/usage")
