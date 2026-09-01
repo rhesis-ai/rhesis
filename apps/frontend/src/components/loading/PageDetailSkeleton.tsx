@@ -73,13 +73,20 @@ const SECTIONS = [
 export interface PageDetailSkeletonProps {
   /** FAB placeholders in the header, matching the page's action cluster. */
   actionCount?: number;
-  /** Breadcrumb segments before the current page. */
+  /** Breadcrumb segments before the current page. 0 renders no trail. */
   breadcrumbCount?: number;
+  /**
+   * Render the DetailTabNav bar. Settings-style pages stack their section
+   * cards straight under the header with no tab bar, so they pass false and
+   * also drop the DetailTabPanel top inset that the bar would sit above.
+   */
+  showTabs?: boolean;
 }
 
 export default function PageDetailSkeleton({
   actionCount = 2,
   breadcrumbCount = 2,
+  showTabs = true,
 }: PageDetailSkeletonProps = {}) {
   return (
     <Box
@@ -95,33 +102,39 @@ export default function PageDetailSkeleton({
       />
 
       {/* DetailTabNav: 18px labels at 50px gaps, active tab underlined */}
-      <Box sx={{ display: 'flex', gap: TABS.gap }} aria-hidden>
-        {TAB_WIDTHS.map((width, idx) => (
-          <Box
-            key={width}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: TABS.labelGap,
-            }}
-          >
-            <Skeleton variant="text" width={width} sx={skeletonTextSx('h6')} />
+      {showTabs && (
+        <Box sx={{ display: 'flex', gap: TABS.gap }} aria-hidden>
+          {TAB_WIDTHS.map((width, idx) => (
             <Box
+              key={width}
               sx={{
-                height: TABS.underlineHeight,
-                borderRadius: BORDER_RADIUS.xs,
-                bgcolor: idx === 0 ? 'primary.main' : 'transparent',
-                opacity: idx === 0 ? TABS.underlineOpacity : 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: TABS.labelGap,
               }}
-            />
-          </Box>
-        ))}
-      </Box>
+            >
+              <Skeleton
+                variant="text"
+                width={width}
+                sx={skeletonTextSx('h6')}
+              />
+              <Box
+                sx={{
+                  height: TABS.underlineHeight,
+                  borderRadius: BORDER_RADIUS.xs,
+                  bgcolor: idx === 0 ? 'primary.main' : 'transparent',
+                  opacity: idx === 0 ? TABS.underlineOpacity : 0,
+                }}
+              />
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {/* Tab panel content: DetailTabPanel applies pt: 5 */}
       <Box
         sx={{
-          pt: SECTION.panelTop,
+          pt: showTabs ? SECTION.panelTop : 0,
           display: 'flex',
           flexDirection: 'column',
           gap: SECTION.gap,
