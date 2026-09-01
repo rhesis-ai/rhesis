@@ -2,15 +2,14 @@
 
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import type { Theme } from '@mui/material/styles';
 import {
   BORDER_RADIUS,
-  ELEVATION,
   GRID_CARD_INSET,
   SECTION_GRID,
 } from '@/styles/theme-constants';
-import { delayedRevealSx } from './DelayedReveal';
+import DelayedReveal from './DelayedReveal';
 import SkeletonPageHeader from './SkeletonPageHeader';
+import { skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
 
 /**
@@ -57,10 +56,6 @@ const SECTION = {
   fieldValueWidth: '72%',
 } as const;
 
-/** Card border, matching the grid card and SectionCard. */
-const cardBorder = (theme: Theme) =>
-  `1px solid ${theme.palette.greyscale.border}`;
-
 /** Tab label widths — detail pages run 3-5 tabs (Overview, Test Sets, …). */
 const TAB_WIDTHS = [78, 96, 132, 62];
 
@@ -89,11 +84,7 @@ export default function PageDetailSkeleton({
   showTabs = true,
 }: PageDetailSkeletonProps = {}) {
   return (
-    <Box
-      sx={{ width: '100%', ...delayedRevealSx }}
-      role="status"
-      aria-label="Loading page"
-    >
+    <DelayedReveal>
       <SkeletonPageHeader
         actionCount={actionCount}
         breadcrumbCount={breadcrumbCount}
@@ -145,10 +136,7 @@ export default function PageDetailSkeleton({
           <Box
             key={section.key}
             sx={{
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: cardBorder,
-              bgcolor: 'background.paper',
+              ...skeletonSurfaceSx,
               p: SECTION.inset,
             }}
           >
@@ -186,6 +174,6 @@ export default function PageDetailSkeleton({
           </Box>
         ))}
       </Box>
-    </Box>
+    </DelayedReveal>
   );
 }

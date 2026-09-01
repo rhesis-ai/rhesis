@@ -57,16 +57,22 @@ export interface DelayedRevealProps {
 }
 
 /**
- * Wraps a loading fallback so it stays invisible for `SKELETON_DELAY_MS`.
- * Both page skeletons apply `delayedRevealSx` themselves; use this for
- * fallbacks that don't, such as a bare `PageLoadingState`.
+ * Wraps a loading fallback so it stays invisible for `SKELETON_DELAY_MS`, and
+ * announces it as a full-width status region.
+ *
+ * Every page skeleton roots itself here, so the delay and the accessibility
+ * attributes are declared once. `delayedRevealSx` is exported separately for a
+ * fallback that needs to apply the hold to its own container.
  */
 export default function DelayedReveal({ children, sx }: DelayedRevealProps) {
   return (
     <Box
-      sx={[delayedRevealSx, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
+      sx={[
+        { width: '100%', ...delayedRevealSx },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
       role="status"
-      aria-label="Loading"
+      aria-label="Loading page"
     >
       {children}
     </Box>

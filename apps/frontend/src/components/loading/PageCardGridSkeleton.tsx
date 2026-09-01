@@ -2,15 +2,12 @@
 
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import type { Theme } from '@mui/material/styles';
-import {
-  BORDER_RADIUS,
-  ELEVATION,
-  GRID_CARD_INSET,
-} from '@/styles/theme-constants';
-import { delayedRevealSx } from './DelayedReveal';
+import { BORDER_RADIUS, GRID_CARD_INSET } from '@/styles/theme-constants';
+import DelayedReveal from './DelayedReveal';
 import SkeletonPageHeader from './SkeletonPageHeader';
+import { skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
+import SkeletonToolbar from './SkeletonToolbar';
 
 /**
  * Loading placeholder for card-directory pages: metrics, requirements, models,
@@ -22,6 +19,15 @@ import { skeletonTextSx } from './skeletonText';
  * declare, and `EntityCard`'s own inset, radius, elevation and internal stack.
  */
 
+/** Borderless toolbar above the cards. Only the gap and margin differ from
+ *  the grid-card toolbar; the controls live in SkeletonToolbar. */
+const DIRECTORY_TOOLBAR = {
+  /** `directoryToolbarSx` spaces its controls 20px apart, not by spacing units. */
+  gap: '20px',
+  /** Bottom margin, in MUI spacing units. */
+  marginBottom: 3,
+} as const;
+
 /** Card directory grid, mirroring the container in MetricsDirectoryTab,
  *  RequirementsClient, ToolsPageClient, ModelsPageClient and
  *  ProjectsClientWrapper, which all declare it identically. */
@@ -31,18 +37,6 @@ const CARD_GRID = {
   gap: 3,
   /** Bottom margin below the grid, in MUI spacing units. */
   marginBottom: 4,
-} as const;
-
-/** Borderless toolbar above the cards, mirroring `directoryToolbarSx`. */
-const TOOLBAR = {
-  /** Gap between controls. */
-  gap: '20px',
-  /** Bottom margin, in MUI spacing units. */
-  marginBottom: 3,
-  filterButtonSize: 36,
-  searchWidth: 240,
-  controlHeight: 38,
-  pillTabsWidth: 248,
 } as const;
 
 /** EntityCard internals: title row, clamped description, footer meta. */
@@ -63,10 +57,6 @@ const CARD = {
   chipHeight: 24,
   chipWidths: [64, 88, 52],
 } as const;
-
-/** Card border, matching EntityCard. */
-const cardBorder = (theme: Theme) =>
-  `1px solid ${theme.palette.greyscale.border}`;
 
 export interface PageCardGridSkeletonProps {
   /** FAB placeholders in the header, matching the page's action cluster. */
@@ -89,47 +79,14 @@ export default function PageCardGridSkeleton({
   );
 
   return (
-    <Box
-      sx={{ width: '100%', ...delayedRevealSx }}
-      role="status"
-      aria-label="Loading page"
-    >
+    <DelayedReveal>
       <SkeletonPageHeader actionCount={actionCount} />
 
       {showToolbar && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: TOOLBAR.gap,
-            mb: TOOLBAR.marginBottom,
-          }}
-          aria-hidden
-        >
-          <Skeleton
-            variant="rounded"
-            width={TOOLBAR.filterButtonSize}
-            height={TOOLBAR.filterButtonSize}
-            sx={{ borderRadius: BORDER_RADIUS.sm, flexShrink: 0 }}
-          />
-          <Skeleton
-            variant="rounded"
-            width={TOOLBAR.searchWidth}
-            height={TOOLBAR.controlHeight}
-            sx={{
-              borderRadius: '30px', // Intentional: matches SearchPill's elongated pill
-              flexShrink: 0,
-            }}
-          />
-          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-            <Skeleton
-              variant="rounded"
-              width={TOOLBAR.pillTabsWidth}
-              height={TOOLBAR.controlHeight}
-              sx={{ borderRadius: BORDER_RADIUS.pill }}
-            />
-          </Box>
-        </Box>
+        <SkeletonToolbar
+          gap={DIRECTORY_TOOLBAR.gap}
+          sx={{ mb: DIRECTORY_TOOLBAR.marginBottom }}
+        />
       )}
 
       <Box
@@ -148,10 +105,7 @@ export default function PageCardGridSkeleton({
               display: 'flex',
               flexDirection: 'column',
               gap: CARD.gap,
-              border: cardBorder,
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              bgcolor: 'background.paper',
+              ...skeletonSurfaceSx,
               p: GRID_CARD_INSET,
             }}
           >
@@ -224,6 +178,6 @@ export default function PageCardGridSkeleton({
           </Box>
         ))}
       </Box>
-    </Box>
+    </DelayedReveal>
   );
 }

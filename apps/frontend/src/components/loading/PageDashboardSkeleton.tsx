@@ -2,11 +2,12 @@
 
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import type { Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { delayedRevealSx } from './DelayedReveal';
+import DelayedReveal from './DelayedReveal';
 import SkeletonPageHeader from './SkeletonPageHeader';
+import { skeletonBorder } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
+import SkeletonToolbar from './SkeletonToolbar';
 
 /**
  * Loading placeholder for the insights dashboard, which is neither a table nor
@@ -17,12 +18,11 @@ import { skeletonTextSx } from './skeletonText';
  * `RequirementInsightsView`.
  */
 
-/** Compact filter bar, mirroring `TestResultsFilters` in its compact variant. */
+/** Compact filter bar, mirroring `TestResultsFilters` in its compact variant.
+ *  The controls themselves live in SkeletonToolbar. */
 const FILTERS = {
+  /** The compact bar spaces its controls 20px apart, not by spacing units. */
   gap: '20px',
-  filterButtonSize: 36,
-  searchWidth: 240,
-  controlHeight: 38,
   chipWidths: [104, 132, 88],
 } as const;
 
@@ -51,9 +51,6 @@ const BREAKDOWN = {
   rows: 5,
 } as const;
 
-const panelBorder = (theme: Theme) =>
-  `1px solid ${theme.palette.greyscale.border}`;
-
 export interface PageDashboardSkeletonProps {
   /** FAB placeholders in the header, matching the page's action cluster. */
   actionCount?: number;
@@ -70,11 +67,7 @@ export default function PageDashboardSkeleton({
   );
 
   return (
-    <Box
-      sx={{ width: '100%', ...delayedRevealSx }}
-      role="status"
-      aria-label="Loading page"
-    >
+    <DelayedReveal>
       <SkeletonPageHeader actionCount={actionCount} />
 
       <Box
@@ -86,34 +79,12 @@ export default function PageDashboardSkeleton({
         aria-hidden
       >
         {/* Compact filter bar */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: FILTERS.gap }}>
-          <Skeleton
-            variant="rounded"
-            width={FILTERS.filterButtonSize}
-            height={FILTERS.filterButtonSize}
-            sx={{ borderRadius: BORDER_RADIUS.sm, flexShrink: 0 }}
-          />
-          <Skeleton
-            variant="rounded"
-            width={FILTERS.searchWidth}
-            height={FILTERS.controlHeight}
-            sx={{
-              borderRadius: '30px', // Intentional: matches SearchPill's elongated pill
-              flexShrink: 0,
-            }}
-          />
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {FILTERS.chipWidths.map(width => (
-              <Skeleton
-                key={width}
-                variant="rounded"
-                width={width}
-                height={FILTERS.controlHeight}
-                sx={{ borderRadius: BORDER_RADIUS.pill }}
-              />
-            ))}
-          </Box>
-        </Box>
+        <SkeletonToolbar
+          gap={FILTERS.gap}
+          showTabs={false}
+          rightSlot="chips"
+          chipWidths={FILTERS.chipWidths}
+        />
 
         {/* Pass-rate summary bar */}
         <Box
@@ -121,7 +92,7 @@ export default function PageDashboardSkeleton({
             px: SUMMARY.paddingX,
             py: SUMMARY.paddingY,
             borderRadius: SUMMARY.radius,
-            border: panelBorder,
+            border: skeletonBorder,
             bgcolor: 'background.paper',
           }}
         >
@@ -153,7 +124,7 @@ export default function PageDashboardSkeleton({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
-                border: panelBorder,
+                border: skeletonBorder,
                 borderRadius: BORDER_RADIUS.md,
                 bgcolor: 'background.paper',
                 p: 2,
@@ -195,6 +166,6 @@ export default function PageDashboardSkeleton({
           ))}
         </Box>
       </Box>
-    </Box>
+    </DelayedReveal>
   );
 }
