@@ -8,6 +8,7 @@ import {
   FAB_GROUP_GAP,
 } from '@/styles/theme-constants';
 import { delayedRevealSx } from './DelayedReveal';
+import { skeletonTextSx } from './skeletonText';
 
 /**
  * Loading placeholder for the standard list page: `PageLayout` header (title,
@@ -79,7 +80,7 @@ export default function PageListSkeleton({
             minHeight: HEADER_ROW_HEIGHT,
           }}
         >
-          <Skeleton variant="text" width={180} sx={{ fontSize: '2.125rem' }} />
+          <Skeleton variant="text" width={180} sx={skeletonTextSx('h4')} />
           {actionCount > 0 && (
             <Box
               sx={{ display: 'flex', gap: FAB_GROUP_GAP, flexShrink: 0 }}
@@ -91,7 +92,7 @@ export default function PageListSkeleton({
             </Box>
           )}
         </Box>
-        <Skeleton variant="text" width={420} sx={{ fontSize: '1rem' }} />
+        <Skeleton variant="text" width={420} sx={skeletonTextSx('bodyLReg')} />
       </Box>
 
       {/* Grid card — mirrors GRID_PAPER_SX */}
@@ -129,7 +130,10 @@ export default function PageListSkeleton({
               variant="rounded"
               width={240}
               height={38}
-              sx={{ borderRadius: '30px', flexShrink: 0 }}
+              sx={{
+                borderRadius: '30px', // Intentional: matches SearchPill's elongated pill
+                flexShrink: 0,
+              }}
             />
             {/* Centered pill tabs */}
             <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
@@ -153,7 +157,7 @@ export default function PageListSkeleton({
                   key={width}
                   variant="text"
                   width={width}
-                  sx={{ fontSize: '0.875rem' }}
+                  sx={skeletonTextSx('bodyMReg')}
                 />
               ))}
             </Box>
@@ -184,7 +188,7 @@ export default function PageListSkeleton({
               <Skeleton
                 variant="text"
                 width={col.header}
-                sx={{ fontSize: '0.875rem' }}
+                sx={skeletonTextSx('bodyMReg')}
               />
             </Box>
           ))}
@@ -225,7 +229,7 @@ export default function PageListSkeleton({
                   <Skeleton
                     variant="text"
                     width={col.cell}
-                    sx={{ fontSize: '0.875rem' }}
+                    sx={skeletonTextSx('bodyMReg')}
                   />
                 )}
               </Box>
@@ -246,7 +250,7 @@ export default function PageListSkeleton({
           }}
         >
           <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton variant="text" width={64} sx={{ fontSize: '0.875rem' }} />
+          <Skeleton variant="text" width={64} sx={skeletonTextSx('bodyMReg')} />
           <Skeleton variant="circular" width={32} height={32} />
         </Box>
       </Box>

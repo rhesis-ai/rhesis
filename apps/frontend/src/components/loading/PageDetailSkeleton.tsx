@@ -9,6 +9,7 @@ import {
   SECTION_GRID,
 } from '@/styles/theme-constants';
 import { delayedRevealSx } from './DelayedReveal';
+import { skeletonTextSx } from './skeletonText';
 
 /**
  * Loading placeholder for entity detail pages: `PageLayout` header
@@ -70,7 +71,7 @@ export default function PageDetailSkeleton({
               <Skeleton
                 variant="text"
                 width={idx === 0 ? 72 : 108}
-                sx={{ fontSize: '0.875rem' }}
+                sx={skeletonTextSx('bodyMReg')}
               />
               {idx < crumbKeys.length - 1 && (
                 <Skeleton variant="circular" width={6} height={6} />
@@ -89,11 +90,7 @@ export default function PageDetailSkeleton({
               minHeight: HEADER_ROW_HEIGHT,
             }}
           >
-            <Skeleton
-              variant="text"
-              width={280}
-              sx={{ fontSize: '2.125rem' }}
-            />
+            <Skeleton variant="text" width={280} sx={skeletonTextSx('h4')} />
             {actionCount > 0 && (
               <Box sx={{ display: 'flex', gap: FAB_GROUP_GAP, flexShrink: 0 }}>
                 {fabKeys.map(key => (
@@ -107,7 +104,11 @@ export default function PageDetailSkeleton({
               </Box>
             )}
           </Box>
-          <Skeleton variant="text" width={460} sx={{ fontSize: '1rem' }} />
+          <Skeleton
+            variant="text"
+            width={460}
+            sx={skeletonTextSx('bodyLReg')}
+          />
         </Box>
       </Box>
 
@@ -118,11 +119,7 @@ export default function PageDetailSkeleton({
             key={width}
             sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
           >
-            <Skeleton
-              variant="text"
-              width={width}
-              sx={{ fontSize: '1.125rem' }}
-            />
+            <Skeleton variant="text" width={width} sx={skeletonTextSx('h6')} />
             <Box
               sx={{
                 height: TAB_UNDERLINE_HEIGHT,
@@ -154,7 +151,7 @@ export default function PageDetailSkeleton({
             <Skeleton
               variant="text"
               width={section.heading}
-              sx={{ fontSize: '1.25rem', mb: 3 }}
+              sx={{ ...skeletonTextSx('h6'), mb: 3 }}
             />
             <Box
               sx={{
@@ -172,12 +169,12 @@ export default function PageDetailSkeleton({
                   <Skeleton
                     variant="text"
                     width={96}
-                    sx={{ fontSize: '0.75rem' }}
+                    sx={skeletonTextSx('bodySReg')}
                   />
                   <Skeleton
                     variant="text"
                     width="72%"
-                    sx={{ fontSize: '1rem' }}
+                    sx={skeletonTextSx('bodyLReg')}
                   />
                 </Box>
               ))}
