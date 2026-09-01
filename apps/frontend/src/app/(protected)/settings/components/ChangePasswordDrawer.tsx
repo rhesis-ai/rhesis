@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { TextField, Alert, Box } from '@mui/material';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { changePassword } from '@/utils/api-client/auth-client';
@@ -31,6 +32,7 @@ export default function ChangePasswordDrawer({
   onClose,
   hasPassword,
 }: ChangePasswordDrawerProps) {
+  const router = useRouter();
   const { update: updateSession } = useSession();
   const queryClient = useQueryClient();
   const userScope = useUserScope();
@@ -112,6 +114,10 @@ export default function ChangePasswordDrawer({
       queryClient.invalidateQueries({
         queryKey: userSettingsKeys.all(userScope),
       });
+      // The settings page reads `has_password` from a server fetch, so the
+      // cache invalidation above doesn't reach it -- without this the card
+      // still offers "Set Password" after one was just set.
+      router.refresh();
 
       notifications.show(
         hasPassword
@@ -139,6 +145,7 @@ export default function ChangePasswordDrawer({
     userScope,
     notifications,
     handleClose,
+    router,
   ]);
 
   const canSave =
