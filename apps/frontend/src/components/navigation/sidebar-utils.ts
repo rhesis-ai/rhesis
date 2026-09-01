@@ -7,6 +7,7 @@ import {
   type NavigationHeaderItem,
   type NavigationActionItem,
 } from '@/types/navigation';
+import type { Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
@@ -35,7 +36,8 @@ export const collapsedNavItemSx = {
  *
  * Figma values, which is why they are px and not `theme.spacing` units: 14 and
  * 10 are not multiples of the 8px spacing step, so a spacing unit would round
- * them and shift the whole card.
+ * them and shift the whole card. The vertical padding in `navCardRowSx` *is* on
+ * the step, so it uses the spacing scale.
  */
 // Module-private: `navCardRowSx` below is the public interface. Exported
 // separately once, when NavLinkItem spread it directly; consumers now compose
@@ -44,6 +46,11 @@ const NAV_CARD_ROW_SX = {
   px: '14px',
   gap: '10px',
 } as const;
+
+/** The icon-to-label gap, exported for a row that builds its own inner flex
+ * line (the plan row's crown + badge) and must land on the same x as the
+ * single-line rows' labels. Same value `navCardRowSx` uses, not a copy. */
+export const NAV_CARD_ICON_GAP = NAV_CARD_ROW_SX.gap;
 
 /** Icon box size for a card row. Module-private: read it through
  * `navCardIconSx`, which is what guarantees every row's gutter matches. */
@@ -57,30 +64,42 @@ const NAV_CARD_ICON_SIZE = 24;
  * A function rather than a constant because the hover colour and the
  * transition duration are theme reads, and `sx` callbacks cannot be spread out
  * of a plain object without losing them.
+ *
+ * Pass `interactive: false` for a row that only reports state. It keeps the
+ * geometry -- which is the whole point of sharing this -- and drops the pointer
+ * cursor and hover tint, so a static row does not read as a broken link beside
+ * the actionable ones. The alternative, a bespoke layout for the static row, is
+ * what made the plan row's label start at a different x-offset in the first
+ * place.
  */
-export const navCardRowSx = () =>
+export const navCardRowSx = ({ interactive = true } = {}) =>
   ({
     display: 'flex',
     alignItems: 'center',
     ...NAV_CARD_ROW_SX,
-    py: '8px',
+    py: 1,
     borderRadius: BORDER_RADIUS.sm,
     textDecoration: 'none',
-    cursor: 'pointer',
-    '&:hover': {
-      bgcolor: (theme: { palette: { greyscale: { surface1: string } } }) =>
-        theme.palette.greyscale.surface1,
-    },
-    // `duration.shortest` is the theme's own 150ms.
-    transition: (theme: {
-      transitions: {
-        create: (p: string, o: { duration: number }) => string;
-        duration: { shortest: number };
-      };
-    }) =>
-      theme.transitions.create('background-color', {
-        duration: theme.transitions.duration.shortest,
-      }),
+    ...(interactive
+      ? {
+          cursor: 'pointer',
+          '&:hover': {
+            bgcolor: (theme: {
+              palette: { greyscale: { surface1: string } };
+            }) => theme.palette.greyscale.surface1,
+          },
+          // `duration.shortest` is the theme's own 150ms.
+          transition: (theme: {
+            transitions: {
+              create: (p: string, o: { duration: number }) => string;
+              duration: { shortest: number };
+            };
+          }) =>
+            theme.transitions.create('background-color', {
+              duration: theme.transitions.duration.shortest,
+            }),
+        }
+      : {}),
   }) as const;
 
 /**
@@ -97,14 +116,18 @@ export const navCardIconSx = {
 } as const;
 
 /**
- * The row label. `minWidth: 0` lets it shrink instead of forcing a trailing
- * element out of the row -- without it a long plan name would push the badge
- * past the row's right padding.
+ * The row label's *geometry* only. `minWidth: 0` lets it shrink instead of
+ * forcing a trailing element out of the row -- without it a long plan name
+ * would push the badge past the row's right padding.
+ *
+ * Type is deliberately absent: consumers pass `variant="bodyMReg"` on the
+ * `Typography` instead. That variant is exactly this row's type (400 / 14px /
+ * 22px), and reading it from the theme rather than restating the three numbers
+ * matters for the same reason the badge's weight does -- the theme's weights
+ * shift on a branded deployment, so a literal would silently stop matching the
+ * rest of the sidebar.
  */
 export const navCardLabelSx = {
-  fontSize: 14,
-  fontWeight: 400,
-  lineHeight: '22px',
   whiteSpace: 'nowrap' as const,
   overflow: 'hidden' as const,
   textOverflow: 'ellipsis' as const,
@@ -145,8 +168,15 @@ export const COUNT_BADGE_SX = {
   borderRadius: BORDER_RADIUS.sm,
   bgcolor: 'primary.main',
   color: 'primary.contrastText',
-  fontSize: 12,
-  fontWeight: 600,
+  // Type from the theme, not literals. `600` was a real bug, not just a
+  // convention slip: the theme's semibold is 700 when a brand font is
+  // configured, so the literal rendered this badge lighter than every other
+  // semibold element on a branded deployment.
+  fontSize: (theme: Theme) => theme.typography.captionBold.fontSize,
+  fontWeight: (theme: Theme) => theme.typography.captionBold.fontWeight,
+  // Geometry, deliberately not from the variant: this matches the badge's own
+  // 20px height so the number sits centred, where `captionBold`'s 18px would
+  // not.
   lineHeight: '20px',
   textAlign: 'center',
 } as const;

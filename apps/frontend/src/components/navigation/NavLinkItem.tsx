@@ -45,6 +45,7 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const labelNode = !collapsed && (
     <>
       <Typography
+        variant="bodyMReg"
         sx={{
           ...navCardLabelSx,
           color: (theme: Theme) => theme.palette.greyscale.body,
