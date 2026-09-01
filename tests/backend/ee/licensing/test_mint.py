@@ -212,7 +212,7 @@ class TestMintTokenOverrides:
         assert ent.allows("sso") is True
         assert ent.allows("api_clients") is True
 
-    def test_custom_limits_merge_with_tier_defaults(self, private_key_env):
+    def test_custom_limits_land_in_their_own_claim(self, private_key_env):
         from rhesis.backend.ee.licensing.mint import mint_token
 
         ent = verify_token(
@@ -224,22 +224,43 @@ class TestMintTokenOverrides:
             )
         )
         assert ent is not None
-        assert ent.limits["seats"] == 200
-        assert ent.limits["extra_quota"] == 50
+        assert ent.custom_limits["seats"] == 200
+        assert ent.custom_limits["extra_quota"] == 50
 
-    def test_custom_limits_override_tier_seat_count(self, private_key_env):
+    def test_custom_limits_leave_the_tier_snapshot_alone(self, private_key_env):
+        """The ``limits`` snapshot must keep reporting the tier, not the override.
+
+        The two claims answer different questions -- "what did this tier look
+        like when minted" vs "what was negotiated for this org" -- and only the
+        second is enforced. Merging the override into the snapshot is what would
+        make a bespoke cap indistinguishable from the tier's own number, and pin
+        the org to its mint-time limits for every other resource.
+        """
         from rhesis.backend.ee.licensing.mint import mint_token
+        from rhesis.backend.ee.licensing.tiers import resolve_tier
+
+        seats = str(QuotaResource.SEATS)
+        tier_seats = resolve_tier(LicenseEdition.TEAM).limits[QuotaResource.SEATS]
 
         ent = verify_token(
             mint_token(
                 self.ORG_ID,
                 LicenseEdition.TEAM,
                 kid="test-v1",
-                custom_limits={str(QuotaResource.SEATS): 99},
+                custom_limits={seats: 99},
             )
         )
         assert ent is not None
-        assert ent.limits[str(QuotaResource.SEATS)] == 99
+        assert ent.custom_limits[seats] == 99
+        assert ent.limits[seats] == tier_seats
+
+    def test_no_custom_limits_means_an_empty_override_map(self, private_key_env):
+        """Absent is the common case and must not read as "capped at nothing"."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
+        assert ent is not None
+        assert dict(ent.custom_limits) == {}
 
 
 # ---------------------------------------------------------------------------

@@ -38,12 +38,19 @@ function item(
 
 function mockUsage(
   resources: Record<string, UsageResourceItem>,
-  options: { loading?: boolean; edition?: string | null } = {}
+  options: {
+    loading?: boolean;
+    edition?: string | null;
+    licensed?: boolean | null;
+  } = {}
 ) {
-  const { loading = false, edition = 'community' } = options;
+  // `licensed: false` alongside the community default, matching what the
+  // backend actually sends for a free org.
+  const { loading = false, edition = 'community', licensed = false } = options;
   (useUsage as jest.Mock).mockReturnValue({
     resources,
     edition,
+    licensed,
     loading,
     error: null,
   });
@@ -144,7 +151,34 @@ describe('QuotaBanner', () => {
   it('does not offer to upgrade a paying org', () => {
     mockUsage(
       { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'pro' }
+      { edition: 'pro', licensed: true }
+    );
+    render(<QuotaBanner />);
+    expect(
+      screen.queryByRole('link', { name: /upgrade plan/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers to upgrade an org whose paid licence has lapsed', () => {
+    // The backend holds a canceled licence to community limits while still
+    // reporting its old edition, so gating the CTA on the edition name left
+    // exactly this org blocked at free-tier ceilings with no way forward.
+    mockUsage(
+      { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
+      { edition: 'enterprise', licensed: false }
+    );
+    render(<QuotaBanner />);
+    expect(
+      screen.getByRole('link', { name: /upgrade plan/i })
+    ).toBeInTheDocument();
+  });
+
+  it('offers nothing while licence status is still unknown', () => {
+    // A response from a backend predating `licensed`. Must not read as
+    // unlicensed and prompt a paying customer to upgrade.
+    mockUsage(
+      { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
+      { edition: 'enterprise', licensed: null }
     );
     render(<QuotaBanner />);
     expect(

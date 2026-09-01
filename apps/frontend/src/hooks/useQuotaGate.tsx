@@ -22,8 +22,8 @@ import { Capability } from '@/constants/capabilities';
 import type { QuotaResource } from '@/constants/quota';
 import { useResourceUsage, useUsage } from '@/contexts/UsageContext';
 import {
-  isCommunityEdition,
   isKnownQuotaResource,
+  isUnlicensedPlan,
   parseQuotaError,
   quotaCopy,
 } from '@/utils/quota';
@@ -132,12 +132,16 @@ export function useQuotaMessageFor(
 }
 
 /** Whether this reader can act on an upgrade: someone who can manage the org
- * (the same owner/admin gate as Org Settings) on a community-edition org.
- * Deliberately not `usage:read`, which every member holds. */
+ * (the same owner/admin gate as Org Settings) whose org has no active paid
+ * license. Deliberately not `usage:read`, which every member holds.
+ *
+ * Gates on licence status rather than the edition name so a lapsed paid org --
+ * held to community limits but still reporting its old edition -- is offered
+ * the upgrade too. See `isUnlicensedPlan`. */
 export function useCanUpgrade(): boolean {
   const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const { edition } = useUsage();
-  return canManageOrg && edition !== null && isCommunityEdition(edition);
+  const { edition, licensed } = useUsage();
+  return canManageOrg && isUnlicensedPlan(edition, licensed);
 }
 
 export interface QuotaErrorResult {

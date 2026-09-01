@@ -18,6 +18,7 @@ import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 const LOADING_STATE: UsageState = {
   resources: {},
   edition: null,
+  licensed: null,
   loading: true,
   error: null,
 };
@@ -44,6 +45,7 @@ export function useUsageForPeriod(periodStart: string | null): UsageState {
       return {
         resources: {},
         edition: null,
+        licensed: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -52,6 +54,7 @@ export function useUsageForPeriod(periodStart: string | null): UsageState {
     return {
       resources: data.resources,
       edition: data.edition,
+      licensed: data.licensed ?? null,
       loading: false,
       error: null,
     };

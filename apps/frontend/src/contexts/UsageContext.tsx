@@ -38,6 +38,15 @@ import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 export interface UsageState {
   resources: Readonly<Record<string, UsageResourceItem>>;
   edition: string | null;
+  /**
+   * Whether the org holds an active paid license. `null` while loading or on
+   * error, matching `edition`.
+   *
+   * Carried separately from `edition` because a lapsed plan keeps its edition
+   * name -- see `isUnlicensedPlan` in `utils/quota.ts`, which is what upgrade
+   * affordances should gate on.
+   */
+  licensed: boolean | null;
   loading: boolean;
   error: Error | null;
 }
@@ -45,6 +54,7 @@ export interface UsageState {
 const DEFAULT_STATE: UsageState = {
   resources: {},
   edition: null,
+  licensed: null,
   loading: true,
   error: null,
 };
@@ -83,6 +93,7 @@ export function UsageProvider({
       return {
         resources: {},
         edition: null,
+        licensed: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -90,6 +101,10 @@ export function UsageProvider({
     return {
       resources: data.resources,
       edition: data.edition,
+      // `?? null` rather than `?? false`: a response predating this field is
+      // "unknown", not "unlicensed". Defaulting to false would offer an
+      // upgrade to every paying org against an older backend.
+      licensed: data.licensed ?? null,
       loading: false,
       error: null,
     };

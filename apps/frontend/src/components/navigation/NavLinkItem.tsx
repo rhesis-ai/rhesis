@@ -11,7 +11,11 @@ import {
   type NavigationLinkItem,
   type NavigationActionItem,
 } from '@/types/navigation';
-import { collapsedNavItemSx } from './sidebar-utils';
+import {
+  collapsedNavItemSx,
+  NAV_CARD_ICON_SIZE,
+  NAV_CARD_ROW_SX,
+} from './sidebar-utils';
 
 interface NavLinkItemProps {
   item: NavigationLinkItem | NavigationActionItem;
@@ -25,8 +29,7 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const sharedSx: SxProps<Theme> = {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    px: '14px',
+    ...NAV_CARD_ROW_SX,
     py: '8px',
     borderRadius: BORDER_RADIUS.sm,
     textDecoration: 'none',
@@ -34,7 +37,12 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
     '&:hover': {
       bgcolor: (theme: Theme) => theme.palette.greyscale.surface1,
     },
-    transition: 'background-color 0.15s ease',
+    // `duration.shortest` is the theme's own 150ms -- the value this used to
+    // spell out as '0.15s'.
+    transition: (theme: Theme) =>
+      theme.transitions.create('background-color', {
+        duration: theme.transitions.duration.shortest,
+      }),
     ...(collapsed ? collapsedNavItemSx : {}),
   };
 
@@ -44,7 +52,7 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
         display: 'flex',
         flexShrink: 0,
         color: (theme: Theme) => theme.palette.greyscale.body,
-        '& svg': { width: 24, height: 24 },
+        '& svg': { width: NAV_CARD_ICON_SIZE, height: NAV_CARD_ICON_SIZE },
       }}
     >
       {item.icon}

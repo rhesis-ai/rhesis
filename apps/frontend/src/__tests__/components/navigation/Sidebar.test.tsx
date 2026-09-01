@@ -69,10 +69,14 @@ const mockUsageResources: {
     }
   >;
 } = { current: {} };
+const mockUsagePlan: {
+  current: { edition: string; licensed: boolean | null };
+} = { current: { edition: 'community', licensed: false } };
 jest.mock('@/contexts/UsageContext', () => ({
   useUsage: () => ({
     resources: mockUsageResources.current,
-    edition: 'community',
+    edition: mockUsagePlan.current.edition,
+    licensed: mockUsagePlan.current.licensed,
     loading: false,
     error: null,
   }),
@@ -118,6 +122,62 @@ describe('Sidebar', () => {
     mockRouterPush.mockClear();
     mockUnreadBySection.current = {};
     mockUsageResources.current = {};
+    mockUsagePlan.current = { edition: 'community', licensed: false };
+  });
+
+  describe('plan row in the footer card', () => {
+    /** The footer card the plan row heads, keyed off a link it always has. */
+    function footerCard(container: HTMLElement): HTMLElement {
+      const starLink = screen.getByText('Star Rhesis');
+      const card = starLink.closest('div')?.parentElement;
+      if (!card) throw new Error('footer card not found');
+      expect(container).toContainElement(card);
+      return card;
+    }
+
+    const footerNav: NavigationItem[] = [
+      { kind: 'divider' },
+      {
+        kind: 'link',
+        title: 'Star Rhesis',
+        href: 'https://github.com/rhesis-ai/rhesis',
+        external: true,
+      },
+      { kind: 'action', title: 'Support', action: 'support' },
+    ];
+
+    it('sits above Star Rhesis', () => {
+      setupMocks({ navigation: footerNav });
+      const { container } = render(<Sidebar />);
+
+      const card = footerCard(container);
+      const plan = screen.getByText('community');
+      const star = screen.getByText('Star Rhesis');
+
+      expect(card).toContainElement(plan);
+      // Ordered comparison rather than an index: DOCUMENT_POSITION_FOLLOWING
+      // says "star comes after plan" without depending on the card's exact
+      // nesting, which the styling wrappers can change.
+      expect(
+        plan.compareDocumentPosition(star) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+
+    it('names an active paid plan', () => {
+      mockUsagePlan.current = { edition: 'enterprise', licensed: true };
+      setupMocks({ navigation: footerNav });
+      render(<Sidebar />);
+
+      expect(screen.getByText('enterprise')).toBeInTheDocument();
+    });
+
+    it('marks a lapsed paid plan inactive', () => {
+      mockUsagePlan.current = { edition: 'enterprise', licensed: false };
+      setupMocks({ navigation: footerNav });
+      render(<Sidebar />);
+
+      expect(screen.getByText('enterprise (inactive)')).toBeInTheDocument();
+    });
   });
 
   it('renders without crashing', () => {

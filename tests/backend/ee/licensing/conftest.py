@@ -29,6 +29,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_LICENSE,
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
+    LIC_CUSTOM_LIMITS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
@@ -69,6 +70,7 @@ def mint_token(ed25519_keypair):
         all_features: bool = True,
         features: Optional[list] = None,
         limits: Optional[dict] = None,
+        custom_limits: Optional[dict] = None,
         exp: Optional[int] = None,
         iss: str = LICENSE_ISSUER,
         aud: str = LICENSE_AUDIENCE,
@@ -77,6 +79,17 @@ def mint_token(ed25519_keypair):
         extra_claims: Optional[dict[str, Any]] = None,
     ) -> str:
         now = int(time.time())
+        lic: dict[str, Any] = {
+            LIC_EDITION: edition,
+            LIC_STATUS: status,
+            LIC_ALL_FEATURES: all_features,
+            LIC_FEATURES: features or [],
+            LIC_LIMITS: limits or {},
+        }
+        # Only set when asked, so the default token looks like the ones already
+        # in the wild -- no custom_limits claim at all.
+        if custom_limits is not None:
+            lic[LIC_CUSTOM_LIMITS] = custom_limits
         payload: dict[str, Any] = {
             CLAIM_ISSUER: iss,
             CLAIM_AUDIENCE: aud,
@@ -84,13 +97,7 @@ def mint_token(ed25519_keypair):
             CLAIM_ISSUED_AT: now,
             CLAIM_EXPIRY: exp if exp is not None else now + 3600,
             CLAIM_JWT_ID: jti,
-            CLAIM_LICENSE: {
-                LIC_EDITION: edition,
-                LIC_STATUS: status,
-                LIC_ALL_FEATURES: all_features,
-                LIC_FEATURES: features or [],
-                LIC_LIMITS: limits or {},
-            },
+            CLAIM_LICENSE: lic,
         }
         if extra_claims:
             payload.update(extra_claims)

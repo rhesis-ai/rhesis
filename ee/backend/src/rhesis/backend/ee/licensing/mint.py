@@ -54,8 +54,8 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_SUBJECT,
     ENV_LICENSE_PRIVATE_KEY,
     LIC_ALL_FEATURES,
+    LIC_CUSTOM_LIMITS,
     LIC_FEATURES,
-    LIC_LIMITS,
     LICENSE_ALGORITHM,
     LICENSE_AUDIENCE,
     LICENSE_ISSUER,
@@ -152,8 +152,13 @@ def mint_token(
     :param custom_features: When set, overrides the tier-default feature list
         (a sorted list of :class:`~rhesis.backend.app.features.FeatureName`
         string values). Use for one-off bespoke deals.
-    :param custom_limits: When set, overrides or extends the tier-default
-        limits dict (e.g. ``{"seats": 200}``).
+    :param custom_limits: Bespoke per-resource limit overrides for this org
+        (e.g. ``{"seats": 200}``), written to the ``custom_limits`` claim.
+        Overlaid per-resource on the tier's *live* catalog limits at
+        enforcement time, so resources left out keep tracking the published
+        tier and a later pricing change still reaches this customer. Use
+        ``None`` as a value to make one resource unlimited. This is the
+        mechanism behind the pricing page's "custom" enterprise limits.
     :returns: Signed JWT string.
     :raises RuntimeError: if the private key is unavailable or invalid, or if
         *edition* is not a sellable tier.
@@ -175,9 +180,11 @@ def mint_token(
         lic_claim[LIC_ALL_FEATURES] = False
 
     if custom_limits is not None:
-        merged = dict(lic_claim.get(LIC_LIMITS) or {})
-        merged.update(custom_limits)
-        lic_claim[LIC_LIMITS] = merged
+        # Its own claim, deliberately not merged into LIC_LIMITS -- that one is
+        # a full tier snapshot, so a merged override could not be told apart
+        # from the tier's own numbers, and enforcing it would pin this org to
+        # its mint-time limits for good. See LIC_CUSTOM_LIMITS.
+        lic_claim[LIC_CUSTOM_LIMITS] = dict(custom_limits)
 
     payload: dict[str, Any] = {
         CLAIM_ISSUER: LICENSE_ISSUER,

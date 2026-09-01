@@ -22,12 +22,15 @@ one blocking rule instead of each re-deriving it.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Protocol, Union
 
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.models.organization import Organization
+
+logger = logging.getLogger(__name__)
 
 
 class QuotaResource(str, Enum):
@@ -112,11 +115,15 @@ class OveragePolicy(str, Enum):
 # malformed. Exported (not underscore-prefixed) so both consumers -- and a
 # test asserting the YAML's "community" entry matches -- can reference the
 # same numbers instead of duplicating them.
+#
+# Published on the pricing page as the Free plan -- see the header comment in
+# ee/.../licensing/tier_config.yaml. These must stay equal to that file's
+# `community` entry (asserted by tests/backend/ee/licensing/test_tiers.py).
 FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
     QuotaResource.TEST_EXECUTIONS: 500,
     QuotaResource.TRACING_SPANS: 50_000,
     QuotaResource.TEST_GENERATION: 100,
-    QuotaResource.MODEL_TOKENS: 5_000_000,
+    QuotaResource.MODEL_TOKENS: 1_000_000,
     QuotaResource.SEATS: 3,
     QuotaResource.PROJECTS: 3,
     QuotaResource.ENDPOINTS: 3,
@@ -174,6 +181,26 @@ class QuotaPolicy:
             return limit
         return limit * (100 + self.overage_tolerance_percent) // 100
 
+    def with_limit_overrides(self, overrides: dict[QuotaResource, int | None]) -> "QuotaPolicy":
+        """Return a copy with *overrides* applied on top of :attr:`limits`.
+
+        A **per-resource** merge, not a replacement: a resource absent from
+        *overrides* keeps this policy's limit. That is what makes a partial
+        override meaningful -- a bespoke deal that caps one resource must not
+        silently unmeter the other six by omitting them.
+
+        The overage policy is deliberately not overridable. A negotiated cap
+        changes *what* the ceiling is, not whether the tier gets a grace band
+        before hitting it.
+        """
+        if not overrides:
+            return self
+        return QuotaPolicy(
+            limits={**self.limits, **overrides},
+            overage=self.overage,
+            overage_tolerance_percent=self.overage_tolerance_percent,
+        )
+
 
 def limits_to_wire(limits: dict[QuotaResource, int | None]) -> dict[str, int | None]:
     """Convert a ``QuotaResource``-keyed limits dict to string keys for the wire.
@@ -183,6 +210,68 @@ def limits_to_wire(limits: dict[QuotaResource, int | None]) -> dict[str, int | N
     ``GET /features`` response -- both need the same enum-to-string shape.
     """
     return {str(k): v for k, v in limits.items()}
+
+
+def limits_from_wire(raw: object) -> dict[QuotaResource, int | None]:
+    """Parse a wire limits mapping into ``QuotaResource`` keys, skipping junk.
+
+    The inverse of :func:`limits_to_wire`, for a limits map that arrived as
+    *data at request time* -- currently the ``lic.custom_limits`` claim of a
+    signed license token, carrying a bespoke deal's negotiated caps.
+
+    Deliberately lenient where the tier-YAML parser
+    (``ee.licensing.tiers._parse_limits``) is strict, and the difference is
+    the source, not the shape:
+
+    - The YAML is authored by us, read once at startup, and validated there,
+      so a bad key is a deploy-time bug worth refusing to boot over.
+    - A token is validated by signature, not by schema, and is read on the
+      request path. Raising here would turn one malformed claim into a 500 on
+      every request for that org.
+
+    So an unknown resource name, a non-integer, a ``bool`` (which passes
+    ``isinstance(v, int)``), or a negative number is dropped with a warning
+    and the tier default applies to that resource instead. That fails toward
+    *not* enforcing an override we could not read, which for the enterprise
+    tier this exists to serve means staying unlimited -- lenient toward the
+    customer, and visible in the logs, rather than blocking work at a ceiling
+    nobody can explain.
+
+    Returns a **partial** map: only the resources *raw* actually names, so it
+    is safe to merge via :meth:`QuotaPolicy.with_limit_overrides`. A non-mapping
+    *raw* (including ``None``) yields an empty dict.
+    """
+    if not isinstance(raw, dict):
+        if raw is not None:
+            logger.warning("Ignoring non-mapping limits claim (got %s)", type(raw).__name__)
+        return {}
+
+    parsed: dict[QuotaResource, int | None] = {}
+    for key, value in raw.items():
+        try:
+            resource = QuotaResource(key)
+        except ValueError:
+            logger.warning("Ignoring unknown resource %r in limits claim", key)
+            continue
+
+        if value is None:
+            parsed[resource] = None
+            continue
+        # bool must be rejected explicitly: it passes isinstance(v, int).
+        if isinstance(value, bool) or not isinstance(value, int):
+            logger.warning(
+                "Ignoring non-integer limit for %r in limits claim: %r (%s)",
+                key,
+                value,
+                type(value).__name__,
+            )
+            continue
+        if value < 0:
+            logger.warning("Ignoring negative limit for %r in limits claim: %r", key, value)
+            continue
+        parsed[resource] = value
+
+    return parsed
 
 
 class QuotaProvider(Protocol):
@@ -293,6 +382,7 @@ __all__ = [
     "QuotaResource",
     "QuotaResourceLike",
     "UNLIMITED_LIMITS",
+    "limits_from_wire",
     "limits_to_wire",
     "resource_label",
 ]

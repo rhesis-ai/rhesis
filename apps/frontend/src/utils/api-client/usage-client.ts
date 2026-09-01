@@ -24,6 +24,16 @@ export interface UsageResourceItem {
 export interface UsageResponse {
   resources: Record<string, UsageResourceItem>;
   edition: string;
+  /**
+   * Whether the org holds an *active* paid license.
+   *
+   * Separate from `edition`, which keeps naming a lapsed tier so the UI can
+   * say which license expired: a canceled enterprise license reports
+   * `edition: "enterprise"` with `licensed: false`, while the backend holds it
+   * to community limits. Gate upgrade affordances on this, not on the edition
+   * string -- see `isUnlicensedPlan` in `utils/quota.ts`.
+   */
+  licensed: boolean;
 }
 
 export interface UsageHistoryPoint {

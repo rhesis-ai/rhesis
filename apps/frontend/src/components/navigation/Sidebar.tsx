@@ -35,7 +35,7 @@ import {
 } from '@/constants/quota';
 import {
   flaggedResources,
-  isCommunityEdition,
+  isUnlicensedPlan,
   quotaCopy,
   usageMenuRows,
   usageRowFillPercent,
@@ -63,6 +63,7 @@ import {
 } from './sidebar-utils';
 import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';
+import { SidebarPlanRow } from './SidebarPlanRow';
 import { NavSection } from './NavSection';
 import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
 import SupportDrawer from './SupportDrawer';
@@ -303,12 +304,11 @@ export function Sidebar() {
   // keeps this quiet until there is real data, not a permission check.
   // "Can upgrade" is a narrower, separate question: Organization.UPDATE
   // (the same owner/admin gate as Org Settings), not Usage.READ.
-  const { resources: usageResources, edition } = useUsage();
+  const { resources: usageResources, edition, licensed } = useUsage();
   const flaggedUsage = flaggedResources(usageResources);
   const flaggedCount = flaggedUsage.length;
   const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const canUpgrade =
-    canManageOrg && edition !== null && isCommunityEdition(edition);
+  const canUpgrade = canManageOrg && isUnlicensedPlan(edition, licensed);
 
   // The badge answers "how many"; the sentence (only rendered as a tooltip
   // here, in full in the org-menu block below) answers "how bad" -- no
@@ -428,7 +428,7 @@ export function Sidebar() {
               >
                 {usagePeriodLabel ?? 'Current usage'}
               </Typography>
-              {edition && <PlanChip edition={edition} />}
+              {edition && <PlanChip edition={edition} licensed={licensed} />}
             </Box>
             {usageRows.map(row => (
               <UsageMenuRow key={row.resource} {...row} />
@@ -846,7 +846,8 @@ export function Sidebar() {
           pt: '20px',
         }}
       >
-        {/* White rounded card for external footer links (Star Rhesis, Support) */}
+        {/* White rounded card for external footer links (Star Rhesis, Support),
+            headed by the current plan */}
         {footerGroup && footerGroup.items.length > 0 && !collapsed && (
           <Box
             sx={{
@@ -858,6 +859,7 @@ export function Sidebar() {
               flexDirection: 'column',
             }}
           >
+            <SidebarPlanRow edition={edition} licensed={licensed} />
             {footerGroup.items.map(item => (
               <NavLinkItem
                 key={`footer-${item.title}`}

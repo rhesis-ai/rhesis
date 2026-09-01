@@ -2,6 +2,7 @@
 
 import React from 'react';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { UPGRADE_URL } from '@/constants/quota';
 import ApiIcon from '@mui/icons-material/Api';
 
 export default function ApiClientsEmptyState() {
@@ -13,13 +14,7 @@ export default function ApiClientsEmptyState() {
       title="API Clients are an Enterprise feature"
       description="Issue scoped OAuth client credentials for machine-to-machine access to your organization's data."
       actionLabel="Learn about Enterprise"
-      onAction={() =>
-        window.open(
-          'https://rhesis.ai/editions',
-          '_blank',
-          'noopener,noreferrer'
-        )
-      }
+      onAction={() => window.open(UPGRADE_URL, '_blank', 'noopener,noreferrer')}
     />
   );
 }

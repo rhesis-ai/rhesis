@@ -80,7 +80,27 @@ class SignedTokenLicenseProvider:
         return entitlements.allows(feature.name.value)
 
     def info(self, org: Optional[Organization] = None) -> dict:
-        """Return opaque license metadata for the ``GET /features`` response."""
+        """Return opaque license metadata for the ``GET /features`` response.
+
+        ``custom_limits`` carries the token's ``lic.custom_limits`` claim
+        verbatim (wire form: string resource names). It is present only for a
+        licensed, active org whose token actually carries the claim --
+        :class:`~rhesis.backend.ee.licensing.quota_provider.ConfigQuotaProvider`
+        reads it to overlay a bespoke deal's negotiated caps on the tier
+        defaults. This is the same channel it already resolves ``edition``
+        through, which is equally enforcement-critical.
+
+        The mint-time ``limits`` snapshot is deliberately *not* exposed: it is
+        for audit only, and handing it to the quota provider would pin the org
+        to its mint-time numbers (see :data:`~rhesis.backend.ee.licensing.entitlements.LIC_LIMITS`).
+
+        Note this does *not* widen the ``GET /features`` payload:
+        ``routers/features.py`` builds its ``LicenseInfo`` from ``edition``
+        and ``licensed`` only, and reports limits separately from
+        :meth:`~rhesis.backend.app.quota.QuotaRegistry.get_limits` -- which
+        resolves through the quota provider, so the overlay is reflected there
+        already.
+        """
         if org is None:
             return self._unlicensed_info(LicenseEdition.COMMUNITY)
 
@@ -93,7 +113,13 @@ class SignedTokenLicenseProvider:
         if not entitlements.is_active():
             return self._unlicensed_info(entitlements.edition)
 
-        return {"edition": entitlements.edition.value, "licensed": True}
+        info: dict = {"edition": entitlements.edition.value, "licensed": True}
+        # Omitted rather than sent as {} when the token carries no override, so
+        # "no custom limits" and "an empty override map" are the same thing on
+        # the consuming side instead of two cases it has to distinguish.
+        if entitlements.custom_limits:
+            info["custom_limits"] = dict(entitlements.custom_limits)
+        return info
 
     # ------------------------------------------------------------------ #
     # Internal helpers

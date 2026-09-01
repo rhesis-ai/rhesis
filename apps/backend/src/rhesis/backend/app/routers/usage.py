@@ -42,6 +42,15 @@ class UsageResourceItem(BaseModel):
 class UsageResponse(BaseModel):
     resources: Dict[str, UsageResourceItem] = Field(default_factory=dict)
     edition: str
+    #: Whether the org holds an *active* paid license. Distinct from
+    #: ``edition``, which keeps naming a lapsed tier so the UI can say which
+    #: license expired: a canceled enterprise license reports
+    #: ``edition="enterprise", licensed=False`` while resolving to community
+    #: limits. Without this flag a client can only read the edition, and would
+    #: show such an org as Enterprise while it is being held to free-tier
+    #: ceilings -- with no upgrade path offered, because it does not look
+    #: like a free org.
+    licensed: bool = False
 
 
 class UsageHistoryPoint(BaseModel):

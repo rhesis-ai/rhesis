@@ -22,7 +22,7 @@ import {
 } from '@/constants/quota';
 import {
   classifyZone,
-  isCommunityEdition,
+  isUnlicensedPlan,
   zoneColor,
   type QuotaZone,
 } from '@/utils/quota';
@@ -234,7 +234,8 @@ function ResourceList({
 export default function UsageOverviewTab() {
   const [periodStart, setPeriodStart] = React.useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const { resources, edition, loading, error } = useUsageForPeriod(periodStart);
+  const { resources, edition, licensed, loading, error } =
+    useUsageForPeriod(periodStart);
 
   // The period is the only filter here, so an active one is a count of 1.
   // Passing the number matters: given only the boolean, FilterButton draws
@@ -243,8 +244,8 @@ export default function UsageOverviewTab() {
 
   const headerActions = (
     <Stack direction="row" spacing={1.5} alignItems="center">
-      {edition && <PlanChip edition={edition} />}
-      {edition && isCommunityEdition(edition) && <UpgradeLink />}
+      {edition && <PlanChip edition={edition} licensed={licensed} />}
+      {isUnlicensedPlan(edition, licensed) && <UpgradeLink />}
       <FilterButton
         onClick={() => setDrawerOpen(true)}
         hasActiveFilters={activeFilterCount > 0}
