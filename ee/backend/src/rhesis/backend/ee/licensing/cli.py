@@ -92,20 +92,38 @@ def _parse_edition(value: str) -> LicenseEdition:
         edition = LicenseEdition.UNKNOWN
     if edition not in EDITION_ENTITLEMENTS:
         valid = ", ".join(_sellable_editions())
-        raise argparse.ArgumentTypeError(
-            f"Invalid edition '{value}'. Choose from: {valid}"
-        )
+        raise argparse.ArgumentTypeError(f"Invalid edition '{value}'. Choose from: {valid}")
     return edition
 
 
 def _parse_status(value: str) -> LicenseStatus:
-    try:
-        return LicenseStatus(value)
-    except ValueError:
-        valid = ", ".join(s.value for s in LicenseStatus if s != LicenseStatus.UNKNOWN)
-        raise argparse.ArgumentTypeError(
-            f"Invalid status '{value}'. Choose from: {valid}"
-        )
+    """Strictly resolve a ``--status`` argument to a mintable status.
+
+    ``LicenseStatus(value)`` cannot be trusted to raise: its ``_missing_``
+    coerces anything unrecognized to ``UNKNOWN``, so the ``except ValueError``
+    this used to rely on never fired. The result was silent and expensive --
+    ``--status Active``, ``--status ACTIVE``, a stray space, or an empty string
+    (which is what a blank CI input expands to) all minted a token carrying
+    ``status: unknown``.
+
+    Such a token verifies, matches its org, and is not expired, so nothing
+    reports a failure. But ``UNKNOWN`` is absent from
+    :data:`~rhesis.backend.ee.licensing.entitlements.ACTIVE_STATUSES`, so
+    ``is_active()`` is false and the org is served its edition with
+    ``licensed: False`` -- held to community limits and shown as "(inactive)"
+    immediately after a licence was successfully issued to it.
+
+    ``UNKNOWN`` is rejected as an explicit argument too: it is a decode-time
+    sentinel for a status we do not recognize, never something to mint on
+    purpose. Mirrors ``_parse_edition`` above, which validates membership after
+    coercion for the same reason.
+    """
+    mintable = [s for s in LicenseStatus if s is not LicenseStatus.UNKNOWN]
+    for status in mintable:
+        if status.value == value:
+            return status
+    valid = ", ".join(s.value for s in mintable)
+    raise argparse.ArgumentTypeError(f"Invalid status '{value}'. Choose from: {valid}")
 
 
 def _require_private_key() -> None:
@@ -358,11 +376,7 @@ def _print_summary(
             },
         )
         exp_ts = payload.get("exp")
-        exp_str = (
-            datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat()
-            if exp_ts
-            else "n/a"
-        )
+        exp_str = datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat() if exp_ts else "n/a"
         jti = payload.get("jti", "n/a")
         edition = (payload.get("lic") or {}).get("edition", "n/a")
     except Exception:
@@ -441,10 +455,7 @@ def _build_parser() -> argparse.ArgumentParser:
         p.add_argument(
             "--kid",
             default=_default_kid(),
-            help=(
-                "Key ID to use for signing "
-                f"(default: ${ENV_LICENSE_KID} or rhesis-prod-v1)."
-            ),
+            help=(f"Key ID to use for signing (default: ${ENV_LICENSE_KID} or rhesis-prod-v1)."),
         )
         p.add_argument(
             "--features",
@@ -457,7 +468,7 @@ def _build_parser() -> argparse.ArgumentParser:
             default=None,
             metavar="JSON",
             help=(
-                'JSON per-resource limit override, e.g. \'{"test_executions": 500000}\'. '
+                "JSON per-resource limit override, e.g. '{\"test_executions\": 500000}'. "
                 "Overlaid on the tier's live limits at enforcement time; resources left "
                 "out keep following the published tier. Use null for unlimited. This is "
                 'how a "custom" enterprise cap is set.'
