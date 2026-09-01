@@ -28,14 +28,19 @@ class TestUsageEndpoint:
         response = authenticated_client.get("/usage")
         body = response.json()
 
-        assert set(body.keys()) == {"resources", "edition", "licensed"}
+        assert set(body.keys()) == {"resources", "edition", "plan"}
         assert isinstance(body["resources"], dict)
         assert isinstance(body["edition"], str)
-        # Reported separately from `edition`, which keeps naming a lapsed tier.
-        # The frontend gates its upgrade affordances on this, so a client can
-        # tell "free org" from "paid org whose licence expired" -- the latter is
-        # held to community limits while still reporting its old edition.
-        assert isinstance(body["licensed"], bool)
+
+        # `plan` is the client's whole contract for displaying a plan: a label
+        # to render verbatim, plus the two booleans that decide styling and
+        # whether an upgrade is offered. No tier enum on the wire, so a new tier
+        # needs no frontend release.
+        plan = body["plan"]
+        assert set(plan.keys()) == {"name", "is_paid", "is_active"}
+        assert isinstance(plan["name"], str) and plan["name"] != ""
+        assert isinstance(plan["is_paid"], bool)
+        assert isinstance(plan["is_active"], bool)
 
     def test_includes_every_quota_resource(self, authenticated_client: TestClient):
         response = authenticated_client.get("/usage")

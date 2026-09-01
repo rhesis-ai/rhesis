@@ -194,6 +194,38 @@ def increment_usage(
     notify_flow_crossing(db, org_id, resource, previous_used=new_used - amount, new_used=new_used)
 
 
+def build_plan(license_info: dict) -> dict:
+    """Build the plan payload a client renders, from a provider's ``info`` dict.
+
+    Returns ``{name, is_paid, is_active}``:
+
+    - ``name`` is the **display label, rendered verbatim by clients.** It is
+      composed here, on purpose: a client that title-cases or appends to it is
+      a client that has to be changed every time a tier is added or renamed.
+      Building it once server-side means a new tier appears correctly in every
+      surface with no frontend release.
+    - ``is_paid`` describes the *tier*; ``is_active`` describes the *licence*.
+      Both are needed, and the pair is why this exists: a free org is
+      ``(False, False)`` and a lapsed enterprise is ``(True, False)``. With
+      only one flag a client cannot separate them, which previously left the
+      UI inferring "is this paid?" from the edition string -- so a renamed or
+      newly added tier silently rendered as free.
+
+    A lapsed paid tier carries the qualifier in ``name``, so the state is
+    legible even where styling is not (a screenshot, a narrow column, a
+    monochrome theme).
+    """
+    edition = str(license_info.get("edition", "community"))
+    is_paid = bool(license_info.get("is_paid", False))
+    is_active = bool(license_info.get("licensed", False))
+
+    name = edition.replace("_", " ").replace("-", " ").strip().title() or "Unknown"
+    if is_paid and not is_active:
+        name = f"{name} (inactive)"
+
+    return {"name": name, "is_paid": is_paid, "is_active": is_active}
+
+
 def _count_org_rows(db: Session, model, org_id: str, *, exclude_deleted: bool) -> int:
     """Live ``COUNT(*)`` of *model* rows belonging to *org_id*.
 
@@ -320,8 +352,7 @@ def get_usage_summary(
 
     license_info = FeatureRegistry.license_info(org=org)
     edition = str(license_info.get("edition", "community"))
-    licensed = bool(license_info.get("licensed", False))
-    return {"resources": resources, "edition": edition, "licensed": licensed}
+    return {"resources": resources, "edition": edition, "plan": build_plan(license_info)}
 
 
 def _recent_period_starts(months: int, today: Optional[date] = None) -> list[date]:

@@ -47,6 +47,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     Entitlements,
     LicenseEdition,
 )
+from rhesis.backend.ee.licensing.tiers import is_sellable
 from rhesis.backend.ee.licensing.verify import verify_token
 
 logger = logging.getLogger(__name__)
@@ -113,7 +114,11 @@ class SignedTokenLicenseProvider:
         if not entitlements.is_active():
             return self._unlicensed_info(entitlements.edition)
 
-        info: dict = {"edition": entitlements.edition.value, "licensed": True}
+        info: dict = {
+            "edition": entitlements.edition.value,
+            "licensed": True,
+            "is_paid": is_sellable(entitlements.edition),
+        }
         # Omitted rather than sent as {} when the token carries no override, so
         # "no custom limits" and "an empty override map" are the same thing on
         # the consuming side instead of two cases it has to distinguish.
@@ -131,8 +136,18 @@ class SignedTokenLicenseProvider:
 
         Returns ``edition`` as a plain string (``.value``) so the wire format
         never leaks an ``Enum`` repr through core's ``str(...)`` coercion.
+
+        ``is_paid`` describes the *tier*, not the licence state, so a lapsed
+        enterprise licence still reports ``is_paid=True`` with
+        ``licensed=False``. Those are the two facts a client needs to tell
+        "free tier" apart from "paid tier, expired" -- collapsing them into one
+        flag is what forced the UI to guess from the edition name.
         """
-        return {"edition": edition.value, "licensed": False}
+        return {
+            "edition": edition.value,
+            "licensed": False,
+            "is_paid": is_sellable(edition),
+        }
 
     def _resolve_entitlements(self, org: Organization) -> Optional[Entitlements]:
         """Resolve entitlements for *org* using the declared precedence.

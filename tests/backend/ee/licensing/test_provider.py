@@ -110,7 +110,12 @@ class TestCanceledLicense:
         with patch.dict("os.environ", {"RHESIS_LICENSE": token}):
             info = provider.info(org=org)
             allowed = provider.allows_feature(_SSO_FEATURE, org)
-        assert info == {"edition": "enterprise", "licensed": False}
+        assert info["edition"] == "enterprise"
+        assert info["licensed"] is False
+        # Still a paid *tier*, just not an active licence. That pair is what
+        # lets a client tell this apart from a free org and show it as lapsed
+        # rather than as never having paid.
+        assert info["is_paid"] is True
         assert allowed is False
 
     def test_past_due_status_is_consistent(self, provider, mint_token):

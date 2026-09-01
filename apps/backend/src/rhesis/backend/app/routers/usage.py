@@ -39,18 +39,35 @@ class UsageResourceItem(BaseModel):
     kind: str
 
 
+class PlanInfo(BaseModel):
+    """Everything a client needs to render the org's plan, and nothing it
+    should have to interpret.
+
+    Deliberately no tier enum on the wire. A client that switches on tier
+    names has to ship a release before a new or renamed tier displays
+    correctly; one that reads ``name`` plus two booleans does not.
+    """
+
+    #: Display label. **Render verbatim** -- do not map, case or append to it.
+    #: Composed server-side (see ``services.usage.build_plan``), including the
+    #: qualifier a lapsed paid tier carries.
+    name: str
+    #: Whether this is a paid tier. Describes the *tier*, not the licence, so a
+    #: canceled enterprise licence is still ``is_paid=True``.
+    is_paid: bool = False
+    #: Whether the licence is currently active. ``is_paid`` and ``is_active``
+    #: together separate a free org ``(False, False)`` from a lapsed paid one
+    #: ``(True, False)`` -- the distinction that decides both the badge styling
+    #: and whether an upgrade path is offered.
+    is_active: bool = False
+
+
 class UsageResponse(BaseModel):
     resources: Dict[str, UsageResourceItem] = Field(default_factory=dict)
+    #: Machine identifier for the licence edition. Diagnostics and analytics
+    #: only -- never for display or for deciding styling. Use ``plan``.
     edition: str
-    #: Whether the org holds an *active* paid license. Distinct from
-    #: ``edition``, which keeps naming a lapsed tier so the UI can say which
-    #: license expired: a canceled enterprise license reports
-    #: ``edition="enterprise", licensed=False`` while resolving to community
-    #: limits. Without this flag a client can only read the edition, and would
-    #: show such an org as Enterprise while it is being held to free-tier
-    #: ceilings -- with no upgrade path offered, because it does not look
-    #: like a free org.
-    licensed: bool = False
+    plan: PlanInfo
 
 
 class UsageHistoryPoint(BaseModel):
@@ -84,6 +101,7 @@ def get_usage(
     return UsageResponse(
         resources={k: UsageResourceItem(**v) for k, v in summary["resources"].items()},
         edition=summary["edition"],
+        plan=PlanInfo(**summary["plan"]),
     )
 
 
