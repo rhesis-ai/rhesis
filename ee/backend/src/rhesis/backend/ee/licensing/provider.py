@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import lru_cache
 from typing import Optional
 
 from rhesis.backend.app.features import Feature
@@ -47,9 +48,41 @@ from rhesis.backend.ee.licensing.entitlements import (
     Entitlements,
     LicenseEdition,
 )
+from rhesis.backend.ee.licensing.tiers import is_sellable
 from rhesis.backend.ee.licensing.verify import verify_token
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=None)
+def _warn_blanket_inactive(status: str) -> None:
+    """Warn once per process that an inactive ``RHESIS_LICENSE`` was skipped.
+
+    A stale blanket token beside an org's valid licence is a **deployment
+    misconfiguration**, so this stays at ``warning`` rather than dropping to
+    ``debug``: it is exactly the state that used to hold a licensed org at
+    community limits, and it should be visible at production log levels.
+
+    But it is reached from
+    :meth:`~rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider.allows_feature`
+    and ``license_info()``, so it runs on **every** ``require_feature`` gate,
+    every ``require_quota`` gate (via ``ConfigQuotaProvider.get_policy``) and
+    both the features and usage endpoints -- several times per request. Logged
+    unconditionally it would bury the signal it exists to raise.
+
+    ``lru_cache`` is the log-once mechanism: the first call for a given status
+    logs and caches ``None``, and later calls are cache hits that do nothing. It
+    is keyed on *status* rather than cached outright so that a token changing
+    ``canceled`` -> ``expired`` is reported once more, which is a different
+    misconfiguration. Thread-safe enough for this: a race logs twice, never
+    zero times.
+    """
+    logger.warning(
+        "%s token is present but not active (status=%s); using the org's own "
+        "active licence instead. This message is logged once per process.",
+        ENV_LICENSE,
+        status,
+    )
 
 
 class SignedTokenLicenseProvider:
@@ -95,8 +128,8 @@ class SignedTokenLicenseProvider:
         to its mint-time numbers (see :data:`~rhesis.backend.ee.licensing.entitlements.LIC_LIMITS`).
 
         Note this does *not* widen the ``GET /features`` payload:
-        ``routers/features.py`` builds its ``LicenseInfo`` from ``edition``
-        and ``licensed`` only, and reports limits separately from
+        ``routers/features.py`` builds its ``LicenseInfo`` from ``edition``,
+        ``licensed`` and ``is_paid`` only, and reports limits separately from
         :meth:`~rhesis.backend.app.quota.QuotaRegistry.get_limits` -- which
         resolves through the quota provider, so the overlay is reflected there
         already.
@@ -113,7 +146,11 @@ class SignedTokenLicenseProvider:
         if not entitlements.is_active():
             return self._unlicensed_info(entitlements.edition)
 
-        info: dict = {"edition": entitlements.edition.value, "licensed": True}
+        info: dict = {
+            "edition": entitlements.edition.value,
+            "licensed": True,
+            "is_paid": is_sellable(entitlements.edition),
+        }
         # Omitted rather than sent as {} when the token carries no override, so
         # "no custom limits" and "an empty override map" are the same thing on
         # the consuming side instead of two cases it has to distinguish.
@@ -131,44 +168,99 @@ class SignedTokenLicenseProvider:
 
         Returns ``edition`` as a plain string (``.value``) so the wire format
         never leaks an ``Enum`` repr through core's ``str(...)`` coercion.
+
+        ``is_paid`` describes the *tier*, not the licence state, so a lapsed
+        enterprise licence still reports ``is_paid=True`` with
+        ``licensed=False``. Those are the two facts a client needs to tell
+        "free tier" apart from "paid tier, expired" -- collapsing them into one
+        flag is what forced the UI to guess from the edition name.
         """
-        return {"edition": edition.value, "licensed": False}
+        return {
+            "edition": edition.value,
+            "licensed": False,
+            "is_paid": is_sellable(edition),
+        }
+
+    def _blanket_entitlements(self) -> Optional[Entitlements]:
+        """Entitlements from the ``RHESIS_LICENSE`` env token, if it is a
+        blanket one. ``None`` when unset, unverifiable, or bound to a
+        specific org rather than ``*``."""
+        env_token = os.environ.get(ENV_LICENSE, "").strip()
+        if not env_token:
+            return None
+
+        entitlements = verify_token(env_token)
+        if entitlements is None:
+            return None
+        if entitlements.sub == BLANKET_SUBJECT:
+            return entitlements
+
+        logger.debug(
+            "%s token sub=%s is not %r; falling through to org token",
+            ENV_LICENSE,
+            entitlements.sub,
+            BLANKET_SUBJECT,
+        )
+        return None
+
+    def _org_entitlements(self, org: Organization) -> Optional[Entitlements]:
+        """Entitlements from ``organization.license``, if the token's ``sub``
+        matches this org. ``None`` otherwise."""
+        org_token = getattr(org, "license", None)
+        if not org_token:
+            return None
+
+        entitlements = verify_token(org_token)
+        if entitlements is None:
+            return None
+
+        org_id_str = str(org.id).lower()
+        if entitlements.sub.lower() == org_id_str:
+            return entitlements
+
+        logger.debug(
+            "org.license token sub=%s does not match org.id=%s; denying",
+            entitlements.sub,
+            org_id_str,
+        )
+        return None
 
     def _resolve_entitlements(self, org: Organization) -> Optional[Entitlements]:
-        """Resolve entitlements for *org* using the declared precedence.
+        """Resolve entitlements for *org*.
+
+        **An active licence always beats an inactive one.** Within that, the
+        declared precedence holds:
 
         1. ``RHESIS_LICENSE`` env (blanket ``sub:"*"``)
-        2. ``org.license`` column (per-org, ``sub`` must match org UUID)
+        2. ``organization.license`` (per-org, ``sub`` must match the org UUID)
+
+        The active-first rule is not cosmetic. This used to return a blanket
+        token the moment its ``sub`` was ``*``, without checking its status, so
+        a stale or canceled ``RHESIS_LICENSE`` **shadowed an org's own valid
+        licence** -- the org was reported as unlicensed and held to community
+        limits immediately after being issued a good token, with the blanket
+        token's edition as the only clue.
+
+        When nothing is active, an inactive licence is still returned rather
+        than ``None``. Falling through to ``None`` would report such an org as
+        ``community``, losing the one thing worth saying: which licence
+        expired. Callers gate on
+        :meth:`~rhesis.backend.ee.licensing.entitlements.Entitlements.is_active`
+        anyway, so an inactive result grants nothing.
         """
-        # --- 1. Blanket env token ---
-        env_token = os.environ.get(ENV_LICENSE, "").strip()
-        if env_token:
-            entitlements = verify_token(env_token)
-            if entitlements is not None and entitlements.sub == BLANKET_SUBJECT:
-                return entitlements
-            if entitlements is not None:
-                logger.debug(
-                    "%s token sub=%s is not %r; falling through to org token",
-                    ENV_LICENSE,
-                    entitlements.sub,
-                    BLANKET_SUBJECT,
-                )
+        blanket = self._blanket_entitlements()
+        if blanket is not None and blanket.is_active():
+            return blanket
 
-        # --- 2. Per-org column ---
-        org_token = getattr(org, "license", None)
-        if org_token:
-            entitlements = verify_token(org_token)
-            if entitlements is not None:
-                org_id_str = str(org.id).lower()
-                if entitlements.sub.lower() == org_id_str:
-                    return entitlements
-                logger.debug(
-                    "org.license token sub=%s does not match org.id=%s; denying",
-                    entitlements.sub,
-                    org_id_str,
-                )
+        per_org = self._org_entitlements(org)
+        if per_org is not None and per_org.is_active():
+            if blanket is not None:
+                _warn_blanket_inactive(blanket.status.value)
+            return per_org
 
-        return None
+        # Nothing active. Prefer the blanket token's edition, matching the
+        # precedence above, so the lapsed state is still reported.
+        return blanket if blanket is not None else per_org
 
 
 __all__ = ["SignedTokenLicenseProvider"]

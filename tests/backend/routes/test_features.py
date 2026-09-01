@@ -94,7 +94,11 @@ class TestFeaturesEndpoint:
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         assert "license" in body
-        assert body["license"] == {"edition": "community", "licensed": False}
+        assert body["license"] == {
+            "edition": "community",
+            "licensed": False,
+            "is_paid": False,
+        }
 
     def test_returns_enabled_list(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
@@ -154,13 +158,24 @@ class TestFeaturesEndpoint:
         body = response.json()
         assert set(body.keys()) == {
             "license",
+            "plan",
             "enabled",
             "warnings",
             "limits",
             "is_local",
             "rhesis_key_enabled",
         }
-        assert set(body["license"].keys()) == {"edition", "licensed"}
+        assert set(body["license"].keys()) == {"edition", "licensed", "is_paid"}
+        # `plan` is the client's whole contract for displaying a plan: a label
+        # to render verbatim, plus the two booleans that decide styling and
+        # whether an upgrade is offered. No tier enum on the wire, so a new tier
+        # needs no frontend release. It rides on this response rather than
+        # GET /usage because this one is server-seeded in the frontend's
+        # protected layout, so plan surfaces have it on first paint.
+        assert set(body["plan"].keys()) == {"name", "is_paid", "is_active"}
+        assert isinstance(body["plan"]["name"], str) and body["plan"]["name"] != ""
+        assert isinstance(body["plan"]["is_paid"], bool)
+        assert isinstance(body["plan"]["is_active"], bool)
         assert isinstance(body["enabled"], list)
         assert all(isinstance(name, str) for name in body["enabled"])
         assert isinstance(body["warnings"], dict)
@@ -197,7 +212,52 @@ class TestFeaturesEndpoint:
             # Provider must always be called with the org, never None
             assert len(received_orgs) >= 1
             assert all(org is not None for org in received_orgs)
-            assert response.json()["license"] == {"edition": "enterprise", "licensed": True}
+            # is_paid defaults to False because this provider omits it --
+            # fail-closed, so an unknown posture never presents as paid.
+            assert response.json()["license"] == {
+                "edition": "enterprise",
+                "licensed": True,
+                "is_paid": False,
+            }
+        finally:
+            FeatureRegistry.reset()
+
+    def test_forwards_is_paid_from_the_provider(
+        self, client: TestClient, registered_sso, mock_current_user
+    ):
+        """A paid tier reaches the client as a flag, not as a name to compare.
+
+        The point of carrying ``is_paid`` is that no client has to infer
+        paid-ness from ``edition``. This pins the lapsed combination
+        (``is_paid`` true, ``licensed`` false) specifically, since that is the
+        pair a name comparison gets wrong: the edition still reads
+        ``enterprise`` while the licence is dead.
+        """
+
+        class _LapsedPaidProvider:
+            def allows_feature(self, feature, org):
+                return False
+
+            def info(self, org=None):
+                return {"edition": "enterprise", "licensed": False, "is_paid": True}
+
+        FeatureRegistry.set_license_provider(_LapsedPaidProvider())
+        try:
+            response = client.get("/features")
+            assert response.status_code == status.HTTP_200_OK
+            body = response.json()
+            assert body["license"] == {
+                "edition": "enterprise",
+                "licensed": False,
+                "is_paid": True,
+            }
+            # The same facts, composed for display -- including the qualifier,
+            # so the lapsed state is legible without relying on styling.
+            assert body["plan"] == {
+                "name": "Enterprise (inactive)",
+                "is_paid": True,
+                "is_active": False,
+            }
         finally:
             FeatureRegistry.reset()
 

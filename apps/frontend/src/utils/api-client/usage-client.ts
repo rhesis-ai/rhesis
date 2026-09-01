@@ -23,17 +23,14 @@ export interface UsageResourceItem {
 
 export interface UsageResponse {
   resources: Record<string, UsageResourceItem>;
-  edition: string;
   /**
-   * Whether the org holds an *active* paid license.
+   * Machine identifier for the licence edition. Diagnostics only — never for
+   * display, and never for deciding styling.
    *
-   * Separate from `edition`, which keeps naming a lapsed tier so the UI can
-   * say which license expired: a canceled enterprise license reports
-   * `edition: "enterprise"` with `licensed: false`, while the backend holds it
-   * to community limits. Gate upgrade affordances on this, not on the edition
-   * string -- see `isUnlicensedPlan` in `utils/quota.ts`.
+   * To display the plan, use `usePlan()`, which reads it from `GET /features`
+   * — server-seeded in the protected layout, so it is there on first paint.
    */
-  licensed: boolean;
+  edition: string;
 }
 
 export interface UsageHistoryPoint {

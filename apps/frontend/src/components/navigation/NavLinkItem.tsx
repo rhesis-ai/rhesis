@@ -6,15 +6,15 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme';
 import {
   type NavigationLinkItem,
   type NavigationActionItem,
 } from '@/types/navigation';
 import {
   collapsedNavItemSx,
-  NAV_CARD_ICON_SIZE,
-  NAV_CARD_ROW_SX,
+  navCardIconSx,
+  navCardLabelSx,
+  navCardRowSx,
 } from './sidebar-utils';
 
 interface NavLinkItemProps {
@@ -27,32 +27,15 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const isAction = item.kind === 'action';
 
   const sharedSx: SxProps<Theme> = {
-    display: 'flex',
-    alignItems: 'center',
-    ...NAV_CARD_ROW_SX,
-    py: '8px',
-    borderRadius: BORDER_RADIUS.sm,
-    textDecoration: 'none',
-    cursor: 'pointer',
-    '&:hover': {
-      bgcolor: (theme: Theme) => theme.palette.greyscale.surface1,
-    },
-    // `duration.shortest` is the theme's own 150ms -- the value this used to
-    // spell out as '0.15s'.
-    transition: (theme: Theme) =>
-      theme.transitions.create('background-color', {
-        duration: theme.transitions.duration.shortest,
-      }),
+    ...navCardRowSx(),
     ...(collapsed ? collapsedNavItemSx : {}),
   };
 
   const iconNode = item.icon && (
     <Box
       sx={{
-        display: 'flex',
-        flexShrink: 0,
+        ...navCardIconSx,
         color: (theme: Theme) => theme.palette.greyscale.body,
-        '& svg': { width: NAV_CARD_ICON_SIZE, height: NAV_CARD_ICON_SIZE },
       }}
     >
       {item.icon}
@@ -62,12 +45,10 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const labelNode = !collapsed && (
     <>
       <Typography
+        variant="bodyMReg"
         sx={{
-          fontSize: 14,
-          fontWeight: 400,
-          lineHeight: '22px',
+          ...navCardLabelSx,
           color: (theme: Theme) => theme.palette.greyscale.body,
-          whiteSpace: 'nowrap',
           flex: 1,
         }}
       >

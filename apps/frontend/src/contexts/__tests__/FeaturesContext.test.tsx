@@ -9,6 +9,7 @@ import {
   useFeature,
   useFeaturesState,
   useIsLocalMode,
+  usePlan,
   useRhesisKeyEnabled,
 } from '../FeaturesContext';
 
@@ -45,6 +46,11 @@ beforeEach(() => {
 function Probe({ feature }: { feature: FeatureName }) {
   const enabled = useFeature(feature);
   return <div data-testid="probe">{enabled ? 'on' : 'off'}</div>;
+}
+
+function PlanProbe() {
+  const plan = usePlan();
+  return <div data-testid="plan">{plan?.name ?? 'none'}</div>;
 }
 
 function StateProbe() {
@@ -399,5 +405,56 @@ describe('FeatureGate', () => {
     });
     // Body contains no gated content.
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('usePlan', () => {
+  const PLAN = { name: 'Team', is_paid: true, is_active: true };
+
+  it('has the plan on first paint from the server seed, with no fetch', () => {
+    // The point of carrying the plan on this response. A never-resolving fetch
+    // stands in for the round trip: sourced from `GET /usage` instead, every
+    // plan surface rendered blank until it came back, which is the flicker
+    // this replaced.
+    mockGetFeatures.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <FeaturesProvider
+        initialFeatures={{ license: LICENSE, enabled: [], plan: PLAN }}
+      >
+        <PlanProbe />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('plan')).toHaveTextContent('Team');
+    expect(mockGetFeatures).not.toHaveBeenCalled();
+  });
+
+  it('reports null when the backend response has no plan', async () => {
+    // An older backend. Must read as "unknown" rather than being filled in
+    // with a guessed free tier, which would prompt a paying org to upgrade.
+    mockGetFeatures.mockResolvedValue({ license: LICENSE, enabled: [] });
+
+    render(
+      <FeaturesProvider>
+        <PlanProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('plan')).toHaveTextContent('none')
+    );
+  });
+
+  it('reports null while the plan is still loading', () => {
+    mockGetFeatures.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <FeaturesProvider>
+        <PlanProbe />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('plan')).toHaveTextContent('none');
   });
 });

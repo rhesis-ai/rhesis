@@ -2,9 +2,7 @@ import {
   classifyZone,
   flaggedResources,
   findWorstResource,
-  isCommunityEdition,
   isKnownQuotaResource,
-  isUnlicensedPlan,
   parseQuotaError,
   quotaCopy,
   usageMenuRows,
@@ -302,48 +300,6 @@ describe('isKnownQuotaResource', () => {
 
   it('rejects one it does not', () => {
     expect(isKnownQuotaResource('some_future_resource')).toBe(false);
-  });
-});
-
-describe('isCommunityEdition', () => {
-  it('matches the free tier regardless of case', () => {
-    expect(isCommunityEdition('community')).toBe(true);
-    expect(isCommunityEdition('COMMUNITY')).toBe(true);
-  });
-
-  it('does not match a paid edition', () => {
-    expect(isCommunityEdition('enterprise')).toBe(false);
-  });
-});
-
-describe('isUnlicensedPlan', () => {
-  it('offers an upgrade to a free org', () => {
-    expect(isUnlicensedPlan('community', false)).toBe(true);
-  });
-
-  it('does not offer one to an org on an active paid licence', () => {
-    expect(isUnlicensedPlan('team', true)).toBe(false);
-    expect(isUnlicensedPlan('enterprise', true)).toBe(false);
-  });
-
-  it('offers one to a paid org whose licence has lapsed', () => {
-    // The case the old edition-string check got wrong. A canceled licence
-    // resolves to community limits on the backend but keeps reporting its
-    // edition, so this org hits free-tier ceilings while not looking free --
-    // and was shown no upgrade path at the moment it most needed one.
-    expect(isUnlicensedPlan('enterprise', false)).toBe(true);
-    expect(isUnlicensedPlan('team', false)).toBe(true);
-  });
-
-  it.each([
-    ['loading', null, null],
-    ['edition loaded, licence unknown', 'enterprise', null],
-    ['licence field absent', 'enterprise', undefined],
-  ])('offers nothing when %s', (_case, edition, licensed) => {
-    // Never prompt a paying customer to upgrade on missing data.
-    expect(
-      isUnlicensedPlan(edition as string | null, licensed as boolean | null)
-    ).toBe(false);
   });
 });
 

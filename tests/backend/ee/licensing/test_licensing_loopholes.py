@@ -196,8 +196,19 @@ class TestForgedTokens:
         org = _make_org(license_token=token)
         assert verify_token(token) is None
         assert provider.allows_feature(_SSO, org) is False
-        assert provider.info(org) == {"edition": "community", "licensed": False}
         assert _limits_for(quota_provider, org) == _COMMUNITY_LIMITS
+
+        # Asserted field by field rather than as one dict, so adding a field to
+        # `info()` cannot make this pass vacuously -- and so each claim reads as
+        # its own security property.
+        info = provider.info(org)
+        assert info["edition"] == "community"
+        assert info["licensed"] is False
+        # A forged *paid* token must not report a paid tier either. `is_paid`
+        # drives the plan badge and the crown, so leaking it here would let a
+        # forged token buy the appearance of a paid plan even with community
+        # limits enforced.
+        assert info.get("is_paid") is False
 
     def test_unsigned_alg_none_token_is_rejected(self, provider, quota_provider):
         """The classic: strip the signature and set ``alg: none``.

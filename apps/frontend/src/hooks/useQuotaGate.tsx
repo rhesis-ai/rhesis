@@ -20,13 +20,14 @@ import { useCan } from '@/components/common/Can';
 import { QuotaNotice } from '@/components/common/QuotaNotice';
 import { Capability } from '@/constants/capabilities';
 import type { QuotaResource } from '@/constants/quota';
-import { useResourceUsage, useUsage } from '@/contexts/UsageContext';
+import { useResourceUsage } from '@/contexts/UsageContext';
+import { usePlan } from '@/contexts/FeaturesContext';
 import {
   isKnownQuotaResource,
-  isUnlicensedPlan,
   parseQuotaError,
   quotaCopy,
 } from '@/utils/quota';
+import { isUpgradeable } from '@/utils/plan';
 
 /** Sentence and recourse joined for a surface that can only show a string
  * (a toast). No link: a snackbar auto-dismisses, so a link in one is a trap. */
@@ -137,11 +138,11 @@ export function useQuotaMessageFor(
  *
  * Gates on licence status rather than the edition name so a lapsed paid org --
  * held to community limits but still reporting its old edition -- is offered
- * the upgrade too. See `isUnlicensedPlan`. */
+ * the upgrade too. See `isUpgradeable` in `utils/plan.ts`. */
 export function useCanUpgrade(): boolean {
   const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const { edition, licensed } = useUsage();
-  return canManageOrg && isUnlicensedPlan(edition, licensed);
+  const plan = usePlan();
+  return canManageOrg && isUpgradeable(plan);
 }
 
 export interface QuotaErrorResult {

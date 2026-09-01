@@ -7,6 +7,7 @@ import {
   type NavigationHeaderItem,
   type NavigationActionItem,
 } from '@/types/navigation';
+import type { Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
@@ -35,25 +36,116 @@ export const collapsedNavItemSx = {
  *
  * Figma values, which is why they are px and not `theme.spacing` units: 14 and
  * 10 are not multiples of the 8px spacing step, so a spacing unit would round
- * them and shift the whole card.
+ * them and shift the whole card. The vertical padding in `navCardRowSx` *is* on
+ * the step, so it uses the spacing scale.
  */
-export const NAV_CARD_ROW_SX = {
+// Module-private: `navCardRowSx` below is the public interface. Exported
+// separately once, when NavLinkItem spread it directly; consumers now compose
+// the full row instead, so there is one way to build a card row rather than two.
+const NAV_CARD_ROW_SX = {
   px: '14px',
   gap: '10px',
 } as const;
 
-/** Icon box for a full-height card row (`NavLinkItem`). */
-export const NAV_CARD_ICON_SIZE = 24;
+/** The icon-to-label gap, exported for a row that builds its own inner flex
+ * line (the plan row's crown + badge) and must land on the same x as the
+ * single-line rows' labels. Same value `navCardRowSx` uses, not a copy. */
+export const NAV_CARD_ICON_GAP = NAV_CARD_ROW_SX.gap;
+
+/** Icon box size for a card row. Module-private: read it through
+ * `navCardIconSx`, which is what guarantees every row's gutter matches. */
+const NAV_CARD_ICON_SIZE = 24;
 
 /**
- * A card row that reports state rather than offering an action -- currently
- * the plan row heading the footer card. Tighter vertically so it reads as a
- * status line above the actions instead of a third thing to click, while
- * keeping their horizontal alignment.
+ * The complete row shell for a sidebar card row: geometry, hover and
+ * transition. Composed by both `NavLinkItem` and `SidebarPlanRow` so every row
+ * in a card is the same height and its icon sits in the same gutter.
+ *
+ * A function rather than a constant because the hover colour and the
+ * transition duration are theme reads, and `sx` callbacks cannot be spread out
+ * of a plain object without losing them.
+ *
+ * Pass `interactive: false` for a row that only reports state. It keeps the
+ * geometry -- which is the whole point of sharing this -- and drops the pointer
+ * cursor and hover tint, so a static row does not read as a broken link beside
+ * the actionable ones. The alternative, a bespoke layout for the static row, is
+ * what made the plan row's label start at a different x-offset in the first
+ * place.
  */
-export const NAV_CARD_STATUS_ROW_SX = {
-  ...NAV_CARD_ROW_SX,
-  py: '6px',
+export const navCardRowSx = ({ interactive = true } = {}) =>
+  ({
+    display: 'flex',
+    alignItems: 'center',
+    ...NAV_CARD_ROW_SX,
+    py: 1,
+    borderRadius: BORDER_RADIUS.sm,
+    textDecoration: 'none',
+    ...(interactive
+      ? {
+          cursor: 'pointer',
+          '&:hover': {
+            bgcolor: (theme: {
+              palette: { greyscale: { surface1: string } };
+            }) => theme.palette.greyscale.surface1,
+          },
+          // `duration.shortest` is the theme's own 150ms.
+          transition: (theme: {
+            transitions: {
+              create: (p: string, o: { duration: number }) => string;
+              duration: { shortest: number };
+            };
+          }) =>
+            theme.transitions.create('background-color', {
+              duration: theme.transitions.duration.shortest,
+            }),
+        }
+      : {}),
+  }) as const;
+
+/**
+ * The icon gutter. Fixed size and `flexShrink: 0`, which is what puts every
+ * row's label on the same x-offset regardless of icon glyph.
+ *
+ * `color` is deliberately absent: the caller sets it, so a row can tint its
+ * icon (the plan crown) without forking the geometry.
+ */
+export const navCardIconSx = {
+  display: 'flex',
+  flexShrink: 0,
+  '& svg': { width: NAV_CARD_ICON_SIZE, height: NAV_CARD_ICON_SIZE },
+} as const;
+
+/**
+ * The row label's *geometry* only. `minWidth: 0` lets it shrink instead of
+ * forcing a trailing element out of the row -- without it a long plan name
+ * would push the badge past the row's right padding.
+ *
+ * Type is deliberately absent: consumers pass `variant="bodyMReg"` on the
+ * `Typography` instead. That variant is exactly this row's type (400 / 14px /
+ * 22px), and reading it from the theme rather than restating the three numbers
+ * matters for the same reason the badge's weight does -- the theme's weights
+ * shift on a branded deployment, so a literal would silently stop matching the
+ * rest of the sidebar.
+ */
+export const navCardLabelSx = {
+  whiteSpace: 'nowrap' as const,
+  overflow: 'hidden' as const,
+  textOverflow: 'ellipsis' as const,
+  minWidth: 0,
+} as const;
+
+/**
+ * A trailing element on a card row -- the plan badge today.
+ *
+ * `marginLeft: auto` is what anchors it to the row's right padding edge, at
+ * the same x for every label and badge length; `flexShrink: 0` is what stops
+ * the badge itself being compressed when the label is long.
+ */
+export const navCardTrailingSx = {
+  marginLeft: 'auto',
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
 } as const;
 
 /**
@@ -76,8 +168,15 @@ export const COUNT_BADGE_SX = {
   borderRadius: BORDER_RADIUS.sm,
   bgcolor: 'primary.main',
   color: 'primary.contrastText',
-  fontSize: 12,
-  fontWeight: 600,
+  // Type from the theme, not literals. `600` was a real bug, not just a
+  // convention slip: the theme's semibold is 700 when a brand font is
+  // configured, so the literal rendered this badge lighter than every other
+  // semibold element on a branded deployment.
+  fontSize: (theme: Theme) => theme.typography.captionBold.fontSize,
+  fontWeight: (theme: Theme) => theme.typography.captionBold.fontWeight,
+  // Geometry, deliberately not from the variant: this matches the badge's own
+  // 20px height so the number sits centred, where `captionBold`'s 18px would
+  // not.
   lineHeight: '20px',
   textAlign: 'center',
 } as const;
