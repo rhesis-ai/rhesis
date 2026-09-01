@@ -1,6 +1,3 @@
-'use client';
-
-import React from 'react';
 import SwaggerEndpointForm from '../components/SwaggerEndpointForm';
 import { PageLayout } from '@/components/layout/PageLayout';
 
