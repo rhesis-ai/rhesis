@@ -25,8 +25,6 @@ import { RESOURCE_AREAS, CapabilityLevel } from '../../capability-groups';
 import type { PermissionRead } from '../../types';
 import TokenScopeField from '../TokenScopeField';
 
-const SESSION_TOKEN = 'session-token';
-
 function requireArea(id: string) {
   const area = RESOURCE_AREAS.find(a => a.id === id);
   if (!area) throw new Error(`Unknown resource area: ${id}`);

@@ -5,7 +5,6 @@ import { KnowledgePage } from '../pages/KnowledgePage';
 import {
   confirmDeleteDialog,
   expectGridRowVisible,
-  waitForDrawerClosed,
 } from '../helpers/CrudHelper';
 
 interface StubbedSource {
