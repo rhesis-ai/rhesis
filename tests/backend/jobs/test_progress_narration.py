@@ -344,7 +344,9 @@ class TestSequentialExecutionNarration:
                 on_emit=lambda m: emit_calls.append(m),
             )
 
-        assert emit_calls == ["Test 1/1 failed"]
+        # The reason is included: the activity log is read to find out *why* a test
+        # failed, and the batch path has always named it while this one did not.
+        assert emit_calls == ["Test 1/1 failed: boom"]
 
 
 @pytest.mark.unit
@@ -375,10 +377,16 @@ class TestMetricLevelNarration:
         test.test_configuration = {}
         test.test_metadata = {}
 
-        async def _fake_single_turn(_ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None):
+        async def _fake_single_turn(
+            _ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None
+        ):
             return await ev.a_evaluate(
-                input_text=_prompt, output_text="resp", expected_output=_expected,
-                context=[], metrics=_configs, on_metric_complete=on_metric_complete,
+                input_text=_prompt,
+                output_text="resp",
+                expected_output=_expected,
+                context=[],
+                metrics=_configs,
+                on_metric_complete=on_metric_complete,
             )
 
         with patch(
@@ -387,9 +395,15 @@ class TestMetricLevelNarration:
         ):
             result = asyncio.run(
                 evaluate_metrics(
-                    ctx, evaluator, test, "t1",
-                    {"response": "hello"}, "prompt", "expected",
-                    False, {},
+                    ctx,
+                    evaluator,
+                    test,
+                    "t1",
+                    {"response": "hello"},
+                    "prompt",
+                    "expected",
+                    False,
+                    {},
                 )
             )
         assert result == {}
@@ -415,10 +429,16 @@ class TestMetricLevelNarration:
 
         emit_calls = []
 
-        async def _fake_single_turn(_ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None):
+        async def _fake_single_turn(
+            _ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None
+        ):
             return await ev.a_evaluate(
-                input_text=_prompt, output_text="resp", expected_output=_expected,
-                context=[], metrics=_configs, on_metric_complete=on_metric_complete,
+                input_text=_prompt,
+                output_text="resp",
+                expected_output=_expected,
+                context=[],
+                metrics=_configs,
+                on_metric_complete=on_metric_complete,
             )
 
         with patch(
@@ -427,9 +447,15 @@ class TestMetricLevelNarration:
         ):
             result = asyncio.run(
                 evaluate_metrics(
-                    ctx, evaluator, test, "t1",
-                    {"response": "hello"}, "prompt", "expected",
-                    False, {},
+                    ctx,
+                    evaluator,
+                    test,
+                    "t1",
+                    {"response": "hello"},
+                    "prompt",
+                    "expected",
+                    False,
+                    {},
                     on_emit=lambda m: emit_calls.append(m),
                 )
             )
@@ -467,7 +493,9 @@ class TestBatchExecutionNarration:
         emit_calls = []
         progress_calls = []
 
-        async def _fake_single(ctx, test_id, semaphore, agent, evaluator, on_emit=None, on_test_phase=None):
+        async def _fake_single(
+            ctx, test_id, semaphore, agent, evaluator, on_emit=None, on_test_phase=None
+        ):
             return {"test_id": test_id, "status": "succeeded", "execution_time": 10}
 
         with patch(
@@ -504,7 +532,9 @@ class TestBatchExecutionNarration:
 
         emit_calls = []
 
-        async def _fake_single(ctx, test_id, semaphore, agent, evaluator, on_emit=None, on_test_phase=None):
+        async def _fake_single(
+            ctx, test_id, semaphore, agent, evaluator, on_emit=None, on_test_phase=None
+        ):
             return {
                 "test_id": test_id,
                 "status": "failed",
@@ -518,7 +548,8 @@ class TestBatchExecutionNarration:
         ):
             asyncio.run(
                 run_batch(
-                    ctx, ["t1"],
+                    ctx,
+                    ["t1"],
                     on_emit=lambda m: emit_calls.append(m),
                 )
             )

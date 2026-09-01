@@ -20,7 +20,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.usage_attribution import with_usage_attribution
-from rhesis.backend.app.utils.response_extractor import is_http_error_response
+from rhesis.backend.app.utils.response_extractor import is_endpoint_failure
 from rhesis.penelope.targets.base import Target, TargetResponse
 
 logger = logging.getLogger(__name__)
@@ -383,7 +383,7 @@ class BackendEndpointTarget(Target):
                 metadata={"error_details": response_dict},
             )
 
-        if isinstance(response_data, dict) and is_http_error_response(response_data):
+        if isinstance(response_data, dict) and is_endpoint_failure(response_data):
             return TargetResponse(
                 success=False,
                 content="",

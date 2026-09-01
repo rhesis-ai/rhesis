@@ -22,6 +22,7 @@ import {
 } from '@/utils/conversation-from-spans';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import { getEndpointFailure } from '@/utils/endpoint-failure';
 
 interface TestDetailConversationTabProps {
   test: TestResultDetail;
@@ -173,6 +174,10 @@ export default function TestDetailConversationTab({
   }, [test.test_reviews]);
 
   if (!isMultiTurn) {
+    // With no `output` (a rejected call), the turn used to render as an empty bubble and
+    // was then dropped by ConversationHistory's "nothing to show" filter, so the tab read
+    // "No conversation history available". Show what the endpoint actually sent back.
+    const endpointFailure = getEndpointFailure(test.test_output);
     const singleTurnSummary = [
       {
         turn: 1,
@@ -180,7 +185,13 @@ export default function TestDetailConversationTab({
         session_id: '',
         penelope_reasoning: '',
         penelope_message: test.test?.prompt?.content ?? '',
-        target_response: test.test_output?.output ?? '',
+        // `||`, not `??`: an empty-string output hits the same dropped-turn path as a
+        // missing one, and is what a rejected call actually leaves behind.
+        target_response:
+          test.test_output?.output ||
+          endpointFailure?.responseBody ||
+          endpointFailure?.summary ||
+          '',
         // Single-turn results have no goal_evaluation, so the turn status comes
         // from the result status (review > backend status > metrics).
         success: getEffectiveTestResultStatus(test) === 'Pass',

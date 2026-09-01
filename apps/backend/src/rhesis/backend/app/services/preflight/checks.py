@@ -209,8 +209,13 @@ async def check_endpoint_connectivity(
         )
 
         if is_error:
+            # ``output`` over ``message``: a connectivity check is read to find out *why* the
+            # endpoint refused, and only ``output`` carries the status line plus the target's
+            # own response body. ``message`` stops at "HTTP 401 error from endpoint".
             detail = (
-                response.message if isinstance(response, ErrorResponse) else response.get("error")
+                (response.output or response.message)
+                if isinstance(response, ErrorResponse)
+                else (response.get("output") or response.get("error"))
             )
             result = _make_result(
                 check_id,

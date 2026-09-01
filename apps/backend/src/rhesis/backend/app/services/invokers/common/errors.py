@@ -8,7 +8,7 @@ Contains:
   transient from permanent failures and retry accordingly.
 """
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from .schemas import ErrorResponse, RequestDetails
 
@@ -103,6 +103,12 @@ class EndpointInvocationError(Exception):
         error_type: Machine-readable error category from the invoker.
         retry_after: Seconds to wait before retrying (from Retry-After
             header or rate-limit response), or ``None``.
+        error_response: The originating ``ErrorResponse``, when this was
+            raised from one. Carried so a caller that wants to report the
+            failure as a result rather than a crash keeps the reason phrase
+            and the target's own response body -- ``str(exc)`` alone drops
+            both, which is how a 400 used to reach the UI as a bare
+            "No response available".
     """
 
     def __init__(
@@ -113,13 +119,26 @@ class EndpointInvocationError(Exception):
         status_code: Optional[int] = None,
         error_type: Optional[str] = None,
         retry_after: Optional[float] = None,
+        error_response: Optional[Any] = None,
     ):
         super().__init__(message)
         self.transient = transient
         self.status_code = status_code
         self.error_type = error_type
         self.retry_after = retry_after
+        self.error_response = error_response
 
+
+# ``EndpointService.invoke_endpoint`` wraps *our own* unexpected exceptions in
+# ``EndpointInvocationError`` too, tagged with this error_type. It is the discriminator that
+# separates "the user's endpoint refused" from "we have a bug", and callers must branch on
+# it before attributing a failure to the target or passing the message to the caller.
+INTERNAL_ERROR_TYPE = "internal_error"
+
+# Permanent failures that are genuinely the target's or the endpoint config's, so retrying
+# is pointless. Deliberately excludes INTERNAL_ERROR_TYPE: an unexpected exception on our
+# side is exactly the sort of thing a second attempt can get past.
+PERMANENT_TARGET_ERROR_TYPES = frozenset({"http_error", "validation_error"})
 
 _TRANSIENT_STATUS_CODES = frozenset({408, 429, 502, 503, 504})
 
@@ -161,4 +180,5 @@ def classify_error_response(error_response: ErrorResponse) -> EndpointInvocation
         status_code=status_code,
         error_type=error_type,
         retry_after=retry_after,
+        error_response=error_response,
     )

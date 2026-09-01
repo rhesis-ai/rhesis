@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.utils.response_extractor import as_response_dict
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 
 logger = logging.getLogger(__name__)
@@ -250,15 +251,39 @@ async def _run_single_turn(
             deferred_trace=True,
         )
 
-    result = await invoke_with_retry(
-        _invoke,
-        max_attempts=ctx.invoke_max_attempts,
-        min_wait=ctx.invoke_retry_min_wait,
-        max_wait=ctx.invoke_retry_max_wait,
-        label=f"single_turn[{test_id[:8]}]",
-    )
+    from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 
-    deferred_trace = result.pop("_deferred_trace", None) if isinstance(result, dict) else None
+    try:
+        result = await invoke_with_retry(
+            _invoke,
+            max_attempts=ctx.invoke_max_attempts,
+            min_wait=ctx.invoke_retry_min_wait,
+            max_wait=ctx.invoke_retry_max_wait,
+            label=f"single_turn[{test_id[:8]}]",
+        )
+    except EndpointInvocationError as e:
+        # A permanent target failure (400, 401, 422, …) is a result, not a crash. Returning
+        # it here routes it through the same persist path the sequential runner uses, so the
+        # status code, reason and the target's own response body all reach ``test_output``.
+        # Letting it propagate instead lands in the batch runner's generic except, which
+        # keeps only ``str(exc)`` and stores it under a key the UI never reads.
+        #
+        # Transient failures still propagate: ``invoke_with_retry`` has already exhausted its
+        # attempts, and the recovery rounds in ``run_batch`` are the remaining chance for a
+        # flaky endpoint. Reporting them as results here would silently retire that retry.
+        if e.transient or e.error_response is None:
+            raise
+        result = e.error_response
+
+    # The shared normalizer rather than a local to_dict()/dict() pair: it covers the
+    # Pydantic v1/v2 variants too and never raises on something unexpected. Not
+    # process_endpoint_result, which deep-copies -- the deferred trace has to come off
+    # first, or a copy of it is what gets persisted.
+    result = as_response_dict(result)
+
+    # "deferred_trace" is the key set on an ErrorResponse (extra field); "_deferred_trace"
+    # the one set on a successful dict. Pop both so neither ends up stored in test_output.
+    deferred_trace = result.pop("_deferred_trace", None) or result.pop("deferred_trace", None)
     if deferred_trace:
         deferred_traces.append(deferred_trace)
 

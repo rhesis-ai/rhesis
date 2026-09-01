@@ -8,6 +8,7 @@ import {
   getTestResultLabel,
   isPassedStatusName,
 } from '@/utils/test-result-status';
+import { getEndpointFailure } from '@/utils/endpoint-failure';
 import { getLatestMetricReviewForResult } from './test-run-summary-utils';
 
 export type TestResultDisplayStatus = {
@@ -239,26 +240,6 @@ export function getTestResultDisplayStatus(
   };
 }
 
-function getHttpErrorReason(test: TestResultDetail): string | undefined {
-  const output = test.test_output as Record<string, unknown> | undefined;
-  if (!output) return undefined;
-
-  const isHttpError =
-    output.error_type === 'http_error' ||
-    (output.error &&
-      typeof output.status_code === 'number' &&
-      output.status_code >= 400);
-  if (!isHttpError) return undefined;
-
-  const statusCode =
-    typeof output.status_code === 'number' ? output.status_code : undefined;
-  const errorMsg = typeof output.error === 'string' ? output.error : '';
-  if (statusCode) {
-    return `Endpoint returned HTTP ${statusCode}${errorMsg ? `: ${errorMsg}` : ''}`;
-  }
-  return `Endpoint returned an error${errorMsg ? `: ${errorMsg}` : ''}`;
-}
-
 export function getExecutionErrorTooltip(
   test: TestResultDetail,
   status: TestResultDisplayStatus,
@@ -266,8 +247,11 @@ export function getExecutionErrorTooltip(
 ): string {
   if (!status.hasExecutionError) return '';
 
-  const httpReason = getHttpErrorReason(test);
-  if (httpReason) return httpReason;
+  // Was a local reimplementation that only matched failures carrying an HTTP status and
+  // only read the flat shape, so SDK/connector errors and every multi-turn failure fell
+  // through to the generic message.
+  const failure = getEndpointFailure(test.test_output);
+  if (failure) return failure.summary;
 
   const requirement = test.test?.requirement;
   if (requirement && requirements) {

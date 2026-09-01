@@ -26,6 +26,35 @@ from rhesis.backend.jobs.execution.test_execution import execute_test
 logger = logging.getLogger(__name__)
 
 
+def _narrate_completion(
+    result: Any,
+    index: int,
+    total: int,
+    on_progress=None,
+    on_emit=None,
+) -> None:
+    """Report one finished test to the progress and activity-log callbacks.
+
+    A test whose endpoint rejected the call still returns normally here (the Error row is
+    already persisted), so a bare "completed" line told a reader nothing about a run the
+    target refused wholesale. Reports the status code and the target's own reason instead.
+    """
+    endpoint_error = result.get("endpoint_error") if isinstance(result, dict) else None
+
+    if endpoint_error:
+        logger.info(f"Test {index}/{total} reported as Error: {endpoint_error['summary']}")
+    else:
+        logger.info(f"Test {index}/{total} completed successfully")
+
+    if on_progress:
+        on_progress(index, total)
+    if on_emit:
+        if endpoint_error:
+            on_emit(f"Test {index}/{total} endpoint error: {endpoint_error['message']}")
+        else:
+            on_emit(f"Test {index}/{total} completed")
+
+
 def execute_tests_sequentially(
     session: Session,
     test_config: TestConfiguration,
@@ -181,11 +210,7 @@ def execute_tests_sequentially(
             )
             results.append(result)
 
-            logger.info(f"Test {i}/{len(tests)} completed successfully")
-            if on_progress:
-                on_progress(i, len(tests))
-            if on_emit:
-                on_emit(f"Test {i}/{len(tests)} completed")
+            _narrate_completion(result, i, len(tests), on_progress, on_emit)
 
         except Exception as e:
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
@@ -195,7 +220,9 @@ def execute_tests_sequentially(
             if on_progress:
                 on_progress(i, len(tests))
             if on_emit:
-                on_emit(f"Test {i}/{len(tests)} failed")
+                # The reason is the whole point of reading the activity log; the batch
+                # path has always included it and this one silently dropped it.
+                on_emit(f"Test {i}/{len(tests)} failed: {e}")
         finally:
             if on_test_phase:
                 try:

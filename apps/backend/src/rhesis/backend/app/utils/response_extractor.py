@@ -12,8 +12,13 @@ from typing import Any, Dict, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 
-def _as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
-    """Normalize invoker results (dict or ErrorResponse) to a plain dict."""
+def as_response_dict(result: Union[Dict, Any]) -> Dict[str, Any]:
+    """Normalize invoker results (dict or ErrorResponse) to a plain dict.
+
+    Public because callers outside this module need the same conversion and a hand-rolled
+    ``to_dict()``/``dict()`` version misses cases and can raise. A dict is returned as-is
+    rather than copied, so a caller may still pop keys off the original.
+    """
     if not result:
         return {}
     if isinstance(result, dict):
@@ -51,7 +56,7 @@ def is_http_error_response(result: Union[Dict, Any]) -> bool:
     ``error`` with ``status_code >= 400``). Does not match on free-text
     messages.
     """
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     if not data:
         return False
 
@@ -65,9 +70,127 @@ def is_http_error_response(result: Union[Dict, Any]) -> bool:
     return False
 
 
+def is_endpoint_failure(result: Union[Dict, Any]) -> bool:
+    """Return True when the invoker reported the target call as failed, HTTP status or not.
+
+    Broader than :func:`is_http_error_response`, which by design only matches failures
+    carrying a 4xx/5xx status. Several invokers never have one to report: the SDK/connector
+    invoker sets ``error_type`` like ``sdk_timeout`` or ``sdk_function_error`` with no
+    status code at all, and the WebSocket invoker does the same for a mid-stream failure.
+    Judging those on ``is_http_error_response`` alone reads them as a real answer and scores
+    the error text into a Pass/Fail verdict, so anything deciding "did we get output worth
+    evaluating?" must use this instead.
+
+    ``error_type`` is required alongside ``error`` on purpose: only our own invokers set it,
+    so a target whose mapped response happens to contain an ``error`` field is not mistaken
+    for an invocation failure.
+    """
+    data = as_response_dict(result)
+    if not data:
+        return False
+
+    if is_http_error_response(data):
+        return True
+
+    return bool(data.get("error")) and bool(data.get("error_type"))
+
+
+def has_endpoint_failure_in_result(result: Union[Dict, Any]) -> bool:
+    """Return True for a flat invoker failure or a multi-turn first-message failure.
+
+    The :func:`is_endpoint_failure` counterpart of :func:`has_http_error_in_result`; see
+    that function for why only the first ``send_message_to_target`` turn is inspected.
+    """
+    if is_endpoint_failure(result):
+        return True
+
+    data = as_response_dict(result)
+    target_interaction = _first_send_message_interaction(data.get("history"))
+    if target_interaction is None:
+        return False
+
+    return is_endpoint_failure(_error_details_from_tool_execution(target_interaction))
+
+
+def get_endpoint_error_details(result: Union[Dict, Any]) -> Dict[str, Any]:
+    """Return the invoker error dict for a failed call, flat or multi-turn nested.
+
+    Gives callers one place to reach the status code, reason and response body without
+    each needing to know that multi-turn buries them under the first turn's tool message.
+    Returns ``{}`` when the result is not a failure.
+    """
+    data = as_response_dict(result)
+    if not data:
+        return {}
+
+    if is_endpoint_failure(data):
+        return data
+
+    target_interaction = _first_send_message_interaction(data.get("history"))
+    if target_interaction is None:
+        return {}
+
+    error_details = _error_details_from_tool_execution(target_interaction)
+    return error_details if is_endpoint_failure(error_details) else {}
+
+
+# A failure summary becomes a log line and one ActivityLog row per reported test, and a
+# target is free to answer a 4xx with an arbitrarily large body: an HTML error page, a
+# stack trace, a rejected payload echoed back. ActivityLog.message is unbounded Text, so
+# nothing downstream would refuse it. Generous enough that a real explanation survives
+# whole (the safeguarding rejection that prompted this is ~100 characters).
+NARRATION_MESSAGE_LIMIT = 500
+
+
+def truncate_for_narration(text: str) -> str:
+    """Bound a message destined for a log line or an activity-log row."""
+    if len(text) <= NARRATION_MESSAGE_LIMIT:
+        return text
+    return f"{text[:NARRATION_MESSAGE_LIMIT].rstrip()}... (truncated)"
+
+
+def summarize_endpoint_failure(result: Union[Dict, Any]) -> Optional[Dict[str, Any]]:
+    """Describe a failed invocation for logs and job activity narration.
+
+    Returns ``None`` when the result is not a failure, so callers can use it as both the
+    test and the value. Lives here rather than in ``jobs/`` because the sequential
+    executors, the batch runner and the activity log all need the same wording -- and
+    because a reader opening the Jobs page to ask "why did this run produce nothing?"
+    should not get a different answer depending on which execution mode ran.
+
+    Keys: ``summary`` (log-ready line), ``message`` (the target's own reason) and
+    ``status_code`` (``None`` for failures that never carried one, e.g. SDK/connector).
+
+    Both text fields are capped: see ``NARRATION_MESSAGE_LIMIT``. The untruncated text
+    stays in ``test_output`` for the detail view, which is where a reader wants all of it.
+    """
+    details = get_endpoint_error_details(result)
+    if not details:
+        return None
+
+    status_code = get_http_error_status_code(result)
+    message = truncate_for_narration(
+        str(details.get("output") or details.get("message") or "").strip()
+    )
+
+    label = f"HTTP {status_code}" if status_code is not None else "an error"
+    summary = f"Endpoint returned {label}"
+    # The invoker's text usually already names the status; don't say it twice.
+    if message and (status_code is None or f"{status_code}" not in message):
+        summary = f"{summary}: {message}"
+    elif message:
+        summary = message
+
+    return {
+        "summary": summary,
+        "message": message or summary,
+        "status_code": status_code,
+    }
+
+
 def get_http_error_status_code(result: Union[Dict, Any]) -> Optional[int]:
     """Return HTTP status from a flat response or multi-turn first-turn error_details."""
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     if not data:
         return None
 
@@ -137,11 +260,16 @@ def has_http_error_in_result(result: Union[Dict, Any]) -> bool:
 
     Multi-turn: only the first ``send_message_to_target`` interaction is checked.
     Later turns with HTTP failures are left to normal Pass/Fail scoring.
+
+    Deciding whether to skip metric evaluation? Use
+    :func:`has_endpoint_failure_in_result` instead. This one matches only failures that
+    carry an HTTP status, so an SDK/connector or WebSocket failure slips past it and gets
+    scored into a Pass/Fail verdict. Kept for callers that specifically mean "HTTP".
     """
     if is_http_error_response(result):
         return True
 
-    data = _as_response_dict(result)
+    data = as_response_dict(result)
     target_interaction = _first_send_message_interaction(data.get("history"))
     if target_interaction is None:
         return False
@@ -186,9 +314,16 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
 
     # Handle error responses first
     if result.get("error", False):
-        # If there's an error, use the error message as the actual response
-        error_message = result.get("message", "Unknown error occurred")
-        return error_message
+        # ``output`` carries the full user-facing text (status, reason, and the target's
+        # own response body); ``message`` is the short technical variant with the body
+        # stripped. Prefer ``output`` so the reason the target rejected the call survives
+        # -- an endpoint answering "blocked by safeguarding" is the whole story here.
+        error_message = result.get("output") or result.get("message")
+        if isinstance(error_message, (dict, list)):
+            return json.dumps(error_message)
+        if error_message and str(error_message).strip():
+            return str(error_message)
+        return "Unknown error occurred"
 
     # Try to extract output from successful responses
     actual_response = result.get("output", "")

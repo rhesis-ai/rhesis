@@ -347,8 +347,12 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
     svc = EndpointService()
 
     def _invoke(endpoint_id: str, input_data: dict) -> dict:
+        from rhesis.backend.app.services.endpoint.result_processing import (
+            process_endpoint_result,
+        )
+
         with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-            return run_sync(
+            result = run_sync(
                 svc.invoke_endpoint(
                     db,
                     endpoint_id,
@@ -358,6 +362,11 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
                     project_id=project_id,
                 )
             )
+        # LocalEndpointTarget's contract is a dict with an ``output`` key, and a failed
+        # invocation returns an ErrorResponse model instead. Handing that over raw made the
+        # target's `result.get(...)` raise, and the session was told "'ErrorResponse' object
+        # has no attribute 'get'" instead of which status the endpoint actually returned.
+        return process_endpoint_result(result)
 
     def factory(endpoint_id: str) -> LocalEndpointTarget:
         name = endpoint_id

@@ -83,7 +83,7 @@ def outcome_of(execution: Execution, verdict: Optional[Verdict] = None) -> Outco
 
 
 def classify_metrics(
-    metrics: Optional[Dict[str, Any]], *, http_error: bool = False
+    metrics: Optional[Dict[str, Any]], *, endpoint_error: bool = False
 ) -> Tuple[Execution, Optional[Verdict]]:
     """Classify a test result's outcome from its metrics dict.
 
@@ -96,9 +96,11 @@ def classify_metrics(
 
     Precedence, most-informative first:
 
-    1. An HTTP-level error means the endpoint never produced evaluable
+    1. A failed invocation means the endpoint never produced evaluable
        output. Metrics are meaningless even if some happen to be present
-       (a stale evaluation from a retry, for instance) -- ``ERROR``.
+       (a stale evaluation from a retry, for instance) -- ``ERROR``. Note
+       this covers any invoker failure, not only ones carrying an HTTP
+       status: see ``utils/response_extractor.is_endpoint_failure``.
     2. No metrics at all, or nothing metrics-shaped -- nothing was
        evaluated -- ``ERROR``.
     3. Any metric definitively failed -- ``FAIL``. A real failure is never
@@ -113,7 +115,7 @@ def classify_metrics(
        threshold).
     6. Otherwise every metric passed -- ``PASS``.
     """
-    if http_error:
+    if endpoint_error:
         return Execution.ERROR, None
 
     valid = {k: v for k, v in (metrics or {}).items() if isinstance(v, dict)}

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.services.test_run_timing import TestPhase
+from rhesis.backend.app.utils.response_extractor import summarize_endpoint_failure
 from rhesis.backend.jobs.execution.executors.base import BaseTestExecutor
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
 from rhesis.backend.jobs.execution.executors.output_providers import (
@@ -150,12 +151,18 @@ class SingleTurnTestExecutor(BaseTestExecutor):
 
             # Return execution summary
             logger.debug(f"Test execution completed: {test_id}")
-            return {
+            summary: Dict[str, Any] = {
                 "test_id": test_id,
                 "test_result_id": str(test_result_id) if test_result_id else None,
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }
+            # The row is persisted as Error either way; this is what lets the caller
+            # narrate *why* in the activity log instead of reporting a bare "completed".
+            endpoint_failure = summarize_endpoint_failure(processed_result)
+            if endpoint_failure:
+                summary["endpoint_error"] = endpoint_failure
+            return summary
 
         except Exception as e:
             logger.error(

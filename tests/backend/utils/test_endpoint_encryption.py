@@ -1,10 +1,8 @@
-import os
-
 import pytest
-from cryptography.fernet import Fernet
 from faker import Faker
 from sqlalchemy import text
 
+from rhesis.backend.app.config.settings import get_security_settings
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.utils.encryption import is_encrypted
 from tests.backend.routes.fixtures.data_factories import BaseDataFactory
@@ -65,17 +63,24 @@ class EndpointEncryptionDataFactory(BaseDataFactory):
 
 @pytest.fixture
 def encryption_key():
-    """Provide test encryption key"""
-    # Preserve original value
-    original_key = os.environ.get("DB_ENCRYPTION_KEY")
-    key = Fernet.generate_key().decode()
-    os.environ["DB_ENCRYPTION_KEY"] = key
-    yield key
-    # Restore original value or remove if it wasn't set
-    if original_key is not None:
-        os.environ["DB_ENCRYPTION_KEY"] = original_key
-    elif "DB_ENCRYPTION_KEY" in os.environ:
-        del os.environ["DB_ENCRYPTION_KEY"]
+    """Yield the session's configured encryption key.
+
+    Deliberately does not touch ``DB_ENCRYPTION_KEY``. It used to overwrite it with a
+    throwaway key and restore it on teardown, without clearing either cache the key flows
+    through (``get_security_settings()`` and ``_get_fernet()``, both ``lru_cache``d). That
+    made the swap a no-op in isolation, and a session-wide corruption in company: if any
+    other test clears those caches while this fixture is active -- ``test_encryption.py``
+    and ``ee/sso/test_sso_encryption.py`` both do -- the throwaway key gets baked into the
+    cached Fernet and *stays* there, because teardown restored the env var but never
+    rebuilt the cache. Every later encrypt/decrypt in the worker then used the wrong key,
+    and any row written earlier (a session auth token, for one) became undecryptable,
+    failing ~50 unrelated route tests with DecryptionError for the rest of the session.
+
+    No test here needs a distinct key: they assert that a field is stored encrypted and
+    round-trips through the ORM, which the configured key does. So the fix is to stop
+    mutating process-global state rather than to manage the caches around it.
+    """
+    return get_security_settings().db_encryption_key
 
 
 class TestEndpointEncryption:
