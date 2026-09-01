@@ -2,14 +2,35 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SidebarPlanRow } from '../SidebarPlanRow';
 import { NavLinkItem } from '../NavLinkItem';
-import type { Plan } from '@/utils/api-client/usage-client';
+import type { Plan } from '@/utils/api-client/features-client';
 import type { NavigationLinkItem } from '@/types/navigation';
+import { usePlan } from '@/contexts/FeaturesContext';
+
+jest.mock('@/contexts/FeaturesContext', () => ({
+  usePlan: jest.fn(),
+}));
+
+const mockUsePlan = usePlan as jest.MockedFunction<typeof usePlan>;
 
 const plan = (over: Partial<Plan> = {}): Plan => ({
   name: 'Team',
   is_paid: true,
   is_active: true,
   ...over,
+});
+
+/** The row reads the plan itself now, so the source is stubbed rather than
+ * passed in. It comes from `GET /features` (server-seeded), which is what makes
+ * it present on first paint. */
+function renderRow(value: Plan | null | undefined) {
+  // No default for `value`: a default would swallow an explicitly passed
+  // `undefined`, which is one of the cases under test.
+  mockUsePlan.mockReturnValue(value ?? null);
+  return render(<SidebarPlanRow />);
+}
+
+beforeEach(() => {
+  mockUsePlan.mockReset();
 });
 
 /**
@@ -21,7 +42,7 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
  */
 describe('SidebarPlanRow', () => {
   it('labels the row and links to the usage page', () => {
-    render(<SidebarPlanRow plan={plan()} />);
+    renderRow(plan());
     expect(screen.getByText('Plan')).toBeInTheDocument();
     expect(screen.getByRole('link')).toHaveAttribute(
       'href',
@@ -30,18 +51,14 @@ describe('SidebarPlanRow', () => {
   });
 
   it('shows the plan through PlanBadge, verbatim', () => {
-    render(<SidebarPlanRow plan={plan({ name: 'uLtRa PREMIUM' })} />);
+    renderRow(plan({ name: 'uLtRa PREMIUM' }));
     expect(screen.getByText('uLtRa PREMIUM')).toBeInTheDocument();
   });
 
   it('passes the plan through, so a lapsed one is marked', () => {
-    // Proves `plan` actually reaches the badge. Dropping the prop would leave
-    // the sidebar showing a lapsed plan as active while the usage page did not.
-    render(
-      <SidebarPlanRow
-        plan={plan({ name: 'Enterprise (inactive)', is_active: false })}
-      />
-    );
+    // Proves the plan actually reaches the badge, rather than the row rendering
+    // a name with no regard for licence state.
+    renderRow(plan({ name: 'Enterprise (inactive)', is_active: false }));
     expect(screen.getByText('Enterprise (inactive)')).toBeInTheDocument();
   });
 
@@ -49,9 +66,7 @@ describe('SidebarPlanRow', () => {
     ['null', null],
     ['undefined', undefined],
   ])('renders nothing until the plan is known (%s)', (_l, value) => {
-    const { container } = render(
-      <SidebarPlanRow plan={value as unknown as Plan} />
-    );
+    const { container } = renderRow(value as unknown as Plan);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -80,7 +95,7 @@ describe('SidebarPlanRow', () => {
     }
 
     it('uses the same horizontal padding as a nav row', () => {
-      const planRow = rowOf(render(<SidebarPlanRow plan={plan()} />).container);
+      const planRow = rowOf(renderRow(plan()).container);
       const navRow = rowOf(
         render(<NavLinkItem item={starItem} collapsed={false} />).container
       );
@@ -94,9 +109,7 @@ describe('SidebarPlanRow', () => {
     });
 
     it('gives the icon gutter the same width, so labels share an x-offset', () => {
-      const planIcon = rowOf(
-        render(<SidebarPlanRow plan={plan()} />).container
-      ).firstElementChild;
+      const planIcon = rowOf(renderRow(plan()).container).firstElementChild;
       const navIcon = rowOf(
         render(<NavLinkItem item={starItem} collapsed={false} />).container
       ).firstElementChild;
@@ -111,10 +124,8 @@ describe('SidebarPlanRow', () => {
     });
 
     it('anchors the badge right and protects it from a long tier name', () => {
-      const { container } = render(
-        <SidebarPlanRow
-          plan={plan({ name: 'An Extremely Long Tier Name Indeed' })}
-        />
+      const { container } = renderRow(
+        plan({ name: 'An Extremely Long Tier Name Indeed' })
       );
       const row = rowOf(container);
       const trailing = row.lastElementChild;
@@ -134,7 +145,7 @@ describe('SidebarPlanRow', () => {
     });
 
     it('puts the badge after the label in document order', () => {
-      const { container } = render(<SidebarPlanRow plan={plan()} />);
+      const { container } = renderRow(plan());
       const label = screen.getByText('Plan');
       const badge = screen.getByText('Team');
       expect(

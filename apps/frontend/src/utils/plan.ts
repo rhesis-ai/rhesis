@@ -17,7 +17,7 @@
  */
 
 import { PLAN_COLORS } from '@/styles/theme-constants';
-import type { Plan } from '@/utils/api-client/usage-client';
+import type { Plan } from '@/utils/api-client/features-client';
 
 /**
  * Which of the three presentation states a plan is in.

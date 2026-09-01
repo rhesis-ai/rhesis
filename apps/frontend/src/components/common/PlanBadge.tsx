@@ -6,7 +6,7 @@ import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
 import { BORDER_RADIUS, PLAN_COLORS } from '@/styles/theme-constants';
 import { planLabel, resolvePlanStyle } from '@/utils/plan';
-import type { Plan } from '@/utils/api-client/usage-client';
+import type { Plan } from '@/utils/api-client/features-client';
 
 /**
  * The plan pill. **The only one.** Every surface that shows a plan renders

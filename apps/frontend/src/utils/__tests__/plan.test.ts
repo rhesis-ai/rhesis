@@ -4,7 +4,7 @@ import {
   planLabel,
   resolvePlanStyle,
 } from '@/utils/plan';
-import type { Plan } from '@/utils/api-client/usage-client';
+import type { Plan } from '@/utils/api-client/features-client';
 
 const plan = (over: Partial<Plan> = {}): Plan => ({
   name: 'Team',

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PlanBadge, PlanCrownIcon } from '@/components/common/PlanBadge';
-import type { Plan } from '@/utils/api-client/usage-client';
+import type { Plan } from '@/utils/api-client/features-client';
 
 const plan = (over: Partial<Plan> = {}): Plan => ({
   name: 'Team',

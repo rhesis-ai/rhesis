@@ -14,6 +14,7 @@ import { FilterButton } from '@/components/common/FilterButton';
 import { UpgradeLink } from '@/components/common/QuotaChips';
 import { PlanBadge } from '@/components/common/PlanBadge';
 import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
+import { usePlan } from '@/contexts/FeaturesContext';
 import UsageOverviewFilterDrawer from './UsageOverviewFilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import {
@@ -231,7 +232,10 @@ function ResourceList({
 export default function UsageOverviewTab() {
   const [periodStart, setPeriodStart] = React.useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const { resources, plan, loading, error } = useUsageForPeriod(periodStart);
+  const { resources, loading, error } = useUsageForPeriod(periodStart);
+  // Plan is not period-scoped: it is today's plan even when viewing a past
+  // month, so it comes from the org's licence rather than the usage snapshot.
+  const plan = usePlan();
 
   // The period is the only filter here, so an active one is a count of 1.
   // Passing the number matters: given only the boolean, FilterButton draws

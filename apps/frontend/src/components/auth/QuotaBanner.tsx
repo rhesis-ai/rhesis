@@ -13,11 +13,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import NextLink from 'next/link';
 import { useUsage } from '@/contexts/UsageContext';
-import { useCan } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
+import { useCanUpgrade } from '@/hooks/useQuotaGate';
 import { UPGRADE_URL, type QuotaResource } from '@/constants/quota';
 import { findWorstResource, quotaCopy } from '@/utils/quota';
-import { isUpgradeable } from '@/utils/plan';
 
 /**
  * Org-wide quota banner. `usage:read` (the same capability `GET /usage`
@@ -25,12 +23,13 @@ import { isUpgradeable } from '@/utils/plan';
  * enforcement blocks members too, and hiding the reason from them only
  * turns a 402 into a support ticket (see `auth/rbac.py`'s comment on
  * `Usage.READ`). So this banner is visible to anyone in the org; only the
- * "Upgrade" link is narrower, gated on `Organization.UPDATE` below.
+ * "Upgrade" link is narrower, gated on `Organization.UPDATE` via
+ * `useCanUpgrade`.
  */
 export default function QuotaBanner() {
   const theme = useTheme();
-  const { resources, plan, loading } = useUsage();
-  const canManageOrg = useCan(Capability.Organization.UPDATE);
+  const { resources, loading } = useUsage();
+  const canUpgrade = useCanUpgrade();
   const [dismissedFor, setDismissedFor] = useState<QuotaResource | null>(null);
 
   const worst = useMemo(() => {
@@ -50,7 +49,6 @@ export default function QuotaBanner() {
   // Never reached with `limit === null` -- `findWorstResource` only flags
   // resources whose zone isn't `healthy`, which requires a non-null limit.
   const limit = item.limit ?? 0;
-  const canUpgrade = canManageOrg && isUpgradeable(plan);
   const { sentence } = quotaCopy({
     resource: worst.resource,
     kind: item.kind,

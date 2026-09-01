@@ -76,10 +76,18 @@ jest.mock('@/contexts/UsageContext', () => ({
   useUsage: () => ({
     resources: mockUsageResources.current,
     edition: 'community',
-    plan: mockUsagePlan.current,
     loading: false,
     error: null,
   }),
+}));
+
+// Only `usePlan` is stubbed -- spreading the real module keeps `useFeature`
+// and friends intact for the rest of the tree. The plan rides on
+// `GET /features` because that response is server-seeded, so the row has it on
+// first paint.
+jest.mock('@/contexts/FeaturesContext', () => ({
+  ...jest.requireActual('@/contexts/FeaturesContext'),
+  usePlan: () => mockUsagePlan.current,
 }));
 
 // ── imports (after mocks) ──────────────────────────────────────────────────

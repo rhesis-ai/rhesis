@@ -4,12 +4,21 @@ import '@testing-library/jest-dom';
 
 import UsageOverviewTab from '../UsageOverviewTab';
 import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
+import { usePlan } from '@/contexts/FeaturesContext';
 
 jest.mock('@/hooks/useUsageForPeriod', () => ({
   useUsageForPeriod: jest.fn(),
 }));
 
+// The plan is not period-scoped, so it comes from `usePlan` (backed by
+// `GET /features`) rather than from the period's usage snapshot.
+jest.mock('@/contexts/FeaturesContext', () => ({
+  ...jest.requireActual('@/contexts/FeaturesContext'),
+  usePlan: jest.fn(),
+}));
+
 const mockUseUsage = useUsageForPeriod as jest.Mock;
+const mockUsePlan = usePlan as jest.Mock;
 
 const USAGE_RESOURCES = {
   test_executions: {
@@ -40,12 +49,17 @@ const USAGE_RESOURCES = {
 
 beforeEach(() => {
   mockUseUsage.mockReset();
+  mockUsePlan.mockReset();
   mockUseUsage.mockReturnValue({
     resources: USAGE_RESOURCES,
     edition: 'community',
-    plan: { name: 'Community', is_paid: false, is_active: false },
     loading: false,
     error: null,
+  });
+  mockUsePlan.mockReturnValue({
+    name: 'Community',
+    is_paid: false,
+    is_active: false,
   });
 });
 
@@ -54,10 +68,10 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: {},
       edition: null,
-      plan: null,
       loading: true,
       error: null,
     });
+    mockUsePlan.mockReturnValue(null);
 
     render(<UsageOverviewTab />);
 
@@ -68,10 +82,10 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: {},
       edition: null,
-      plan: null,
       loading: false,
       error: new Error('boom'),
     });
+    mockUsePlan.mockReturnValue(null);
 
     render(<UsageOverviewTab />);
 
@@ -168,7 +182,6 @@ describe('UsageOverviewTab', () => {
         },
       },
       edition: 'community',
-      plan: { name: 'Community', is_paid: false, is_active: false },
       loading: false,
       error: null,
     });
@@ -182,9 +195,13 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: USAGE_RESOURCES,
       edition: 'enterprise',
-      plan: { name: 'Enterprise', is_paid: true, is_active: true },
       loading: false,
       error: null,
+    });
+    mockUsePlan.mockReturnValue({
+      name: 'Enterprise',
+      is_paid: true,
+      is_active: true,
     });
 
     render(<UsageOverviewTab />);
@@ -202,9 +219,13 @@ describe('UsageOverviewTab', () => {
     mockUseUsage.mockReturnValue({
       resources: USAGE_RESOURCES,
       edition: 'enterprise',
-      plan: { name: 'Enterprise (inactive)', is_paid: true, is_active: false },
       loading: false,
       error: null,
+    });
+    mockUsePlan.mockReturnValue({
+      name: 'Enterprise (inactive)',
+      is_paid: true,
+      is_active: false,
     });
 
     render(<UsageOverviewTab />);

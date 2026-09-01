@@ -27,7 +27,6 @@
 import { usageKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
-  Plan,
   UsageResourceItem,
   UsageResponse,
 } from '@/utils/api-client/usage-client';
@@ -38,14 +37,12 @@ import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 export interface UsageState {
   resources: Readonly<Record<string, UsageResourceItem>>;
-  edition: string | null;
   /**
-   * The org's plan. `null` while loading or on error.
-   *
-   * Everything the UI needs to display or style a plan: see `utils/plan.ts`.
-   * `edition` is the machine id and must not be used for either.
+   * Machine id for the licence edition. Never for display or styling — for the
+   * plan, use `usePlan()`, which is server-seeded and so avoids this context's
+   * one-round-trip loading window.
    */
-  plan: Plan | null;
+  edition: string | null;
   loading: boolean;
   error: Error | null;
 }
@@ -53,7 +50,6 @@ export interface UsageState {
 const DEFAULT_STATE: UsageState = {
   resources: {},
   edition: null,
-  plan: null,
   loading: true,
   error: null,
 };
@@ -92,7 +88,6 @@ export function UsageProvider({
       return {
         resources: {},
         edition: null,
-        plan: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -100,10 +95,6 @@ export function UsageProvider({
     return {
       resources: data.resources,
       edition: data.edition,
-      // `?? null` rather than a fabricated default: a response predating this
-      // field is "unknown", not "free". Guessing would either prompt a paying
-      // org to upgrade or style them as a tier they do not have.
-      plan: data.plan ?? null,
       loading: false,
       error: null,
     };

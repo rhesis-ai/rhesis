@@ -6,7 +6,7 @@ import type { Theme } from '@mui/material/styles';
 import NextLink from 'next/link';
 import { PlanBadge, PlanCrownIcon } from '@/components/common/PlanBadge';
 import { planLabel } from '@/utils/plan';
-import type { Plan } from '@/utils/api-client/usage-client';
+import { usePlan } from '@/contexts/FeaturesContext';
 import {
   navCardIconSx,
   navCardLabelSx,
@@ -19,11 +19,6 @@ import {
  * (`usage:read` is not admin-only), so the row never links somewhere the
  * clicker cannot follow. */
 const USAGE_HREF = '/organizations/usage';
-
-interface SidebarPlanRowProps {
-  /** The org's plan from `GET /usage`, or `null` while it loads. */
-  plan: Plan | null | undefined;
-}
 
 /**
  * The org's plan, as the first row of the sidebar's footer card.
@@ -46,9 +41,11 @@ interface SidebarPlanRowProps {
  * needs no change to this file.
  *
  * Renders nothing until the plan is known — a plan must not flicker from a
- * placeholder to the real value.
+ * placeholder to the real value. In practice it is known on first paint:
+ * `usePlan()` reads `GET /features`, which the protected layout server-seeds.
  */
-export function SidebarPlanRow({ plan }: SidebarPlanRowProps) {
+export function SidebarPlanRow() {
+  const plan = usePlan();
   if (planLabel(plan) === null) return null;
 
   return (

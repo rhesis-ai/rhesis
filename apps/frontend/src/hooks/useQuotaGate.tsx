@@ -20,7 +20,8 @@ import { useCan } from '@/components/common/Can';
 import { QuotaNotice } from '@/components/common/QuotaNotice';
 import { Capability } from '@/constants/capabilities';
 import type { QuotaResource } from '@/constants/quota';
-import { useResourceUsage, useUsage } from '@/contexts/UsageContext';
+import { useResourceUsage } from '@/contexts/UsageContext';
+import { usePlan } from '@/contexts/FeaturesContext';
 import {
   isKnownQuotaResource,
   parseQuotaError,
@@ -140,7 +141,7 @@ export function useQuotaMessageFor(
  * the upgrade too. See `isUpgradeable` in `utils/plan.ts`. */
 export function useCanUpgrade(): boolean {
   const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const { plan } = useUsage();
+  const plan = usePlan();
   return canManageOrg && isUpgradeable(plan);
 }
 

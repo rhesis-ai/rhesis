@@ -10,6 +10,20 @@ jest.mock('@/contexts/UsageContext', () => ({
   useUsage: jest.fn(),
 }));
 
+// The plan drives the upgrade link, and comes from `GET /features` via
+// `usePlan` (server-seeded, so it is there on first paint) rather than from
+// usage.
+//
+// Deliberately a narrow mock, not `...jest.requireActual(...)`: this tree uses
+// exactly one hook from each context, and anything new it reaches for should
+// fail loudly on the missing export rather than quietly resolve against a real
+// context this test never populates. A test passing while the component sees
+// empty data is the worse outcome. `Sidebar.test.tsx` spreads the real module
+// because that tree genuinely renders other consumers of it.
+jest.mock('@/contexts/FeaturesContext', () => ({
+  usePlan: jest.fn(),
+}));
+
 jest.mock('@/components/common/Can', () => ({
   useCan: () => true,
   useCanWithStatus: () => ({ allowed: true, loading: false }),
@@ -18,6 +32,7 @@ jest.mock('@/components/common/Can', () => ({
 }));
 
 import { useUsage } from '@/contexts/UsageContext';
+import { usePlan } from '@/contexts/FeaturesContext';
 
 /** Build a `UsageResourceItem`; `ceiling` defaults to `limit` (a hard tier). */
 function item(
@@ -51,10 +66,10 @@ function mockUsage(
   (useUsage as jest.Mock).mockReturnValue({
     resources,
     edition: 'community',
-    plan,
     loading,
     error: null,
   });
+  (usePlan as jest.Mock).mockReturnValue(plan);
 }
 
 afterEach(() => {

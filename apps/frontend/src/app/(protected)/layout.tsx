@@ -25,6 +25,11 @@ import { ProtectedLayoutClient } from './ProtectedLayoutClient';
  * the app. The cost (a license lookup plus four counting queries) is paid
  * once per `UsageContext`'s 5-minute `staleTime` window, not per
  * navigation. Only the Usage page seeds it, from its own server component.
+ *
+ * That is also why the org's plan rides on `GET /features` rather than
+ * `GET /usage`: it is needed on first paint (the sidebar's plan row) and is
+ * free to compute, so it belongs on the response already seeded here instead
+ * of forcing a seed of the expensive one.
  */
 export default async function ProtectedLayout({
   children,

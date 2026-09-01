@@ -25,9 +25,9 @@ import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import BrandMark from '@/components/common/BrandMark';
 import { UserAvatar } from '@/components/common/UserAvatar';
-import { useCan } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
 import { useUsage } from '@/contexts/UsageContext';
+import { useCanUpgrade } from '@/hooks/useQuotaGate';
+import { usePlan } from '@/contexts/FeaturesContext';
 import {
   QUOTA_RESOURCE_LABELS,
   QUOTA_RESOURCE_ORDER,
@@ -41,7 +41,6 @@ import {
   zoneColor,
   type UsageRow,
 } from '@/utils/quota';
-import { isUpgradeable } from '@/utils/plan';
 import { PlanBadge } from '@/components/common/PlanBadge';
 import { ColorModeContext } from '@/components/providers/ThemeProvider';
 import { handleSignOut } from '@/actions/auth';
@@ -304,11 +303,11 @@ export function Sidebar() {
   // keeps this quiet until there is real data, not a permission check.
   // "Can upgrade" is a narrower, separate question: Organization.UPDATE
   // (the same owner/admin gate as Org Settings), not Usage.READ.
-  const { resources: usageResources, plan } = useUsage();
+  const { resources: usageResources } = useUsage();
+  const plan = usePlan();
   const flaggedUsage = flaggedResources(usageResources);
   const flaggedCount = flaggedUsage.length;
-  const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const canUpgrade = canManageOrg && isUpgradeable(plan);
+  const canUpgrade = useCanUpgrade();
 
   // The badge answers "how many"; the sentence (only rendered as a tooltip
   // here, in full in the org-menu block below) answers "how bad" -- no
@@ -355,9 +354,9 @@ export function Sidebar() {
       {/* Named "Org usage", not "Usage": the menu already reads "Org
           Settings" two rows up, and quota is organization state, never
           personal -- see IMPLEMENTATION_PROMPT.md's "the rule". Visible to
-          every member, not just admins: `usage:read` is granted org-wide
-          (see the note where `canManageOrg` is computed above). Only the
-          "Upgrade plan" row below is narrower. */}
+          every member, not just admins: `usage:read` is granted org-wide.
+          Only the "Upgrade plan" row below is narrower -- see
+          `useCanUpgrade`, which gates on Organization.UPDATE. */}
       <MenuItem
         onClick={() => {
           router.push('/organizations/usage');
@@ -859,7 +858,7 @@ export function Sidebar() {
               flexDirection: 'column',
             }}
           >
-            <SidebarPlanRow plan={plan} />
+            <SidebarPlanRow />
             {footerGroup.items.map(item => (
               <NavLinkItem
                 key={`footer-${item.title}`}

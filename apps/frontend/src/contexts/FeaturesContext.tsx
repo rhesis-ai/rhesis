@@ -23,6 +23,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
   LicenseInfo,
   FeaturesResponse,
+  Plan,
 } from '@/utils/api-client/features-client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
@@ -31,6 +32,7 @@ import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 interface FeaturesState {
   license: LicenseInfo | null;
+  plan: Plan | null;
   enabled: ReadonlySet<string>;
   warnings: Readonly<Record<string, string>>;
   limits: Readonly<Record<string, number | null>>;
@@ -42,6 +44,7 @@ interface FeaturesState {
 
 const DEFAULT_STATE: FeaturesState = {
   license: null,
+  plan: null,
   enabled: new Set<string>(),
   warnings: {},
   limits: {},
@@ -91,6 +94,7 @@ export function FeaturesProvider({
     if (error)
       return {
         license: null,
+        plan: null,
         enabled: new Set<string>(),
         warnings: {},
         limits: {},
@@ -102,6 +106,10 @@ export function FeaturesProvider({
     if (!data) return DEFAULT_STATE;
     return {
       license: data.license,
+      // `?? null` rather than a fabricated default: a response predating this
+      // field is "unknown", not "free". Guessing would either prompt a paying
+      // org to upgrade or style them as a tier they do not have.
+      plan: data.plan ?? null,
       enabled: new Set<string>(data.enabled),
       warnings: data.warnings ?? {},
       limits: data.limits ?? {},
@@ -141,11 +149,32 @@ export function useFeatureWarning(name: FeatureName): string | null {
 }
 
 /**
- * Full state accessor for advanced consumers (license badges, error
- * toasts, loading spinners).
+ * Full state accessor for advanced consumers (error toasts, loading
+ * spinners).
+ *
+ * For a plan, use `usePlan()` below rather than reading `license` from here.
+ * Deriving anything displayable from `license.edition` is how a hardcoded
+ * tier-name comparison gets reintroduced.
  */
 export function useFeaturesState(): FeaturesState {
   return useContext(FeaturesContext);
+}
+
+/**
+ * The org's plan, or `null` while loading, on error, or on a backend that
+ * predates the field.
+ *
+ * **The single source for displaying a plan.** Pair it with `PlanBadge`, which
+ * resolves styling from the plan's booleans — never from `name`. `null` means
+ * "unknown", so render nothing rather than guessing a tier.
+ *
+ * Reads from `GET /features` because that response is server-seeded in the
+ * protected layout, so the plan is known on first paint. It previously came
+ * from `GET /usage`, which is client-fetched and left every plan surface blank
+ * for a round trip on each cold load.
+ */
+export function usePlan(): Plan | null {
+  return useContext(FeaturesContext).plan;
 }
 
 /**
