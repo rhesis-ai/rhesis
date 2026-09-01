@@ -63,10 +63,15 @@ export const QUOTA_RESOURCE_ORDER: readonly QuotaResource[] = [
  */
 export const WARNING_THRESHOLD = 0.8;
 
-/** Where every "Upgrade" affordance in the app links to. The page publishes
- * the same per-tier limits this app enforces, so it is the one place a reader
- * who just hit a ceiling can see what a higher tier would give them.
+/** The public pricing page: where every "Upgrade" affordance links, and every
+ * "Learn about Enterprise" prompt on an EE feature's empty state. The page
+ * publishes the same per-tier limits and capabilities this app enforces, so it
+ * is the one place a reader who just hit a ceiling -- or found a feature
+ * gated -- can see what a higher tier would give them.
  *
- * `/editions` 301s here, but link to the destination directly -- an upgrade
- * prompt is the wrong place to spend a redirect. */
+ * One constant rather than a URL per call site: this moved once already
+ * (`/editions` -> `/pricing`, which still 301s) and the three EE empty states
+ * had each hardcoded the old path, so the move had to be made in four places.
+ * Link to the destination directly; an upgrade prompt is the wrong place to
+ * spend a redirect. */
 export const UPGRADE_URL = 'https://rhesis.ai/pricing';
