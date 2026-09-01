@@ -10,16 +10,36 @@ only an explicit accept or a version bump matters.
 
 Bump ``CURRENT_TERMS_VERSION`` (and ``CURRENT_TERMS_EFFECTIVE_DATE``) when
 publishing new terms; users with an older accepted version must
-re-accept before continuing.
+re-accept before continuing. ``TermsAcceptanceGate`` on the frontend reads
+``has_prior_acceptance`` and shows such a user "Updated Terms" rather than
+first-run copy, so a bump needs no frontend change.
+
+**Do not bump this ahead of the terms themselves being published.** The
+consent dialog links to rhesis.ai for the document, so a version live here
+before the page is live means users accepting a version number whose text
+they cannot yet read -- and the acceptance record would point at the wrong
+document.
 """
 
 from datetime import date, datetime, timezone
 
 from rhesis.backend.app.models.user import User
 
-# Active T&C version (effective 2025-09-01).
-CURRENT_TERMS_VERSION = "1.0"
-CURRENT_TERMS_EFFECTIVE_DATE = date(2025, 9, 1)
+# Active T&C version.
+#
+# 2.0 replaces the public preview terms with the commercial SaaS terms and
+# conditions, published at rhesis.ai/terms-conditions/saas. A major bump
+# because it is a different document rather than an amendment: the preview
+# terms said of themselves that they would be replaced once a commercial
+# offering existed, and Free is now designated a Free Trial Phase under
+# Section 14 rather than being uncovered. Everyone carrying 1.0 -- including
+# the users the ``b5c6d7e8f9a0`` backfill set to that baseline -- is prompted
+# to re-accept on their next request.
+#
+# The version is ours, not the document's: the SaaS terms are issued as an
+# appendix and carry no version of their own.
+CURRENT_TERMS_VERSION = "2.0"
+CURRENT_TERMS_EFFECTIVE_DATE = date(2026, 9, 1)
 
 
 def _user_terms(user: User) -> dict:
