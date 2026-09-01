@@ -55,6 +55,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     ENV_LICENSE_PRIVATE_KEY,
     LIC_ALL_FEATURES,
     LIC_CUSTOM_LIMITS,
+    LIC_CUSTOM_RETENTION_DAYS,
     LIC_FEATURES,
     LICENSE_ALGORITHM,
     LICENSE_AUDIENCE,
@@ -133,6 +134,7 @@ def mint_token(
     *,
     custom_features: Optional[list[str]] = None,
     custom_limits: Optional[dict[str, Any]] = None,
+    custom_retention_days: Optional[int] = None,
 ) -> str:
     """Mint and sign a license JWT for *org_id*.
 
@@ -159,10 +161,23 @@ def mint_token(
         tier and a later pricing change still reaches this customer. Use
         ``None`` as a value to make one resource unlimited. This is the
         mechanism behind the pricing page's "custom" enterprise limits.
+    :param custom_retention_days: Bespoke trace-retention window for this org,
+        in days, written to the ``custom_retention_days`` claim. Overrides the
+        tier's published ``retention_days`` at enforcement time (the sweep in
+        ``jobs/trace_retention.py``). Must be a positive int; the resolver
+        ignores anything else and keeps the tier value.
     :returns: Signed JWT string.
     :raises RuntimeError: if the private key is unavailable or invalid, or if
         *edition* is not a sellable tier.
+    :raises ValueError: if *custom_retention_days* is not a positive int.
     """
+    if custom_retention_days is not None and (
+        isinstance(custom_retention_days, bool) or custom_retention_days <= 0
+    ):
+        raise ValueError(
+            f"custom_retention_days must be a positive int, got {custom_retention_days!r}"
+        )
+
     private_key = _load_private_key()
 
     now = int(datetime.now(tz=timezone.utc).timestamp())
@@ -185,6 +200,9 @@ def mint_token(
         # from the tier's own numbers, and enforcing it would pin this org to
         # its mint-time limits for good. See LIC_CUSTOM_LIMITS.
         lic_claim[LIC_CUSTOM_LIMITS] = dict(custom_limits)
+
+    if custom_retention_days is not None:
+        lic_claim[LIC_CUSTOM_RETENTION_DAYS] = custom_retention_days
 
     payload: dict[str, Any] = {
         CLAIM_ISSUER: LICENSE_ISSUER,
@@ -229,6 +247,7 @@ def issue(
     dry_run: bool = False,
     custom_features: Optional[list[str]] = None,
     custom_limits: Optional[dict[str, Any]] = None,
+    custom_retention_days: Optional[int] = None,
 ) -> str:
     """Mint a token and (unless *dry_run*) write it to ``organization.license``.
 
@@ -267,6 +286,7 @@ def issue(
         kid=kid,
         custom_features=custom_features,
         custom_limits=custom_limits,
+        custom_retention_days=custom_retention_days,
     )
 
     if dry_run:
