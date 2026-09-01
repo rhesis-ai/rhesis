@@ -30,13 +30,21 @@ of the same thing.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import Depends, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.dependencies import get_current_organization, get_tenant_db_session
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaResource, QuotaResourceLike
-from rhesis.backend.app.quota.enforcement import enforce_quota
+from rhesis.backend.app.quota.enforcement import (
+    QuotaExceededError,
+    check_backstop,
+    enforce_quota,
+)
+
+logger = logging.getLogger(__name__)
 
 #: Set on the response when a SOFT-policy org is past its limit but still
 #: inside the grace band -- allowed, but worth surfacing before the request
@@ -81,4 +89,39 @@ def require_quota(resource: QuotaResourceLike):
     return _dep
 
 
-__all__ = ["QUOTA_WARNING_HEADER", "require_quota"]
+def require_backstop(resource: QuotaResourceLike):
+    """Dependency factory: reject only at ``BACKSTOP_MULTIPLIER`` x the tier limit.
+
+    Unlike :func:`require_quota` this is a safety valve, not normal
+    enforcement. It **fails open**: any error during the check (DB
+    unreachable, bad org state, coding bug) logs a warning and allows the
+    request through. The telemetry ingest route's contract is that
+    ingestion never fails because of a billing-side problem.
+
+    Returns ``None`` (not the org) because the ingest route does not need
+    the org from this dependency -- it already has it from its own
+    ``get_tenant_context``.
+    """
+    resource = resource if isinstance(resource, QuotaResource) else QuotaResource(resource)
+
+    def _dep(
+        org: Organization = Depends(get_current_organization),
+        db: Session = Depends(get_tenant_db_session),
+    ) -> None:
+        try:
+            verdict = check_backstop(db, str(org.id), org, resource)
+            if not verdict.allowed:
+                raise QuotaExceededError(verdict)
+        except QuotaExceededError:
+            raise
+        except Exception:
+            logger.warning(
+                "Backstop check failed for org %s, allowing request (fail-open)",
+                org.id,
+                exc_info=True,
+            )
+
+    return _dep
+
+
+__all__ = ["QUOTA_WARNING_HEADER", "require_backstop", "require_quota"]

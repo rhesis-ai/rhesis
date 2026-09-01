@@ -138,6 +138,7 @@ class TierSpec:
             limits=dict(self.limits),
             overage=self.overage,
             overage_tolerance_percent=self.overage_tolerance_percent,
+            retention_days=self.retention_days,
         )
 
     def feature_values(self) -> list[str]:

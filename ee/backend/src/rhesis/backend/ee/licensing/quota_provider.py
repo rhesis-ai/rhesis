@@ -32,7 +32,11 @@ from typing import Optional
 
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaPolicy, limits_from_wire
-from rhesis.backend.ee.licensing.entitlements import LIC_CUSTOM_LIMITS, LicenseEdition
+from rhesis.backend.ee.licensing.entitlements import (
+    LIC_CUSTOM_LIMITS,
+    LIC_CUSTOM_RETENTION_DAYS,
+    LicenseEdition,
+)
 from rhesis.backend.ee.licensing.tiers import resolve_policy
 
 logger = logging.getLogger(__name__)
@@ -101,26 +105,37 @@ class ConfigQuotaProvider:
         policy = resolve_policy(edition)
 
         overrides = limits_from_wire(info.get(LIC_CUSTOM_LIMITS))
-        if not overrides:
-            return policy
+        if overrides:
+            # DEBUG, and resource names without their values. This runs on the
+            # request path -- every quota gate and every hosted-model call resolves
+            # a policy -- so INFO here is one line per request for the orgs that
+            # have overrides. The values are also a customer's negotiated caps,
+            # which is contract detail that should not be sitting in log storage;
+            # the names alone are enough to answer "did an override apply, and to
+            # what" when debugging, and the effective numbers are already visible
+            # on `GET /usage`.
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Applied %d custom limit override(s) for org %s (edition=%s) on: %s",
+                    len(overrides),
+                    getattr(org, "id", None),
+                    edition.value if edition else None,
+                    ", ".join(sorted(r.value for r in overrides)),
+                )
+            policy = policy.with_limit_overrides(overrides)
 
-        # DEBUG, and resource names without their values. This runs on the
-        # request path -- every quota gate and every hosted-model call resolves
-        # a policy -- so INFO here is one line per request for the orgs that
-        # have overrides. The values are also a customer's negotiated caps,
-        # which is contract detail that should not be sitting in log storage;
-        # the names alone are enough to answer "did an override apply, and to
-        # what" when debugging, and the effective numbers are already visible
-        # on `GET /usage`.
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "Applied %d custom limit override(s) for org %s (edition=%s) on: %s",
-                len(overrides),
-                getattr(org, "id", None),
-                edition.value if edition else None,
-                ", ".join(sorted(r.value for r in overrides)),
-            )
-        return policy.with_limit_overrides(overrides)
+        custom_retention = info.get(LIC_CUSTOM_RETENTION_DAYS)
+        if isinstance(custom_retention, int) and not isinstance(custom_retention, bool):
+            if custom_retention > 0:
+                policy = policy.with_retention_override(custom_retention)
+            else:
+                logger.warning(
+                    "Ignoring non-positive custom_retention_days %r for org %s",
+                    custom_retention,
+                    getattr(org, "id", None),
+                )
+
+        return policy
 
 
 __all__ = ["ConfigQuotaProvider"]

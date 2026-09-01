@@ -126,6 +126,7 @@ class Trace(
         Index("idx_trace_environment_time", "environment", start_time.desc()),
         Index("idx_trace_status_time", "status_code", start_time.desc()),
         Index("idx_trace_org_time", "organization_id", start_time.desc()),
+        Index("idx_trace_org_created", "organization_id", "created_at"),
         Index("idx_trace_test_run", "test_run_id", start_time.desc()),
         Index("idx_trace_test_result", "test_result_id"),
         Index("idx_trace_test", "test_id"),
