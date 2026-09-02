@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-01
+
+### Changed
+- **Outbound HTTP Timeouts**: Enforced default timeouts on all outbound HTTP requests to prevent indefinite hangs. REST API calls now use `DEFAULT_API_TIMEOUT` and LLM paths use `DEFAULT_LLM_TIMEOUT`.
+- **Type Annotations**: Refactored type signatures to make implicit optional parameters explicit (e.g., `str | None`), improving compatibility with static type checkers.
+- **LiteLLM & Vertex AI Providers**: Adjusted argument ordering in provider calls to place positional arguments (`*args`) before keyword arguments.
+
+### Fixed
+- **Socket Leak in Rest Invoker**: Resolved a socket leak during shutdown by maintaining strong references to background asyncio tasks (specifically `client.aclose()`) to prevent premature garbage collection.
+- **Test Run Referencing**: Updated SDK tools to reference test runs by their specific generated names rather than the parent test set name, and corrected the run comparison tool mapping to `get_insights`.
+- **Abstract Method Enforcement**: Explicitly declared `generate_batch` as abstract on `BaseModel` to ensure proper contract enforcement across `BaseLLM` and `BaseEmbedder` subclasses.
+
+
 ## [0.14.0] - 2026-08-27
 
 ### Added
