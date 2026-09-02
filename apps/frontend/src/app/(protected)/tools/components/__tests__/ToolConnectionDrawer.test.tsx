@@ -80,6 +80,12 @@ const asanaProvider: TypeLookup = {
   type_value: 'asana',
 };
 
+const trelloProvider: TypeLookup = {
+  id: 'pt-trello' as TypeLookup['id'],
+  type_name: 'ToolProviderType',
+  type_value: 'trello',
+};
+
 function renderDrawer(props = {}) {
   const onClose = jest.fn();
   const onConnect = jest.fn().mockResolvedValue({ id: 'tool-1' });
@@ -224,4 +230,41 @@ describe('ToolConnectionDrawer', () => {
     expect(screen.getByText('Update Notion')).toBeInTheDocument();
     expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
   });
+
+  it('renders API Key and Token for Trello provider and tests connection', async () => {
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        provider={trelloProvider}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Connect Trello')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^API Key/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^API Token/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/workspace id/i)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/^API Key/i), 'trello-key-123');
+    await user.type(screen.getByLabelText(/^API Token/i), 'trello-tok-456');
+
+    const testButton = screen.getByRole('button', { name: /test connection/i });
+    expect(testButton).toBeEnabled();
+    await user.click(testButton);
+
+    await waitFor(() => {
+      expect(mockTestToolConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_type_id: 'pt-trello',
+          credentials: {
+            TRELLO_API_KEY: 'trello-key-123',
+            TRELLO_TOKEN: 'trello-tok-456',
+          },
+        })
+      );
+    });
+  }, 15000);
 });
