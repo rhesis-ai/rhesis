@@ -14,6 +14,10 @@ Do not access any other GitLab projects.
 IMPORTANT RESTRICTION: Scope all Asana operations to workspace GID
 "{{ workspace_context.workspace_gid }}".
 {% endif %}
+{% if provider == "trello" and workspace_context and workspace_context.workspace_gid %}
+IMPORTANT RESTRICTION: Scope all Trello operations to workspace ID
+"{{ workspace_context.workspace_gid }}".
+{% endif %}
 {% if provider == "azure_devops" and azure_context and azure_context.project %}
 IMPORTANT RESTRICTION: Scope all Azure DevOps operations to project
 "{{ azure_context.project }}". Do not access any other Azure DevOps projects.

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "trello": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@delano/mcp-trello"],
+      "env": {
+        "TRELLO_API_KEY": {{ TRELLO_API_KEY | tojson }},
+        "TRELLO_TOKEN": {{ TRELLO_TOKEN | tojson }}
+      }
+    }
+  }
+}
