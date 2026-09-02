@@ -695,12 +695,14 @@ export function ToolConnectionDrawer({
           return;
         }
 
-        // When the Asana workspace field is cleared, buildScopeMetadataFromForm
+        // When the Asana or Trello workspace field is cleared, buildScopeMetadataFromForm
         // returns undefined and JSON would drop the key, so the backend would
         // test against the stored workspace_gid. Send an explicit empty object
         // so the test reflects the cleared scope.
         const scopeMetadata =
-          currentProviderType === 'asana' && !workspaceGid.trim()
+          (currentProviderType === 'asana' ||
+            currentProviderType === 'trello') &&
+          !workspaceGid.trim()
             ? {}
             : parsedMetadata;
 
