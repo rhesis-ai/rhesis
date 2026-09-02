@@ -137,6 +137,31 @@ def _validate_linear_credentials(credentials: dict[str, str] | None) -> None:
             detail="Linear integrations require 'LINEAR_API_TOKEN'",
         )
 
+def _validate_trello_credentials(credentials: dict[str, str] | None) -> None:
+    token = (credentials or {}).get("TRELLO_TOKEN", "")
+    key = (credentials or {}).get("TRELLO_API_KEY", "")
+
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="TRELLO integrations require 'TRELLO_TOKEN'",
+        )
+    
+    if not isinstance(key, str) or not key.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="TRELLO integrations require 'TRELLO_API_KEY'",
+        )
+
+def _validate_trello_workspace_gid(tool_metadata: dict | None) -> None:
+    if not tool_metadata or "workspace_gid" not in tool_metadata:
+        return
+    workspace_gid = tool_metadata["workspace_gid"]
+    if not isinstance(workspace_gid, str) or not workspace_gid.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Trello 'workspace_gid' must be a non-empty string",
+        )
 
 def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
     if not tool_metadata or "project" not in tool_metadata:
@@ -196,6 +221,9 @@ def _validate_mcp_test_connection_request(
     elif provider == "asana":
         _validate_asana_credentials(credentials)
         _validate_asana_workspace_gid(tool_metadata)
+    elif provider == "trello":
+        _validate_trello_credentials(credentials)
+        _validate_trello_workspace_gid(tool_metadata)
     elif provider == "linear":
         _validate_linear_credentials(credentials)
     elif provider == "azure_devops":
@@ -241,6 +269,9 @@ def _validate_provider_type_switch(
     elif provider_type.type_value == "asana":
         _validate_asana_credentials(tool.credentials)
         _validate_asana_workspace_gid(tool.tool_metadata)
+    elif provider_type.type_value == "trello":
+        _validate_trello_credentials(tool.credentials)
+        _validate_trello_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "linear":
         _validate_linear_credentials(tool.credentials)
     elif provider_type.type_value == "azure_devops":
@@ -288,6 +319,9 @@ def create_tool(
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "trello":
+            _validate_trello_credentials(tool.credentials)
+            _validate_trello_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
@@ -398,6 +432,8 @@ def update_tool(
             _validate_gitlab_project(tool.tool_metadata)
         elif provider_type.type_value == "asana":
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "trello":
+            _validate_trello_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "azure_devops":
             _validate_azure_devops_project(tool.tool_metadata)
 
@@ -423,6 +459,8 @@ def update_tool(
             _validate_shortcut_credentials(tool.credentials)
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
+        elif provider_type.type_value == "trello":
+            _validate_trello_credentials(tool.credentials)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
