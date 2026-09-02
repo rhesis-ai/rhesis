@@ -10,6 +10,11 @@ license token). ``TRACE_RETENTION_DAYS`` overrides the tier value for all
 orgs when set (useful for self-hosted deployments without the EE tier
 system). An org whose resolved retention is ``None`` (unlimited) is skipped.
 
+That last rule is what makes ``TRACE_RETENTION_DAYS`` the operative knob off
+Rhesis cloud: with ``USAGE_QUOTAS_ENABLED`` false (the default), every policy
+resolves unlimited and so carries ``retention_days=None``, meaning enabling
+the sweep on its own deletes nothing. Set the override too, or leave quotas on.
+
 Each org is swept in its own session and transaction, same pattern as
 ``jobs/retention.py``. See that module's docstring for the rationale on
 explicit ``organization_id`` filters, ``bind_scope_to_session`` for RLS

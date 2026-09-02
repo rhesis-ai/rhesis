@@ -128,6 +128,17 @@ def require_backstop(resource: QuotaResourceLike):
                 # No org to attribute usage to; nothing to backstop.
                 return
             org = db.get(Organization, organization_id)
+            if org is None:
+                # Bad org state, so fail open like any other lookup problem.
+                # Falling through with org=None would resolve the *community*
+                # policy and backstop a possibly-paid org at 10x the free
+                # tier -- a 402 on ingest caused purely by a billing-side
+                # lookup, which is what this gate exists to prevent.
+                logger.warning(
+                    "Backstop skipped: no organization row for %s (fail-open)",
+                    organization_id,
+                )
+                return
             verdict = check_backstop(db, str(organization_id), org, resource)
             if not verdict.allowed:
                 raise QuotaExceededError(verdict)
