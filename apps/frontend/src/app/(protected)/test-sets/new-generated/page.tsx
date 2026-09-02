@@ -1,34 +1,42 @@
-'use client';
-
-import { Box, CircularProgress, Typography } from '@mui/material';
-import { useSession } from 'next-auth/react';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { requireSession } from '@/utils/require-session';
+import { Model } from '@/utils/api-client/interfaces/model';
+import { Source } from '@/utils/api-client/interfaces/source';
 import TestGenerationFlow from './components/TestGenerationFlow';
-import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
-import { scaledVh } from '@/styles/viewport-scaling';
 
-export default function GenerateTestsPage() {
-  const { status } = useSession();
+/**
+ * Server component: prefetches the model/source dropdown data
+ * TestInputScreen's selectors need so they open with content already in
+ * place -- no client-side spinner. Fails open to "no initial data" so the
+ * client falls back to its own fetch.
+ */
+export default async function GenerateTestsPage() {
+  await requireSession();
 
-  if (isSessionLoading(status)) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: scaledVh(),
-        }}
-      >
-        <CircularProgress sx={{ mb: 2 }} />
-        <Typography variant="body1">Loading...</Typography>
-      </Box>
-    );
+  let initialModels: Model[] | undefined;
+  let initialSources: Source[] | undefined;
+
+  try {
+    const factory = await createServerApiFactory();
+    const [modelsResponse, sourcesResponse] = await Promise.all([
+      factory.getModelsClient().getModels({
+        sort_by: 'name',
+        sort_order: 'asc',
+        skip: 0,
+        limit: 100,
+      }),
+      factory.getSourcesClient().getSources({ limit: 100, skip: 0 }),
+    ]);
+    initialModels = modelsResponse.data;
+    initialSources = sourcesResponse.data;
+  } catch {
+    // Fall back to the client fetch.
   }
 
-  if (!isAuthenticated(status)) {
-    throw new Error('No session token available');
-  }
-
-  return <TestGenerationFlow />;
+  return (
+    <TestGenerationFlow
+      initialModels={initialModels}
+      initialSources={initialSources}
+    />
+  );
 }

@@ -31,7 +31,8 @@ export interface EndpointOption {
 
 export function useEndpoints(
   params: Partial<PaginationParams> = {},
-  enabled = true
+  enabled = true,
+  initialData?: Endpoint[]
 ) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<Endpoint[]>({
@@ -49,6 +50,7 @@ export function useEndpoints(
       return response.data || [];
     },
     enabled: enabled && isAuthenticated,
+    initialData,
     staleTime: STALE_TIME,
   });
 }
@@ -80,7 +82,11 @@ export function useProject(id: string, enabled = true, initialData?: Project) {
   });
 }
 
-export function useProjects(params: ProjectsQueryParams = {}, enabled = true) {
+export function useProjects(
+  params: ProjectsQueryParams = {},
+  enabled = true,
+  initialData?: Project[]
+) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<Project[]>({
     queryKey: projectKeys.list(
@@ -97,6 +103,7 @@ export function useProjects(params: ProjectsQueryParams = {}, enabled = true) {
       return response.data || [];
     },
     enabled: enabled && isAuthenticated,
+    initialData,
     staleTime: STALE_TIME,
   });
 }
@@ -108,7 +115,11 @@ export function useProjects(params: ProjectsQueryParams = {}, enabled = true) {
  * independently copy-pasted into PlaygroundClient, EndpointSelector, and
  * ExplorerDetail — each fetching its own uncached copy of both lists.
  */
-export function useEndpointOptions(enabled = true) {
+export function useEndpointOptions(
+  enabled = true,
+  initialEndpoints?: Endpoint[],
+  initialProjects?: Project[]
+) {
   const listParams = {
     sort_by: 'name',
     sort_order: 'asc' as const,
@@ -118,12 +129,12 @@ export function useEndpointOptions(enabled = true) {
     data: endpoints,
     isLoading: endpointsLoading,
     error: endpointsError,
-  } = useEndpoints(listParams, enabled);
+  } = useEndpoints(listParams, enabled, initialEndpoints);
   const {
     data: projects,
     isLoading: projectsLoading,
     error: projectsError,
-  } = useProjects(listParams, enabled);
+  } = useProjects(listParams, enabled, initialProjects);
 
   const options = useMemo<EndpointOption[]>(() => {
     if (!endpoints || !projects) return [];
