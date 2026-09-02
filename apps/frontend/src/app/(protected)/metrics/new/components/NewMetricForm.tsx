@@ -33,7 +33,7 @@ import {
   MetricScope,
   ThresholdOperator,
 } from '@/utils/api-client/interfaces/metric';
-import { UUID } from 'crypto';
+import type { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
