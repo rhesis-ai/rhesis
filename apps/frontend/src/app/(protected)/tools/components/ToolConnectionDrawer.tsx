@@ -183,7 +183,6 @@ export function ToolConnectionDrawer({
 
   // Trello API Key
   const [trelloApiKey, setTrelloApiKey] = useState('');
-  const [initialTrelloApiKey, setInitialTrelloApiKey] = useState('');
 
   // Azure DevOps fields (org/email are encrypted credentials; project is metadata)
   const [azureOrg, setAzureOrg] = useState('');
@@ -317,10 +316,6 @@ export function ToolConnectionDrawer({
       }
 
       setTrelloApiKey(currentProviderType === 'trello' ? '************' : '');
-      setInitialTrelloApiKey(
-        currentProviderType === 'trello' ? '************' : ''
-      );
-
       setInstanceUrl('************');
       setUsername('************');
 
@@ -548,20 +543,21 @@ export function ToolConnectionDrawer({
     apiKey: string,
     token: string
   ): Record<string, string> => {
-    const credentials: Record<string, string> = {
+    // Both TRELLO_API_KEY and TRELLO_TOKEN are required by the backend validator.
+    // Callers must ensure neither value is a placeholder before calling this function.
+    return {
+      TRELLO_API_KEY: apiKey.trim(),
       TRELLO_TOKEN: token.trim(),
     };
-    const trimmedKey = apiKey.trim();
-    if (trimmedKey && trimmedKey !== '************') {
-      credentials.TRELLO_API_KEY = trimmedKey;
-    }
-    return credentials;
   };
 
   const buildTrelloMetadata = (
     workspace: string
   ): Record<string, unknown> | undefined => {
     const trimmed = workspace.trim();
+    // workspace_gid stores the Trello workspace ID (also called organization ID or short name).
+    // The backend and MCP config read this key for both Asana and Trello; it maps to
+    // Trello's "idOrganization" / organization shortName field.
     return trimmed ? { workspace_gid: trimmed } : undefined;
   };
 
@@ -734,6 +730,18 @@ export function ToolConnectionDrawer({
           if (urlIsPlaceholder || usernameIsPlaceholder || tokenIsPlaceholder) {
             setError(
               'Please re-enter the URL, email, and API token to test updated credentials.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+        } else if (currentProviderType === 'trello') {
+          // Trello requires both TRELLO_API_KEY and TRELLO_TOKEN for every request.
+          // If either field is still a placeholder, require the user to re-enter it.
+          const apiKeyIsPlaceholder =
+            trelloApiKey === '************' || !trelloApiKey.trim();
+          if (tokenIsPlaceholder || apiKeyIsPlaceholder) {
+            setError(
+              'Please re-enter both your Trello API Key and Token to test updated credentials.'
             );
             setTestingConnection(false);
             return;
@@ -1032,13 +1040,34 @@ export function ToolConnectionDrawer({
             }
           }
         }
-        // Handle other providers - only update if token was changed
+        // Handle other providers: update credentials if token changed, OR for Trello if the
+        // API key changed (Trello has two credential fields, either of which may be updated).
         else if (
-          authToken &&
-          authToken.trim() &&
-          authToken !== '************'
+          (authToken && authToken.trim() && authToken !== '************') ||
+          (currentProviderType === 'trello' &&
+            trelloApiKey &&
+            trelloApiKey.trim() &&
+            trelloApiKey !== '************')
         ) {
-          if (currentProviderType === 'gitlab') {
+          if (currentProviderType === 'trello') {
+            // Both fields are required by the backend; ensure the user has re-entered
+            // whichever field they changed (neither can remain as a placeholder).
+            const tokenIsPlaceholder =
+              !authToken.trim() || authToken === '************';
+            const apiKeyIsPlaceholder =
+              !trelloApiKey.trim() || trelloApiKey === '************';
+            if (tokenIsPlaceholder || apiKeyIsPlaceholder) {
+              setError(
+                'Please re-enter both your Trello API Key and Token to save updated credentials.'
+              );
+              setLoading(false);
+              return;
+            }
+            updates.credentials = buildTrelloCredentials(
+              trelloApiKey,
+              authToken
+            );
+          } else if (currentProviderType === 'gitlab') {
             updates.credentials = buildGitLabCredentials(
               authToken,
               gitlabApiUrl
@@ -1047,11 +1076,6 @@ export function ToolConnectionDrawer({
             updates.credentials = buildAzureDevOpsCredentials(
               azureOrg,
               azureEmail,
-              authToken
-            );
-          } else if (currentProviderType === 'trello') {
-            updates.credentials = buildTrelloCredentials(
-              trelloApiKey,
               authToken
             );
           } else {
