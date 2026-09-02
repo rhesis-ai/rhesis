@@ -1,7 +1,7 @@
 """
 Canonical default model identifiers in unified provider/name form.
 
-All defaults are stored as full model ids (e.g. "vertex_ai/gemini-2.0-flash").
+All defaults are stored as full model ids (e.g. "vertex_ai/gemini-3.1-flash-lite").
 Use _model_name(full_id) to get the name part when calling provider constructors.
 """
 
@@ -29,7 +29,7 @@ DEFAULT_LANGUAGE_MODELS = {
     "polyphemus": "polyphemus/polyphemus-default",
     "replicate": "replicate/llama-2-70b-chat",
     "together_ai": "together_ai/togethercomputer/llama-2-70b-chat",
-    "vertex_ai": "vertex_ai/gemini-2.0-flash",
+    "vertex_ai": "vertex_ai/gemini-3.1-flash-lite",
     "azure_ai": "azure_ai/command-r-plus",
     "azure": "azure/gpt-4o",
 }
@@ -47,10 +47,10 @@ def parse_model_id(full_id: str) -> tuple[str, str]:
     """Split a full model id into (provider, model_name).
 
     Args:
-        full_id: Unified model id, e.g. "vertex_ai/gemini-2.0-flash"
+        full_id: Unified model id, e.g. "vertex_ai/gemini-3.1-flash-lite"
 
     Returns:
-        (provider, model_name), e.g. ("vertex_ai", "gemini-2.0-flash")
+        (provider, model_name), e.g. ("vertex_ai", "gemini-3.1-flash-lite")
     """
     if not full_id:
         return "", ""

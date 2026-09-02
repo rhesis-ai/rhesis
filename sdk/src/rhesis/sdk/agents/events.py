@@ -16,7 +16,7 @@ Usage::
             await self._send({"type": "tool_start", "tool": tool_name})
 
     architect = ArchitectAgent(
-        model="vertex_ai/gemini-2.0-flash",
+        model="vertex_ai/gemini-3.1-flash-lite",
         tools=[...],
         event_handlers=[WebSocketHandler(ws.send_json)],
     )
