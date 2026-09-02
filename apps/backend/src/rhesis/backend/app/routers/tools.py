@@ -137,6 +137,7 @@ def _validate_linear_credentials(credentials: dict[str, str] | None) -> None:
             detail="Linear integrations require 'LINEAR_API_TOKEN'",
         )
 
+
 def _validate_trello_credentials(credentials: dict[str, str] | None) -> None:
     token = (credentials or {}).get("TRELLO_TOKEN", "")
     key = (credentials or {}).get("TRELLO_API_KEY", "")
@@ -146,12 +147,13 @@ def _validate_trello_credentials(credentials: dict[str, str] | None) -> None:
             status_code=400,
             detail="TRELLO integrations require 'TRELLO_TOKEN'",
         )
-    
+
     if not isinstance(key, str) or not key.strip():
         raise HTTPException(
             status_code=400,
             detail="TRELLO integrations require 'TRELLO_API_KEY'",
         )
+
 
 def _validate_trello_workspace_gid(tool_metadata: dict | None) -> None:
     if not tool_metadata or "workspace_gid" not in tool_metadata:
@@ -162,6 +164,7 @@ def _validate_trello_workspace_gid(tool_metadata: dict | None) -> None:
             status_code=400,
             detail="Trello 'workspace_gid' must be a non-empty string",
         )
+
 
 def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
     if not tool_metadata or "project" not in tool_metadata:

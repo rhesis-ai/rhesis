@@ -1,26 +1,21 @@
 """Add Trello ToolProviderType
-Revision ID: <generated_id>
+Revision ID: b6723e65f233
 Revises: 105b0268e6a4
 Create Date: 2026-09-02
 """
+
 from typing import Sequence, Union
+
 from alembic import op
+
 from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_type_lookup_template,
     load_type_lookup_template,
 )
 
-
-from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
-import rhesis
-
-
-
 # revision identifiers, used by Alembic.
-revision: str = 'b6723e65f233'
-down_revision: Union[str, None] = '105b0268e6a4'
+revision: str = "b6723e65f233"
+down_revision: Union[str, None] = "105b0268e6a4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -30,6 +25,7 @@ def upgrade() -> None:
         ('ToolProviderType', 'trello', 'Trello integration')
     """
     op.execute(load_type_lookup_template(provider_type_values))
+
 
 def downgrade() -> None:
     op.execute(
