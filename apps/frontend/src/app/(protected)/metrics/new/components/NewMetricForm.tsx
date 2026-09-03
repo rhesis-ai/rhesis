@@ -52,9 +52,11 @@ interface MetricFormData {
   score_type: ScoreTypeValue;
   categories: string[];
   passing_categories: string[];
-  min_score?: number;
-  max_score?: number;
-  threshold?: number;
+  // Raw text from the number inputs, not numbers: a partially typed value
+  // ('', '-', '0.') has no numeric form. Parsed once in handleSubmit.
+  min_score: string;
+  max_score: string;
+  threshold: string;
   threshold_operator: ThresholdOperator;
   explanation: string;
   model_id: string;
@@ -71,6 +73,9 @@ const initialFormData: MetricFormData = {
   score_type: SCORE_TYPES.NUMERIC,
   categories: [],
   passing_categories: [],
+  min_score: '',
+  max_score: '',
+  threshold: '',
   threshold_operator: '>=',
   explanation: '',
   model_id: '',
@@ -80,6 +85,9 @@ const initialFormData: MetricFormData = {
 const steps = ['Metric Information and Criteria', 'Confirmation'];
 
 const STEP_SEPARATOR = '\n---\n';
+
+/** A required score field is unset while it holds no non-whitespace text. */
+const isBlank = (value: string) => value.trim() === '';
 
 interface NewMetricFormProps {
   type: string;
@@ -186,12 +194,9 @@ export default function NewMetricForm({
 
     // Score type conditional validation
     if (formData.score_type === SCORE_TYPES.NUMERIC) {
-      if (formData.min_score == null || String(formData.min_score) === '')
-        return false;
-      if (formData.max_score == null || String(formData.max_score) === '')
-        return false;
-      if (formData.threshold == null || String(formData.threshold) === '')
-        return false;
+      if (isBlank(formData.min_score)) return false;
+      if (isBlank(formData.max_score)) return false;
+      if (isBlank(formData.threshold)) return false;
     }
 
     if (formData.score_type === SCORE_TYPES.CATEGORICAL) {
@@ -271,15 +276,15 @@ export default function NewMetricForm({
         // Numeric metric fields
         min_score:
           formData.score_type === SCORE_TYPES.NUMERIC
-            ? parseFloat(String(formData.min_score))
+            ? parseFloat(formData.min_score)
             : undefined,
         max_score:
           formData.score_type === SCORE_TYPES.NUMERIC
-            ? parseFloat(String(formData.max_score))
+            ? parseFloat(formData.max_score)
             : undefined,
         threshold:
           formData.score_type === SCORE_TYPES.NUMERIC
-            ? parseFloat(String(formData.threshold))
+            ? parseFloat(formData.threshold)
             : undefined,
         threshold_operator:
           formData.score_type === SCORE_TYPES.NUMERIC
@@ -677,17 +682,11 @@ export default function NewMetricForm({
                 required
                 type="number"
                 label="Minimum Score"
-                value={formData.min_score || ''}
+                value={formData.min_score}
                 onChange={handleChange('min_score')}
-                error={
-                  showErrors &&
-                  (formData.min_score == null ||
-                    String(formData.min_score) === '')
-                }
+                error={showErrors && isBlank(formData.min_score)}
                 helperText={
-                  showErrors &&
-                  (formData.min_score == null ||
-                    String(formData.min_score) === '')
+                  showErrors && isBlank(formData.min_score)
                     ? 'Required'
                     : undefined
                 }
@@ -697,17 +696,11 @@ export default function NewMetricForm({
                 required
                 type="number"
                 label="Maximum Score"
-                value={formData.max_score || ''}
+                value={formData.max_score}
                 onChange={handleChange('max_score')}
-                error={
-                  showErrors &&
-                  (formData.max_score == null ||
-                    String(formData.max_score) === '')
-                }
+                error={showErrors && isBlank(formData.max_score)}
                 helperText={
-                  showErrors &&
-                  (formData.max_score == null ||
-                    String(formData.max_score) === '')
+                  showErrors && isBlank(formData.max_score)
                     ? 'Required'
                     : undefined
                 }
@@ -724,17 +717,11 @@ export default function NewMetricForm({
                   required
                   type="number"
                   label="Threshold Value"
-                  value={formData.threshold || ''}
+                  value={formData.threshold}
                   onChange={handleChange('threshold')}
-                  error={
-                    showErrors &&
-                    (formData.threshold == null ||
-                      String(formData.threshold) === '')
-                  }
+                  error={showErrors && isBlank(formData.threshold)}
                   helperText={
-                    showErrors &&
-                    (formData.threshold == null ||
-                      String(formData.threshold) === '')
+                    showErrors && isBlank(formData.threshold)
                       ? 'Required'
                       : undefined
                   }
