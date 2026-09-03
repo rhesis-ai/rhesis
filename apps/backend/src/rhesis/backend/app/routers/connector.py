@@ -346,7 +346,10 @@ def receive_trace(
     organization_id = str(current_user.organization_id)
     user_id = str(current_user.id)
 
-    with get_db_with_tenant_variables(organization_id, user_id, "") as db:
+    # Project scope (not org-level "") is required here: project_isolation is a
+    # fail-closed RESTRICTIVE policy, so inserting this project-scoped row with
+    # an empty project scope would be denied by RLS in production.
+    with get_db_with_tenant_variables(organization_id, user_id, str(trace.project_id)) as db:
         _assert_project_membership(db, str(trace.project_id), current_user)
 
         record = ExecutionTraceModel(
