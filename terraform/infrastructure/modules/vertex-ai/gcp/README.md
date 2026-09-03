@@ -77,18 +77,25 @@ gcloud secrets versions access latest \
       print(d['client_email'], d['project_id'])"
 ```
 
-### 4. Repoint the chart
+### 4. Nothing to change in the chart
 
-`vertexAiProject` is pinned per environment and is **not** auto-extracted from the key, so
-this step is required:
+The key is the only thing that moves. `vertexAiProject` is intentionally unset in every
+values file, so the SDK derives the project from the key's own `project_id`
+(`sdk/src/rhesis/sdk/models/providers/vertex_ai.py:219` only overrides it when the env var
+is truthy). Identity and target project are therefore a single artifact and cannot drift
+apart.
 
-```
-charts/rhesis/values-dev.yaml   vertexAiProject: "rhesis-dev-494712"
-charts/rhesis/values-stg.yaml   vertexAiProject: "rhesis-stg-494712"
-charts/rhesis/values-prd.yaml   vertexAiProject: "rhesis-prd"
-```
+This is deliberate. When the project was pinned separately it travelled by a different
+route from the key (ConfigMap and GitOps versus Secret Manager and ESO), which made the
+cutover a two-place change where either half alone guarantees a 403: a new key has no role
+in the old project, and the old key has none in the new one.
 
-The ExternalSecret needs no edit: the secret name is unchanged, only a new version is added.
+The ExternalSecret needs no edit either. The secret name is unchanged; only a new version
+is added, and `eso-<env>@` already holds `roles/secretmanager.secretAccessor` on it.
+
+The one thing this gives up: a wrong-project key used to fail loudly with a 403, and now it
+would silently succeed against the wrong project. Catch that with the round-trip check in
+step 3 and the per-project billing breakdown, not with a pinned value.
 
 ### 5. Refresh and restart
 
@@ -124,10 +131,24 @@ confirms it a day later.
 
 ## Rollback
 
-The previous secret version is retained, so rollback is: revert `vertexAiProject` in the
-values file, re-add the old key as a new version, force-sync, restart. Do not disable
-`aiplatform.googleapis.com` in `playground-437609` as a rollback step; that is what caused
-the outage.
+One command, because the project follows the key. Secret Manager's `latest` resolves to the
+newest *enabled* version, so disabling the version you just added reverts to the previous
+key, and the project reverts with it:
+
+```bash
+ENV=dev
+PROJECT=rhesis-dev-494712
+gcloud secrets versions disable <new-version> \
+  --secret="${ENV}-rhesis-google-application-credentials" --project="${PROJECT}"
+# then force-sync and restart as in step 5
+```
+
+No need to re-upload the old key, and no chart revert.
+
+Do **not** disable `aiplatform.googleapis.com` in `playground-437609` as a rollback step.
+That is what caused the 2026-09-02 outage: all three environments authenticate into that
+project until their rotation is done, so toggling the API there takes down dev, stg and prd
+at once.
 
 ## Follow-up: drop the keys entirely
 

@@ -48,8 +48,9 @@ config:
   authDisposableEmailExtraDomains: ""
   authDefaultSsoOrganization: ""
 
-  # GCP
-  vertexAiProject: "playground-437609"
+  # vertexAiProject is deliberately not set: it derives from the service account
+  # key delivered as GOOGLE_APPLICATION_CREDENTIALS, so rotating the key moves
+  # identity and project together. See values.yaml.
 
   # AI / Vertex (same model stack as dev; override per staging policy if needed)
   defaultGenerationModel: "vertex_ai/gemini-3.1-flash-lite"
