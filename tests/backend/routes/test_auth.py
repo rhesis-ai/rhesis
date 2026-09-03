@@ -235,7 +235,6 @@ class TestEmailRegistration:
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class TestAuthLogout:
     """Test authentication logout endpoint"""
 
@@ -312,7 +311,6 @@ class TestAuthLogout:
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class TestAuthVerify:
     """Test authentication verification endpoint"""
 
@@ -421,7 +419,6 @@ class TestAuthVerify:
 
 
 @pytest.mark.integration
-@pytest.mark.critical
 class TestAuthenticationFlow:
     """Test complete authentication flow integration"""
 
@@ -508,7 +505,7 @@ class TestAuthPerformance:
                 start_time = time.time()
 
                 # Make 20 verify requests
-                for i in range(20):
+                for _i in range(20):
                     response = client.post(
                         "/auth/verify",
                         json={"session_token": "test_token"},
@@ -1213,7 +1210,7 @@ def _make_mock_request(
     host: str = "localhost",
     port: int = 8080,
     scheme: str = "http",
-    headers: dict = None,
+    headers: dict | None = None,
 ):
     """Create a mock Request object for testing get_callback_url."""
     from starlette.datastructures import Headers

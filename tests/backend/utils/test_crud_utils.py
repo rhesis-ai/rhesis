@@ -66,7 +66,6 @@ def create_requirement_data(**overrides):
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestGetOrCreateEntity:
     """Test get_or_create_entity function."""
 
@@ -201,7 +200,6 @@ class TestGetOrCreateEntity:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestGetOrCreateSpecializedFunctions:
     """Test specialized get_or_create functions."""
 

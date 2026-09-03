@@ -66,6 +66,12 @@ export { default as KidStarIcon } from './KidStarIcon';
 export { default as GitHubIcon } from '@mui/icons-material/GitHub';
 export { default as HttpIcon } from '@mui/icons-material/HttpOutlined';
 export { default as FeedbackIcon } from '@mui/icons-material/FeedbackOutlined';
+export { default as ThumbUpIcon } from '@mui/icons-material/ThumbUpOutlined';
+export { default as ThumbDownIcon } from '@mui/icons-material/ThumbDownOutlined';
+// Filled variants mark the judgement that stands, so a glance separates the
+// recorded review from the button that would record one.
+export { default as ThumbUpFilledIcon } from '@mui/icons-material/ThumbUp';
+export { default as ThumbDownFilledIcon } from '@mui/icons-material/ThumbDown';
 export { default as TimelineIcon } from '@mui/icons-material/TimelineOutlined';
 
 // Common UI icons

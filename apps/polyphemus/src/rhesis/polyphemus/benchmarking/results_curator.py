@@ -779,7 +779,7 @@ class ResultsCurator:
 
         return report
 
-    def save_report(self, output_path: Path = None) -> Path:
+    def save_report(self, output_path: Path | None = None) -> Path:
         """
         Generate and save the curation report to a JSON file.
 

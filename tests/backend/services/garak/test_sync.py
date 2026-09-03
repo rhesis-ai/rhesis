@@ -7,7 +7,7 @@ import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
@@ -17,7 +17,6 @@ fake = Faker()
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestSyncResultDataclass:
     """Tests for SyncResult dataclass."""
 
@@ -39,7 +38,6 @@ class TestSyncResultDataclass:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceInit:
     """Tests for GarakSyncService initialization."""
 
@@ -52,7 +50,6 @@ class TestGarakSyncServiceInit:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceCanSync:
     """Tests for can_sync method."""
 
@@ -130,7 +127,6 @@ class TestGarakSyncServiceCanSync:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceSoftDeleteContract:
     """A soft-deleted test set must not be treated as syncable, and must not
     crash any of the four lookups with an unhandled ItemDeletedException."""
@@ -152,7 +148,7 @@ class TestGarakSyncServiceSoftDeleteContract:
         test_db.commit()
         test_db.refresh(test_set)
 
-        crud.delete_test_set(
+        test_set_crud.delete_test_set(
             test_db, test_set.id, organization_id=test_org_id, user_id=authenticated_user_id
         )
         return test_set
@@ -187,7 +183,6 @@ class TestGarakSyncServiceSoftDeleteContract:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceProbeIds:
     """Tests for probe ID extraction."""
 
@@ -295,7 +290,6 @@ class TestGarakSyncServiceProbeIds:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceSyncTestSet:
     """Tests for sync_test_set method."""
 
@@ -333,7 +327,6 @@ class TestGarakSyncServiceSyncTestSet:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceLegacySyncSafety:
     """Regression tests for a critical PR review finding: preloaded probe data
     that resolves to zero probes for a non-empty legacy module list must never
@@ -404,7 +397,6 @@ class TestGarakSyncServiceLegacySyncSafety:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceSyncPreview:
     """Tests for get_sync_preview method."""
 
@@ -541,7 +533,6 @@ class TestGarakSyncServiceSyncPreview:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceGetProbe:
     """Tests for _get_probe helper method."""
 
@@ -598,7 +589,6 @@ class TestGarakSyncServiceGetProbe:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakSyncServiceResolveSyncTarget:
     """Tests for resolve_sync_target.
 

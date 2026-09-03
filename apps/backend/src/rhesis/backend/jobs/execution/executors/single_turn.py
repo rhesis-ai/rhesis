@@ -1,12 +1,14 @@
 """Single-turn test executor."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
+from rhesis.backend.app.services.test_run_timing import TestPhase
+from rhesis.backend.app.utils.response_extractor import summarize_endpoint_failure
 from rhesis.backend.jobs.execution.executors.base import BaseTestExecutor
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
 from rhesis.backend.jobs.execution.executors.output_providers import (
@@ -47,6 +49,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
         execution_model: Optional[Any] = None,
         evaluation_model: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
+        on_test_phase: Optional[Callable[[str, TestPhase], None]] = None,
     ) -> Dict[str, Any]:
         """
         Execute a single-turn test.
@@ -128,6 +131,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 test_set=test_set,
                 test_configuration=test_config,
                 output_provider=output_provider,
+                on_test_phase=on_test_phase,
             )
 
             # Persist to database and link traces
@@ -147,12 +151,18 @@ class SingleTurnTestExecutor(BaseTestExecutor):
 
             # Return execution summary
             logger.debug(f"Test execution completed: {test_id}")
-            return {
+            summary: Dict[str, Any] = {
                 "test_id": test_id,
                 "test_result_id": str(test_result_id) if test_result_id else None,
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }
+            # The row is persisted as Error either way; this is what lets the caller
+            # narrate *why* in the activity log instead of reporting a bare "completed".
+            endpoint_failure = summarize_endpoint_failure(processed_result)
+            if endpoint_failure:
+                summary["endpoint_error"] = endpoint_failure
+            return summary
 
         except Exception as e:
             logger.error(

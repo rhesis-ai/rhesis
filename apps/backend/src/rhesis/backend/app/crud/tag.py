@@ -1,9 +1,5 @@
 """CRUD operations for tags and their assignment to entities.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``assign_tag`` and ``remove_tag`` link a tag to any kind of entity through the
 ``TaggedItem`` table, which stores the target as an ``entity_id`` plus an ``entity_type``
 string rather than a foreign key. The entity type drives the lookup of the ORM class:
@@ -42,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_tag(
-    db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, tag_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Tag]:
     """Get tag."""
     return get_item(db, models.Tag, tag_id, organization_id, user_id)
@@ -55,8 +51,8 @@ def get_tags(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Tag]:
     return get_items(
         db,
@@ -82,8 +78,8 @@ def update_tag(
     db: Session,
     tag_id: uuid.UUID,
     tag: schemas.TagUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Tag]:
     """Update tag."""
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
@@ -101,8 +97,8 @@ def assign_tag(
     tag: schemas.TagCreate,
     entity_id: UUID,
     entity_type: EntityType,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Tag:
     """Create a tag if it doesn't exist and link it to an entity with organization filtering"""
 
@@ -179,7 +175,11 @@ def assign_tag(
 
 
 def remove_tag(
-    db: Session, tag_id: UUID, entity_id: UUID, entity_type: EntityType, organization_id: str = None
+    db: Session,
+    tag_id: UUID,
+    entity_id: UUID,
+    entity_type: EntityType,
+    organization_id: str | None = None,
 ) -> bool:
     """Remove a tag from an entity by deleting the tagged_item relationship"""
     # Get the tag with organization filtering (SECURITY CRITICAL)

@@ -6,7 +6,6 @@ This module provides comprehensive testing for user relationship fields
 assignment changes, and validation scenarios.
 """
 
-
 import pytest
 from faker import Faker
 from fastapi import status
@@ -19,7 +18,6 @@ fake = Faker()
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class BaseUserRelationshipTests(BaseEntityTests):
     """Base class for testing user relationship fields (user_id, owner_id, assignee_id)"""
 
@@ -89,22 +87,6 @@ class BaseUserRelationshipTests(BaseEntityTests):
             assert data[self.owner_id_field] == test_owner_id
         if self.assignee_id_field:
             assert data[self.assignee_id_field] == test_assignee_id
-
-    def test_auto_detect_user_fields_info(self):
-        """Display auto-detected user field information"""
-        # Trigger auto-detection to ensure it has run
-        self._auto_detect_user_fields()
-
-        detection_info = self.get_detected_user_fields_info()
-        print(f"\n🔍 Auto-detection results for {self.entity_name}:")
-        print(f"   User ID field: {detection_info['user_id_field']}")
-        print(f"   Owner ID field: {detection_info['owner_id_field']}")
-        print(f"   Assignee ID field: {detection_info['assignee_id_field']}")
-        print(f"   Has user relationships: {detection_info['has_user_relationships']}")
-        print(f"   All user fields: {detection_info['all_user_fields']}")
-
-        # This test always passes - it's just for information
-        assert True
 
     def test_update_entity_user_fields(self, authenticated_client: TestClient, authenticated_user):
         """Test updating user relationship fields"""

@@ -321,6 +321,10 @@ class BaseJob(Task):
             # notifications above: those already guard themselves, and the row
             # should record the outcome even if one of them misbehaved.
             self._advance_job_row("failed", error=exc)
+            # The job row is not the only record: a run whose task died has no
+            # other path to a terminal status. No-op for job types that carry
+            # no test_run_id.
+            self._fail_linked_test_run(exc)
         else:
             self.log_with_context(
                 "warning",
@@ -406,6 +410,63 @@ class BaseJob(Task):
             self._emit_lifecycle_event(transition, error=error)
         except Exception as exc:
             logger.warning(f"Lifecycle event '{transition}' failed: {exc}", exc_info=True)
+
+    def _fail_linked_test_run(self, exc: BaseException) -> None:
+        """Mark this task's test run failed, if it has one and is still open.
+
+        The ``job`` row and the ``test_run`` are separate records, and until
+        this existed only the job row was written here. A task killed outside
+        its own ``except`` -- an OOM kill, a pod eviction, a hard time limit,
+        or a status write that could not get a connection -- never reached the
+        handler that fails the run, so the run sat in Progress with nothing
+        left alive to move it, and no sweeper to notice.
+
+        Terminal states are left alone. Cancelled matters most: the user asked
+        for that, and a task torn down mid-cancel must not relabel it Failed.
+        """
+        from uuid import UUID
+
+        from rhesis.backend.app.crud.test_run import get_test_run
+        from rhesis.backend.app.database import get_db_with_tenant_variables
+        from rhesis.backend.jobs.enums import RunStatus
+        from rhesis.backend.jobs.utils import update_test_run_with_error
+
+        terminal = {
+            RunStatus.COMPLETED.value,
+            RunStatus.FAILED.value,
+            RunStatus.CANCELLED.value,
+            RunStatus.PARTIAL.value,
+        }
+
+        try:
+            headers = getattr(self.request, "headers", {}) or {}
+            test_run_id = headers.get("test_run_id")
+            if not test_run_id:
+                return
+
+            org_id, user_id, project_id = self.get_tenant_context()
+            with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
+                test_run = get_test_run(
+                    db, UUID(str(test_run_id)), organization_id=org_id, user_id=user_id
+                )
+                if test_run is None:
+                    return
+
+                current = test_run.status.name if test_run.status else None
+                if current in terminal:
+                    return
+
+                update_test_run_with_error(db, test_run, str(exc))
+                db.commit()
+                self.log_with_context(
+                    "info",
+                    f"Test run {test_run_id} marked failed after the task died",
+                    previous_status=current,
+                )
+        except Exception as inner:
+            # Same rule as every other hook here: bookkeeping must not turn
+            # into a second failure on top of the one being handled.
+            logger.warning(f"Could not fail test run for {self.request.id}: {inner}", exc_info=True)
 
     def _emit_lifecycle_event(self, transition: str, error: Optional[BaseException] = None) -> None:
         """The activity-log side of a job-row transition. See _advance_job_row."""
@@ -585,7 +646,7 @@ class BaseJob(Task):
         return None
 
     def _get_user_info(
-        self, user_id: str, organization_id: str = None
+        self, user_id: str, organization_id: str | None = None
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Get user email and name for notifications.
@@ -734,9 +795,9 @@ class BaseJob(Task):
         recipient_name: str,
         status: str,
         execution_time: str,
-        error_message: str = None,
-        test_run_id: str = None,
-        frontend_url: str = None,
+        error_message: str | None = None,
+        test_run_id: str | None = None,
+        frontend_url: str | None = None,
     ) -> bool:
         """Send email notification using the email service."""
         try:

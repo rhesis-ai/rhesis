@@ -95,6 +95,9 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # Onboarding: new users accept T&C before they have an organization.
         ("POST", "/auth/accept-terms"),
         ("GET", "/auth/terms-status"),
+        # Self-service password change/set: authenticated but not tied to any
+        # resource capability — the handler enforces identity via current_user.
+        ("POST", "/auth/change-password"),
         # Cross-project entity resolution: spans multiple resource types
         # (test, endpoint, metric, ...) so no single resource+verb capability
         # applies. Authorization is enforced in-handler: the lookup is always

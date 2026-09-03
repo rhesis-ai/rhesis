@@ -5,9 +5,9 @@ from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import (
-    RequirementReference,
     CategoryReference,
     PromptReference,
+    RequirementReference,
     StatusReference,
     TopicReference,
     TypeLookupReference,
@@ -95,6 +95,9 @@ class Test(TestBase, ServerIdentity):
     id: UUID4
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
+    # Response-only (not on TestBase) -- a client-settable metric_id would let
+    # anyone hide a test from the list, or unhide a metric tuning case.
+    metric_id: Optional[UUID4] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -339,3 +342,12 @@ class ConversationTestExtractionResponse(BaseModel):
     expected_response: Optional[str] = None
     # Multi-turn fields
     test_configuration: Optional[Dict[str, Any]] = None
+
+
+class TestFacets(BaseModel):
+    """Distinct filterable values across tests."""
+
+    requirements: List[str]
+    categories: List[str]
+    topics: List[str]
+    test_types: List[str]

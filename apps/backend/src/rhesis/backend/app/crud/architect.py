@@ -1,9 +1,5 @@
 """CRUD operations for architect sessions and their messages.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Messages share this module because an ``ArchitectMessage`` only exists as part of a
 session -- there is no standalone message endpoint. ``get_architect_messages`` builds a
 raw ``db.query`` chain instead of going through ``QueryBuilder``, so it has to filter
@@ -30,8 +26,8 @@ from rhesis.backend.app.utils.query_utils import include
 def get_architect_session(
     db: Session,
     session_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.ArchitectSession]:
     return get_item(db, models.ArchitectSession, session_id, organization_id, user_id)
 
@@ -39,8 +35,8 @@ def get_architect_session(
 def get_architect_session_detail(
     db: Session,
     session_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.ArchitectSession]:
     """Get an architect session with its messages eagerly loaded."""
     return get_item_detail(
@@ -60,8 +56,8 @@ def get_architect_sessions(
     sort_by: str = "updated_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.ArchitectSession]:
     return get_items(
         db,
@@ -79,8 +75,8 @@ def get_architect_sessions(
 def create_architect_session(
     db: Session,
     session: schemas.ArchitectSessionCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.ArchitectSession:
     return create_item(db, models.ArchitectSession, session, organization_id, user_id)
 
@@ -89,8 +85,8 @@ def update_architect_session(
     db: Session,
     session_id: uuid.UUID,
     session: schemas.ArchitectSessionUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.ArchitectSession]:
     return update_item(db, models.ArchitectSession, session_id, session, organization_id, user_id)
 
@@ -98,8 +94,8 @@ def update_architect_session(
 def delete_architect_session(
     db: Session,
     session_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.ArchitectSession]:
     return delete_item(db, models.ArchitectSession, session_id, organization_id, user_id)
 
@@ -109,8 +105,8 @@ def get_architect_messages(
     session_id: uuid.UUID,
     skip: int = 0,
     limit: int = 100,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.ArchitectMessage]:
     query = (
         db.query(models.ArchitectMessage)
@@ -126,7 +122,7 @@ def get_architect_messages(
 def create_architect_message(
     db: Session,
     message: schemas.ArchitectMessageCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.ArchitectMessage:
     return create_item(db, models.ArchitectMessage, message, organization_id, user_id)

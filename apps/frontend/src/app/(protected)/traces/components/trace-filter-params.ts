@@ -129,14 +129,13 @@ export function inferTimeRange(
   return 'custom';
 }
 
+/** Filter params only -- pagination (`limit`/`offset`) is the list hook's job. */
 export function buildTraceQueryParams(
   drawer: TraceDrawerFilters,
   searchQuery: string,
-  typeFilter: string,
-  limit: number,
-  offset: number
-): TraceQueryParams {
-  const params: TraceQueryParams = { limit, offset };
+  typeFilter: string
+): Omit<TraceQueryParams, 'limit' | 'offset'> {
+  const params: Omit<TraceQueryParams, 'limit' | 'offset'> = {};
 
   if (drawer.projectId) params.project_id = drawer.projectId;
   if (drawer.endpointId) params.endpoint_id = drawer.endpointId;

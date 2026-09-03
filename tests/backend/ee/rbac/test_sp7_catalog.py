@@ -23,7 +23,10 @@ Run with:
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
@@ -267,7 +270,7 @@ class TestBuiltInRoleRLSPolicy:
             )
 
         # NULL-org (built-in) row: rejected — a tenant must not mint a global role.
-        with pytest.raises(Exception):
+        with pytest.raises(ProgrammingError):
             with test_db.begin_nested():
                 test_db.execute(
                     text(
@@ -277,7 +280,7 @@ class TestBuiltInRoleRLSPolicy:
                 )
 
         # Cross-org row: rejected.
-        with pytest.raises(Exception):
+        with pytest.raises(ProgrammingError):
             with test_db.begin_nested():
                 test_db.execute(
                     text(
@@ -302,7 +305,7 @@ class TestPermissionsForBuiltInRole:
     correctly implements the allowlist rules — independent of any DB state.
     """
 
-    _CAPS = [
+    _CAPS: ClassVar[list[str]] = [
         "test_set:read",
         "test_set:create",
         "test_set:execute",

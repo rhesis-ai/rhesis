@@ -6,12 +6,138 @@ select = [
     "I",
     "E",
     "F",
+    # bugbear: legal, typed code that is still a trap — zip() truncation,
+    # loop-variable closures, return inside finally.
+    "B",
+    # create_task() with no stored reference: the loop keeps only a weak reference,
+    # so the task can be collected mid-flight and the work silently vanishes.
+    "RUF006",
+    # Implicit optionals — `db: Session = None` lies to every type checker. Keeping
+    # these out is what lets a type checker be introduced file by file.
+    "RUF013",
+    # noqa directives for violations that no longer happen.
+    "RUF100",
+    # bandit: HTTP calls with no timeout. `requests` defaults to waiting forever, so one
+    # unresponsive upstream holds a worker thread or a Celery task for good.
+    "S113",
+    # mccabe: cyclomatic complexity ceiling, see [lint.mccabe] below.
+    "C90",
+    # pylint: function size ceilings, see [lint.pylint] below. C901 counts paths
+    # through a function, not its length, so it waves the long flat ones through.
+    "PLR0912",
+    "PLR0915",
 ]
+ignore = [
+    # FastAPI puts Depends() in argument defaults by design.
+    "B008",
+    # Bare `raise` inside except is idiomatic here; we re-raise more than we chain.
+    "B904",
+]
+# Codes suppressed ahead of the rule being switched on. RUF100 treats a noqa for a
+# non-enabled rule as unused, so without this it would strip the suppressions that
+# each of these rollouts still needs.
+external = [
+    "ARG002",
+    "BLE001",
+    "D401",
+    "PLC0415",
+    "RET503",
+    "S608",
+    "SLF001",
+]
+
+# Ceilings, not targets. Functions already over one are listed under
+# per-file-ignores below.
+[lint.mccabe]
+max-complexity = 20
+
+[lint.pylint]
+max-branches = 25
+max-statements = 80
 
 [lint.per-file-ignores]
 "__init__.py" = [
     "F401",
 ]
+# Migrations are frozen historical records built around long SQL literals, and
+# some need sys.path patched before they can import their helpers.
+"**/alembic/versions/*.py" = [
+    "E501",
+    "E402",
+    "PLR0915",
+]
+# RequestScope is @dataclass(frozen=True), so the shared default instance cannot
+# be mutated and cannot leak between requests. B039 is wrong here.
+"apps/backend/src/rhesis/backend/app/scope.py" = [
+    "B039",
+]
+
+# Complexity debt as of 2026-08-31. An entry here means the function is too big to
+# fix right now, not that the ceiling doesn't apply — delete it once the function
+# is split up.
+
+# publish_releases: tag-and-release flow with dry-run, skip and confirm branches.
+".github/release_tools/publish.py" = ["C901"]
+# main: example script that runs every scenario back to back.
+"agents/research-assistant/examples/test_scenarios.py" = ["PLR0915"]
+# sync_metrics_to_organizations: per-org loop with verbose, commit and error paths.
+"apps/backend/src/rhesis/backend/alembic/utils/metric_sync.py" = ["C901"]
+# query_traces: one filter branch per optional trace query parameter.
+"apps/backend/src/rhesis/backend/app/crud/telemetry.py" = ["C901"]
+# lifespan: the whole startup and shutdown sequence in one context manager.
+"apps/backend/src/rhesis/backend/app/main.py" = ["PLR0915"]
+# invoke_endpoint: stateless vs stateful, file inputs, deferred tracing, five failure modes.
+"apps/backend/src/rhesis/backend/app/services/endpoint/service.py" = ["C901", "PLR0912", "PLR0915"]
+# suggestion_pipeline_stream: interleaves generate, embed and evaluate events in one stream.
+"apps/backend/src/rhesis/backend/app/services/explorer/suggestions.py" = ["C901", "PLR0915"]
+# rows_to_test_data: every imported column is optional, so each one costs a branch.
+"apps/backend/src/rhesis/backend/app/services/file_import/builder.py" = ["C901"]
+# _extract_from_source: hand-rolled bracket and quote scanner over garak probe source.
+"apps/backend/src/rhesis/backend/app/services/garak/probes/extraction.py" = ["C901"]
+# _async_invoke: frame shapes vary per endpoint, plus connection failure handling.
+"apps/backend/src/rhesis/backend/app/services/invokers/websocket_invoker.py" = [
+    "C901",
+    "PLR0912",
+    "PLR0915",
+]
+# load_initial_data walks every entity type in initial_data.json; rollback_initial_data
+# deletes them back out in dependency order.
+"apps/backend/src/rhesis/backend/app/services/organization.py" = ["C901", "PLR0912", "PLR0915"]
+# bulk_create_tests: flush batching plus per-row validation and DB error mapping.
+"apps/backend/src/rhesis/backend/app/services/test.py" = ["C901", "PLR0912", "PLR0915"]
+# prefetch_execution_context: one guarded lookup per piece of shared batch state.
+"apps/backend/src/rhesis/backend/jobs/execution/batch/context.py" = ["C901", "PLR0912", "PLR0915"]
+# execute_tests_sequentially: runs, records and reports a whole test run in one pass.
+"apps/backend/src/rhesis/backend/jobs/execution/sequential.py" = ["PLR0915"]
+# _extract_model_data: aggregates optional metrics per model, per category, per file.
+"apps/polyphemus/src/rhesis/polyphemus/benchmarking/results_curator.py" = [
+    "C901",
+    "PLR0912",
+    "PLR0915",
+]
+# plot_precision_comparison: matplotlib code with a branch per precision label and bar series.
+"apps/polyphemus/src/rhesis/polyphemus/benchmarking/scripts/generate_benchmark_plots.py" = [
+    "C901",
+    "PLR0912",
+    "PLR0915",
+]
+# print_generation_summary, print_evaluation_summary: console reports with a branch
+# per optional statistic.
+"apps/polyphemus/src/rhesis/polyphemus/benchmarking/tester.py" = ["C901", "PLR0912"]
+# check_task_detailed: probes the active, reserved and scheduled queues for one task id.
+"apps/worker/task_manager.py" = ["C901"]
+# run_token_exchange: RFC 8693 flow, where each mandated check is its own rejection branch.
+"ee/backend/src/rhesis/backend/ee/sso/token_exchange/exchange.py" = ["C901", "PLR0912", "PLR0915"]
+# display_continuity_results: example script that prints continuity heuristics turn by turn.
+"penelope/examples/test_multi_turn_continuity.py" = ["C901", "PLR0912", "PLR0915"]
+# _is_potentially_unsafe_query: heuristic scanner, one branch per safe-pattern class.
+"scripts/check_organization_filtering.py" = ["C901"]
+# endpoint, decorator: switch on sync/async, binding, mappings and serializers.
+"sdk/src/rhesis/sdk/decorators/endpoint.py" = ["C901"]
+# create_langchain_callback: one callback per LangChain event, closed over shared span state.
+"sdk/src/rhesis/sdk/telemetry/integrations/langchain/callback.py" = ["C901"]
+# client: fixture builds an app with a route per error class.
+"tests/backend/security/test_error_handlers.py" = ["C901"]
 
 [lint.isort]
 known-first-party = [

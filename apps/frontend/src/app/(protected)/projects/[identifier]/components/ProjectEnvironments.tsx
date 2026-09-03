@@ -62,7 +62,6 @@ import {
   BuiltInEnvironment,
   ExperimentRead,
   EnvironmentPointer,
-  ProjectEnvironments as ProjectEnvironmentsShape,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { AddIcon, DeleteIcon, PromoteIcon } from '@/components/icons';
@@ -73,6 +72,10 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import ProjectAddEnvironmentDrawer from './ProjectAddEnvironmentDrawer';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import {
+  fetchProjectEnvironments,
+  type ProjectEnvironmentsData,
+} from './project-data';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const FIGMA_BODY_SX = {
@@ -86,6 +89,8 @@ interface ProjectEnvironmentsProps {
   projectId: string;
   /** When true, the add action lives in the section header instead of the grid toolbar. */
   hideToolbarAddButton?: boolean;
+  /** Server-prefetched bindings and experiments; seeds the query. */
+  initialData?: ProjectEnvironmentsData;
 }
 
 export interface ProjectEnvironmentsHandle {
@@ -150,7 +155,7 @@ function canRemoveEnvironment(row: EnvironmentRow): boolean {
  */
 export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
   function ProjectEnvironments(
-    { projectId, hideToolbarAddButton = false },
+    { projectId, hideToolbarAddButton = false, initialData },
     ref
   ) {
     const notifications = useNotifications();
@@ -160,10 +165,12 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
     const [searchQuery, setSearchQuery] = useState('');
 
     const queryClient = useQueryClient();
-    const environmentsQueryKey = [
-      ...projectKeys.detail(projectId),
-      'environments',
-    ] as const;
+    // Memoised so `refresh` below keeps a stable identity; a fresh array each
+    // render made its useCallback pointless.
+    const environmentsQueryKey = useMemo(
+      () => [...projectKeys.detail(projectId), 'environments'] as const,
+      [projectId]
+    );
     const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
       string | null
     >(null);
@@ -185,19 +192,19 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
       error: fetchError,
     } = useQuery({
       queryKey: environmentsQueryKey,
-      queryFn: async () => {
-        const client = new ApiClientFactory().getParametersClient();
-        const [bindingsResp, expsResp] = await Promise.all([
-          client.getEnvironments(projectId),
-          client.listProjectExperiments(projectId, { limit: 200 }),
-        ]);
-        return { bindings: bindingsResp, experiments: expsResp };
-      },
+      queryFn: () =>
+        fetchProjectEnvironments(new ApiClientFactory(), projectId),
       enabled: isAuthenticated(status) && !!projectId,
+      initialData,
     });
 
     const bindings = envData?.bindings ?? null;
-    const experiments = envData?.experiments ?? [];
+    // Memoised for the same reason as environmentsQueryKey: the `?? []`
+    // fallback otherwise re-ran sharedExperiments and experimentName every render.
+    const experiments = useMemo(
+      () => envData?.experiments ?? [],
+      [envData?.experiments]
+    );
     const error =
       fetchError instanceof Error
         ? fetchError.message
@@ -345,6 +352,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           field: 'version',
           headerName: 'Version',
           width: 90,
+          flex: 0,
           sortable: false,
           valueGetter: (_value, row) =>
             row.pointer ? shortVersion(row.pointer.version) : '',
@@ -362,6 +370,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           field: 'status',
           headerName: 'Status',
           width: 90,
+          flex: 0,
           sortable: false,
           valueGetter: (_value, row) => (row.pointer ? 'Bound' : 'Unbound'),
           renderCell: (params: GridRenderCellParams<EnvironmentRow>) => (
@@ -493,7 +502,6 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
               getRowId={row => row.name}
               loading={loading}
               toolbarSlot={EnvironmentsToolbar}
-              showToolbar
               disablePaperWrapper
               pageSizeOptions={[10, 25, 50]}
               initialState={{

@@ -10,6 +10,20 @@ jest.mock('@/contexts/UsageContext', () => ({
   useUsage: jest.fn(),
 }));
 
+// The plan drives the upgrade link, and comes from `GET /features` via
+// `usePlan` (server-seeded, so it is there on first paint) rather than from
+// usage.
+//
+// Deliberately a narrow mock, not `...jest.requireActual(...)`: this tree uses
+// exactly one hook from each context, and anything new it reaches for should
+// fail loudly on the missing export rather than quietly resolve against a real
+// context this test never populates. A test passing while the component sees
+// empty data is the worse outcome. `Sidebar.test.tsx` spreads the real module
+// because that tree genuinely renders other consumers of it.
+jest.mock('@/contexts/FeaturesContext', () => ({
+  usePlan: jest.fn(),
+}));
+
 jest.mock('@/components/common/Can', () => ({
   useCan: () => true,
   useCanWithStatus: () => ({ allowed: true, loading: false }),
@@ -18,6 +32,7 @@ jest.mock('@/components/common/Can', () => ({
 }));
 
 import { useUsage } from '@/contexts/UsageContext';
+import { usePlan } from '@/contexts/FeaturesContext';
 
 /** Build a `UsageResourceItem`; `ceiling` defaults to `limit` (a hard tier). */
 function item(
@@ -38,15 +53,23 @@ function item(
 
 function mockUsage(
   resources: Record<string, UsageResourceItem>,
-  options: { loading?: boolean; edition?: string | null } = {}
+  options: {
+    loading?: boolean;
+    plan?: { name: string; is_paid: boolean; is_active: boolean } | null;
+  } = {}
 ) {
-  const { loading = false, edition = 'community' } = options;
+  // Defaults to a free org, matching what the backend sends for one.
+  const {
+    loading = false,
+    plan = { name: 'Community', is_paid: false, is_active: false },
+  } = options;
   (useUsage as jest.Mock).mockReturnValue({
     resources,
-    edition,
+    edition: 'community',
     loading,
     error: null,
   });
+  (usePlan as jest.Mock).mockReturnValue(plan);
 }
 
 afterEach(() => {
@@ -130,11 +153,8 @@ describe('QuotaBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('offers to upgrade on a community-edition org', () => {
-    mockUsage(
-      { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'community' }
-    );
+  it('offers to upgrade on a free org', () => {
+    mockUsage({ [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) }, {});
     render(<QuotaBanner />);
     expect(
       screen.getByRole('link', { name: /upgrade plan/i })
@@ -144,7 +164,40 @@ describe('QuotaBanner', () => {
   it('does not offer to upgrade a paying org', () => {
     mockUsage(
       { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
-      { edition: 'pro' }
+      { plan: { name: 'Pro', is_paid: true, is_active: true } }
+    );
+    render(<QuotaBanner />);
+    expect(
+      screen.queryByRole('link', { name: /upgrade plan/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers to upgrade an org whose paid licence has lapsed', () => {
+    // The backend holds a canceled licence to community limits while still
+    // reporting its old edition, so gating the CTA on the edition name left
+    // exactly this org blocked at free-tier ceilings with no way forward.
+    mockUsage(
+      { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
+      {
+        plan: {
+          name: 'Enterprise (inactive)',
+          is_paid: true,
+          is_active: false,
+        },
+      }
+    );
+    render(<QuotaBanner />);
+    expect(
+      screen.getByRole('link', { name: /upgrade plan/i })
+    ).toBeInTheDocument();
+  });
+
+  it('offers nothing while the plan is still unknown', () => {
+    // Still loading, or a response predating the `plan` field. Must not read
+    // as unlicensed and prompt a paying customer to upgrade.
+    mockUsage(
+      { [QuotaResource.TEST_EXECUTIONS]: item(800, 1000) },
+      { plan: null }
     );
     render(<QuotaBanner />);
     expect(

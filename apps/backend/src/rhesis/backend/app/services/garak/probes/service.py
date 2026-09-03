@@ -9,7 +9,7 @@ import asyncio
 import importlib
 import logging
 import pkgutil
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from rhesis.backend.app.services.garak import compat
 
@@ -58,7 +58,13 @@ class GarakProbeService:
     # is also excluded because instantiating its probes downloads hundreds of
     # images from GitHub at startup.
     # NOTE: These are also intentionally absent from GarakTaxonomy.MODULE_MAPPINGS.
-    EXCLUDED_MODULES = {"base", "test", "audio", "fileformats", "visual_jailbreak"}
+    EXCLUDED_MODULES: ClassVar[set[str]] = {
+        "base",
+        "test",
+        "audio",
+        "fileformats",
+        "visual_jailbreak",
+    }
 
     def __init__(self):
         self._probe_cache: Dict[str, GarakModuleInfo] = {}
@@ -87,7 +93,7 @@ class GarakProbeService:
         import garak.probes
 
         modules = []
-        for importer, modname, ispkg in pkgutil.iter_modules(garak.probes.__path__):
+        for _importer, modname, _ispkg in pkgutil.iter_modules(garak.probes.__path__):
             if modname not in self.EXCLUDED_MODULES:
                 modules.append(modname)
 

@@ -9,7 +9,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import schemas
 from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
@@ -53,8 +53,8 @@ def set_execution_mode(
     db: Session,
     test_config_id: str,
     execution_mode: ExecutionMode,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> bool:
     """
     Set the execution mode for a test configuration.
@@ -90,7 +90,7 @@ def set_execution_mode(
         test_configuration_crud.update_test_configuration(
             db,
             test_config.id,
-            crud.schemas.TestConfigurationUpdate(**update_data),
+            schemas.TestConfigurationUpdate(**update_data),
             organization_id=organization_id,
             user_id=user_id,
         )

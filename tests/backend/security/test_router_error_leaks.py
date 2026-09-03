@@ -242,7 +242,7 @@ def _dict_leaks(node: ast.AST, taint: Taint) -> bool:
         return False
     return any(
         isinstance(key, ast.Constant) and key.value in BODY_KEYS and _references(value, taint)
-        for key, value in zip(node.keys, node.values)
+        for key, value in zip(node.keys, node.values, strict=True)
     )
 
 

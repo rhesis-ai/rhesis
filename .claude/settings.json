@@ -6,6 +6,19 @@
   "enabledPlugins": {
     "ralph-loop@claude-plugins-official": true
   },
+  "claudeMdExcludes": [
+    "**/.venv/**"
+  ],
+  "permissions": {
+    "deny": [
+      "Read(./**/.venv/**)",
+      "Read(./**/node_modules/**)",
+      "Read(./**/.next/**)",
+      "Read(./**/dist/**)",
+      "Read(./**/build/**)",
+      "Read(./**/__pycache__/**)"
+    ]
+  },
   "hooks": {
     "WorktreeCreate": [
       {

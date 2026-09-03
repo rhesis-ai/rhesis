@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional, Protocol, Union
+from typing import Callable, ClassVar, Optional, Protocol, Union
 
 from rhesis.backend.app.models.organization import Organization
 
@@ -117,7 +117,14 @@ class DefaultLicenseProvider:
         return True
 
     def info(self, org: Optional[Organization] = None) -> dict:
-        return {"edition": "community", "licensed": False}
+        """Community posture: never a paid tier, never licensed.
+
+        ``is_paid`` describes the tier rather than the licence state; see
+        :meth:`~rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._unlicensed_info`.
+        Hardcoded ``False`` here rather than derived, because this provider
+        only ever reports community.
+        """
+        return {"edition": "community", "licensed": False, "is_paid": False}
 
 
 class FeatureRegistry:
@@ -129,7 +136,7 @@ class FeatureRegistry:
     :meth:`is_available` (strictest, includes runtime check).
     """
 
-    _features: dict[FeatureName, Feature] = {}
+    _features: ClassVar[dict[FeatureName, Feature]] = {}
     _license: LicenseProvider = DefaultLicenseProvider()
 
     @classmethod

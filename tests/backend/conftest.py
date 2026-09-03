@@ -180,6 +180,87 @@ def isolate_storage_settings_cache():
     get_storage_settings.cache_clear()
 
 
+_ENCRYPTION_PROBE_PLAINTEXT = "db-encryption-key-guard-probe"
+
+
+def _reset_encryption_caches() -> None:
+    """Clear both lru_caches the DB encryption key flows through."""
+    from importlib import import_module
+
+    import_module("rhesis.backend.app.utils.encryption")._get_fernet.cache_clear()
+    import_module("rhesis.backend.app.config.settings").get_security_settings.cache_clear()
+
+
+@pytest.fixture(scope="session")
+def _encryption_key_probe() -> str:
+    """A ciphertext written once with the session's configured encryption key.
+
+    Session-scoped so it is created before any function-scoped fixture gets the chance to
+    change the key, which is what makes it a trustworthy reference point for the guard
+    below.
+    """
+    from importlib import import_module
+
+    return import_module("rhesis.backend.app.utils.encryption").encrypt(_ENCRYPTION_PROBE_PLAINTEXT)
+
+
+@pytest.fixture(autouse=True)
+def guard_db_encryption_key(_encryption_key_probe):
+    """Fail the test that leaves the DB encryption key unusable, and repair it.
+
+    The key reaches Fernet through two lru_caches (``get_security_settings()``, then
+    ``_get_fernet()``), so restoring ``DB_ENCRYPTION_KEY`` is not sufficient on its own. A
+    test that sets a throwaway key while those caches happen to be empty bakes it into the
+    cached Fernet, and putting the env var back afterwards does not rebuild it. Everything
+    encrypted earlier in the session then fails to decrypt, which is how two fixtures under
+    ``tests/backend/utils/`` once turned ~50 unrelated route tests red with DecryptionError
+    while reading the session auth token, for the remainder of the run.
+
+    Comparing the env var would not have caught that, because it *was* restored correctly.
+    So this decrypts a probe written with the original key: the same operation the real
+    failure performed, against the same cached Fernet.
+
+    Repairs before failing, so the guilty test is the only casualty instead of the first of
+    many. To swap the key inside a test deliberately, follow
+    ``tests/backend/test_encryption.py`` and clear both caches after restoring it.
+    """
+    yield
+
+    from importlib import import_module
+
+    encryption = import_module("rhesis.backend.app.utils.encryption")
+
+    expected_key = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
+    actual_key = os.environ.get("DB_ENCRYPTION_KEY")
+
+    try:
+        probe_ok = encryption.decrypt(_encryption_key_probe) == _ENCRYPTION_PROBE_PLAINTEXT
+    except Exception:
+        # Any failure to read back our own probe means the effective key changed.
+        probe_ok = False
+
+    if actual_key == expected_key and probe_ok:
+        return
+
+    # Repair first: leave the session usable whatever we report.
+    os.environ["DB_ENCRYPTION_KEY"] = expected_key
+    _reset_encryption_caches()
+
+    cause = (
+        "the cached Fernet no longer matches it"
+        if actual_key == expected_key
+        else f"DB_ENCRYPTION_KEY is now {actual_key!r}"
+    )
+    pytest.fail(
+        f"This test left the DB encryption key unusable: {cause}. Anything encrypted "
+        "earlier in the session, the auth token included, would fail to decrypt for every "
+        "test after this one. The key has been restored so the rest of the run is "
+        "unaffected. If this test changes the key on purpose, clear both caches after "
+        "restoring it (see _reset_encryption_caches in tests/backend/test_encryption.py).",
+        pytrace=False,
+    )
+
+
 @pytest.fixture(autouse=True)
 def _ensure_ee_features_registered():
     """Re-bootstrap EE features when the registry has been wiped.

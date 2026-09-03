@@ -18,7 +18,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { formatDistanceToNow } from 'date-fns';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   TestResultDetail,
   Review,
@@ -29,8 +28,10 @@ import { can } from '@/components/common/Can';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
-import { isPassedStatusName } from '@/utils/test-result-status';
-import { annotationKeys } from '@/constants/query-keys';
+import {
+  isPassedStatusName,
+  hasConflictingReview,
+} from '@/utils/test-result-status';
 import {
   getResultReviews,
   getLatestMetricReviewForResult,
@@ -65,11 +66,6 @@ export default function TestDetailReviewsTab({
   mentionableTurns = [],
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
-  const queryClient = useQueryClient();
-
-  const invalidateAnnotations = () => {
-    void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
-  };
 
   const canCreateReview = can(test, Capability.TestResult.UPDATE);
   const [createOpen, setCreateOpen] = useState(false);
@@ -134,7 +130,6 @@ export default function TestDetailReviewsTab({
     const testResultsClient = clientFactory.getTestResultsClient();
     const updatedTest = await testResultsClient.getTestResult(testId);
     onTestResultUpdate(updatedTest);
-    invalidateAnnotations();
   };
 
   // Delete handlers
@@ -152,7 +147,6 @@ export default function TestDetailReviewsTab({
       await testResultsClient.deleteReview(test.id, reviewToDelete.review_id);
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
-      invalidateAnnotations();
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
     } catch (_err) {
@@ -167,18 +161,22 @@ export default function TestDetailReviewsTab({
     setReviewToDelete(null);
   };
 
-  // Automated status computation
+  // The pre-review automated result, shown beside the human verdict so a
+  // reviewer can see what they changed. Each metric is read at its
+  // *automated* value (override.original_value when a metric review already
+  // flipped it), or the display would compare the review against a number a
+  // human had already moved.
   const automatedStatus = useMemo(() => {
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
+    const passedMetrics = metricValues.filter(
+      m => m.override?.original_value ?? m.is_successful
+    ).length;
+    const passed = totalMetrics > 0 && passedMetrics === totalMetrics;
     return {
-      passed: totalMetrics > 0 && passedMetrics === totalMetrics,
-      label:
-        totalMetrics > 0 && passedMetrics === totalMetrics
-          ? 'Passed'
-          : 'Failed',
+      passed,
+      label: passed ? 'Passed' : 'Failed',
       count: `${passedMetrics}/${totalMetrics}`,
     };
   }, [test]);
@@ -217,11 +215,11 @@ export default function TestDetailReviewsTab({
   const hasConflict = useMemo(() => {
     if (!latestTestLevelReview?.status?.name) return false;
     if (latestTestLevelReview.resolved) return false;
-    return (
-      isPassedStatusName(latestTestLevelReview.status.name) !==
-      automatedStatus.passed
-    );
-  }, [latestTestLevelReview, automatedStatus]);
+    // matches_review is the backend's own comparison, against the status
+    // snapshotted before the first review touched the row -- more reliable
+    // than re-deriving the baseline here.
+    return hasConflictingReview(test);
+  }, [latestTestLevelReview, test]);
 
   const [resolvingReviewId, setResolvingReviewId] = useState<string | null>(
     null
@@ -237,7 +235,6 @@ export default function TestDetailReviewsTab({
       });
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
-      invalidateAnnotations();
     } catch (error) {
       console.error('Failed to update review resolution:', error);
     } finally {

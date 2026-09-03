@@ -63,7 +63,7 @@ class GarakSyncService:
         self._probes_by_module = probes_by_module
 
     def _get_test_set_or_raise(
-        self, test_set_id: str, organization_id: str, user_id: str = None
+        self, test_set_id: str, organization_id: str, user_id: str | None = None
     ) -> TestSet:
         """Fetch the TestSet for a sync operation.
 

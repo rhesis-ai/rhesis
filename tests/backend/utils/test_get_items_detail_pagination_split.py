@@ -35,7 +35,6 @@ def _create_categories(db: Session, org_id: str, suffixes: list) -> list:
 
 
 @pytest.mark.unit
-@pytest.mark.utils
 class TestGetItemsDetailPaginationSplit:
     def test_preserves_sort_order_across_pages(self, test_db: Session, test_org_id):
         created = _create_categories(

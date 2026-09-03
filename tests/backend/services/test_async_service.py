@@ -34,7 +34,6 @@ def service():
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestAsyncServiceExecuteWithFallback:
     """Tests for the execute_with_fallback method."""
 
@@ -99,7 +98,6 @@ class TestAsyncServiceExecuteWithFallback:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestAsyncServiceBatchExecute:
     """Tests for the batch_execute method."""
 
@@ -129,7 +127,6 @@ class TestAsyncServiceBatchExecute:
 
 
 @pytest.mark.integration
-@pytest.mark.services
 class TestAsyncServiceIntegration:
     """Integration tests for the AsyncService base class."""
 

@@ -152,7 +152,6 @@ class TestMetricVerdict:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-@pytest.mark.service
 class TestEvaluateTestsForExplorerSet:
     """Test evaluate_tests_for_explorer_set."""
 

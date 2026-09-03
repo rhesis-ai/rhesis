@@ -14,15 +14,16 @@ from rhesis.backend.celery.core import app
 # Import all task modules to ensure they're registered with Celery
 # Import task functions after BaseJob is defined to avoid circular imports
 from rhesis.backend.jobs import (
-    embedding,  # noqa: F401
-    endpoint,  # noqa: F401
-    execution,  # noqa: F401
-    file,  # noqa: F401
-    garak,  # noqa: F401
-    test_configuration,  # noqa: F401
-    test_set,  # noqa: F401
+    embedding,
+    endpoint,
+    execution,
+    file,
+    garak,
+    metric_tuning,
+    test_configuration,
+    test_set,
     tracking,
-    usage,  # noqa: F401
+    usage,
 )
 from rhesis.backend.jobs.base import (
     BaseJob,
@@ -35,18 +36,12 @@ from rhesis.backend.jobs.embedding import (
     compute_test_set_graph_task,
     generate_embedding_task,
 )
-from rhesis.backend.jobs.enums import (
-    DEFAULT_METRIC_WORKERS,
-    DEFAULT_RESULT_STATUS,
-    DEFAULT_RUN_STATUS_COMPLETED,
-    DEFAULT_RUN_STATUS_FAILED,
-    DEFAULT_RUN_STATUS_PROGRESS,
-)
+from rhesis.backend.jobs.enums import DEFAULT_METRIC_WORKERS
 from rhesis.backend.jobs.execution.results import collect_results
+from rhesis.backend.jobs.metric_tuning import run_metric_tuning
 from rhesis.backend.jobs.test_configuration import execute_test_configuration
 from rhesis.backend.jobs.test_set import count_test_sets
 from rhesis.backend.jobs.usage import accrue_usage
-from rhesis.backend.jobs.utils import increment_test_run_progress
 from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
@@ -65,7 +60,6 @@ __all__ = [
     "email_notification",
     # Helper functions
     "launch_job",
-    "increment_test_run_progress",
     # Services
     "email_service",
     # Tasks
@@ -76,12 +70,9 @@ __all__ = [
     "execute_test_configuration",
     "collect_results",
     "accrue_usage",
+    "run_metric_tuning",
     # Constants
     "DEFAULT_METRIC_WORKERS",
-    "DEFAULT_RESULT_STATUS",
-    "DEFAULT_RUN_STATUS_PROGRESS",
-    "DEFAULT_RUN_STATUS_COMPLETED",
-    "DEFAULT_RUN_STATUS_FAILED",
 ]
 
 

@@ -515,11 +515,12 @@ class TestResolveDefaultHostedModel:
     @pytest.mark.parametrize(
         "error", [ValueError("no credentials"), ImportError("torch not installed")]
     )
-    def test_falls_back_to_the_bare_string_when_construction_fails(self, error, monkeypatch):
-        """Broad on purpose: dropping the provider restriction means this now
-        calls get_model for *any* DEFAULT_*_MODEL, including providers whose
-        modules raise other error types at import/construction time (e.g.
-        huggingface.py raises ImportError without torch/transformers)."""
+    def test_raises_when_construction_fails(self, error, monkeypatch):
+        """It used to swallow this and hand back the bare string, which only
+        moved the same failure to whichever call site got around to building
+        it. Both error types are covered because this calls get_model for
+        *any* DEFAULT_*_MODEL, including providers that raise something other
+        than ValueError at import time (huggingface.py needs torch)."""
 
         def boom(*args, **kwargs):
             raise error
@@ -528,12 +529,13 @@ class TestResolveDefaultHostedModel:
 
         from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 
-        assert resolve_default_hosted_model(
-            "vertex_ai/gemini-2.5-flash", db=None, organization_id=None
-        ) == ("vertex_ai/gemini-2.5-flash")
+        with pytest.raises(type(error)):
+            resolve_default_hosted_model(
+                "vertex_ai/gemini-2.5-flash", db=None, organization_id=None
+            )
 
     def test_a_user_with_no_configured_model_gets_the_stamped_default(self, monkeypatch):
-        """Covers `_get_user_model`'s no-model_id branch, which nothing
+        """Covers `resolve_model`'s no-model_id branch, which nothing
         exercised -- an arity mistake here shipped past the whole suite once.
 
         Also the case peqy flagged on #2355: this branch used to pass
@@ -545,8 +547,12 @@ class TestResolveDefaultHostedModel:
             "rhesis.backend.app.utils.user_model_utils.get_model",
             lambda name, **kwargs: _StubLLM(name),
         )
+        monkeypatch.setattr(
+            "rhesis.backend.app.utils.user_model_utils._default_model",
+            lambda purpose: "rhesis/x",
+        )
 
-        from rhesis.backend.app.utils.user_model_utils import _get_user_model
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
 
         user = SimpleNamespace(
             organization_id=None,
@@ -554,7 +560,7 @@ class TestResolveDefaultHostedModel:
                 models=SimpleNamespace(generation=SimpleNamespace(model_id=None))
             ),
         )
-        model = _get_user_model(db=None, user=user, purpose="generation", default_model="rhesis/x")
+        model = resolve_model(None, user, "generation")
 
         assert model.model_name == "rhesis/x"
         assert model.usage_metered is True

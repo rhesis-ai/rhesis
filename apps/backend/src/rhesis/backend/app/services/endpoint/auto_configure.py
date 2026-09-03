@@ -14,7 +14,7 @@ import re
 import socket
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Type
+from typing import ClassVar, Type
 from urllib.parse import urlparse
 
 import httpx
@@ -26,10 +26,7 @@ from rhesis.backend.app.schemas.endpoint import (
     AutoConfigureRequest,
     AutoConfigureResult,
 )
-from rhesis.backend.app.utils.user_model_utils import (
-    ensure_language_model,
-    get_user_generation_model,
-)
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +57,7 @@ class AutoConfigureService:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        self.llm = ensure_language_model(get_user_generation_model(self.db, self.user))
+        self.llm = resolve_model(self.db, self.user, "generation")
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -126,7 +123,7 @@ class AutoConfigureService:
     # Patterns that match real API keys/tokens.  Each tuple is
     # (compiled regex, replacement string).  Order matters — more
     # specific patterns first so they aren't consumed by generic ones.
-    _SECRET_PATTERNS: list[tuple[re.Pattern, str]] = [
+    _SECRET_PATTERNS: ClassVar[list[tuple[re.Pattern, str]]] = [
         # OpenAI project keys  (sk-proj-...)
         (re.compile(r"sk-proj-[A-Za-z0-9_-]{20,}"), "sk-proj-REDACTED"),
         # OpenAI / Anthropic style keys  (sk-ant-..., sk-...)

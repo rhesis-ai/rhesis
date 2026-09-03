@@ -1,27 +1,49 @@
 import csv
 import logging
+import time
 import uuid
 from io import StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.crud import prompt as prompt_crud
 from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
+from rhesis.backend.app.outcomes import (
+    GRID_RESULT,
+    NOT_APPLICABLE_CHAR,
+    VERDICT_CHAR,
+    Outcome,
+)
+from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 
 logger = logging.getLogger(__name__)
 
 # Statuses a test run never leaves -- the grid stops refetching once here.
 _TERMINAL_RUN_STATUSES = {"Completed", "Partial", "Failed", "Cancelled"}
 
+# test_status encoding: get_test_outcomes_for_run's grid-result strings
+# (GRID_RESULT, the same vocabulary v_test_result_stats.result speaks),
+# keyed down to the three a test (as opposed to a single metric) can be
+# encoded as. VERDICT_CHAR[Outcome.PENDING] covers everything else --
+# cancelled included, since the grid has no separate glyph for it.
+_TEST_STATUS_CHAR = {
+    GRID_RESULT[outcome]: VERDICT_CHAR[outcome]
+    for outcome in (Outcome.PASS, Outcome.FAIL, Outcome.ERROR)
+}
+
+# Past this many tests the grid renders binned, where per-cell animation is
+# illegible anyway -- so the timing arrays stop being worth their payload.
+_TIMING_MAX_TESTS = 2000
+
 
 def get_test_results_for_test_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Dict[str, Any]]:
     """
     Get all test results for a test run with related data for CSV export.
@@ -80,11 +102,6 @@ def get_test_results_for_test_run(
 
     for result in all_test_results:
         # Get related data with organization filtering
-        test = (
-            crud.get_test(db, result.test_id, organization_id=organization_id)
-            if result.test_id
-            else None
-        )
         prompt = (
             prompt_crud.get_prompt(db, result.prompt_id, organization_id=organization_id)
             if result.prompt_id
@@ -102,7 +119,7 @@ def get_test_results_for_test_run(
         # Add requirement metrics columns
         test_metrics = result.test_metrics.get("metrics", {}) if result.test_metrics else {}
 
-        for requirement_id, requirement_data in requirement_map.items():
+        for _requirement_id, requirement_data in requirement_map.items():
             requirement = requirement_data["requirement"]
             metrics = requirement_data["metrics"]
 
@@ -181,7 +198,7 @@ def rescore_test_run(
     reference_test_run_id: str,
     current_user: models.User,
     metrics: Optional[List[Dict[str, Any]]] = None,
-    evaluation_model_id: uuid.UUID = None,
+    evaluation_model_id: uuid.UUID | None = None,
 ) -> Dict[str, Any]:
     """Create a new test run that re-scores an existing one.
 
@@ -384,6 +401,52 @@ def _requirement_names_for_fallback(
     return {str(rid): name for rid, name in query.all()}
 
 
+def _build_timing_columns(
+    test_run_id: uuid.UUID, test_order: List[str]
+) -> Tuple[
+    Optional[List[Optional[int]]],
+    Optional[List[Optional[int]]],
+    Optional[List[Optional[int]]],
+    Optional[int],
+]:
+    """Phase-offset columns aligned to test_order, plus the run's elapsed time.
+
+    All-None on any failure: the timing cache is a nicety for the animation,
+    never a reason to fail the grid.
+    """
+    if not test_order or len(test_order) > _TIMING_MAX_TESTS:
+        return None, None, None, None
+
+    try:
+        from rhesis.backend.app.services.test_run_timing import get_test_run_timing_cache
+
+        origin, timings = get_test_run_timing_cache().get_run_timing(str(test_run_id))
+    except Exception:
+        logger.debug("verdict matrix: timing lookup failed", exc_info=True)
+        return None, None, None, None
+
+    if origin is None:
+        return None, None, None, None
+
+    # An origin with no phases yet means the run has just been picked up.
+    # Report elapsed anyway so the client's clock can start reconciling
+    # against the server from its very first poll.
+    elapsed_ds = max(0, int(round((time.time() - origin) * 10)))
+    if not timings:
+        return None, None, None, elapsed_ds
+
+    started: List[Optional[int]] = []
+    generated: List[Optional[int]] = []
+    resolved: List[Optional[int]] = []
+    for test_id in test_order:
+        entry = timings.get(test_id)
+        started.append(entry.started_ds if entry else None)
+        generated.append(entry.generated_ds if entry else None)
+        resolved.append(entry.resolved_ds if entry else None)
+
+    return started, generated, resolved, elapsed_ds
+
+
 def get_verdict_matrix(
     db: Session,
     test_run: models.TestRun,
@@ -395,7 +458,20 @@ def get_verdict_matrix(
     character per test in ``test_ids``' order: ``.`` pending, ``P`` passed,
     ``F`` failed, ``S`` scored with no pass/fail threshold, ``E`` execution
     error, ``X`` not applicable to that test.
+
+    Once the run is terminal, this is read from (and written to)
+    ``VerdictMatrixCache`` -- see its module docstring for what invalidates it
+    and why a live run's grid is never cached.
     """
+    status_name = test_run.status.name if test_run.status else ""
+    is_terminal = status_name in _TERMINAL_RUN_STATUSES
+    cache = get_verdict_matrix_cache()
+
+    if is_terminal:
+        cached = cache.get_matrix(str(test_run.id), columns)
+        if cached is not None:
+            return cached
+
     org_id = str(test_run.organization_id) if test_run.organization_id else None
     attributes = test_run.attributes or {}
     plan = attributes.get("metric_plan")
@@ -423,6 +499,7 @@ def get_verdict_matrix(
         verdict_index[cell] = (row.effective_success, bool(row.has_override))
 
     outcomes = test_run_crud.get_test_outcomes_for_run(db, test_run.id, organization_id=org_id)
+    reviews_count = test_run_crud.get_review_count_for_run(db, test_run.id, organization_id=org_id)
 
     requirements_payload: List[schemas.VerdictRequirement] = []
     rows_payload: List[schemas.VerdictRow] = []
@@ -459,14 +536,14 @@ def get_verdict_matrix(
 
             for test_id in test_order:
                 if test_id not in group_test_ids:
-                    chars.append("X")
+                    chars.append(NOT_APPLICABLE_CHAR)
                     override_chars.append("0")
                     continue
 
                 # Absent from cell_keys = scope-filtered out for this test.
                 actual_key = cell_keys.get(test_id, {}).get(metric_ref)
                 if actual_key is None:
-                    chars.append("X")
+                    chars.append(NOT_APPLICABLE_CHAR)
                     override_chars.append("0")
                     continue
 
@@ -477,19 +554,19 @@ def get_verdict_matrix(
                     verdicts_resolved += 1
                     override_chars.append("1" if has_override else "0")
                     if effective_success is True:
-                        chars.append("P")
+                        chars.append(VERDICT_CHAR[Outcome.PASS])
                         passed += 1
                     elif effective_success is False:
-                        chars.append("F")
+                        chars.append(VERDICT_CHAR[Outcome.FAIL])
                         failed += 1
                     else:
-                        chars.append("S")
-                elif outcomes.get(test_id) == "error":
-                    chars.append("E")
+                        chars.append(VERDICT_CHAR[Outcome.INCONCLUSIVE])
+                elif outcomes.get(test_id) == GRID_RESULT[Outcome.ERROR]:
+                    chars.append(VERDICT_CHAR[Outcome.ERROR])
                     override_chars.append("0")
                     verdicts_resolved += 1
                 else:
-                    chars.append(".")
+                    chars.append(VERDICT_CHAR[Outcome.PENDING])
                     override_chars.append("0")
                     pending += 1
 
@@ -508,9 +585,14 @@ def get_verdict_matrix(
                 )
             )
 
+    # A cancelled or still-pending test counts as neither, so these two need
+    # not sum to tests_executed.
+    _FAILING_RESULTS = (GRID_RESULT[Outcome.FAIL], GRID_RESULT[Outcome.ERROR])
     tests_executed = sum(1 for test_id in test_order if test_id in outcomes)
-    passing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) == "passed")
-    failing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) in ("failed", "error"))
+    passing_tests = sum(
+        1 for test_id in test_order if outcomes.get(test_id) == GRID_RESULT[Outcome.PASS]
+    )
+    failing_tests = sum(1 for test_id in test_order if outcomes.get(test_id) in _FAILING_RESULTS)
     # Pass rate is over tests, not over metric verdicts, to agree with the
     # number the runs list and the run header already show
     # (result_processor.get_test_statistics_for_runs). A test with four of
@@ -521,18 +603,26 @@ def get_verdict_matrix(
         passing_tests / (passing_tests + failing_tests) if (passing_tests + failing_tests) else None
     )
 
-    status_name = test_run.status.name if test_run.status else ""
+    # Always sent, unlike test_ids: this is the part that actually changes
+    # between polls while a run is in flight.
+    started_ds, generated_ds, resolved_ds, elapsed_ds = _build_timing_columns(
+        test_run.id, test_order
+    )
 
-    return schemas.VerdictMatrix(
+    matrix = schemas.VerdictMatrix(
         test_run_id=test_run.id,
         project_id=test_run.project_id,
         status=status_name,
-        is_terminal=status_name in _TERMINAL_RUN_STATUSES,
+        is_terminal=is_terminal,
         test_ids=None if columns == "none" else [uuid.UUID(tid) for tid in test_order],
         test_status="".join(
-            {"passed": "P", "failed": "F", "error": "E"}.get(outcomes.get(tid, ""), ".")
+            _TEST_STATUS_CHAR.get(outcomes.get(tid, ""), VERDICT_CHAR[Outcome.PENDING])
             for tid in test_order
         ),
+        test_started_ds=started_ds,
+        test_generated_ds=generated_ds,
+        test_resolved_ds=resolved_ds,
+        elapsed_ds=elapsed_ds,
         requirements=requirements_payload,
         rows=rows_payload,
         kpis=schemas.VerdictKpis(
@@ -542,5 +632,11 @@ def get_verdict_matrix(
             verdicts_resolved=verdicts_resolved,
             verdicts_planned=verdicts_planned,
             failures=failing_tests,
+            reviews_count=reviews_count,
         ),
     )
+
+    if is_terminal:
+        cache.set_matrix(str(test_run.id), columns, matrix)
+
+    return matrix

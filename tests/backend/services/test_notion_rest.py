@@ -9,7 +9,6 @@ from rhesis.backend.app.services.tool.rest.notion import NotionRestClient
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestExtractPageId:
     """Test _extract_page_id URL/ID normalization and validation."""
 
@@ -48,7 +47,6 @@ class TestExtractPageId:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestBlocksToMarkdown:
     """Test _blocks_to_markdown rendering."""
 
@@ -106,7 +104,6 @@ class TestBlocksToMarkdown:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestNotionHealthCheck:
     """Test health_check credential verification."""
@@ -132,7 +129,6 @@ class TestNotionHealthCheck:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestNotionRequestBlocks:
     """Test _request_blocks HTTP status mapping."""
@@ -159,7 +155,6 @@ class TestNotionRequestBlocks:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestNotionFetch:
     """Test fetch / fetch_all end-to-end with a mocked HTTP client."""

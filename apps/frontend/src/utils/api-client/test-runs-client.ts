@@ -6,6 +6,7 @@ import {
   TestRunUpdate,
   TestRunDetail,
   TestRunBulkDeleteResponse,
+  VerdictMatrix,
 } from './interfaces/test-run';
 import { Requirement } from './interfaces/requirement';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -137,6 +138,29 @@ export class TestRunsClient extends BaseApiClient {
       ...params,
       test_configuration_id: testConfigurationId,
     });
+  }
+
+  async getVerdictMatrix(
+    testRunId: string,
+    columns?: string
+  ): Promise<VerdictMatrix> {
+    const params = columns ? `?columns=${columns}` : '';
+    return this.fetch<VerdictMatrix>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}/verdict-matrix${params}`
+    );
+  }
+
+  /** Whether another test run exists on the same test set -- gates the Compare FAB.
+   * A single indexed EXISTS query server-side, in place of the paginated list
+   * endpoint's full per-run stats aggregation. */
+  async hasComparisonRuns(
+    testRunId: string,
+    testSetId: string
+  ): Promise<boolean> {
+    const response = await this.fetch<{ has_comparison_runs: boolean }>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}/has-comparison-runs?test_set_id=${testSetId}`
+    );
+    return response.has_comparison_runs;
   }
 
   async cancelTestRun(id: string): Promise<TestRun> {

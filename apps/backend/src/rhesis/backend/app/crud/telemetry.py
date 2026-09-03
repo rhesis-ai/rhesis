@@ -1,6 +1,6 @@
 """CRUD operations for OpenTelemetry traces and spans.
 
-Split out of ``crud/__init__.py``. Import the functions directly::
+Import the functions directly::
 
     from rhesis.backend.app.crud.telemetry import query_traces
 """
@@ -38,6 +38,8 @@ class TraceRow(NamedTuple):
     trace: models.Trace
     span_count: int
     total: int
+    tags_count: int
+    comments_count: int
 
 
 # ============================================================================
@@ -334,13 +336,44 @@ def query_traces(
     #    Uses a window function so pagination total comes from the same query.
     total_col = func.count().over().label("total_count")
 
+    tags_count_col = (
+        select(func.count(models.TaggedItem.id))
+        .where(
+            and_(
+                models.TaggedItem.entity_id == models.Trace.id,
+                models.TaggedItem.entity_type == models.Trace.__name__,
+                models.TaggedItem.deleted_at.is_(None),
+            )
+        )
+        .scalar_subquery()
+    )
+    comments_count_col = (
+        select(func.count(models.Comment.id))
+        .where(
+            and_(
+                models.Comment.entity_id == models.Trace.id,
+                models.Comment.entity_type == models.Trace.__name__,
+                models.Comment.deleted_at.is_(None),
+            )
+        )
+        .scalar_subquery()
+    )
+
     query = (
-        db.query(models.Trace, span_count_col, total_col)
+        db.query(models.Trace, span_count_col, total_col, tags_count_col, comments_count_col)
         .filter(models.Trace.organization_id == org_uuid)
         .options(
+            # Scoped to what the loop below actually reads off this chain (existence
+            # down to endpoint.id/name) -- the full row would carry each trace's
+            # TestResult.test_output/test_metrics/test_reviews (the whole multi-turn
+            # conversation, for every row of every list request) just to report an
+            # endpoint name.
             joinedload(models.Trace.test_result)
+            .load_only(models.TestResult.id, models.TestResult.test_configuration_id)
             .joinedload(models.TestResult.test_configuration)
-            .joinedload(models.TestConfiguration.endpoint),
+            .load_only(models.TestConfiguration.id)
+            .joinedload(models.TestConfiguration.endpoint)
+            .load_only(models.Endpoint.id, models.Endpoint.name),
             joinedload(models.Trace.trace_metrics_status),
         )
     )
@@ -477,7 +510,10 @@ def query_traces(
         query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
-    return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
+    return [
+        TraceRow(trace=r[0], span_count=r[1], total=r[2], tags_count=r[3], comments_count=r[4])
+        for r in results
+    ]
 
 
 def get_unprocessed_traces(
@@ -709,12 +745,19 @@ def update_trace_turn_metrics(
     span_id: str,
     turn_metrics: dict,
     status_id: Optional[str] = None,
+    execution: Optional[str] = None,
+    verdict: Optional[str] = None,
     processed_at: Optional[datetime] = None,
 ) -> int:
     """Update turn-level trace metrics on a single span row.
 
     Merges turn_metrics into trace_metrics.turn_metrics without
     overwriting conversation_metrics if already present.
+
+    ``execution``/``verdict`` are the source of truth (app/outcomes.py) and
+    are written together with the legacy ``status_id``; see
+    jobs/telemetry/evaluate.py's _derive_outcome, which produces all three
+    from one classification.
     """
     span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
     if not span:
@@ -731,6 +774,12 @@ def update_trace_turn_metrics(
     }
     if status_id is not None:
         update_values["trace_metrics_status_id"] = status_id
+    if execution is not None:
+        # verdict is written unconditionally alongside execution: the
+        # ck_trace_verdict_requires_ok constraint means leaving a stale
+        # verdict behind when execution moves off 'ok' would fail the write.
+        update_values["execution"] = execution
+        update_values["verdict"] = verdict
 
     result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
     db.commit()
@@ -742,6 +791,8 @@ def update_trace_conversation_metrics(
     trace_id: str,
     conversation_metrics: dict,
     status_id: Optional[str] = None,
+    execution: Optional[str] = None,
+    verdict: Optional[str] = None,
     processed_at: Optional[datetime] = None,
 ) -> int:
     """Update conversation-level trace metrics on all spans sharing a trace_id.
@@ -771,6 +822,10 @@ def update_trace_conversation_metrics(
         span.updated_at = datetime.now(timezone.utc)
         if status_id is not None:
             span.trace_metrics_status_id = status_id
+        if execution is not None:
+            # Paired write -- see update_trace_turn_metrics.
+            span.execution = execution
+            span.verdict = verdict
         count += 1
 
     db.commit()

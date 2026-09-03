@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session, contains_eager
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
-    REQUIREMENT_LIST_KEY,
     ERROR_BULK_CREATE_FAILED,
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
+    REQUIREMENT_LIST_KEY,
     EntityType,
     TestResultStatus,
     TestSetType,
@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.uuid_utils import (
 logger = logging.getLogger(__name__)
 
 
-def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
+def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str | None = None):
     """Get test set by ID with organization filtering for security.
 
     Raises ItemDeletedException for a soft-deleted test set.
@@ -558,8 +558,8 @@ def remove_test_set_associations(
 def update_test_set_attributes(
     db: Session,
     test_set_id: str,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> None:
     """
     Regenerate and update the attributes for a test set based on its current associated tests.
@@ -572,7 +572,7 @@ def update_test_set_attributes(
     """
     from uuid import UUID
 
-    from rhesis.backend.app.crud import get_test_set
+    from rhesis.backend.app.crud.test_set import get_test_set
     from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
     # Validate UUID
@@ -590,8 +590,8 @@ def update_test_set_attributes(
         # Test set may not exist or may have been soft-deleted; nothing to update.
         return
 
-    # Explorer test sets manage their own attributes; skip regeneration.
-    if test_set.explorer_row:
+    # Explorer and metric tuning test sets manage their own attributes; skip regeneration.
+    if test_set.explorer_row or test_set.metric_id:
         return
 
     # Get defaults and license type - use test_set's organization context
@@ -629,9 +629,9 @@ def get_last_completed_test_run(
 
     Raises:
         ItemDeletedException: If test_set_identifier resolves to a
-            soft-deleted test set (via crud.resolve_test_set).
+            soft-deleted test set (via test_set_crud.resolve_test_set).
     """
-    from rhesis.backend.app import crud
+    from rhesis.backend.app.crud import test_set as test_set_crud
     from rhesis.backend.app.models.status import Status
     from rhesis.backend.app.models.test_configuration import (
         TestConfiguration,
@@ -640,7 +640,9 @@ def get_last_completed_test_run(
     from rhesis.backend.jobs.enums import RunStatus
 
     # Resolve test set
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         return None
 
@@ -705,13 +707,13 @@ def execute_test_set_on_endpoint(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
     current_user: models.User,
-    test_configuration_attributes: Dict[str, Any] = None,
-    organization_id: str = None,
-    user_id: str = None,
-    metrics: List[Dict[str, Any]] = None,
-    reference_test_run_id: uuid.UUID = None,
-    execution_model_id: uuid.UUID = None,
-    evaluation_model_id: uuid.UUID = None,
+    test_configuration_attributes: Dict[str, Any] | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+    metrics: List[Dict[str, Any]] | None = None,
+    reference_test_run_id: uuid.UUID | None = None,
+    execution_model_id: uuid.UUID | None = None,
+    evaluation_model_id: uuid.UUID | None = None,
     experiment_id: uuid.UUID | None = None,
     experiment_version: str | None = None,
     experiment_environment: str | None = None,
@@ -741,8 +743,8 @@ def execute_test_set_on_endpoint(
         PermissionError: For access control errors
         RuntimeError: For execution errors
     """
-    from rhesis.backend.app import crud
     from rhesis.backend.app.crud import endpoint as endpoint_crud
+    from rhesis.backend.app.crud import test_set as test_set_crud
 
     logger.info(
         f"Starting test set execution for identifier: {test_set_identifier} "
@@ -757,7 +759,7 @@ def execute_test_set_on_endpoint(
 
     # Resolve test set
     logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-    db_test_set = crud.resolve_test_set(
+    db_test_set = test_set_crud.resolve_test_set(
         test_set_identifier, db, organization_id=str(current_user.organization_id)
     )
     if db_test_set is None:
@@ -840,7 +842,7 @@ def execute_test_set_on_endpoint(
     )
 
     # Submit for execution (creates test run with Queued status)
-    task_result, test_run_id = _submit_test_configuration_for_execution(
+    task_result, test_run_id, test_run_name = _submit_test_configuration_for_execution(
         db, test_config_id, current_user
     )
 
@@ -854,6 +856,7 @@ def execute_test_set_on_endpoint(
         "endpoint_name": db_endpoint.name,
         "test_configuration_id": test_config_id,
         "test_run_id": test_run_id,
+        "test_run_name": test_run_name,
         "task_id": task_result.id,
     }
     logger.info(f"Successfully initiated test set execution: {response_data}")
@@ -948,14 +951,14 @@ def _create_test_configuration(
     endpoint_id: uuid.UUID,
     test_set_id: uuid.UUID,
     current_user: models.User,
-    test_configuration_attributes: Dict[str, Any] = None,
-    organization_id: str = None,
-    user_id: str = None,
-    metrics: List[Dict[str, Any]] = None,
-    metrics_source: str = None,
-    reference_test_run_id: uuid.UUID = None,
-    execution_model_id: uuid.UUID = None,
-    evaluation_model_id: uuid.UUID = None,
+    test_configuration_attributes: Dict[str, Any] | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+    metrics: List[Dict[str, Any]] | None = None,
+    metrics_source: str | None = None,
+    reference_test_run_id: uuid.UUID | None = None,
+    execution_model_id: uuid.UUID | None = None,
+    evaluation_model_id: uuid.UUID | None = None,
     parameters_ref: Dict[str, Any] | None = None,
 ) -> str:
     """Create test configuration and return its ID as string.
@@ -1053,7 +1056,7 @@ def _submit_test_configuration_for_execution(
     """Create a Queued test run and submit the task for background execution.
 
     Returns:
-        Tuple of (celery_result, test_run_id_str)
+        Tuple of (celery_result, test_run_id_str, test_run_name)
     """
     from rhesis.backend.app.crud import test_configuration as test_configuration_crud
     from rhesis.backend.jobs import launch_job
@@ -1113,4 +1116,4 @@ def _submit_test_configuration_for_execution(
         raise
 
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
-    return result, test_run_id
+    return result, test_run_id, test_run.name

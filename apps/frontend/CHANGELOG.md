@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-01
+
+### Added
+
+- **Navigation Feedback & Skeletons**: Added a navigation progress bar and delayed (500ms) route-level loading skeletons to provide immediate visual feedback without flashing on fast loads.
+- **Custom Loading Skeletons**: Introduced page-specific skeletons matching real layouts, including Card Directories (metrics, requirements, models, tools, projects), Insights Dashboard, Section Pages, and a Playground header spinner.
+- **Sidebar Plan Indicator**: Added a dedicated Plan card in the sidebar footer displaying the organization's current tier, an active/inactive status badge, a custom Crown icon, and an upgrade link (gated on organization update permissions).
+- **Detailed Endpoint Failure Views**: Unscorable or failed test runs now display a detailed banner on the Overview tab showing the HTTP status code, failure reason, and the target's raw response body.
+
+### Changed
+
+- **Performance Optimizations**:
+  - Parallelized sub-resource SSR prefetches on detail pages (experiments, requirements, tasks, test runs, etc.) to eliminate sequential round-trips before first paint.
+  - Optimized Test Run detail pages by lazy-loading conversation transcripts in the drawer and prefetching only active tab data.
+  - Seeded the verdict matrix from SSR to allow the Summary tab to render immediately.
+- **Centralized Session Guards**: Replaced scattered inline authentication checks and bespoke error alerts across SSR pages with a unified `requireSession()` helper routing through the shared `error.tsx` boundary.
+- **Metric Tuning UI**: Locked the toolbar height to prevent the grid from shifting when runs start/finish, and updated review marks to render hollow when open and filled/stroked when decided.
+- **Dark Mode Inputs**: Enhanced visual distinction for outlined input fields in dark mode by applying a subtle background fill.
+
+### Fixed
+
+- **Stale Closure in Reviews**: Fixed a bug in `TestsTableView` where confirming a review after a network delay could apply the action to a newly navigated test instead of the selected one.
+- **Lapsed License UX**: Fixed a bug where organizations with lapsed paid licenses were locked out of upgrade prompts and billing links because the UI still treated them as active "enterprise" users.
+- **Grid Flicker & Layout Shifts**: Resolved flex-column flickering on mount and premature "no-project" flashes by gating column measurements on the grid's ready state.
+- **Misleading Metric Scores**: Stopped failed or unscored tests from reporting "0.0%" or "0 of 0 metrics passed," which falsely implied a calculated score of zero.
+- **Conversation History Visibility**: Fixed an issue where multi-turn conversation tabs claimed "No conversation history available" if a target response was empty.
+- **Dependency Stability**: Cleaned up React hook dependencies and stabilized inline arrays/fallbacks to prevent redundant component re-renders.
+
+## [0.14.0] - 2026-08-27
+
+### Added
+
+- **Live Verdict Grid for Test Runs**: Rebuilt the Test Run Summary tab with a canvas-rendered live verdict grid driven by real-time WebSocket updates. Includes a three-mode density control (Numbers, Numbers + Shape, Detail) with keyboard navigation, per-test roll-up strips, and width-aware cell binning.
+- **Redesigned KPI Cards**: Updated the Test Run KPI row with redesigned cards featuring a failures drill-down, elapsed run time, sparklines, and a persistent progress bar for completed runs.
+- **Metric Tuning Tab**: Added a new "Tuning" tab for custom metrics to manage labelled test cases, run evaluations, and review results. Reviewers can accept or reject verdicts with comments.
+- **AI-Powered Metric Improvement**: Introduced an "Improve" feature that uses LLMs to rewrite metric evaluation prompts based on reviewer rejections, complete with a side-by-side editable diff dialog before applying changes.
+- **User Settings Page**: Created a new `/settings` page allowing users to edit their profile (name, picture) and manage/change their password via a secure drawer.
+- **Quota & Usage UI**: Added comprehensive quota awareness features, including inline gates (`QuotaNotice`) for metered actions, a `QuotaBanner` for limit warnings, a detailed "Org usage" block with progress bars in the organization menu, and a dedicated Notifications Drawer for quota threshold alerts.
+- **Custom Font Branding**: Introduced support for custom typography via `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL` environment variables, allowing self-hosted deployments to proxy and apply custom brand fonts.
+- **Standardized Bulk Actions**: Rolled out unified bulk-select delete functionality across Test Sets, Test Runs, Endpoints, Sources, Tokens, and Tasks grids.
+- **Evaluation Contracts UI**: Added support for multi-turn test evaluation contracts, displaying a per-behaviour breakdown (verdicts and evidence) and a read-only interpretation panel on the test detail page.
+- **Health Endpoint**: Added a static `/api/health` route to handle liveness and readiness probes efficiently without triggering full page renders.
+
+### Changed
+
+- **Performance Optimization (SSR Prefetching)**: Migrated list and detail pages (including Tools, Models, Projects, Tokens, Architect, Explorer, Traces, Jobs, Tasks, and Metrics) to Server-Side Rendering (SSR) prefetching, significantly reducing initial page load times and eliminating skeleton layout flashes.
+- **Unified Grid Architecture**: Consolidated all directory list grids under a single, highly performant `EntityGrid` component and a shared `useList` hook.
+- **Active Project Deletion Guard**: Protected the currently active project from accidental deletion by disabling and dimming the trash icon in the projects list with an explanatory tooltip.
+- **Metric Tuning UI Polish**: Replaced thumbs up/down review controls with clearer tick/cross icons, moved the toolbar directly above the grid, and renamed the section to "Improve this metric".
+- **Tab Renaming**: Renamed the "Test Cases" tab to "Tests" across the application for consistency.
+
+### Fixed
+
+- **Dark Mode Visibility**: Improved the legibility of N/A and pending verdict cells, legend dots, and disabled rerun fields when using dark mode.
+- **Live Status Polling**: Fixed a bug where the Test Run status pill remained frozen on "In Progress" after completion; it now polls dynamically until a terminal state is reached.
+- **Project Deletion Flow**: Fixed the post-delete flow for projects to ensure the UI unmounts correctly, updates the active project context, and redirects to the project list without leaving empty shells.
+- **Project Card Layout**: Aligned the project metadata card's edit and display layouts to prevent layout shifting, and ensured the card remains in edit mode if a save error occurs.
+- **API Base URL Validation**: Removed the unsafe fallback to `localhost` when `API_BASE_URL` is unconfigured, throwing an immediate error to prevent misrouted authentication flows in production.
+- **Brand Font Integration**: Ensured custom brand fonts are correctly applied to the sign-in and authentication pages.
+- **OWASP Generation**: Gated the OWASP generate button to prevent submission on invalid input.
+- **List Scrolling**: Fixed scrolling behavior on the load test set list.
+
 ## [0.13.0] - 2026-08-20
 
 ### Added

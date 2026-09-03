@@ -131,6 +131,14 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
             if exec_time:
                 summary_line += f" in {exec_time}"
             self.emit(summary_line)
+            # Progress is written per test on a best-effort basis, each on its
+            # own short-lived session -- under connection pressure some of
+            # those writes are dropped and the counter freezes below the real
+            # figure for good. This is the one place that knows the true
+            # total, so restate it rather than leave a run reading 14/20 next
+            # to 20 persisted results.
+            if total > 0:
+                self.set_progress(total, total)
             _emit_terminal_tick(self, test_run, org_id, user_id, project_id, total)
             self.log_with_context("info", f"Test run update completed for: {test_run_id}")
 

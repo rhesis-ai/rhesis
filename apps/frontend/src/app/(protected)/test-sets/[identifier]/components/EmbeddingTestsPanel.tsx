@@ -73,13 +73,20 @@ const CLUSTER_VIEW_ENABLED = false;
 interface EmbeddingTestsPanelProps {
   testSetId: string;
   testSetType?: string;
+  initialTests?: TestDetail[];
+  initialTotalCount?: number;
   onTotalCountChange?: (count: number) => void;
+  /** Bumped by the page (e.g. after an assign) to trigger a re-fetch. */
+  refreshTrigger?: number;
 }
 
 export default function EmbeddingTestsPanel({
   testSetId,
   testSetType,
+  initialTests,
+  initialTotalCount,
   onTotalCountChange,
+  refreshTrigger,
 }: EmbeddingTestsPanelProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -306,8 +313,10 @@ export default function EmbeddingTestsPanel({
           <TestSetTestsGrid
             testSetId={testSetId}
             testSetType={testSetType}
-            embedded
+            initialTests={initialTests}
+            initialTotalCount={initialTotalCount}
             onTotalCountChange={onTotalCountChange}
+            refreshTrigger={refreshTrigger}
           />
         </Box>
       )}

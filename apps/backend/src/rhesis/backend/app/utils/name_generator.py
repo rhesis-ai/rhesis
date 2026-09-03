@@ -42,7 +42,7 @@ def generate_memorable_name(db: Session, organization_id: UUID, max_attempts: in
     Returns:
         str: A unique memorable name like "swift-raven" or "creative-dolphin"
     """
-    for attempt in range(max_attempts):
+    for _attempt in range(max_attempts):
         # Generate random combination
         adjective = random.choice(POSITIVE_ADJECTIVES)
         animal = random.choice(ANIMALS)

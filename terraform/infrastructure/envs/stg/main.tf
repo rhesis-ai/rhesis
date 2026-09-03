@@ -99,6 +99,15 @@ module "eso_stg" {
   depends_on = [module.gke_stg]
 }
 
+# Vertex AI identity owned by this project, so stg's Gemini traffic stops billing
+# into playground-437609 via the shared gemini-vertex-sa key.
+module "vertex_ai_stg" {
+  source = "../../modules/vertex-ai/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+}
+
 module "external_dns_stg" {
   source = "../../modules/external-dns/gcp"
 

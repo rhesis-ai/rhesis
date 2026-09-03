@@ -6,6 +6,12 @@ on:
     branches: [main, release/*]
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -15,6 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Check for file changes
         if: github.event_name == 'pull_request'
@@ -31,10 +39,13 @@ jobs:
               - 'docs/scripts/**'
             sdk:
               - 'sdk/**'
+              - 'ruff.toml'
             backend:
               - 'apps/backend/**'
+              - 'ruff.toml'
             penelope:
               - 'penelope/**'
+              - 'ruff.toml'
             migrations:
               - 'apps/backend/src/rhesis/backend/alembic/versions/**'
             skill:
@@ -74,6 +85,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -94,6 +107,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Install uv
@@ -118,6 +132,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -148,6 +164,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           # Depth 1 makes check-hardcoded-styles.js scan every file, not the diff.
           fetch-depth: 2
 
@@ -180,6 +197,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -201,6 +220,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -219,6 +240,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Helm
         uses: azure/setup-helm@v4

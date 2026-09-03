@@ -8,6 +8,7 @@ import { ApiClientFactory } from '../../../utils/api-client/client-factory';
 
 jest.mock('../../../components/common/Can', () => ({
   useCan: () => true,
+  useCanWithStatus: () => ({ allowed: true, loading: false }),
   Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   can: (_subject: unknown, _capability: string) => true,
 }));
@@ -59,6 +60,10 @@ describe('TasksSection - Infinite Loading Fix', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSession.mockImplementation(() => ({
+      data: { session_token: 'tok' },
+      status: 'authenticated',
+    }));
 
     mockApiClientFactory.mockImplementation(
       () =>
@@ -112,10 +117,15 @@ describe('TasksSection - Infinite Loading Fix', () => {
   });
 
   it('should set loading to false when required props are missing', async () => {
-    mockUseSession.mockReturnValueOnce({
-      data: null,
-      status: 'unauthenticated',
-    } as unknown as ReturnType<typeof mockUseSession>);
+    // Every useSession() call in the tree must see the signed-out state, not
+    // just the first one.
+    mockUseSession.mockImplementation(
+      () =>
+        ({
+          data: null,
+          status: 'unauthenticated',
+        }) as unknown as ReturnType<typeof mockUseSession>
+    );
     wrap(<TasksSection {...defaultProps} />);
 
     // Should show empty state, not loading spinner

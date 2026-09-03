@@ -184,8 +184,8 @@ async def generate_content_endpoint(
     Usage forwarding: this endpoint has two kinds of caller. A developer (or
     any HTTP client) can call it directly with their own API key -- in that
     case `current_user` here is the real org to bill, and the normal
-    accrual wired by `get_generation_model_with_override` covers it with no
-    extra work needed. It's also reached indirectly, via `RhesisLLM` acting
+    accrual wired by `resolve_model` covers it with no extra work
+    needed. It's also reached indirectly, via `RhesisLLM` acting
     as a relay: a self-hosted deployment's own "Rhesis" model
     delegating out to this platform instance, or (for SaaS-direct
     customers) this same deployment calling itself in a loopback. For that
@@ -204,15 +204,9 @@ async def generate_content_endpoint(
     the header, which is fine -- their accrual already happened here.
     """
     try:
-        from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-        from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
 
-        model = get_generation_model_with_override(db, current_user)
-        if isinstance(model, str):
-            # Resolution degraded to the bare DEFAULT_*_MODEL string, which
-            # is still a system default running on our credentials.
-            model = stamp_usage_provenance(get_model(model, model_type="language"), metered=True)
+        model = resolve_model(db, current_user, "generation")
 
         captured_usage: dict = {}
         has_on_usage = hasattr(model, "on_usage")
@@ -274,13 +268,10 @@ def generate_embedding_endpoint(
         current_user: The current authenticated user
     """
     try:
-        from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.backend.app.utils.user_model_utils import resolve_embedder
         from rhesis.sdk.models.providers.native import RhesisEmbedder
 
-        embedder = get_user_embedding_model(db, current_user)
-        if isinstance(embedder, str):
-            embedder = get_model(embedder, model_type="embedding")
+        embedder = resolve_embedder(db, current_user)
         if isinstance(embedder, RhesisEmbedder):
             raise EmbeddingProviderNotConfigured(
                 "Embedding model resolved to the Rhesis native provider, which would call "

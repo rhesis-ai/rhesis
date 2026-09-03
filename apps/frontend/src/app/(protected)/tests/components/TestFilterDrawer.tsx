@@ -8,11 +8,9 @@ import {
   filterChipSx,
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
-import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
-import { useRequirements, useCategories, useTopics } from '@/hooks/useLookups';
+import { useTestFacets } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
-import { EntityType } from '@/types/entity-type';
 import {
   EMPTY_ACTIVITY_PRESENCE_FILTERS,
   countActivePresenceFilters,
@@ -69,6 +67,8 @@ interface TestFilterDrawerProps {
   onClose: () => void;
   filters: TestFilters;
   onApply: (filters: TestFilters) => void;
+  /** Scope filter options to a test set. Omit for the global tests list. */
+  testSetId?: string;
 }
 
 export default function TestFilterDrawer({
@@ -76,33 +76,33 @@ export default function TestFilterDrawer({
   onClose,
   filters,
   onApply,
+  testSetId,
 }: TestFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestFilters>(filters);
 
-  const { data: rawRequirements, isLoading: loadingRequirements } =
-    useRequirements(open);
-  const { data: rawCategories, isLoading: loadingCategories } = useCategories(
-    EntityType.TEST,
+  const { data: facets, isLoading: loadingOptions } = useTestFacets(
+    testSetId,
     open
   );
-  const { data: rawTopics, isLoading: loadingTopics } = useTopics(
-    EntityType.TEST,
-    open
-  );
-  const loadingOptions =
-    loadingRequirements || loadingCategories || loadingTopics;
 
-  const requirementOptions = React.useMemo(
-    () => filterUniqueValidOptions(rawRequirements ?? []).map(b => b.name),
-    [rawRequirements]
-  );
-  const categoryOptions = React.useMemo(
-    () => filterUniqueValidOptions(rawCategories ?? []).map(c => c.name),
-    [rawCategories]
-  );
-  const topicOptions = React.useMemo(
-    () => filterUniqueValidOptions(rawTopics ?? []).map(t => t.name),
-    [rawTopics]
+  const requirementOptions = facets?.requirements ?? [];
+  const categoryOptions = facets?.categories ?? [];
+  const topicOptions = facets?.topics ?? [];
+
+  // Until the facets land there is nothing to narrow by, so show every type
+  // rather than a chipless section. Once they have, offer only the types in
+  // scope -- an empty list is a real answer and leaves no chips, the same way
+  // an empty test set leaves the dropdowns above with no options. Any applied
+  // type stays listed so the filter can still be clicked off.
+  const testTypeOptions = React.useMemo(
+    () =>
+      facets
+        ? TEST_TYPE_FILTER_OPTIONS.filter(
+            o =>
+              facets.test_types.includes(o.value) || draft.testType === o.value
+          )
+        : TEST_TYPE_FILTER_OPTIONS,
+    [facets, draft.testType]
   );
 
   React.useEffect(() => {
@@ -150,7 +150,7 @@ export default function TestFilterDrawer({
     >
       <FilterSection title="Test Type">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {TEST_TYPE_FILTER_OPTIONS.map(opt => (
+          {testTypeOptions.map(opt => (
             <Box
               key={opt.value}
               component="button"

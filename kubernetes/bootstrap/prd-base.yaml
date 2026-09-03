@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prd-base
+  namespace: argocd
+  annotations:
+    # prd-base is not part of any synced tree, so ArgoCD sees it as a live
+    # resource it once tracked but no longer finds in git, and prune deletes it.
+    # This survived only because the annotation is read off the live object when
+    # there is no target manifest. Do not remove it.
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rhesis-ai/rhesis.git
+    # Bootstrap value only. publish-release.yml overwrites the live pin with
+    # `argocd app set --revision <write-back commit>` on every release, and
+    # rewrites this line so a disaster-recovery apply lands on the latest
+    # promoted commit rather than a stale one.
+    targetRevision: a1063f7b5ba89603b2caa4c82a92479c7818780c
+    path: kubernetes/clusters/prd
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: true

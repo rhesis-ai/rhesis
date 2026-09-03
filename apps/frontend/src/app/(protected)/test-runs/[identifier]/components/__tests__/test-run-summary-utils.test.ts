@@ -125,9 +125,12 @@ describe('aggregateMetricStats', () => {
       },
     });
 
+    const goalAchievement = result.test_metrics?.metrics?.['Goal Achievement'];
+    expect(goalAchievement).toBeDefined();
+
     expect(
       getEffectiveMetricSuccess(
-        result.test_metrics!.metrics!['Goal Achievement'] as {
+        goalAchievement as {
           is_successful: boolean;
           override?: { original_value: boolean };
         }
@@ -454,6 +457,29 @@ describe('requirementHasHumanCorrection', () => {
       }),
     ];
 
+    expect(requirementHasHumanCorrection('Safety', results)).toBe(false);
+  });
+
+  it('measures a test-level review against the pre-review automated value, not a metric review already applied to it', () => {
+    // Metric flipped false -> true by an earlier metric-level review, so the
+    // live is_successful is true while the automated value is still false.
+    // A test-level review saying Fail therefore AGREES with the automated
+    // outcome and is not a correction. Reading the live value here instead
+    // of override.original_value would score it as one.
+    const results = [
+      makeResult({
+        test: { requirement: { name: 'Safety' } } as TestResultDetail['test'],
+        last_review: makeReview({ status: { name: 'Fail' } }),
+        metrics: {
+          Accuracy: {
+            is_successful: true,
+            override: { original_value: false },
+          },
+        },
+      }),
+    ];
+
+    expect(testHasHumanCorrection(results[0])).toBe(false);
     expect(requirementHasHumanCorrection('Safety', results)).toBe(false);
   });
 

@@ -123,9 +123,15 @@ export function buildTestRunTimeFilter(timeRange: InsightsTimeRange): string {
   return '';
 }
 
-export function resolveEndpointId(
+/**
+ * Pure endpoint pick shared by the client (`resolveEndpointId`) and the
+ * server prefetch: the remembered `storedId` if it belongs to the project,
+ * else the project's first endpoint.
+ */
+export function pickEndpointId(
   endpoints: Endpoint[],
-  projectId: string | undefined
+  projectId: string | undefined,
+  storedId: string | null
 ): string | null {
   const projectEndpoints = endpoints.filter(e =>
     endpointMatchesProject(e, projectId)
@@ -133,15 +139,23 @@ export function resolveEndpointId(
 
   if (projectEndpoints.length === 0) return null;
 
-  const stored = readInsightsEndpointId();
-  if (stored) {
-    const found = projectEndpoints.find(e => e.id === stored);
-    if (found) return found.id;
+  if (storedId && projectEndpoints.some(e => e.id === storedId)) {
+    return storedId;
   }
 
-  const fallback = projectEndpoints[0].id;
-  writeInsightsEndpointId(fallback);
-  return fallback;
+  return projectEndpoints[0].id;
+}
+
+export function resolveEndpointId(
+  endpoints: Endpoint[],
+  projectId: string | undefined
+): string | null {
+  const stored = readInsightsEndpointId();
+  const resolved = pickEndpointId(endpoints, projectId, stored);
+  if (resolved && resolved !== stored) {
+    writeInsightsEndpointId(resolved);
+  }
+  return resolved;
 }
 
 export function buildEndpointRunFilter(endpointId: string): string {
@@ -150,9 +164,10 @@ export function buildEndpointRunFilter(endpointId: string): string {
 
 export async function fetchTestRunsForEndpoint(
   endpointId: string,
-  timeRange?: InsightsTimeRange
+  timeRange?: InsightsTimeRange,
+  factory: ApiClientFactory = new ApiClientFactory()
 ): Promise<TestRun[]> {
-  const client = new ApiClientFactory().getTestRunsClient();
+  const client = factory.getTestRunsClient();
   const filterParts = [buildEndpointRunFilter(endpointId)];
   if (timeRange) {
     const timeFilter = buildTestRunTimeFilter(timeRange);
@@ -189,9 +204,10 @@ export async function fetchTestRunsForEndpoint(
 
 export async function fetchTestRunIdsForEndpoint(
   endpointId: string,
-  timeRange?: InsightsTimeRange
+  timeRange?: InsightsTimeRange,
+  factory?: ApiClientFactory
 ): Promise<string[]> {
-  const runs = await fetchTestRunsForEndpoint(endpointId, timeRange);
+  const runs = await fetchTestRunsForEndpoint(endpointId, timeRange, factory);
   return runs.map(run => run.id);
 }
 
@@ -211,24 +227,34 @@ export function assertInsightsTestRunIdsWithinLimit(
   }
 }
 
-/** Resolve which test run IDs to query based on Insights filter state. */
+/**
+ * Resolve which test run IDs to query based on Insights filter state.
+ * `factory` is only passed by the server prefetch; client callers use the
+ * default no-arg factory (BFF proxy).
+ */
 export async function resolveInsightsQueryTestRunIds(
   filters: Pick<
     InsightsFilters,
     'endpointId' | 'runFilterMode' | 'timeRange' | 'testRunIds'
-  >
+  >,
+  factory?: ApiClientFactory
 ): Promise<string[]> {
   let testRunIds: string[];
 
   if (filters.runFilterMode === 'timeRange') {
     testRunIds = await fetchTestRunIdsForEndpoint(
       filters.endpointId,
-      resolveInsightsTimeRange(filters.timeRange)
+      resolveInsightsTimeRange(filters.timeRange),
+      factory
     );
   } else if (filters.testRunIds.length > 0) {
     testRunIds = filters.testRunIds;
   } else {
-    testRunIds = await fetchTestRunIdsForEndpoint(filters.endpointId);
+    testRunIds = await fetchTestRunIdsForEndpoint(
+      filters.endpointId,
+      undefined,
+      factory
+    );
   }
 
   assertInsightsTestRunIdsWithinLimit(testRunIds);
@@ -328,4 +354,153 @@ export function buildRequirementColumns(
     }));
 
   return sortRequirementColumns(columns);
+}
+
+export const EMPTY_INSIGHTS_SUMMARY: PassFailStats = {
+  total: 0,
+  passed: 0,
+  failed: 0,
+  pass_rate: 0,
+};
+
+/** The fetched half of `RequirementInsightsData` -- what the server prefetch seeds. */
+export interface RequirementInsightsResult {
+  summary: PassFailStats;
+  columns: RequirementInsightColumn[];
+  /** Full, unfiltered requirement list -- for the filter drawer's checkbox options. */
+  requirementOptions: RequirementOption[];
+  noRuns: boolean;
+}
+
+/**
+ * Run the `/insights/query` batch for the given filters and already-resolved
+ * test run IDs. Shared by `useRequirementInsightsData` (client) and the
+ * Insights server prefetch; `factory` is only passed by the latter.
+ */
+export async function fetchRequirementInsights(
+  filters: InsightsFilters,
+  testRunIds: string[],
+  factory: ApiClientFactory = new ApiClientFactory()
+): Promise<RequirementInsightsResult> {
+  if (testRunIds.length === 0) {
+    return {
+      summary: EMPTY_INSIGHTS_SUMMARY,
+      columns: [],
+      requirementOptions: [],
+      noRuns: true,
+    };
+  }
+
+  const timeParams =
+    filters.runFilterMode === 'timeRange'
+      ? timeRangeToStatsParams(resolveInsightsTimeRange(filters.timeRange))
+      : {};
+  const measures = ['passed', 'failed', 'pass_rate'];
+
+  // `null` means "no filter" (default); `[]` means the user explicitly
+  // unchecked every box -- a real, distinct state that should show zero data,
+  // not silently fall back to "all". The backend can't express "match zero"
+  // through an omitted filter (an empty list is dropped and treated as "no
+  // restriction"), so that case is handled client-side below instead of being
+  // sent as a query param.
+  const showsNoData =
+    (filters.requirementIds !== null && filters.requirementIds.length === 0) ||
+    (filters.statusIds !== null && filters.statusIds.length === 0);
+
+  // Status narrows every test_result query, including the "options" scope
+  // below -- unlike requirementIds, this isn't a client-side column toggle, so
+  // the checkbox list itself should only offer requirements that exist within
+  // the selected status.
+  const testResultFilterExtras: Record<string, string[]> = {};
+  if (filters.statusIds !== null && filters.statusIds.length > 0) {
+    testResultFilterExtras.status_ids = filters.statusIds;
+  }
+
+  const requirementFilter: Record<string, string[]> =
+    filters.requirementIds !== null && filters.requirementIds.length > 0
+      ? { requirement_ids: filters.requirementIds }
+      : {};
+
+  // Unfiltered by requirementIds -- used only to populate the drawer's full
+  // requirement checkbox list (with counts), independent of which
+  // requirements are currently checked.
+  const optionsQuery = {
+    filters: { test_run_ids: testRunIds, ...testResultFilterExtras },
+    ...timeParams,
+  };
+
+  // Actual display/summary scope for the test_result entity -- also narrowed
+  // to the checked requirements so the pass rate and columns reflect the
+  // filter, not just which columns are shown.
+  const testResultQuery = {
+    filters: { ...optionsQuery.filters, ...requirementFilter },
+    ...timeParams,
+  };
+
+  // The `metric` entity's registry filters don't include topic_ids/status_ids
+  // (see services/insights/registry.py) -- sending them would 400.
+  const metricQuery = {
+    filters: { test_run_ids: testRunIds, ...requirementFilter },
+    ...timeParams,
+  };
+
+  const results = await factory.getInsightsClient().getInsightsQuery({
+    summary: {
+      entity: 'test_result',
+      group_by: [],
+      measures,
+      ...testResultQuery,
+    },
+    requirements: {
+      entity: 'test_result',
+      group_by: ['requirement_id', 'requirement'],
+      measures,
+      ...testResultQuery,
+    },
+    topics: {
+      entity: 'test_result',
+      group_by: ['requirement_id', 'topic_id', 'topic'],
+      measures,
+      ...testResultQuery,
+    },
+    metrics: {
+      entity: 'metric',
+      group_by: ['requirement_id', 'metric_name'],
+      measures,
+      ...metricQuery,
+    },
+    allRequirements: {
+      entity: 'test_result',
+      group_by: ['requirement_id', 'requirement'],
+      measures,
+      ...optionsQuery,
+    },
+  });
+
+  const requirementOptions = buildRequirementOptions(
+    results.allRequirements.rows
+  );
+
+  if (showsNoData) {
+    return {
+      summary: EMPTY_INSIGHTS_SUMMARY,
+      columns: [],
+      requirementOptions,
+      noRuns: false,
+    };
+  }
+
+  const summaryRow = results.summary.rows[0];
+  return {
+    summary: summaryRow
+      ? rowToPassFailStats(summaryRow)
+      : EMPTY_INSIGHTS_SUMMARY,
+    columns: buildRequirementColumns(
+      results.requirements.rows,
+      results.topics.rows,
+      results.metrics.rows
+    ),
+    requirementOptions,
+    noRuns: false,
+  };
 }

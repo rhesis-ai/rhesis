@@ -11,14 +11,14 @@ import pytest
 
 pytest.importorskip("haystack")
 
-from haystack.dataclasses import ChatMessage, ToolCall  # noqa: E402
-from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
-from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes  # noqa: E402
-from rhesis.telemetry.constants import ConversationContext  # noqa: E402
-from rhesis.telemetry.context import set_root_trace_id  # noqa: E402
+from haystack.dataclasses import ChatMessage, ToolCall
+from opentelemetry.sdk.trace import TracerProvider
+from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes
+from rhesis.telemetry.constants import ConversationContext
+from rhesis.telemetry.context import set_root_trace_id
 
-from rhesis.sdk.telemetry.integrations.haystack import mapping  # noqa: E402
-from rhesis.sdk.telemetry.integrations.haystack.tracer import (  # noqa: E402
+from rhesis.sdk.telemetry.integrations.haystack import mapping
+from rhesis.sdk.telemetry.integrations.haystack.tracer import (
     DefaultSpanHandler,
     RhesisSpan,
     RhesisTelemetry,

@@ -6,7 +6,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import models
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import create_explorer_test, get_test_ids_in_test_sets
 from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.schemas.explorer import TestTreeNode, TopicNode
@@ -107,7 +108,6 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerTreeNodes:
     """Test get_tree_nodes - returns all nodes including topic markers."""
 
@@ -163,7 +163,6 @@ class TestExplorerTreeNodes:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerTreeTests:
     """Test get_tree_tests - returns only test nodes (no topic markers)."""
 
@@ -218,7 +217,6 @@ class TestExplorerTreeTests:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestExplorerTreeTopics:
     """Test get_tree_topics - returns TopicNode objects."""
 
@@ -266,7 +264,6 @@ class TestExplorerTreeTopics:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestGetExplorerTestSets:
     """Test get_explorer_test_sets - returns test sets flagged as Explorer-owned."""
 
@@ -400,7 +397,6 @@ class TestGetExplorerTestSets:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestCreateExplorerTestSet:
     """Test create_explorer_test_set - creates a test set for adaptive testing."""
 
@@ -456,7 +452,6 @@ class TestCreateExplorerTestSet:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestDeleteExplorerTestSet:
     """Test delete_explorer_test_set - removes adaptive test sets only."""
 
@@ -655,7 +650,6 @@ class TestBulkDeleteExplorerTestSets:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestCreateTestNode:
     """Test create_test_node - creates test nodes in a test set."""
 
@@ -828,7 +822,6 @@ class TestCreateTestNode:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestUpdateTestNode:
     """Test update_test_node - updates test nodes in a test set."""
 
@@ -963,7 +956,6 @@ class TestUpdateTestNode:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestDeleteTestNode:
     """Test delete_test_node - deletes test nodes from a test set."""
 
@@ -1085,7 +1077,6 @@ class TestDeleteTestNode:
 # ============================================================================
 
 
-@pytest.mark.service
 class TestImportExplorerTestSetFromSource:
     """Test import_explorer_test_set_from_source."""
 
@@ -1233,7 +1224,6 @@ class TestImportExplorerTestSetFromSource:
 # ============================================================================
 
 
-@pytest.mark.service
 class TestExportRegularTestSetFromExplorer:
     """Test export_regular_test_set_from_explorer."""
 
@@ -1291,7 +1281,7 @@ class TestExportRegularTestSetFromExplorer:
         assert new_set.explorer_row is False
         assert (new_set.attributes or {}).get("adaptive_settings") is None
 
-        items, total = crud.get_test_set_tests(
+        items, total = test_set_crud.get_test_set_tests(
             db=test_db,
             test_set_id=new_set.id,
             skip=0,
@@ -1359,7 +1349,7 @@ class TestExportRegularTestSetFromExplorer:
         assert result.skipped == 3
         assert len(result.skipped_test_ids) == 3
 
-        items, total = crud.get_test_set_tests(
+        items, total = test_set_crud.get_test_set_tests(
             db=test_db,
             test_set_id=result.test_set.id,
             skip=0,

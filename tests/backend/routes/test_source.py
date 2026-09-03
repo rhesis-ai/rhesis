@@ -457,7 +457,6 @@ class TestSourceLanguageHandling(SourceTestMixin, BaseEntityTests):
 # === SOURCE PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestSourcePerformance(SourceTestMixin, BaseEntityTests):
     """Source performance tests"""
 

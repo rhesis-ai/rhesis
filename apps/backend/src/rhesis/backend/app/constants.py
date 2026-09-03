@@ -153,34 +153,37 @@ DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
     os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
 )  # Seconds to wait before evaluating conversation-level metrics
 
-# Test Result Status Mappings
-# These define how test result status names map to passed/failed/error categories
-# All status names are lowercase for case-insensitive matching
-# Note: These align with the keyword matching used in services/stats/common.py
+# Legacy status-name vocabularies, kept only for the write-path bridges that
+# still have to accept a free-text status name (app/outcomes.py's
+# execution_verdict_from_status_name, and is_passed_status for a human
+# review's own status). Nothing should classify a *stored* result with these
+# -- read execution/verdict, which app/outcomes.py owns.
+#
+# All status names are lowercase for case-insensitive matching.
+# There is deliberately no ERROR set: the one that existed lumped
+# pending/review/cancelled in with error, disagreeing with Outcome, and its
+# last consumer is gone.
 TEST_RESULT_STATUS_PASSED = frozenset(
     ["pass", "passed", "completed", "complete", "success", "successful", "finished", "done"]
 )
 TEST_RESULT_STATUS_FAILED = frozenset(["fail", "failed"])
-TEST_RESULT_STATUS_ERROR = frozenset(
-    [
-        "error",  # Execution error
-        "abort",
-        "aborted",  # Execution aborted
-        "cancel",
-        "cancelled",
-        "canceled",  # Execution cancelled
-        "review",
-        "pending",  # Awaiting review or execution
-    ]
-)
 
 
 class TestResultStatus(str, Enum):
-    """Exact DB status names for test results (written to the status table)."""
+    """Exact DB status names for test results (written to the status table).
+
+    Display/review artefact only -- app/outcomes.py's Execution/Verdict
+    columns are the source of truth for aggregation. INCONCLUSIVE is a
+    fourth value because it names a real, distinct bucket
+    (Outcome.INCONCLUSIVE) that this vocabulary never had a name for
+    before: a metric legitimately reporting no pass/fail verdict used to
+    collapse into FAIL by default rather than being shown as its own state.
+    """
 
     PASS = "Pass"
     FAIL = "Fail"
     ERROR = "Error"
+    INCONCLUSIVE = "Inconclusive"
 
 
 class ReviewTarget(str, Enum):
@@ -217,14 +220,6 @@ class OverallTestResult(str, Enum):
     FAILED = "failed"
     PENDING = "pending"
     ERROR = "error"
-
-
-# Test Run Status Mappings (execution-level: did the run finish?)
-# A "passed" run completed execution; "failed" means execution itself failed.
-TEST_RUN_STATUS_PASSED = frozenset(
-    ["completed", "complete", "finished", "done", "success", "successful"]
-)
-TEST_RUN_STATUS_FAILED = frozenset(["failed", "fail", "error", "aborted"])
 
 
 def categorize_test_result_status(status_name: str) -> str:

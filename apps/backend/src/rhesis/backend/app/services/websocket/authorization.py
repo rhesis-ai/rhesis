@@ -9,7 +9,7 @@ Security principle: Fail-closed - unknown channel formats are rejected by defaul
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 from uuid import UUID
 
 from rhesis.backend.app.models.user import User
@@ -71,14 +71,16 @@ class ChannelAuthorizer:
     """
 
     # Channels scoped to specific user
-    USER_SCOPED_PREFIXES = ["user:"]
+    USER_SCOPED_PREFIXES: ClassVar[list[str]] = ["user:"]
 
     # Channels scoped to organization
-    ORG_SCOPED_PREFIXES = ["org:"]
+    ORG_SCOPED_PREFIXES: ClassVar[list[str]] = ["org:"]
 
     # Resource channels that require PDP authorization against the resource's
     # project.  Derived from _RESOURCE_CHANNEL_RULES so it cannot drift.
-    PROTECTED_RESOURCE_PREFIXES = [f"{name}:" for name in _RESOURCE_CHANNEL_RULES]
+    PROTECTED_RESOURCE_PREFIXES: ClassVar[list[str]] = [
+        f"{name}:" for name in _RESOURCE_CHANNEL_RULES
+    ]
 
     # UUID regex pattern for validation
     UUID_PATTERN = re.compile(

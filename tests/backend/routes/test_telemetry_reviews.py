@@ -177,9 +177,7 @@ class TestAddTraceReview:
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_add_review_invalid_status_id(
-        self, authenticated_client: TestClient, db_project
-    ):
+    def test_add_review_invalid_status_id(self, authenticated_client: TestClient, db_project):
         ingested = _ingest_trace(authenticated_client, str(db_project.id))
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
@@ -264,9 +262,7 @@ class TestUpdateTraceReview:
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
         )
-        review = self._create_review(
-            authenticated_client, trace_db_id, pass_status.id
-        )
+        review = self._create_review(authenticated_client, trace_db_id, pass_status.id)
 
         response = authenticated_client.put(
             f"/telemetry/traces/{trace_db_id}/reviews/{review['review_id']}",
@@ -286,9 +282,7 @@ class TestUpdateTraceReview:
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
         )
-        review = self._create_review(
-            authenticated_client, trace_db_id, pass_status.id
-        )
+        review = self._create_review(authenticated_client, trace_db_id, pass_status.id)
 
         response = authenticated_client.put(
             f"/telemetry/traces/{trace_db_id}/reviews/{review['review_id']}",
@@ -306,9 +300,7 @@ class TestUpdateTraceReview:
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
         )
-        review = self._create_review(
-            authenticated_client, trace_db_id, pass_status.id
-        )
+        review = self._create_review(authenticated_client, trace_db_id, pass_status.id)
 
         response = authenticated_client.put(
             f"/telemetry/traces/{trace_db_id}/reviews/{review['review_id']}",
@@ -362,17 +354,13 @@ class TestDeleteTraceReview:
         assert resp.status_code == status.HTTP_200_OK
         return resp.json()
 
-    def test_delete_review(
-        self, authenticated_client: TestClient, db_project, pass_fail_statuses
-    ):
+    def test_delete_review(self, authenticated_client: TestClient, db_project, pass_fail_statuses):
         pass_status, _ = pass_fail_statuses
         ingested = _ingest_trace(authenticated_client, str(db_project.id))
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
         )
-        review = self._create_review(
-            authenticated_client, trace_db_id, pass_status.id
-        )
+        review = self._create_review(authenticated_client, trace_db_id, pass_status.id)
 
         response = authenticated_client.delete(
             f"/telemetry/traces/{trace_db_id}/reviews/{review['review_id']}"
@@ -391,9 +379,7 @@ class TestDeleteTraceReview:
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
         )
-        review = self._create_review(
-            authenticated_client, trace_db_id, pass_status.id
-        )
+        review = self._create_review(authenticated_client, trace_db_id, pass_status.id)
 
         authenticated_client.delete(
             f"/telemetry/traces/{trace_db_id}/reviews/{review['review_id']}"
@@ -423,17 +409,13 @@ class TestDeleteTraceReview:
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_delete_from_trace_with_no_reviews(
-        self, authenticated_client: TestClient, db_project
-    ):
+    def test_delete_from_trace_with_no_reviews(self, authenticated_client: TestClient, db_project):
         ingested = _ingest_trace(authenticated_client, str(db_project.id))
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
         )
 
-        response = authenticated_client.delete(
-            f"/telemetry/traces/{trace_db_id}/reviews/any-id"
-        )
+        response = authenticated_client.delete(f"/telemetry/traces/{trace_db_id}/reviews/any-id")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_on_nonexistent_trace(self, authenticated_client: TestClient):
@@ -519,7 +501,7 @@ class TestTraceReviewMetadata:
                 f"/telemetry/traces/{trace_db_id}/reviews",
                 json={
                     "status_id": str(sid),
-                    "comments": f"Review #{i+1}",
+                    "comments": f"Review #{i + 1}",
                     "target": {"type": "trace", "reference": None},
                 },
             )
@@ -559,3 +541,63 @@ class TestTraceReviewMetadata:
         assert metadata["total_reviews"] == 0
         assert metadata["latest_status"] is None
         assert "All reviews removed" in metadata["summary"]
+
+
+@pytest.mark.integration
+class TestTraceReviewWritesOutcome:
+    """A trace-level review must persist execution/verdict (the source of
+    truth, see app/outcomes.py), not just the legacy status name -- that is
+    what lets the traces UI display an outcome without re-deriving it from
+    raw trace_metrics.
+    """
+
+    def test_review_persists_execution_and_verdict(
+        self, authenticated_client: TestClient, test_db, db_project, pass_fail_statuses
+    ):
+        from rhesis.backend.app import models
+
+        pass_status, _ = pass_fail_statuses
+        ingested = _ingest_trace(authenticated_client, str(db_project.id))
+        trace_db_id = _get_trace_db_id(
+            authenticated_client, str(db_project.id), ingested["trace_id"]
+        )
+
+        response = authenticated_client.post(
+            f"/telemetry/traces/{trace_db_id}/reviews",
+            json={
+                "status_id": str(pass_status.id),
+                "comments": "Looks right",
+                "target": {"type": "trace", "reference": None},
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        trace = test_db.query(models.Trace).filter(models.Trace.id == trace_db_id).one()
+        test_db.refresh(trace)
+        assert trace.execution == "ok"
+        assert trace.verdict == "pass"
+
+    def test_outcome_is_exposed_on_the_detail_response(
+        self, authenticated_client: TestClient, db_project, pass_fail_statuses
+    ):
+        _, fail_status = pass_fail_statuses
+        ingested = _ingest_trace(authenticated_client, str(db_project.id))
+        trace_db_id = _get_trace_db_id(
+            authenticated_client, str(db_project.id), ingested["trace_id"]
+        )
+
+        authenticated_client.post(
+            f"/telemetry/traces/{trace_db_id}/reviews",
+            json={
+                "status_id": str(fail_status.id),
+                "comments": "Wrong answer",
+                "target": {"type": "trace", "reference": None},
+            },
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{ingested['trace_id']}?project_id={db_project.id}"
+        ).json()
+
+        assert detail["execution"] == "ok"
+        assert detail["verdict"] == "fail"

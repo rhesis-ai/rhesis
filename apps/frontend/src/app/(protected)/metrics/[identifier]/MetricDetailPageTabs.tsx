@@ -1,7 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  fetchMetricLinkedRequirements,
+  type LinkedRequirementRow,
+  type MetricTuningData,
+} from './metric-data';
+import { useRouter } from 'next/navigation';
 import { Box, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import {
@@ -24,47 +36,68 @@ import LinkedEntitiesFilterDrawer, {
   countActiveLinkedFilters,
 } from '@/components/common/LinkedEntitiesFilterDrawer';
 import { MetricDetailView } from './MetricDetailView';
+import MetricTuningTab from './tuning/MetricTuningTab';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import { BetaBadge } from '@/components/common/BetaBadge';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import type {
-  RequirementReference,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
-/** Linked requirements come back with the status relationship at runtime. */
-type LinkedRequirementRow = RequirementReference & { status?: Status | null };
-
-const TAB_KEYS = ['basic', 'linked-requirements'] as const;
+const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   basic: 'Basic Information',
   'linked-requirements': 'Linked Requirements',
+  tuning: 'Tuning',
 };
 
-export default function MetricDetailPageTabs() {
-  const params = useParams();
+export default function MetricDetailPageTabs({
+  metricId,
+  initialMetric,
+  initialRequirements,
+  initialTuning,
+}: {
+  metricId: string;
+  /** Fetched by the server page so the first paint already has content. */
+  initialMetric: MetricDetail;
+  /** Same, for the other tabs; undefined falls back to a client fetch. */
+  initialRequirements?: LinkedRequirementRow[];
+  initialTuning?: MetricTuningData;
+}) {
   const { status } = useSession();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Metric.READ
   );
 
-  const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
+  // Bumped when a tab writes the metric, so the detail view re-reads it instead
+  // of serving the copy it fetched on mount.
+  const [metricRevision, setMetricRevision] = useState(0);
+  // This page also serves `rhesis` metrics, and the tuning routes refuse
+  // anything that is not custom. Tuning rewrites the prompt, never the backend
+  // type, so the server-fetched copy stays authoritative.
+  const showTuning =
+    initialMetric.backend_type?.type_value?.toLowerCase() === 'custom';
 
-  const navTabs = TAB_KEYS.map((key, index) => ({
-    key,
-    label: NAV_LABELS[key],
-    id: `metric-detail-tab-${index}`,
-    'aria-controls': `metric-detail-tabpanel-${index}`,
-  }));
+  const navTabs = TAB_KEYS.filter(key => key !== 'tuning' || showTuning).map(
+    (key, index) => ({
+      key,
+      label: NAV_LABELS[key],
+      // Beta belongs on the tab, not inside the panel: it qualifies the whole
+      // feature, and in the panel header it read as a label on the buttons.
+      ...(key === 'tuning' && { badge: <BetaBadge /> }),
+      id: `metric-detail-tab-${index}`,
+      'aria-controls': `metric-detail-tabpanel-${index}`,
+    })
+  );
 
   if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="metrics" />;
@@ -81,13 +114,22 @@ export default function MetricDetailPageTabs() {
   return (
     <MetricDetailView
       metricId={metricId}
+      initialMetric={initialMetric}
       mode="page"
+      refreshKey={metricRevision}
       tabNav={tabNav}
       tabBody={
         activeTab === 1 ? (
           <MetricLinkedRequirements
             metricId={metricId}
             sessionStatus={status}
+            initialRequirements={initialRequirements}
+          />
+        ) : activeTab === 2 && showTuning ? (
+          <MetricTuningTab
+            metricId={metricId}
+            initialData={initialTuning}
+            onMetricChanged={() => setMetricRevision(revision => revision + 1)}
           />
         ) : undefined
       }
@@ -98,15 +140,21 @@ export default function MetricDetailPageTabs() {
 function MetricLinkedRequirements({
   metricId,
   sessionStatus,
+  initialRequirements,
 }: {
   metricId: string;
   sessionStatus: 'loading' | 'authenticated' | 'unauthenticated';
+  initialRequirements?: LinkedRequirementRow[];
 }) {
   const router = useRouter();
   const notifications = useNotifications();
   const canEditMetric = useCan(Capability.Metric.UPDATE);
-  const [requirements, setRequirements] = useState<LinkedRequirementRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [requirements, setRequirements] = useState<LinkedRequirementRow[]>(
+    initialRequirements ?? []
+  );
+  const [loading, setLoading] = useState(!initialRequirements);
+  // The metric id the server-rendered rows belong to: no mount fetch for it.
+  const seededMetricIdRef = useRef(initialRequirements ? metricId : null);
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
@@ -129,11 +177,9 @@ function MetricLinkedRequirements({
     if (!isAuthenticated(sessionStatus)) return;
     setLoading(true);
     try {
-      const client = new MetricsClient();
-      const result = await client.getMetricRequirements(metricId as UUID);
-      const data =
-        (result as unknown as { data: LinkedRequirementRow[] }).data ?? [];
-      setRequirements(data);
+      setRequirements(
+        await fetchMetricLinkedRequirements(new ApiClientFactory(), metricId)
+      );
     } catch {
       setRequirements([]);
     } finally {
@@ -142,6 +188,7 @@ function MetricLinkedRequirements({
   }, [metricId, sessionStatus]);
 
   useEffect(() => {
+    if (seededMetricIdRef.current === metricId) return;
     fetchLinked();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
   }, [metricId]);

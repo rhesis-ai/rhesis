@@ -16,21 +16,21 @@ from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 from .checks import (
-    check_requirement_metric_coverage,
     check_endpoint_connectivity,
     check_evaluation_model,
     check_execution_model,
     check_metric_compatibility,
     check_metric_functionality,
+    check_requirement_metric_coverage,
     check_test_set_not_empty,
 )
 from .constants import (
-    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
     CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
 )
@@ -244,7 +244,7 @@ async def run_preflight_checks_multi(
         check_keys = [k for k, _ in tasks]
         coros = [coro for _, coro in tasks]
         task_results = await asyncio.gather(*coros, return_exceptions=True)
-        for comp_key, tr in zip(check_keys, task_results):
+        for comp_key, tr in zip(check_keys, task_results, strict=True):
             if isinstance(tr, Exception):
                 base_check_id = comp_key.split(":")[0]
                 logger.error(

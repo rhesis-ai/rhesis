@@ -1,5 +1,5 @@
 # Argo CD Application — deploys the Rhesis Helm chart to the prd cluster.
-# This file is synced by the root prd Application (clusters/prd/base.yaml).
+# This file is synced by the root prd Application (kubernetes/bootstrap/prd-base.yaml).
 #
 # sync-wave 10 ensures:
 #   - ESO (wave -1) and ClusterSecretStore (wave 1) are ready
@@ -16,7 +16,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: ab2457f097dfaf83802a442076df77fee41aa351
+    targetRevision: a1063f7b5ba89603b2caa4c82a92479c7818780c
     path: charts/rhesis
     helm:
       valueFiles:

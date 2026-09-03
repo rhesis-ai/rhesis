@@ -1,10 +1,10 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
 
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.rate_limit import FEEDBACK_RATE_LIMIT, limiter
 from rhesis.backend.notifications import email_service
 

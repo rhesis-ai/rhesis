@@ -56,7 +56,7 @@ from sqlalchemy.orm import relationship
 # import from ``rhesis.backend.ee.*``. Re-exported here unchanged so existing
 # EE/test imports of ``rhesis.backend.ee.rbac.models`` keep working.
 # ---------------------------------------------------------------------------
-from rhesis.backend.app.auth.capabilities import (  # noqa: E402
+from rhesis.backend.app.auth.capabilities import (
     SCOPE_ORGANIZATION,
     SCOPE_PROJECT,
     capability_scope,

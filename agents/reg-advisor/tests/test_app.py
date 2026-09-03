@@ -206,7 +206,7 @@ def test_an_unknown_attribute_still_raises() -> None:
 
     assert "app" in reg_advisor.__all__
     with pytest.raises(AttributeError):
-        reg_advisor.no_such_thing
+        _ = reg_advisor.no_such_thing
 
 
 def test_lifespan_starts_the_connector(monkeypatch):

@@ -14,12 +14,6 @@ import {
 import type { ApiErrorData } from '@/utils/api-client/base-client';
 import type { UsageResourceItem } from '@/utils/api-client/usage-client';
 
-const COMMUNITY_EDITION = 'community';
-
-export function isCommunityEdition(edition: string): boolean {
-  return edition.toLowerCase() === COMMUNITY_EDITION;
-}
-
 /** Narrows a wire-value string (e.g. `parseQuotaError(err).resource`) to
  * `QuotaResource`. A 402 body's `resource` is always one, but it arrives
  * typed as plain `string`, and the backend can add a new `QuotaResource`

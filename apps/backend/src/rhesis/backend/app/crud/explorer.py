@@ -1,9 +1,5 @@
 """CRUD operations specific to Explorer test sets.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Every function here flushes and never commits -- the request session owns the commit
 (see ``get_db_with_tenant_variables`` in ``database.py``).
 """
@@ -17,13 +13,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from rhesis.backend.app import models, schemas
-
-# _TEST_SET_RELATED_FIELDS is imported rather than relocated: three other functions in
-# the monolith use the same tuple, and moving it would mean deciding a new home for a
-# TestSet-wide constant while this module only owns the Explorer slice.
-# crud/__init__.py never imports this module, so the parent-package import is cycle-free.
-from rhesis.backend.app.crud import _TEST_SET_RELATED_FIELDS
 from rhesis.backend.app.crud.embedding import create_embedding, get_embedding_by_hash
+
+# _TEST_SET_RELATED_FIELDS lives with the test-set CRUD: the test-set reads all share the
+# tuple, and this module only owns the Explorer slice.
+from rhesis.backend.app.crud.test_set import _TEST_SET_RELATED_FIELDS
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer_metadata import (
@@ -40,6 +34,15 @@ logger = logging.getLogger(__name__)
 # --- Test sets ---------------------------------------------------------------------
 
 
+def only_explorer_test_sets(query):
+    """Row selection for the Explorer list: test sets flagged via ``explorer_row``.
+
+    Shared with the route's ``with_count_header`` so X-Total-Count counts exactly
+    the rows the list returns.
+    """
+    return query.filter(models.TestSet.explorer_row.is_(True))
+
+
 def get_explorer_test_sets(
     db: Session,
     organization_id: str,
@@ -47,6 +50,7 @@ def get_explorer_test_sets(
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    filter: Optional[str] = None,
 ) -> List[models.TestSet]:
     """Get Explorer test sets -- the inverse of ``get_test_sets``' exclusion clause.
 
@@ -67,16 +71,14 @@ def get_explorer_test_sets(
         Field to sort by
     sort_order : str
         Sort direction ('asc' or 'desc')
+    filter : str, optional
+        OData filter expression
 
     Returns
     -------
     list of models.TestSet
         Test sets flagged as Explorer-owned.
     """
-
-    def only_explorer_test_sets(query):
-        return query.filter(models.TestSet.explorer_row.is_(True))
-
     # Paginated outside the builder on purpose: with_pagination caps limit at 100
     # (validate_pagination) and this endpoint has never capped. with_sorting already
     # appends id ASC as a tiebreaker, so pagination stays stable.
@@ -86,6 +88,7 @@ def get_explorer_test_sets(
         .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_custom_filter(only_explorer_test_sets)
+        .with_odata_filter(filter)
         .with_sorting(sort_by, sort_order)
         .build()
     )
@@ -552,7 +555,7 @@ def remove_tests_from_test_set(
     """Drop the association rows linking the given tests to a test set.
 
     One statement for the whole batch. This only detaches -- soft-deleting the tests
-    themselves is a separate ``crud.delete_test`` call, and note the order matters:
+    themselves is a separate ``test_crud.delete_test`` call, and note the order matters:
     ``delete_test`` reads the association table to decide which test sets to
     recalculate, so a test detached first is deliberately left out of that.
 

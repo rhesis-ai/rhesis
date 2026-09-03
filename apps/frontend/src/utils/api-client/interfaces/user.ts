@@ -39,6 +39,13 @@ export interface UserSettings extends WithPermittedActions {
   polyphemus_access?: PolyphemusAccess;
   default_project?: DefaultProjectSetting;
   is_verified?: boolean;
+  has_password: boolean;
+  provider_type?: string;
+  email: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
 }
 
 export interface UserSettingsUpdate {

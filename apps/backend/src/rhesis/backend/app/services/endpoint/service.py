@@ -14,6 +14,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
@@ -44,7 +45,7 @@ class EndpointService:
     SDK endpoint sync is handled by ``sdk_sync.py``.
     """
 
-    def __init__(self, schema_path: str = None):
+    def __init__(self, schema_path: str | None = None):
         if schema_path:
             self.schema_path = schema_path
         else:
@@ -56,13 +57,13 @@ class EndpointService:
         db: Optional[Session],
         endpoint_id: str,
         input_data: Dict[str, Any],
-        organization_id: str = None,
-        user_id: str = None,
+        organization_id: str | None = None,
+        user_id: str | None = None,
         test_execution_context: Optional[Dict[str, str]] = None,
         endpoint: Optional[Endpoint] = None,
         deferred_trace: bool = False,
         trace_id: Optional[str] = None,
-        project_id: str = None,
+        project_id: str | None = None,
     ) -> Dict[str, Any]:
         """Invoke an endpoint with the given input data.
 
@@ -274,10 +275,17 @@ class EndpointService:
                         result = await invoker.invoke()
                         trace_ctx["result"] = result
 
-                    if deferred_trace and isinstance(result, dict):
+                    if deferred_trace:
                         deferred_data = trace_ctx.get("_deferred_trace")
-                        if deferred_data:
+                        if deferred_data and isinstance(result, dict):
                             result["_deferred_trace"] = deferred_data
+                        elif deferred_data is not None and isinstance(result, ErrorResponse):
+                            # A failed invocation is the one you most want a trace for.
+                            # ErrorResponse allows extra fields; the batch caller pops this
+                            # off before the result is stored. Without it, every errored
+                            # batch test lost its trace, because the dict branch above
+                            # silently skipped anything that wasn't a dict.
+                            result.deferred_trace = deferred_data
             else:
                 result = await invoker.invoke()
 
@@ -399,8 +407,8 @@ class EndpointService:
         self,
         db: Session,
         endpoint_id: str,
-        organization_id: str = None,
-        project_id: str = None,
+        organization_id: str | None = None,
+        project_id: str | None = None,
     ) -> Endpoint:
         """Fetch an endpoint by ID, applying organization and project security filtering."""
         from rhesis.backend.app.crud import endpoint as endpoint_crud
@@ -425,8 +433,8 @@ class EndpointService:
         self,
         db: Session,
         test_config: EndpointTestRequest,
-        organization_id: str = None,
-        user_id: str = None,
+        organization_id: str | None = None,
+        user_id: str | None = None,
     ) -> Dict[str, Any]:
         """Test a transient endpoint configuration without persisting it.
 
@@ -446,9 +454,9 @@ class EndpointService:
         request_mapping: Dict[str, Any],
         response_mapping: Dict[str, Any],
         input_data: Dict[str, Any],
-        organization_id: str = None,
-        user_id: str = None,
-        response_format: str = None,
+        organization_id: str | None = None,
+        user_id: str | None = None,
+        response_format: str | None = None,
     ) -> Dict[str, Any]:
         """Test draft mappings against a stored endpoint using its stored credentials."""
         return await _test_endpoint_mapping(

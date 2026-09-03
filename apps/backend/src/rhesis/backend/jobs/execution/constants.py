@@ -17,7 +17,7 @@ TURN_TOOL_CALLS_KEY = "tool_calls"
 PENELOPE_EVALUATED_METRICS = frozenset({"GoalAchievementJudge"})
 
 # Canonical definition lives in schemas.metric; re-export for convenience.
-from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.app.schemas.metric import MetricScope  # noqa: E402
 
 __all__ = [
     "CONVERSATION_SUMMARY_KEY",

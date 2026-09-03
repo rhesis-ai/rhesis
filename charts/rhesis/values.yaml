@@ -130,6 +130,14 @@ config:
   # Embeddings need a concrete region: text-embedding-* is not served from the
   # "eu" multi-region endpoint that Gemini accepts.
   vertexAiEmbeddingLocation: "europe-west4"
+  # Leave empty on purpose. Empty means the SDK takes the project from the
+  # service account key's own project_id, so identity and target project are a
+  # single artifact and cannot disagree. Setting it makes them two independent
+  # sources of truth that travel by different routes (this value via the
+  # ConfigMap and GitOps, the key via Secret Manager and ESO), and then changing
+  # one without the other is a guaranteed 403: the new key has no role in the old
+  # project, and the old key has none in the new one. Only set this if a
+  # deployment genuinely must call a project other than the key's owner.
   vertexAiProject: ""
 
   # Chatbot

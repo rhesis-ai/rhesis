@@ -152,7 +152,6 @@ def user_with_embedding_model(test_db: Session, db_user, embedding_model):
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestEmbeddingService:
     """Test EmbeddingService async/sync orchestration."""
 
@@ -410,7 +409,6 @@ class TestEmbeddingService:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestEmbeddingServiceIntegration:
     """Integration tests for EmbeddingService with real generator."""
 

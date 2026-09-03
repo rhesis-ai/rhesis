@@ -1,18 +1,24 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+interface CreateTaskRedirectPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
 /** Redirect legacy /tasks/create URLs to the overview drawer. */
-export default function CreateTaskRedirectPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export default async function CreateTaskRedirectPage({
+  searchParams,
+}: CreateTaskRedirectPageProps) {
+  const params = await searchParams;
+  const qs = new URLSearchParams();
 
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('create', 'true');
-    router.replace(`/tasks?${params.toString()}`);
-  }, [router, searchParams]);
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.forEach(v => qs.append(key, v));
+    } else if (value !== undefined) {
+      qs.append(key, value);
+    }
+  }
 
-  return null;
+  qs.set('create', 'true');
+  redirect(`/tasks?${qs.toString()}`);
 }

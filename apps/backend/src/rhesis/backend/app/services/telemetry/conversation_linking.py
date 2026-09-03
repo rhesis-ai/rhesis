@@ -210,7 +210,7 @@ class ConversationLinkingCache(RedisBackedCache):
 
         matched = []
         delete_keys: List[str] = []
-        for tid, val in zip(trace_ids, values):
+        for tid, val in zip(trace_ids, values, strict=True):
             if val is None:
                 continue
             data = json.loads(val)
@@ -277,7 +277,7 @@ class ConversationLinkingCache(RedisBackedCache):
 
         matched = {}
         delete_keys = []
-        for tid, val in zip(trace_ids, values):
+        for tid, val in zip(trace_ids, values, strict=True):
             if val is not None:
                 matched[tid] = val
                 delete_keys.append(f"{_PREFIX_OUTPUT}{tid}")
@@ -356,7 +356,7 @@ class ConversationLinkingCache(RedisBackedCache):
 
         matched = {}
         delete_keys = []
-        for tid, val in zip(trace_ids, values):
+        for tid, val in zip(trace_ids, values, strict=True):
             if val is not None:
                 data = json.loads(val)
                 matched[tid] = (

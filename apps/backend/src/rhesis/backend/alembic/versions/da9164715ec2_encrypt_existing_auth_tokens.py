@@ -42,7 +42,7 @@ def is_encrypted(value: str) -> bool:
         return False
     try:
         return value.startswith("gAAAAA")
-    except:
+    except Exception:
         return False
 
 

@@ -17,7 +17,7 @@ from rhesis.backend.app.models import Base
 # The import is wrapped because a Community-only install must keep
 # working unchanged (no rhesis.backend.ee package on sys.path).
 try:
-    import rhesis.backend.ee.api_clients.clients  # noqa: F401
+    import rhesis.backend.ee.api_clients.clients
 except ImportError:
     pass
 

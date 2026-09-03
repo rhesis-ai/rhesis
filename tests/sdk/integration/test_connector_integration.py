@@ -24,18 +24,23 @@ DB_PASSWORD = "your-secured-password"
 DB_PORT = 10001
 
 
-def _connector_status(base_url: str) -> dict:
+def _auth_headers(api_key: str) -> dict:
+    return {"Authorization": f"Bearer {api_key}"}
+
+
+def _connector_status(base_url: str, api_key: str) -> dict:
     """Fetch connector status for the test project."""
     response = requests.get(
         f"{base_url}/connector/status/{PROJECT_ID}",
         params={"environment": ENVIRONMENT},
+        headers=_auth_headers(api_key),
         timeout=5,
     )
     response.raise_for_status()
     return response.json()
 
 
-def _trigger_test(base_url: str, function_name: str, inputs: dict) -> dict:
+def _trigger_test(base_url: str, api_key: str, function_name: str, inputs: dict) -> dict:
     """Trigger connector execution through backend HTTP endpoint."""
     response = requests.post(
         f"{base_url}/connector/trigger",
@@ -45,6 +50,7 @@ def _trigger_test(base_url: str, function_name: str, inputs: dict) -> dict:
             "function_name": function_name,
             "inputs": inputs,
         },
+        headers=_auth_headers(api_key),
         timeout=10,
     )
     response.raise_for_status()
@@ -109,12 +115,12 @@ async def test_connector_endpoint_registration_and_trigger(docker_compose_test_e
         await _wait_until(
             lambda: any(
                 func["name"] == "sdk_echo"
-                for func in _connector_status(base_url).get("functions", [])
+                for func in _connector_status(base_url, api_key).get("functions", [])
             ),
             timeout=12,
         )
 
-        trigger_response = _trigger_test(base_url, "sdk_echo", {"input": "hello"})
+        trigger_response = _trigger_test(base_url, api_key, "sdk_echo", {"input": "hello"})
         assert trigger_response["success"] is True
         assert trigger_response["test_run_id"].startswith("test_")
 

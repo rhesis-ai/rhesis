@@ -1,9 +1,5 @@
 """CRUD operations for prompts and prompt templates.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Prompt templates live here too rather than in their own module: a template is a prompt with
 placeholders left in, so it is the same domain.
 """
@@ -18,6 +14,7 @@ from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
     get_item,
+    get_item_detail,
     get_items,
     get_items_detail,
     update_item,
@@ -25,7 +22,10 @@ from rhesis.backend.app.utils.crud_utils import (
 
 
 def get_prompt(
-    db: Session, prompt_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    prompt_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Prompt]:
     """Get prompt."""
     return get_item(db, models.Prompt, prompt_id, organization_id, user_id)
@@ -38,8 +38,8 @@ def get_prompts(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Prompt]:
     # PromptDetail has no nested relationship fields -- plain get_items, no eager load.
     return get_items(
@@ -56,7 +56,10 @@ def get_prompts(
 
 
 def create_prompt(
-    db: Session, prompt: schemas.PromptCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    prompt: schemas.PromptCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Prompt:
     """Create prompt."""
     return create_item(db, models.Prompt, prompt, organization_id, user_id)
@@ -66,8 +69,8 @@ def update_prompt(
     db: Session,
     prompt_id: uuid.UUID,
     prompt: schemas.PromptUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Prompt]:
     """Update prompt."""
     return update_item(db, models.Prompt, prompt_id, prompt, organization_id, user_id)
@@ -85,7 +88,7 @@ def delete_prompt(
 def get_prompt_template(
     db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
-    return get_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
+    return get_item_detail(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
 
 
 def get_prompt_templates(
@@ -95,8 +98,8 @@ def get_prompt_templates(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.PromptTemplate]:
     return get_items_detail(
         db,
@@ -114,8 +117,8 @@ def get_prompt_templates(
 def create_prompt_template(
     db: Session,
     prompt_template: schemas.PromptTemplateCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.PromptTemplate:
     """Create prompt template."""
     return create_item(db, models.PromptTemplate, prompt_template, organization_id, user_id)

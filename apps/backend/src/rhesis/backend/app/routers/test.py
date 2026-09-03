@@ -8,12 +8,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.crud import file as file_crud
+from rhesis.backend.app.crud import test as test_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -36,6 +39,7 @@ from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
 )
+from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
@@ -58,7 +62,9 @@ def create_test(
     """Create a new test."""
     organization_id, user_id = tenant_context
     test_data = resolve_test_entity_names(db, test.model_dump(), organization_id, user_id)
-    return crud.create_test(db=db, test=test_data, organization_id=organization_id, user_id=user_id)
+    return test_crud.create_test(
+        db=db, test=test_data, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
@@ -161,7 +167,7 @@ def bulk_delete_tests(
     /{test_id}-shaped route would swallow it (treating "bulk" as an id).
     """
     organization_id, user_id = tenant_context
-    return crud.bulk_delete_tests(
+    return test_crud.bulk_delete_tests(
         db=db, test_ids=request.test_ids, organization_id=organization_id, user_id=user_id
     )
 
@@ -193,7 +199,12 @@ def extract_test_from_conversation_endpoint(
 
 
 @router.get("/", response_model=List[schemas.TestDetail])
-@with_count_header(model=models.Test, exclude_explorer_rows=True)
+# Both mirror the filters test_crud.get_tests applies, so the count matches the rows.
+@with_count_header(
+    model=models.Test,
+    exclude_explorer_rows=True,
+    extra_filter=exclude_metric_owned(models.Test),
+)
 def read_tests(
     response: Response,
     skip: int = 0,
@@ -216,7 +227,7 @@ def read_tests(
     through the /explorer API only.
     """
     organization_id, user_id = tenant_context
-    tests = crud.get_tests(
+    tests = test_crud.get_tests(
         db,
         skip=skip,
         limit=limit,
@@ -230,6 +241,26 @@ def read_tests(
         serialized = jsonable_encoder(tests)
         return JSONResponse(content=apply_select(serialized, select))
     return tests
+
+
+@router.get("/facets", response_model=schemas.TestFacets)
+def read_test_facets(
+    test_set_id: UUID | None = Query(None, description="Scope facets to a specific test set"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Return the distinct values a test filter drawer can offer.
+
+    Optionally scoped to a single test set via ``test_set_id``.
+    """
+    organization_id, _ = tenant_context
+    return test_crud.get_test_facets(
+        db,
+        organization_id=organization_id,
+        project_id=project_id_from_scope(db),
+        test_set_id=test_set_id,
+    )
 
 
 @router.get("/{test_id}/test_sets", response_model=List[schemas.TestSet])
@@ -247,11 +278,13 @@ def get_test_test_sets(
 ):
     """Get all test sets that contain the given test with optional filtering."""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    items, count = crud.get_test_sets_for_test(
+    items, count = test_set_crud.get_test_sets_for_test(
         db=db,
         test_id=test_id,
         skip=skip,
@@ -275,10 +308,14 @@ def read_test(
 ):
     """Get a specific test by ID with its related objects"""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test_detail(
+    db_test = test_crud.get_test_detail(
         db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )
     if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+    # A metric's tuning cases are reachable only through their metric, so the
+    # identifier must not work here either.
+    if db_test.metric_id is not None:
         raise HTTPException(status_code=404, detail="Test not found")
     return db_test
 
@@ -300,7 +337,9 @@ def read_test_interpretation(
     derive or refresh the interpretation.
     """
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     return contract_status(db_test)
@@ -328,7 +367,9 @@ def interpret_test(
     matches the current wording.
     """
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test_detail(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
@@ -347,14 +388,16 @@ def update_test(
 ):
     """Update an existing test."""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
     test_data = resolve_test_entity_names(
         db, test.model_dump(exclude_unset=True), organization_id, user_id, is_create=False
     )
-    return crud.update_test(
+    return test_crud.update_test(
         db=db, test_id=test_id, test=test_data, organization_id=organization_id, user_id=user_id
     )
 
@@ -368,11 +411,13 @@ def delete_test(
 ):
     """Delete a test"""
     organization_id, user_id = tenant_context
-    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    db_test = test_crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    return crud.delete_test(
+    return test_crud.delete_test(
         db=db, test_id=test_id, organization_id=organization_id, user_id=user_id
     )
 
@@ -470,9 +515,9 @@ async def execute_test_endpoint(
 
     try:
         # Validate user's evaluation model configuration before execution
-        from rhesis.backend.app.utils.user_model_utils import validate_user_evaluation_model
+        from rhesis.backend.app.utils.user_model_utils import validate_model
 
-        validate_user_evaluation_model(db, current_user)
+        validate_model(db, current_user, "evaluation")
 
         # Validate endpoint exists
         db_endpoint = endpoint_crud.get_endpoint(

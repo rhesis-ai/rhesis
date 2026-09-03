@@ -1,18 +1,22 @@
 'use client';
 
 import * as React from 'react';
-import { TextField } from '@mui/material';
+import { Autocomplete, Box, TextField } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
+  filterChipSx,
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
+import { useRunTestSets, useTags, useUsers } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
   countActivePresenceFilters,
   hasActivePresenceFilters,
   type ActivityPresenceFilters,
 } from '@/components/common/presence-filter';
+
+export type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 export interface TestRunFilters {
   /** test_configuration/test_set/name contains */
@@ -21,6 +25,8 @@ export interface TestRunFilters {
   executor: string;
   /** tags contains */
   tag: string;
+  /** surfaced as `has_experiment` via `extraParams`, see list.ts */
+  runKind: RunKindFilter;
   tags: ActivityPresenceFilters['tags'];
   reviews: ActivityPresenceFilters['reviews'];
   comments: ActivityPresenceFilters['comments'];
@@ -31,6 +37,7 @@ export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
   testSet: '',
   executor: '',
   tag: '',
+  runKind: 'all',
   tags: 'all',
   reviews: 'all',
   comments: 'all',
@@ -42,6 +49,7 @@ export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
     f.testSet !== '' ||
     f.executor !== '' ||
     f.tag !== '' ||
+    f.runKind !== 'all' ||
     hasActivePresenceFilters(f)
   );
 }
@@ -51,9 +59,15 @@ export function countActiveTestRunFilters(f: TestRunFilters): number {
     (f.testSet !== '' ? 1 : 0) +
     (f.executor !== '' ? 1 : 0) +
     (f.tag !== '' ? 1 : 0) +
+    (f.runKind !== 'all' ? 1 : 0) +
     countActivePresenceFilters(f)
   );
 }
+
+const RUN_KIND_OPTIONS: { label: string; value: RunKindFilter }[] = [
+  { label: 'Tests', value: 'tests' },
+  { label: 'Experiments', value: 'experiments' },
+];
 
 const textFieldSx = filterDrawerTextFieldSx;
 
@@ -72,9 +86,63 @@ export default function TestRunFilterDrawer({
 }: TestRunFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestRunFilters>(filters);
 
+  // Suggestions, fetched only while the drawer is open. Typing still works
+  // for values that aren't listed (freeSolo).
+  const { data: rawTestSets, isLoading: loadingTestSets } =
+    useRunTestSets(open);
+  const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(open);
+  const loadingOptions = loadingTestSets || loadingUsers || loadingTags;
+
+  const testSetOptions = React.useMemo(
+    () => (rawTestSets ?? []).map(ts => ts.name).filter(Boolean),
+    [rawTestSets]
+  );
+  const executorOptions = React.useMemo(
+    () =>
+      (rawUsers ?? [])
+        .map(
+          user =>
+            user.name ||
+            `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+            user.email
+        )
+        .filter(Boolean),
+    [rawUsers]
+  );
+  const tagOptions = React.useMemo(
+    () => (rawTags ?? []).map(tag => tag.name).filter(Boolean),
+    [rawTags]
+  );
+
   React.useEffect(() => {
     if (open) setDraft(filters);
   }, [open, filters]);
+
+  const renderAutocomplete = (
+    title: string,
+    field: keyof Pick<TestRunFilters, 'testSet' | 'executor' | 'tag'>,
+    options: string[],
+    placeholder: string
+  ) => (
+    <FilterSection title={title}>
+      <Autocomplete
+        freeSolo
+        options={options}
+        value={draft[field] || null}
+        loading={loadingOptions}
+        onChange={(_, value) =>
+          setDraft(prev => ({ ...prev, [field]: value || '' }))
+        }
+        onInputChange={(_, value) =>
+          setDraft(prev => ({ ...prev, [field]: value }))
+        }
+        renderInput={params => (
+          <TextField {...params} placeholder={placeholder} sx={textFieldSx} />
+        )}
+      />
+    </FilterSection>
+  );
 
   const handleReset = () => setDraft(EMPTY_TEST_RUN_FILTERS);
 
@@ -90,39 +158,40 @@ export default function TestRunFilterDrawer({
       onReset={handleReset}
       onApply={handleApply}
     >
-      <FilterSection title="Test Set">
-        <TextField
-          fullWidth
-          placeholder="Filter by test set name…"
-          value={draft.testSet}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, testSet: e.target.value }))
-          }
-          sx={textFieldSx}
-        />
+      <FilterSection title="Run Type">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {RUN_KIND_OPTIONS.map(opt => (
+            <Box
+              key={opt.value}
+              component="button"
+              type="button"
+              onClick={() =>
+                setDraft(prev => ({
+                  ...prev,
+                  runKind: prev.runKind === opt.value ? 'all' : opt.value,
+                }))
+              }
+              sx={filterChipSx(draft.runKind === opt.value)}
+            >
+              {opt.label}
+            </Box>
+          ))}
+        </Box>
       </FilterSection>
 
-      <FilterSection title="Executor">
-        <TextField
-          fullWidth
-          placeholder="Filter by executor name…"
-          value={draft.executor}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, executor: e.target.value }))
-          }
-          sx={textFieldSx}
-        />
-      </FilterSection>
-
-      <FilterSection title="Tags">
-        <TextField
-          fullWidth
-          placeholder="Filter by tag name…"
-          value={draft.tag}
-          onChange={e => setDraft(prev => ({ ...prev, tag: e.target.value }))}
-          sx={textFieldSx}
-        />
-      </FilterSection>
+      {renderAutocomplete(
+        'Test Set',
+        'testSet',
+        testSetOptions,
+        'Select test set…'
+      )}
+      {renderAutocomplete(
+        'Executor',
+        'executor',
+        executorOptions,
+        'Select executor…'
+      )}
+      {renderAutocomplete('Tags', 'tag', tagOptions, 'Select tag…')}
 
       <ActivityPresenceFiltersSection
         showReviews

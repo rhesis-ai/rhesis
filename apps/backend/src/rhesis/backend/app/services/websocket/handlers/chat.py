@@ -169,6 +169,7 @@ async def handle_chat_message(
                     correlation_id,
                     result.output,
                     error_type=result.error_type,
+                    status_code=result.status_code,
                 )
                 return
 
@@ -247,6 +248,7 @@ async def _send_chat_error(
     correlation_id: str | None,
     error_message: str,
     error_type: str = "Error",
+    status_code: int | None = None,
 ) -> None:
     """Send a chat error response.
 
@@ -256,15 +258,21 @@ async def _send_chat_error(
         correlation_id: The correlation ID from the request.
         error_message: The error message to send.
         error_type: The type/class of the error.
+        status_code: HTTP status the target returned, when it had one, so the
+            client gets something machine-readable rather than only prose.
     """
+    payload: dict = {
+        "error": error_message,
+        "error_type": error_type,
+    }
+    if status_code is not None:
+        payload["status_code"] = status_code
+
     await manager.broadcast(
         WebSocketMessage(
             type=EventType.CHAT_ERROR,
             correlation_id=correlation_id,
-            payload={
-                "error": error_message,
-                "error_type": error_type,
-            },
+            payload=payload,
         ),
         ConnectionTarget(connection_id=conn_id),
     )

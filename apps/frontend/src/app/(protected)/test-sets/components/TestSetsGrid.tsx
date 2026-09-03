@@ -1,40 +1,8 @@
 'use client';
 
-import React, {
-  useState,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
-import {
-  GridColDef,
-  GridRowParams,
-  GridFilterModel,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
-import { useRouter } from 'next/navigation';
-import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
-import {
-  appendPresenceFilterItems,
-  stripPresenceFilterItems,
-} from '@/components/common/presence-filter';
-import { gridSortToApiParams } from '@/utils/grid-sort';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Tag } from '@/utils/api-client/interfaces/tag';
-import {
-  Box,
-  Tooltip,
-  Typography,
-  Avatar,
-  Alert,
-  Chip,
-  Paper,
-} from '@mui/material';
+import React, { useState, useCallback, useMemo } from 'react';
+import { GridColDef, GridRowModel } from '@mui/x-data-grid';
+import { Box, Tooltip, Typography, Avatar, Chip } from '@mui/material';
 import {
   ChatIcon,
   DescriptionIcon,
@@ -42,126 +10,99 @@ import {
 } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import PersonIcon from '@mui/icons-material/Person';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
+import GridBadge from '@/components/common/GridBadge';
 import RunDrawer from '@/components/common/RunDrawer';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
-import {
-  HIGHLIGHTED_ROW_CLASS,
-  NotificationSection,
-} from '@/constants/notifications';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
+import type { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { Tag } from '@/utils/api-client/interfaces/tag';
+import { NotificationSection } from '@/constants/notifications';
 import { formatDate } from '@/utils/date';
-import TestSetFilterDrawer, {
-  type TestSetFilters,
-  EMPTY_TEST_SET_FILTERS,
-  hasActiveTestSetFilters,
-  countActiveTestSetFilters,
-} from './TestSetFilterDrawer';
-import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
-import GridBadge from '@/components/common/GridBadge';
-import { testSetKeys } from '@/constants/query-keys';
-import { useBulkDelete } from '@/hooks/useBulkDelete';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import GridStateGate from '@/components/common/GridStateGate';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { testSetsList } from './list';
+import TestSetFilterDrawer, {
+  type TestSetFilters,
+  EMPTY_TEST_SET_FILTERS,
+  countActiveTestSetFilters,
+} from './TestSetFilterDrawer';
 
 interface TestSetsGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
   onBulkActionsChange?: (actions: TestSetsBulkActionsState) => void;
+  /** Bumped by the page after a create/import/generate succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: TestSet[];
+  initialTotalCount?: number;
 }
 
-export interface TestSetsBulkActionsState {
-  visible: boolean;
+export interface TestSetsBulkActionsState extends BulkDeleteActionsState {
   onRun: () => void;
-  onDelete: () => void;
 }
 
-// ─── Toolbar context ────────────────────────────────────────────────────────────
-
-interface TestSetsToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  typeFilter: string;
-  setTypeFilter: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+// A pill click wins over the drawer's own testSetType value (the pill is
+// applied after drawer filters).
+function toFilters(state: EntityGridFilterState<TestSetFilters>) {
+  return {
+    search: state.search,
+    testSetType: state.pill || state.drawer.testSetType,
+    status: state.drawer.status,
+    creator: state.drawer.creator,
+    tag: state.drawer.tag,
+    tagsPresence: state.drawer.tags,
+    commentsPresence: state.drawer.comments,
+    tasksPresence: state.drawer.tasks,
+  };
 }
 
-const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  typeFilter: 'all',
-  setTypeFilter: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-const PILL_TABS = TEST_TYPE_PILL_TABS;
-
-function TestSetsUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    typeFilter,
-    setTypeFilter,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(TestSetsToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search test sets…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      middleContent={
-        <ToolbarPillTabs
-          tabs={PILL_TABS}
-          activeValue={typeFilter}
-          onChange={setTypeFilter}
-        />
-      }
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select test sets"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<TestSetFilters> = {
+  empty: EMPTY_TEST_SET_FILTERS,
+  countActive: countActiveTestSetFilters,
+  render: props => (
+    <TestSetFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
+  ),
+  // Applying a type in the drawer syncs the pill; clearing it resets the pill
+  // only when no drawer type was active before.
+  pillFromApply: (applied, previous) =>
+    applied.testSetType
+      ? applied.testSetType
+      : !previous.testSetType
+        ? ''
+        : undefined,
+};
 
-// ─── Helper: chip container for multi-value fields ──────────────────────────────
+// The grid renders a flattened projection of the test set, not the entity
+// itself -- most columns live under attributes.metadata.
+function mapRows(testSets: TestSet[]): GridRowModel[] {
+  return testSets.map(testSet => ({
+    id: testSet.id,
+    name: testSet.name,
+    testSetType: testSet.test_set_type?.type_value || '',
+    requirements: testSet.attributes?.metadata?.requirements || [],
+    categories: testSet.attributes?.metadata?.categories || [],
+    totalTests: testSet.attributes?.metadata?.total_tests || 0,
+    creator: testSet.user,
+    counts: testSet.counts,
+    sources: testSet.attributes?.metadata?.sources || [],
+    tags: testSet.tags || [],
+    created_at: testSet.created_at,
+  }));
+}
 
 const ChipContainer = ({ items }: { items: string[] }) => {
   if (items.length === 0) return '-';
@@ -196,238 +137,37 @@ export default function TestSetsGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
+  refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TestSetsGridProps) {
-  const router = useRouter();
   const { status } = useSession();
-  const { highlightedIds, clearHighlight } = useJobNotifications();
-  const testSetHighlights = highlightedIds(NotificationSection.TEST_SETS);
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
-  const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
-
-  // ── Search + type filter ────────────────────────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-
-  // ── Drawer / dialog state ───────────────────────────────────────────────────
-  const [drawerFilters, setDrawerFilters] = useState<TestSetFilters>(
-    EMPTY_TEST_SET_FILTERS
-  );
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
-  // ── Bulk selection + delete ──────────────────────────────────────────────────
-  // TestSets has a second bulk action (Run), so it bridges to the page's
-  // FabGroup itself below instead of using useBulkDelete's built-in
-  // onBulkActionsChange, which only knows about delete.
-  const {
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-    selectedRows,
-    handleSelectionChange,
-    pendingDeleteId,
-    deleteModalOpen,
-    isDeleting,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  } = useBulkDelete({
-    bulkDeleteFn: (ids: string[]) =>
-      new ApiClientFactory().getTestSetsClient().bulkDeleteTestSets(ids),
-    queryKey: testSetKeys.all(),
-    itemLabelSingular: 'test set',
-    itemLabelPlural: 'test sets',
-  });
-
-  // ── Grid state (pagination, filter, sort) via useGridState ──────────────────
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    sortModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-    handleSortModelChange,
-  } = useGridState({
-    searchQuery,
-    typeFilter,
-    typeFilterField: 'testSetType',
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) => {
-        const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
-        const otherItems = stripPresenceFilterItems(
-          prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
-        );
-        const drawerItems: typeof prev.items = [];
-        if (drawerFilters.testSetType) {
-          drawerItems.push({
-            id: 'testSetType',
-            field: 'testSetType',
-            operator: 'equals',
-            value: drawerFilters.testSetType,
-          });
-        }
-        if (drawerFilters.status) {
-          drawerItems.push({
-            id: 'status.name',
-            field: 'status.name',
-            operator: 'contains',
-            value: drawerFilters.status,
-          });
-        }
-        if (drawerFilters.creator) {
-          drawerItems.push({
-            id: 'creator',
-            field: 'creator',
-            operator: 'contains',
-            value: drawerFilters.creator,
-          });
-        }
-        if (drawerFilters.tag) {
-          drawerItems.push({
-            id: 'tags',
-            field: 'tags',
-            operator: 'contains',
-            value: drawerFilters.tag,
-          });
-        }
-        const newItems = [...otherItems, ...drawerItems];
-        if (JSON.stringify(newItems) === JSON.stringify(prev.items))
-          return prev;
-        return { ...prev, items: newItems };
-      },
-      [drawerFilters]
-    ),
-  });
-
-  // ── Data fetching via React Query ────────────────────────────────────────────
-  const filterString = combineTestSetFiltersToOData(filterModel);
-  const { sort_by, sort_order } = gridSortToApiParams(sortModel);
-  const {
-    data: testSetsData,
-    isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: testSetKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      sort_by,
-      sort_order
-    ),
-    errorFallbackMessage: 'Failed to load test sets',
-    queryFn: () => {
-      const client = new ApiClientFactory().getTestSetsClient();
-      return client.getTestSets({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by,
-        sort_order,
-        ...(filterString && { $filter: filterString }),
-      });
-    },
-    enabled: isAuthenticated(status),
-    // Always refetch when the list is opened. A test set row exists from the
-    // moment generation is *submitted* (the flow then redirects to its detail
-    // page), so under the app-wide 5-minute staleTime, coming back to this
-    // list served cache that predated the new row -- it only showed up after a
-    // hard reload. keepPreviousData in useGridQuery means the current rows stay
-    // put while the refetch runs, so this costs no loading flash.
-    staleTime: 0,
-  });
-  const testSets = testSetsData?.data ?? [];
-  const totalCount = testSetsData?.pagination.totalCount ?? 0;
-
-  // ── Row + selection handlers ─────────────────────────────────────────────────
-
-  const handleRowClick = useCallback(
-    (params: GridRowParams) => {
-      clearHighlight(NotificationSection.TEST_SETS, String(params.id));
-      router.push(`/test-sets/${params.id}`);
-    },
-    [router, clearHighlight]
+  const buildBulkActions = useCallback(
+    (base: BulkDeleteActionsState): TestSetsBulkActionsState => ({
+      ...base,
+      onRun: () => setTestRunDrawerOpen(true),
+    }),
+    []
   );
 
-  const handleRowEditAction = useCallback(
-    (id: string) => {
-      router.push(`/test-sets/${id}`);
-    },
-    [router]
-  );
-
-  // ── Bulk actions bridge (Run + Delete) to the page's FabGroup ───────────────
-
-  const showBulkActions = checkboxSelectionMode && selectedRows.length > 0;
-  const bulkHandlersRef = useRef({
-    onRun: () => setTestRunDrawerOpen(true),
-    onDelete: () => requestDelete(),
-  });
-  bulkHandlersRef.current = {
-    onRun: () => setTestRunDrawerOpen(true),
-    onDelete: () => requestDelete(),
-  };
-
-  useEffect(() => {
-    onBulkActionsChange?.({
-      visible: showBulkActions,
-      onRun: () => bulkHandlersRef.current.onRun(),
-      onDelete: () => bulkHandlersRef.current.onDelete(),
-    });
-  }, [showBulkActions, onBulkActionsChange]);
-
-  useEffect(() => {
-    return () => {
-      onBulkActionsChange?.({
-        visible: false,
-        onRun: () => {},
-        onDelete: () => {},
-      });
-    };
-  }, [onBulkActionsChange]);
-
-  // ── Column definitions ───────────────────────────────────────────────────────
-
-  const processedTestSets = useMemo(
-    () =>
-      testSets.map(testSet => ({
-        id: testSet.id,
-        name: testSet.name,
-        testSetType: testSet.test_set_type?.type_value || '',
-        requirements: testSet.attributes?.metadata?.requirements || [],
-        categories: testSet.attributes?.metadata?.categories || [],
-        totalTests: testSet.attributes?.metadata?.total_tests || 0,
-        creator: testSet.user,
-        counts: testSet.counts,
-        sources: testSet.attributes?.metadata?.sources || [],
-        tags: testSet.tags || [],
-        created_at: testSet.created_at,
-      })),
-    [testSets]
-  );
-
-  const columns: GridColDef[] = useMemo(() => {
-    const actionsCol = createRowActionsColumn({
-      onEdit: id => handleRowEditAction(id),
-      onDelete: id => requestDelete(id),
-      canEdit: () => canEditTestSet,
-      canDelete: () => canDeleteTestSet,
-    });
-    return [
+  const columns: GridColDef[] = useMemo(
+    () => [
       {
         field: 'name',
         headerName: 'Name',
-        width: 200,
+        flex: 2,
         minWidth: 120,
-        resizable: true,
         filterable: true,
       },
       {
         field: 'requirements',
         headerName: 'Requirements',
-        width: 160,
+        flex: 1.5,
         minWidth: 100,
-        resizable: true,
+        sortable: false,
         renderCell: params => (
           <ChipContainer items={params.row.requirements || []} />
         ),
@@ -435,9 +175,9 @@ export default function TestSetsGrid({
       {
         field: 'categories',
         headerName: 'Categories',
-        width: 160,
+        flex: 1.5,
         minWidth: 100,
-        resizable: true,
+        sortable: false,
         renderCell: params => (
           <ChipContainer items={params.row.categories || []} />
         ),
@@ -445,10 +185,10 @@ export default function TestSetsGrid({
       {
         field: 'testSetType',
         headerName: 'Type',
-        width: 120,
+        flex: 1,
         minWidth: 90,
-        resizable: true,
         filterable: true,
+        sortable: false,
         valueGetter: (_, row) => row.testSetType || '',
         renderCell: params =>
           params.value ? <GridBadge label={params.value} /> : null,
@@ -456,9 +196,8 @@ export default function TestSetsGrid({
       {
         field: 'created_at',
         headerName: 'Created',
-        width: 120,
+        flex: 1,
         minWidth: 100,
-        resizable: true,
         filterable: false,
         renderCell: params => (
           <Typography variant="body2" color="text.secondary">
@@ -469,18 +208,17 @@ export default function TestSetsGrid({
       {
         field: 'totalTests',
         headerName: 'Tests',
-        width: 80,
+        flex: 0.6,
         minWidth: 60,
-        resizable: true,
+        sortable: false,
         valueGetter: (_, row) => row.totalTests,
       },
       {
         field: 'creator',
         headerName: 'Creator',
-        width: 160,
+        flex: 1.5,
         minWidth: 120,
-        resizable: true,
-        sortable: true,
+        sortable: false,
         filterable: true,
         valueGetter: (_, row) =>
           row.creator?.name ||
@@ -509,9 +247,8 @@ export default function TestSetsGrid({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        width: 100,
+        flex: 0.8,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.comments ?? 0,
@@ -529,9 +266,8 @@ export default function TestSetsGrid({
       {
         field: 'counts.tasks',
         headerName: 'Tasks',
-        width: 100,
+        flex: 0.8,
         minWidth: 80,
-        resizable: true,
         sortable: true,
         filterable: false,
         valueGetter: (_, row) => row.counts?.tasks ?? 0,
@@ -549,9 +285,8 @@ export default function TestSetsGrid({
       {
         field: 'sources',
         headerName: 'Sources',
-        width: 80,
+        flex: 0.6,
         minWidth: 60,
-        resizable: true,
         sortable: false,
         filterable: false,
         align: 'center',
@@ -580,9 +315,8 @@ export default function TestSetsGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        width: 180,
+        flex: 1.5,
         minWidth: 140,
-        resizable: true,
         sortable: true,
         filterable: true,
         valueGetter: (_, row) =>
@@ -624,20 +358,20 @@ export default function TestSetsGrid({
           );
         },
       },
-      actionsCol,
-    ];
-  }, [handleRowEditAction, requestDelete]);
-
-  const filtersActive =
-    filterModel.items.length > 0 ||
-    !!searchQuery ||
-    hasActiveTestSetFilters(drawerFilters);
+    ],
+    []
+  );
 
   return (
-    <GridStateGate
-      data={testSetsData}
-      error={error}
-      isEmpty={totalCount === 0 && !filtersActive}
+    <EntityGrid<
+      TestSet,
+      typeof testSetsList.filters,
+      TestSetFilters,
+      TestSetsBulkActionsState
+    >
+      descriptor={testSetsList}
+      columns={columns}
+      toFilters={toFilters}
       emptyState={
         <EntityEmptyState
           card
@@ -649,111 +383,38 @@ export default function TestSetsGrid({
           enrichment={getEntityEmptyStateEnrichment('test-sets')}
         />
       }
-    >
-      <Paper sx={GRID_PAPER_SX}>
-        <TestSetsToolbarContext.Provider
-          value={{
-            searchQuery,
-            setSearchQuery,
-            typeFilter,
-            setTypeFilter,
-            openFilterDrawer: () => setFilterDrawerOpen(true),
-            hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
-            activeFilterCount: countActiveTestSetFilters(drawerFilters),
-            checkboxSelectionMode,
-            setCheckboxSelectionMode,
-          }}
-        >
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-              {error}
-            </Alert>
-          )}
-
-          <BaseDataGrid
-            columns={columns}
-            rows={processedTestSets}
-            loading={loading}
-            getRowId={row => row.id}
-            showToolbar={true}
-            checkboxSelection={checkboxSelectionMode}
-            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-            onRowSelectionModelChange={
-              checkboxSelectionMode ? handleSelectionChange : undefined
-            }
-            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-            onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
-            getRowClassName={params =>
-              testSetHighlights.includes(String(params.id))
-                ? HIGHLIGHTED_ROW_CLASS
-                : ''
-            }
-            getRowUrl={
-              checkboxSelectionMode ? undefined : row => `/test-sets/${row.id}`
-            }
-            paginationModel={paginationModel}
-            onPaginationModelChange={handlePaginationModelChange}
-            serverSidePagination={true}
-            totalRows={totalCount}
-            pageSizeOptions={[10, 25, 50]}
-            serverSideFiltering={true}
-            filterModel={gridFilterModel}
-            onFilterModelChange={handleFilterModelChange}
-            sortingMode="server"
-            sortModel={sortModel}
-            onSortModelChange={handleSortModelChange}
-            toolbarSlot={TestSetsUnifiedToolbar}
-            disablePaperWrapper={true}
-            persistState
-            initialState={{
-              columns: {
-                columnVisibilityModel: {
-                  sources: false,
-                },
-              },
-            }}
-            sx={rowActionsHoverSx}
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      mapRows={mapRows}
+      searchPlaceholder="Search test sets…"
+      pills={{ tabs: TEST_TYPE_PILL_TABS }}
+      drawer={drawerAdapter}
+      selectionLabel="Select test sets"
+      getRowUrl={row => `/test-sets/${row.id}`}
+      highlightSection={NotificationSection.TEST_SETS}
+      editAction={{ can: () => canEditTestSet }}
+      onBulkActionsChange={onBulkActionsChange}
+      buildBulkActions={buildBulkActions}
+      pageSizeOptions={[10, 25, 50]}
+      initialState={{
+        columns: {
+          columnVisibilityModel: {
+            sources: false,
+          },
+        },
+      }}
+      renderSelectionExtras={ctx =>
+        isAuthenticated(status) && (
+          <RunDrawer
+            mode="createFromGrid"
+            open={testRunDrawerOpen}
+            onClose={() => setTestRunDrawerOpen(false)}
+            data={{ selectedTestSetIds: ctx.selectedIds }}
+            onSuccess={() => setTestRunDrawerOpen(false)}
           />
-
-          {/* Test Run Drawer */}
-          {isAuthenticated(status) && (
-            <>
-              <RunDrawer
-                mode="createFromGrid"
-                open={testRunDrawerOpen}
-                onClose={() => setTestRunDrawerOpen(false)}
-                data={{ selectedTestSetIds: selectedRows as string[] }}
-                onSuccess={() => setTestRunDrawerOpen(false)}
-              />
-              <DeleteModal
-                open={deleteModalOpen}
-                onClose={cancelDelete}
-                onConfirm={confirmDelete}
-                isLoading={isDeleting}
-                title={pendingDeleteId ? 'Delete Test Set' : 'Delete Test Sets'}
-                message={
-                  pendingDeleteId
-                    ? 'Are you sure you want to delete this test set? Related data will not be deleted.'
-                    : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
-                }
-                itemType="test sets"
-              />
-            </>
-          )}
-
-          {/* Filter drawer */}
-          <TestSetFilterDrawer
-            open={filterDrawerOpen}
-            onClose={() => setFilterDrawerOpen(false)}
-            filters={drawerFilters}
-            onApply={f => {
-              setDrawerFilters(f);
-              if (f.testSetType) setTypeFilter(f.testSetType);
-              else if (!drawerFilters.testSetType) setTypeFilter('all');
-            }}
-          />
-        </TestSetsToolbarContext.Provider>
-      </Paper>
-    </GridStateGate>
+        )
+      }
+    />
   );
 }

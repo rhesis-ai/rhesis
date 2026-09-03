@@ -1,9 +1,5 @@
 """CRUD operations for projects and project membership.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Project reads enforce membership, not just organization scope -- ``get_project`` and
 ``get_projects`` return only projects the caller has a ``project_membership`` row for.
 Writes to membership route through ``services.organization`` so that a user's
@@ -29,7 +25,10 @@ _PROJECT_RELATED_FIELDS = (include(models.Project.owner),)
 
 
 def get_project(
-    db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    project_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Project]:
     """Get project with relationships eagerly loaded.
 
@@ -75,8 +74,8 @@ def get_projects(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Project]:
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
@@ -113,8 +112,8 @@ def get_projects(
 def count_projects(
     db: Session,
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> int:
     """Count projects the given user is a member of (mirrors get_projects membership filter)."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
@@ -143,7 +142,10 @@ def count_projects(
 
 
 def create_project(
-    db: Session, project: schemas.ProjectCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    project: schemas.ProjectCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Project:
     """Create project."""
     return create_item(db, models.Project, project, organization_id, user_id)
@@ -165,7 +167,7 @@ def delete_project(
     # Project soft-delete does not cascade to project_membership, so drop the
     # memberships and repair affected users' default_project first. Staged in the
     # same transaction; delete_item's commit persists both.
-    from rhesis.backend.app.services.organization import unenroll_all_project_members
+    from rhesis.backend.app.services.project_membership import unenroll_all_project_members
 
     unenroll_all_project_members(db, project_id, organization_id)
     return delete_item(
@@ -202,10 +204,11 @@ def get_project_members(
 def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
     """Return all ACTIVE, non-deleted projects the given user is a member of."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options
 
     return (
         db.query(models.Project)
-        .options(include(models.Project.owner))
+        .options(include(models.Project.owner), *derived_field_load_options(models.Project))
         .join(ProjectMembership, ProjectMembership.project_id == models.Project.id)
         .filter(
             ProjectMembership.user_id == user_id,
@@ -235,7 +238,7 @@ def add_project_member(
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
-    from rhesis.backend.app.services.organization import enroll_user_in_project
+    from rhesis.backend.app.services.project_membership import enroll_user_in_project
 
     with bypass_tenant_filter():
         existing = (
@@ -276,7 +279,7 @@ def remove_project_member(
         ProjectSelfRemovalError: if requester_user_id == user_id.
         ProjectOwnerRemovalError: if user_id is the project owner.
     """
-    from rhesis.backend.app.services.organization import unenroll_user_from_project
+    from rhesis.backend.app.services.project_membership import unenroll_user_from_project
 
     removed = unenroll_user_from_project(
         db, user_id, project_id, organization_id, requester_user_id=requester_user_id

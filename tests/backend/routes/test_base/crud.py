@@ -19,7 +19,6 @@ fake = Faker()
 
 
 @pytest.mark.unit
-@pytest.mark.critical
 class BaseCRUDTests(BaseEntityTests):
     """Base class for CRUD operation tests"""
 

@@ -13,6 +13,7 @@ from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.quota_gates import require_backstop
 from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
@@ -32,6 +33,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
@@ -79,6 +81,7 @@ def ingest_trace(
     tenant_context=Depends(get_tenant_context),
     scope_project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
+    _backstop: None = Depends(require_backstop(QuotaResource.TRACING_SPANS)),
 ) -> TraceResponse:
     """
     Ingest OpenTelemetry traces from SDK.
@@ -88,7 +91,11 @@ def ingest_trace(
 
     **Authentication**: Requires valid API key in Bearer token
 
-    **Rate Limiting**: Subject to per-project rate limits
+    **Quota**: Spans are metered (``QuotaResource.TRACING_SPANS``) and
+    subject to a backstop at 10x the tier limit. The published limit is
+    enforced by notification and retention, not by rejection; the backstop
+    only fires for runaway or abusive exporters. Fails open on lookup
+    errors so a billing-side problem never breaks ingestion.
 
     Args:
         trace_batch: Batch of OTEL spans to ingest
@@ -446,9 +453,13 @@ def list_traces(
                 total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
                 has_errors=has_errors,
                 trace_metrics_status=trace_metrics_status_name,
+                execution=trace.execution,
+                verdict=trace.verdict,
                 has_reviews=has_reviews,
                 last_review=trace.last_review,
                 matches_review=trace.matches_review,
+                tags_count=row.tags_count,
+                comments_count=row.comments_count,
             )
             summaries.append(summary)
 
@@ -670,6 +681,8 @@ def get_trace(
             total_cost_usd=total_cost,
             root_spans=root_spans,
             trace_metrics_status=trace_metrics_status_name,
+            execution=first_span.execution,
+            verdict=first_span.verdict,
             trace_reviews=first_span.trace_reviews,
             last_review=first_span.last_review,
             matches_review=first_span.matches_review,

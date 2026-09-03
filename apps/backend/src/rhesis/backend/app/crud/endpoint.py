@@ -1,9 +1,4 @@
-"""CRUD operations for endpoints.
-
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched -- see ``apps/backend/AGENTS.md``'s crud-layout rule.
-"""
+"""CRUD operations for endpoints."""
 
 import uuid
 from typing import Dict, List, Optional
@@ -33,7 +28,7 @@ def get_endpoint(
     endpoint_id: uuid.UUID,
     organization_id: str,
     user_id: str,
-    project_id: str = None,
+    project_id: str | None = None,
 ) -> Optional[models.Endpoint]:
     """Get endpoint with relationships eagerly loaded."""
     return get_item_detail(
@@ -54,8 +49,8 @@ def get_endpoints(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Endpoint]:
     return get_items_detail(
         db,

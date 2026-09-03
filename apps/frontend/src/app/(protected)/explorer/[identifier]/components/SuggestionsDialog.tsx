@@ -681,7 +681,8 @@ export default function SuggestionsDialog({
     {
       field: 'model_score',
       headerName: 'Score',
-      width: 100,
+      flex: 1,
+      minWidth: 100,
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => {
@@ -881,7 +882,6 @@ export default function SuggestionsDialog({
           rows={suggestions}
           loading={acceptAllInProgress}
           getRowId={row => row._id}
-          showToolbar={false}
           paginationModel={{ page: 0, pageSize: 25 }}
           serverSidePagination={false}
           totalRows={suggestions.length}

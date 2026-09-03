@@ -91,7 +91,21 @@ type TestCase = SingleTurnTestCase | MultiTurnTestCase;
 
 const filter = createFilterOptions<string>();
 
-export default function ManualTestWriter() {
+/** Everything the first paint needs, fetched together on the server. */
+export interface ManualTestWriterInitialData {
+  requirements: Requirement[];
+  topics: Topic[];
+  categories: Category[];
+}
+
+interface ManualTestWriterProps {
+  /** Server-fetched data -- when present, skips the initial client fetch. */
+  initialData?: ManualTestWriterInitialData;
+}
+
+export default function ManualTestWriter({
+  initialData,
+}: ManualTestWriterProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const notifications = useNotifications();
@@ -167,10 +181,14 @@ export default function ManualTestWriter() {
   });
 
   // API data
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [requirements, setRequirements] = useState<Requirement[]>(
+    initialData?.requirements ?? []
+  );
+  const [topics, setTopics] = useState<Topic[]>(initialData?.topics ?? []);
+  const [categories, setCategories] = useState<Category[]>(
+    initialData?.categories ?? []
+  );
+  const [loading, setLoading] = useState(initialData === undefined);
 
   // File attachments per row
   const [pendingFilesMap, setPendingFilesMap] = useState<
@@ -200,6 +218,8 @@ export default function ManualTestWriter() {
 
   // Fetch data from API
   useEffect(() => {
+    if (initialData !== undefined) return;
+
     const fetchData = async () => {
       if (!isAuthenticated(status)) {
         notifications.show('No session token available', { severity: 'error' });
@@ -247,7 +267,7 @@ export default function ManualTestWriter() {
     };
 
     fetchData();
-  }, [session, notifications, testType, status]);
+  }, [session, notifications, testType, status, initialData]);
 
   const addNewRow = () => {
     const newTestCase: TestCase =

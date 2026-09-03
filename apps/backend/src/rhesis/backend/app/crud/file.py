@@ -1,9 +1,5 @@
 """CRUD operations for file attachments.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 A ``File`` is always an attachment to something else — it carries a generic
 ``(entity_id, entity_type)`` pair rather than a real foreign key, so every read here
 filters on both. ``entity_type`` is stored as a plain string; ``create_file`` unwraps a
@@ -38,8 +34,8 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder
 def create_file(
     db: Session,
     file_data: Union[schemas.FileCreate, dict],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.File:
     """Create a file record."""
     if isinstance(file_data, dict):
@@ -54,8 +50,8 @@ def create_file(
 def get_file(
     db: Session,
     file_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.File]:
     """Get file metadata (content is deferred, not loaded)."""
     return get_item(db, models.File, file_id, organization_id, user_id)
@@ -86,8 +82,8 @@ def get_files_for_entity(
     db: Session,
     entity_id: uuid.UUID,
     entity_type: str,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     skip: int = 0,
     limit: int = 100,
 ) -> List[models.File]:
@@ -111,7 +107,7 @@ def get_entity_files_total_size(
     db: Session,
     entity_id: uuid.UUID,
     entity_type: str,
-    organization_id: str = None,
+    organization_id: str | None = None,
 ) -> int:
     """Get total size in bytes of all files for an entity."""
     query = db.query(func.coalesce(func.sum(models.File.size_bytes), 0)).filter(
@@ -128,7 +124,7 @@ def get_entity_files_max_position(
     db: Session,
     entity_id: uuid.UUID,
     entity_type: str,
-    organization_id: str = None,
+    organization_id: str | None = None,
 ) -> int:
     """Get the maximum position of files for an entity, or -1 if none exist."""
     query = db.query(func.coalesce(func.max(models.File.position), -1)).filter(
@@ -144,8 +140,8 @@ def get_entity_files_max_position(
 def delete_file(
     db: Session,
     file_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.File]:
     """Soft-delete a file."""
     return delete_item(db, models.File, file_id, organization_id, user_id)

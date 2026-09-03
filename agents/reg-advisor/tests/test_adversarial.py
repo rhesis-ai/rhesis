@@ -7,6 +7,7 @@ check, a bool in state, an appended disclaimer — so none of these depends on t
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 
 import pytest
 
@@ -170,7 +171,7 @@ def test_lookup_refuses_to_supply_a_node_that_does_not_exist() -> None:
     from reg_advisor.tools import lookup_nodes
 
     class Ctx:
-        state: dict = {}
+        state: ClassVar[dict] = {}
 
     reply = lookup_nodes("EU-MD-CLASS-011, EU-MD-GHOST-404", Ctx())
     assert "EU-MD-CLASS-011" in reply

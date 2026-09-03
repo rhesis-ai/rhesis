@@ -1,9 +1,4 @@
-"""CRUD operations for experiments.
-
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched -- see ``apps/backend/AGENTS.md``'s crud-layout rule.
-"""
+"""CRUD operations for experiments."""
 
 from typing import List
 
@@ -20,8 +15,8 @@ def get_experiments(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Experiment]:
     return (
         QueryBuilder(db, models.Experiment)

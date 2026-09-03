@@ -34,6 +34,8 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_LICENSE,
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
+    LIC_CUSTOM_LIMITS,
+    LIC_CUSTOM_RETENTION_DAYS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
@@ -121,6 +123,80 @@ def _parse_token(raw_token: str) -> Optional[Entitlements]:
     return _payload_to_entitlements(payload)
 
 
+def _mapping_claim(lic: dict, key: str) -> dict:
+    """Read *key* from *lic* as a dict, treating anything else as absent.
+
+    Guards the limit claims specifically. ``dict(...)`` on a non-mapping raises
+    ``ValueError``/``TypeError``, which the caller's except-clause turns into a
+    rejected token -- so one malformed limits claim would cost the org its whole
+    license, including every EE feature, not just the limits it got wrong.
+
+    A limits claim is signed by us, so junk there is a minting bug on our side.
+    Dropping just that claim leaves the customer on their paid tier with the
+    override ignored and a warning in the logs, which beats silently demoting
+    them to community over a field that only ever *narrows* what they get.
+    """
+    value = lic.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        logger.warning(
+            "Ignoring malformed %r claim in license token: expected a mapping, got %s",
+            key,
+            type(value).__name__,
+        )
+        return {}
+    return dict(value)
+
+
+def _all_features_claim(lic: dict) -> bool:
+    """Read ``all_features`` strictly: only a literal ``True`` grants everything.
+
+    This claim is a blanket grant over every registered EE feature, so it is the
+    single most valuable bit in the token and must not be reachable by accident.
+    A plain ``bool(...)`` coercion would read the *string* ``"false"`` as
+    ``True`` -- every non-empty string is truthy in Python -- and hand out the
+    full feature set to a token that says the opposite.
+
+    The tier-YAML loader already refuses a non-bool here for exactly this reason
+    (see ``tiers._parse_all_features``); this keeps the token side to the same
+    standard, so the two halves of the same decision cannot disagree. Anything
+    that is not a real bool is treated as ``False`` and logged: unlike the YAML,
+    a token is read on the request path, where raising would 500 the request
+    rather than merely denying an upgrade nobody was entitled to.
+    """
+    value = lic.get(LIC_ALL_FEATURES, False)
+    if isinstance(value, bool):
+        return value
+    logger.warning(
+        "Ignoring non-boolean %r claim in license token: %r (%s); treating as false",
+        LIC_ALL_FEATURES,
+        value,
+        type(value).__name__,
+    )
+    return False
+
+
+def _features_claim(lic: dict) -> frozenset[str]:
+    """Read ``features`` as a list of names, treating any other shape as empty.
+
+    Iterating the claim blindly is what makes a malformed one dangerous rather
+    than merely wrong: a bare string ``"sso"`` iterates per character, and a
+    ``{"sso": true}`` mapping iterates its *keys* -- which yields a real ``sso``
+    grant from a claim that was never a feature list. Require a sequence.
+    """
+    value = lic.get(LIC_FEATURES, [])
+    if not isinstance(value, (list, tuple)):
+        if value is not None:
+            logger.warning(
+                "Ignoring malformed %r claim in license token: expected a list, got %s",
+                LIC_FEATURES,
+                type(value).__name__,
+            )
+        return frozenset()
+    return frozenset(str(f) for f in value)
+
+
 def _payload_to_entitlements(payload: dict) -> Optional[Entitlements]:
     """Map a decoded JWT payload dict to :class:`Entitlements`, or ``None`` on error."""
     try:
@@ -135,10 +211,12 @@ def _payload_to_entitlements(payload: dict) -> Optional[Entitlements]:
             sub=str(payload[CLAIM_SUBJECT]),
             edition=LicenseEdition(lic.get(LIC_EDITION)),
             status=LicenseStatus(lic.get(LIC_STATUS)),
-            all_features=bool(lic.get(LIC_ALL_FEATURES, False)),
-            features=frozenset(str(f) for f in lic.get(LIC_FEATURES, [])),
+            all_features=_all_features_claim(lic),
+            features=_features_claim(lic),
             expires_at=expires_at,
-            limits=dict(lic.get(LIC_LIMITS) or {}),
+            limits=_mapping_claim(lic, LIC_LIMITS),
+            custom_limits=_mapping_claim(lic, LIC_CUSTOM_LIMITS),
+            custom_retention_days=lic.get(LIC_CUSTOM_RETENTION_DAYS),
             jti=payload.get(CLAIM_JWT_ID),
         )
     except (KeyError, TypeError, ValueError) as exc:

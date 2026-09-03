@@ -1,7 +1,7 @@
 import inspect
 import logging
 from functools import wraps
-from typing import Callable, Type, TypeVar
+from typing import Callable, Optional, Type, TypeVar
 
 from fastapi import Response
 from starlette.responses import Response as StarletteResponse
@@ -13,11 +13,19 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def with_count_header(model: Type, exclude_explorer_rows: bool = False):
+def with_count_header(
+    model: Type,
+    exclude_explorer_rows: bool = False,
+    extra_filter: Optional[Callable] = None,
+):
     """Set X-Total-Count for a list endpoint.
 
     Pass ``exclude_explorer_rows=True`` when the endpoint itself hides Explorer-owned
     rows, so the header matches what the page returns.
+
+    `extra_filter` does the same job for any other hidden rows (e.g.
+    metric-owned ones) and must mirror whatever the route's list query applies,
+    or the header will not agree with the rows the client can page through.
     """
 
     def decorator(func: Callable) -> Callable:
@@ -42,6 +50,7 @@ def with_count_header(model: Type, exclude_explorer_rows: bool = False):
                     organization_id,
                     user_id,
                     exclude_explorer_rows=exclude_explorer_rows,
+                    extra_filter=extra_filter,
                 )
                 response.headers["X-Total-Count"] = str(count)
             else:

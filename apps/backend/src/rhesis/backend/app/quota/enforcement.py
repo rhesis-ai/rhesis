@@ -244,9 +244,57 @@ def enforce_quota(
     return verdict
 
 
+BACKSTOP_MULTIPLIER = 10
+
+
+def check_backstop(
+    db: Session,
+    org_id: str,
+    org: Optional[Organization],
+    resource: QuotaResource,
+) -> QuotaVerdict:
+    """Like :func:`check_quota` but at ``BACKSTOP_MULTIPLIER`` x the tier limit.
+
+    The backstop is a safety valve for runaway exporters, not normal quota
+    enforcement. It uses the tier's published limit (not the overage ceiling)
+    as the base, so a 10x backstop on a 1M-span Team tier fires at 10M, well
+    clear of the 1.25M soft overage band.
+
+    An unlimited tier (``limit is None``) is never backstopped.
+    """
+    policy = QuotaRegistry.get_policy(org)
+    limit = policy.limits.get(resource)
+    if limit is None:
+        return QuotaVerdict(
+            resource=resource,
+            used=0,
+            limit=None,
+            allowed=True,
+            over_limit=False,
+            kind=FLOW_KIND,
+            period_end=None,
+        )
+
+    used = _read_usage(db, org_id, resource)
+    backstop_ceiling = limit * BACKSTOP_MULTIPLIER
+    period_end = _current_period()[1].isoformat()
+
+    return QuotaVerdict(
+        resource=resource,
+        used=used,
+        limit=backstop_ceiling,
+        allowed=used < backstop_ceiling,
+        over_limit=used >= limit,
+        kind=FLOW_KIND,
+        period_end=period_end,
+    )
+
+
 __all__ = [
+    "BACKSTOP_MULTIPLIER",
     "QuotaExceededError",
     "QuotaVerdict",
+    "check_backstop",
     "check_quota",
     "enforce_quota",
     "quota_exceeded_response_body",

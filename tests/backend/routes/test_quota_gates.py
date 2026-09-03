@@ -21,7 +21,11 @@ import pytest
 from fastapi import Response, status
 from fastapi.testclient import TestClient
 
-from rhesis.backend.app.auth.quota_gates import QUOTA_WARNING_HEADER, require_quota
+from rhesis.backend.app.auth.quota_gates import (
+    QUOTA_WARNING_HEADER,
+    require_backstop,
+    require_quota,
+)
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry, QuotaResource
@@ -504,3 +508,46 @@ class TestRequireQuotaFlowResourceWarningHeader:
         dep = require_quota(QuotaResource.TEST_EXECUTIONS)
         with pytest.raises(QuotaExceededError):
             dep(response=response, org=authenticated_org, db=test_db)
+
+
+class TestRequireBackstopFailsOpen:
+    """``require_backstop`` guards span ingest, whose contract is that a
+    billing-side problem never breaks ingestion. These call the dependency
+    callable directly: the branches under test are about what the *lookup*
+    returns, so driving them through a real route would mean engineering a
+    broken org row rather than simply handing one over.
+    """
+
+    def _dep(self, resource=QuotaResource.TRACING_SPANS):
+        return require_backstop(resource)
+
+    def test_a_missing_org_row_allows_the_request(self, test_db, test_org_id, clean_registry):
+        """The regression this guards: falling through with ``org=None``
+        resolves the *community* policy, so a possibly-paid org would be
+        backstopped at 10x the free tier and 402 on ingest -- caused purely
+        by a lookup that failed."""
+        _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: 1}))
+        increment_usage(test_db, test_org_id, QuotaResource.TRACING_SPANS, 10_000)
+
+        class _NoOrgSession:
+            def get(self, *_args, **_kwargs):
+                return None
+
+        # Returns None (allows) rather than raising QuotaExceededError.
+        assert self._dep()(tenant_context=(test_org_id, None), db=_NoOrgSession()) is None
+
+    def test_no_org_in_context_allows_the_request(self, clean_registry):
+        """Nothing to attribute usage to, so nothing to backstop."""
+        _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: 1}))
+
+        assert self._dep()(tenant_context=(None, None), db=None) is None
+
+    def test_a_lookup_that_raises_allows_the_request(self, clean_registry):
+        """Fail-open covers the DB being unreachable, not just a null row."""
+        _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: 1}))
+
+        class _BrokenSession:
+            def get(self, *_args, **_kwargs):
+                raise RuntimeError("connection reset")
+
+        assert self._dep()(tenant_context=("some-org", None), db=_BrokenSession()) is None

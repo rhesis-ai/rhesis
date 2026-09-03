@@ -65,12 +65,14 @@ class ResponseGenerator:
             logger.error(f"Error loading system prompt: {str(e)}")
             return "You are a helpful assistant. Please provide clear and helpful responses."
 
-    def get_assistant_response(self, prompt: str, conversation_history: List[dict] = None) -> str:
+    def get_assistant_response(
+        self, prompt: str, conversation_history: List[dict] | None = None
+    ) -> str:
         """Get a complete response from the assistant with optional conversation history."""
         return "".join(self.stream_assistant_response(prompt, conversation_history))
 
     def stream_assistant_response(
-        self, prompt: str, conversation_history: List[dict] = None
+        self, prompt: str, conversation_history: List[dict] | None = None
     ) -> Generator[str, None, None]:
         """Stream the assistant's response using SDK model with conversation history.
 
@@ -242,7 +244,7 @@ def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
 
 # Public API functions that maintain backward compatibility
 def get_assistant_response(
-    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+    prompt: str, use_case: str = "insurance", conversation_history: List[dict] | None = None
 ) -> str:
     """Get a complete response from the assistant with optional conversation history."""
     response_generator = get_response_generator(use_case)
@@ -258,10 +260,10 @@ def get_assistant_response(
 @endpoint(name="test_standard_naming", description="Test function with standard parameter names")
 def test_standard_naming(
     input: str,
-    session_id: str = None,
-    context: List[str] = None,
-    metadata: dict = None,
-    tool_calls: List[dict] = None,
+    session_id: str | None = None,
+    context: List[str] | None = None,
+    metadata: dict | None = None,
+    tool_calls: List[dict] | None = None,
 ) -> dict:
     """Test auto-mapping with exact standard field names.
 
@@ -278,7 +280,7 @@ def test_standard_naming(
 
 
 @endpoint(name="test_partial_standard", description="Test with some standard naming")
-def test_partial_standard(input: str, session_id: str = None) -> dict:
+def test_partial_standard(input: str, session_id: str | None = None) -> dict:
     """Test auto-mapping with partial standard naming.
 
     Expected: Medium-high confidence (0.6 - input + session_id matched)
@@ -307,7 +309,7 @@ def test_input_only(input: str) -> dict:
 
 
 @endpoint(name="test_input_variations", description="Test input field variations")
-def test_input_variations(message: str, conversation_id: str = None) -> dict:
+def test_input_variations(message: str, conversation_id: str | None = None) -> dict:
     """Test auto-mapping with pattern variations.
 
     Expected: High confidence
@@ -323,7 +325,7 @@ def test_input_variations(message: str, conversation_id: str = None) -> dict:
 
 @endpoint(name="test_compound_patterns", description="Test compound field names")
 def test_compound_patterns(
-    user_message: str, conv_id: str = None, context_docs: List[str] = None
+    user_message: str, conv_id: str | None = None, context_docs: List[str] | None = None
 ) -> dict:
     """Test auto-mapping with compound naming patterns.
 
@@ -340,7 +342,9 @@ def test_compound_patterns(
 
 
 @endpoint(name="test_suffix_patterns", description="Test _id suffix patterns")
-def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = None) -> dict:
+def test_suffix_patterns(
+    query: str, session_id: str | None = None, thread_id: str | None = None
+) -> dict:
     """Test auto-mapping with _id suffixes.
 
     Expected: High confidence
@@ -361,7 +365,9 @@ def test_suffix_patterns(query: str, session_id: str = None, thread_id: str = No
     name="test_custom_naming_no_hints",
     description="Test with completely custom parameter names (no mapping hints)",
 )
-def test_custom_naming_no_hints(xyz: str, abc: str = None, qwerty: dict = None) -> dict:
+def test_custom_naming_no_hints(
+    xyz: str, abc: str | None = None, qwerty: dict | None = None
+) -> dict:
     """Test LLM fallback with no recognizable patterns.
 
     Expected: Very low confidence (<0.3), triggers LLM fallback
@@ -380,7 +386,7 @@ def test_custom_naming_no_hints(xyz: str, abc: str = None, qwerty: dict = None) 
     description="Test with domain-specific parameter names for insurance queries",
 )
 def test_domain_specific_naming(
-    insurance_question: str, policy_number: str = None, customer_data: dict = None
+    insurance_question: str, policy_number: str | None = None, customer_data: dict | None = None
 ) -> dict:
     """Test LLM fallback with domain-specific naming.
 
@@ -400,7 +406,7 @@ def test_domain_specific_naming(
     name="test_abbreviated_names",
     description="Test with abbreviated parameter names",
 )
-def test_abbreviated_names(q: str, sid: str = None, ctx: List[str] = None) -> dict:
+def test_abbreviated_names(q: str, sid: str | None = None, ctx: List[str] | None = None) -> dict:
     """Test LLM fallback with abbreviated names.
 
     Expected: Low-medium confidence
@@ -428,7 +434,7 @@ def test_abbreviated_names(q: str, sid: str = None, ctx: List[str] = None) -> di
     },
 )
 def test_manual_request_mapping(
-    user_query: str, session: str = None, docs: List[str] = None
+    user_query: str, session: str | None = None, docs: List[str] | None = None
 ) -> dict:
     """Test manual request mapping via decorator.
 
@@ -455,7 +461,7 @@ def test_manual_request_mapping(
         "metadata": "$.conversation.metadata",
     },
 )
-def test_manual_response_mapping(input: str, session_id: str = None) -> dict:
+def test_manual_response_mapping(input: str, session_id: str | None = None) -> dict:
     """Test manual response mapping via decorator.
 
     Expected: Response correctly mapped using manual mappings
@@ -488,9 +494,9 @@ def test_manual_response_mapping(input: str, session_id: str = None) -> dict:
 )
 def test_full_manual_mapping(
     customer_message: str,
-    ticket_id: str = None,
-    related_tickets: List[str] = None,
-    ticket_metadata: dict = None,
+    ticket_id: str | None = None,
+    related_tickets: List[str] | None = None,
+    ticket_metadata: dict | None = None,
 ) -> dict:
     """Test complete manual mapping for both request and response.
 
@@ -571,7 +577,7 @@ def test_mixed_output_types(input: str) -> dict:
     },
 )
 def test_custom_field_passthrough(
-    question: str, policy_id: str = None, tier: str = "standard", lang: str = "en"
+    question: str, policy_id: str | None = None, tier: str = "standard", lang: str = "en"
 ) -> dict:
     """Test that custom fields from API request are passed through correctly.
 
@@ -622,7 +628,7 @@ def multiply_numbers(a: int, b: int, c: int) -> dict:
     name="stream_assistant_response", description="Stream assistant responses for insurance queries"
 )
 def stream_assistant_response(
-    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+    prompt: str, use_case: str = "insurance", conversation_history: List[dict] | None = None
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 

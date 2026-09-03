@@ -113,7 +113,7 @@ async def test_penelopes_own_default_model_is_stamped_after_construction():
 @pytest.mark.asyncio
 async def test_an_already_resolved_model_is_passed_through_unchanged():
     """The normal case: a real BaseLLM, already stamped by
-    get_execution_model_with_override -- ensure_language_model must not
+    resolve_model -- ensure_language_model must not
     reconstruct it."""
     resolved_model = MagicMock()
     resolved_model.warmup = AsyncMock()

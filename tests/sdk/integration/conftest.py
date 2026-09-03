@@ -6,6 +6,7 @@ from typing import Generator
 import psycopg2
 import pytest
 import requests
+from cryptography.fernet import Fernet
 from psycopg2.extras import RealDictCursor
 
 # ANSI color codes
@@ -17,6 +18,15 @@ NC = "\033[0m"  # No Color
 
 DATABASE_PORT = 10001
 BACKEND_PORT = 10003
+
+# Must match DB_ENCRYPTION_KEY in tests/docker-compose.test.yml. The backend stores
+# token.token with EncryptedString, so we have to encrypt it here before inserting
+# the row directly with SQL -- a plaintext value makes every authenticated request
+# fail with DecryptionError.
+DB_ENCRYPTION_KEY = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
+
+# Fixed project the tests run against; must match TEST_PROJECT_ID in test_parameters.py.
+TEST_PROJECT_ID = "12340000-0000-4000-8000-000000001234"
 
 # LLM Provider types - hardcoded to keep SDK tests independent of backend code
 # Only includes providers actually used in tests (openai, anthropic, gemini)
@@ -133,6 +143,8 @@ def setup_test_data() -> None:
     except ImportError as e:
         pytest.fail(f"❌ Failed to generate token hash: {e}")
 
+    TOKEN_ENCRYPTED = Fernet(DB_ENCRYPTION_KEY.encode()).encrypt(TOKEN_VALUE.encode()).decode()
+
     print(f"{BLUE}Token: {TOKEN_VALUE}{NC}")
     print(f"{BLUE}Hash: {TOKEN_HASH}{NC}")
 
@@ -167,17 +179,23 @@ def setup_test_data() -> None:
             RETURNING id, organization_id
         ),
         new_token AS (
+            -- project_id scopes the token to the test project. Without it the
+            -- project_isolation RLS policy hides every project-scoped row from
+            -- routes that take no project in their path, and the SDK has no
+            -- other way to set app.current_project (it never sends X-Project-Id).
             INSERT INTO token (
                 token,
                 token_hash,
                 token_type,
-                user_id
+                user_id,
+                project_id
             )
             SELECT
                 %(token_value)s,
                 %(token_hash)s,
                 'bearer',
-                new_user.id
+                new_user.id,
+                %(project_id)s::uuid
             FROM new_user
             RETURNING user_id
         ),
@@ -185,7 +203,7 @@ def setup_test_data() -> None:
             -- Create project with specific ID "1234"
             INSERT INTO project (id, name, description, organization_id, user_id, owner_id)
             SELECT
-                '12340000-0000-4000-8000-000000001234'::uuid,
+                %(project_id)s::uuid,
                 'Test Project',
                 'Test project for integration tests',
                 new_user.organization_id,
@@ -193,13 +211,28 @@ def setup_test_data() -> None:
                 new_user.id
             FROM new_user
             ON CONFLICT (id) DO NOTHING
-            RETURNING organization_id, user_id
+            RETURNING id, organization_id, user_id
+        ),
+        new_membership AS (
+            -- The backend hides projects the caller is not an explicit member of,
+            -- so every project row created here needs a matching membership.
+            INSERT INTO project_membership (project_id, user_id, organization_id)
+            SELECT id, user_id, organization_id FROM new_project
+            ON CONFLICT DO NOTHING
+            RETURNING project_id
         )
         -- Return the organization_id and user_id for subsequent operations
         SELECT organization_id, id as user_id FROM new_user;
         """
 
-        cur.execute(sql, {"token_value": TOKEN_VALUE, "token_hash": TOKEN_HASH})
+        cur.execute(
+            sql,
+            {
+                "token_value": TOKEN_ENCRYPTED,
+                "token_hash": TOKEN_HASH,
+                "project_id": TEST_PROJECT_ID,
+            },
+        )
         result = cur.fetchone()
         conn.commit()
 
@@ -218,7 +251,7 @@ def setup_test_data() -> None:
         print(f"{CYAN}{TOKEN_VALUE}{NC}")
         print(f"{GREEN}════════════════════════════════════════════════{NC}")
         print()
-        print(f"{GREEN}✅ Test project created with ID: 12340000-0000-0000-0000-000000001234{NC}")
+        print(f"{GREEN}✅ Test project created with ID: {TEST_PROJECT_ID}{NC}")
         print()
 
         # Populate type_lookups with provider types

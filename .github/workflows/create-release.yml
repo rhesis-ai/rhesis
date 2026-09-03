@@ -24,6 +24,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
+          persist-credentials: true  # the release-branch push below needs the app token on disk
           fetch-depth: 0
           token: ${{ steps.generate-token.outputs.token }}
 

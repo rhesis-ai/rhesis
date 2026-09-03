@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
@@ -68,6 +69,7 @@ def test_get_test_runs(mock_request, test_configuration):
         },
         json=None,
         params={"$filter": "test_configuration_id eq 'config-567'"},
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the result

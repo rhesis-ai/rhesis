@@ -33,8 +33,7 @@ import MentionTextInput, {
   InferredTarget,
 } from '@/components/common/MentionTextInput';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useQueryClient } from '@tanstack/react-query';
-import { annotationKeys } from '@/constants/query-keys';
+import { allMetricsPassed, displayStatusOf } from '@/constants/outcomes';
 
 interface TraceReviewDrawerProps {
   open: boolean;
@@ -79,7 +78,6 @@ export default function TraceReviewDrawer({
 }: TraceReviewDrawerProps) {
   const theme = useTheme();
   const { status } = useSession();
-  const queryClient = useQueryClient();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -140,9 +138,8 @@ export default function TraceReviewDrawer({
       | Record<string, { is_successful?: boolean }>
       | undefined;
     if (metrics && Object.keys(metrics).length > 0) {
-      return Object.values(metrics).every(m => m?.is_successful)
-        ? 'passed'
-        : 'failed';
+      // Per-turn: finer than anything the backend records an outcome for.
+      return allMetricsPassed(Object.values(metrics)) ? 'passed' : 'failed';
     }
     return 'failed';
   }, [selectedSpan]);
@@ -159,12 +156,9 @@ export default function TraceReviewDrawer({
       return metric?.is_successful ? 'passed' : 'failed';
     }
 
-    const metricValues = Object.values(allMetrics);
-    const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return totalMetrics > 0 && passedMetrics === totalMetrics
-      ? 'passed'
-      : 'failed';
+    // Whole-trace target: the backend has already classified this span
+    // (execution/verdict), so there is nothing to re-derive.
+    return displayStatusOf(selectedSpan) === 'Pass' ? 'passed' : 'failed';
   }, [selectedSpan, traceTarget, allMetrics, getTurnMetricsAutomatedStatus]);
 
   const originalStatus = getOriginalStatus();
@@ -191,10 +185,8 @@ export default function TraceReviewDrawer({
 
   useEffect(() => {
     if (open && selectedSpan) {
-      const metricValues = Object.values(allMetrics);
-      const allPassed =
-        metricValues.length > 0 && metricValues.every(m => m.is_successful);
-      const defaultOriginal = allPassed ? 'passed' : 'failed';
+      const defaultOriginal =
+        displayStatusOf(selectedSpan) === 'Pass' ? 'passed' : 'failed';
       setNewStatus(
         initialStatus ?? (defaultOriginal === 'passed' ? 'failed' : 'passed')
       );
@@ -261,7 +253,6 @@ export default function TraceReviewDrawer({
         traceTarget
       );
 
-      void queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
       await onSave();
       onClose();
     } catch (_err) {

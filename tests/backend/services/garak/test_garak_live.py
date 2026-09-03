@@ -10,6 +10,8 @@ backend integration tests (which test API routes). They verify that
 the backend garak services work correctly with the installed garak version.
 """
 
+from typing import ClassVar
+
 import pytest
 
 # Check if garak is available
@@ -322,7 +324,7 @@ class TestGarakUpgradeReadiness:
     """
 
     # Known modules as of garak 0.9.0.4 - update when adding new mappings
-    KNOWN_MODULES = {
+    KNOWN_MODULES: ClassVar[set[str]] = {
         "dan",
         "encoding",
         "promptinject",
@@ -439,7 +441,8 @@ class TestGarakUpgradeReadiness:
 
             warnings.warn(
                 f"{len(failed_imports)} taxonomy detectors not found in current "
-                f"garak version - review GarakTaxonomy.MODULE_MAPPINGS"
+                f"garak version - review GarakTaxonomy.MODULE_MAPPINGS",
+                stacklevel=2,
             )
 
     def test_garak_version_tracking(self):

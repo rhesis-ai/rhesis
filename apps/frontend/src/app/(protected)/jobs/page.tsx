@@ -1,36 +1,26 @@
-'use client';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { prefetchList } from '@/utils/server-prefetch';
+import { firstPageParams } from '@/utils/list';
+import JobsPageClient from './components/JobsPageClient';
+import { jobsList } from './components/list';
 
-import * as React from 'react';
-import { useCanWithStatus } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import JobsGrid from './components/JobsGrid';
+/**
+ * Server component: fetches the first page of jobs before rendering so the
+ * page arrives with content already in place -- no client-side spinner on
+ * first load. See `prefetchList` for the permission-gating rationale.
+ */
+export default async function JobsPage() {
+  const factory = await createServerApiFactory();
 
-export default function JobsPage() {
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Job.READ
+  const { initialData, initialTotalCount } = await prefetchList(
+    jobsList.capability,
+    () => jobsList.list(factory, firstPageParams(jobsList))
   );
 
-  useDocumentTitle('Jobs');
-
-  if (permsLoading) {
-    return <PageLoadingState />;
-  }
-
-  if (!canRead) {
-    return <AccessDenied resource="jobs" />;
-  }
-
   return (
-    <PageLayout
-      title="Jobs"
-      description="Background work the platform is doing, and what it logged along the way."
-      breadcrumbs={[]}
-    >
-      <JobsGrid />
-    </PageLayout>
+    <JobsPageClient
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+    />
   );
 }

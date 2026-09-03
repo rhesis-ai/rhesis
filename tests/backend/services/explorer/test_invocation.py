@@ -37,7 +37,6 @@ def _invoker(test_db, organization_id, user_id, max_concurrency=10, endpoint_id=
 
 
 @pytest.mark.integration
-@pytest.mark.service
 @pytest.mark.asyncio
 class TestEndpointInvoker:
     """Test the shared endpoint invocation helper."""

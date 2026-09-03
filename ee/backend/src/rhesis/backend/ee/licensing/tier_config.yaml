@@ -5,6 +5,18 @@
 # null = unlimited.  Unlicensed orgs resolve to the `community` entry.
 # Override at runtime via RHESIS_TIER_CONFIG env var pointing to a
 # different YAML file (e.g. mounted from a K8s ConfigMap).
+#
+# The `community` and `team` numbers below are PUBLISHED on the pricing
+# page (rhesis-ai/website, src/data/pricing.ts -> PLAN_LIMITS, pinned as
+# literals in src/data/pricing.test.ts) and are part of the terms of
+# service. Change them in both repos together, or not at all -- a number
+# advertised here that the backend does not enforce is a promise we break,
+# and the reverse blocks a customer at a ceiling they were never told about.
+#
+# `enterprise` is null (unlimited) because the page says "custom": the
+# negotiated cap is minted per-org into the license token's
+# `lic.custom_limits` claim and overlaid on this tier by
+# ConfigQuotaProvider. See quota_provider.py.
 
 community:
   all_features: false
@@ -13,7 +25,7 @@ community:
     test_executions: 500
     tracing_spans: 50000
     test_generation: 100
-    model_tokens: 5000000
+    model_tokens: 1000000
     seats: 3
     projects: 3
     endpoints: 3
@@ -26,9 +38,9 @@ team:
     - rbac
   limits:
     test_executions: 100000
-    tracing_spans: 5000000
+    tracing_spans: 1000000
     test_generation: 50000
-    model_tokens: 250000000
+    model_tokens: 25000000
     seats: null
     projects: null
     endpoints: null

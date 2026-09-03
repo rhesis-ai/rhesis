@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, CircularProgress, Fab as MuiFab, Tooltip } from '@mui/material';
 import type { BoxProps } from '@mui/material/Box';
 import type { FabProps as MuiFabProps } from '@mui/material/Fab';
-import { ELEVATION, FAB_GROUP_GAP } from '@/styles/theme';
+import { ELEVATION, FAB_GROUP_GAP, FAB_SIZE } from '@/styles/theme';
 
 export { FAB_GROUP_GAP };
 export { default as FabAddIcon } from './FabAddIcon';
@@ -29,11 +29,12 @@ const fabIconSlotSx = {
 export const fabButtonSx = {
   bgcolor: 'primary.main',
   color: 'primary.contrastText',
-  width: 56,
-  height: 56,
-  minWidth: 56,
-  minHeight: 56,
-  padding: '12px',
+  width: FAB_SIZE,
+  height: FAB_SIZE,
+  minWidth: FAB_SIZE,
+  minHeight: FAB_SIZE,
+  // 1.5 spacing units = 12px, the Figma FAB inset around a 32px icon slot.
+  padding: 1.5,
   boxSizing: 'border-box',
   boxShadow: ELEVATION.xs,
   '&:hover': {

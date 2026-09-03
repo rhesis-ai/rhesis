@@ -6,6 +6,8 @@ cb4b107b5daf), v_metric_stats (migration d3f8a91c5b02), and v_test_stats
 classification logic lives in the view DDL.
 """
 
+from typing import ClassVar
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -15,7 +17,7 @@ from .guid import GUID
 
 class TestRunStatsView(Base):
     __tablename__ = "v_test_run_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_run_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
@@ -41,12 +43,11 @@ class MetricStatsView(Base):
     """Backs v_metric_stats -- one row per (test_result, metric_name), created by
     alembic migration d3f8a91c5b02 (fixed by d52329dc7e4e). effective_success is
     each metric's own recorded verdict (automated, or corrected by a review that
-    targeted that specific metric); automated_success is the pre-review value,
-    mirroring automated_metric_success() in services/stats/common.py.
+    targeted that specific metric); automated_success is the pre-review value.
     """
 
     __tablename__ = "v_metric_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_result_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
@@ -77,7 +78,7 @@ class TestStatsView(Base):
     """
 
     __tablename__ = "v_test_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
@@ -101,6 +102,7 @@ class TestStatsView(Base):
     passed_count = Column(Integer)
     failed_count = Column(Integer)
     pending_count = Column(Integer)
+    error_count = Column(Integer)
     is_unrun = Column(Boolean)
     last_run_at = Column(DateTime(timezone=True))
 
@@ -113,7 +115,7 @@ class TestStatsView(Base):
 
 class TestResultStatsView(Base):
     __tablename__ = "v_test_result_stats"
-    __table_args__ = {"info": {"is_view": True}}
+    __table_args__: ClassVar[dict] = {"info": {"is_view": True}}
 
     test_result_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())

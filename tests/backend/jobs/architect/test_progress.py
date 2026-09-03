@@ -195,7 +195,7 @@ class TestExplorationEmitsProgress:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_publishes_started_progress_and_completed(
         self,
@@ -247,7 +247,7 @@ class TestExplorationEmitsProgress:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_skips_emission_when_task_id_is_empty(
         self,
@@ -288,7 +288,7 @@ class TestExplorationEmitsProgress:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_emits_failed_event_when_tool_reports_failure(
         self,
@@ -422,7 +422,7 @@ class TestExplorationProjectIdFlow:
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.jobs.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.jobs.endpoint.explore.get_db_with_tenant_variables")
-    @patch("rhesis.backend.jobs.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.jobs.endpoint.explore.resolve_model")
     @patch("rhesis.backend.jobs.endpoint.explore.user_crud")
     def test_passes_project_id_to_target_factory(
         self,

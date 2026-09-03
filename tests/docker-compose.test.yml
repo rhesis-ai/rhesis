@@ -2,10 +2,12 @@
 # Backend tests use Testcontainers instead (see tests/backend/testcontainers_setup.py).
 #
 # Usage:
-#   SDK tests: docker compose -f tests/docker-compose.test.yml --profile sdk up -d --build
+#   SDK tests:  docker compose -f tests/docker-compose.test.yml --profile sdk up -d --build
+#   Java tests: docker compose -f tests/docker-compose.test.yml --profile java up -d --build --wait
 #
 # Port allocation:
-#   SDK: PostgreSQL 10001, Redis 10002, Backend 10003
+#   SDK:  PostgreSQL 10001, Redis 10002, Backend 10003
+#   Java: Backend 10003 (same port as sdk — never run both profiles at once)
 
 # SDK backend environment configuration
 x-sdk-database-config: &sdk-database-config
@@ -29,6 +31,65 @@ x-sdk-backend-config: &sdk-backend-config
   RHESIS_CONNECTOR_DISABLED: true
   API_BASE_URL: "http://localhost:10003"
   OTEL_RHESIS_TELEMETRY_ENABLED: "false"
+
+# Java SDK backend environment configuration
+#
+# Runs the rhesis-ai/rhesis-java suite against a backend built from THIS checkout,
+# instead of the published ghcr.io/rhesis-ai/backend:latest that the Java repo's own
+# docker-compose.test.yml pins — that image is only rebuilt on v* tags, so the Java
+# tests there never see unreleased backend changes.
+#
+# Quick Start is enabled so local_init seeds the org, project and the rh-local-token
+# that the Java integration tests authenticate with. It stays off in the sdk profile.
+
+x-java-database-config: &java-database-config
+  DB_NAME: rhesis-db
+  APP_DB_USER: rhesis-user
+  APP_DB_PASS: your-secured-password # trufflehog:ignore
+  DB_PORT: 5432
+  DB_DRIVER: postgresql
+  DB_HOST: java-test-postgres
+  DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=
+
+x-java-redis-config: &java-redis-config
+  BROKER_URL: redis://:rhesis-redis-pass@java-test-redis:6379/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@java-test-redis:6379/1
+
+x-java-backend-config: &java-backend-config
+  FRONTEND_URL: "http://localhost:3000"
+  JWT_SECRET_KEY: ci-test-jwt-secret
+  SESSION_SECRET_KEY: ci-test-session-secret
+  LOG_LEVEL: DEBUG
+  RHESIS_CONNECTOR_DISABLED: "true"
+  API_BASE_URL: "http://localhost:10003"
+  OTEL_RHESIS_TELEMETRY_ENABLED: "false"
+  QUICK_START: "true"
+  BACKEND_ENV: local
+  ENABLE_RHESIS_KEY: "true"
+  # Without these the backend is a misconfigured deployment: DEFAULT_EXECUTION_MODEL and
+  # DEFAULT_EVALUATION_MODEL both default to rhesis/rhesis, and the execute endpoint
+  # pre-flight-validates them by constructing the model, which RhesisLLM.__init__ refuses
+  # to do with no key. That surfaces as a 500 on testExecuteTestSet -- correctly, since a
+  # server that cannot build its own default model is a server error.
+  #
+  # The Java repo's own compose omits these too, and gets away with it only because it
+  # pins ghcr.io/rhesis-ai/backend:latest, which is rebuilt on v* tags and so predates
+  # the change that stopped swallowing the construction failure (#2643, post-v0.14.0).
+  # Running this checkout's backend is the whole point of this profile, so it has to be
+  # configured like a real deployment instead.
+  #
+  # Construction opens no connection and this profile runs no Celery worker, so the model
+  # is never actually invoked -- the key only has to exist.
+  #
+  # Base URL is a dead port rather than either plausible alternative. The default is
+  # https://api.rhesis.ai, so leaving it unset would send an accidental invocation to
+  # production with a bogus token. Pointing it at this backend is worse still: RhesisLLM
+  # posts to services/generate/content, which this backend serves, and that route resolves
+  # the generation model -- rhesis/rhesis again, at the same base URL. That is a closed
+  # loop, one HTTP hop per level, not a fast failure. Nothing listens on port 1, so an
+  # invocation dies on connection-refused instead.
+  RHESIS_API_KEY: rh-local-token
+  RHESIS_BASE_URL: "http://127.0.0.1:1"
 
 services:
   # ==========================================================================
@@ -103,6 +164,71 @@ services:
       - ../apps/backend/src:/app/apps/backend/src
       - ../apps/backend/start.sh:/app/apps/backend/start.sh
 
+  # ==========================================================================
+  # Java SDK Integration Tests (--profile java)
+  # Backend: 10003. Postgres and Redis are not published — the token seeding
+  # step reaches them through `docker compose exec`.
+  # ==========================================================================
+
+  java-test-postgres:
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    profiles: ["java"]
+    environment:
+      POSTGRES_DB: rhesis-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: your-secured-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - java-test-network
+    env_file: []
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  java-test-redis:
+    image: mirror.gcr.io/redis:7-alpine
+    profiles: ["java"]
+    command: redis-server --requirepass rhesis-redis-pass
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - java-test-network
+    env_file: []
+    tmpfs:
+      - /data
+
+  java-test-backend:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile.dev
+    profiles: ["java"]
+    environment:
+      <<: [*java-database-config, *java-redis-config, *java-backend-config]
+    ports:
+      - "10003:8080"
+    depends_on:
+      java-test-postgres:
+        condition: service_healthy
+      java-test-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks:
+      - java-test-network
+    env_file: []
+
 networks:
   sdk-test-network:
+    driver: bridge
+  java-test-network:
     driver: bridge

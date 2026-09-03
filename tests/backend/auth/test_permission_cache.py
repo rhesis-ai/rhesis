@@ -480,7 +480,7 @@ class TestRevocationTiming(_AuthzCacheTestBase):
 
     def test_enroll_busts_cache(self):
         """enroll_user_in_project must bust the permission cache for the user."""
-        from rhesis.backend.app.services.organization import enroll_user_in_project
+        from rhesis.backend.app.services.project_membership import enroll_user_in_project
 
         # Prime cache with a deny.
         get_permission_cache().set(USER_ID, ORG_ID, PROJECT_ID, "test_set:read", False)
@@ -488,7 +488,9 @@ class TestRevocationTiming(_AuthzCacheTestBase):
         db = MagicMock()
         db.execute.return_value = None
 
-        with patch("rhesis.backend.app.services.organization._set_default_project_if_empty"):
+        with patch(
+            "rhesis.backend.app.services.project_membership._set_default_project_if_empty"
+        ):
             enroll_user_in_project(db, USER_ID, PROJECT_ID, ORG_ID)
 
         # Cache must be busted.
@@ -496,7 +498,7 @@ class TestRevocationTiming(_AuthzCacheTestBase):
 
     def test_unenroll_busts_cache(self):
         """unenroll_user_from_project must bust the permission cache for the user."""
-        from rhesis.backend.app.services.organization import unenroll_user_from_project
+        from rhesis.backend.app.services.project_membership import unenroll_user_from_project
 
         # Prime cache with an allow.
         get_permission_cache().set(USER_ID, ORG_ID, PROJECT_ID, "test_set:read", True)
@@ -525,7 +527,9 @@ class TestRevocationTiming(_AuthzCacheTestBase):
 
         db.query.side_effect = _query
 
-        with patch("rhesis.backend.app.services.organization._reassign_default_project_if_removed"):
+        with patch(
+            "rhesis.backend.app.services.project_membership._reassign_default_project_if_removed"
+        ):
             result = unenroll_user_from_project(
                 db, USER_ID, PROJECT_ID, ORG_ID, requester_user_id=OTHER_USER_ID
             )
@@ -571,7 +575,7 @@ class TestRevocationTiming(_AuthzCacheTestBase):
 
     def test_unenroll_all_busts_each_member(self):
         """unenroll_all_project_members must bust the cache for every removed member."""
-        from rhesis.backend.app.services.organization import unenroll_all_project_members
+        from rhesis.backend.app.services.project_membership import unenroll_all_project_members
 
         cache = get_permission_cache()
         cache.set(USER_ID, ORG_ID, PROJECT_ID, "test_set:read", True)
@@ -592,7 +596,9 @@ class TestRevocationTiming(_AuthzCacheTestBase):
         db.query.side_effect = _query
         db.flush.return_value = None
 
-        with patch("rhesis.backend.app.services.organization._reassign_default_project_if_removed"):
+        with patch(
+            "rhesis.backend.app.services.project_membership._reassign_default_project_if_removed"
+        ):
             count = unenroll_all_project_members(db, PROJECT_ID, ORG_ID)
 
         assert count == 2

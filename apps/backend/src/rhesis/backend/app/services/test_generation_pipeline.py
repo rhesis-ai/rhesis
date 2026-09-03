@@ -33,7 +33,7 @@ from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser,
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
-    get_user_generation_model,
+    resolve_model,
 )
 from rhesis.sdk.synthesizers.config_synthesizer import (
     GenerationConfig as SDKGenerationConfig,
@@ -48,7 +48,7 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 
 def _resolve_config_llm(db: Session, user: User):
     """Resolve the LLM for test-config generation (same logic as TestConfigGeneratorService)."""
-    gen_settings = getattr(user.settings.models, "generation")
+    gen_settings = user.settings.models.generation
     model_id = gen_settings.model_id
     use_fast_default = False
     if model_id:
@@ -69,7 +69,7 @@ def _resolve_config_llm(db: Session, user: User):
             pass
 
     try:
-        return ensure_language_model(get_user_generation_model(db, user))
+        return resolve_model(db, user, "generation")
     except ValueError as e:
         raise ModelConfigurationError(
             f"User model initialization failed: {e}",

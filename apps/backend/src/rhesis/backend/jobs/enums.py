@@ -3,7 +3,7 @@
 from enum import Enum
 
 from rhesis.backend.app.constants import (
-    TestResultStatus,  # noqa: F401 — re-export
+    TestResultStatus,
     TestType,  # noqa: F401 — re-export
 )
 
@@ -12,12 +12,6 @@ ResultStatus = TestResultStatus
 
 # Metrics constants
 DEFAULT_METRIC_WORKERS = 5
-
-# Task status constants
-DEFAULT_RESULT_STATUS = "Completed"
-DEFAULT_RUN_STATUS_PROGRESS = "Progress"
-DEFAULT_RUN_STATUS_COMPLETED = "Completed"
-DEFAULT_RUN_STATUS_FAILED = "Failed"
 
 # Task retry configuration
 DEFAULT_MAX_RETRIES = 3

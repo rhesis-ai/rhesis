@@ -92,9 +92,10 @@ def _build_prompt_trigger_map(probe_class_name: str) -> Optional[Dict[str, str]]
         if not hasattr(instance, "prompts") or not hasattr(instance, "triggers"):
             return None
 
+        # Probes may declare fewer triggers than prompts; pair what lines up.
         return {
             str(p).strip().replace("\r\n", "\n"): str(t)
-            for p, t in zip(instance.prompts, instance.triggers)
+            for p, t in zip(instance.prompts, instance.triggers, strict=False)
         }
 
     except Exception as exc:

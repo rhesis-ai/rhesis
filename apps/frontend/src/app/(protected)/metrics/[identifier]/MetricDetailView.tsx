@@ -171,6 +171,8 @@ export type MetricDetailViewMode = 'page' | 'embedded' | 'content';
 
 export interface MetricDetailViewProps {
   metricId: string;
+  /** Server-fetched metric; when given, the view renders it without a client fetch. */
+  initialMetric?: MetricDetail;
   mode?: MetricDetailViewMode;
   /** Shown when mode is embedded (e.g. dialog close). */
   onClose?: () => void;
@@ -180,30 +182,51 @@ export interface MetricDetailViewProps {
   tabNav?: React.ReactNode;
   /** Optional content to replace the detail body (e.g. for secondary tabs). */
   tabBody?: React.ReactNode;
+  /**
+   * Bump to make this view re-read the metric.
+   *
+   * The fetch is guarded to run once per metric id, which is right while this
+   * view is the only thing writing the metric. It is not the only thing: a
+   * sibling tab rendered through `tabBody` can write it too — the Tuning tab
+   * applying an improvement rewrites the evaluation prompt — and this view would
+   * otherwise go on showing the copy it read on mount until the page reloads.
+   */
+  refreshKey?: number;
 }
 
 export function MetricDetailView({
   metricId,
+  initialMetric,
   mode = 'page',
   onClose,
   onSaved,
   tabNav,
   tabBody,
+  refreshKey = 0,
 }: MetricDetailViewProps) {
   const { data: session, status } = useSession();
   const theme = useTheme();
   const router = useRouter();
   const canEditMetric = useCan(Capability.Metric.UPDATE);
-  const [metric, setMetric] = useState<MetricDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [metric, setMetric] = useState<MetricDetail | null>(
+    initialMetric ?? null
+  );
+  const [loading, setLoading] = useState(initialMetric === undefined);
   const [missingError, setMissingError] = useState<unknown>(null);
   const notifications = useNotifications();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [editData, setEditData] = useState<Partial<EditData>>({});
-  const [models, setModels] = useState<Model[]>([]);
+  // Model data is already included in the metric response.
+  const [models, setModels] = useState<Model[]>(
+    initialMetric?.model ? [initialMetric.model] : []
+  );
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const dataFetchedRef = useRef(false);
+  const dataFetchedRef = useRef(initialMetric !== undefined);
+  // The reset effects below must not fire for the values we mounted with, or
+  // they would blank a server-seeded metric on the first render.
+  const currentMetricIdRef = useRef(metricId);
+  const currentRefreshKeyRef = useRef(refreshKey);
   const textFieldsDirtyRef = useRef(false);
   const [blurRevision, setBlurRevision] = useState(0);
   const onCloseRef = useRef(onClose);
@@ -224,11 +247,23 @@ export function MetricDetailView({
   );
 
   useEffect(() => {
+    if (currentMetricIdRef.current === metricId) return;
+    currentMetricIdRef.current = metricId;
     dataFetchedRef.current = false;
     setLoading(true);
     setMetric(null);
     setMissingError(null);
   }, [metricId]);
+
+  // Declared before the fetch below so it clears the guard on the same render
+  // the key changes. Deliberately does not blank `metric` the way a new id does:
+  // this is the same metric read again, and emptying the view first would flash
+  // a loading state over content that is only slightly out of date.
+  useEffect(() => {
+    if (currentRefreshKeyRef.current === refreshKey) return;
+    currentRefreshKeyRef.current = refreshKey;
+    dataFetchedRef.current = false;
+  }, [refreshKey]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -280,7 +315,7 @@ export function MetricDetailView({
     };
 
     fetchData();
-  }, [metricId, mode, notifications, router, status]);
+  }, [metricId, mode, notifications, refreshKey, router, status]);
 
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
     const values: Partial<EditData> = {};
@@ -591,7 +626,7 @@ export function MetricDetailView({
 
       setEditData(sectionData);
     },
-    [metric, populateFieldRefs, notifications, tagNames, status]
+    [metric, populateFieldRefs, notifications, status]
   );
 
   const handleCancelEdit = React.useCallback(() => {

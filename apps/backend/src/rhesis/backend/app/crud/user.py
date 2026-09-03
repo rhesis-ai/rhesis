@@ -1,9 +1,5 @@
 """CRUD operations for users.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 Users are the one entity that regularly exists *outside* an organization, so most of these
 functions deliberately sidestep the tenant machinery the rest of ``crud`` relies on.
 ``create_user`` builds the ``User`` row directly instead of going through ``create_item``
@@ -51,7 +47,10 @@ from rhesis.backend.app.utils.crud_utils import get_item, get_items
 
 
 def get_user(
-    db: Session, user_id: uuid.UUID, organization_id: str = None, tenant_user_id: str = None
+    db: Session,
+    user_id: uuid.UUID,
+    organization_id: str | None = None,
+    tenant_user_id: str | None = None,
 ) -> Optional[models.User]:
     """Get user."""
     return get_item(db, models.User, user_id, organization_id, tenant_user_id)
@@ -64,8 +63,8 @@ def get_users(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.User]:
     return get_items(
         db,

@@ -39,7 +39,7 @@ class SMTPService:
             )
 
     def send_message(
-        self, msg: MIMEMultipart, recipient_email: str, task_id: str, bcc: str = None
+        self, msg: MIMEMultipart, recipient_email: str, task_id: str, bcc: str | None = None
     ) -> bool:
         """
         Send the email message with proper SSL/TLS handling and timeout.

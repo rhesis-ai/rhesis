@@ -28,7 +28,7 @@ class TestRateLimiterSecurity:
         conn_id = "test_conn_1"
 
         # All 5 requests within the limit should be allowed
-        for i in range(5):
+        for _i in range(5):
             assert rate_limiter.is_allowed(conn_id) is True
 
     def test_messages_exceeding_limit_are_rejected(self, rate_limiter):
@@ -73,7 +73,7 @@ class TestRateLimiterSecurity:
         assert rate_limiter.is_allowed(conn_a) is False
 
         # conn_b should still have its full limit
-        for i in range(5):
+        for _i in range(5):
             assert rate_limiter.is_allowed(conn_b) is True
 
         # Now conn_b should be at limit
@@ -95,7 +95,7 @@ class TestRateLimiterCleanup:
         rate_limiter.remove_connection(conn_id)
 
         # Should have full limit again
-        for i in range(5):
+        for _i in range(5):
             assert rate_limiter.is_allowed(conn_id) is True
 
     def test_get_remaining_shows_correct_count(self, rate_limiter):

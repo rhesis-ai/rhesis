@@ -26,7 +26,6 @@ from tests.backend.routes.fixtures.data_factories import (
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecycleModelsEndpoint:
     """Test the /recycle/models endpoint."""
 
@@ -77,7 +76,6 @@ class TestRecycleModelsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecycleGetDeletedEndpoint:
     """Test the GET /recycle/{model_name} endpoint."""
 
@@ -193,7 +191,6 @@ class TestRecycleGetDeletedEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecycleRestoreEndpoint:
     """Test the POST /recycle/{model_name}/{item_id}/restore endpoint."""
 
@@ -289,7 +286,6 @@ class TestRecycleRestoreEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecyclePermanentDeleteEndpoint:
     """Test the DELETE /recycle/{model_name}/{item_id} endpoint."""
 
@@ -364,7 +360,6 @@ class TestRecyclePermanentDeleteEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecycleStatsEndpoint:
     """Test the GET /recycle/stats/counts endpoint."""
 
@@ -406,7 +401,6 @@ class TestRecycleStatsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecycleBulkRestoreEndpoint:
     """Test the POST /recycle/bulk-restore/{model_name} endpoint."""
 
@@ -496,7 +490,6 @@ class TestRecycleBulkRestoreEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestRecycleEmptyBinEndpoint:
     """Test the DELETE /recycle/empty/{model_name} endpoint."""
 

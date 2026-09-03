@@ -359,7 +359,6 @@ def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestListExplorerTestSetsEndpoint:
     """Test GET /explorer"""
 
@@ -489,9 +488,60 @@ class TestListExplorerTestSetsEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
+    def test_count_header_counts_only_explorer_rows(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        """X-Total-Count must count explorer rows only, and ignore pagination."""
+        response = authenticated_client.get("/explorer", params={"limit": 1})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "X-Total-Count" in response.headers
+        total = int(response.headers["X-Total-Count"])
+        # Two explorer sets exist in the fixture; the regular ones must not count.
+        assert total >= 2
+        assert len(response.json()) == 1
+
+        unpaged = authenticated_client.get("/explorer")
+        assert int(unpaged.headers["X-Total-Count"]) == total
+        explorer_ids = {item["id"] for item in unpaged.json()}
+        assert total == len(explorer_ids)
+
+    def test_odata_filter_narrows_results(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        """$filter should narrow both the page and the count header."""
+        target = explorer_and_regular_test_sets["explorer_1"]
+        response = authenticated_client.get(
+            "/explorer",
+            params={"$filter": f"name eq '{target.name}'"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert [item["id"] for item in data] == [str(target.id)]
+        assert response.headers["X-Total-Count"] == "1"
+
+    def test_odata_filter_no_match(
+        self,
+        authenticated_client: TestClient,
+        explorer_and_regular_test_sets,
+    ):
+        """A non-matching $filter returns an empty page and a zero count."""
+        response = authenticated_client.get(
+            "/explorer",
+            params={"$filter": "name eq 'no-such-session-name'"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+        assert response.headers["X-Total-Count"] == "0"
+
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateExplorerTestSetEndpoint:
     """Test POST /explorer"""
 
@@ -560,7 +610,6 @@ class TestCreateExplorerTestSetEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestImportExplorerTestSetEndpoint:
     """Test POST /explorer/import/{source_test_set_id}"""
 
@@ -647,7 +696,6 @@ class TestImportExplorerTestSetEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExportRegularTestSetFromExplorerEndpoint:
     """Test POST /explorer/export/{source_test_set_id}"""
 
@@ -779,7 +827,6 @@ class TestExportRegularTestSetFromExplorerEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteExplorerTestSetEndpoint:
     """Test DELETE /explorer/{test_set_identifier}"""
 
@@ -855,7 +902,6 @@ class TestDeleteExplorerTestSetEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestBulkDeleteExplorerTestSetsEndpoint:
     """Test DELETE /explorer/bulk"""
 
@@ -896,7 +942,6 @@ class TestBulkDeleteExplorerTestSetsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExplorerTreeEndpoint:
     """Test GET /explorer/{test_set_id}/tree"""
 
@@ -999,7 +1044,6 @@ class TestExplorerTreeEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExplorerTestsEndpoint:
     """Test GET /explorer/{test_set_id}/tests"""
 
@@ -1061,7 +1105,6 @@ class TestExplorerTestsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestExplorerTopicsEndpoint:
     """Test GET /explorer/{test_set_id}/topics"""
 
@@ -1129,7 +1172,6 @@ class TestExplorerTopicsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateExplorerTopicEndpoint:
     """Test POST /explorer/{test_set_id}/topics"""
 
@@ -1245,7 +1287,6 @@ class TestCreateExplorerTopicEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestCreateExplorerTestEndpoint:
     """Test POST /explorer/{test_set_id}/tests"""
 
@@ -1427,7 +1468,6 @@ class TestCreateExplorerTestEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestUpdateExplorerTestEndpoint:
     """Test PUT /explorer/{test_set_id}/tests/{test_id}"""
 
@@ -1567,7 +1607,6 @@ class TestUpdateExplorerTestEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteExplorerTestEndpoint:
     """Test DELETE /explorer/{test_set_id}/tests/{test_id}"""
 
@@ -1764,7 +1803,6 @@ def deep_topic_test_set(test_db: Session, test_org_id, authenticated_user_id):
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestUpdateExplorerTopicEndpoint:
     """Test PUT /explorer/{test_set_id}/topics/{topic_path}"""
 
@@ -1914,7 +1952,6 @@ class TestUpdateExplorerTopicEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestDeleteExplorerTopicEndpoint:
     """Test DELETE /explorer/{test_set_id}/topics/{topic_path}"""
 
@@ -2007,7 +2044,6 @@ class TestDeleteExplorerTopicEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestGenerateOutputsEndpoint:
     """Test POST /explorer/{test_set_id}/generate_outputs"""
 
@@ -2154,7 +2190,6 @@ class TestGenerateOutputsEndpoint:
 
 
 @pytest.mark.integration
-@pytest.mark.routes
 class TestEvaluateEndpoint:
     """Test POST /explorer/{test_set_id}/evaluate"""
 

@@ -13,6 +13,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-01
+
+### Changed
+- **Outbound HTTP Timeouts**: Enforced default timeouts on all outbound HTTP requests to prevent indefinite hangs. REST API calls now use `DEFAULT_API_TIMEOUT` and LLM paths use `DEFAULT_LLM_TIMEOUT`.
+- **Type Annotations**: Refactored type signatures to make implicit optional parameters explicit (e.g., `str | None`), improving compatibility with static type checkers.
+- **LiteLLM & Vertex AI Providers**: Adjusted argument ordering in provider calls to place positional arguments (`*args`) before keyword arguments.
+
+### Fixed
+- **Socket Leak in Rest Invoker**: Resolved a socket leak during shutdown by maintaining strong references to background asyncio tasks (specifically `client.aclose()`) to prevent premature garbage collection.
+- **Test Run Referencing**: Updated SDK tools to reference test runs by their specific generated names rather than the parent test set name, and corrected the run comparison tool mapping to `get_insights`.
+- **Abstract Method Enforcement**: Explicitly declared `generate_batch` as abstract on `BaseModel` to ensure proper contract enforcement across `BaseLLM` and `BaseEmbedder` subclasses.
+
+
+## [0.14.0] - 2026-08-27
+
+### Added
+- **Google ADK Integration:** Added native telemetry integration via `auto_instrument("google_adk")` (or `"adk"`) to translate Google ADK spans into the Rhesis schema, alongside a new `GoogleADKTarget` for running Penelope multi-turn tests against ADK agents.
+- **Haystack Integration:** Added native telemetry integration via `auto_instrument("haystack")` and a new `HaystackTarget` for Penelope to drive multi-turn conversations against Haystack pipelines and agents.
+- **App-Owned Conversation Turns:** Introduced the `conversation_turn` context manager/decorator in `rhesis.telemetry` to manually group app-owned turns under a single trace.
+- **Progress Callbacks:** Added an optional `on_progress` callback `(current, total)` to SDK synthesizers (including base, OWASP, and multi-turn) to report live progress as batches complete.
+- **Connector Startup Hook:** Added `start_connector`, providing a public, idempotent way to initialize the connector from application startup hooks (e.g., FastAPI lifespan) when an event loop is already running.
+- **Connector Identity Override:** Added `identity_override` support to `ConnectorManager` to substitute local organization/user identities during testing.
+- **Evaluation Contracts:** Added SDK support for scoring against evaluation contracts. When a contract is provided, Penelope drives conversations using a `simulated_user_objective` and scores based on compliance with required and prohibited behaviors.
+
+### Changed
+- **Deterministic Judging:** Set `JUDGE_TEMPERATURE = 0.0` across LLM-as-judge calls to eliminate variance and ensure consistent scoring across runs.
+- **Goal Achievement Threshold:** Unified the default goal-achievement threshold at `0.7` across Penelope and backend re-scoring.
+- **Architect Agent Behavior:** Refactored Architect prompts and state handling to produce more concise, facts-oriented responses, persist tool results across turns, and display full review comments without clipping them to 80 characters.
+- **Write Payload Sanitization:** Updated `BaseEntity.push()`, `Model.push()`, and native metric sync to strip `id` and `nano_id` from write payloads, preventing client-side identity overrides.
+- **Test Set Type Inference:** Tightened type inference to reject mixed turn types and correctly infer "Multi-Turn" from goal-only imports.
+
+### Fixed
+- **Connector TLS Failures:** Resolved TLS connection failures on Python interpreters lacking a local CA bundle (e.g., default macOS installs) by falling back to a `certifi`-backed SSL context for `wss://` URLs.
+- **Infinite TLS Retry Loop:** Classified `SSLCertVerificationError` as a permanent failure to prevent the connector from retrying indefinitely.
+- **Silent Connector Failures:** Added warnings when the connector fails to dial out due to a missing running event loop.
+- **Architect Hallucinations:** Fixed a bug where unnamed tool-result records (such as annotations) were hidden from the Architect, which previously caused it to hallucinate details.
+- **Haystack Tracing Gate:** Fixed an issue where tracing was silently disabled if the API key was omitted from the environment, even when a valid `RhesisClient` was explicitly configured.
+
+
 ### Added
 
 - **`conversation_turn`** (`rhesis.telemetry.conversation_turn`, re-exported from

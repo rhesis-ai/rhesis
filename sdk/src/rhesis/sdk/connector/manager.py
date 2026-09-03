@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from rhesis.sdk.connector.connection import WebSocketConnection
@@ -94,6 +94,16 @@ class ConnectorManager:
         self._organization_id: str | None = None
         self._user_id: str | None = None
         self._initialized = False
+        # The event loop only holds a weak reference to a running task, so a task
+        # nothing else refers to can be collected mid-flight. Hold them here.
+        self._background_tasks: set[asyncio.Task] = set()
+
+    def _spawn(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task:
+        """Start a background task, keeping a reference until it finishes."""
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
 
     def initialize(self) -> None:
         """Initialize WebSocket connection."""
@@ -118,7 +128,7 @@ class ConnectorManager:
 
         try:
             asyncio.get_running_loop()
-            asyncio.create_task(self._connection.connect())
+            self._spawn(self._connection.connect())
         except RuntimeError:
             # Nothing re-checks this later, so the connector stays offline until someone starts
             # it from inside a loop. Warn rather than debug: a web server registers endpoints at
@@ -170,7 +180,7 @@ class ConnectorManager:
         # Check if connection exists but isn't started
         if self._connection and self._connection.state == ConnectionState.DISCONNECTED:
             try:
-                asyncio.create_task(self._connection.connect())
+                self._spawn(self._connection.connect())
             except RuntimeError:
                 # No event loop, connection will start when available
                 pass
@@ -192,7 +202,7 @@ class ConnectorManager:
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
             try:
-                asyncio.create_task(self._send_registration())
+                self._spawn(self._send_registration())
             except RuntimeError:
                 # No event loop running, registration will be sent when connection is established
                 logger.debug("No event loop running, registration will be sent on connection")
@@ -214,7 +224,7 @@ class ConnectorManager:
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
             try:
-                asyncio.create_task(self._send_registration())
+                self._spawn(self._send_registration())
             except RuntimeError:
                 logger.debug("No event loop running, registration will be sent on connection")
 
@@ -260,9 +270,9 @@ class ConnectorManager:
         message_type = message.get("type")
 
         if message_type == MessageType.EXECUTE_TEST.value:
-            asyncio.create_task(self._handle_test_request(message))
+            self._spawn(self._handle_test_request(message))
         elif message_type == MessageType.EXECUTE_METRIC.value:
-            asyncio.create_task(self._handle_metric_request(message))
+            self._spawn(self._handle_metric_request(message))
         elif message_type == MessageType.PING.value:
             await self._handle_ping()
         elif message_type == MessageType.CONNECTED.value:
@@ -571,6 +581,9 @@ class ConnectorManager:
 
     async def shutdown(self) -> None:
         """Shutdown connector and close connection."""
+        for task in list(self._background_tasks):
+            task.cancel()
+        self._background_tasks.clear()
         if self._connection:
             await self._connection.disconnect()
         self._initialized = False

@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
 from pydantic import ValidationError
 
@@ -125,7 +125,7 @@ class ArchitectAgent(BaseAgent):
     Usage::
 
         architect = ArchitectAgent(
-            model="vertex_ai/gemini-2.0-flash",
+            model="vertex_ai/gemini-3.1-flash-lite",
             tools=[*get_rhesis_tools(), extra_tool],
             event_handlers=[WebSocketHandler(ws.send_json)],
         )
@@ -464,7 +464,7 @@ class ArchitectAgent(BaseAgent):
 
     # ── write-guard ──────────────────────────────────────────────
 
-    _AWAIT_TASK_TOOL: Dict[str, Any] = {
+    _AWAIT_TASK_TOOL: ClassVar[Dict[str, Any]] = {
         "name": InternalTool.AWAIT_TASK,
         "description": (
             "Pause this turn and wait for a background task to "

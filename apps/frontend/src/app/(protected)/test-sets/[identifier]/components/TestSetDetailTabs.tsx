@@ -7,6 +7,9 @@ import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import type { TestDetail } from '@/utils/api-client/interfaces/tests';
+import type { Task } from '@/types/tasks';
+import type { Comment } from '@/types/comments';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
@@ -17,6 +20,12 @@ const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
 interface TestSetDetailTabsProps {
   testSet: TestSet;
   testCount: number;
+  /** Server-prefetched first page of the Tests tab; undefined falls back to a client fetch. */
+  initialTests?: TestDetail[];
+  /** Server-prefetched first page of the Tasks tab. */
+  initialTasks?: Task[];
+  initialTasksTotalCount?: number;
+  initialComments?: Comment[];
   isGenerating?: boolean;
   currentUserId: string;
   currentUserName: string;
@@ -26,6 +35,10 @@ interface TestSetDetailTabsProps {
 export default function TestSetDetailTabs({
   testSet,
   testCount,
+  initialTests,
+  initialTasks,
+  initialTasksTotalCount,
+  initialComments,
   isGenerating = false,
   currentUserId,
   currentUserName,
@@ -69,6 +82,7 @@ export default function TestSetDetailTabs({
           testSetId={testSet.id as string}
           testSetType={testSet.test_set_type?.type_value}
           testCount={testCount}
+          initialTests={initialTests}
           isGenerating={isGenerating}
         />
       </DetailTabPanel>
@@ -77,6 +91,9 @@ export default function TestSetDetailTabs({
         <TasksAndCommentsWrapper
           entityType="TestSet"
           entityId={testSet.id as string}
+          initialTasks={initialTasks}
+          initialTasksTotalCount={initialTasksTotalCount}
+          initialComments={initialComments}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

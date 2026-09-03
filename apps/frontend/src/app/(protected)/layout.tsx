@@ -22,9 +22,14 @@ import { ProtectedLayoutClient } from './ProtectedLayoutClient';
  * `GET /usage` has no server seed here (unlike features/permissions):
  * `UsageProvider` is mounted client-side in `ProtectedLayoutClient` so
  * `QuotaBanner` and execute-gating (`RunDrawer`) can read it anywhere in
- * the app, not just the Usage settings page. The cost this used to avoid
- * (a license lookup plus four counting queries) is real, but is paid once
- * per `UsageContext`'s 5-minute `staleTime` window, not per navigation.
+ * the app. The cost (a license lookup plus four counting queries) is paid
+ * once per `UsageContext`'s 5-minute `staleTime` window, not per
+ * navigation. Only the Usage page seeds it, from its own server component.
+ *
+ * That is also why the org's plan rides on `GET /features` rather than
+ * `GET /usage`: it is needed on first paint (the sidebar's plan row) and is
+ * free to compute, so it belongs on the response already seeded here instead
+ * of forcing a seed of the expensive one.
  */
 export default async function ProtectedLayout({
   children,

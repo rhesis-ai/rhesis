@@ -58,11 +58,17 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
 import { useQuery } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import {
+  fetchProjectTraceMetrics,
+  projectTraceMetricIds,
+} from './project-data';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface ProjectTraceMetricsProps {
   project: Project;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
+  /** Server-prefetched trace metrics; seeds the query. */
+  initialMetrics?: MetricDetail[];
 }
 
 export interface ProjectTraceMetricsHandle {
@@ -109,7 +115,10 @@ function getTraceMetricIds(project: Project): string[] {
 }
 
 export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
-  function ProjectTraceMetrics({ project, onProjectUpdate }, ref) {
+  function ProjectTraceMetrics(
+    { project, onProjectUpdate, initialMetrics },
+    ref
+  ) {
     const theme = useTheme();
     const { status } = useSession();
     const canUpdateProject = useCan(Capability.Project.UPDATE);
@@ -124,10 +133,11 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
       openAddDialog: () => setMetricsDialogOpen(true),
     }));
 
-    const metricIds: string[] = useMemo(() => {
-      const rawIds = project.attributes?.trace_metrics;
-      return Array.isArray(rawIds) ? rawIds.map(String) : [];
-    }, [project.attributes?.trace_metrics]);
+    const metricIds: string[] = useMemo(
+      () => projectTraceMetricIds(project),
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- only the stored ids matter
+      [project.attributes?.trace_metrics]
+    );
 
     const {
       data: metrics = [],
@@ -139,42 +149,27 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
         'trace-metrics',
         metricIds,
       ],
-      queryFn: async () => {
-        if (metricIds.length === 0) return [];
-        const metricsClient = new ApiClientFactory().getMetricsClient();
-        const results = await Promise.allSettled(
-          metricIds.map(id =>
-            metricsClient.getMetric(
-              id as `${string}-${string}-${string}-${string}-${string}`
-            )
-          )
-        );
-        return results
-          .filter(
-            (r): r is PromiseFulfilledResult<MetricDetail> =>
-              r.status === 'fulfilled'
-          )
-          .map(r => r.value)
-          .filter(m => m.metric_scope?.includes('Trace'));
-      },
+      queryFn: () =>
+        fetchProjectTraceMetrics(new ApiClientFactory(), metricIds),
       enabled: isAuthenticated(status),
+      initialData: initialMetrics,
     });
 
     const error = fetchError
       ? `Failed to load metrics: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
       : null;
 
-    const handleAddMetric = async (metricId: UUID) => {
+    const handleAddMetric = async (metric: { id: UUID }) => {
       try {
         const currentMetricIds = getTraceMetricIds(project);
-        if (currentMetricIds.includes(metricId)) {
+        if (currentMetricIds.includes(metric.id)) {
           notifications.show('Metric is already added to this project', {
             severity: 'warning',
           });
           return;
         }
 
-        const newMetricIds = [...currentMetricIds, metricId];
+        const newMetricIds = [...currentMetricIds, metric.id];
         const updatedAttributes = {
           ...(project.attributes || {}),
           trace_metrics: newMetricIds,
@@ -386,7 +381,6 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
                 getRowId={row => row.id}
                 loading={loading}
                 toolbarSlot={TraceMetricsToolbar}
-                showToolbar
                 disablePaperWrapper
                 pageSizeOptions={[10, 25, 50]}
                 initialState={{

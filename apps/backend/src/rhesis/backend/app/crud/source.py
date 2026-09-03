@@ -1,9 +1,5 @@
 """CRUD operations for sources and their chunks.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``Source.content`` is a ``deferred()`` column on the model -- the full extracted text of a
 document or web page, which no list or detail response returns. ``get_source`` and
 ``get_sources`` therefore leave it unloaded, and ``get_source_with_content`` exists as a
@@ -42,8 +38,8 @@ _SOURCE_RELATED_FIELDS = (
 def get_source(
     db: Session,
     source_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Source]:
     """Get source.
 
@@ -64,8 +60,8 @@ def get_source(
 def get_source_with_content(
     db: Session,
     source_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
     include_deleted: bool = False,
 ) -> Optional[models.Source]:
     """Get source with content field explicitly loaded (a deferred column)."""
@@ -90,8 +86,8 @@ def get_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Source]:
     """Get sources.
 
@@ -113,7 +109,10 @@ def get_sources(
 
 
 def create_source(
-    db: Session, source: schemas.SourceCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    source: schemas.SourceCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Source:
     """Create source."""
     return create_item(db, models.Source, source, organization_id, user_id)
@@ -123,8 +122,8 @@ def update_source(
     db: Session,
     source_id: uuid.UUID,
     source: schemas.SourceUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Source]:
     """Update source."""
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
@@ -158,7 +157,10 @@ def bulk_delete_sources(
 
 
 def create_chunk(
-    db: Session, chunk: schemas.ChunkCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    chunk: schemas.ChunkCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Chunk:
     """Create chunk."""
     return create_item(db, models.Chunk, chunk, organization_id=organization_id, user_id=user_id)

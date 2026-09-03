@@ -14,7 +14,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from rhesis.sdk.metrics.base import MetricResult, ScoreType
 
 
-def get_base_details(score_type: ScoreType, prompt: str, metric_name: str = None) -> Dict[str, Any]:
+def get_base_details(
+    score_type: ScoreType, prompt: str, metric_name: str | None = None
+) -> Dict[str, Any]:
     """
     Get base details dictionary common to all metric types.
 

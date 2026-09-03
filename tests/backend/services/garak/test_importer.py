@@ -14,7 +14,6 @@ fake = Faker()
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestProbeSelectionDataclass:
     """Tests for ProbeSelection dataclass."""
 
@@ -41,7 +40,6 @@ class TestProbeSelectionDataclass:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterInit:
     """Tests for GarakImporter initialization."""
 
@@ -59,7 +57,6 @@ class TestGarakImporterInit:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterMetadataBuilding:
     """Tests for metadata building methods."""
 
@@ -147,7 +144,6 @@ class TestGarakImporterMetadataBuilding:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterNameGeneration:
     """Tests for name generation methods."""
 
@@ -217,7 +213,6 @@ class TestGarakImporterNameGeneration:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterProbeRetrieval:
     """Tests for probe info retrieval."""
 
@@ -274,7 +269,6 @@ class TestGarakImporterProbeRetrieval:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterPreview:
     """Tests for import preview."""
 
@@ -360,7 +354,6 @@ class TestGarakImporterPreview:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterMetricCreation:
     """Tests for metric creation/lookup."""
 
@@ -380,7 +373,6 @@ class TestGarakImporterMetricCreation:
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestGarakImporterTagRequirements:
     """Tests for _tag_garak_requirements idempotency."""
 

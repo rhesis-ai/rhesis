@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-backend"
-version = "0.13.0"
+version = "0.15.0"
 description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -226,13 +226,15 @@ addopts = "-o asyncio_default_fixture_loop_scope=function -p no:plugins"
 filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning:pytest_asyncio.plugin",
 ]
+# Keep in sync with tests/pytest.ini — which of the two pytest picks up depends
+# on whether a path argument is passed (a path under tests/ makes tests/pytest.ini
+# the config file and this section is ignored entirely).
 markers = [
     "unit: fast tests with mocked dependencies",
     "integration: tests with real external services",
     "slow: tests that take >5 seconds",
-    "ai: tests involving AI model calls",
-    "critical: core functionality tests",
     "security: security and vulnerability tests",
+    "ee: tests that require the EE package (rhesis-backend-ee) to be installed",
 ]
 
 [build-system]

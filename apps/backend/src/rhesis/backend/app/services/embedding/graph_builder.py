@@ -15,8 +15,7 @@ from rhesis.backend.app.crud.embedding import get_active_embeddings_for_entities
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.embedding import Cluster, Scatter2DGraph, ScatterPoint2D
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
-from rhesis.sdk.models.factory import get_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +125,7 @@ def _generate_cluster_labels(
         return {}
 
     try:
-        _model = get_user_generation_model(db, user)
-        if isinstance(_model, str):
-            _model = get_model(_model)
+        _model = resolve_model(db, user, "generation")
     except Exception as e:
         logger.warning(
             "Skipping cluster labels: generation model unavailable (%s)",
@@ -143,7 +140,7 @@ def _generate_cluster_labels(
 
         # Get all embeddings in this cluster
         mask = cluster_ids == cluster_id
-        cluster_embeddings = [e for e, m in zip(embeddings, mask) if m]
+        cluster_embeddings = [e for e, m in zip(embeddings, mask, strict=True) if m]
         cluster_coords = umap_50d[mask]
 
         # Find closest to centroid
@@ -300,7 +297,7 @@ def build_2d_graph(
 
     # Build scatter points
     points = []
-    for embedding, cluster_id, coords_2d in zip(embeddings, cluster_ids, umap_2d):
+    for embedding, cluster_id, coords_2d in zip(embeddings, cluster_ids, umap_2d, strict=True):
         points.append(
             _scatter_point(
                 embedding,

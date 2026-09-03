@@ -35,6 +35,13 @@ export interface UsePaginatedListOptions<T> {
   onData?: (data: T[]) => void;
   /** Called with the raw error on fetch failure, e.g. to show a toast. */
   onError?: (error: unknown) => void;
+  /**
+   * Live polling: called with each page's data, returns the delay in ms until
+   * the next background refresh, or `false` to stop polling (e.g. Jobs polls
+   * while any job is still running). Poll refreshes are silent -- they don't
+   * set `isLoading`, so the grid doesn't flash its loading overlay.
+   */
+  pollMs?: (data: T[]) => number | false;
 }
 
 export interface UsePaginatedListResult<T> {
@@ -61,12 +68,13 @@ export interface UsePaginatedListResult<T> {
  *
  * Fetches are keyed by a request signature (page, rowsPerPage,
  * filterFingerprint, refreshKey, sessionStatus, enabled) rather than a
- * one-shot "skip the first fetch" flag, so it stays correct under React 18
- * Strict Mode's dev-only double-invoke of mount effects: both invocations
- * compute the same signature and both no-op, instead of the second slipping
- * through a "consumed" ref. `sessionStatus` is part of the key so a run that
- * lands while the session is still `loading` doesn't "claim" the same key a
- * later `authenticated` run would use.
+ * one-shot "skip the first fetch" flag. With `initialData` the key is
+ * pre-filled so the SSR'd page isn't refetched on mount. A fetch cancelled
+ * by effect cleanup releases its key again, so React 18 Strict Mode's
+ * dev-only double-invoke of mount effects refetches instead of getting
+ * stuck behind a cancelled request. `sessionStatus` is part of the key so a
+ * run that lands while the session is still `loading` doesn't "claim" the
+ * same key a later `authenticated` run would use.
  */
 export function usePaginatedList<T>({
   fetchPage,
@@ -77,6 +85,7 @@ export function usePaginatedList<T>({
   enabled = true,
   onData,
   onError,
+  pollMs,
 }: UsePaginatedListOptions<T>): UsePaginatedListResult<T> {
   const { status: sessionStatus } = useSession();
 
@@ -88,10 +97,18 @@ export function usePaginatedList<T>({
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultPageSize);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  // Set by the poll timer just before it bumps `refreshKey`, so that one
+  // fetch skips the loading flag; cleared as soon as the fetch effect reads it.
+  const silentRef = React.useRef(false);
 
+  // Stamped with the state the first real fetch would run under, not the
+  // current one: on first client render the session is still `loading` and
+  // the auth gate hasn't flipped `enabled`, so keying on those would miss
+  // once they settle and trigger a redundant fetch (skeleton flash on empty
+  // pages). `page`/`rowsPerPage`/`refreshKey` are still at their initial values here.
   const loadedRequestKeyRef = React.useRef<string | null>(
     initialData !== undefined
-      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|${sessionStatus}|${enabled}`
+      ? `${page}|${rowsPerPage}|${filterFingerprint}|${refreshKey}|authenticated|true`
       : null
   );
 
@@ -115,6 +132,9 @@ export function usePaginatedList<T>({
     loadedRequestKeyRef.current = requestKey;
 
     let cancelled = false;
+    let settled = false;
+    const silent = silentRef.current;
+    silentRef.current = false;
 
     const run = async () => {
       if (!isAuthenticated(sessionStatus)) {
@@ -125,7 +145,7 @@ export function usePaginatedList<T>({
       }
 
       try {
-        setIsLoading(true);
+        if (!silent) setIsLoading(true);
         setError(null);
 
         const response = await fetchPage({
@@ -151,9 +171,18 @@ export function usePaginatedList<T>({
       }
     };
 
-    run();
+    run().finally(() => {
+      settled = true;
+    });
     return () => {
       cancelled = true;
+      // A cancelled in-flight fetch never writes its result, so it must not
+      // "claim" this key: otherwise a remount with the same signature (Strict
+      // Mode's dev double-invoke, when the gate is already open) would skip
+      // the fetch and leave the grid spinning forever.
+      if (!settled && loadedRequestKeyRef.current === requestKey) {
+        loadedRequestKeyRef.current = null;
+      }
     };
     // fetchPage/onData/onError are recreated every render; the request-key
     // check above (not this array) is what governs whether a fetch actually
@@ -168,6 +197,21 @@ export function usePaginatedList<T>({
     sessionStatus,
     enabled,
   ]);
+
+  // Re-armed after every fetch (`data` changes identity even on equal
+  // content), so polling keeps going as long as `pollMs` returns a delay.
+  const pollRef = React.useRef(pollMs);
+  pollRef.current = pollMs;
+  React.useEffect(() => {
+    if (!pollRef.current || !enabled) return;
+    const delay = pollRef.current(data);
+    if (!delay) return;
+    const timer = setTimeout(() => {
+      silentRef.current = true;
+      setRefreshKey(prev => prev + 1);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [data, enabled]);
 
   // Clamp page when the result set shrinks below the current page (e.g. after delete)
   React.useEffect(() => {

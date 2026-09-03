@@ -1,228 +1,49 @@
-'use client';
-
-import * as React from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import { useSession } from 'next-auth/react';
-import { useQueryClient } from '@tanstack/react-query';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
-import { CategoryIcon } from '@/components/icons';
-import TestsGrid, { type TestsBulkActionsState } from './components/TestsGrid';
-import FileImportDrawer from '@/app/(protected)/test-sets/components/FileImportDrawer';
-import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { useOnboarding } from '@/contexts/OnboardingContext';
-import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
-import { useEndpoint } from '@/hooks/useEndpoints';
-import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { prefetchList } from '@/utils/server-prefetch';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
-import AccessDenied from '@/components/common/AccessDenied';
-import PageLoadingState from '@/components/common/PageLoadingState';
-import { useNotifications } from '@/components/common/NotificationContext';
-import { testKeys, testSetKeys } from '@/constants/query-keys';
-import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import TestsPageClient from './components/TestsPageClient';
+import { testsList } from './components/list';
 
-export default function TestsPage() {
-  const { status } = useSession();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
-  const notifications = useNotifications();
-  const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
-  const [bulkActions, setBulkActions] = React.useState<
-    Pick<TestsBulkActionsState, 'visible' | 'assignDisabled'>
-  >({ visible: false, assignDisabled: false });
-  const bulkHandlersRef = React.useRef<
-    Pick<TestsBulkActionsState, 'onAssign' | 'onDelete'>
-  >({
-    onAssign: () => {},
-    onDelete: () => {},
+interface TestsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+/**
+ * Server component: fetches the first page of tests before rendering so the
+ * page arrives with content already in place -- no client-side spinner on
+ * first load. See `prefetchList` for the permission-gating rationale.
+ *
+ * Exception: an Insights "failed tests" deep link resolves its test-id
+ * filter client-side after first render, so the server can't build the
+ * first page's `$filter` -- skip the prefetch and let the client fetch once
+ * the filter resolves.
+ */
+export default async function TestsPage({ searchParams }: TestsPageProps) {
+  const params = await searchParams;
+  const insightsFilter = parseInsightsFailedTestsSearchParams({
+    get: key => {
+      const value = params[key];
+      return (Array.isArray(value) ? value[0] : value) ?? null;
+    },
   });
 
-  const handleBulkActionsChange = React.useCallback(
-    (actions: TestsBulkActionsState) => {
-      setBulkActions({
-        visible: actions.visible,
-        assignDisabled: actions.assignDisabled,
-      });
-      bulkHandlersRef.current = {
-        onAssign: actions.onAssign,
-        onDelete: actions.onDelete,
-      };
-    },
-    []
-  );
-  const { activeTour, startTour } = useOnboarding();
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Test.READ
-  );
-  const canCreate = useCan(Capability.Test.CREATE);
-
-  const insightsFailedFilter = React.useMemo(
-    () =>
-      searchParams ? parseInsightsFailedTestsSearchParams(searchParams) : null,
-    [searchParams]
-  );
-  const { data: insightsEndpoint } = useEndpoint(
-    insightsFailedFilter?.endpointId ?? '',
-    !!insightsFailedFilter
-  );
-  const insightsEndpointName = insightsEndpoint?.name;
-
-  useDocumentTitle('Tests');
-
-  const tourParam = searchParams?.get('tour');
-  const isOnTestCasesTour =
-    tourParam === 'testCases' || activeTour === 'testCases';
-  const shouldDisableAddButton = activeTour !== null && !isOnTestCasesTour;
-
-  React.useEffect(() => {
-    if (tourParam === 'testCases') {
-      const timeout = setTimeout(() => {
-        startTour('testCases');
-      }, 300);
-      return () => clearTimeout(timeout);
-    }
-  }, [tourParam, startTour]);
-
-  React.useEffect(() => {
-    const openGeneration = searchParams?.get('openGeneration');
-    if (openGeneration === 'true') {
-      router.push('/test-sets/new-generated');
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('openGeneration');
-      window.history.replaceState({}, '', newUrl.toString());
-    }
-  }, [searchParams, router]);
-
-  const handleCreateManual = React.useCallback(() => {
-    if (activeTour === 'testCases') return;
-    router.push('/tests/new-manual');
-  }, [activeTour, router]);
-
-  const handleFileImportSuccess = React.useCallback(
-    (testSetId: string) => {
-      setFileImportDrawerOpen(false);
-      queryClient.invalidateQueries({ queryKey: testKeys.all() });
-      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-      notifications.show('Tests imported successfully', {
-        severity: 'success',
-      });
-      router.push(`/test-sets/${testSetId}`);
-    },
-    [queryClient, notifications, router]
-  );
-
-  React.useEffect(() => {
-    const handleTourOpenModal = () => {
-      router.push('/test-sets/new-generated');
-    };
-    window.addEventListener('tour-open-test-modal', handleTourOpenModal);
-    return () => {
-      window.removeEventListener('tour-open-test-modal', handleTourOpenModal);
-    };
-  }, [router]);
-
-  if (isSessionLoading(status)) {
-    return (
-      <PageLayout title="Tests" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      </PageLayout>
-    );
+  if (insightsFilter) {
+    return <TestsPageClient />;
   }
 
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="tests" />;
+  const factory = await createServerApiFactory();
 
-  if (!isAuthenticated(status)) {
-    return (
-      <PageLayout title="Tests" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
-          <Typography color="error">No session token available</Typography>
-        </Box>
-      </PageLayout>
-    );
-  }
+  const { initialData, initialTotalCount } = await prefetchList(
+    Capability.Test.READ,
+    () => testsList.list(factory, firstPageParams(testsList))
+  );
 
   return (
-    <>
-      <PageLayout
-        title="Tests"
-        description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
-        breadcrumbs={[]}
-        actions={
-          <FabGroup>
-            {bulkActions.visible && (
-              <>
-                <Can capability={Capability.TestSet.UPDATE}>
-                  <Fab
-                    icon={<CategoryIcon sx={{ fontSize: 28 }} />}
-                    tooltip={
-                      bulkActions.assignDisabled
-                        ? 'Select tests with the same test type'
-                        : 'Assign to Test Set'
-                    }
-                    aria-label="Assign to Test Set"
-                    onClick={() => bulkHandlersRef.current.onAssign()}
-                    disabled={bulkActions.assignDisabled}
-                  />
-                </Can>
-                <Can capability={Capability.Test.DELETE}>
-                  <Fab
-                    icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-                    tooltip="Delete Tests"
-                    aria-label="Delete Tests"
-                    onClick={() => bulkHandlersRef.current.onDelete()}
-                    sx={{
-                      bgcolor: 'error.main',
-                      '&:hover': { bgcolor: 'error.dark' },
-                    }}
-                  />
-                </Can>
-              </>
-            )}
-            <Can capability={Capability.File.IMPORT}>
-              <Fab
-                icon={<DownloadOutlinedIcon />}
-                tooltip="Import tests"
-                onClick={() => setFileImportDrawerOpen(true)}
-              />
-            </Can>
-            <Can capability={Capability.Test.CREATE}>
-              <Fab
-                icon={<EditNoteIcon />}
-                tooltip="Manual test"
-                aria-label="Manual test"
-                onClick={handleCreateManual}
-                disabled={shouldDisableAddButton}
-              />
-            </Can>
-          </FabGroup>
-        }
-      >
-        <Box sx={{ mt: 2, mb: 2 }}>
-          <TestsGrid
-            onNewTest={handleCreateManual}
-            disableAddButton={shouldDisableAddButton}
-            canCreate={canCreate}
-            insightsFailedFilter={insightsFailedFilter}
-            insightsEndpointName={insightsEndpointName}
-            onBulkActionsChange={handleBulkActionsChange}
-          />
-        </Box>
-      </PageLayout>
-
-      <FileImportDrawer
-        open={fileImportDrawerOpen}
-        onClose={() => setFileImportDrawerOpen(false)}
-        onSuccess={handleFileImportSuccess}
-      />
-    </>
+    <TestsPageClient
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+    />
   );
 }

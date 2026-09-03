@@ -1,5 +1,6 @@
 """Unit tests for the (provider, action) routing table and MCP extract fallback."""
 
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,8 +8,8 @@ import pytest
 from rhesis.backend.app.services.tool.actions import ToolAction, Transport, route
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp.operations import (
-    _parse_mcp_auth_response,
     _parse_fetched_sources,
+    _parse_mcp_auth_response,
     _strip_code_fence,
     mcp_extract,
     mcp_health_check,
@@ -119,7 +120,7 @@ class TestResolveToolClient:
 
 @pytest.mark.asyncio
 class TestMcpExtract:
-    _ARGS = dict(
+    _ARGS: ClassVar[dict[str, str]] = dict(
         tool_id="11111111-1111-1111-1111-111111111111",
         identifier="https://example.com/page",
         organization_id="org",

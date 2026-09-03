@@ -38,7 +38,10 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
-import { findStatusByCategory } from '@/utils/test-result-status';
+import {
+  findStatusByCategory,
+  getEffectiveTestResultStatus,
+} from '@/utils/test-result-status';
 import {
   getEvaluationContent,
   getExecutionErrorTooltip,
@@ -223,80 +226,81 @@ export default function TestsTableView({
     }
   };
 
-  const handleConfirmReview = async (
-    event: React.MouseEvent,
-    test: TestResultDetail
-  ) => {
-    event.stopPropagation();
-    if (isConfirmingRef.current) return;
-    isConfirmingRef.current = true;
+  // useCallback so the columns memo below can depend on this handler without
+  // being rebuilt on every render. Everything it closes over is either a ref
+  // or a setState (both stable), leaving onTestResultUpdate as the only dep.
+  const handleConfirmReview = useCallback(
+    async (event: React.MouseEvent, test: TestResultDetail) => {
+      event.stopPropagation();
+      if (isConfirmingRef.current) return;
+      isConfirmingRef.current = true;
 
-    try {
-      setIsConfirmingReview(true);
+      try {
+        setIsConfirmingReview(true);
 
-      const clientFactory = new ApiClientFactory();
-      const testResultsClient = clientFactory.getTestResultsClient();
-      const statusClient = clientFactory.getStatusClient();
-      const statuses = await statusClient.getStatuses({
-        entity_type: EntityType.TEST_RESULT,
-      });
+        const clientFactory = new ApiClientFactory();
+        const testResultsClient = clientFactory.getTestResultsClient();
+        const statusClient = clientFactory.getStatusClient();
+        const statuses = await statusClient.getStatuses({
+          entity_type: EntityType.TEST_RESULT,
+        });
 
-      const metrics = test.test_metrics?.metrics || {};
-      const metricValues = Object.values(metrics);
-      const totalMetrics = metricValues.length;
-      let automatedPassed = false;
-      if (totalMetrics > 0) {
-        const passedMetrics = metricValues.filter(m => m.is_successful).length;
-        automatedPassed = passedMetrics === totalMetrics;
-      } else if (isMultiTurn && test.test_output?.goal_evaluation) {
-        automatedPassed =
-          test.test_output.goal_evaluation.all_criteria_met || false;
-      }
+        // Confirm the outcome the reviewer is actually looking at. Deriving it
+        // from raw metrics here risked submitting a verdict that contradicted
+        // the chip on screen. The review flow only offers pass/fail, so any
+        // non-Pass outcome is confirmed as a fail.
+        const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
-      const targetStatus = findStatusByCategory(
-        statuses,
-        automatedPassed ? 'passed' : 'failed'
-      );
-      if (!targetStatus) return;
+        const targetStatus = findStatusByCategory(
+          statuses,
+          automatedPassed ? 'passed' : 'failed'
+        );
+        if (!targetStatus) return;
 
-      await testResultsClient.createReview(
-        test.id,
-        targetStatus.id,
-        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-        { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
-      );
+        await testResultsClient.createReview(
+          test.id,
+          targetStatus.id,
+          `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+          { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
+        );
 
-      let updatedTest: TestResultDetail | null = null;
-      const delays = [100, 200, 400, 800];
+        let updatedTest: TestResultDetail | null = null;
+        const delays = [100, 200, 400, 800];
 
-      for (const delay of delays) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        const fetchedTest = await testResultsClient.getTestResult(test.id);
-        if (fetchedTest.last_review) {
-          updatedTest = fetchedTest;
-          break;
+        for (const delay of delays) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          const fetchedTest = await testResultsClient.getTestResult(test.id);
+          if (fetchedTest.last_review) {
+            updatedTest = fetchedTest;
+            break;
+          }
         }
+
+        updatedTest = await testResultsClient.getTestResult(test.id);
+
+        setLocalTestUpdates(prev => ({
+          ...prev,
+          [updatedTest.id]: updatedTest,
+        }));
+
+        // Updater form rather than reading `selectedTest` from the closure:
+        // the awaits above can span well over a second, by which point a
+        // captured `selectedTest` may name a test the user has already
+        // navigated away from.
+        setSelectedTest(prev =>
+          prev && prev.id === test.id ? updatedTest : prev
+        );
+
+        onTestResultUpdate(updatedTest);
+      } catch (error) {
+        console.error('Failed to confirm review:', error);
+      } finally {
+        setIsConfirmingReview(false);
+        isConfirmingRef.current = false;
       }
-
-      updatedTest = await testResultsClient.getTestResult(test.id);
-
-      setLocalTestUpdates(prev => ({
-        ...prev,
-        [updatedTest.id]: updatedTest,
-      }));
-
-      if (selectedTest && selectedTest.id === test.id) {
-        setSelectedTest(updatedTest);
-      }
-
-      onTestResultUpdate(updatedTest);
-    } catch (error) {
-      console.error('Failed to confirm review:', error);
-    } finally {
-      setIsConfirmingReview(false);
-      isConfirmingRef.current = false;
-    }
-  };
+    },
+    [onTestResultUpdate]
+  );
 
   const openTestDrawer = useCallback((test: TestResultDetail, tabIndex = 0) => {
     setSelectedTest(test);
@@ -334,6 +338,7 @@ export default function TestsTableView({
         field: 'result',
         headerName: 'Result',
         width: 110,
+        flex: 0,
         sortable: false,
         disableColumnMenu: true,
         align: 'center',
@@ -396,6 +401,7 @@ export default function TestsTableView({
         field: 'review',
         headerName: 'Review',
         width: 120,
+        flex: 0,
         sortable: false,
         disableColumnMenu: true,
         align: 'center',
@@ -530,6 +536,7 @@ export default function TestsTableView({
         field: 'activity',
         headerName: 'Activity',
         width: 100,
+        flex: 0,
         sortable: false,
         disableColumnMenu: true,
         align: 'center',
@@ -683,6 +690,7 @@ export default function TestsTableView({
     isConfirmingReview,
     openTestDrawer,
     requirements,
+    handleConfirmReview,
   ]);
 
   return (
@@ -699,7 +707,6 @@ export default function TestsTableView({
           openTestDrawer(params.row);
         }}
         disablePaperWrapper={embedded}
-        showToolbar={false}
         sx={{
           '& .test-row-actions': {
             opacity: 0,

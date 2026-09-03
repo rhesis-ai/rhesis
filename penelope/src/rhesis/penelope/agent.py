@@ -9,7 +9,7 @@ Following Anthropic's agent design principles:
 
 import logging
 import math
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, ClassVar, Dict, List, Mapping, Optional, Union
 
 from rhesis.penelope._file_compat import file_attr as _file_attr
 from rhesis.penelope.config import PenelopeConfig
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 class DefaultToolRegistry:
     """Registry for default tools that can be configured."""
 
-    _default_tool_classes = [
+    _default_tool_classes: ClassVar[List[type]] = [
         TargetInteractionTool,
         AnalyzeTextTool,
         ExtractTool,

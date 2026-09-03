@@ -38,8 +38,18 @@ def _make_on_test_phase(self, test_run, org_id, user_id, project_id, total_tests
     TestRunProgressed tick on every transition -- cheap to call at this
     frequency because TestRunSink coalesces publishes per test run at 500ms;
     this call site is not where the volume reduction happens.
+
+    Also stamps each transition's moment into the timing cache, which is what
+    lets the Summary grid animate from real execution timing instead of a
+    scripted sweep. That write is dispatched off-thread (record_phase_async)
+    rather than issued inline: batch execution runs many tests concurrently
+    as coroutines on one shared event loop, and a synchronous Redis
+    round-trip here would block every other in-flight test for its duration.
+    See services/test_run_timing.py.
     """
     from datetime import datetime, timezone
+
+    from rhesis.backend.app.services.test_run_timing import TestPhase, record_phase_async
 
     generating_ids: set = set()
     evaluating_ids: set = set()
@@ -48,17 +58,24 @@ def _make_on_test_phase(self, test_run, org_id, user_id, project_id, total_tests
     # push completed past total.
     completed_ids: set = set()
 
-    def _on_test_phase(test_id: str, phase: str) -> None:
-        if phase == "generating":
+    # Read once here rather than inside the callback: after the run's first
+    # commit the ORM object is expired, and touching it from a worker thread
+    # would refresh it off-session.
+    test_run_id = str(test_run.id)
+
+    def _on_test_phase(test_id: str, phase: TestPhase) -> None:
+        if phase == TestPhase.GENERATING:
             generating_ids.add(test_id)
             evaluating_ids.discard(test_id)
-        elif phase == "evaluating":
+        elif phase == TestPhase.EVALUATING:
             generating_ids.discard(test_id)
             evaluating_ids.add(test_id)
-        elif phase == "done":
+        elif phase == TestPhase.DONE:
             completed_ids.add(test_id)
             generating_ids.discard(test_id)
             evaluating_ids.discard(test_id)
+
+        record_phase_async(test_run_id, test_id, phase)
 
         try:
             from rhesis.backend.events import emit
@@ -97,7 +114,7 @@ def _make_on_test_phase(self, test_run, org_id, user_id, project_id, total_tests
     display_name="Test Set Execution",
 )
 # with_tenant_context decorator removed - tenant context now passed directly
-def execute_test_configuration(self, test_configuration_id: str, test_run_id: str = None):
+def execute_test_configuration(self, test_configuration_id: str, test_run_id: str | None = None):
     """
     Execute a test configuration by running all associated test cases.
 
@@ -241,7 +258,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 on_emit=self.emit,
                 on_test_phase=on_test_phase,
             )
-            self.emit(f"Execution complete")
+            self.emit("Execution complete")
 
             # Accrue TEST_EXECUTIONS for the count actually processed by this
             # run -- result["total_tests"] is computed once at the start of

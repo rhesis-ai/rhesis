@@ -5,7 +5,10 @@ import { PaginationParams } from './pagination';
 import { Model } from './model';
 import { MetricScopeValue } from '@/constants/metric-scopes';
 
-export type ScoreType = 'numeric' | 'categorical';
+// 'binary' is returned by the backend (ScoreType.BINARY) but was missing here.
+// Note src/constants/score-types.ts deliberately still omits it: that constant
+// drives the metric creation form, and offering binary there is a separate change.
+export type ScoreType = 'binary' | 'numeric' | 'categorical';
 
 export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 

@@ -2,7 +2,6 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError

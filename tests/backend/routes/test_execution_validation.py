@@ -7,7 +7,7 @@ This module tests the validation logic introduced for:
 - Error message conversion and handling
 """
 
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from fastapi import HTTPException
@@ -25,32 +25,23 @@ class TestExecutionModelValidation:
 
     def test_validate_execution_model_success(self, test_db, authenticated_user):
         """Test that validation passes with valid evaluation and execution models."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_eval,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ) as mock_exec,
-        ):
-            mock_eval.return_value = None
-            mock_exec.return_value = None
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
+            mock_validate.return_value = None
 
             validate_execution_model(db=test_db, current_user=authenticated_user)
 
-            mock_eval.assert_called_once_with(test_db, authenticated_user)
-            mock_exec.assert_called_once_with(test_db, authenticated_user)
+            assert mock_validate.call_args_list == [
+                call(test_db, authenticated_user, "evaluation"),
+                call(test_db, authenticated_user, "execution"),
+            ]
 
     def test_validate_execution_model_missing_api_key(self, test_db, authenticated_user):
         """Test validation raises 400 with specific message for missing API key."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_validate,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ),
-        ):
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "API key not found for provider 'openai'. Please configure your model settings."
             )
@@ -65,14 +56,9 @@ class TestExecutionModelValidation:
 
     def test_validate_execution_model_unsupported_provider(self, test_db, authenticated_user):
         """Test validation raises 400 with specific message for unsupported provider."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_validate,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ),
-        ):
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "Unsupported LLM provider: custom_provider"
             )
@@ -87,14 +73,9 @@ class TestExecutionModelValidation:
 
     def test_validate_execution_model_invalid_model_name(self, test_db, authenticated_user):
         """Test validation raises 400 with specific message for invalid model name."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_validate,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ),
-        ):
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "Model 'gpt-5-ultra' not found in provider 'openai'"
             )
@@ -109,14 +90,9 @@ class TestExecutionModelValidation:
 
     def test_validate_execution_model_generic_error(self, test_db, authenticated_user):
         """Validators that raise plain ValueError propagate (not model-config mapping)."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_validate,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ),
-        ):
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
             mock_validate.side_effect = ValueError("Something went wrong")
 
             with pytest.raises(ValueError, match="Something went wrong"):
@@ -126,38 +102,32 @@ class TestExecutionModelValidation:
         self, test_db, authenticated_user
     ):
         """Both evaluation and execution validators are called."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_eval,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ) as mock_exec,
-        ):
-            mock_eval.return_value = None
-            mock_exec.return_value = None
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
+            mock_validate.return_value = None
 
             validate_execution_model(db=test_db, current_user=authenticated_user)
 
-            mock_eval.assert_called_once_with(test_db, authenticated_user)
-            mock_exec.assert_called_once_with(test_db, authenticated_user)
+            assert mock_validate.call_args_list == [
+                call(test_db, authenticated_user, "evaluation"),
+                call(test_db, authenticated_user, "execution"),
+            ]
 
     def test_validate_execution_model_execution_model_failure(
         self, test_db, authenticated_user
     ):
         """Execution model validation failure raises HTTPException even when evaluation passes."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_eval,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ) as mock_exec,
-        ):
-            mock_eval.return_value = None
-            mock_exec.side_effect = ModelConfigurationError(
-                "API key not found for provider 'anthropic'."
-            )
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
+            def fail_on_execution(db, user, purpose):
+                if purpose == "execution":
+                    raise ModelConfigurationError(
+                        "API key not found for provider 'anthropic'."
+                    )
+
+            mock_validate.side_effect = fail_on_execution
 
             with pytest.raises(HTTPException) as exc_info:
                 validate_execution_model(db=test_db, current_user=authenticated_user)
@@ -174,19 +144,19 @@ class TestGenerationModelValidation:
     def test_validate_generation_model_success(self, test_db, authenticated_user):
         """Test that validation passes with valid generation model."""
         with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_user_generation_model"
+            "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
             mock_validate.return_value = None  # No exception means success
 
             # Should not raise any exception
             validate_generation_model(db=test_db, current_user=authenticated_user)
 
-            mock_validate.assert_called_once_with(test_db, authenticated_user)
+            mock_validate.assert_called_once_with(test_db, authenticated_user, "generation")
 
     def test_validate_generation_model_missing_api_key(self, test_db, authenticated_user):
         """Test validation raises 400 with specific message for missing API key."""
         with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_user_generation_model"
+            "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "API key not found for provider 'anthropic'. Please configure your model settings."
@@ -203,7 +173,7 @@ class TestGenerationModelValidation:
     def test_validate_generation_model_unsupported_provider(self, test_db, authenticated_user):
         """Test validation raises 400 with specific message for unsupported provider."""
         with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_user_generation_model"
+            "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError("Unknown provider: fake_llm")
 
@@ -290,14 +260,9 @@ class TestErrorMessageContent:
 
     def test_api_key_error_mentions_configuration(self, test_db, authenticated_user):
         """Test API key errors guide users to configuration."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_validate,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ),
-        ):
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "API key not found for provider 'openai'"
             )
@@ -312,7 +277,7 @@ class TestErrorMessageContent:
     def test_provider_error_mentions_supported_providers(self, test_db, authenticated_user):
         """Test provider errors mention the issue with provider configuration."""
         with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_user_generation_model"
+            "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "Unsupported provider: fake_provider"
@@ -329,14 +294,9 @@ class TestErrorMessageContent:
 
     def test_model_name_error_is_specific(self, test_db, authenticated_user):
         """Test model name errors are specific about the issue."""
-        with (
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_evaluation_model"
-            ) as mock_validate,
-            patch(
-                "rhesis.backend.app.utils.execution_validation.validate_user_execution_model"
-            ),
-        ):
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
             mock_validate.side_effect = ModelConfigurationError(
                 "Model 'gpt-10' not found in provider 'openai'"
             )

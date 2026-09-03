@@ -11,6 +11,7 @@ import {
   TestExecuteResponse,
   ConversationToTestRequest,
   ConversationTestExtractionResponse,
+  TestFacets,
   PriorityLevel,
 } from './interfaces/tests';
 import { TestSet } from './interfaces/test-set';
@@ -116,6 +117,14 @@ export class TestsClient extends BaseApiClient {
     }
 
     return allData;
+  }
+
+  async getTestFacets(testSetId?: string): Promise<TestFacets> {
+    const params = new URLSearchParams();
+    if (testSetId) params.append('test_set_id', testSetId);
+    const qs = params.toString();
+    const url = `${API_ENDPOINTS.tests}/facets${qs ? `?${qs}` : ''}`;
+    return this.fetch<TestFacets>(url, { cache: 'no-store' });
   }
 
   async getTest(id: string): Promise<TestDetail> {

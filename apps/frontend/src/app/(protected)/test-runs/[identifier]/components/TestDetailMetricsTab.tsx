@@ -26,8 +26,11 @@ import {
   TableCell,
   Tooltip,
   Chip,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { alpha } from '@mui/material/styles';
 import {
@@ -44,6 +47,9 @@ import {
   getMetricsSourceLabel,
 } from '@/utils/api-client/interfaces/test-configuration';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { passRate } from '@/constants/outcomes';
+import { getEndpointFailure } from '@/utils/endpoint-failure';
+import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -208,9 +214,8 @@ export default function TestDetailMetricsTab({
     const total = filteredMetrics.length;
     const passed = filteredMetrics.filter(m => m.passed).length;
     const failed = total - passed;
-    const passRate = total > 0 ? (passed / total) * 100 : 0;
 
-    return { total, passed, failed, passRate };
+    return { total, passed, failed, passRate: passRate(passed, failed) ?? 0 };
   }, [filteredMetrics]);
 
   // Find best and worst performing requirements based on filtered metrics
@@ -239,7 +244,7 @@ export default function TestDetailMetricsTab({
         name,
         passed,
         total,
-        rate: (passed / total) * 100,
+        rate: passRate(passed, total - passed) ?? 0,
       })
     );
 
@@ -355,6 +360,11 @@ export default function TestDetailMetricsTab({
     return map;
   }, [test.test_reviews]);
 
+  const endpointFailure = useMemo(
+    () => getEndpointFailure(test.test_output),
+    [test.test_output]
+  );
+
   const handleFilterChange = (
     _event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'passed' | 'failed' | null
@@ -363,6 +373,35 @@ export default function TestDetailMetricsTab({
       setFilterStatus(newFilter);
     }
   };
+
+  // Nothing was evaluated because the endpoint never answered. The cards below would
+  // otherwise render "0.0%" and "0 of 0 metrics passed", which reads as a real score of
+  // zero rather than as an absence of one.
+  //
+  // Keyed off getEffectiveTestResultStatus, the same arbiter the chip and the grid use, so
+  // this cannot disagree with the status shown next to it. The metricsData check keeps real
+  // metrics visible if any were somehow recorded alongside the failure.
+  if (
+    endpointFailure &&
+    getEffectiveTestResultStatus(test) === 'Error' &&
+    metricsData.length === 0
+  ) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning" icon={<ErrorOutlineIcon />}>
+          <AlertTitle>
+            {endpointFailure.statusCode !== undefined
+              ? `Not scored: target endpoint returned HTTP ${endpointFailure.statusCode}`
+              : 'Not scored: target endpoint did not return a response'}
+          </AlertTitle>
+          <Typography variant="body2">
+            No metrics were evaluated, because there was no response to evaluate
+            them against. See the Overview tab for what the endpoint returned.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>

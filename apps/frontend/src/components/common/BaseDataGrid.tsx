@@ -3,64 +3,47 @@ import React, {
   useEffect,
   useLayoutEffect,
   useCallback,
-  ReactNode,
   useRef,
 } from 'react';
 import {
   Box,
   Typography,
-  Button,
   Paper,
   styled,
   useTheme,
-  FormControl,
-  InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent,
-  ButtonGroup,
-  Popper,
-  Grow,
-  ClickAwayListener,
-  MenuList,
   CircularProgress,
-  TextField,
-  InputAdornment,
   Menu,
   alpha,
+  Checkbox,
+  Tooltip,
+  type CheckboxProps,
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
 import IconButton from '@mui/material/IconButton';
 import {
   DataGrid,
   GridColDef,
   GridPaginationModel,
   GridRowModel,
-  GridEditMode,
   GridDensity,
   GridRowSelectionModel,
-  GridToolbar,
-  GridToolbarQuickFilter,
   useGridApiRef,
   useGridApiContext,
   useGridSelector,
   gridPaginationModelSelector,
   gridRowCountSelector,
-  GridFilterModel,
   GridSortModel,
   GridInitialState,
   GridRowParams,
-  GridCellParams,
   GridColumnMenu,
+  gridClasses,
+  type GridColumnGroupingModel,
   type GridColumnMenuProps,
-  type GridToolbarProps,
 } from '@mui/x-data-grid';
 import type { SxProps, Theme } from '@mui/material/styles';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useGridStateStorage } from '@/hooks/useGridStateStorage';
@@ -86,65 +69,19 @@ export const GRID_PAPER_SX = {
   overflow: 'hidden',
 } as const;
 
-interface FilterOption {
-  value: string;
-  label: string;
-}
-
-interface FilterConfig {
-  name: string;
-  label: string;
-  filterField: string;
-  options: FilterOption[];
-  defaultValue: string;
-}
-
 interface BaseDataGridProps {
   columns: GridColDef[];
+  /** Header groups spanning several columns, e.g. to separate a case from a run. */
+  columnGroupingModel?: GridColumnGroupingModel;
   rows: GridRowModel[];
-  title?: string;
   loading?: boolean;
   getRowId?: (row: GridRowModel) => string | number;
-  showToolbar?: boolean;
   onRowClick?: (params: GridRowParams) => void;
   /** Per-row extra CSS class, e.g. to gently highlight a row with an unseen notification. */
   getRowClassName?: (params: GridRowParams) => string;
   density?: GridDensity;
   sx?: SxProps<Theme>;
   disableMultipleRowSelection?: boolean;
-  actionButtons?: {
-    href?: string;
-    label: string;
-    onClick?: () => void;
-    icon?: React.ReactNode;
-    variant?: 'text' | 'outlined' | 'contained';
-    color?:
-      | 'inherit'
-      | 'primary'
-      | 'secondary'
-      | 'success'
-      | 'error'
-      | 'info'
-      | 'warning';
-    disabled?: boolean;
-    splitButton?: {
-      options: {
-        label: string;
-        onClick: () => void;
-        disabled?: boolean;
-      }[];
-    };
-    dataTour?: string;
-  }[];
-  // CRUD related props
-  enableEditing?: boolean;
-  editMode?: GridEditMode;
-  processRowUpdate?: (
-    newRow: GridRowModel,
-    oldRow: GridRowModel
-  ) => Promise<GridRowModel> | GridRowModel;
-  onProcessRowUpdateError?: (error: unknown) => void;
-  isCellEditable?: (params: GridCellParams) => boolean;
   // Selection related props
   checkboxSelection?: boolean;
   disableRowSelectionOnClick?: boolean;
@@ -158,22 +95,12 @@ interface BaseDataGridProps {
    * default.
    */
   isRowSelectable?: (params: GridRowParams) => boolean;
-  // Filter related props
-  filters?: FilterConfig[];
-  filterHandler?: (filteredRows: GridRowModel[]) => void;
-  customToolbarContent?: ReactNode;
   /**
-   * Extra content rendered inside the DataGrid's built-in toolbar, immediately
-   * to the right of the standard Columns / Filters / Density / Export buttons
-   * (and to the left of the search input). Use this for filter toggles that
-   * conceptually belong next to the grid's existing filter UI rather than
-   * alongside the page-level action buttons.
+   * Tooltip shown on row checkboxes that `isRowSelectable` disabled — without
+   * it a greyed-out checkbox gives no reason, e.g. "Only the owner can delete
+   * this test run".
    */
-  gridToolbarExtra?: ReactNode;
-  // Server-side filtering props
-  serverSideFiltering?: boolean;
-  filterModel?: GridFilterModel;
-  onFilterModelChange?: (model: GridFilterModel) => void;
+  rowSelectionDisabledTooltip?: string;
   // Server-side sorting props
   sortingMode?: 'client' | 'server';
   sortModel?: GridSortModel;
@@ -195,9 +122,7 @@ interface BaseDataGridProps {
   paginationModel?: GridPaginationModel;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   pageSizeOptions?: number[];
-  // Quick filter props
-  enableQuickFilter?: boolean;
-  // Custom toolbar slot (overrides default CustomToolbarWithFilters when serverSideFiltering=true)
+  // Custom toolbar slot rendered inside the DataGrid (receives no props — read context)
   toolbarSlot?: React.ComponentType;
   // Styling props
   disablePaperWrapper?: boolean;
@@ -325,9 +250,11 @@ function isFixedWidthColumn(col: GridColDef): boolean {
  * - Explicit `flex` columns grow proportionally.
  * - `width` without `flex` is treated as a fixed cap (`maxWidth`).
  * - Unsized columns receive `flex: 1` to absorb remaining grid width.
+ * - When no column would receive flex, the first non-fixed column is
+ *   promoted to `flex: 1` so the grid always fills its container.
  */
 export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
-  return columns.map(col => {
+  const mapped = columns.map(col => {
     const field = String(col.field);
     const normalized =
       field === 'actions' ? { ...col, hideable: false } : { ...col };
@@ -353,6 +280,26 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
       minWidth: normalized.minWidth ?? 50,
     };
   });
+
+  const hasFlexColumn = mapped.some(col => col.flex != null && col.flex > 0);
+  if (!hasFlexColumn) {
+    const idx = columns.findIndex(
+      (orig, i) =>
+        !isFixedWidthColumn(mapped[i]) &&
+        orig.width != null &&
+        orig.maxWidth == null
+    );
+    if (idx !== -1) {
+      const { maxWidth: _mw, ...rest } = mapped[idx];
+      mapped[idx] = {
+        ...rest,
+        flex: 1,
+        minWidth: rest.minWidth ?? rest.width ?? 50,
+      };
+    }
+  }
+
+  return mapped;
 }
 
 // Create a styled version of DataGrid with Figma-aligned borders and headers
@@ -439,21 +386,6 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     },
   },
 }));
-
-function QuickFilterToolbar() {
-  return (
-    <Box
-      sx={{
-        px: '30px',
-        py: '16px',
-        display: 'flex',
-        justifyContent: 'flex-end',
-      }}
-    >
-      <GridToolbarQuickFilter debounceMs={300} />
-    </Box>
-  );
-}
 
 // Column menu that only shows sort actions (no Filter, no Hide/Manage columns).
 function SortOnlyColumnMenu(props: GridColumnMenuProps) {
@@ -608,34 +540,21 @@ function FigmaPaginationFooter() {
 
 export default function BaseDataGrid({
   columns,
+  columnGroupingModel,
   rows,
-  title,
   loading = false,
   getRowId,
-  showToolbar: _showToolbar = false,
   onRowClick,
   getRowClassName,
   density,
   sx: _sx,
   disableMultipleRowSelection,
-  actionButtons,
-  enableEditing = false,
-  editMode = 'row',
-  processRowUpdate,
-  onProcessRowUpdateError,
-  isCellEditable,
   checkboxSelection = false,
   disableRowSelectionOnClick,
   onRowSelectionModelChange,
   rowSelectionModel,
   isRowSelectable,
-  filters,
-  filterHandler,
-  customToolbarContent,
-  gridToolbarExtra,
-  serverSideFiltering = false,
-  filterModel,
-  onFilterModelChange,
+  rowSelectionDisabledTooltip,
   sortingMode = 'client',
   sortModel,
   onSortModelChange,
@@ -647,7 +566,6 @@ export default function BaseDataGrid({
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
-  enableQuickFilter = false,
   toolbarSlot,
   disablePaperWrapper = false,
   disableColumnResize = false,
@@ -758,6 +676,29 @@ export default function BaseDataGrid({
     };
   }, []);
 
+  // Wait for initialization and persisted state to be loaded before rendering DataGrid
+  // This ensures initialState is correctly set before the grid mounts
+  const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
+
+  // `flex` columns can render at a stale width until MUI re-measures after
+  // mount (known MUI issue, see mui/mui-x#3212, #19243) — wait two frames
+  // before revealing so that snap isn't visible.
+  const [columnsMeasured, setColumnsMeasured] = useState(false);
+  useLayoutEffect(() => {
+    if (!isReady) {
+      setColumnsMeasured(false);
+      return;
+    }
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setColumnsMeasured(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [isReady]);
+
   // Subscribe to state change events for persistence
   useEffect(() => {
     if (!persistState || !isInitialized || !apiRef.current) return;
@@ -804,79 +745,6 @@ export default function BaseDataGrid({
       unsubscribePagination();
     };
   }, [persistState, isInitialized, apiRef, handleStateChange]);
-
-  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
-  const [filteredRows, setFilteredRows] = useState<GridRowModel[]>(rows);
-
-  // Create refs and state for action buttons
-  const buttonRefs = React.useRef<
-    Array<React.RefObject<HTMLDivElement | null>>
-  >(
-    Array(actionButtons?.length || 0)
-      .fill(null)
-      .map(() => React.createRef<HTMLDivElement | null>())
-  );
-  const [openStates, setOpenStates] = React.useState<boolean[]>(
-    Array(actionButtons?.length || 0).fill(false)
-  );
-
-  // Initialize filter values on component mount
-  useEffect(() => {
-    if (filters && filters.length > 0) {
-      const initialValues: Record<string, string> = {};
-      filters.forEach(filter => {
-        initialValues[filter.name] = filter.defaultValue;
-      });
-      setFilterValues(initialValues);
-    }
-  }, [filters]);
-
-  // Update filtered rows when rows change
-  useEffect(() => {
-    if (!serverSidePagination) {
-      setFilteredRows(rows);
-    }
-  }, [rows, serverSidePagination]);
-
-  // Apply filters when rows or filter values change
-  useEffect(() => {
-    if (serverSidePagination || !filters || filters.length === 0) {
-      return;
-    }
-
-    const result = rows.filter(row => {
-      return filters.every(filter => {
-        const currentValue = filterValues[filter.name];
-        if (currentValue === 'all') return true;
-
-        const rowValue = filter.filterField
-          .split('.')
-          .reduce(
-            (obj: unknown, key: string) =>
-              obj && typeof obj === 'object' && key in obj
-                ? (obj as Record<string, unknown>)[key]
-                : undefined,
-            row
-          );
-
-        return rowValue === currentValue;
-      });
-    });
-
-    setFilteredRows(result);
-
-    if (filterHandler) {
-      filterHandler(result);
-    }
-  }, [rows, filterValues, filters, filterHandler, serverSidePagination]);
-
-  const handleFilterChange =
-    (filterName: string) => (event: SelectChangeEvent<string>) => {
-      setFilterValues(prev => ({
-        ...prev,
-        [filterName]: event.target.value,
-      }));
-    };
 
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -962,192 +830,38 @@ export default function BaseDataGrid({
     [resolveRowUrl, apiRef]
   );
 
-  const handleToggle = (index: number) => {
-    setOpenStates(prev => {
-      const newStates = [...prev];
-      newStates[index] = !newStates[index];
-      return newStates;
-    });
-  };
-
-  const handleClose = (event: Event, index: number) => {
-    if (
-      buttonRefs.current[index]?.current &&
-      buttonRefs.current[index].current?.contains(event.target as HTMLElement)
-    ) {
-      return;
-    }
-    setOpenStates(prev => {
-      const newStates = [...prev];
-      newStates[index] = false;
-      return newStates;
-    });
-  };
-
-  const handleMenuItemClick = (onClick: () => void, index: number) => {
-    onClick();
-    setOpenStates(prev => {
-      const newStates = [...prev];
-      newStates[index] = false;
-      return newStates;
-    });
-  };
-
-  // Refs for server-side filtering with stable toolbar
-  // Using uncontrolled input to avoid re-render/focus issues
-  const quickFilterInputRef = useRef<HTMLInputElement | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const onFilterModelChangeRef = useRef(onFilterModelChange);
-  const filterModelRef = useRef(filterModel);
-  const gridToolbarExtraRef = useRef(gridToolbarExtra);
-
-  // Keep callback refs up to date without causing re-renders
-  useEffect(() => {
-    onFilterModelChangeRef.current = onFilterModelChange;
-    filterModelRef.current = filterModel;
-    gridToolbarExtraRef.current = gridToolbarExtra;
-  });
-
-  // Sync input value with external filterModel changes (e.g., "Clear All Filters")
-  useEffect(() => {
-    if (!filterModel || !quickFilterInputRef.current) return;
-
-    const quickFilterItem = filterModel.items.find(
-      item => item.field === 'quickFilter' || item.field === '__quickFilter__'
-    );
-    const newValue = quickFilterItem?.value || '';
-
-    // Only update if different and not during active typing (debounce in progress)
-    if (
-      quickFilterInputRef.current.value !== newValue &&
-      !debounceTimerRef.current
-    ) {
-      quickFilterInputRef.current.value = newValue;
-    }
-  }, [filterModel]);
-
-  /**
-   * Handles quick filter input changes with debouncing.
-   * Updates the filter model after 300ms of inactivity.
-   */
-  const handleQuickFilterChange = useCallback(() => {
-    const value = quickFilterInputRef.current?.value || '';
-
-    // Clear existing debounce timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // Debounced filter model update
-    debounceTimerRef.current = setTimeout(() => {
-      debounceTimerRef.current = null;
-
-      if (onFilterModelChangeRef.current && filterModelRef.current) {
-        const otherFilters = filterModelRef.current.items.filter(
-          item =>
-            item.field !== 'quickFilter' && item.field !== '__quickFilter__'
+  // Row checkbox that explains why it is disabled. MUI marks a row's checkbox
+  // disabled from `isRowSelectable` but offers no way to say why, and the
+  // checkbox itself swallows pointer events while disabled — hence the span.
+  const TooltipCheckbox = React.useMemo(() => {
+    if (!rowSelectionDisabledTooltip) return undefined;
+    return React.forwardRef<HTMLButtonElement, CheckboxProps>(
+      function RowSelectionCheckbox(props, ref) {
+        const checkbox = <Checkbox {...props} ref={ref} />;
+        // baseCheckbox also renders the columns panel, where `disabled` means
+        // "column can't be hidden" — only selection checkboxes carry this class.
+        const isSelectionCheckbox = props.className?.includes(
+          gridClasses.checkboxInput
         );
-
-        const newFilterModel = {
-          ...filterModelRef.current,
-          items: value
-            ? [
-                ...otherFilters,
-                { field: 'quickFilter', operator: 'contains', value },
-              ]
-            : otherFilters,
-        };
-
-        onFilterModelChangeRef.current(newFilterModel);
+        // The header's select-all is disabled for a different reason
+        // (disableMultipleRowSelection), so it gets no tooltip. Unlike the
+        // class above, this name is internal to MUI: if it ever changes, a
+        // disabled header checkbox picks up the row wording, which is the
+        // worst that happens.
+        const isHeaderCheckbox =
+          (props.inputProps as { name?: string } | undefined)?.name ===
+          'select_all_rows';
+        if (!props.disabled || !isSelectionCheckbox || isHeaderCheckbox) {
+          return checkbox;
+        }
+        return (
+          <Tooltip title={rowSelectionDisabledTooltip}>
+            <span style={{ display: 'inline-flex' }}>{checkbox}</span>
+          </Tooltip>
+        );
       }
-    }, 300);
-  }, []);
-
-  /**
-   * Clears the quick filter input and updates the filter model immediately.
-   */
-  const handleQuickFilterClear = useCallback(() => {
-    if (quickFilterInputRef.current) {
-      quickFilterInputRef.current.value = '';
-    }
-
-    // Clear any pending debounce
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-
-    // Immediately update filter model
-    if (onFilterModelChangeRef.current && filterModelRef.current) {
-      const otherFilters = filterModelRef.current.items.filter(
-        item => item.field !== 'quickFilter' && item.field !== '__quickFilter__'
-      );
-      onFilterModelChangeRef.current({
-        ...filterModelRef.current,
-        items: otherFilters,
-      });
-    }
-  }, []);
-
-  /**
-   * Stable toolbar component using uncontrolled input.
-   * Created once and stored in ref to prevent remounting and focus loss.
-   * The input manages its own value via DOM, avoiding React state/re-render complexity.
-   */
-  const CustomToolbarWithFiltersRef =
-    useRef<React.JSXElementConstructor<GridToolbarProps> | null>(null);
-  if (!CustomToolbarWithFiltersRef.current) {
-    CustomToolbarWithFiltersRef.current = function CustomToolbar() {
-      return (
-        <Box
-          sx={{
-            px: '30px',
-            py: '16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <GridToolbar />
-            {gridToolbarExtraRef.current}
-          </Box>
-          <TextField
-            inputRef={quickFilterInputRef}
-            size="small"
-            placeholder="Search..."
-            defaultValue=""
-            onChange={handleQuickFilterChange}
-            sx={{ minWidth: 250 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={handleQuickFilterClear}
-                    aria-label="Clear search"
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-      );
-    };
-  }
-  const CustomToolbarWithFilters = CustomToolbarWithFiltersRef.current;
-
-  // Wait for initialization and persisted state to be loaded before rendering DataGrid
-  // This ensures initialState is correctly set before the grid mounts
-  const isReady = isInitialized && (!persistState || isPersistedStateLoaded);
+    );
+  }, [rowSelectionDisabledTooltip]);
 
   if (!isReady) {
     return (
@@ -1169,13 +883,16 @@ export default function BaseDataGrid({
   }
   if (toolbarSlot) {
     resolvedSlots.toolbar = toolbarSlot;
-  } else if (serverSideFiltering) {
-    resolvedSlots.toolbar = CustomToolbarWithFilters;
-  } else if (enableQuickFilter) {
-    resolvedSlots.toolbar = QuickFilterToolbar;
+  }
+  if (TooltipCheckbox) {
+    resolvedSlots.baseCheckbox = TooltipCheckbox;
   }
 
   const dataGridSx: SxProps<Theme> = [
+    // Toolbar/footer are siblings of .MuiDataGrid-main, so they stay visible.
+    !columnsMeasured && {
+      '& .MuiDataGrid-main': { visibility: 'hidden' },
+    },
     disableColumnResize && {
       '& .MuiDataGrid-columnSeparator': {
         display: 'none',
@@ -1193,339 +910,85 @@ export default function BaseDataGrid({
     ...(Array.isArray(_sx) ? _sx : _sx ? [_sx] : []),
   ].filter(Boolean) as SxProps<Theme>;
 
-  const hasHeaderContent = !!(
-    title ||
-    (filters && filters.length > 0) ||
-    (actionButtons && actionButtons.length > 0) ||
-    customToolbarContent
-  );
-
   const hasRowUrl = !!(getRowUrl || linkPath);
 
   return (
     <>
-      {hasHeaderContent && (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'flex-start',
-            alignItems: 'center',
-            mb: 2,
-            gap: 2,
-          }}
-        >
-          {title && (
-            <Typography variant="h6" component="h1">
-              {title}
-            </Typography>
-          )}
-
-          {filters && filters.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {filters.map(filter => (
-                <FormControl
-                  key={filter.name}
-                  variant="outlined"
-                  size="small"
-                  sx={{ minWidth: 150 }}
-                >
-                  <InputLabel id={`${filter.name}-label`}>
-                    {filter.label}
-                  </InputLabel>
-                  <Select
-                    labelId={`${filter.name}-label`}
-                    id={filter.name}
-                    value={filterValues[filter.name] || filter.defaultValue}
-                    onChange={handleFilterChange(filter.name)}
-                    label={filter.label}
-                  >
-                    {filter.options.map(option => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              ))}
-            </Box>
-          )}
-
-          {actionButtons && actionButtons.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {actionButtons.map((button, index) => {
-                if (button.splitButton) {
-                  const options = button.splitButton.options; // Extract options to satisfy TypeScript
-                  return (
-                    <React.Fragment key={button.label}>
-                      <ButtonGroup
-                        variant={button.variant || 'contained'}
-                        color={button.color || 'primary'}
-                        ref={buttonRefs.current[index]}
-                        aria-label="split button"
-                        disabled={button.disabled}
-                      >
-                        <Button
-                          onClick={button.onClick}
-                          startIcon={button.icon}
-                          disabled={button.disabled}
-                        >
-                          {button.label}
-                        </Button>
-                        <Button
-                          size="small"
-                          aria-controls={
-                            openStates[index] ? 'split-button-menu' : undefined
-                          }
-                          aria-expanded={openStates[index] ? 'true' : undefined}
-                          aria-label="select option"
-                          aria-haspopup="menu"
-                          onClick={() => handleToggle(index)}
-                          disabled={button.disabled}
-                        >
-                          <ArrowDropDownIcon />
-                        </Button>
-                      </ButtonGroup>
-                      <Popper
-                        sx={{
-                          zIndex: 1,
-                        }}
-                        open={openStates[index]}
-                        anchorEl={buttonRefs.current[index].current}
-                        role={undefined}
-                        transition
-                        disablePortal
-                      >
-                        {({ TransitionProps, placement }) => (
-                          <Grow
-                            {...TransitionProps}
-                            style={{
-                              transformOrigin:
-                                placement === 'bottom'
-                                  ? 'center top'
-                                  : 'center bottom',
-                            }}
-                          >
-                            <Paper>
-                              <ClickAwayListener
-                                onClickAway={event => handleClose(event, index)}
-                              >
-                                <MenuList id="split-button-menu" autoFocusItem>
-                                  {options.map(option => (
-                                    <MenuItem
-                                      key={option.label}
-                                      disabled={option.disabled}
-                                      onClick={() =>
-                                        handleMenuItemClick(
-                                          option.onClick,
-                                          index
-                                        )
-                                      }
-                                    >
-                                      {option.label}
-                                    </MenuItem>
-                                  ))}
-                                </MenuList>
-                              </ClickAwayListener>
-                            </Paper>
-                          </Grow>
-                        )}
-                      </Popper>
-                    </React.Fragment>
-                  );
-                }
-
-                return button.href ? (
-                  <Link
-                    key={button.label}
-                    href={button.href}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Button
-                      variant={button.variant || 'contained'}
-                      color={button.color || 'primary'}
-                      startIcon={button.icon}
-                      data-tour={button.dataTour}
-                      disabled={button.disabled}
-                    >
-                      {button.label}
-                    </Button>
-                  </Link>
-                ) : (
-                  <Button
-                    key={button.label}
-                    variant={button.variant || 'contained'}
-                    color={button.color || 'primary'}
-                    onClick={button.onClick}
-                    startIcon={button.icon}
-                    data-tour={button.dataTour}
-                    disabled={button.disabled}
-                  >
-                    {button.label}
-                  </Button>
-                );
-              })}
-            </Box>
-          )}
-          {customToolbarContent}
-        </Box>
-      )}
-
       <RowActionsHoverGrid enabled={hasActionsColumn}>
-        {rowActionsRootProps => (
-          <Box
-            onContextMenu={hasRowUrl ? handleContainerContextMenu : undefined}
-            onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
-            {...rowActionsRootProps}
-          >
-            {disablePaperWrapper ? (
-              <HideRowsPerPageBelowContext.Provider
-                value={hideRowsPerPageBelow}
-              >
-                <PaginationSizeContext.Provider value={pageSizeOptions}>
-                  <StyledDataGrid
-                    apiRef={apiRef}
-                    rows={serverSidePagination ? rows : filteredRows}
-                    columns={gridColumns}
-                    getRowId={getRowId}
-                    {...(autoHeight && { autoHeight: true })}
-                    pagination
-                    hideFooter={hideFooter}
-                    paginationMode={serverSidePagination ? 'server' : 'client'}
-                    rowCount={serverSidePagination ? totalRows : undefined}
-                    paginationModel={paginationModel}
-                    onPaginationModelChange={onPaginationModelChange}
-                    pageSizeOptions={pageSizeOptions}
-                    checkboxSelection={checkboxSelection}
-                    {...(checkboxSelection && {
-                      slotProps: {
-                        baseCheckbox: { color: 'primary' as const },
-                      },
-                    })}
-                    disableVirtualization={false}
-                    {...(hasActionsColumn && { columnBufferPx: 500 })}
-                    loading={loading}
-                    slots={resolvedSlots}
-                    sx={dataGridSx}
-                    onRowClick={
-                      enableEditing
-                        ? undefined
-                        : hasRowUrl || onRowClick
-                          ? handleRowClickWithLink
-                          : undefined
-                    }
-                    disableMultipleRowSelection={disableMultipleRowSelection}
-                    {...(density && { density })}
-                    {...(mergedInitialState && {
-                      initialState: mergedInitialState,
-                    })}
-                    {...(serverSideFiltering && {
-                      filterMode: 'server',
-                      filterModel,
-                      onFilterModelChange,
-                    })}
-                    {...(sortingMode === 'server' && {
-                      sortingMode: 'server',
-                      sortModel,
-                      onSortModelChange,
-                    })}
-                    {...(enableEditing && {
-                      editMode,
-                      processRowUpdate,
-                      onProcessRowUpdateError,
-                      isCellEditable,
-                    })}
-                    {...(onRowSelectionModelChange && {
-                      onRowSelectionModelChange,
-                    })}
-                    {...(rowSelectionModel !== undefined && {
-                      rowSelectionModel,
-                    })}
-                    {...(isRowSelectable && { isRowSelectable })}
-                    {...(getRowClassName && { getRowClassName })}
-                    {...(disableRowSelectionOnClick && {
-                      disableRowSelectionOnClick,
-                    })}
-                  />
-                </PaginationSizeContext.Provider>
-              </HideRowsPerPageBelowContext.Provider>
-            ) : (
-              <Paper elevation={0} sx={GRID_PAPER_SX}>
-                <HideRowsPerPageBelowContext.Provider
-                  value={hideRowsPerPageBelow}
-                >
-                  <PaginationSizeContext.Provider value={pageSizeOptions}>
-                    <StyledDataGrid
-                      apiRef={apiRef}
-                      rows={serverSidePagination ? rows : filteredRows}
-                      columns={gridColumns}
-                      getRowId={getRowId}
-                      {...(autoHeight && { autoHeight: true })}
-                      pagination
-                      hideFooter={hideFooter}
-                      paginationMode={
-                        serverSidePagination ? 'server' : 'client'
-                      }
-                      rowCount={serverSidePagination ? totalRows : undefined}
-                      paginationModel={paginationModel}
-                      onPaginationModelChange={onPaginationModelChange}
-                      pageSizeOptions={pageSizeOptions}
-                      checkboxSelection={checkboxSelection}
-                      {...(checkboxSelection && {
-                        slotProps: {
-                          baseCheckbox: { color: 'primary' as const },
-                        },
-                      })}
-                      disableVirtualization={false}
-                      {...(hasActionsColumn && { columnBufferPx: 500 })}
-                      loading={loading}
-                      slots={resolvedSlots}
-                      sx={dataGridSx}
-                      onRowClick={
-                        enableEditing
-                          ? undefined
-                          : hasRowUrl || onRowClick
-                            ? handleRowClickWithLink
-                            : undefined
-                      }
-                      disableMultipleRowSelection={disableMultipleRowSelection}
-                      {...(density && { density })}
-                      {...(mergedInitialState && {
-                        initialState: mergedInitialState,
-                      })}
-                      {...(serverSideFiltering && {
-                        filterMode: 'server',
-                        filterModel,
-                        onFilterModelChange,
-                      })}
-                      {...(sortingMode === 'server' && {
-                        sortingMode: 'server',
-                        sortModel,
-                        onSortModelChange,
-                      })}
-                      {...(enableEditing && {
-                        editMode,
-                        processRowUpdate,
-                        onProcessRowUpdateError,
-                        isCellEditable,
-                      })}
-                      {...(onRowSelectionModelChange && {
-                        onRowSelectionModelChange,
-                      })}
-                      {...(rowSelectionModel !== undefined && {
-                        rowSelectionModel,
-                      })}
-                      {...(isRowSelectable && { isRowSelectable })}
-                      {...(getRowClassName && { getRowClassName })}
-                      {...(disableRowSelectionOnClick && {
-                        disableRowSelectionOnClick,
-                      })}
-                    />
-                  </PaginationSizeContext.Provider>
-                </HideRowsPerPageBelowContext.Provider>
-              </Paper>
-            )}
-          </Box>
-        )}
+        {rowActionsRootProps => {
+          const grid = (
+            <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
+              <PaginationSizeContext.Provider value={pageSizeOptions}>
+                <StyledDataGrid
+                  apiRef={apiRef}
+                  rows={rows}
+                  columns={gridColumns}
+                  {...(columnGroupingModel && { columnGroupingModel })}
+                  getRowId={getRowId}
+                  {...(autoHeight && { autoHeight: true })}
+                  pagination
+                  hideFooter={hideFooter}
+                  paginationMode={serverSidePagination ? 'server' : 'client'}
+                  rowCount={serverSidePagination ? totalRows : undefined}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={onPaginationModelChange}
+                  pageSizeOptions={pageSizeOptions}
+                  checkboxSelection={checkboxSelection}
+                  {...(checkboxSelection && {
+                    slotProps: {
+                      baseCheckbox: { color: 'primary' as const },
+                    },
+                  })}
+                  disableVirtualization={false}
+                  {...(hasActionsColumn && { columnBufferPx: 500 })}
+                  loading={loading}
+                  slots={resolvedSlots}
+                  sx={dataGridSx}
+                  onRowClick={
+                    hasRowUrl || onRowClick ? handleRowClickWithLink : undefined
+                  }
+                  disableMultipleRowSelection={disableMultipleRowSelection}
+                  {...(density && { density })}
+                  {...(mergedInitialState && {
+                    initialState: mergedInitialState,
+                  })}
+                  {...(sortingMode === 'server' && {
+                    sortingMode: 'server',
+                    sortModel,
+                    onSortModelChange,
+                  })}
+                  {...(onRowSelectionModelChange && {
+                    onRowSelectionModelChange,
+                  })}
+                  {...(rowSelectionModel !== undefined && {
+                    rowSelectionModel,
+                  })}
+                  {...(isRowSelectable && { isRowSelectable })}
+                  {...(getRowClassName && { getRowClassName })}
+                  {...(disableRowSelectionOnClick && {
+                    disableRowSelectionOnClick,
+                  })}
+                />
+              </PaginationSizeContext.Provider>
+            </HideRowsPerPageBelowContext.Provider>
+          );
+
+          return (
+            <Box
+              onContextMenu={hasRowUrl ? handleContainerContextMenu : undefined}
+              onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
+              {...rowActionsRootProps}
+            >
+              {disablePaperWrapper ? (
+                grid
+              ) : (
+                <Paper elevation={0} sx={GRID_PAPER_SX}>
+                  {grid}
+                </Paper>
+              )}
+            </Box>
+          );
+        }}
       </RowActionsHoverGrid>
 
       <Menu
@@ -1554,5 +1017,3 @@ export default function BaseDataGrid({
     </>
   );
 }
-
-export type { FilterOption, FilterConfig };

@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { sourceKeys } from '@/constants/query-keys';
 import { Box, Alert } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -22,16 +20,26 @@ import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import type { Source } from '@/utils/api-client/interfaces/source';
 
-export default function KnowledgeClientWrapper() {
+interface KnowledgeClientWrapperProps {
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: Source[];
+  initialTotalCount?: number;
+}
+
+export default function KnowledgeClientWrapper({
+  initialData,
+  initialTotalCount,
+}: KnowledgeClientWrapperProps) {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Source.READ
   );
   const canCreateSource = useCan(Capability.Source.CREATE);
   const { status } = useSession();
-  const queryClient = useQueryClient();
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [toolImportDrawerOpen, setToolImportDrawerOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
     useBulkActionsBridge();
 
@@ -39,13 +47,13 @@ export default function KnowledgeClientWrapper() {
 
   const handleUploadSuccess = useCallback(() => {
     setUploadDrawerOpen(false);
-    queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-  }, [queryClient]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const handleMcpImportSuccess = useCallback(() => {
     setToolImportDrawerOpen(false);
-    queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-  }, [queryClient]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   if (!isAuthenticated(status)) {
     return (
@@ -115,6 +123,9 @@ export default function KnowledgeClientWrapper() {
             canCreate={canCreateSource}
             onCreateClick={() => setUploadDrawerOpen(true)}
             onBulkActionsChange={handleBulkActionsChange}
+            initialData={initialData}
+            initialTotalCount={initialTotalCount}
+            refreshTrigger={refreshTrigger}
           />
         </Box>
       </PageLayout>

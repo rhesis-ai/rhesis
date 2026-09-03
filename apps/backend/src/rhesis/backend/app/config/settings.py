@@ -356,6 +356,25 @@ class JobRetentionSettings(BaseSettings):
     retention_days: int = Field(default=90, alias="JOB_RETENTION_DAYS", gt=0)
 
 
+class TraceRetentionSettings(BaseSettings):
+    """Retention sweep for trace (span) rows, per-tier.
+
+    Disabled by default. When enabled, the sweep hard-deletes traces past
+    each org's tier-resolved retention window (``QuotaPolicy.retention_days``).
+    Starts in dry-run mode so the blast radius is visible before anything is
+    actually deleted.
+
+    ``TRACE_RETENTION_DAYS`` overrides the tier value for every org when set,
+    useful for self-hosted deployments without the EE tier system.
+    """
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    enabled: bool = Field(default=False, alias="TRACE_RETENTION_ENABLED")
+    dry_run: bool = Field(default=True, alias="TRACE_RETENTION_DRY_RUN")
+    override_days: int | None = Field(default=None, alias="TRACE_RETENTION_DAYS", gt=0)
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     return DatabaseSettings()
@@ -419,3 +438,8 @@ def get_telemetry_settings() -> TelemetrySettings:
 @lru_cache
 def get_job_retention_settings() -> JobRetentionSettings:
     return JobRetentionSettings()
+
+
+@lru_cache
+def get_trace_retention_settings() -> TraceRetentionSettings:
+    return TraceRetentionSettings()

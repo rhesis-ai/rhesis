@@ -113,6 +113,11 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
             sx={{
               flex: 1,
               minHeight: 0,
+              minWidth: 0,
+              // Contained here, not on `main`, so a page whose content is
+              // wider than the viewport scrolls only its body -- the
+              // header above (breadcrumbs, title, FABs) stays put.
+              overflowX: 'auto',
               ...(fullBleed
                 ? {
                     p: 0,

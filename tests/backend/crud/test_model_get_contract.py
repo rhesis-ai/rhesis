@@ -14,7 +14,6 @@ from rhesis.backend.app.schemas.model import ModelCreate
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestGetModelSoftDeleteContract:
     def test_get_model_returns_none_for_deleted(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str

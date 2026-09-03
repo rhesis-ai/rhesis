@@ -12,6 +12,7 @@ import { sectionCardGridBleedSx } from '@/components/common/GridToolbar';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import TeamInviteDrawer from '../../team/components/TeamInviteDrawer';
 import TeamMembersGrid from '../../team/components/TeamMembersGrid';
 
@@ -20,6 +21,7 @@ export default function TeamTab() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
   const { markStepComplete, progress, activeTour } = useOnboarding();
+  const { initialTeam } = useOrgSettings();
 
   const handleTotalCountChange = React.useCallback(
     (count: number) => {
@@ -75,6 +77,8 @@ export default function TeamTab() {
           <TeamMembersGrid
             refreshTrigger={refreshTrigger}
             onTotalCountChange={handleTotalCountChange}
+            initialData={initialTeam?.data}
+            initialTotalCount={initialTeam?.totalCount}
           />
         </Box>
       </SectionCard>

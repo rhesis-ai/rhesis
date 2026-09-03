@@ -33,7 +33,6 @@ def test_database_url_configuration():
 
 
 @pytest.mark.integration
-@pytest.mark.database
 def test_database_connection(test_db):
     """🔗 Test that database connection works with test database."""
     # Verify we can execute a simple query
@@ -49,7 +48,6 @@ def test_database_connection(test_db):
 
 
 @pytest.mark.integration
-@pytest.mark.database
 def test_test_data_manager(test_db):
     """👥 Test the TestDataManager utility."""
     manager = TestDataManager(test_db)
@@ -92,7 +90,6 @@ def test_different_database_urls():
 
 
 @pytest.mark.integration
-@pytest.mark.database
 def test_fastapi_client_database_integration(client):
     """🌐 Test that FastAPI client uses test database."""
     # Make a request that would interact with the database

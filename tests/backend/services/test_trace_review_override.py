@@ -5,11 +5,11 @@ Tests the apply/revert/recalculate logic for human review overrides
 on trace_metrics JSONB data.
 """
 
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.backend.app.outcomes import Execution, Verdict
 from rhesis.backend.app.services.trace_review_override import (
     _apply_metric_override,
     _find_metric_in_trace_metrics,
@@ -92,7 +92,7 @@ class TestGetAllTraceMetricValues:
         assert len(result) == 3
 
     def test_empty_trace_metrics(self):
-        assert _get_all_trace_metric_values({}) == []
+        assert _get_all_trace_metric_values({}) == {}
 
     def test_only_turn_metrics(self):
         data = {"turn_metrics": {"metrics": {"m1": {"is_successful": True}}}}
@@ -143,17 +143,13 @@ class TestApplyMetricOverride:
 
 
 class TestApplyReviewOverride:
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
+    @patch("rhesis.backend.app.services.trace_review_override._set_pass_fail_status")
     def test_trace_target_sets_status(self, mock_set_status, mock_trace, mock_user):
-        apply_review_override(
-            mock_trace, "trace", None, {"name": "Pass"}, mock_user, "rev-1"
-        )
+        apply_review_override(mock_trace, "trace", None, {"name": "Pass"}, mock_user, "rev-1")
         mock_set_status.assert_called_once_with(mock_trace, True)
 
     @patch("rhesis.backend.app.services.trace_review_override.recalculate_overall_status")
-    def test_metric_target_overrides_and_recalculates(
-        self, mock_recalc, mock_trace, mock_user
-    ):
+    def test_metric_target_overrides_and_recalculates(self, mock_recalc, mock_trace, mock_user):
         apply_review_override(
             mock_trace, "metric", "relevance", {"name": "Pass"}, mock_user, "rev-1"
         )
@@ -199,9 +195,7 @@ class TestRevertMetricOverride:
         assert metric["is_successful"] is True
         assert metric["override"]["review_id"] == "rev-1"
 
-    def test_revert_replacement_matches_original_clears_override(
-        self, mock_trace, mock_user
-    ):
+    def test_revert_replacement_matches_original_clears_override(self, mock_trace, mock_user):
         _apply_metric_override(mock_trace, "relevance", True, "rev-1", mock_user, "now")
 
         replacement = {
@@ -218,7 +212,7 @@ class TestRevertMetricOverride:
 
 class TestRevertOverride:
     @patch("rhesis.backend.app.services.trace_review_override.recalculate_overall_status")
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
+    @patch("rhesis.backend.app.services.trace_review_override._set_pass_fail_status")
     def test_revert_trace_with_remaining_reviews(
         self, mock_set_status, mock_recalc, mock_trace, mock_user
     ):
@@ -234,7 +228,7 @@ class TestRevertOverride:
         mock_recalc.assert_not_called()
 
     @patch("rhesis.backend.app.services.trace_review_override.recalculate_overall_status")
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
+    @patch("rhesis.backend.app.services.trace_review_override._set_pass_fail_status")
     def test_revert_trace_no_remaining_recalculates(
         self, mock_set_status, mock_recalc, mock_trace, mock_user
     ):
@@ -244,8 +238,8 @@ class TestRevertOverride:
 
 
 class TestRecalculateOverallStatus:
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
-    def test_all_passed_sets_pass(self, mock_set_status):
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_all_passed_sets_pass(self, mock_apply):
         trace = MagicMock()
         trace.trace_metrics = {
             "turn_metrics": {
@@ -257,10 +251,10 @@ class TestRecalculateOverallStatus:
             "conversation_metrics": {"metrics": {}},
         }
         recalculate_overall_status(trace)
-        mock_set_status.assert_called_once_with(trace, True)
+        mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.PASS)
 
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
-    def test_one_failed_sets_fail(self, mock_set_status):
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_one_failed_sets_fail(self, mock_apply):
         trace = MagicMock()
         trace.trace_metrics = {
             "turn_metrics": {
@@ -272,24 +266,84 @@ class TestRecalculateOverallStatus:
             "conversation_metrics": {"metrics": {}},
         }
         recalculate_overall_status(trace)
-        mock_set_status.assert_called_once_with(trace, False)
+        mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.FAIL)
 
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
-    def test_no_metrics_no_op(self, mock_set_status):
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_no_metrics_resets_to_error(self, mock_apply):
+        """Was a no-op, which left the row stuck at whatever a
+        just-deleted review had set it to. Nothing evaluated means Error.
+        """
         trace = MagicMock()
-        trace.trace_metrics = {"turn_metrics": {"metrics": {}}, "conversation_metrics": {"metrics": {}}}
+        trace.trace_metrics = {
+            "turn_metrics": {"metrics": {}},
+            "conversation_metrics": {"metrics": {}},
+        }
         recalculate_overall_status(trace)
-        mock_set_status.assert_not_called()
+        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
 
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
-    def test_none_trace_metrics_no_op(self, mock_set_status):
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_none_trace_metrics_resets_to_error(self, mock_apply):
         trace = MagicMock()
         trace.trace_metrics = None
         recalculate_overall_status(trace)
-        mock_set_status.assert_not_called()
+        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
 
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
-    def test_failed_turn_override_sets_fail(self, mock_set_status):
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_reviewed_crashed_metric_can_leave_error(self, mock_apply, mock_user):
+        """A metric that crashed carries an `error` key, which
+        classify_metrics reads as ERROR regardless of is_successful. Once a
+        human overrides it to pass, that key is stashed on the override so
+        the trace can actually reach PASS.
+        """
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {
+                "metrics": {
+                    "m1": {"is_successful": False, "error": "judge timed out"},
+                }
+            },
+            "conversation_metrics": {"metrics": {}},
+        }
+
+        _apply_metric_override(
+            trace, "m1", True, "review-1", mock_user, "2026-01-01T00:00:00+00:00"
+        )
+
+        metric = trace.trace_metrics["turn_metrics"]["metrics"]["m1"]
+        assert "error" not in metric
+        assert metric["override"]["original_error"] == "judge timed out"
+
+        recalculate_overall_status(trace)
+        mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.PASS)
+
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_reverting_that_override_restores_the_crash(self, mock_apply, mock_user):
+        """Symmetric with the stash above: deleting the review must put the
+        `error` key back, or the metric stays quietly "resolved" forever.
+        """
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {
+                "metrics": {
+                    "m1": {"is_successful": False, "error": "judge timed out"},
+                }
+            },
+            "conversation_metrics": {"metrics": {}},
+        }
+
+        _apply_metric_override(
+            trace, "m1", True, "review-1", mock_user, "2026-01-01T00:00:00+00:00"
+        )
+        _revert_metric_override(trace, "m1", "review-1", None)
+
+        metric = trace.trace_metrics["turn_metrics"]["metrics"]["m1"]
+        assert metric["error"] == "judge timed out"
+        assert metric["is_successful"] is False
+        assert "override" not in metric
+        mock_apply.assert_not_called()
+
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_failed_turn_override_sets_fail(self, mock_apply):
         """Even if all metrics pass, a failed turn override should result in Fail."""
         trace = MagicMock()
         trace.trace_metrics = {
@@ -305,20 +359,47 @@ class TestRecalculateOverallStatus:
             },
         }
         recalculate_overall_status(trace)
-        mock_set_status.assert_called_once_with(trace, False)
+        mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.FAIL)
 
-    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
-    def test_all_pass_with_passing_turn_override(self, mock_set_status):
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_all_pass_with_passing_turn_override(self, mock_apply):
         """All metrics pass and turn overrides also pass -> overall Pass."""
         trace = MagicMock()
         trace.trace_metrics = {
-            "turn_metrics": {
-                "metrics": {"m1": {"is_successful": True}}
-            },
+            "turn_metrics": {"metrics": {"m1": {"is_successful": True}}},
             "conversation_metrics": {"metrics": {}},
             "turn_overrides": {
                 "1": {"success": True, "override": {"original_value": False, "review_id": "r2"}},
             },
         }
         recalculate_overall_status(trace)
-        mock_set_status.assert_called_once_with(trace, True)
+        mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.PASS)
+
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_crashed_metric_sets_error_not_fail(self, mock_apply):
+        """A metric with an error key must read as Error, not silently
+        collapse into Fail the way the old all(is_successful) check did.
+        """
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {"metrics": {"m1": {"is_successful": False, "error": "timeout"}}},
+            "conversation_metrics": {"metrics": {}},
+        }
+        recalculate_overall_status(trace)
+        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
+
+    @patch("rhesis.backend.app.services.trace_review_override._apply_outcome")
+    def test_error_not_masked_by_passing_turn_override(self, mock_apply):
+        """A turn override can only pull a PASS down to FAIL, never paper
+        over an unaddressed Error elsewhere.
+        """
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {"metrics": {"m1": {"is_successful": False, "error": "timeout"}}},
+            "conversation_metrics": {"metrics": {}},
+            "turn_overrides": {
+                "1": {"success": True, "override": {"original_value": False, "review_id": "r1"}},
+            },
+        }
+        recalculate_overall_status(trace)
+        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)

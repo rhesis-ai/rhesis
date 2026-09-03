@@ -1,59 +1,37 @@
 'use client';
 
-import React, { useState, useCallback, useContext, useMemo } from 'react';
-import {
-  GridColDef,
-  GridFilterModel,
-  GridRowParams,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid, { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import React, { useCallback, useMemo } from 'react';
+import { GridColDef } from '@mui/x-data-grid';
+import { Typography, Box, Avatar } from '@mui/material';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import EntityGrid, {
+  type EntityGridDrawerAdapter,
+  type EntityGridFilterState,
+} from '@/components/common/EntityGrid';
+import GridBadge from '@/components/common/GridBadge';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { Task } from '@/utils/api-client/interfaces/task';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
-import { Typography, Box, Alert, Avatar, Paper } from '@mui/material';
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import SelectionModeToggle from '@/components/common/SelectionModeToggle';
-import GridBadge from '@/components/common/GridBadge';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { combineTaskFiltersToOData } from '@/utils/odata-filter';
+import { NotificationSection } from '@/constants/notifications';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { tasksList } from './list';
 import TaskFilterDrawer, {
   type TaskFilters,
   EMPTY_TASK_FILTERS,
-  hasActiveTaskFilters,
   countActiveTaskFilters,
 } from './TaskFilterDrawer';
-import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications as useJobNotifications } from '@/contexts/NotificationsContext';
-import {
-  HIGHLIGHTED_ROW_CLASS,
-  NotificationSection,
-} from '@/constants/notifications';
-import { taskKeys } from '@/constants/query-keys';
-import {
-  useBulkDelete,
-  type BulkDeleteActionsState,
-} from '@/hooks/useBulkDelete';
-import { useGridState } from '@/hooks/useGridState';
-import { useGridQuery } from '@/hooks/useGridQuery';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import GridStateGate from '@/components/common/GridStateGate';
-import EntityEmptyState from '@/components/common/EntityEmptyState';
 
 interface TasksGridProps {
   canCreate?: boolean;
   onCreateClick?: () => void;
   onBulkActionsChange?: (actions: BulkDeleteActionsState) => void;
+  /** Bumped by the page after a create succeeds, to trigger a re-fetch. */
+  refreshTrigger?: number;
+  /** Server-fetched first page — when present, skips the initial client fetch. */
+  initialData?: Task[];
+  initialTotalCount?: number;
 }
 
 const STATUS_PILL_TABS = [
@@ -62,225 +40,53 @@ const STATUS_PILL_TABS = [
   { label: 'In Progress', value: 'In Progress' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Cancelled', value: 'Cancelled' },
-] as const;
+];
 
-interface TasksToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  statusFilter: string;
-  setStatusFilter: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-  checkboxSelectionMode: boolean;
-  setCheckboxSelectionMode: (v: boolean) => void;
+// A pill click wins over the drawer's own status value (the pill is applied
+// after drawer filters).
+function toFilters(state: EntityGridFilterState<TaskFilters>) {
+  return {
+    search: state.search,
+    status: state.pill || state.drawer.status,
+    priority: state.drawer.priority,
+    assignee: state.drawer.assignee,
+  };
 }
 
-const TasksToolbarContext = React.createContext<TasksToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  statusFilter: 'all',
-  setStatusFilter: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-  checkboxSelectionMode: false,
-  setCheckboxSelectionMode: () => {},
-});
-
-function TasksUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-  } = useContext(TasksToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search tasks…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      middleContent={
-        <ToolbarPillTabs
-          tabs={[...STATUS_PILL_TABS]}
-          activeValue={statusFilter}
-          onChange={setStatusFilter}
-        />
-      }
-      rightContent={
-        <>
-          <SelectionModeToggle
-            checked={checkboxSelectionMode}
-            onChange={setCheckboxSelectionMode}
-            label="Select tasks"
-          />
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
+const drawerAdapter: EntityGridDrawerAdapter<TaskFilters> = {
+  empty: EMPTY_TASK_FILTERS,
+  countActive: countActiveTaskFilters,
+  render: props => (
+    <TaskFilterDrawer
+      open={props.open}
+      onClose={props.onClose}
+      filters={props.filters}
+      onApply={props.onApply}
     />
-  );
-}
+  ),
+  // Applying a status in the drawer syncs the pill; clearing it resets the
+  // pill only when no drawer status was active before.
+  pillFromApply: (applied, previous) =>
+    applied.status ? applied.status : !previous.status ? '' : undefined,
+};
 
 export default function TasksGrid({
   canCreate,
   onCreateClick,
   onBulkActionsChange,
+  refreshTrigger,
+  initialData,
+  initialTotalCount,
 }: TasksGridProps) {
-  const router = useRouter();
-  const { highlightedIds, clearHighlight } = useJobNotifications();
-  const { status } = useSession();
+  const getRowUrl = useCallback((row: Task) => `/tasks/${row.id}`, []);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] =
-    useState<TaskFilters>(EMPTY_TASK_FILTERS);
-
-  const {
-    checkboxSelectionMode,
-    setCheckboxSelectionMode,
-    selectedRows,
-    handleSelectionChange,
-    pendingDeleteId,
-    deleteModalOpen,
-    isDeleting,
-    requestDelete,
-    confirmDelete,
-    cancelDelete,
-  } = useBulkDelete({
-    bulkDeleteFn: (ids: string[]) =>
-      new ApiClientFactory().getTasksClient().bulkDeleteTasks(ids),
-    queryKey: taskKeys.all(),
-    itemLabelSingular: 'task',
-    itemLabelPlural: 'tasks',
-    getSkippedCount: response => response.forbidden_ids.length,
-    skippedReason: 'not yours to delete',
-    onBulkActionsChange,
-  });
-
-  const {
-    filterModel,
-    gridFilterModel,
-    paginationModel,
-    sortModel,
-    setPaginationModel,
-    handlePaginationModelChange,
-    handleFilterModelChange,
-    handleSortModelChange,
-  } = useGridState({
-    searchQuery,
-    typeFilter: statusFilter,
-    typeFilterField: 'status',
-    applyDrawerFilters: useCallback(
-      (prev: GridFilterModel) => {
-        const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
-        const otherItems = prev.items.filter(
-          item => !DRAWER_FIELDS.includes(item.field ?? '')
-        );
-        const drawerItems: typeof prev.items = [];
-        if (drawerFilters.status) {
-          drawerItems.push({
-            id: 'status',
-            field: 'status',
-            operator: 'equals',
-            value: drawerFilters.status,
-          });
-        }
-        if (drawerFilters.priority) {
-          drawerItems.push({
-            id: 'priority',
-            field: 'priority',
-            operator: 'equals',
-            value: drawerFilters.priority,
-          });
-        }
-        if (drawerFilters.assignee) {
-          drawerItems.push({
-            id: 'assignee',
-            field: 'assignee',
-            operator: 'equals',
-            value: drawerFilters.assignee,
-          });
-        }
-        const newItems = [...otherItems, ...drawerItems];
-        if (
-          newItems.length === prev.items.length &&
-          newItems.every((it, i) => it === prev.items[i])
-        )
-          return prev;
-        return { ...prev, items: newItems };
-      },
-      [drawerFilters]
-    ),
-  });
-
-  const filterString = combineTaskFiltersToOData(filterModel);
-  const {
-    data: tasksData,
-    isLoading: loading,
-    errorMessage: error,
-    dismissError,
-  } = useGridQuery({
-    queryKey: taskKeys.list(
-      filterString,
-      paginationModel.page,
-      paginationModel.pageSize,
-      'created_at',
-      'desc'
-    ),
-    errorFallbackMessage: 'Failed to load tasks',
-    queryFn: () => {
-      const client = new ApiClientFactory().getTasksClient();
-      return client.getTasks({
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-        ...(filterString && { $filter: filterString }),
-      });
-    },
-    enabled: isAuthenticated(status),
-    // Always refetch when the list is opened -- a task assigned to you while
-    // you were elsewhere must show up on arrival. See the same note in
-    // TestSetsGrid.
-    staleTime: 0,
-  });
-  const tasks: Task[] = tasksData?.data ?? [];
-  const totalCount = tasksData?.pagination.totalCount ?? 0;
-
-  const handleRowClick = useCallback(
-    (params: GridRowParams) => {
-      clearHighlight(NotificationSection.TASKS, String(params.id));
-      router.push(`/tasks/${params.id}`);
-    },
-    [router, clearHighlight]
-  );
-
-  const columns: GridColDef[] = useMemo(() => {
-    const actionsCol = createRowActionsColumn({
-      onEdit: id => router.push(`/tasks/${id}`),
-      canEdit: row => can(row as unknown as Task, Capability.Task.UPDATE),
-      onDelete: id => requestDelete(id),
-      canDelete: row => can(row as unknown as Task, Capability.Task.DELETE),
-    });
-    return [
+  const columns: GridColDef[] = useMemo(
+    () => [
       {
         field: 'title',
         headerName: 'Title',
-        width: 300,
+        flex: 3,
         minWidth: 150,
-        resizable: true,
         renderCell: params => (
           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
             {params.row.title}
@@ -290,9 +96,8 @@ export default function TasksGrid({
       {
         field: 'description',
         headerName: 'Description',
-        width: 400,
+        flex: 4,
         minWidth: 150,
-        resizable: true,
         renderCell: params => (
           <Typography
             variant="body2"
@@ -312,7 +117,8 @@ export default function TasksGrid({
         headerName: 'Status',
         width: 120,
         minWidth: 90,
-        resizable: true,
+        flex: 0,
+        sortable: false,
         renderCell: params => (
           <GridBadge label={params.row.status?.name || 'Unknown'} />
         ),
@@ -320,9 +126,9 @@ export default function TasksGrid({
       {
         field: 'assignee',
         headerName: 'Assignee',
-        width: 150,
+        flex: 1.5,
         minWidth: 120,
-        resizable: true,
+        sortable: false,
         renderCell: params => {
           if (!params.row.assignee?.name) {
             return null;
@@ -348,20 +154,15 @@ export default function TasksGrid({
           );
         },
       },
-      actionsCol,
-    ];
-  }, [router, requestDelete]);
-
-  const filtersActive =
-    filterModel.items.length > 0 ||
-    !!searchQuery ||
-    hasActiveTaskFilters(drawerFilters);
+    ],
+    []
+  );
 
   return (
-    <GridStateGate
-      data={tasksData}
-      error={error}
-      isEmpty={totalCount === 0 && !filtersActive}
+    <EntityGrid<Task, typeof tasksList.filters, TaskFilters>
+      descriptor={tasksList}
+      columns={columns}
+      toFilters={toFilters}
       emptyState={
         <EntityEmptyState
           icon={AssignmentOutlinedIcon}
@@ -371,100 +172,19 @@ export default function TasksGrid({
           onAction={canCreate ? onCreateClick : undefined}
         />
       }
-    >
-      <Paper sx={GRID_PAPER_SX}>
-        <TasksToolbarContext.Provider
-          value={{
-            searchQuery,
-            setSearchQuery,
-            statusFilter,
-            setStatusFilter,
-            openFilterDrawer: () => setFilterDrawerOpen(true),
-            hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
-            activeFilterCount: countActiveTaskFilters(drawerFilters),
-            checkboxSelectionMode,
-            setCheckboxSelectionMode,
-          }}
-        >
-          <Box sx={{ position: 'relative' }}>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-                {error}
-              </Alert>
-            )}
-
-            <BaseDataGrid
-              rows={tasks}
-              columns={columns}
-              loading={loading}
-              getRowId={row => row.id}
-              paginationModel={paginationModel}
-              onPaginationModelChange={handlePaginationModelChange}
-              filterModel={gridFilterModel}
-              onFilterModelChange={handleFilterModelChange}
-              disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-              onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
-              getRowClassName={params =>
-                highlightedIds(NotificationSection.TASKS).includes(
-                  String(params.id)
-                )
-                  ? HIGHLIGHTED_ROW_CLASS
-                  : ''
-              }
-              serverSidePagination={true}
-              totalRows={totalCount}
-              pageSizeOptions={[10, 25, 50, 100]}
-              serverSideFiltering={true}
-              showToolbar={true}
-              toolbarSlot={TasksUnifiedToolbar}
-              disablePaperWrapper={true}
-              persistState
-              sx={{
-                ...rowActionsHoverSx,
-                '& .MuiDataGrid-row': {
-                  cursor: 'pointer',
-                },
-              }}
-              checkboxSelection={checkboxSelectionMode}
-              isRowSelectable={(params: GridRowParams) =>
-                can(params.row as unknown as Task, Capability.Task.DELETE)
-              }
-              rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-              onRowSelectionModelChange={
-                checkboxSelectionMode ? handleSelectionChange : undefined
-              }
-            />
-
-            <DeleteModal
-              open={deleteModalOpen}
-              onClose={cancelDelete}
-              onConfirm={confirmDelete}
-              isLoading={isDeleting}
-              title={pendingDeleteId ? 'Delete Task' : 'Delete Tasks'}
-              message={
-                pendingDeleteId
-                  ? 'Are you sure you want to delete this task? This action cannot be undone.'
-                  : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? This action cannot be undone.`
-              }
-              itemType="tasks"
-            />
-
-            <TaskFilterDrawer
-              open={filterDrawerOpen}
-              onClose={() => setFilterDrawerOpen(false)}
-              filters={drawerFilters}
-              onApply={f => {
-                setDrawerFilters(f);
-                if (f.status) {
-                  setStatusFilter(f.status);
-                } else if (!drawerFilters.status) {
-                  setStatusFilter('all');
-                }
-              }}
-            />
-          </Box>
-        </TasksToolbarContext.Provider>
-      </Paper>
-    </GridStateGate>
+      initialData={initialData}
+      initialTotalCount={initialTotalCount}
+      refreshTrigger={refreshTrigger}
+      searchPlaceholder="Search tasks…"
+      pills={{ tabs: STATUS_PILL_TABS }}
+      drawer={drawerAdapter}
+      selectionLabel="Select tasks"
+      getRowUrl={getRowUrl}
+      highlightSection={NotificationSection.TASKS}
+      editAction={{ can: (row: Task) => can(row, Capability.Task.UPDATE) }}
+      onBulkActionsChange={onBulkActionsChange}
+      pageSizeOptions={[10, 25, 50, 100]}
+      sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+    />
   );
 }

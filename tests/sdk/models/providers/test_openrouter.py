@@ -2,7 +2,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from rhesis.sdk.models.providers.openrouter import (
     DEFAULT_MODEL_NAME,
@@ -123,7 +123,7 @@ class TestOpenRouterLLM:
         llm = OpenRouterLLM(api_key="test_key")
         prompt = "Generate a person's information"
 
-        with pytest.raises(Exception):  # Should raise validation error
+        with pytest.raises(ValidationError):  # Should raise validation error
             llm.generate(prompt, schema=TestSchema)
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")

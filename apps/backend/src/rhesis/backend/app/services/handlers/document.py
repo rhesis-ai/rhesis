@@ -31,7 +31,7 @@ class DocumentHandler(BaseSourceHandler):
         file: UploadFile,
         organization_id: str,
         source_id: str,
-        user_id: str = None,
+        user_id: str | None = None,
         db_session=None,
     ) -> dict:
         """
@@ -125,8 +125,8 @@ class DocumentHandler(BaseSourceHandler):
         content: bytes,
         filename: str,
         file_path: str,
-        user_id: str = None,
-        organization_id: str = None,
+        user_id: str | None = None,
+        organization_id: str | None = None,
         db_session=None,
     ) -> dict:
         """Extract file metadata (file-specific information only)."""

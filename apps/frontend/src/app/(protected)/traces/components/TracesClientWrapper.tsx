@@ -3,7 +3,6 @@
 import React, { useCallback, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Paper } from '@mui/material';
 import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -13,23 +12,28 @@ import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TracesClient from './TracesClient';
+import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { traceKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 interface TracesClientWrapperProps {
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
+  /** Server-fetched first page -- when present, skips the initial client fetch. */
+  initialData?: TraceSummary[];
+  initialTotalCount?: number;
 }
 
 export default function TracesClientWrapper({
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
+  initialData,
+  initialTotalCount = 0,
 }: TracesClientWrapperProps) {
   const { status } = useSession();
   const searchParams = useSearchParams();
@@ -38,14 +42,19 @@ export default function TracesClientWrapper({
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Telemetry.READ
   );
-  const queryClient = useQueryClient();
-  const [showEmptyHint, setShowEmptyHint] = useState(false);
+  // Decided on first render when the server already fetched page 1, so an
+  // empty project shows the empty state straight away instead of a grid
+  // skeleton that swaps out once the client fetch lands.
+  const [showEmptyHint, setShowEmptyHint] = useState(
+    initialData !== undefined && initialTotalCount === 0 && !initialProjectId
+  );
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useDocumentTitle('Traces');
 
   const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: traceKeys.all() });
-  }, [queryClient]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const handleUnfilteredEmpty = useCallback((empty: boolean) => {
     setShowEmptyHint(empty);
@@ -125,6 +134,9 @@ export default function TracesClientWrapper({
               initialTraceId={initialTraceId}
               initialProjectId={initialProjectId}
               onUnfilteredEmpty={handleUnfilteredEmpty}
+              refreshTrigger={refreshTrigger}
+              initialData={initialData}
+              initialTotalCount={initialTotalCount}
             />
           </Paper>
         </Box>

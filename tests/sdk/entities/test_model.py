@@ -5,7 +5,7 @@ import pytest
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
-from rhesis.sdk.entities.model import Model, Models  # noqa: E402
+from rhesis.sdk.entities.model import Model, Models
 
 
 @pytest.fixture

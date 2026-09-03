@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const prettier = require('prettier');
 
 // Read the YAML file
 const yamlPath = path.join(__dirname, '../src/config/test-templates.yml');
@@ -34,8 +35,6 @@ const generateTypeScriptFile = templates => {
     )
     .join('\n');
 
-  const iconMap = iconImports.map(icon => `  ${icon},`).join('\n');
-
   const templatesCode = templates
     .map(template => {
       const topics = JSON.stringify(template.topics);
@@ -61,11 +60,6 @@ const generateTypeScriptFile = templates => {
 ${imports}
 import { TestTemplate } from '@/app/(protected)/test-sets/new-generated/components/shared/types';
 
-// Icon mapping for YAML references
-const iconMap: Record<string, React.ComponentType<any>> = {
-${iconMap}
-};
-
 // Generated templates from YAML
 export const TEMPLATES: TestTemplate[] = [
 ${templatesCode}
@@ -73,18 +67,29 @@ ${templatesCode}
 `;
 };
 
-// Generate and write the file
-try {
+// Generate and write the file.
+// The output is checked in, so it has to be formatted the way Prettier would
+// leave it. Writing it raw makes `prettier --check` fail and shows every
+// `prebuild` run as a large content-identical diff in git.
+async function main() {
   const generatedContent = generateTypeScriptFile(config.templates);
   const outputPath = path.join(
     __dirname,
     '../src/config/test-templates.generated.ts'
   );
 
-  fs.writeFileSync(outputPath, generatedContent, 'utf8');
+  const prettierConfig = await prettier.resolveConfig(outputPath);
+  const formatted = await prettier.format(generatedContent, {
+    ...prettierConfig,
+    filepath: outputPath,
+  });
+
+  fs.writeFileSync(outputPath, formatted, 'utf8');
   console.log('Successfully generated test-templates.generated.ts');
   console.log(`Generated ${config.templates.length} templates`);
-} catch (error) {
+}
+
+main().catch(error => {
   console.error('Error generating templates:', error);
   process.exit(1);
-}
+});

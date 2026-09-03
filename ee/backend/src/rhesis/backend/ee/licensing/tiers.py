@@ -116,7 +116,10 @@ class TierSpec:
         granted when ``all_features`` is ``False``.
     :param limits: metered resource limits keyed by
         :class:`QuotaResource`.  ``None`` values mean unlimited.
-    :param retention_days: data retention in days for this tier.
+    :param retention_days: data retention in days for this tier, as published
+        on the pricing page. Consumed by the trace retention sweep
+        (``jobs/trace_retention.py``), which hard-deletes trace rows older
+        than this. ``None`` means unlimited (the sweep skips the org).
     :param overage: whether reaching a limit blocks immediately or allows
         the grace band in :attr:`overage_tolerance_percent`.
     :param overage_tolerance_percent: for :attr:`OveragePolicy.SOFT`, how
@@ -128,7 +131,7 @@ class TierSpec:
     all_features: bool = False
     features: frozenset[FeatureName] = frozenset()
     limits: dict[QuotaResource, int | None] = field(default_factory=dict)
-    retention_days: int = 14
+    retention_days: Optional[int] = 14
     overage: OveragePolicy = OveragePolicy.HARD
     overage_tolerance_percent: int = 0
 
@@ -138,6 +141,7 @@ class TierSpec:
             limits=dict(self.limits),
             overage=self.overage,
             overage_tolerance_percent=self.overage_tolerance_percent,
+            retention_days=self.retention_days,
         )
 
     def feature_values(self) -> list[str]:
@@ -290,6 +294,36 @@ def _parse_overage_tolerance(raw: object) -> int:
     return raw
 
 
+def _parse_retention_days(raw: object) -> Optional[int]:
+    """Validate a raw YAML ``retention_days`` value.
+
+    ``None`` means unlimited, matching this file's ``null = unlimited``
+    convention for limits. Otherwise a positive ``int`` -- ``bool`` is
+    rejected explicitly (it passes ``isinstance(v, int)``), and zero or
+    negative would set a cutoff at or after "now", making the retention
+    sweep delete every trace the org has.
+
+    Validated rather than passed through because the sweep now consumes
+    this value: a string ``"90"`` from a mounted ConfigMap would reach
+    ``timedelta(days="90")`` and raise per org inside the sweep's blanket
+    ``except Exception``, so retention would silently never run for the tier.
+
+    :raises ValueError: if *raw* is neither ``None`` nor a positive ``int``.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(
+            f"Invalid retention_days in tier config: {raw!r} "
+            f"({type(raw).__name__}). Expected a positive integer or null."
+        )
+    if raw <= 0:
+        raise ValueError(
+            f"Invalid retention_days in tier config: {raw!r}. Must be positive (or null)."
+        )
+    return raw
+
+
 class _FallbackCatalog(dict):
     """Marks a catalog as the intentional safety-net from :func:`_fallback_catalog`.
 
@@ -402,9 +436,9 @@ def _load_tier_config() -> dict[LicenseEdition, TierSpec]:
         # defaults apply for the rest. Hardcoding e.g. `retention_days=14`
         # here would duplicate TierSpec's default and silently drift from
         # it if that default ever changes.
-        overrides: dict[str, object] = {
-            key: spec_raw[key] for key in ("retention_days",) if key in spec_raw
-        }
+        overrides: dict[str, object] = {}
+        if "retention_days" in spec_raw:
+            overrides["retention_days"] = _parse_retention_days(spec_raw["retention_days"])
         if "all_features" in spec_raw:
             overrides["all_features"] = _parse_all_features(spec_raw["all_features"])
         if "overage" in spec_raw:

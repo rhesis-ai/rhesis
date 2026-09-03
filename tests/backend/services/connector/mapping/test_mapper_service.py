@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from rhesis.backend.app.services.connector.mapping.mapper_service import (
     MappingResult,
@@ -46,7 +47,7 @@ class TestMappingResult:
         assert result.confidence == 0.5
 
         # Invalid confidence (too high)
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):  # Pydantic ValidationError
             MappingResult(
                 request_mapping={},
                 response_mapping={},
@@ -56,7 +57,7 @@ class TestMappingResult:
             )
 
         # Invalid confidence (negative)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             MappingResult(
                 request_mapping={},
                 response_mapping={},

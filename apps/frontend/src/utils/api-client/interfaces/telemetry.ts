@@ -4,6 +4,7 @@
  */
 
 import type { WithPermittedActions } from '@/types/affordances';
+import type { Execution, Verdict } from '@/constants/outcomes';
 
 /** Span event with known structure from OpenTelemetry */
 export interface SpanEvent {
@@ -81,6 +82,8 @@ export interface SpanNode {
   events: SpanEvent[];
   children: SpanNode[];
   trace_metrics?: Record<string, unknown>;
+  execution: Execution;
+  verdict: Verdict | null;
   trace_reviews?: TraceReviews;
   last_review?: TraceReview;
 }
@@ -103,8 +106,12 @@ export interface TraceSummary {
   endpoint_id?: string;
   endpoint_name?: string;
 
-  // Trace metrics evaluation
+  // Trace metrics evaluation. execution/verdict are the source of truth
+  // (see constants/outcomes.ts); trace_metrics_status is the legacy display
+  // name kept alongside them.
   trace_metrics_status?: TraceMetricsStatus;
+  execution: Execution;
+  verdict: Verdict | null;
 
   // Human reviews
   has_reviews?: boolean;
@@ -123,8 +130,12 @@ export interface TraceDetailResponse {
   error_count: number;
   root_spans: SpanNode[];
 
-  // Trace metrics evaluation
+  // Trace metrics evaluation. execution/verdict are the source of truth
+  // (see constants/outcomes.ts); trace_metrics_status is the legacy display
+  // name kept alongside them.
   trace_metrics_status?: TraceMetricsStatus;
+  execution: Execution;
+  verdict: Verdict | null;
 
   // Related entities (optional - populated via relationships)
   project?: {

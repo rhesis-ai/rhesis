@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -24,7 +24,6 @@ import AddIcon from '@mui/icons-material/Add';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { useCan } from '@/components/common/Can';
@@ -96,11 +95,11 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
       : 'Failed to load metrics'
     : null;
 
-  const handleAddMetric = async (metricId: UUID) => {
+  const handleAddMetric = async (metric: { id: UUID }) => {
     try {
       await new ApiClientFactory()
         .getTestSetsClient()
-        .addMetricToTestSet(testSetId, metricId as string);
+        .addMetricToTestSet(testSetId, metric.id as string);
       queryClient.invalidateQueries({ queryKey: metricsQueryKey });
       notifications.show('Metric added to test set successfully', {
         severity: 'success',

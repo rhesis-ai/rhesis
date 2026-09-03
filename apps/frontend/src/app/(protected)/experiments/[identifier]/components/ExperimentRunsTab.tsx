@@ -29,21 +29,28 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useQuery } from '@tanstack/react-query';
 import { experimentKeys } from '@/constants/query-keys';
 import {
+  fetchExperimentRuns,
+  type ExperimentRunsData,
+} from './experiment-data';
+import {
   ExperimentResultsRunItem,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { passRate } from '@/constants/outcomes';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
   onRunExperiment?: () => void;
+  initialRuns?: ExperimentRunsData;
 }
 
 export default function ExperimentRunsTab({
   experimentId,
   onRunExperiment,
+  initialRuns,
 }: ExperimentRunsTabProps) {
   const { status } = useSession();
   const [drawerRun, setDrawerRun] = useState<ExperimentResultsRunItem | null>(
@@ -59,12 +66,14 @@ export default function ExperimentRunsTab({
     error: fetchError,
   } = useQuery({
     queryKey: [...experimentKeys.detail(experimentId), 'runs'],
-    queryFn: () =>
-      apiFactory.getParametersClient().getExperimentResultsByRun(experimentId),
+    queryFn: () => fetchExperimentRuns(apiFactory, experimentId),
     enabled: isAuthenticated(status) && !!experimentId,
+    initialData: initialRuns,
   });
 
-  const runs = data?.items ?? [];
+  // Memoised so the `?? []` fallback does not hand a fresh array to the
+  // filter memo below on every render, which defeated it entirely.
+  const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const error =
     fetchError instanceof Error
       ? fetchError.message
@@ -365,7 +374,8 @@ function RunSummaryContent({
   const passed = run.stats?.passed ?? 0;
   const failed = run.stats?.failed ?? 0;
   const errors = run.stats?.errors ?? 0;
-  const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : null;
+  const rate = passRate(passed, failed);
+  const passRateStr = rate === null ? null : rate.toFixed(1);
   const version =
     typeof run.attributes?.parameter_version === 'string'
       ? run.attributes.parameter_version
@@ -380,7 +390,7 @@ function RunSummaryContent({
         <Grid size={{ xs: 6 }}>
           <ViewField
             label="Pass Rate"
-            value={passRate !== null ? `${passRate}%` : '—'}
+            value={passRateStr !== null ? `${passRateStr}%` : '—'}
           />
         </Grid>
         <Grid size={{ xs: 4 }}>

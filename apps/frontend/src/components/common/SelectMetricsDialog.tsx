@@ -27,7 +27,10 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import { AutoGraphIcon } from '@/components/icons';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type {
+  MetricDetail,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { getMetricScopeIcon } from '@/constants/metric-scopes';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -86,7 +89,11 @@ const capitalize = (s: string) =>
 interface SelectMetricsDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (metricId: UUID) => void;
+  onSelect: (metric: {
+    id: UUID;
+    name: string;
+    metric_scope?: MetricScope[];
+  }) => void;
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
@@ -208,8 +215,12 @@ export default function SelectMetricsDialog({
     setFilteredMetrics(filtered);
   }, [searchQuery, backendFilter, metrics]);
 
-  const handleSelect = (metricId: UUID) => {
-    onSelect(metricId);
+  const handleSelect = (metric: MetricDetail) => {
+    onSelect({
+      id: metric.id as UUID,
+      name: metric.name || 'Unnamed metric',
+      metric_scope: metric.metric_scope,
+    });
     onClose();
   };
 
@@ -324,7 +335,7 @@ export default function SelectMetricsDialog({
                   boxShadow: 1,
                 },
               }}
-              onClick={() => handleSelect(metric.id as UUID)}
+              onClick={() => handleSelect(metric)}
             >
               <Box
                 sx={{

@@ -6,6 +6,10 @@ DEFAULT_BASE_URL = "https://api.rhesis.ai"
 
 DEFAULT_LLM_TIMEOUT = 300
 
+# Backend REST calls, not model calls. `requests` applies this per socket operation,
+# so a slow-but-progressing download is not cut off — only a stalled one.
+DEFAULT_API_TIMEOUT = 30
+
 # Module level variables
 api_key: Optional[str] = None
 base_url: Optional[str] = None

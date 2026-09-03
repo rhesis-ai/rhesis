@@ -63,6 +63,10 @@ def build_span_tree(spans: List[Trace]) -> List[SpanNode]:
             attributes=span.attributes or {},
             events=span.events or [],
             trace_metrics=span.trace_metrics,
+            # server_default only lands at INSERT, so a span that has not
+            # been flushed yet still reads None here.
+            execution=span.execution or "not_run",
+            verdict=span.verdict,
             trace_reviews=span.trace_reviews,
             last_review=span.last_review,
             matches_review=span.matches_review,

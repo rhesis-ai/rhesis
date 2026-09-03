@@ -36,8 +36,10 @@ class ErrorResponse(BaseModel):
     status_code: Optional[int] = Field(None, description="HTTP status code")
     reason: Optional[str] = Field(None, description="HTTP reason phrase")
     response_headers: Optional[Dict[str, Any]] = Field(None, description="HTTP response headers")
-    response_content: Optional[str] = Field(None, description="HTTP response content")
-    response_body: Optional[str] = Field(None, description="HTTP response body")
+    # The one field for the target's own response body. There used to be a second,
+    # ``response_body``, which the WebSocket invoker wrote and nothing read -- so a
+    # rejected handshake carried its reason where no consumer looked. Keep it single.
+    response_content: Optional[str] = Field(None, description="Target response body, as text")
 
     # Performance fields
     duration_ms: Optional[float] = Field(None, description="Operation duration in milliseconds")

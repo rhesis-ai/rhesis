@@ -40,8 +40,8 @@ async def invoke(
     db: Session,
     endpoint_id: str,
     input_data: Dict[str, Any],
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, Any]:
     """
     Invoke an endpoint with input data (recommended entry point).

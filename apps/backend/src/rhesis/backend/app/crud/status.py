@@ -1,9 +1,4 @@
-"""CRUD operations for statuses.
-
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched -- see ``apps/backend/AGENTS.md``'s crud-layout rule.
-"""
+"""CRUD operations for statuses."""
 
 import uuid
 from typing import List, Optional
@@ -21,7 +16,10 @@ from rhesis.backend.app.utils.crud_utils import (
 
 
 def get_status(
-    db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    status_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Status]:
     """Get a single status by ID."""
     return get_item(db, models.Status, status_id, organization_id, user_id)
@@ -34,8 +32,8 @@ def get_statuses(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Status]:
     return get_items(
         db,
@@ -51,7 +49,10 @@ def get_statuses(
 
 
 def create_status(
-    db: Session, status: schemas.StatusCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    status: schemas.StatusCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Status:
     """Create status."""
     return create_item(db, models.Status, status, organization_id, user_id)
@@ -61,8 +62,8 @@ def update_status(
     db: Session,
     status_id: uuid.UUID,
     status: schemas.StatusUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Status]:
     """Update status."""
     return update_item(db, models.Status, status_id, status, organization_id, user_id)

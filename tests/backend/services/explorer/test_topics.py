@@ -115,7 +115,6 @@ def deep_topic_test_set(test_db: Session, test_org_id, authenticated_user_id):
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestCreateTopicNode:
     """Test create_topic_node - creates topic markers in a test set."""
 
@@ -262,7 +261,6 @@ class TestCreateTopicNode:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestRemoveTopicNode:
     """Test remove_topic_node - removes topics and ensures topic markers are deleted."""
 
@@ -460,7 +458,6 @@ class TestRemoveTopicNode:
 
 
 @pytest.mark.integration
-@pytest.mark.service
 class TestUpdateTopicNode:
     """Test update_topic_node - renames topics in a test set."""
 

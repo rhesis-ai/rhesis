@@ -23,8 +23,8 @@ class TestExecutionError(Exception):
 def create_test_run(
     session: Session,
     test_config: TestConfiguration,
-    task_info: Dict = None,
-    current_user_id: str = None,
+    task_info: Dict | None = None,
+    current_user_id: str | None = None,
     initial_status: RunStatus = RunStatus.QUEUED,
 ) -> TestRun:
     """Create a new test run with initial status and metadata."""
@@ -138,7 +138,7 @@ def create_test_run(
 
 
 def update_test_run_status(
-    session: Session, test_run: TestRun, status_name: str, error: str = None
+    session: Session, test_run: TestRun, status_name: str, error: str | None = None
 ) -> None:
     """
     Update the status of a test run.

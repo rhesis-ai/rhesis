@@ -1,48 +1,12 @@
 import { GridLogicOperator } from '@mui/x-data-grid';
 import {
   createWildcardSearchFilter,
-  createTaskWildcardSearchFilter,
   convertGridFilterModelToOData,
-  convertTaskFilterModelToOData,
   convertQuickFilterToOData,
   combineFiltersToOData,
-  convertTaskQuickFilterToOData,
   convertTestQuickFilterToOData,
   combineTestFiltersToOData,
-  convertSourceQuickFilterToOData,
-  combineSourceFiltersToOData,
-  convertTestRunQuickFilterToOData,
-  combineTestRunFiltersToOData,
-  convertTestSetQuickFilterToOData,
-  combineTestSetFiltersToOData,
-  combineTaskFiltersToOData,
-  combineTeamFiltersToOData,
-  EMPTY_TEAM_FILTERS,
 } from '../odata-filter';
-
-describe('createTaskWildcardSearchFilter', () => {
-  it('returns empty string for empty input', () => {
-    expect(createTaskWildcardSearchFilter('')).toBe('');
-    expect(createTaskWildcardSearchFilter('   ')).toBe('');
-  });
-
-  it('creates filter for title and description fields', () => {
-    const result = createTaskWildcardSearchFilter('test');
-    expect(result).toContain("contains(tolower(title), tolower('test'))");
-    expect(result).toContain("contains(tolower(description), tolower('test'))");
-    expect(result).toContain(' or ');
-  });
-
-  it('escapes single quotes in search term', () => {
-    const result = createTaskWildcardSearchFilter("it's");
-    expect(result).toContain("it''s");
-  });
-
-  it('trims whitespace from search term', () => {
-    const result = createTaskWildcardSearchFilter('  hello  ');
-    expect(result).toContain("tolower('hello')");
-  });
-});
 
 describe('createWildcardSearchFilter', () => {
   it('returns empty string for empty input', () => {
@@ -178,15 +142,6 @@ describe('convertGridFilterModelToOData', () => {
   });
 });
 
-describe('convertTaskFilterModelToOData', () => {
-  it('maps task-specific fields to relationships', () => {
-    const result = convertTaskFilterModelToOData({
-      items: [{ field: 'status', operator: 'contains', value: 'Open', id: 1 }],
-    });
-    expect(result).toContain('status/name');
-  });
-});
-
 describe('convertQuickFilterToOData', () => {
   it('returns empty string for empty values', () => {
     expect(convertQuickFilterToOData([], ['name'])).toBe('');
@@ -232,30 +187,6 @@ describe('combineFiltersToOData', () => {
 
 // ---- Domain-specific quick filter functions ----
 
-describe('convertTaskQuickFilterToOData', () => {
-  it('returns empty string for empty values', () => {
-    expect(convertTaskQuickFilterToOData([])).toBe('');
-  });
-
-  it('searches title and description fields', () => {
-    const result = convertTaskQuickFilterToOData(['bug']);
-    expect(result).toContain("contains(tolower(title), tolower('bug'))");
-    expect(result).toContain("contains(tolower(description), tolower('bug'))");
-    expect(result).toContain(' or ');
-  });
-
-  it('joins multiple values with AND', () => {
-    const result = convertTaskQuickFilterToOData(['bug', 'fix']);
-    expect(result).toContain(' and ');
-  });
-
-  it('skips empty values', () => {
-    const result = convertTaskQuickFilterToOData(['', 'bug']);
-    expect(result).toContain('bug');
-    expect(result).not.toContain("tolower('')");
-  });
-});
-
 describe('convertTestQuickFilterToOData', () => {
   it('returns empty string for empty values', () => {
     expect(convertTestQuickFilterToOData([])).toBe('');
@@ -275,91 +206,7 @@ describe('convertTestQuickFilterToOData', () => {
   });
 });
 
-describe('convertSourceQuickFilterToOData', () => {
-  it('returns empty string for empty values', () => {
-    expect(convertSourceQuickFilterToOData([])).toBe('');
-  });
-
-  it('searches title and description fields', () => {
-    const result = convertSourceQuickFilterToOData(['docs']);
-    expect(result).toContain("contains(tolower(title), tolower('docs'))");
-    expect(result).toContain("contains(tolower(description), tolower('docs'))");
-  });
-
-  it('includes tags relationship search', () => {
-    const result = convertSourceQuickFilterToOData(['docs']);
-    expect(result).toContain('_tags_relationship/any');
-  });
-});
-
-describe('convertTestRunQuickFilterToOData', () => {
-  it('returns empty string for empty values', () => {
-    expect(convertTestRunQuickFilterToOData([])).toBe('');
-  });
-
-  it('searches test run fields', () => {
-    const result = convertTestRunQuickFilterToOData(['nightly']);
-    expect(result).toContain("contains(tolower(name), tolower('nightly'))");
-    expect(result).toContain('test_configuration/test_set/name');
-    expect(result).toContain('user/name');
-    expect(result).toContain('status/name');
-  });
-
-  it('includes tags relationship search', () => {
-    const result = convertTestRunQuickFilterToOData(['nightly']);
-    expect(result).toContain('_tags_relationship/any');
-  });
-});
-
-describe('convertTestSetQuickFilterToOData', () => {
-  it('returns empty string for empty values', () => {
-    expect(convertTestSetQuickFilterToOData([])).toBe('');
-  });
-
-  it('searches test set fields', () => {
-    const result = convertTestSetQuickFilterToOData(['regression']);
-    expect(result).toContain("contains(tolower(name), tolower('regression'))");
-    expect(result).toContain('user/name');
-    expect(result).toContain('test_set_type/type_value');
-  });
-
-  it('includes tags relationship search', () => {
-    const result = convertTestSetQuickFilterToOData(['regression']);
-    expect(result).toContain('_tags_relationship/any');
-  });
-});
-
 // ---- Domain-specific combine filter functions ----
-
-describe('combineTaskFiltersToOData', () => {
-  it('returns empty for empty filter model', () => {
-    expect(combineTaskFiltersToOData({ items: [] })).toBe('');
-  });
-
-  it('converts regular task filter items', () => {
-    const result = combineTaskFiltersToOData({
-      items: [{ field: 'title', operator: 'contains', value: 'bug', id: 1 }],
-    });
-    expect(result).toContain("contains(tolower(title), tolower('bug'))");
-  });
-
-  it('separates quick filters and combines with regular', () => {
-    const result = combineTaskFiltersToOData({
-      items: [
-        { field: 'title', operator: 'contains', value: 'bug', id: 1 },
-        {
-          field: '__quickFilter__',
-          operator: 'contains',
-          value: 'search',
-          id: 2,
-        },
-      ],
-    });
-    expect(result).toContain('bug');
-    expect(result).toContain('search');
-    expect(result).toContain(' and ');
-  });
-});
 
 describe('combineTestFiltersToOData', () => {
   it('returns empty for empty filter model', () => {
@@ -404,151 +251,5 @@ describe('combineTestFiltersToOData', () => {
       items: [{ field: 'tasks', operator: 'isNotEmpty', value: true, id: 1 }],
     });
     expect(withTasks).toBe('tasks/any()');
-  });
-});
-
-describe('combineSourceFiltersToOData', () => {
-  it('returns empty for empty filter model', () => {
-    expect(combineSourceFiltersToOData({ items: [] })).toBe('');
-  });
-
-  it('converts a single regular filter', () => {
-    const result = combineSourceFiltersToOData({
-      items: [{ field: 'title', operator: 'contains', value: 'readme', id: 1 }],
-    });
-    expect(result).toContain('readme');
-  });
-
-  it('handles quick filter items', () => {
-    const result = combineSourceFiltersToOData({
-      items: [
-        { field: 'quickFilter', operator: 'contains', value: 'docs', id: 1 },
-      ],
-    });
-    expect(result).toContain('docs');
-  });
-});
-
-describe('combineTestRunFiltersToOData', () => {
-  it('returns empty for empty filter model', () => {
-    expect(combineTestRunFiltersToOData({ items: [] })).toBe('');
-  });
-
-  it('converts regular filters', () => {
-    const result = combineTestRunFiltersToOData({
-      items: [{ field: 'name', operator: 'contains', value: 'run-1', id: 1 }],
-    });
-    expect(result).toContain('run-1');
-  });
-
-  it('combines regular and quick filters', () => {
-    const result = combineTestRunFiltersToOData({
-      items: [
-        { field: 'name', operator: 'contains', value: 'run', id: 1 },
-        {
-          field: '__quickFilter__',
-          operator: 'contains',
-          value: 'nightly',
-          id: 2,
-        },
-      ],
-    });
-    expect(result).toContain('run');
-    expect(result).toContain('nightly');
-  });
-
-  it('converts comment and task presence filters', () => {
-    const result = combineTestRunFiltersToOData({
-      items: [
-        { field: 'comments', operator: 'isNotEmpty', value: true, id: 1 },
-        { field: 'tasks', operator: 'isEmpty', value: true, id: 2 },
-      ],
-    });
-    expect(result).toContain('comments/any()');
-    expect(result).toContain('not tasks/any()');
-  });
-});
-
-describe('combineTestSetFiltersToOData', () => {
-  it('returns empty for empty filter model', () => {
-    expect(combineTestSetFiltersToOData({ items: [] })).toBe('');
-  });
-
-  it('converts regular test set filters with field mapping', () => {
-    const result = combineTestSetFiltersToOData({
-      items: [{ field: 'name', operator: 'contains', value: 'safety', id: 1 }],
-    });
-    expect(result).toContain('safety');
-  });
-
-  it('maps testSetType field to OData path', () => {
-    const result = combineTestSetFiltersToOData({
-      items: [
-        { field: 'testSetType', operator: 'contains', value: 'manual', id: 1 },
-      ],
-    });
-    expect(result).toContain('test_set_type/type_value');
-  });
-
-  it('maps creator field to user/name', () => {
-    const result = combineTestSetFiltersToOData({
-      items: [
-        { field: 'creator', operator: 'contains', value: 'alice', id: 1 },
-      ],
-    });
-    expect(result).toContain('user/name');
-  });
-
-  it('handles quick filter items', () => {
-    const result = combineTestSetFiltersToOData({
-      items: [
-        {
-          field: '__quickFilter__',
-          operator: 'contains',
-          value: 'regression',
-          id: 1,
-        },
-      ],
-    });
-    expect(result).toContain('regression');
-  });
-
-  it('handles tags filter with relationship path', () => {
-    const result = combineTestSetFiltersToOData({
-      items: [
-        { field: 'tags', operator: 'contains', value: 'important', id: 1 },
-      ],
-    });
-    expect(result).toContain('_tags_relationship/any');
-    expect(result).toContain('important');
-  });
-
-  it('converts comment and task presence filters', () => {
-    const result = combineTestSetFiltersToOData({
-      items: [
-        { field: 'comments', operator: 'isNotEmpty', value: true, id: 1 },
-        { field: 'tasks', operator: 'isEmpty', value: true, id: 2 },
-      ],
-    });
-    expect(result).toContain('comments/any()');
-    expect(result).toContain('not tasks/any()');
-  });
-});
-
-describe('combineTeamFiltersToOData', () => {
-  it('maps active member status to joined_at OData checks', () => {
-    const result = combineTeamFiltersToOData('', {
-      ...EMPTY_TEAM_FILTERS,
-      memberStatus: 'active',
-    });
-    expect(result).toBe('joined_at ne null');
-  });
-
-  it('maps invited member status to missing joined_at OData checks', () => {
-    const result = combineTeamFiltersToOData('', {
-      ...EMPTY_TEAM_FILTERS,
-      memberStatus: 'invited',
-    });
-    expect(result).toBe('joined_at eq null');
   });
 });

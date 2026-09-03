@@ -22,6 +22,11 @@ import RunDrawer from '@/components/common/RunDrawer';
 import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import {
+  resolveSingleCreatedRun,
+  watchRunHref,
+  type BatchRunOutcome,
+} from '@/utils/test-run-batch';
 
 interface TestSetHeaderActionsProps {
   testSetId: string;
@@ -89,6 +94,27 @@ export default function TestSetHeaderActions({
       setIsDownloading(false);
     }
   };
+
+  // Once the worker has actually created the run, jump straight to it in
+  // Detail view so execution is visible as it happens -- executeTestSet only
+  // returns the test_configuration synchronously, so this polls for the run
+  // the same way tag assignment already does. A batch fan-out (more than one
+  // run queued) has no single run to jump to, so it's left as-is: toast only.
+  const handleExecuted = React.useCallback(
+    (outcome: BatchRunOutcome) => {
+      void (async () => {
+        const factory = new ApiClientFactory();
+        const testRun = await resolveSingleCreatedRun(
+          outcome,
+          factory.getTestRunsClient()
+        );
+        if (testRun) {
+          router.push(watchRunHref(testRun.id));
+        }
+      })();
+    },
+    [router]
+  );
 
   const handleGarakSyncPreview = async () => {
     setIsSyncing(true);
@@ -179,6 +205,7 @@ export default function TestSetHeaderActions({
         mode="executeTestSet"
         open={executeDrawerOpen}
         onClose={() => setExecuteDrawerOpen(false)}
+        onExecuted={handleExecuted}
         data={{ testSetId }}
       />
 

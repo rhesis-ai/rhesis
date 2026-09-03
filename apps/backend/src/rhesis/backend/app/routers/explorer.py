@@ -12,12 +12,14 @@ from typing import List, Optional
 from uuid import UUID
 
 import pydantic
-from fastapi import Body, Depends, HTTPException, Query
+from fastapi import Body, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import test_set as test_set_crud
+from rhesis.backend.app.crud.explorer import only_explorer_test_sets
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -71,6 +73,7 @@ from rhesis.backend.app.services.explorer import (
     update_test_node,
     update_topic_node,
 )
+from rhesis.backend.app.utils.decorators import with_count_header
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +87,7 @@ router = RhesisRouter(
 
 def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str):
     """Resolve a test set by identifier (UUID, nano_id, or slug)."""
-    db_test_set = crud.resolve_test_set(identifier, db, organization_id)
+    db_test_set = test_set_crud.resolve_test_set(identifier, db, organization_id)
     if db_test_set is None:
         raise HTTPException(
             status_code=404,
@@ -188,18 +191,22 @@ def export_regular_test_set_from_explorer_endpoint(
     "/",
     response_model=List[schemas.TestSetDetail],
 )
+@with_count_header(model=models.TestSet, extra_filter=only_explorer_test_sets)
 def list_explorer_test_sets(
+    response: Response,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    filter: Optional[str] = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """List explorer test sets.
 
-    Returns test sets flagged as Explorer-owned.
+    Returns test sets flagged as Explorer-owned, with X-Total-Count set to the
+    filtered total.
     """
     organization_id, _user_id = tenant_context
     return get_explorer_test_sets(
@@ -209,6 +216,7 @@ def list_explorer_test_sets(
         limit=limit,
         sort_by=sort_by,
         sort_order=sort_order,
+        filter=filter,
     )
 
 

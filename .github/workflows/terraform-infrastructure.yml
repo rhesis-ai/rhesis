@@ -7,7 +7,7 @@ on:
         description: 'Target environment'
         required: true
         type: choice
-        options: [dev, stg, prd, admin]
+        options: [dev, stg, prd, admin, billing]
         default: dev
       action:
         description: 'Terraform action'
@@ -47,6 +47,12 @@ jobs:
   # wireguard/admin is intentionally excluded: it takes bespoke inputs
   # (wireguard_envs/wireguard_peers) that don't have sane defaults for an
   # automatic plan, and it changes far less often than dev/stg/prd.
+  # billing IS planned automatically: every variable has a default, and
+  # terraform-wireguard (the admin SA this root reuses) was granted
+  # roles/billing.costsManager on 2026-09-03, which is what planning budgets
+  # needs. Auto-planning it is the point -- a budget edited by hand in the
+  # console is exactly the kind of invisible billing drift that let 4,700
+  # EUR/month of credit burn go unnoticed.
   compute-matrix:
     name: Compute plan matrix
     runs-on: ubuntu-latest
@@ -58,7 +64,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo 'environments=["${{ inputs.environment }}"]' >> "$GITHUB_OUTPUT"
           else
-            echo 'environments=["dev","stg","prd"]' >> "$GITHUB_OUTPUT"
+            echo 'environments=["dev","stg","prd","billing"]' >> "$GITHUB_OUTPUT"
           fi
 
   plan:
@@ -86,6 +92,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/tf-setup
         id: tf_setup
@@ -108,7 +116,14 @@ jobs:
 
       - name: Plan
         working-directory: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}
-        run: terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
+        # pipefail is required, not stylistic. GitHub's default shell is `bash -e {0}`,
+        # which has -e but NOT -o pipefail, so `terraform plan | tee` exits with tee's
+        # status and a failed plan reported the job as passing. That masked a real 403 on
+        # the billing plan in PR #2690: the plan errored, the check went green.
+        shell: bash
+        run: |
+          set -o pipefail
+          terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
         env:
           TF_VAR_project_id: ${{ steps.tf_setup.outputs.project_id }}
           TF_VAR_region: ${{ secrets.TF_REGION }}
@@ -171,6 +186,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/tf-setup
         id: tf_setup

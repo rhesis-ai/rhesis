@@ -1,11 +1,11 @@
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
-import { emptyFilters, directoryListParams } from '@/utils/directory';
+import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import RequirementsClient from './components/RequirementsClient';
-import { requirementsDirectory } from './components/directory';
+import { requirementsList } from './components/list';
 import type { UUID } from 'crypto';
+import { requireSession } from '@/utils/require-session';
 
 /**
  * Server component: fetches the first page of requirements before rendering so
@@ -13,11 +13,7 @@ import type { UUID } from 'crypto';
  * on first load. See `prefetchList` for the permission-gating rationale.
  */
 export default async function RequirementsPage() {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  const session = await requireSession();
 
   const organizationId = session.user?.organization_id as UUID;
   const userId = (session.user?.id as UUID | undefined) ?? undefined;
@@ -25,15 +21,7 @@ export default async function RequirementsPage() {
 
   const { initialData, initialTotalCount } = await prefetchList(
     Capability.Requirement.READ,
-    () =>
-      client.getRequirementsPage(
-        directoryListParams(requirementsDirectory, {
-          page: 1,
-          pageSize: requirementsDirectory.defaultPageSize,
-          sort: requirementsDirectory.defaultSort,
-          filters: emptyFilters(requirementsDirectory),
-        })
-      )
+    () => client.getRequirementsPage(firstPageParams(requirementsList))
   );
 
   return (

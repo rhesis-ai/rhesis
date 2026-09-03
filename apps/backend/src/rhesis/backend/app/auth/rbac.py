@@ -212,22 +212,41 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
 
     @staticmethod
     def _is_org_owner(principal: Principal, db: Session) -> bool:
-        """One query: is *principal* the owner of their organization?"""
+        """Is *principal* the owner of their organization? Memoized on ``db.info``
+        for the life of the request -- ``authorize()`` and ``effective_permissions()``
+        (the latter called up to twice, once per project scope) each call this, so a
+        single request can otherwise run this same query 2-3 times. Org ownership
+        cannot change mid-request, so this is a pure memo with no invalidation.
+        """
+        cache = db.info.setdefault("_rbac_is_org_owner_cache", {})
+        key = (principal.user_id, principal.organization_id)
+        if key in cache:
+            return cache[key]
+
         from rhesis.backend.app.models.organization import Organization
 
-        return (
+        result = (
             db.query(Organization)
             .filter_by(id=principal.organization_id, owner_id=principal.user_id)
             .first()
             is not None
         )
+        cache[key] = result
+        return result
 
     @staticmethod
     def _is_project_member(principal: Principal, project_id: UUID, db: Session) -> bool:
-        """One query: does *principal* have a ``ProjectMembership`` row for *project_id*?"""
+        """Does *principal* have a ``ProjectMembership`` row for *project_id*?
+        Memoized on ``db.info`` for the life of the request -- see ``_is_org_owner``.
+        """
+        cache = db.info.setdefault("_rbac_is_project_member_cache", {})
+        key = (principal.user_id, principal.organization_id, project_id)
+        if key in cache:
+            return cache[key]
+
         from rhesis.backend.app.models.project_membership import ProjectMembership
 
-        return (
+        result = (
             db.query(ProjectMembership)
             .filter_by(
                 project_id=project_id,
@@ -237,6 +256,8 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
             .first()
             is not None
         )
+        cache[key] = result
+        return result
 
     def is_authorized(
         self,

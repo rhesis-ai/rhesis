@@ -59,7 +59,6 @@ def db_soft_deleted_test_run_with_results(
 
 
 @pytest.mark.unit
-@pytest.mark.service
 class TestRecycleService:
     """🧪 Test recycle service operations"""
 

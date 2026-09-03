@@ -34,13 +34,11 @@ import {
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
-import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
-import { alpha, useTheme } from '@mui/material/styles';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { useTheme } from '@mui/material/styles';
+import { BORDER_RADIUS } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   GridColDef,
   GridPaginationModel,
@@ -55,7 +53,6 @@ import { Fab, FabGroup } from '@/components/common/Fab';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { explorerKeys } from '@/constants/query-keys';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -69,7 +66,6 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import GradingIcon from '@mui/icons-material/GradingOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
-import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
 import { MetricDetailView } from '@/app/(protected)/metrics/[identifier]/MetricDetailView';
 import {
   TestNode,
@@ -1681,7 +1677,8 @@ function TestsList({
     {
       field: 'model_score',
       headerName: 'Score',
-      width: 100,
+      flex: 1,
+      minWidth: 100,
       align: 'center',
       headerAlign: 'center',
       renderCell: params => {
@@ -1833,7 +1830,6 @@ function TestsList({
             rows={filteredTests}
             loading={loading}
             getRowId={row => row.id}
-            showToolbar={hasToolbar}
             toolbarSlot={hasToolbar ? TestsListUnifiedToolbar : undefined}
             paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
@@ -1970,12 +1966,11 @@ export default function ExplorerDetail({
   const [deleteSessionDialogOpen, setDeleteSessionDialogOpen] = useState(false);
   const [deleteSessionSubmitting, setDeleteSessionSubmitting] = useState(false);
 
-  const theme = useTheme();
   const { status } = useSession();
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const queryClient = useQueryClient();
+
   const pathname = usePathname();
   const selectedTopicForApi =
     selectedTopic && selectedTopic !== NO_TOPIC_FILTER ? selectedTopic : null;
@@ -2908,7 +2903,7 @@ export default function ExplorerDetail({
         severity: 'success',
         autoHideDuration: 4000,
       });
-      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
+      // No cache to invalidate: navigating back re-fetches the sessions list.
       router.push('/explorer');
     } catch (err) {
       notifications.show(
@@ -2919,7 +2914,7 @@ export default function ExplorerDetail({
     } finally {
       setDeleteSessionDialogOpen(false);
     }
-  }, [testSetId, notifications, queryClient, router]);
+  }, [testSetId, notifications, router]);
 
   return (
     <PageLayout

@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.query_utils import include
 from rhesis.backend.jobs.execution.metrics_utils import get_requirement_metrics
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,12 @@ def get_test_and_prompt(
             Test,
             UUID(test_id),
             organization_id=organization_id,
-            related_fields=(include(Test.prompt),),
+            related_fields=(
+                include(Test.prompt),
+                include(Test.requirement),
+                include(Test.category),
+                include(Test.topic),
+            ),
         )
     except ItemDeletedException:
         raise ValueError(f"Test with ID {test_id} has been deleted")

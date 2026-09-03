@@ -18,7 +18,7 @@ from rhesis.sdk.models.providers.vertex_ai import (
 def test_vertex_ai_defaults():
     """Test default constants."""
     assert VertexAILLM.PROVIDER == "vertex_ai"
-    assert DEFAULT_MODEL_NAME == "gemini-2.0-flash"
+    assert DEFAULT_MODEL_NAME == "gemini-3.1-flash-lite"
 
 
 class TestVertexAILLMInitialization:

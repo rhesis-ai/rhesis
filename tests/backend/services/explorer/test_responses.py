@@ -28,7 +28,6 @@ _SVC_PATCH = "rhesis.backend.app.dependencies.get_endpoint_service"
 
 
 @pytest.mark.integration
-@pytest.mark.service
 @pytest.mark.asyncio
 class TestGenerateOutputsForTests:
     """Test generate_outputs_for_tests with mocked endpoint response."""

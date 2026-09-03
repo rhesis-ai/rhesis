@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Grid, TextField } from '@mui/material';
+import { Grid } from '@mui/material';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { validateEmail, validatePhone } from '@/utils/validation';
+import { SECTION_GRID } from '@/styles/theme-constants';
 import EditableSection from '@/components/common/EditableSection';
-import ViewField from '@/components/common/ViewField';
+import EditableField from '@/components/common/EditableField';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
@@ -144,75 +145,61 @@ function ContactFields({
     }
   };
 
-  const gridSpacing = isEditing ? 2 : '50px';
-  const columnSpacing = isEditing ? 2 : '30px';
-
   return (
-    <Grid container columnSpacing={columnSpacing} rowSpacing={gridSpacing}>
+    <Grid
+      container
+      columnSpacing={SECTION_GRID.columnSpacing}
+      rowSpacing={SECTION_GRID.rowSpacing}
+    >
       <Grid size={{ xs: 12, md: 6 }}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Email"
-            value={draft.email}
-            onChange={handleChange('email')}
-            onBlur={handleBlur('email')}
-            placeholder="contact@example.com"
-            error={!!fieldErrors.email}
-            helperText={
-              fieldErrors.email || 'Primary contact email for your organization'
-            }
-          />
-        ) : (
-          <ViewField
-            label="Email"
-            value={draft.email}
-            helperText="Primary contact email for your organization"
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Email"
+          value={draft.email}
+          onChange={handleChange('email')}
+          onBlur={handleBlur('email')}
+          placeholder={isEditing ? 'contact@example.com' : undefined}
+          error={isEditing && !!fieldErrors.email}
+          helperText={
+            isEditing
+              ? fieldErrors.email ||
+                'Primary contact email for your organization'
+              : 'Primary contact email for your organization'
+          }
+        />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Phone"
-            value={draft.phone}
-            onChange={handleChange('phone')}
-            onBlur={handleBlur('phone')}
-            placeholder="+1 (555) 123-4567"
-            error={!!fieldErrors.phone}
-            helperText={fieldErrors.phone || 'Primary contact phone number'}
-          />
-        ) : (
-          <ViewField
-            label="Phone"
-            value={draft.phone}
-            helperText="Primary contact phone number"
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Phone"
+          value={draft.phone}
+          onChange={handleChange('phone')}
+          onBlur={handleBlur('phone')}
+          placeholder={isEditing ? '+1 (555) 123-4567' : undefined}
+          error={isEditing && !!fieldErrors.phone}
+          helperText={
+            isEditing
+              ? fieldErrors.phone || 'Primary contact phone number'
+              : 'Primary contact phone number'
+          }
+        />
       </Grid>
 
       <Grid size={12}>
-        {isEditing ? (
-          <TextField
-            fullWidth
-            label="Address"
-            value={draft.address}
-            onChange={handleChange('address')}
-            multiline
-            rows={3}
-            placeholder="123 Main St, City, State, ZIP"
-            helperText="Physical address of your organization"
-          />
-        ) : (
-          <ViewField
-            label="Address"
-            value={draft.address}
-            helperText="Physical address of your organization"
-            multiline
-          />
-        )}
+        <EditableField
+          fullWidth
+          editing={isEditing}
+          label="Address"
+          value={draft.address}
+          onChange={handleChange('address')}
+          multiline
+          rows={3}
+          placeholder={isEditing ? '123 Main St, City, State, ZIP' : undefined}
+          helperText="Physical address of your organization"
+        />
       </Grid>
     </Grid>
   );

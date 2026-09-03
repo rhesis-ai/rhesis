@@ -69,7 +69,6 @@ def db_test_run_large_batch(
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestTestRunCascadeDelete:
     """🧪 Test test run cascade deletion operations"""
 

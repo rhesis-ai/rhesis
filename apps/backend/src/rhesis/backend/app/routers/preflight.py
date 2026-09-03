@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -22,12 +22,12 @@ from rhesis.backend.app.schemas.preflight import (
     PreflightSyncResponse,
 )
 from rhesis.backend.app.services.preflight import (
-    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
     CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
+    CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
     compute_summary,
@@ -38,6 +38,10 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 logger = logging.getLogger(__name__)
 
 router = RhesisRouter(prefix="/preflight-checks", tags=["preflight"], resource="preflight")
+
+# The event loop holds only a weak reference to a running task, so a fire-and-forget
+# preflight run with no other reference can be collected before it finishes.
+_background_tasks: set[asyncio.Task] = set()
 
 
 def _is_multi_turn(test_set: TestSet) -> bool:
@@ -264,7 +268,7 @@ async def run_preflight(
         str(active_scope.project_id) if active_scope and active_scope.project_id else ""
     )
 
-    asyncio.create_task(
+    task = asyncio.create_task(
         _run_preflight_background(
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
@@ -274,6 +278,8 @@ async def run_preflight(
             test_sets=test_sets,
         )
     )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return JSONResponse(
         status_code=202,

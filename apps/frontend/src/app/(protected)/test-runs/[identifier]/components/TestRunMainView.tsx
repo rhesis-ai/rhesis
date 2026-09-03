@@ -1,66 +1,56 @@
 'use client';
 
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
 import DetailTabNav from '@/components/common/DetailTabNav';
-import TestRunDetailHeader from './TestRunDetailHeader';
+import {
+  TestRunTitle,
+  TestRunMetadata,
+  TestRunActions,
+} from './TestRunDetailHeader';
+import { PageLayout } from '@/components/layout/PageLayout';
 import TestRunConfigurationTab from './TestRunConfigurationTab';
-import TestRunStatsTab from './TestRunStatsTab';
+import RunSummary from './summary/RunSummary';
+import TestRunTags from './TestRunTags';
 import TestRunLinkedEntitiesTab from './TestRunLinkedEntitiesTab';
 import TestRunTracesTab from './TestRunTracesTab';
 import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import {
+  TestRunDetail,
+  VerdictMatrix,
+} from '@/utils/api-client/interfaces/test-run';
+import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useViewingEntity } from '@/contexts/NotificationsContext';
+import { NotificationSection } from '@/constants/notifications';
 import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  resolveSingleCreatedRun,
+  watchRunHref,
+  type BatchRunOutcome,
+} from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
-import { getTestEvaluationSummary } from '@/utils/test-result-status';
-
-const TAB_KEYS = [
-  'summary',
-  'linked_entities',
-  'configuration',
-  'traces',
-] as const;
-type TabKey = (typeof TAB_KEYS)[number];
+import { useLiveTestRun } from '../hooks/useLiveTestRun';
+import {
+  getTestEvaluationSummary,
+  getEffectiveTestResultStatus,
+} from '@/utils/test-result-status';
+import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
 
 const TAB_LABELS: Record<TabKey, string> = {
   summary: 'Summary',
   configuration: 'Configuration',
-  linked_entities: 'Test Cases',
+  linked_entities: 'Tests',
   traces: 'Traces',
 };
-
-function tabIndexFromKey(
-  key: string | null,
-  preferLinkedEntities: boolean
-): number {
-  if (key === 'results') {
-    return TAB_KEYS.indexOf('linked_entities');
-  }
-  if (key === 'stats') {
-    return TAB_KEYS.indexOf('summary');
-  }
-  if (key === 'logs') {
-    return TAB_KEYS.indexOf('traces');
-  }
-  const idx = TAB_KEYS.indexOf(key as TabKey);
-  if (idx >= 0) return idx;
-  return preferLinkedEntities ? TAB_KEYS.indexOf('linked_entities') : 0;
-}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -96,38 +86,65 @@ interface TestRunMainViewProps {
   initialSelectedTestId?: string;
   /** Drawer tab to open when deep-linking via selectedresult (e.g. "reviews"). */
   initialDetailTab?: string;
+  /** Server-prefetched results (small runs only, only when the Tests tab is opening); see
+   * `useTestRunDetailData`. */
+  initialTestResults?: TestResultDetail[];
+  /** Server-prefetched verdict grid, always fetched -- it's what the default Summary tab
+   * renders; see `useTestRunLive`. */
+  initialVerdictMatrix?: VerdictMatrix;
+  /** Server-prefetched first page of this run's traces, only when the Traces tab is opening;
+   * see `TestRunTracesTab`. */
+  initialTraces?: TraceSummary[];
+  initialTracesTotalCount?: number;
+  /** Whether the test set for this run still exists (server-prefetched). `undefined` means the
+   * check was skipped (no capability or no test set ID). */
+  initialTestSetExists?: boolean;
+  /** Whether other runs exist on the same test set (server-prefetched). */
+  initialHasComparisonRuns?: boolean;
 }
 
 export default function TestRunMainView({
   testRunId,
   testRunData: _testRunData,
-  testRun,
+  testRun: initialTestRun,
   currentUserId,
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
   initialDetailTab,
+  initialTestResults,
+  initialVerdictMatrix,
+  initialTraces,
+  initialTracesTotalCount,
+  initialTestSetExists,
+  initialHasComparisonRuns = false,
 }: TestRunMainViewProps) {
+  const testRun = useLiveTestRun(testRunId, initialTestRun);
+  // Already watching this run live on screen -- a completion notification
+  // for it would be redundant noise, so mark it read on arrival instead of
+  // badging/highlighting it (see useViewingEntity).
+  useViewingEntity(NotificationSection.TEST_RUNS, testRunId);
   const notifications = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   const preferLinkedEntities = Boolean(initialSelectedTestId);
-  const activeTab = tabIndexFromKey(
-    searchParams.get('tab'),
-    preferLinkedEntities && !searchParams.get('tab')
+  // Resolved once from the URL on load (so deep links like ?selectedresult=
+  // or a legacy ?tab= alias land on the right tab). Later switches are local
+  // state -- see handleTabChange -- so they don't force a server round trip.
+  const [activeTab, setActiveTab] = useState(() =>
+    tabIndexFromKey(
+      searchParams.get('tab'),
+      preferLinkedEntities && !searchParams.get('tab')
+    )
   );
 
-  // Fetch test results for Summary (reviews/corrections) and Test Cases tabs.
+  // Fetch test results for the Tests tab.
   const needsTestResults = React.useRef(
-    activeTab === TAB_KEYS.indexOf('linked_entities') ||
-      activeTab === TAB_KEYS.indexOf('summary')
+    activeTab === TAB_KEYS.indexOf('linked_entities')
   );
-  if (
-    activeTab === TAB_KEYS.indexOf('linked_entities') ||
-    activeTab === TAB_KEYS.indexOf('summary')
-  ) {
+  if (activeTab === TAB_KEYS.indexOf('linked_entities')) {
     needsTestResults.current = true;
   }
 
@@ -142,26 +159,19 @@ export default function TestRunMainView({
   } = useTestRunDetailData({
     testRunId,
     enabled: needsTestResults.current,
+    initialTestResults,
   });
 
-  const handleTabChange = useCallback(
-    (newValue: number) => {
-      const key = TAB_KEYS[newValue];
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', key);
-      router.push(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  const handleTabChange = useCallback((newValue: number) => {
+    setActiveTab(newValue);
+  }, []);
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  // Whether another test run exists on the same test set to compare against.
-  const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
-  const [testSetExists, setTestSetExists] = useState<boolean | null>(null);
-  const [testSetCheckError, setTestSetCheckError] = useState(false);
+  const hasComparisonRuns = initialHasComparisonRuns;
+  const testSetExists = initialTestSetExists ?? null;
 
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
@@ -209,12 +219,12 @@ export default function TestRunMainView({
     }
 
     if (filter.statusFilter !== 'all') {
+      // Must use the same trusted outcome the row's own status chip renders.
+      // Re-deriving it from raw metrics here made the filter disagree with
+      // what the user could see: a test reviewed to Pass showed a "Passed"
+      // chip but was excluded from the "passed" filter.
       filtered = filtered.filter(test => {
-        const metrics = test.test_metrics?.metrics || {};
-        const metricValues = Object.values(metrics);
-        const totalMetrics = metricValues.length;
-        const passedMetrics = metricValues.filter(m => m.is_successful).length;
-        const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
+        const isPassed = getEffectiveTestResultStatus(test) === 'Pass';
         return filter.statusFilter === 'passed' ? isPassed : !isPassed;
       });
     }
@@ -319,6 +329,16 @@ export default function TestRunMainView({
     [handleTabChange]
   );
 
+  const handleDrilldownToFailures = useCallback(() => {
+    setFilter(prev => ({
+      ...prev,
+      selectedRequirements: [],
+      metricFilters: {},
+      statusFilter: 'failed',
+    }));
+    handleTabChange(TAB_KEYS.indexOf('linked_entities'));
+  }, [handleTabChange]);
+
   const handleTestResultUpdate = useCallback(
     (updatedTest: TestResultDetail) => {
       setTestResultUpdates(prev => {
@@ -333,20 +353,6 @@ export default function TestRunMainView({
     },
     [refetchTestResults, queryClient]
   );
-
-  const previousTabRef = useRef(activeTab);
-
-  useEffect(() => {
-    const summaryTabIndex = TAB_KEYS.indexOf('summary');
-    const switchedToSummary =
-      activeTab === summaryTabIndex &&
-      previousTabRef.current !== summaryTabIndex;
-    previousTabRef.current = activeTab;
-
-    if (switchedToSummary) {
-      void refetchTestResults();
-    }
-  }, [activeTab, refetchTestResults]);
 
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
@@ -394,69 +400,6 @@ export default function TestRunMainView({
     setIsRerunDrawerOpen(true);
   }, [testRun, notifications, testSetExists]);
 
-  const testSetId = testRun.test_configuration?.test_set?.id;
-
-  useEffect(() => {
-    if (!testSetId) {
-      setTestSetExists(false);
-      setTestSetCheckError(false);
-      return;
-    }
-    let cancelled = false;
-    setTestSetCheckError(false);
-    (async () => {
-      try {
-        await new ApiClientFactory().getTestSetsClient().getTestSet(testSetId);
-        if (!cancelled) {
-          setTestSetExists(true);
-          setTestSetCheckError(false);
-        }
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const status = (err as { status?: number })?.status;
-        if (status === 404 || status === 410) {
-          setTestSetExists(false);
-          setTestSetCheckError(false);
-        } else {
-          setTestSetExists(null);
-          setTestSetCheckError(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [testSetId]);
-
-  useEffect(() => {
-    if (!testSetId) {
-      setHasComparisonRuns(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const testRunsClient = new ApiClientFactory().getTestRunsClient();
-        const response = await testRunsClient.getTestRuns({
-          limit: 2,
-          skip: 0,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-          filter: `test_configuration/test_set/id eq '${testSetId}'`,
-        });
-        if (!cancelled) {
-          const others = response.data.filter(run => run.id !== testRunId);
-          setHasComparisonRuns(others.length > 0);
-        }
-      } catch {
-        if (!cancelled) setHasComparisonRuns(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [testSetId, testRunId]);
-
   const handleCompare = useCallback(() => {
     window.open(
       `/test-runs/${testRunId}/compare`,
@@ -497,11 +440,30 @@ export default function TestRunMainView({
 
   const handleRerunSuccess = useCallback(() => {
     // A re-run creates a new test run, so drop the cached test-runs list pages
-    // (kept fresh for 5 min otherwise) to make the new run and its status show
-    // up immediately on the list we navigate to.
+    // (kept fresh for 5 min otherwise) so it shows up immediately wherever
+    // handleRerunExecuted lands us -- its own detail page normally, the list
+    // as a fallback.
     void queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-    router.push('/test-runs');
-  }, [queryClient, router]);
+  }, [queryClient]);
+
+  // Jump straight to the new run in Detail view so execution is visible as
+  // it happens. executeTestSet only returns the test_configuration
+  // synchronously -- the worker creates the run itself -- so this polls for
+  // it the same way tag assignment already does. Falls back to the runs
+  // list (the prior unconditional behaviour) if it doesn't show up in time.
+  const handleRerunExecuted = useCallback(
+    (outcome: BatchRunOutcome) => {
+      void (async () => {
+        const factory = new ApiClientFactory();
+        const newRun = await resolveSingleCreatedRun(
+          outcome,
+          factory.getTestRunsClient()
+        );
+        router.push(newRun ? watchRunHref(newRun.id) : '/test-runs');
+      })();
+    },
+    [router]
+  );
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -532,32 +494,42 @@ export default function TestRunMainView({
         ? 'You do not have permission to re-run tests'
         : !testRun.test_configuration_id
           ? 'Cannot re-run: No test configuration found'
-          : testSetCheckError
-            ? "Couldn't verify test set availability"
-            : testSetExists === null
-              ? 'Checking test set…'
-              : 'Re-run test';
+          : 'Re-run test';
+
+  const title = testRun.name?.trim() || `Test Run ${testRunId}`;
 
   return (
-    <Box>
+    <PageLayout
+      breadcrumbs={[
+        { label: 'Test Runs', href: '/test-runs' },
+        { label: title, href: `/test-runs/${testRunId}` },
+      ]}
+      title={
+        <TestRunTitle
+          testRun={testRun}
+          onRename={handleRenameOpen}
+          canRename={can(testRun, Capability.TestRun.UPDATE)}
+        />
+      }
+      metadata={<TestRunMetadata testRun={testRun} />}
+      actions={
+        <TestRunActions
+          testRun={testRun}
+          onCompare={handleCompare}
+          onDownload={handleDownload}
+          onRerun={handleRerun}
+          isDownloading={isDownloading}
+          canRerun={canRerun}
+          rerunTooltip={rerunTooltip}
+          canCompare={hasComparisonRuns}
+        />
+      }
+    >
       {loadError && (
         <Typography color="error" sx={{ mb: 2 }}>
           {loadError}
         </Typography>
       )}
-
-      <TestRunDetailHeader
-        testRun={testRun}
-        onRename={handleRenameOpen}
-        onCompare={handleCompare}
-        onDownload={handleDownload}
-        onRerun={handleRerun}
-        isDownloading={isDownloading}
-        canRerun={canRerun}
-        rerunTooltip={rerunTooltip}
-        canCompare={hasComparisonRuns}
-        canRename={can(testRun, Capability.TestRun.UPDATE)}
-      />
 
       <BaseDrawer
         open={renameDialogOpen}
@@ -593,16 +565,17 @@ export default function TestRunMainView({
       />
 
       <TabPanel value={activeTab} index={0}>
-        <TestRunStatsTab
-          testRun={testRun}
+        <RunSummary
           testRunId={testRunId}
-          testResults={testResults}
-          loading={loading}
-          onRefresh={() => router.refresh()}
-          requirements={requirements}
+          testRun={testRun}
+          initialMatrix={initialVerdictMatrix}
           onViewRequirement={handleDrilldownToRequirement}
           onViewMetric={handleDrilldownToMetric}
+          onViewFailures={handleDrilldownToFailures}
         />
+        <Box sx={{ mt: 3 }}>
+          <TestRunTags testRun={testRun} />
+        </Box>
       </TabPanel>
 
       <TabPanel value={activeTab} index={1}>
@@ -649,6 +622,8 @@ export default function TestRunMainView({
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
+          initialTraces={initialTraces}
+          initialTracesTotalCount={initialTracesTotalCount}
         />
       </TabPanel>
 
@@ -669,7 +644,8 @@ export default function TestRunMainView({
           originalAttributes: testRun.test_configuration?.attributes,
         }}
         onSuccess={handleRerunSuccess}
+        onExecuted={handleRerunExecuted}
       />
-    </Box>
+    </PageLayout>
   );
 }

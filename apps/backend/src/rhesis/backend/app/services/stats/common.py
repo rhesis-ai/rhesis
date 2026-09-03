@@ -25,11 +25,3 @@ def parse_date_range(
     start = datetime.fromisoformat(start_date.replace("Z", "+00:00")) if start_date else None
     end = datetime.fromisoformat(end_date.replace("Z", "+00:00")) if end_date else None
     return start, end
-
-
-def automated_metric_success(data: dict) -> bool:
-    """Return the pre-review automated metric outcome from stored JSON."""
-    override = data.get("override")
-    if isinstance(override, dict) and "original_value" in override:
-        return bool(override["original_value"])
-    return bool(data["is_successful"])

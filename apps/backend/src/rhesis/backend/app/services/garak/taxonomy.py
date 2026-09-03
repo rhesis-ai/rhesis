@@ -7,7 +7,7 @@ and default detectors, and resolves Garak ``quality:*`` tags to
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional
 
 FALLBACK_REQUIREMENT = "Garak (Security Probing)"
 
@@ -81,7 +81,7 @@ class GarakTaxonomy:
     via :func:`resolve_requirement`, not from the module mapping.
     """
 
-    MODULE_MAPPINGS: Dict[str, GarakMapping] = {
+    MODULE_MAPPINGS: ClassVar[Dict[str, GarakMapping]] = {
         "atkgen": GarakMapping(
             category="Harmful",
             topic="Automatic Red-Team",

@@ -17,11 +17,13 @@ import { Capability } from '@/constants/capabilities';
 interface ProjectMembersTabProps {
   project: Project;
   projectId: string;
+  initialMembers?: ProjectMember[];
 }
 
 export default function ProjectMembersTab({
   project,
   projectId,
+  initialMembers,
 }: ProjectMembersTabProps) {
   const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -59,6 +61,7 @@ export default function ProjectMembersTab({
           projectId={projectId}
           ownerId={project.owner_id ? String(project.owner_id) : undefined}
           onMembersLoaded={handleMembersLoaded}
+          initialMembers={initialMembers}
         />
       </SectionCard>
 

@@ -10,7 +10,7 @@ Tests focus on:
 - Proper transaction isolation
 - Data integrity after operations
 
-Functions tested from app/crud.py:
+Functions tested from app/crud/:
 - create_organization
 - update_user
 - create_user
@@ -44,8 +44,6 @@ from tests.backend.routes.fixtures.data_factories import (
 
 
 @pytest.mark.unit
-@pytest.mark.crud
-@pytest.mark.transaction
 class TestCRUDTransactionManagement:
     """🔄 Test automatic transaction management in CRUD operations"""
 

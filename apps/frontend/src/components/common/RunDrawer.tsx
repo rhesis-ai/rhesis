@@ -52,6 +52,7 @@ import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -70,6 +71,7 @@ import { getApiErrorMessage } from '@/utils/error-utils';
 import {
   executeBatchedTestRuns,
   assignTagsToRuns,
+  type BatchRunOutcome,
   type SelectedExperiment,
 } from '@/utils/test-run-batch';
 import { BiotechIcon } from '@/components/icons';
@@ -162,6 +164,11 @@ type RunDrawerProps = {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Fired synchronously with the raw execution outcome, before onSuccess/
+   *  onClose -- callers that need to redirect to the run this created (e.g.
+   *  resolving its id via pollForTestRun) hook in here rather than every
+   *  mode picking up router logic that most callers don't want. */
+  onExecuted?: (outcome: BatchRunOutcome) => void;
 } & RunDrawerModeProps;
 
 // ---------------------------------------------------------------------------
@@ -274,7 +281,7 @@ const EXPERIMENT_SECTION_DESCRIPTION =
 // ---------------------------------------------------------------------------
 
 export default function RunDrawer(props: RunDrawerProps) {
-  const { open, onClose, onSuccess, mode } = props;
+  const { open, onClose, onSuccess, onExecuted, mode } = props;
   const cfg = MODE_CONFIGS[mode];
   const notifications = useNotifications();
   const { status } = useSession();
@@ -753,22 +760,19 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Metric helpers
   // -----------------------------------------------------------------------
 
-  const handleAddMetric = async (metricId: UUID) => {
-    try {
-      const metric = await apiFactory.getMetricsClient().getMetric(metricId);
-      if (metric) {
-        setSelectedMetrics(prev => [
-          ...prev,
-          {
-            id: metric.id as UUID,
-            name: metric.name,
-            scope: metric.metric_scope,
-          },
-        ]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch metric details:', err);
-    }
+  const handleAddMetric = (metric: {
+    id: UUID;
+    name: string;
+    metric_scope?: MetricScope[];
+  }) => {
+    setSelectedMetrics(prev =>
+      prev.some(m => m.id === metric.id)
+        ? prev
+        : [
+            ...prev,
+            { id: metric.id, name: metric.name, scope: metric.metric_scope },
+          ]
+    );
   };
 
   const handleRemoveMetric = (metricId: UUID) => {
@@ -993,6 +997,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         { severity: 'success', autoHideDuration: 5000 }
       );
 
+      onExecuted?.(outcome);
       onSuccess?.();
       onClose();
     } catch (err) {

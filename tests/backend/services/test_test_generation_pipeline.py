@@ -99,7 +99,6 @@ async def _collect_ndjson(async_gen):
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestFetchDbContext:
     def test_returns_requirements_and_prompt(self):
         mock_db = MagicMock()
@@ -194,7 +193,6 @@ class TestFetchDbContext:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestRenderConfigPrompt:
     def test_renders_template_with_requirements(self):
         ctx = _db_context()
@@ -218,7 +216,6 @@ class TestRenderConfigPrompt:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestStreamConfig:
     async def test_yields_config_items_from_all_dimensions(self):
@@ -354,7 +351,6 @@ def _config_response_json(**overrides):
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestIncrementalConfigParser:
     def test_single_chunk_attributes_each_array(self):
         """Non-streaming models may deliver the full JSON in one chunk."""
@@ -407,7 +403,6 @@ class TestIncrementalConfigParser:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 class TestIncrementalJsonArrayParser:
     def test_nested_arrays_do_not_break_parsing(self):
         """Objects containing nested arrays must not prematurely close the top-level array."""
@@ -456,7 +451,6 @@ class TestIncrementalJsonArrayParser:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestPipelineStream:
     async def test_single_turn_pipeline(self):

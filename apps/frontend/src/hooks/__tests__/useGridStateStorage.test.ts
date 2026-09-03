@@ -45,7 +45,7 @@ describe('useGridStateStorage', () => {
         sorting: { sortModel: [{ field: 'name', sort: 'asc' as const }] },
       };
       getItemSpy.mockReturnValue(
-        JSON.stringify({ version: 2, state: savedState })
+        JSON.stringify({ version: 3, state: savedState })
       );
 
       const { result } = renderHook(() => useGridStateStorage());
@@ -175,7 +175,7 @@ describe('useGridStateStorage', () => {
       // Saved payload is versioned; pagination page should always reset to 0
       const savedArg = setItemSpy.mock.calls[0][1];
       const parsed = JSON.parse(savedArg);
-      expect(parsed.version).toBe(2);
+      expect(parsed.version).toBe(3);
       expect(parsed.state.pagination.paginationModel.page).toBe(0);
 
       jest.useRealTimers();

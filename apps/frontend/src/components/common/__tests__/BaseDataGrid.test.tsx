@@ -16,18 +16,52 @@ jest.mock('@mui/x-data-grid', () => {
     loading,
     getRowId,
     onRowClick,
+    checkboxSelection,
+    isRowSelectable,
+    disableMultipleRowSelection,
+    slots,
   }: {
     rows: GridRowModel[];
     columns: GridColDef[];
     loading?: boolean;
     getRowId?: (row: GridRowModel) => string | number;
     onRowClick?: (params: { row: GridRowModel }) => void;
+    checkboxSelection?: boolean;
+    isRowSelectable?: (params: { row: GridRowModel }) => boolean;
+    disableMultipleRowSelection?: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    slots?: { baseCheckbox?: React.ComponentType<any> };
   }) => {
     if (loading) return <div data-testid="datagrid-loading">Loading…</div>;
+    // Mirrors GridCellCheckboxRenderer and GridHeaderCheckbox: both come from
+    // the baseCheckbox slot with the same class, and are disabled for
+    // different reasons — the row by isRowSelectable, the header by
+    // disableMultipleRowSelection.
+    const BaseCheckbox = slots?.baseCheckbox;
+    const checkboxClass = original.gridClasses.checkboxInput;
+    const renderCheckbox = (row: GridRowModel) =>
+      checkboxSelection && BaseCheckbox ? (
+        <td>
+          <BaseCheckbox
+            disabled={isRowSelectable ? !isRowSelectable({ row }) : false}
+            className={checkboxClass}
+            inputProps={{ name: 'select_row' }}
+          />
+        </td>
+      ) : null;
     return (
       <table role="grid" data-testid="data-grid">
         <thead>
           <tr>
+            {checkboxSelection && BaseCheckbox && (
+              <th>
+                <BaseCheckbox
+                  disabled={disableMultipleRowSelection === true}
+                  className={checkboxClass}
+                  inputProps={{ name: 'select_all_rows' }}
+                />
+              </th>
+            )}
             {columns.map((col: GridColDef) => (
               <th key={String(col.field)}>
                 {String(col.headerName ?? col.field)}
@@ -47,6 +81,7 @@ jest.mock('@mui/x-data-grid', () => {
                 onClick={() => onRowClick && onRowClick({ row })}
                 data-testid={`row-${rowKey}`}
               >
+                {renderCheckbox(row)}
                 {columns.map((col: GridColDef) => (
                   <td key={String(col.field)}>
                     {String(row[col.field] ?? '')}
@@ -56,6 +91,21 @@ jest.mock('@mui/x-data-grid', () => {
             );
           })}
         </tbody>
+        {/* Stands in for the columns panel: same slot, no grid class, and
+            `disabled` there means the column can't be hidden. */}
+        {checkboxSelection && BaseCheckbox && (
+          <tfoot>
+            <tr>
+              <td>
+                <BaseCheckbox
+                  disabled={true}
+                  inputProps={{ name: 'status' }}
+                  data-testid="panel-checkbox"
+                />
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     );
   };
@@ -80,10 +130,27 @@ const sampleRows = [
 ];
 
 describe('applyFlexColumnSizing', () => {
-  it('caps width-only columns with maxWidth instead of converting to flex', () => {
+  it('promotes first non-fixed column to flex when no flex column exists', () => {
     const columns: GridColDef[] = [
       { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
       { field: 'status', headerName: 'Status', width: 120, minWidth: 90 },
+      { field: 'actions', headerName: '', width: 88 },
+    ];
+
+    const sized = applyFlexColumnSizing(columns);
+
+    expect(sized[0]).toMatchObject({ flex: 1, minWidth: 150 });
+    expect(sized[0].maxWidth).toBeUndefined();
+    expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
+    expect(sized[1].flex).toBeUndefined();
+    expect(sized[2]).toMatchObject({ width: 88, hideable: false });
+    expect(sized[2].flex).toBeUndefined();
+  });
+
+  it('caps width-only columns when another column already has flex', () => {
+    const columns: GridColDef[] = [
+      { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
+      { field: 'desc', headerName: 'Description' },
       { field: 'actions', headerName: '', width: 88 },
     ];
 
@@ -95,9 +162,8 @@ describe('applyFlexColumnSizing', () => {
       minWidth: 150,
     });
     expect(sized[0].flex).toBeUndefined();
-    expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
+    expect(sized[1]).toMatchObject({ flex: 1, minWidth: 50 });
     expect(sized[2]).toMatchObject({ width: 88, hideable: false });
-    expect(sized[2].flex).toBeUndefined();
   });
 
   it('gives unsized columns flex to fill remaining width', () => {
@@ -146,26 +212,6 @@ describe('BaseDataGrid', () => {
     return result;
   }
 
-  describe('title', () => {
-    it('renders title when provided', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          title="My Grid"
-        />
-      );
-      expect(
-        screen.getByRole('heading', { name: 'My Grid' })
-      ).toBeInTheDocument();
-    });
-
-    it('does not render a heading when title is omitted', () => {
-      renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
-      expect(screen.queryByRole('heading')).not.toBeInTheDocument();
-    });
-  });
-
   describe('data grid rendering', () => {
     it('renders the data grid', () => {
       renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
@@ -198,75 +244,11 @@ describe('BaseDataGrid', () => {
     });
   });
 
-  describe('action buttons', () => {
-    it('renders a simple action button', () => {
-      const onClick = jest.fn();
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[{ label: 'Add Item', onClick }]}
-        />
-      );
-      expect(
-        screen.getByRole('button', { name: /add item/i })
-      ).toBeInTheDocument();
-    });
-
-    it('calls onClick when action button is clicked', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const onClick = jest.fn();
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[{ label: 'Add Item', onClick }]}
-        />
-      );
-      await user.click(screen.getByRole('button', { name: /add item/i }));
-      expect(onClick).toHaveBeenCalledTimes(1);
-    });
-
-    it('renders disabled action button when disabled=true', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[
-            { label: 'Locked', onClick: jest.fn(), disabled: true },
-          ]}
-        />
-      );
-      expect(screen.getByRole('button', { name: /locked/i })).toBeDisabled();
-    });
-
-    it('renders multiple action buttons', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          actionButtons={[
-            { label: 'Add', onClick: jest.fn() },
-            { label: 'Export', onClick: jest.fn() },
-          ]}
-        />
-      );
-      expect(
-        screen.getByRole('button', { name: /^add$/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: /export/i })
-      ).toBeInTheDocument();
-    });
-
-    it('does not inject action buttons when actionButtons prop is omitted', () => {
-      renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
-      // BaseDataGrid only renders action-button elements when the actionButtons
-      // prop is supplied.  The DataGrid itself is mocked here (no built-in
-      // toolbar/quick-filter buttons), so we can assert that the component
-      // introduces no button elements of its own when no actions are requested.
-      expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    });
+  it('introduces no button elements of its own', () => {
+    // The DataGrid itself is mocked here (no built-in toolbar buttons), so
+    // BaseDataGrid should render zero buttons around it.
+    renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   describe('row click', () => {
@@ -284,59 +266,6 @@ describe('BaseDataGrid', () => {
       expect(onRowClick).toHaveBeenCalledWith(
         expect.objectContaining({ row: sampleRows[0] })
       );
-    });
-  });
-
-  describe('dropdown filters', () => {
-    const filters = [
-      {
-        name: 'status',
-        label: 'Status',
-        filterField: 'status',
-        defaultValue: 'all',
-        options: [
-          { value: 'all', label: 'All' },
-          { value: 'active', label: 'Active' },
-          { value: 'inactive', label: 'Inactive' },
-        ],
-      },
-    ];
-
-    it('renders a filter dropdown when filters are provided', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          filters={filters}
-        />
-      );
-      expect(screen.getByLabelText(/status/i)).toBeInTheDocument();
-    });
-
-    it('shows all rows when filter default is "all"', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          filters={filters}
-        />
-      );
-      expect(screen.getByText('Alice')).toBeInTheDocument();
-      expect(screen.getByText('Bob')).toBeInTheDocument();
-      expect(screen.getByText('Charlie')).toBeInTheDocument();
-    });
-  });
-
-  describe('custom toolbar content', () => {
-    it('renders custom toolbar content', () => {
-      renderAndInit(
-        <BaseDataGrid
-          columns={sampleColumns}
-          rows={sampleRows}
-          customToolbarContent={<div data-testid="custom-toolbar">Custom</div>}
-        />
-      );
-      expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument();
     });
   });
 
@@ -358,5 +287,65 @@ describe('BaseDataGrid', () => {
       );
       expect(container.querySelector('.MuiPaper-root')).not.toBeInTheDocument();
     });
+  });
+});
+
+// Real timers: the tooltip's enter delay and userEvent's hover are easier to
+// drive without the fake-timer setup the suite above needs.
+describe('BaseDataGrid disabled row selection', () => {
+  const REASON = 'Only the owner can delete this test run';
+
+  const renderGrid = async (
+    tooltip?: string,
+    { singleSelection = false }: { singleSelection?: boolean } = {}
+  ) => {
+    render(
+      <BaseDataGrid
+        columns={sampleColumns}
+        rows={sampleRows}
+        checkboxSelection={true}
+        isRowSelectable={params => params.row.status === 'active'}
+        {...(singleSelection && { disableMultipleRowSelection: true })}
+        {...(tooltip && { rowSelectionDisabledTooltip: tooltip })}
+      />
+    );
+    await screen.findByRole('grid');
+  };
+
+  it('explains a disabled checkbox on hover', async () => {
+    const user = userEvent.setup();
+    await renderGrid(REASON);
+
+    // Only Bob is unselectable, so the reason labels exactly one element.
+    const anchor = screen.getByLabelText(REASON);
+    expect(screen.getByTestId('row-2')).toContainElement(anchor);
+    await user.hover(anchor);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(REASON);
+  });
+
+  it('adds no tooltip when no reason is given', async () => {
+    await renderGrid();
+    expect(screen.queryByLabelText(REASON)).toBeNull();
+  });
+
+  it('leaves the disabled select-all header alone', async () => {
+    // Its checkbox is disabled because selection is single-row, which the
+    // row-level reason would misdescribe.
+    await renderGrid(REASON, { singleSelection: true });
+
+    const labelled = screen.getAllByLabelText(REASON);
+    expect(labelled).toHaveLength(1);
+    expect(screen.getByTestId('row-2')).toContainElement(labelled[0]);
+  });
+
+  it('leaves checkboxes outside the grid selection alone', async () => {
+    await renderGrid(REASON);
+
+    // The columns panel renders through the same slot, where `disabled` means
+    // "column can't be hidden" — see the mock's panel checkbox.
+    const panel = screen.getByTestId('panel-checkbox');
+    expect(panel).not.toHaveAttribute('aria-label');
+    expect(screen.getAllByLabelText(REASON)).toHaveLength(1);
   });
 });

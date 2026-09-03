@@ -13,7 +13,6 @@ from rhesis.backend.app.services.tool.rest.notion import NotionRestClient
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestCreateJiraTicketFromTask:
     """Test create_jira_ticket_from_task REST function."""
@@ -141,7 +140,6 @@ class TestCreateJiraTicketFromTask:
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestJiraRestClient:
     """Test JiraRestClient.create_issue error handling."""

@@ -25,7 +25,10 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { findStatusByCategory } from '@/utils/test-result-status';
+import {
+  findStatusByCategory,
+  getEffectiveTestResultStatus,
+} from '@/utils/test-result-status';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { EntityType } from '@/types/entity-type';
 
@@ -180,6 +183,61 @@ export default function TestResultDrawer({
     // effect — the Conversation tab stays active so context isn't lost.
   };
 
+  // `test` comes from a results-grid fetch, which strips
+  // test_output.conversation_summary (the full multi-turn transcript --
+  // dead weight on a grid that never renders it). Fetch the one result this
+  // drawer is actually showing when it needs that transcript. Skipped when
+  // `test` already carries it (a caller that fetched the single result
+  // directly, e.g. after a review action already re-fetches via
+  // getTestResult), so this never re-fetches data already in hand.
+  const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
+  const needsTranscript =
+    activeTab === TAB.conversation || activeTab === TAB.reviews;
+
+  // Dropped only when the drawer closes or swaps to a different result -- not on
+  // every run of the fetch effect below, which also reruns on tab changes and
+  // would then refetch the transcript each time the user came back to it.
+  React.useEffect(() => {
+    setFetchedTest(null);
+  }, [open, test?.id]);
+
+  React.useEffect(() => {
+    const testId = test?.id;
+    if (!open || !testId || !isMultiTurn || !needsTranscript) return;
+    if (test?.test_output?.conversation_summary) return;
+    // Compared by id, not truthiness: on a swap to another result the reset above
+    // has not landed yet, and a bare null-check would read the outgoing result's
+    // transcript as this one's and skip the fetch.
+    if (fetchedTest?.id === testId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const full = await new ApiClientFactory()
+          .getTestResultsClient()
+          .getTestResult(testId);
+        if (!cancelled) setFetchedTest(full);
+      } catch {
+        // Conversation tab and turn mentions fall back to an empty
+        // transcript; not worth surfacing an error for.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    test?.id,
+    test?.test_output?.conversation_summary,
+    isMultiTurn,
+    needsTranscript,
+    fetchedTest,
+  ]);
+
+  // Same id check as the fetch guard, so the outgoing result's transcript is never
+  // rendered against an incoming one during the render before the reset lands.
+  const conversationTest =
+    fetchedTest?.id === test?.id ? (fetchedTest ?? test) : test;
+
   const mentionableMetrics: MentionOption[] = useMemo(() => {
     if (!test?.test_metrics?.metrics) return [];
     return Object.keys(test.test_metrics.metrics).map(name => ({
@@ -193,14 +251,14 @@ export default function TestResultDrawer({
   }, [test]);
 
   const mentionableTurns: MentionOption[] = useMemo(() => {
-    const summary = test?.test_output?.conversation_summary;
+    const summary = conversationTest?.test_output?.conversation_summary;
     if (!summary || !Array.isArray(summary)) return [];
     return summary.map((turn: { turn: number }) => ({
       id: String(turn.turn),
       display: `Turn ${turn.turn}`,
       type: 'turn' as const,
     }));
-  }, [test]);
+  }, [conversationTest]);
 
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
@@ -221,9 +279,9 @@ export default function TestResultDrawer({
         entity_type: EntityType.TEST_RESULT,
       });
 
-      // Determine the automated status from goal_evaluation
-      const automatedPassed =
-        test.test_output?.goal_evaluation?.all_criteria_met || false;
+      // Confirm the outcome the reviewer is looking at, not a re-derivation
+      // from goal_evaluation that could contradict it.
+      const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
       // Find appropriate status ID using centralized utility
       const targetStatus = findStatusByCategory(
@@ -403,7 +461,7 @@ export default function TestResultDrawer({
 
           <TabPanel value={activeTab} index={TAB.conversation}>
             <TestDetailConversationTab
-              test={test}
+              test={conversationTest ?? test}
               testSetType={testSetType}
               project={project}
               projectName={projectName}

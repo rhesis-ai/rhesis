@@ -21,6 +21,12 @@ on:
   schedule:
     - cron: '0 0 * * *'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   # All test env vars (database, redis, JWT, etc.) are set in tests/backend/conftest.py
   # Only PYTHONPATH is needed here for module resolution in CI
@@ -34,6 +40,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -65,7 +73,7 @@ jobs:
         # would re-sync the venv *without* the EE extra, dropping rhesis-backend-ee
         # before the EE tests under tests/backend/ee/ run.
         run: |
-          uv run --extra cpu --extra ee pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4 --timeout=120 --timeout-method=thread --reruns=1
+          uv run --extra cpu --extra ee pytest ../../tests/backend -n 4 --timeout=120 --timeout-method=thread --reruns=1
         working-directory: apps/backend
 
   # Verifies that the MIT-only build stays clean: no core module may import
@@ -80,6 +88,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v6

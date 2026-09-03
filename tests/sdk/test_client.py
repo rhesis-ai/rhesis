@@ -4,6 +4,7 @@ import pytest
 import requests
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 
 
 @pytest.fixture
@@ -71,6 +72,7 @@ def test_send_request_get(mock_request):
         headers=client.headers,
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the response
@@ -97,6 +99,7 @@ def test_send_request_post_with_data(mock_request):
         headers=client.headers,
         json=data,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the response
@@ -123,6 +126,7 @@ def test_send_request_with_params(mock_request):
         headers=client.headers,
         json=None,
         params=params,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the response
@@ -148,6 +152,7 @@ def test_send_request_with_url_params(mock_request):
         headers=client.headers,
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the response
@@ -177,6 +182,7 @@ def test_send_request_put_with_all_params(mock_request):
         headers=client.headers,
         json=data,
         params=params,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Verify the response

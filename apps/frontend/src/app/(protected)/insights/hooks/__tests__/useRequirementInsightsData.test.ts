@@ -229,4 +229,39 @@ describe('useRequirementInsightsData', () => {
     });
     expect(result.current.columns).toEqual([]);
   });
+
+  it('renders a server seed without fetching until the filters change', async () => {
+    mockResolveTestRunIds.mockResolvedValue(['run-1']);
+
+    const filters = {
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId: 'ep-1',
+    };
+    const seed = {
+      filters,
+      data: {
+        summary: { total: 4, passed: 3, failed: 1, pass_rate: 75 },
+        columns: [],
+        requirementOptions: [],
+        noRuns: false,
+      },
+    };
+
+    const { result, rerender } = renderHook(
+      ({ filters: current }) => useRequirementInsightsData(current, true, seed),
+      { initialProps: { filters }, wrapper: createWrapper() }
+    );
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.summary?.failed).toBe(1);
+    jest.advanceTimersByTime(300);
+    expect(mockResolveTestRunIds).not.toHaveBeenCalled();
+
+    rerender({ filters: { ...filters, timeRange: '7d' as const } });
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(mockResolveTestRunIds).toHaveBeenCalledTimes(1);
+    });
+  });
 });

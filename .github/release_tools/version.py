@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from .config import COMPONENTS, PLATFORM_VERSION_FILE
-from .utils import error, info, success, warn
+from .utils import error, info, success
 
 
 def get_current_version(component: str, repo_root: Path) -> str:
@@ -30,19 +30,13 @@ def get_current_version(component: str, repo_root: Path) -> str:
     try:
         if config.config_type == "pyproject":
             return _get_pyproject_version(config_path)
-        elif config.config_type == "package":
+        if config.config_type == "package":
             return _get_package_version(config_path)
-        elif config.config_type == "requirements":
-            warn(
-                f"Component {component} uses requirements.txt - "
-                "no version file, using default 0.1.0"
-            )
-            return "0.1.0"  # Default for requirements.txt based components
     except Exception as e:
         error(f"Failed to get version for component {component}: {e}")
         raise
 
-    return "0.1.0"
+    raise ValueError(f"Unknown config type for component {component}: {config.config_type}")
 
 
 def _get_pyproject_version(config_path: Path) -> str:
@@ -107,7 +101,6 @@ def update_version_file(
     new_version: str,
     repo_root: Path,
     dry_run: bool = False,
-    component_bumps: dict[str, str] = None,
 ) -> bool:
     """Update version in configuration file"""
     if component == "platform":
@@ -123,16 +116,13 @@ def update_version_file(
     if dry_run:
         info(f"Would update {config.config_file} version to: {new_version}")
         return True
-    bump_type = component_bumps[component]
 
     if config.config_type == "pyproject":
-        return _update_pyproject_version(config_path, bump_type)
-    elif config.config_type == "package":
+        return _update_pyproject_version(config_path, new_version)
+    if config.config_type == "package":
         return _update_package_version(config_path, new_version, repo_root)
-    elif config.config_type == "requirements":
-        info(f"Component {component} uses requirements.txt - version tracked via git tags only")
-        return True
 
+    error(f"Unknown config type for component {component}: {config.config_type}")
     return False
 
 
@@ -148,14 +138,17 @@ def _update_platform_version(new_version: str, repo_root: Path, dry_run: bool) -
     return True
 
 
-def _update_pyproject_version(config_path: Path, bump_type: str) -> bool:
-    """Update version in pyproject.toml"""
+def _update_pyproject_version(config_path: Path, new_version: str) -> bool:
+    """Update version in pyproject.toml.
+
+    Sets the version outright rather than using `uv version --bump`: bump_version has already
+    computed it, and a platform-following component has no bump type of its own.
+    """
     # --color never keeps escape codes out of the stderr we print on failure
     cmd = [
         "uv",
         "version",
-        "--bump",
-        bump_type,
+        new_version,
         "--color",
         "never",
         "--project",

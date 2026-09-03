@@ -1,9 +1,4 @@
-"""CRUD operations for test configurations.
-
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched -- see ``apps/backend/AGENTS.md``'s crud-layout rule.
-"""
+"""CRUD operations for test configurations."""
 
 import uuid
 from typing import List, Optional
@@ -11,12 +6,20 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.utils.crud_utils import create_item, get_item_detail, update_item
+from rhesis.backend.app.utils.crud_utils import (
+    create_item,
+    delete_item,
+    get_item_detail,
+    update_item,
+)
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 def get_test_configuration(
-    db: Session, test_configuration_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_configuration_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
     return get_item_detail(
         db,
@@ -34,8 +37,8 @@ def get_test_configurations(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.TestConfiguration]:
     return (
         QueryBuilder(db, models.TestConfiguration)
@@ -51,8 +54,8 @@ def get_test_configurations(
 def create_test_configuration(
     db: Session,
     test_configuration: schemas.TestConfigurationCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.TestConfiguration:
     return create_item(
         db,
@@ -67,8 +70,8 @@ def update_test_configuration(
     db: Session,
     test_configuration_id: uuid.UUID,
     test_configuration: schemas.TestConfigurationUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
     """Update test_configuration."""
     return update_item(
@@ -78,4 +81,20 @@ def update_test_configuration(
         test_configuration,
         organization_id,
         user_id,
+    )
+
+
+def delete_test_configuration(
+    db: Session,
+    test_configuration_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+) -> Optional[models.TestConfiguration]:
+    """Delete test_configuration."""
+    return delete_item(
+        db,
+        models.TestConfiguration,
+        test_configuration_id,
+        organization_id=organization_id,
+        user_id=user_id,
     )

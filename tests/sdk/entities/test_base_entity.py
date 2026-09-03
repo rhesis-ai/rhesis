@@ -8,6 +8,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.clients import HTTPStatus
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.errors import RhesisAPIError
 
@@ -52,6 +53,7 @@ def test_delete_by_id(mock_request, test_entity):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
     # Mock not found error response
@@ -81,6 +83,7 @@ def test_push_with_id(mock_request, test_entity):
         },
         json={"name": "Test", "description": "Test"},
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
@@ -96,6 +99,7 @@ def test_push_without_id(mock_request, test_entity_without_id):
         },
         json={"name": "Test", "description": "Test"},
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 
@@ -116,6 +120,7 @@ def test_pull_by_id(mock_request, test_entity):
         },
         json=None,
         params=None,
+        timeout=DEFAULT_API_TIMEOUT,
     )
 
 

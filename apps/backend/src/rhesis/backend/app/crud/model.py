@@ -1,9 +1,5 @@
 """CRUD operations for models -- the LLM/embedding provider configurations users register.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``update_model`` and ``delete_model`` enforce the ``is_protected`` rules for system models,
 the pre-seeded rows an organization gets on onboarding. A protected model rejects any
 change to its core configuration -- name, model_name, provider_type_id, key, endpoint,
@@ -44,7 +40,7 @@ MODEL_DETAIL_RELATED_FIELDS = (
 
 
 def get_model(
-    db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session, model_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Model]:
     """Get a specific model by ID with its related objects and organization filtering.
 
@@ -66,8 +62,8 @@ def get_models(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Model]:
     """Get all models with their related objects"""
     return get_items_detail(
@@ -111,7 +107,10 @@ def _reject_rows_without_own_credentials(db: Session, model: schemas.ModelCreate
 
 
 def create_model(
-    db: Session, model: schemas.ModelCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    model: schemas.ModelCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Model:
     """Create a new model."""
     _reject_rows_without_own_credentials(db, model)
@@ -122,8 +121,8 @@ def update_model(
     db: Session,
     model_id: uuid.UUID,
     model: schemas.ModelUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Model]:
     """Update a model."""
     # First check if the model is protected

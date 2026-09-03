@@ -6,12 +6,17 @@ import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TracesClient from '@/app/(protected)/traces/components/TracesClient';
+import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 
 interface TestRunTracesTabProps {
   testRunId: string;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  /** Server-prefetched first page of this run's traces -- lets the empty
+   * state render on first paint instead of flashing the grid first. */
+  initialTraces?: TraceSummary[];
+  initialTracesTotalCount?: number;
 }
 
 export default function TestRunTracesTab({
@@ -19,8 +24,15 @@ export default function TestRunTracesTab({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  initialTraces,
+  initialTracesTotalCount,
 }: TestRunTracesTabProps) {
-  const [showEmptyHint, setShowEmptyHint] = useState(false);
+  // initialTraces is undefined when the server didn't know (no scoped
+  // project, unauthorized, fetch failure) -- only a defined page can tell us
+  // it's actually empty; otherwise fall back to discovering it client-side.
+  const [showEmptyHint, setShowEmptyHint] = useState(
+    initialTraces !== undefined && initialTracesTotalCount === 0
+  );
 
   const handleUnfilteredEmpty = useCallback((empty: boolean) => {
     setShowEmptyHint(empty);
@@ -63,6 +75,8 @@ export default function TestRunTracesTab({
             currentUserPicture={currentUserPicture}
             fixedTestRunId={testRunId}
             onUnfilteredEmpty={handleUnfilteredEmpty}
+            initialData={initialTraces}
+            initialTotalCount={initialTracesTotalCount}
           />
         </Paper>
       </Box>

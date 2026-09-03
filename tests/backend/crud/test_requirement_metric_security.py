@@ -29,7 +29,6 @@ from rhesis.backend.app.crud.metric import (
 
 
 @pytest.mark.security
-@pytest.mark.crud
 class TestRequirementMetricSecurity:
     """🔒 Security tests for requirement-metric operations"""
 

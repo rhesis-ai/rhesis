@@ -198,12 +198,39 @@ def get_verdict_matrix(
     triggered refetch.
     """
     organization_id, user_id = tenant_context
-    db_test_run = test_run_crud.get_test_run(
+    db_test_run = test_run_crud.get_test_run_for_verdict_matrix(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
     return services_test_run.get_verdict_matrix(db, db_test_run, columns=columns)
+
+
+@router.get(
+    "/{test_run_id}/has-comparison-runs", response_model=schemas.TestRunComparisonRunsResponse
+)
+def get_has_comparison_runs(
+    test_run_id: UUID,
+    test_set_id: UUID = Query(...),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Whether another test run exists on ``test_set_id`` -- gates the Compare FAB.
+
+    Takes ``test_set_id`` from the caller (who already has it off the run detail
+    response's ``test_configuration.test_set.id``) rather than re-fetching the run,
+    so this costs exactly one query. See ``test_run_crud.has_sibling_test_runs``.
+    """
+    organization_id, _user_id = tenant_context
+    return {
+        "has_comparison_runs": test_run_crud.has_sibling_test_runs(
+            db,
+            test_set_id=test_set_id,
+            exclude_run_id=test_run_id,
+            organization_id=organization_id,
+        )
+    }
 
 
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
@@ -554,6 +581,8 @@ def get_test_run_traces(
             test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
             test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
             test_id=str(trace.test_id) if trace.test_id else None,
+            tags_count=row.tags_count,
+            comments_count=row.comments_count,
         )
         summaries.append(summary)
 

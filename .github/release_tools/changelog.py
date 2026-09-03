@@ -10,13 +10,6 @@ from .config import COMPONENTS, PLATFORM_CHANGELOG, format_component_name
 from .git_ops import get_commits_since_tag, get_last_tag
 from .utils import call_gemini_api, info, success, warn
 
-# gemini-3.5-flash's documented output ceiling. Clamp the commit-scaled budget
-# to this so a very large release requests a valid maxOutputTokens instead of
-# paying for an API call that only fails once the generic HTTPError fallback
-# catches the 400 from an out-of-range value.
-GEMINI_MAX_OUTPUT_TOKENS = 8192
-
-# New entries go directly below this heading, newest first
 UNRELEASED_MARKER = "## [Unreleased]"
 
 
@@ -26,18 +19,11 @@ def generate_changelog_with_llm(
     version: str,
     commits: List[Dict[str, str]],
     last_tag: Optional[str],
-    max_tokens: Optional[int] = None,
 ) -> Optional[str]:
     """Generate changelog using Gemini API"""
     if not api_key:
         warn(f"No Gemini API key available. Skipping LLM changelog generation for {component}")
         return None
-
-    if max_tokens is None:
-        # Scale with commit volume: a 20+ commit release previously exhausted
-        # the flat 2048-token budget mid-generation, producing truncated,
-        # broken markdown that still got committed to the changelog.
-        max_tokens = min(max(4096, 256 * len(commits)), GEMINI_MAX_OUTPUT_TOKENS)
 
     commits_text = "\n".join(
         [f"- {commit['message']} ({commit['hash'][:8]}, {commit['author']})" for commit in commits]
@@ -55,7 +41,7 @@ Do NOT include the version header line (## [version] - date) - only return the c
 
 Return ONLY the changelog content without any additional text or explanations."""
 
-    return call_gemini_api(api_key, prompt, max_tokens=max_tokens)
+    return call_gemini_api(api_key, prompt)
 
 
 def generate_component_summary_with_llm(
@@ -67,6 +53,7 @@ def generate_component_summary_with_llm(
 ) -> Optional[str]:
     """Generate a brief component summary for platform changelog using Gemini API"""
     if not api_key:
+        warn(f"No Gemini API key available. Skipping LLM summary generation for {component}")
         return None
 
     commits_text = "\n".join(
@@ -83,44 +70,40 @@ Focus on the most important user-facing changes and improvements. Format as 2-4 
 
 Return ONLY the bullet points without any additional text or explanations."""
 
-    return call_gemini_api(api_key, prompt, max_tokens=512)
+    return call_gemini_api(api_key, prompt)
 
 
-def generate_fallback_changelog(version: str, commits: List[Dict[str, str]]) -> str:
-    """Generate fallback changelog from commits"""
-    date = datetime.now().strftime("%Y-%m-%d")
+def placeholder_entry(component: str) -> str:
+    """Unmissable stand-in for a changelog section the LLM failed to produce.
 
-    changelog = f"## [{version}] - {date}\n\n### Changed\n\n"
-
-    if commits:
-        for commit in commits:
-            changelog += f"- {commit['message'].splitlines()[0]}\n"
-    else:
-        changelog += "- Initial release\n"
-
-    changelog += "\n"
-    return changelog
+    Never fabricate the section from commit subjects -- it reads as real prose, and two releases
+    shipped it before anyone noticed.
+    """
+    return f"- TODO: changelog generation failed for {component}; write this section by hand.\n"
 
 
 def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
-    """Insert an entry directly below the [Unreleased] heading.
+    """Insert an entry below the [Unreleased] section, above the newest released version.
 
-    Does nothing if the heading is absent, which is how both callers have always
-    behaved -- they rewrite the file unchanged and still report success.
+    Anything hand-written under [Unreleased] stays there. Inserting directly beneath the heading
+    instead would leave those entries under the new version header, reading as part of a release
+    that never contained them.
     """
     lines = changelog_path.read_text().split("\n")
 
-    new_lines = []
-    inserted = False
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == UNRELEASED_MARKER)
+    except StopIteration:
+        raise ValueError(f"{changelog_path} has no '{UNRELEASED_MARKER}' heading to insert under")
 
-    for line in lines:
-        new_lines.append(line)
-        if line.strip() == UNRELEASED_MARKER and not inserted:
-            new_lines.append("")
-            new_lines.extend(entry.split("\n"))
-            inserted = True
+    # Skip past any existing Unreleased content to the next section heading, or the end of the file
+    insert_at = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
+        len(lines),
+    )
 
-    changelog_path.write_text("\n".join(new_lines))
+    lines[insert_at:insert_at] = entry.split("\n") + [""]
+    changelog_path.write_text("\n".join(lines))
 
 
 def update_component_changelog(
@@ -201,7 +184,6 @@ This release includes the following component versions:
             component_name = format_component_name(component)
             platform_entry += f"**{component_name} v{version}:**\n"
 
-            # Try to generate LLM summary
             summary = None
             if api_key and commits:
                 summary = generate_component_summary_with_llm(
@@ -211,12 +193,7 @@ This release includes the following component versions:
             if summary:
                 platform_entry += f"{summary}\n\n"
             elif commits:
-                # Fallback to first few commit messages
-                commit_msgs = [commit["message"].splitlines()[0] for commit in commits[:3]]
-                ellipsis = "..." if len(commits) > 2 else ""
-                platform_entry += (
-                    f"Key changes include: {', '.join(commit_msgs[:2])}{ellipsis}.\n\n"
-                )
+                platform_entry += f"{placeholder_entry(component)}\n"
             else:
                 platform_entry += "Initial release or no significant changes.\n\n"
 

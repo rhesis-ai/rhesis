@@ -38,7 +38,8 @@ def send_task_assignment_notification(
 
         if not assignee or not assignee.email:
             logger.warning(
-                f"Cannot send task assignment email: assignee not found or no email for task {task.id}"
+                "Cannot send task assignment email: assignee not found or "
+                f"no email for task {task.id}"
             )
             return False
 
@@ -140,7 +141,7 @@ def send_task_assignment_in_app_notification(db: Session, task: models.Task) -> 
 
 
 def _get_entity_name(
-    db: Session, entity_type: str, entity_id: str, organization_id: str = None
+    db: Session, entity_type: str, entity_id: str, organization_id: str | None = None
 ) -> Optional[str]:
     """
     Get the name of an entity based on its type and ID with organization filtering.

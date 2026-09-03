@@ -25,9 +25,9 @@ import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import BrandMark from '@/components/common/BrandMark';
 import { UserAvatar } from '@/components/common/UserAvatar';
-import { useCan } from '@/components/common/Can';
-import { Capability } from '@/constants/capabilities';
 import { useUsage } from '@/contexts/UsageContext';
+import { useCanUpgrade } from '@/hooks/useQuotaGate';
+import { usePlan } from '@/contexts/FeaturesContext';
 import {
   QUOTA_RESOURCE_LABELS,
   QUOTA_RESOURCE_ORDER,
@@ -35,14 +35,13 @@ import {
 } from '@/constants/quota';
 import {
   flaggedResources,
-  isCommunityEdition,
   quotaCopy,
   usageMenuRows,
   usageRowFillPercent,
   zoneColor,
   type UsageRow,
 } from '@/utils/quota';
-import { PlanChip } from '@/components/common/QuotaChips';
+import { PlanBadge } from '@/components/common/PlanBadge';
 import { ColorModeContext } from '@/components/providers/ThemeProvider';
 import { handleSignOut } from '@/actions/auth';
 import {
@@ -63,6 +62,7 @@ import {
 } from './sidebar-utils';
 import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';
+import { SidebarPlanRow } from './SidebarPlanRow';
 import { NavSection } from './NavSection';
 import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
 import SupportDrawer from './SupportDrawer';
@@ -303,12 +303,11 @@ export function Sidebar() {
   // keeps this quiet until there is real data, not a permission check.
   // "Can upgrade" is a narrower, separate question: Organization.UPDATE
   // (the same owner/admin gate as Org Settings), not Usage.READ.
-  const { resources: usageResources, edition } = useUsage();
+  const { resources: usageResources } = useUsage();
+  const plan = usePlan();
   const flaggedUsage = flaggedResources(usageResources);
   const flaggedCount = flaggedUsage.length;
-  const canManageOrg = useCan(Capability.Organization.UPDATE);
-  const canUpgrade =
-    canManageOrg && edition !== null && isCommunityEdition(edition);
+  const canUpgrade = useCanUpgrade();
 
   // The badge answers "how many"; the sentence (only rendered as a tooltip
   // here, in full in the org-menu block below) answers "how bad" -- no
@@ -355,9 +354,9 @@ export function Sidebar() {
       {/* Named "Org usage", not "Usage": the menu already reads "Org
           Settings" two rows up, and quota is organization state, never
           personal -- see IMPLEMENTATION_PROMPT.md's "the rule". Visible to
-          every member, not just admins: `usage:read` is granted org-wide
-          (see the note where `canManageOrg` is computed above). Only the
-          "Upgrade plan" row below is narrower. */}
+          every member, not just admins: `usage:read` is granted org-wide.
+          Only the "Upgrade plan" row below is narrower -- see
+          `useCanUpgrade`, which gates on Organization.UPDATE. */}
       <MenuItem
         onClick={() => {
           router.push('/organizations/usage');
@@ -428,7 +427,7 @@ export function Sidebar() {
               >
                 {usagePeriodLabel ?? 'Current usage'}
               </Typography>
-              {edition && <PlanChip edition={edition} />}
+              <PlanBadge plan={plan} />
             </Box>
             {usageRows.map(row => (
               <UsageMenuRow key={row.resource} {...row} />
@@ -846,7 +845,8 @@ export function Sidebar() {
           pt: '20px',
         }}
       >
-        {/* White rounded card for external footer links (Star Rhesis, Support) */}
+        {/* White rounded card for external footer links (Star Rhesis, Support),
+            headed by the current plan */}
         {footerGroup && footerGroup.items.length > 0 && !collapsed && (
           <Box
             sx={{
@@ -858,6 +858,7 @@ export function Sidebar() {
               flexDirection: 'column',
             }}
           >
+            <SidebarPlanRow />
             {footerGroup.items.map(item => (
               <NavLinkItem
                 key={`footer-${item.title}`}
@@ -967,6 +968,18 @@ export function Sidebar() {
             },
           }}
         >
+          {/* Settings */}
+          <MenuItem
+            onClick={() => {
+              router.push('/settings');
+              setMenuAnchor(null);
+            }}
+            sx={MENU_ROW_SX}
+          >
+            <SettingsOutlinedIcon sx={MENU_ICON_SX} />
+            <Typography sx={MENU_LABEL_SX}>User Settings</Typography>
+          </MenuItem>
+
           {/* Notifications */}
           <MenuItem
             onClick={() => {

@@ -30,28 +30,15 @@ export class TokensClient extends BaseApiClient {
   }
 
   async listTokens(
-    params?: PaginationParams
+    params?: PaginationParams & { $filter?: string }
   ): Promise<PaginatedResponse<Token>> {
-    try {
-      return this.fetchPaginated<Token>(API_ENDPOINTS.tokens, {
-        skip: params?.skip || 0,
-        limit: params?.limit || 10,
-        sort_by: params?.sort_by || 'created_at',
-        sort_order: params?.sort_order || 'desc',
-      });
-    } catch (_error) {
-      return {
-        data: [],
-        pagination: {
-          totalCount: 0,
-          skip: params?.skip || 0,
-          limit: params?.limit || 10,
-          currentPage: 0,
-          pageSize: params?.limit || 10,
-          totalPages: 0,
-        },
-      };
-    }
+    return this.fetchPaginated<Token>(API_ENDPOINTS.tokens, {
+      skip: params?.skip || 0,
+      limit: params?.limit || 10,
+      sort_by: params?.sort_by || 'created_at',
+      sort_order: params?.sort_order || 'desc',
+      ...(params?.$filter ? { $filter: params.$filter } : {}),
+    });
   }
 
   async deleteToken(tokenId: string): Promise<Token> {

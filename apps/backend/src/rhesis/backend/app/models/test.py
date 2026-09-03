@@ -63,6 +63,10 @@ class Test(
     explorer_row = Column(
         Boolean, nullable=False, server_default="false", default=False, index=True
     )
+    # Owning metric for a metric-tuning test case. Set only by
+    # services/metric_tuning/cases.py — not client-settable. NULL means a normal
+    # test; non-NULL hides it from the /tests list.
+    metric_id = Column(GUID(), ForeignKey("metric.id"), nullable=True, index=True)
 
     # Relationships
     prompt = relationship("Prompt", back_populates="tests")
@@ -125,8 +129,8 @@ class Test(
         from rhesis.backend.jobs.execution.modes import get_test_type
 
         from .category import Category
-        from .requirement import Requirement
         from .prompt import Prompt
+        from .requirement import Requirement
         from .topic import Topic
 
         test_type = get_test_type(self)

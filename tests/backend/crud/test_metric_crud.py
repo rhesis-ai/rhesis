@@ -29,7 +29,6 @@ from rhesis.backend.app.crud.metric import (
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestMetricOperations:
     """📊 Test metric operations"""
 
@@ -100,7 +99,6 @@ class TestMetricOperations:
 
 
 @pytest.mark.unit
-@pytest.mark.crud
 class TestRequirementMetricOperations:
     """📊🎯 Test requirement-metric association operations"""
 

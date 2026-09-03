@@ -625,7 +625,6 @@ class TestTokenManagement(TokenTestMixin, BaseEntityTests):
 # === TOKEN PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestTokenPerformance(TokenTestMixin, BaseEntityTests):
     """Token performance tests"""
 
@@ -667,7 +666,7 @@ class TestTokenPerformance(TokenTestMixin, BaseEntityTests):
 
         created_tokens = []
         for security_type in security_types:
-            for i in range(3):  # 3 tokens per security type
+            for _i in range(3):  # 3 tokens per security type
                 token_data = TokenDataFactory.edge_case_data(security_type)
                 response = authenticated_client.post(
                     self.endpoints.create,
@@ -700,7 +699,7 @@ class TestTokenPerformance(TokenTestMixin, BaseEntityTests):
 
         created_tokens = []
         for exp_type in expiration_types:
-            for i in range(2):  # 2 tokens per expiration type
+            for _i in range(2):  # 2 tokens per expiration type
                 token_data = TokenDataFactory.edge_case_data(exp_type)
                 response = authenticated_client.post(
                     self.endpoints.create,

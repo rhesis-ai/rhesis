@@ -67,6 +67,10 @@ export interface TestSet {
     tasks: number;
   };
   created_at?: string;
+  /** Set only when the test set is soft-deleted. Populated on the nested
+   * `test_configuration.test_set` of a TestRunDetail, where soft-delete
+   * filtering doesn't reach; absent from a direct GET /test_sets/{id}. */
+  deleted_at?: string;
 }
 
 export interface TestSetCreate {
@@ -84,6 +88,18 @@ export interface TestSetCreate {
 // Test set association request
 export interface TestSetBulkAssociateRequest {
   test_ids: UUID[];
+}
+
+// Test set disassociation request
+export interface TestSetBulkDisassociateRequest {
+  test_ids: UUID[];
+}
+
+export interface TestSetBulkDisassociateResponse {
+  success: boolean;
+  total_tests: number;
+  removed_associations: number;
+  message: string;
 }
 
 export interface TestSetBulkDeleteResponse {

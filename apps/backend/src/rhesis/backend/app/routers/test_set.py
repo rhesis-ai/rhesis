@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -74,7 +74,9 @@ class TestSetGenerationResponse(BaseModel):
     estimated_tests: int
 
 
-def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str = None) -> TestSet:
+def resolve_test_set_or_raise(
+    identifier: str, db: Session, organization_id: str | None = None
+) -> TestSet:
     """
     Helper function to resolve a test set by identifier and raise 404 if not found.
 
@@ -89,8 +91,13 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     Raises:
         HTTPException: 404 error if test set is not found
     """
-    db_test_set = crud.resolve_test_set(identifier, db, organization_id)
+    db_test_set = test_set_crud.resolve_test_set(identifier, db, organization_id)
     if db_test_set is None:
+        raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
+    # A metric's tuning test set is reachable only through its metric. Hiding it
+    # from the list is not enough on its own -- the identifier would still be a
+    # working handle to it.
+    if db_test_set.metric_id is not None:
         raise HTTPException(status_code=404, detail="Test Set not found with provided identifier")
     return db_test_set
 
@@ -313,7 +320,7 @@ def create_test_set(
 ):
     """Create a new test set."""
     organization_id, user_id = tenant_context
-    return crud.create_test_set(
+    return test_set_crud.create_test_set(
         db=db, test_set=test_set, organization_id=organization_id, user_id=user_id
     )
 
@@ -362,7 +369,7 @@ def read_test_sets(
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
 
     organization_id, user_id = tenant_context
-    results = crud.get_test_sets(
+    results = test_set_crud.get_test_sets(
         db=db,
         skip=skip,
         limit=limit,
@@ -420,7 +427,7 @@ def delete_test_set(
     current_user: User = Depends(require_current_user_or_token),
 ):
     organization_id, user_id = tenant_context
-    db_test_set = crud.delete_test_set(
+    db_test_set = test_set_crud.delete_test_set(
         db, test_set_id=test_set_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_set is None:
@@ -442,7 +449,7 @@ def update_test_set(
     """Update an existing test set by UUID, nano_id, or slug."""
     organization_id, user_id = tenant_context
     test_set_id = resolve_test_set_or_raise(test_set_identifier, db, organization_id).id
-    db_test_set = crud.update_test_set(
+    db_test_set = test_set_crud.update_test_set(
         db,
         test_set_id=test_set_id,
         test_set=test_set,
@@ -505,8 +512,8 @@ def get_test_set_tests(
     response: Response,
     skip: int = 0,
     limit: int = 10,
-    order_by: str = "created_at",
-    order: str = "desc",
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -515,13 +522,13 @@ def get_test_set_tests(
     db_test_set = resolve_test_set_or_raise(
         test_set_identifier, db, str(current_user.organization_id)
     )
-    items, count = crud.get_test_set_tests(
+    items, count = test_set_crud.get_test_set_tests(
         db=db,
         test_set_id=db_test_set.id,
         skip=skip,
         limit=limit,
-        sort_by=order_by,
-        sort_order=order,
+        sort_by=sort_by,
+        sort_order=sort_order,
         filter=filter,
     )
 

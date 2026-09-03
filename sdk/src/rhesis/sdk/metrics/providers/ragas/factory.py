@@ -1,4 +1,4 @@
-from typing import List
+from typing import ClassVar, List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.ragas.metrics import (
@@ -12,7 +12,7 @@ from rhesis.sdk.metrics.providers.ragas.metrics import (
 class RagasMetricFactory(BaseMetricFactory):
     """Factory for creating Ragas metric instances."""
 
-    _metrics = {
+    _metrics: ClassVar[dict[str, type[BaseMetric]]] = {
         "RagasAnswerAccuracy": RagasAnswerAccuracy,
         "RagasContextRelevance": RagasContextRelevance,
         "RagasFaithfulness": RagasFaithfulness,
@@ -20,10 +20,10 @@ class RagasMetricFactory(BaseMetricFactory):
     }
 
     # Common parameters supported by all metrics
-    _common_params = {"model"}
+    _common_params: ClassVar[set[str]] = {"model"}
 
     # Metric-specific parameters (in addition to common params)
-    _supported_params = {
+    _supported_params: ClassVar[dict[str, set[str]]] = {
         "RagasAnswerAccuracy": {"threshold"},
         "RagasContextRelevance": {"threshold"},
         "RagasFaithfulness": {"threshold"},

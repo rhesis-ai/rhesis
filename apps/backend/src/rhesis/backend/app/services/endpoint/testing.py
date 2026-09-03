@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 async def test_endpoint(
     db: Session,
     test_config: EndpointTestRequest,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, Any]:
     """Invoke a transient endpoint configuration without persisting it.
 
@@ -146,9 +146,9 @@ async def test_endpoint_mapping(
     request_mapping: dict,
     response_mapping: dict,
     input_data: dict,
-    organization_id: str = None,
-    user_id: str = None,
-    response_format: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+    response_format: str | None = None,
 ) -> Dict[str, Any]:
     """Invoke a stored endpoint with draft request/response mappings.
 

@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: ab2457f097dfaf83802a442076df77fee41aa351
+    targetRevision: a1063f7b5ba89603b2caa4c82a92479c7818780c
     path: kubernetes/clusters/prd/ingress-nginx-internal
   destination:
     server: https://kubernetes.default.svc

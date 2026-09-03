@@ -17,7 +17,7 @@ def _make_create_task_mock():
     The mock ``create_task`` closes any coroutine it receives so that
     Python does not emit *RuntimeWarning: coroutine ... was never awaited*.
     """
-    mock_task = Mock(spec=["cancel"])
+    mock_task = Mock(spec=["cancel", "add_done_callback"])
 
     def _side_effect(coro, **kwargs):
         if inspect.iscoroutine(coro):

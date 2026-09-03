@@ -53,6 +53,8 @@ const makeSingleTurnResult = (
 ): TestResultDetail =>
   ({
     id: u(1),
+    execution: 'ok',
+    verdict: 'pass',
     test_metrics: {
       execution_time: 100,
       metrics: {
@@ -87,6 +89,8 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
 
   it('marks the turn failed when a metric failed', () => {
     const test = makeSingleTurnResult({
+      execution: 'ok',
+      verdict: 'fail',
       test_metrics: {
         execution_time: 100,
         metrics: {
@@ -108,7 +112,14 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
   });
 
   it('follows a human review that overrides a failed result', () => {
+    // The backend applies and persists a test-level review's verdict
+    // synchronously (see services/review_override.py), so a reviewed
+    // result's execution/verdict already reflect the override by the time
+    // the client has it -- the raw is_successful=false metric stays as the
+    // pre-review record.
     const test = makeSingleTurnResult({
+      execution: 'ok',
+      verdict: 'pass',
       test_metrics: {
         execution_time: 100,
         metrics: {
@@ -121,7 +132,7 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
           },
         },
       },
-      status: { id: u(11), name: 'Fail' },
+      status: { id: u(10), name: 'Pass' },
       last_review: { status: { id: u(10), name: 'Pass' } },
     } as unknown as Partial<TestResultDetail>);
 

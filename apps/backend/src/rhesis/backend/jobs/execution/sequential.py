@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.quota.enforcement import QuotaExceededError
+from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.jobs.enums import ExecutionMode, RunStatus
 from rhesis.backend.jobs.execution.run import update_test_run_status
 from rhesis.backend.jobs.execution.shared import (
@@ -25,13 +26,42 @@ from rhesis.backend.jobs.execution.test_execution import execute_test
 logger = logging.getLogger(__name__)
 
 
+def _narrate_completion(
+    result: Any,
+    index: int,
+    total: int,
+    on_progress=None,
+    on_emit=None,
+) -> None:
+    """Report one finished test to the progress and activity-log callbacks.
+
+    A test whose endpoint rejected the call still returns normally here (the Error row is
+    already persisted), so a bare "completed" line told a reader nothing about a run the
+    target refused wholesale. Reports the status code and the target's own reason instead.
+    """
+    endpoint_error = result.get("endpoint_error") if isinstance(result, dict) else None
+
+    if endpoint_error:
+        logger.info(f"Test {index}/{total} reported as Error: {endpoint_error['summary']}")
+    else:
+        logger.info(f"Test {index}/{total} completed successfully")
+
+    if on_progress:
+        on_progress(index, total)
+    if on_emit:
+        if endpoint_error:
+            on_emit(f"Test {index}/{total} endpoint error: {endpoint_error['message']}")
+        else:
+            on_emit(f"Test {index}/{total} completed")
+
+
 def execute_tests_sequentially(
     session: Session,
     test_config: TestConfiguration,
     test_run: TestRun,
     tests: List,
-    reference_test_run_id: str = None,
-    trace_id: str = None,
+    reference_test_run_id: str | None = None,
+    trace_id: str | None = None,
     on_progress=None,
     on_emit=None,
     on_test_phase=None,
@@ -47,10 +77,13 @@ def execute_tests_sequentially(
         trace_id: Optional trace ID for trace-based evaluation
         on_progress: Optional callback(current, total) to update job progress
         on_emit: Optional callback(message) to write activity log entries
-        on_test_phase: Optional callback(test_id, phase). Only ever reports
-            "generating", right before the test runs -- unlike the batch
-            path, there is no seam between invocation and evaluation here to
-            report "evaluating" from (execute_test does both in one call).
+        on_test_phase: Optional callback(test_id, phase). Reports
+            "generating" right before the test runs and "done" when it
+            finishes, same as the batch path. "evaluating" is also reported,
+            but from inside execute_test's call chain (SingleTurnRunner.run /
+            MultiTurnRunner.run, not this loop) -- that's the real seam
+            between invocation and metric evaluation, just three call frames
+            deeper here than in batch.
     """
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
 
@@ -68,9 +101,8 @@ def execute_tests_sequentially(
         from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.utils.user_model_utils import (
-            get_evaluation_model_with_override,
-            get_execution_model_with_override,
             resolve_default_hosted_model,
+            resolve_model,
         )
 
         model_settings = get_model_settings()
@@ -83,11 +115,11 @@ def execute_tests_sequentially(
         if seq_user_id:
             user = user_crud.get_user_by_id(session, seq_user_id)
             if user:
-                execution_model = get_execution_model_with_override(
-                    session, user, model_id=override_execution_model_id
+                execution_model = resolve_model(
+                    session, user, "execution", override=override_execution_model_id
                 )
-                evaluation_model = get_evaluation_model_with_override(
-                    session, user, model_id=override_evaluation_model_id
+                evaluation_model = resolve_model(
+                    session, user, "evaluation", override=override_evaluation_model_id
                 )
             else:
                 # Resolve rather than passing the bare default string on:
@@ -151,7 +183,7 @@ def execute_tests_sequentially(
 
         if on_test_phase:
             try:
-                on_test_phase(str(test.id), "generating")
+                on_test_phase(str(test.id), TestPhase.GENERATING)
             except Exception:
                 logger.debug("on_test_phase(generating) failed", exc_info=True)
 
@@ -173,15 +205,12 @@ def execute_tests_sequentially(
                     evaluation_model=evaluation_model,
                     reference_test_run_id=reference_test_run_id,
                     trace_id=trace_id,
+                    on_test_phase=on_test_phase,
                 )
             )
             results.append(result)
 
-            logger.info(f"Test {i}/{len(tests)} completed successfully")
-            if on_progress:
-                on_progress(i, len(tests))
-            if on_emit:
-                on_emit(f"Test {i}/{len(tests)} completed")
+            _narrate_completion(result, i, len(tests), on_progress, on_emit)
 
         except Exception as e:
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
@@ -191,11 +220,13 @@ def execute_tests_sequentially(
             if on_progress:
                 on_progress(i, len(tests))
             if on_emit:
-                on_emit(f"Test {i}/{len(tests)} failed")
+                # The reason is the whole point of reading the activity log; the batch
+                # path has always included it and this one silently dropped it.
+                on_emit(f"Test {i}/{len(tests)} failed: {e}")
         finally:
             if on_test_phase:
                 try:
-                    on_test_phase(str(test.id), "done")
+                    on_test_phase(str(test.id), TestPhase.DONE)
                 except Exception:
                     logger.debug("on_test_phase(done) failed", exc_info=True)
 

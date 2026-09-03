@@ -240,7 +240,6 @@ class TestTopicHierarchy(TopicTestMixin, BaseEntityTests):
 # === TOPIC PERFORMANCE TESTS ===
 
 
-@pytest.mark.performance
 class TestTopicPerformance(TopicTestMixin, BaseEntityTests):
     """Topic performance tests"""
 

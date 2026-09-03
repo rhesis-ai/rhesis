@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
 from rhesis.backend.app.crud.metric import get_metrics
 from rhesis.backend.app.schemas.explorer import (
@@ -26,7 +26,7 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
-from rhesis.backend.app.utils.user_model_utils import get_evaluation_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
@@ -92,6 +92,18 @@ class MetricVerdict:
         }
 
 
+_EXPLORER_LABEL_BY_OUTCOME = {
+    "pass": "pass",
+    "fail": "fail",
+    # The explorer's label vocabulary predates Inconclusive and has no
+    # concept of it; matches the old `all(v.get('is_successful', False)
+    # for v in valid.values())` behavior, where a present-but-None
+    # is_successful was falsy and so counted as a fail.
+    "inconclusive": "fail",
+    "error": "error",
+}
+
+
 def aggregate_metric_verdict(
     metric_results: Dict[str, Any],
     metric_names: List[str],
@@ -100,15 +112,26 @@ def aggregate_metric_verdict(
 
     Passes only when every metric passed; the score is the mean across metrics. Returns
     ``None`` when no result is usable, which every caller treats as "no metric results".
+
+    Uses the single classifier in app/outcomes.py -- see
+    playground/outcome-model/inventory.md section 4.1. One intentional
+    behavior change from the old inline "all(is_successful)" check: a
+    metric that crashed while evaluating (carries an `error` key) now
+    labels the whole verdict "error" rather than being indistinguishable
+    from a metric that legitimately failed (the same bug 5 fix applied
+    everywhere else this rule was duplicated).
     """
+    from rhesis.backend.app.outcomes import classify_metrics, outcome_of
+
     valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
     if not valid:
         return None
 
     scores = [v.get("score", 0.0) for v in valid.values()]
-    all_passed = all(v.get("is_successful", False) for v in valid.values())
+    execution, verdict = classify_metrics(valid)
+    label = _EXPLORER_LABEL_BY_OUTCOME[outcome_of(execution, verdict).value]
     return MetricVerdict(
-        label="pass" if all_passed else "fail",
+        label=label,
         labeler=", ".join(metric_names),
         model_score=sum(scores) / len(scores) if scores else 0.0,
         metrics=build_metrics_summary_for_response(valid),
@@ -143,7 +166,7 @@ def resolve_sdk_metrics(
     if missing:
         raise ValueError(f"Metric does not exist: {', '.join(missing)}")
 
-    model = get_evaluation_model(db, user_id)
+    model = resolve_model(db, user_id, "evaluation")
 
     sdk_metrics: List[Tuple[Any, MetricConfig]] = []
     for m in resolved:
@@ -301,7 +324,9 @@ async def evaluate_tests_for_explorer_set(
     """
     sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
 
@@ -397,7 +422,12 @@ async def evaluate_tests_for_explorer_set(
 
     # gather preserves order, so each outcome still lines up with its test.
     set_explorer_test_metadata(
-        db, [(test, meta) for test, (_, meta) in zip(eligible, evaluated) if meta is not None]
+        db,
+        [
+            (test, meta)
+            for test, (_, meta) in zip(eligible, evaluated, strict=True)
+            if meta is not None
+        ],
     )
     all_outcomes = [outcome for outcome, _ in evaluated]
 

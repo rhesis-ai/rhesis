@@ -15,7 +15,6 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  AddIcon,
   CategoryIcon,
   LockIcon,
   NotesIcon,

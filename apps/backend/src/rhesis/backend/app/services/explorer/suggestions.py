@@ -9,7 +9,7 @@ import anyio
 from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.quota.enforcement import stream_error_message
 from rhesis.backend.app.schemas.explorer import GenerateSuggestionsResponse, SuggestedTest
@@ -63,14 +63,14 @@ def _get_generation_model(db: Session, user_id: str, organization_id: str):
     from rhesis.backend.app.config.settings import get_model_settings
     from rhesis.backend.app.quota.enforcement import QuotaExceededError
     from rhesis.backend.app.utils.user_model_utils import (
-        get_user_generation_model,
         resolve_default_hosted_model,
+        resolve_model,
     )
 
     try:
         user = user_crud.get_user_by_id(db, user_id)
         if user:
-            return get_user_generation_model(db, user)
+            return resolve_model(db, user, "generation")
     except QuotaExceededError:
         # Not a lookup failure -- let it propagate. The broad except below
         # would otherwise log it as "error fetching" and fall through to a
@@ -80,8 +80,8 @@ def _get_generation_model(db: Session, user_id: str, organization_id: str):
         logger.warning(f"Error fetching user generation model: {e}")
 
     # resolve_default_hosted_model, not a bare get_model(): this is the
-    # system default, which runs on our credentials. May return a string on
-    # construction failure; the caller unwraps that via ensure_language_model.
+    # system default, which runs on our credentials, so it has to carry a
+    # provenance stamp.
     return resolve_default_hosted_model(get_model_settings().generation_model, db, organization_id)
 
 
@@ -149,7 +149,9 @@ def _prepare_suggestion_context(
     Returns a context dict with resolved model, prompt, topic_value, and
     sample_size, or ``None`` when there are no eligible tests.
     """
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
     if db_test_set is None:
         raise ValueError(f"Test set not found: {test_set_identifier}")
 
@@ -182,9 +184,7 @@ def _prepare_suggestion_context(
         examples, topic or "", num_suggestions, user_feedback=feedback_text
     )
 
-    from rhesis.backend.app.utils.user_model_utils import ensure_language_model
-
-    model = ensure_language_model(_get_generation_model(db, user_id, organization_id))
+    model = _get_generation_model(db, user_id, organization_id)
     response_model = _suggestions_response_model(num_suggestions)
 
     return {
@@ -355,7 +355,7 @@ async def generate_suggestions(
                 user_id,
                 embedder=embedder,
             )
-            for item, vec in zip(suggestions, vectors):
+            for item, vec in zip(suggestions, vectors, strict=True):
                 item["embedding"] = vec
 
             suggestions = sort_by_diversity(suggestions)

@@ -88,7 +88,7 @@ def bootstrap(app: "FastAPI") -> None:
     # import the FK resolution raises NoReferencedTableError on the first
     # query that touches ProjectMembership in a session where no other code
     # has yet imported the EE RBAC models.
-    import rhesis.backend.ee.rbac.models as _rbac_models  # noqa: F401
+    import rhesis.backend.ee.rbac.models as _rbac_models
     from rhesis.backend.app.auth.provider_hooks import register_provider_enricher
     from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
     from rhesis.backend.app.auth.refresh_client_hook import (

@@ -1,3 +1,3 @@
 """Celery tasks for endpoint operations."""
 
-from rhesis.backend.jobs.endpoint import explore  # noqa: F401
+from rhesis.backend.jobs.endpoint import explore

@@ -1,10 +1,13 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import RequirementDetailClient from './components/RequirementDetailClient';
+import { prefetch } from '@/utils/server-prefetch';
+import { Capability } from '@/constants/capabilities';
+import { fetchRequirementLinkedTests } from './components/linked-tests';
 import type { UUID } from 'crypto';
+import { requireSession } from '@/utils/require-session';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -23,18 +26,21 @@ export async function generateMetadata({
 }
 
 export default async function RequirementDetailPage({ params }: PageProps) {
-  const session = await auth();
-
-  if (!session || session.error) {
-    throw new Error('Authentication required');
-  }
+  await requireSession();
 
   const { identifier } = await params;
   // Server-side calls must go through createServerApiFactory: the session
   // object no longer exposes the access token (session.session_token is
   // always undefined post-BFF), and the factory also threads the active
   // project header.
-  const client = (await createServerApiFactory()).getRequirementClient();
+  const apiFactory = await createServerApiFactory();
+  const client = apiFactory.getRequirementClient();
+
+  // Linked Tests tab; Linked Metrics already arrive on the requirement.
+  // Only needs `identifier`, not the requirement itself.
+  const linkedTestsPromise = prefetch(Capability.Test.READ, () =>
+    fetchRequirementLinkedTests(apiFactory, identifier)
+  );
 
   let requirement;
   try {
@@ -46,10 +52,13 @@ export default async function RequirementDetailPage({ params }: PageProps) {
 
   const serializedRequirement = JSON.parse(JSON.stringify(requirement));
 
+  const linkedTests = await linkedTestsPromise;
+
   return (
     <RequirementDetailClient
       requirement={serializedRequirement}
       identifier={identifier}
+      initialLinkedTests={linkedTests}
     />
   );
 }

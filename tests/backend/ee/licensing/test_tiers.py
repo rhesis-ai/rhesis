@@ -105,6 +105,71 @@ class TestCatalogShape:
         import EE), so drift between them would only show up here."""
         assert bundled_catalog[LicenseEdition.COMMUNITY].limits == FREE_TIER_LIMITS
 
+    def test_published_limits_match_the_pricing_page(self, bundled_catalog):
+        """These numbers are advertised publicly, so they are a promise, not a default.
+
+        Pinned as literals here and again in the website repo
+        (``src/data/pricing.test.ts``), deliberately duplicated across the two
+        repos because neither build can see the other. The pricing page presents
+        them as terms of service: a number published there but not enforced here
+        is a promise we break, and a lower number enforced here than published
+        there blocks a customer at a ceiling they were never told about.
+
+        Change these together with ``src/data/pricing.ts`` -> ``PLAN_LIMITS``,
+        or not at all.
+        """
+        assert bundled_catalog[LicenseEdition.COMMUNITY].limits == {
+            QuotaResource.TEST_EXECUTIONS: 500,
+            QuotaResource.TRACING_SPANS: 50_000,
+            QuotaResource.TEST_GENERATION: 100,
+            QuotaResource.MODEL_TOKENS: 1_000_000,
+            QuotaResource.SEATS: 3,
+            QuotaResource.PROJECTS: 3,
+            QuotaResource.ENDPOINTS: 3,
+        }
+        assert bundled_catalog[LicenseEdition.COMMUNITY].retention_days == 14
+
+        assert bundled_catalog[LicenseEdition.TEAM].limits == {
+            QuotaResource.TEST_EXECUTIONS: 100_000,
+            QuotaResource.TRACING_SPANS: 1_000_000,
+            QuotaResource.TEST_GENERATION: 50_000,
+            QuotaResource.MODEL_TOKENS: 25_000_000,
+            QuotaResource.SEATS: None,
+            QuotaResource.PROJECTS: None,
+            QuotaResource.ENDPOINTS: None,
+        }
+        assert bundled_catalog[LicenseEdition.TEAM].retention_days == 90
+
+    def test_enterprise_publishes_custom_via_unlimited_defaults(self, bundled_catalog):
+        """The page says "custom" for enterprise, which is the absence of a
+        catalog number, not a number of its own.
+
+        A negotiated cap is minted per-org into the token's ``custom_limits``
+        claim and overlaid on this tier (see ``quota_provider.py``). Putting a
+        finite default here instead would silently cap every enterprise customer
+        at whatever one contract happened to negotiate.
+        """
+        limits = bundled_catalog[LicenseEdition.ENTERPRISE].limits
+        assert set(limits) == set(QuotaResource)
+        assert all(value is None for value in limits.values())
+
+    def test_no_tier_advertises_less_than_the_free_tier(self, bundled_catalog):
+        """Team must never get a smaller allowance than community. Mirrors the
+        website's own "never advertises a smaller allowance on a bigger plan"
+        check, so an edit that inverts two tiers fails on this side too."""
+        free = bundled_catalog[LicenseEdition.COMMUNITY].limits
+        team = bundled_catalog[LicenseEdition.TEAM].limits
+        for resource in QuotaResource:
+            free_limit, team_limit = free[resource], team[resource]
+            if team_limit is None:
+                continue  # unlimited beats any finite free-tier number
+            assert free_limit is not None, (
+                f"{resource.value}: free is unlimited but team is capped at {team_limit}"
+            )
+            assert team_limit > free_limit, (
+                f"{resource.value}: team ({team_limit}) must exceed free ({free_limit})"
+            )
+
     def test_limit_keys_are_quota_resources(self):
         """All limit keys in every tier spec are QuotaResource members."""
         for edition, spec in EDITION_ENTITLEMENTS.items():
@@ -321,6 +386,50 @@ class TestLoadTierConfig:
                 f"community:\n  limits:\n    seats: 3\n"
                 f"  overage: soft\n  overage_tolerance_percent: {value}\n",
             )
+
+    @pytest.mark.parametrize(
+        "value,description",
+        [
+            ('"90"', "string"),
+            ("true", "bool-true"),
+            ("false", "bool-false"),
+            ("0", "zero"),
+            ("-30", "negative"),
+            ("1.5", "float"),
+        ],
+    )
+    def test_invalid_retention_days_values_are_rejected(
+        self, tmp_path, monkeypatch, value, description
+    ):
+        """The retention sweep consumes this value, so a string "90" from a
+        mounted ConfigMap would reach timedelta(days="90") and raise per org
+        inside the sweep's blanket except -- retention would silently never
+        run for the tier. Zero or negative would set a cutoff at or after
+        "now" and delete every trace the org has."""
+        with pytest.raises(ValueError, match="retention_days"):
+            self._load_from(
+                tmp_path,
+                monkeypatch,
+                f"community:\n  limits:\n    seats: 3\n  retention_days: {value}\n",
+            )
+
+    def test_null_retention_days_means_unlimited(self, tmp_path, monkeypatch):
+        """Matches the config's own `null = unlimited` convention; the sweep
+        skips an org whose resolved retention is None."""
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n  retention_days: null\n",
+        )
+        assert catalog[LicenseEdition.COMMUNITY].retention_days is None
+
+    def test_valid_retention_days_is_carried(self, tmp_path, monkeypatch):
+        catalog = self._load_from(
+            tmp_path,
+            monkeypatch,
+            "community:\n  limits:\n    seats: 3\n  retention_days: 45\n",
+        )
+        assert catalog[LicenseEdition.COMMUNITY].retention_days == 45
 
 
 class TestTierSpecToPolicy:

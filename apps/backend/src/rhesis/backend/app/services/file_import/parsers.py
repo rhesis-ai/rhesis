@@ -207,7 +207,8 @@ def _parse_xlsx(file_bytes: bytes) -> List[Dict[str, Any]]:
             if all(cell is None or str(cell).strip() == "" for cell in row):
                 continue
             row_dict = {}
-            for header, value in zip(headers, row):
+            # Uploaded sheets have ragged rows; short rows drop the missing columns.
+            for header, value in zip(headers, row, strict=False):
                 if not header:
                     continue
                 row_dict[header] = value

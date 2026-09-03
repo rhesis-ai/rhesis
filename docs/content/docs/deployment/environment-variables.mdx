@@ -192,6 +192,29 @@ See [Telemetry System Documentation](/contribute/telemetry) for what is collecte
 | `CELERY_WORKER_CONCURRENCY` | Worker process concurrency | `8` |
 | `CELERY_WORKER_PREFETCH_MULTIPLIER` | Tasks prefetched per worker process | `4` |
 
+## Data retention
+
+Two scheduled sweeps hard-delete rows past a retention window: one for `job` and `activity_log`
+rows, one for trace (span) rows. Both are off by default, and both run from `celery beat` — with no
+beat process against the backend, enabling either has no effect.
+
+<Callout type="warning">
+These deletes are permanent. Keep `TRACE_RETENTION_DRY_RUN` at `true` for the first run: the sweep
+then logs the row count it would delete per organization, without deleting anything.
+</Callout>
+
+| Variable | Description | Default |
+|---|---|---|
+| `JOB_RETENTION_ENABLED` | Run the `job`/`activity_log` sweep, 03:00 UTC | `false` |
+| `JOB_RETENTION_DAYS` | Age at which those rows are deleted | `90` |
+| `TRACE_RETENTION_ENABLED` | Run the trace sweep, 04:00 UTC | `false` |
+| `TRACE_RETENTION_DRY_RUN` | Count and log instead of deleting | `true` |
+| `TRACE_RETENTION_DAYS` | Retention window for every organization, overriding the per-plan value | *(unset)* |
+
+The trace sweep reads its window from each organization's resolved plan. Self-hosted deployments
+have no usage limits, so every organization resolves to unlimited retention and the sweep deletes
+nothing until `TRACE_RETENTION_DAYS` supplies a window. Set it to put the whole deployment on one.
+
 ## Advanced
 
 Rarely changed; the defaults are correct for most deployments.

@@ -2,7 +2,6 @@
 from .annotations import router as annotations_router
 from .architect import router as architect_router
 from .auth import router as auth_router
-from .requirement import router as requirement_router
 from .capabilities import router as capabilities_router
 from .category import router as category_router
 from .comment import router as comment_router
@@ -22,6 +21,7 @@ from .insights import router as insights_router
 # Import new routers
 from .job import router as task_router
 from .metric import router as metric_router
+from .metric_tuning import router as metric_tuning_router
 from .model import router as model_router
 from .notification import router as notification_router
 from .organization import router as organization_router
@@ -38,6 +38,7 @@ from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
 from .recycle import router as recycle_router
+from .requirement import router as requirement_router
 from .resolve import router as resolve_router
 from .services import router as services_router
 from .source import router as source_router
@@ -91,6 +92,7 @@ __all__ = [
     "type_lookup",
     "test",
     "metric",
+    "metric_tuning",
     "model",
     "task",
     "task_management",
@@ -142,6 +144,7 @@ routers = sorted(
         test_router,
         type_lookup_router,
         metric_router,
+        metric_tuning_router,
         model_router,
         notification_router,
         task_router,

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from faker import Faker
 from sqlalchemy import text
 
@@ -257,7 +258,7 @@ class TestTokenEncryption:
         test_db.add(token)
 
         # Should raise IntegrityError due to nullable=False
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             test_db.commit()
 
         test_db.rollback()

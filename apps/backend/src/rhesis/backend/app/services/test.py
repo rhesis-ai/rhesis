@@ -23,10 +23,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_type_lookup,
 )
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.backend.app.utils.user_model_utils import (
-    ensure_language_model,
-    get_user_generation_model,
-)
+from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
     sanitize_uuid_field,
@@ -196,7 +193,7 @@ def load_defaults():
 
 
 def _validate_test_set(
-    db: Session, test_set_id: str, organization_id: str = None, user_id: str = None
+    db: Session, test_set_id: str, organization_id: str | None = None, user_id: str | None = None
 ) -> tuple[models.TestSet | None, Dict[str, Any] | None]:
     """Validate test set exists and return it or error response."""
     try:
@@ -1116,7 +1113,7 @@ def remove_test_set_associations(
 
 def _get_user_llm(db: Session, user: User):
     """Get a configured BaseLLM instance for the user."""
-    return ensure_language_model(get_user_generation_model(db, user))
+    return resolve_model(db, user, "generation")
 
 
 def extract_test_from_conversation(

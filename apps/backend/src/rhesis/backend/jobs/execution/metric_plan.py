@@ -113,8 +113,8 @@ def build_metric_plan(
     db: Session,
     test_config: TestConfiguration,
     test_set: TestSet,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Dict[str, Any]:
     """Snapshot which metrics apply to which tests, frozen at dispatch.
 
@@ -166,6 +166,18 @@ def _build_metric_plan(
     cell_keys: Dict[str, Dict[str, str]] = {}
     sources: set = set()
 
+    # Execution-time and test-set metrics apply uniformly across the whole
+    # run -- resolving them per requirement group (below) still works, since
+    # every group's representative resolves the same config, but showing
+    # that identical result under every requirement's own header would
+    # duplicate each metric once per requirement instead of once for the
+    # run. Those two sources pool into one requirement-less section instead;
+    # "requirement" and "none" both keep their own entry, since neither is a
+    # metric shared across groups -- "requirement" is genuinely specific to
+    # its own requirement, and "none" is nothing resolved at all.
+    pooled_test_ids: List[str] = []
+    pooled_metrics: Dict[uuid.UUID, models.Metric] = {}
+
     for group in groups:
         group_test_ids = tests_by_group.get(group, [])
         representative = (
@@ -186,22 +198,36 @@ def _build_metric_plan(
         sources.add(source)
 
         keyed = _assign_metric_keys(metrics)
-        requirements_payload.append(
-            {
-                "id": group,
-                "name": requirement_names.get(group, "Unassigned") if group else "Unassigned",
-                "metrics": [
-                    {
-                        "key": key,
-                        "name": metric.name or metric.class_name,
-                        "id": str(metric.id) if metric.id else None,
-                        "ambiguous": ambiguous,
-                    }
-                    for key, metric, ambiguous in keyed
-                ],
-                "test_ids": group_test_ids,
-            }
-        )
+
+        # "none" keeps its own entry too, not just "requirement" -- it isn't
+        # a metric that applies uniformly across the run, it is a group with
+        # nothing resolved at all (e.g. a requirement carrying no metric of
+        # its own). Pooling it would fold that requirement's name into the
+        # pooled bucket's "Unassigned" label, and if some other group's
+        # test_set/execution_time metric ends up in that same bucket, would
+        # wrongly attach it to this group's tests too.
+        if source in ("requirement", "none"):
+            requirements_payload.append(
+                {
+                    "id": group,
+                    "name": requirement_names.get(group, "Unassigned") if group else "Unassigned",
+                    "metrics": [
+                        {
+                            "key": key,
+                            "name": metric.name or metric.class_name,
+                            "id": str(metric.id) if metric.id else None,
+                            "ambiguous": ambiguous,
+                        }
+                        for key, metric, ambiguous in keyed
+                    ],
+                    "test_ids": group_test_ids,
+                }
+            )
+        else:
+            pooled_test_ids.extend(group_test_ids)
+            for _, metric, _ in keyed:
+                if metric.id:
+                    pooled_metrics[metric.id] = metric
 
         for test_id in group_test_ids:
             scope = (
@@ -220,6 +246,25 @@ def _build_metric_plan(
             }
             if per_test:
                 cell_keys[test_id] = per_test
+
+    if pooled_test_ids:
+        pooled_keyed = _assign_metric_keys(list(pooled_metrics.values()))
+        requirements_payload.append(
+            {
+                "id": None,
+                "name": "Unassigned",
+                "metrics": [
+                    {
+                        "key": key,
+                        "name": metric.name or metric.class_name,
+                        "id": str(metric.id) if metric.id else None,
+                        "ambiguous": ambiguous,
+                    }
+                    for key, metric, ambiguous in pooled_keyed
+                ],
+                "test_ids": pooled_test_ids,
+            }
+        )
 
     return {
         "source": sources.pop() if len(sources) == 1 else "mixed",

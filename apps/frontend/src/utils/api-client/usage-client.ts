@@ -23,6 +23,13 @@ export interface UsageResourceItem {
 
 export interface UsageResponse {
   resources: Record<string, UsageResourceItem>;
+  /**
+   * Machine identifier for the licence edition. Diagnostics only — never for
+   * display, and never for deciding styling.
+   *
+   * To display the plan, use `usePlan()`, which reads it from `GET /features`
+   * — server-seeded in the protected layout, so it is there on first paint.
+   */
   edition: string;
 }
 

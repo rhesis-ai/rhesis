@@ -12,6 +12,8 @@ interface UseCommentsProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
+  /** Server-prefetched comments; seeds the cache so the first render has them. */
+  initialComments?: Comment[];
 }
 
 export function useComments({
@@ -20,6 +22,7 @@ export function useComments({
   currentUserId,
   currentUserName,
   currentUserPicture,
+  initialComments,
 }: UseCommentsProps) {
   const queryClient = useQueryClient();
   const notifications = useNotifications();
@@ -43,6 +46,7 @@ export function useComments({
         .getComments(entityType, entityId);
     },
     enabled: isAuthenticated && !!entityType && !!entityId,
+    initialData: initialComments,
   });
 
   const createComment = useCallback(

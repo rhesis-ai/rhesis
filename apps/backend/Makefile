@@ -8,12 +8,12 @@ DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter
 
 
 lint:
-	# uvx ruff check $(ALL_FILES)
+	uvx ruff check $(ALL_FILES)
 	uvx ruff format $(ALL_FILES) --check
 
 format:
-	# uvx ruff check --fix $(ALL_FILES)
 	uvx ruff format $(ALL_FILES)
+	uvx ruff check --fix $(ALL_FILES)
 
 
 lint_diff:
@@ -34,8 +34,8 @@ format_diff:
 
 # Tests (Postgres/Redis start automatically via Testcontainers)
 test:
-	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration -n 4 --timeout=120 --timeout-method=thread --reruns=1
+	uv run --extra cpu pytest ../../tests/backend -n 4 --timeout=120 --timeout-method=thread --reruns=1
 
 # Re-run only failed tests
 test-lf:
-	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration --timeout=120 --timeout-method=thread
+	uv run --extra cpu pytest ../../tests/backend --lf --timeout=120 --timeout-method=thread

@@ -40,6 +40,13 @@ spec:
                   period: 24h
           limits_config:
             retention_period: PLACEHOLDER
+          compactor:
+            retention_enabled: true
+            delete_request_store: filesystem
+            working_directory: /var/loki/compactor
+            compaction_interval: 10m
+            retention_delete_delay: 2h
+            retention_delete_worker_count: 10
           # Multitenancy header (X-Scope-OrgID) is required; Alloy and Grafana use tenant "rhesis"
           auth_enabled: true
         chunksCache:

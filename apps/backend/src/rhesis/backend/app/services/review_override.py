@@ -22,10 +22,16 @@ from rhesis.backend.app.constants import (
     REVIEW_TARGET_TEST_RESULT,
     REVIEW_TARGET_TURN,
     OverallTestResult,
-    TestResultStatus,
     categorize_test_result_status,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.outcomes import (
+    Execution,
+    Verdict,
+    classify_metrics,
+    outcome_of,
+    outcome_to_test_result_status_name,
+)
 
 
 def _normalize_metric_name(name: str) -> str:
@@ -54,25 +60,56 @@ def _parse_turn_number(reference: str) -> Optional[int]:
     return int(digits) if digits else None
 
 
+def _apply_outcome(
+    db_test_result: models.TestResult, execution: Execution, verdict: Optional[Verdict]
+) -> None:
+    """Write execution/verdict (the source of truth -- see app/outcomes.py)
+    and status_id (the legacy display artefact) together, from one
+    outcome, so a review can never update one without the other.
+    """
+    from rhesis.backend.app.utils.crud_utils import get_or_create_status
+
+    db = Session.object_session(db_test_result)
+    if db is None:
+        return
+    status_name = outcome_to_test_result_status_name(outcome_of(execution, verdict))
+    status = get_or_create_status(
+        db,
+        status_name,
+        "TestResult",
+        organization_id=str(db_test_result.organization_id),
+    )
+    db_test_result.status_id = status.id
+    db_test_result.execution = execution.value
+    db_test_result.verdict = verdict.value if verdict else None
+
+
 def _set_pass_fail_status(
     db_test_result: models.TestResult,
     passed: bool,
 ) -> None:
-    """Look up the Pass/Fail status by name and assign it to the test result."""
-    db = Session.object_session(db_test_result)
-    if db is None:
-        return
-    target_name = TestResultStatus.PASS.value if passed else TestResultStatus.FAIL.value
-    status = (
-        db.query(models.Status)
-        .filter(
-            models.Status.name == target_name,
-            models.Status.organization_id == db_test_result.organization_id,
-        )
-        .first()
-    )
-    if status:
-        db_test_result.status_id = status.id
+    """Apply a plain Pass/Fail outcome -- what a review targeting the whole
+    test result (rather than a specific metric or turn) can express, since
+    that review flow only ever offers a pass/fail choice.
+    """
+    _apply_outcome(db_test_result, Execution.OK, Verdict.PASS if passed else Verdict.FAIL)
+
+
+def _has_evaluable_content(db_test_result: models.TestResult) -> bool:
+    """Whether this result has anything a verdict could be about.
+
+    A test-result-level review can correct a verdict, but it can't
+    fabricate one out of nothing: a result with no metrics and no goal
+    evaluation never produced evaluable output, so it stays Error
+    regardless of what a reviewer picks. Mirrors the frontend's guard in
+    getEffectiveTestResultStatus (test-result-status.ts) -- moving here so
+    the persisted outcome agrees with what the review UI has always shown.
+    """
+    metrics = (db_test_result.test_metrics or {}).get("metrics")
+    has_metrics = isinstance(metrics, dict) and bool(metrics)
+    test_output = db_test_result.test_output
+    has_goal_eval = isinstance(test_output, dict) and bool(test_output.get("goal_evaluation"))
+    return has_metrics or has_goal_eval
 
 
 def apply_review_override(
@@ -114,7 +151,10 @@ def apply_review_override(
         )
         recalculate_overall_status(db_test_result)
     elif target_type == REVIEW_TARGET_TEST_RESULT:
-        _set_pass_fail_status(db_test_result, review_passed)
+        if _has_evaluable_content(db_test_result):
+            _set_pass_fail_status(db_test_result, review_passed)
+        else:
+            _apply_outcome(db_test_result, Execution.ERROR, None)
 
 
 def _apply_metric_override(
@@ -146,12 +186,24 @@ def _apply_metric_override(
         metric.pop("override", None)
     else:
         metric["is_successful"] = review_passed
-        metric["override"] = {
+        override_data = {
             "original_value": original_val,
             "review_id": review_id,
             "overridden_by": str(current_user.id),
             "overridden_at": now,
         }
+        # A metric that crashed while evaluating (carries an `error` key --
+        # see MetricResultBuilder.error()/.timeout()) must stop reading as
+        # Execution.ERROR once a human actively overrides it to pass/fail:
+        # that verdict is real information now, not a gap the platform
+        # couldn't fill. Without this a reviewed result could never leave
+        # Error (inventory.md bug 4) -- classify_metrics would keep seeing
+        # the `error` key and re-derive ERROR regardless of is_successful.
+        # Stashed for revert_override to restore.
+        stashed_error = metric.pop("error", None)
+        if stashed_error is not None:
+            override_data["original_error"] = stashed_error
+        metric["override"] = override_data
 
     flag_modified(db_test_result, "test_metrics")
 
@@ -273,24 +325,38 @@ def _revert_metric_override(
         return
 
     original_val = override["original_value"]
+    # Symmetric with _apply_metric_override's stash: a metric that crashed
+    # before any review had its `error` key moved into the override so
+    # classify_metrics would stop seeing it. Reverting (no review left in
+    # effect, or the replacement review agrees with the original value)
+    # must put it back, or the metric quietly stays "resolved" forever
+    # after its one review is deleted.
+    original_error = override.get("original_error")
 
     if replacement_review:
         review_passed = is_passed_status(replacement_review.get("status", {}).get("name", ""))
         if review_passed == original_val:
             metric["is_successful"] = original_val
             metric.pop("override", None)
+            if original_error is not None:
+                metric["error"] = original_error
         else:
             now = datetime.now(timezone.utc).isoformat()
             metric["is_successful"] = review_passed
-            metric["override"] = {
+            new_override = {
                 "original_value": original_val,
                 "review_id": replacement_review["review_id"],
                 "overridden_by": replacement_review.get("user", {}).get("user_id", ""),
                 "overridden_at": now,
             }
+            if original_error is not None:
+                new_override["original_error"] = original_error
+            metric["override"] = new_override
     else:
         metric["is_successful"] = original_val
         metric.pop("override", None)
+        if original_error is not None:
+            metric["error"] = original_error
 
     flag_modified(db_test_result, "test_metrics")
 
@@ -343,16 +409,70 @@ def _revert_turn_override(
     flag_modified(db_test_result, "test_output")
 
 
+def _turns_all_passed(test_output: Any) -> Optional[bool]:
+    """Whether every turn in test_output.conversation_summary passed.
+
+    None when there is nothing to fold in (no turns, or not a multi-turn
+    result) -- distinct from False, which means an active turn failure.
+    A turn with no recorded verdict defaults to passed, matching
+    trace_review_override.py's identical fold-in rule: a turn is only
+    ever a *reason to fail*, never a reason to invent a pass the metrics
+    didn't already produce.
+    """
+    if not isinstance(test_output, dict):
+        return None
+    summary = test_output.get("conversation_summary")
+    if not isinstance(summary, list) or not summary:
+        return None
+    return all(turn.get("success", True) for turn in summary if isinstance(turn, dict))
+
+
 def recalculate_overall_status(
     db_test_result: models.TestResult,
 ) -> None:
-    """Recalculate the overall test result Pass/Fail based on current metric values."""
-    test_metrics = db_test_result.test_metrics
-    if not test_metrics or not isinstance(test_metrics, dict):
-        return
-    metrics = test_metrics.get("metrics")
-    if not metrics or not isinstance(metrics, dict):
-        return
+    """Recalculate the overall test result outcome after a human review
+    changed a metric or a turn.
 
-    all_passed = all(m.get("is_successful", False) for m in metrics.values() if isinstance(m, dict))
-    _set_pass_fail_status(db_test_result, all_passed)
+    Folds in turn-level overrides, not just metric-level ones: previously
+    this read only test_metrics, so overriding a turn (via
+    _apply_turn_override) wrote the flip to test_output and then this
+    function silently ignored it when deciding the test's overall status
+    (inventory.md bug 3) -- trace_review_override.py's twin of this
+    function already ANDs in ``turns_passed``; this now matches it.
+
+    Writes execution/verdict (the source of truth -- app/outcomes.py) and
+    status_id together via _apply_outcome, so a review can produce any of
+    Pass/Fail/Error/Inconclusive rather than being limited to Pass/Fail --
+    previously an errored result could never become Error again once
+    reviewed (bug 4); classify_metrics can still return ERROR post-review
+    for a metric with no override at all (e.g. only *some* metrics were
+    reviewed and another one is still crashed).
+    """
+    test_metrics = db_test_result.test_metrics
+    metrics = (
+        test_metrics.get("metrics")
+        if isinstance(test_metrics, dict) and isinstance(test_metrics.get("metrics"), dict)
+        else {}
+    )
+    turns_passed = _turns_all_passed(db_test_result.test_output)
+
+    if not metrics:
+        if turns_passed is None:
+            # Nothing to recalculate from at all -- e.g. reverting the last
+            # entity-level review on a metrics-less/turn-less result. Must
+            # still write Error rather than no-op, or the row stays stuck
+            # at whatever the just-deleted review set it to.
+            _apply_outcome(db_test_result, Execution.ERROR, None)
+            return
+        # Turn-only multi-turn result (no discrete metrics dict): the
+        # turns are the only verdict-shaped signal there is, so they
+        # decide execution/verdict directly rather than falling through
+        # to classify_metrics({}), which would report ERROR for a result
+        # that in fact has a real, reviewed verdict.
+        execution, verdict = Execution.OK, (Verdict.PASS if turns_passed else Verdict.FAIL)
+    else:
+        execution, verdict = classify_metrics(metrics)
+        if execution == Execution.OK and turns_passed is False:
+            verdict = Verdict.FAIL
+
+    _apply_outcome(db_test_result, execution, verdict)

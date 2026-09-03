@@ -7,6 +7,7 @@ to support use from both Celery workers and FastAPI endpoints.
 
 import json
 import logging
+import threading
 from typing import Optional
 
 from redis import Redis
@@ -160,6 +161,7 @@ class EventPublisher:
 
 # Singleton instance
 _publisher: Optional[EventPublisher] = None
+_publisher_lock = threading.Lock()
 
 
 def get_publisher() -> EventPublisher:
@@ -167,13 +169,22 @@ def get_publisher() -> EventPublisher:
 
     The publisher is lazily initialized using configured Redis settings.
 
+    Double-checked locking, because callers are no longer single-threaded:
+    ``TestRunSink`` flushes its coalesced ticks from ``threading.Timer``
+    threads, one per test run, so two runs finishing a window at the same
+    moment can both reach this. An unguarded check-then-set there builds two
+    ``EventPublisher`` instances -- and therefore two Redis connection pools,
+    one of which is silently dropped with its connections already open.
+
     Returns:
         The EventPublisher singleton instance.
     """
     global _publisher
     if _publisher is None:
-        broker_url = get_redis_settings().broker_url
-        _publisher = EventPublisher(broker_url)
+        with _publisher_lock:
+            if _publisher is None:
+                broker_url = get_redis_settings().broker_url
+                _publisher = EventPublisher(broker_url)
     return _publisher
 
 

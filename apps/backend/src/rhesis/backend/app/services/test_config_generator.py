@@ -13,14 +13,14 @@ import jinja2
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY
-from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud import model as model_crud
+from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
-    get_user_generation_model,
+    resolve_model,
 )
 
 MAX_SAMPLE_SIZE = 6
@@ -56,7 +56,7 @@ class TestConfigGeneratorService:
         which is too slow for this interactive step; in that case use the fast
         system generation model setting.
         """
-        gen_settings = getattr(self.user.settings.models, "generation")
+        gen_settings = self.user.settings.models.generation
         model_id = gen_settings.model_id
         use_fast_default = False
         if model_id:
@@ -85,7 +85,7 @@ class TestConfigGeneratorService:
                     e,
                 )
                 try:
-                    return ensure_language_model(get_user_generation_model(self.db, self.user))
+                    return resolve_model(self.db, self.user, "generation")
                 except ValueError as inner:
                     raise ModelConfigurationError(
                         f"User model initialization failed: {inner}",
@@ -93,7 +93,7 @@ class TestConfigGeneratorService:
                     ) from inner
 
         try:
-            return ensure_language_model(get_user_generation_model(self.db, self.user))
+            return resolve_model(self.db, self.user, "generation")
         except ValueError as e:
             raise ModelConfigurationError(
                 f"User model initialization failed: {e}",

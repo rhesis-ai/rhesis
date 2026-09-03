@@ -14,7 +14,6 @@ _OK = {"is_authenticated": "Yes", "message": "Connected"}
 
 
 @pytest.mark.unit
-@pytest.mark.services
 @pytest.mark.asyncio
 class TestRunRestHealthCheck:
     """Test both the tool_id path and the provider_type_id + credentials path."""

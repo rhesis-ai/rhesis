@@ -1,9 +1,5 @@
 """CRUD operations for test runs.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``get_test_run`` and ``get_test_runs`` both push ``_defer_endpoint_last_token`` through
 ``with_custom_filter``. The eager chain down to ``TestConfiguration.endpoint`` would
 otherwise pull ``Endpoint.last_token`` -- a large encrypted OAuth token that no test run
@@ -61,6 +57,24 @@ _TEST_RUN_RELATED_FIELDS = (
         models.TestConfiguration.test_set,
         models.TestSet.test_set_type,
     ),
+    # EndpointReference and ProjectReference both serialize `tags`, and both sit too
+    # deep for get_item_detail's derived-field cascade, which only walks one hop from
+    # TestRun. Without these the two collections lazy-load during serialization -- two
+    # extra queries on every run detail response, and the first backend call the test
+    # run detail page makes.
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint._tags_relationship,
+        models.TaggedItem.tag,
+    ),
+    include(
+        models.TestRun.test_configuration,
+        models.TestConfiguration.endpoint,
+        models.Endpoint.project,
+        models.Project._tags_relationship,
+        models.TaggedItem.tag,
+    ),
 )
 
 
@@ -74,7 +88,10 @@ def _defer_endpoint_last_token(q):
 
 
 def get_test_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_run_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestRun]:
     """Get test_run with relationships eagerly loaded (including nested chains)."""
     return get_item_detail(
@@ -86,6 +103,71 @@ def get_test_run(
         related_fields=_TEST_RUN_RELATED_FIELDS,
         extra_filter=_defer_endpoint_last_token,
     )
+
+
+# Relationships get_verdict_matrix actually reads off the run: status.name, and (only on the
+# legacy-run fallback path, for a run dispatched before the metric-plan snapshot shipped)
+# test_configuration.test_set_id. Neither needs get_test_run's full detail load (endpoint, its
+# project, test_set, test_set_type, plus every derived-field tag/comment/task selectin those
+# pull in) -- this endpoint is polled every 3s while a run is live and refetched on every
+# WebSocket progress event, so the extra weight repeats often.
+_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS = (
+    include(models.TestRun.status, cols=[models.Status.id, models.Status.name]),
+    include(
+        models.TestRun.test_configuration,
+        cols=[models.TestConfiguration.id, models.TestConfiguration.test_set_id],
+    ),
+)
+
+
+def get_test_run_for_verdict_matrix(
+    db: Session,
+    test_run_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+) -> Optional[models.TestRun]:
+    """Minimal ``TestRun`` load for the verdict-matrix endpoint -- see
+    ``_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS`` for what it does and doesn't load.
+
+    ``derived_fields=False`` because TestRun carries the comments/tasks/tags mixins:
+    the default cascade would add 3 selectin queries this response never reads, and
+    re-add the ``organization`` joinedload the list above deliberately excludes.
+    """
+    return get_item_detail(
+        db,
+        models.TestRun,
+        test_run_id,
+        organization_id=organization_id,
+        user_id=user_id,
+        related_fields=_TEST_RUN_VERDICT_MATRIX_RELATED_FIELDS,
+        derived_fields=False,
+    )
+
+
+def has_sibling_test_runs(
+    db: Session,
+    test_set_id: uuid.UUID,
+    exclude_run_id: uuid.UUID,
+    organization_id: str | None = None,
+) -> bool:
+    """Whether any other non-deleted TestRun exists on ``test_set_id`` besides
+    ``exclude_run_id`` -- gates the Compare FAB. A single indexed EXISTS query
+    (``ix_test_configuration_test_set_id``, ``ix_test_run_test_configuration_id``)
+    in place of a full paginated TestRun list plus its per-run stats aggregation.
+    """
+    query = (
+        db.query(models.TestRun.id)
+        .join(
+            models.TestConfiguration,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+        )
+        .filter(models.TestConfiguration.test_set_id == test_set_id)
+        .filter(models.TestRun.id != exclude_run_id)
+        .filter(models.TestRun.deleted_at.is_(None))
+    )
+    if organization_id:
+        query = query.filter(models.TestRun.organization_id == uuid.UUID(str(organization_id)))
+    return db.query(query.exists()).scalar()
 
 
 def _test_run_experiment_filter(
@@ -150,8 +232,8 @@ def get_test_runs(
     parameter_version: str | None = None,
     has_experiment: bool | None = None,
     has_reviews: bool | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.TestRun]:
     return get_items_detail(
         db,
@@ -172,9 +254,9 @@ def get_test_runs(
 
 
 def get_test_run_requirements(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[models.Requirement]:
-    """Get requirements that have test results for a specific test run with organization filtering"""
+    """Get requirements that have test results for a test run, filtered by organization."""
     # Verify the test run exists (UUID lookup is safe)
     test_run = get_test_run(db, test_run_id, organization_id=organization_id)
     if not test_run:
@@ -253,7 +335,10 @@ def get_test_run_metrics(
 
 
 def create_test_run(
-    db: Session, test_run: schemas.TestRunCreate, organization_id: str = None, user_id: str = None
+    db: Session,
+    test_run: schemas.TestRunCreate,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.TestRun:
     """Create a new test run with automatic name generation if no name is provided"""
 
@@ -301,8 +386,8 @@ def update_test_run(
     db: Session,
     test_run_id: uuid.UUID,
     test_run: schemas.TestRunUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.TestRun]:
     """Update test_run."""
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
@@ -395,7 +480,7 @@ def get_test_run_task_ids(
 
 
 def get_ordered_tests_for_test_set(
-    db: Session, test_set_id: uuid.UUID, organization_id: str = None
+    db: Session, test_set_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Tuple[str, Optional[str], bool]]:
     """Return ``[(test_id, requirement_id, is_multi_turn)]`` for a test set, ordered by test id.
 
@@ -431,8 +516,32 @@ def get_ordered_tests_for_test_set(
     ]
 
 
+def get_review_count_for_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
+) -> int:
+    """Count distinct tests with at least one review recorded, for this run.
+
+    A coarse presence count, not the detailed test-vs-metric /
+    review-vs-correction breakdown ``BreakdownsDrawer`` computes lazily from
+    full test result bodies -- this only answers "has anything been
+    reviewed yet" for the KPI row, so it stays a single indexed-by-run
+    aggregate instead of hydrating every result. Same JSONB presence
+    predicate as ``_test_run_experiment_filter``'s ``has_reviews`` filter
+    above.
+    """
+    query = db.query(func.count(func.distinct(models.TestResult.test_id))).filter(
+        models.TestResult.test_run_id == test_run_id,
+        models.TestResult.test_reviews.isnot(None),
+        func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
+        func.coalesce(func.jsonb_array_length(models.TestResult.test_reviews["reviews"]), 0) > 0,
+    )
+    if organization_id:
+        query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))
+    return query.scalar() or 0
+
+
 def get_metric_verdicts_for_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Row]:
     """Return one row per (test, metric) evaluated in this run, from ``v_metric_stats``.
 
@@ -458,19 +567,19 @@ def get_metric_verdicts_for_run(
 
 
 def get_test_outcomes_for_run(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> Dict[str, str]:
-    """Map ``test_id`` to its most recent result's status for this run.
+    """Map ``test_id`` to its most recent result's outcome for this run.
 
-    Reads ``status_name`` directly rather than ``v_test_result_stats.result``:
-    that computed column only distinguishes passed/failed/pending and folds
-    an "Error" status into pending (its CASE expression has no branch for
-    it), which would make an execution error indistinguishable from a test
-    that hasn't run yet.
+    Reads ``v_test_result_stats.result`` directly: it now derives from
+    ``test_result.execution``/``verdict`` (the outcome-model source of
+    truth, see ``app/outcomes.py``) and distinguishes passed/failed/error/
+    cancelled/pending on its own, so there is no synonym list left to run
+    here.
     """
     query = db.query(
         models.TestResultStatsView.test_id,
-        models.TestResultStatsView.status_name,
+        models.TestResultStatsView.result,
         models.TestResultStatsView.created_at,
     ).filter(models.TestResultStatsView.test_run_id == test_run_id)
     if organization_id:
@@ -480,13 +589,9 @@ def get_test_outcomes_for_run(
     rows = query.all()
 
     latest: Dict[str, Tuple[Any, str]] = {}
-    for test_id, status_name, created_at in rows:
+    for test_id, result, created_at in rows:
         key = str(test_id)
         if key not in latest or created_at > latest[key][0]:
-            latest[key] = (created_at, status_name)
+            latest[key] = (created_at, result)
 
-    outcome_by_status = {"pass": "passed", "fail": "failed", "error": "error"}
-    return {
-        test_id: outcome_by_status.get((status_name or "").lower(), "pending")
-        for test_id, (_, status_name) in latest.items()
-    }
+    return {test_id: result for test_id, (_, result) in latest.items()}

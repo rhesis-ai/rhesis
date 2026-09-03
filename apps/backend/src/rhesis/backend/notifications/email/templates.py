@@ -269,10 +269,15 @@ class TemplateService:
         # Build test run link section
         test_run_link_section = ""
         if frontend_url and test_run_id:
+            button_style = (
+                "background: #007bff; color: white; padding: 12px 24px; "
+                "text-decoration: none; border-radius: 6px; "
+                "display: inline-block; font-weight: bold;"
+            )
             test_run_link_section = f"""
     <div style="text-align: center; margin: 20px 0;">
         <a href="{frontend_url}/test-runs/{test_run_id}"
-           style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+           style="{button_style}">
             View Detailed Results
         </a>
     </div>"""

@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.outcomes import classify_metrics
 from rhesis.backend.app.services.test_run import get_verdict_matrix
+from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
 
@@ -53,6 +55,16 @@ def _link_metric(db, requirement, metric, org_id, user_id):
             user_id=user_id,
         )
     )
+
+
+def _execution_verdict(metrics: dict) -> dict:
+    """Derive execution/verdict from a metrics dict the way the real write
+    path (classify_metrics) does, so fixtures that build TestResult rows
+    directly still populate the source of truth v_test_result_stats.result
+    reads -- status_id alone no longer drives it.
+    """
+    execution, verdict = classify_metrics(metrics)
+    return {"execution": execution.value, "verdict": verdict.value if verdict else None}
 
 
 def _add_to_set(db, test, test_set, org_id, user_id):
@@ -158,6 +170,7 @@ def verdict_matrix_setup(test_db: Session, test_organization, db_user, db_endpoi
         test_db, TestResultStatus.PASS.value, "TestResult", organization_id=str(org_id)
     )
 
+    passed_metrics = {"Accuracy": {"is_successful": True, "score": 0.95}}
     passed_result = models.TestResult(
         test_run_id=test_run.id,
         test_configuration_id=test_config.id,
@@ -165,7 +178,8 @@ def verdict_matrix_setup(test_db: Session, test_organization, db_user, db_endpoi
         organization_id=org_id,
         user_id=user_id,
         status_id=pass_status.id,
-        test_metrics={"metrics": {"Accuracy": {"is_successful": True, "score": 0.95}}},
+        test_metrics={"metrics": passed_metrics},
+        **_execution_verdict(passed_metrics),
     )
     test_db.add(passed_result)
     test_db.commit()
@@ -279,6 +293,7 @@ def two_requirement_setup(test_db: Session, test_organization, db_user, db_endpo
         status = get_or_create_status(
             test_db, status_name, "TestResult", organization_id=str(org_id)
         )
+        metrics = {"Accuracy": {"is_successful": is_successful}}
         test_db.add(
             models.TestResult(
                 test_run_id=test_run.id,
@@ -287,7 +302,8 @@ def two_requirement_setup(test_db: Session, test_organization, db_user, db_endpo
                 organization_id=org_id,
                 user_id=user_id,
                 status_id=status.id,
-                test_metrics={"metrics": {"Accuracy": {"is_successful": is_successful}}},
+                test_metrics={"metrics": metrics},
+                **_execution_verdict(metrics),
             )
         )
     test_db.commit()
@@ -568,6 +584,206 @@ class TestSourceResolutionPerGroup:
         assert by_id[None]["test_ids"] == [str(unassigned.id)]
 
 
+class TestCustomMetricPoolsAcrossRequirements:
+    """A metric that resolves from the test set, not a requirement, applies
+    the same way regardless of which requirement (if any) a test belongs to.
+    Grouping it under each requirement's own header would show the identical
+    metric once per requirement -- the same failures counted, and displayed,
+    over and over. It belongs in one requirement-less section instead.
+    """
+
+    def test_test_set_metric_gets_one_pooled_group_not_one_per_requirement(
+        self, test_db: Session, test_organization, db_user, db_endpoint, db_status
+    ):
+        org_id = test_organization.id
+        user_id = db_user.id
+
+        test_config = models.TestConfiguration(
+            endpoint_id=db_endpoint.id, organization_id=org_id, user_id=user_id
+        )
+        test_db.add(test_config)
+        test_db.flush()
+
+        test_set = models.TestSet(
+            name="Custom Metric Test Set",
+            user_id=user_id,
+            organization_id=org_id,
+            status_id=db_status.id,
+        )
+        test_db.add(test_set)
+        test_db.flush()
+        test_config.test_set_id = test_set.id
+        test_db.flush()
+
+        # Two requirements, neither with a requirement-level metric -- both
+        # fall through to the test set's own metric.
+        requirement_a = models.Requirement(
+            name="Reliability", organization_id=org_id, user_id=user_id
+        )
+        requirement_b = models.Requirement(
+            name="Compliance", organization_id=org_id, user_id=user_id
+        )
+        test_db.add_all([requirement_a, requirement_b])
+        test_db.flush()
+
+        metric = _metric(test_db, org_id, user_id, name="Custom Detector", scope=["Single-Turn"])
+        test_db.execute(
+            models.test_set_metric_association.insert().values(
+                test_set_id=test_set.id,
+                metric_id=metric.id,
+                organization_id=org_id,
+                user_id=user_id,
+            )
+        )
+
+        test_a = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_a.id
+        )
+        test_b = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_b.id
+        )
+        test_db.add_all([test_a, test_b])
+        test_db.flush()
+        for test in (test_a, test_b):
+            _add_to_set(test_db, test, test_set, org_id, user_id)
+
+        test_run = models.TestRun(
+            name="Custom Metric Run",
+            user_id=user_id,
+            organization_id=org_id,
+            status_id=db_status.id,
+            test_configuration_id=test_config.id,
+        )
+        test_db.add(test_run)
+        test_db.flush()
+
+        for test, is_successful in ((test_a, True), (test_b, False)):
+            status = get_or_create_status(
+                test_db,
+                TestResultStatus.PASS.value if is_successful else TestResultStatus.FAIL.value,
+                "TestResult",
+                organization_id=str(org_id),
+            )
+            metrics = {"Custom Detector": {"is_successful": is_successful}}
+            test_db.add(
+                models.TestResult(
+                    test_run_id=test_run.id,
+                    test_configuration_id=test_config.id,
+                    test_id=test.id,
+                    organization_id=org_id,
+                    user_id=user_id,
+                    status_id=status.id,
+                    test_metrics={"metrics": metrics},
+                    **_execution_verdict(metrics),
+                )
+            )
+        test_db.commit()
+
+        plan = build_metric_plan(test_db, test_config, test_set, organization_id=str(org_id))
+
+        # One pooled group, not one duplicated per requirement.
+        assert len(plan["requirements"]) == 1
+        group = plan["requirements"][0]
+        assert group["id"] is None
+        assert [m["key"] for m in group["metrics"]] == ["Custom Detector"]
+        assert set(group["test_ids"]) == {str(test_a.id), str(test_b.id)}
+
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        # One row for the metric, spanning both tests -- not one row per
+        # requirement repeating the same verdicts.
+        assert len(matrix.rows) == 1
+        row = matrix.rows[0]
+        test_order = plan["test_order"]
+        index_a = test_order.index(str(test_a.id))
+        index_b = test_order.index(str(test_b.id))
+        assert row.verdicts[index_a] == "P"
+        assert row.verdicts[index_b] == "F"
+        assert (row.passed, row.failed) == (1, 1)
+
+
+class TestMetriclessRequirementKeepsItsOwnEntry:
+    """A requirement with no metric of its own, and no test-set/execution-
+    time metric to fall through to, resolves "none" -- not a metric shared
+    across the run, just nothing resolved. It must keep its own (empty)
+    entry under its own name rather than being folded into the pooled
+    section, which would both rename it "Unassigned" and -- if some other
+    requirement's test-set metric were pooled too -- wrongly attach that
+    metric to its tests.
+    """
+
+    def test_metricless_requirement_is_not_pooled_or_renamed(
+        self, test_db: Session, test_organization, db_user, db_endpoint, db_status
+    ):
+        org_id = test_organization.id
+        user_id = db_user.id
+
+        test_config = models.TestConfiguration(
+            endpoint_id=db_endpoint.id, organization_id=org_id, user_id=user_id
+        )
+        test_db.add(test_config)
+        test_db.flush()
+
+        test_set = models.TestSet(
+            name="Metricless Requirement Test Set",
+            user_id=user_id,
+            organization_id=org_id,
+            status_id=db_status.id,
+        )
+        test_db.add(test_set)
+        test_db.flush()
+        test_config.test_set_id = test_set.id
+        test_db.flush()
+
+        # One requirement with its own metric, one with none at all -- and
+        # no test-set/execution-time metric for the metric-less one to fall
+        # through to.
+        requirement_with_metric = models.Requirement(
+            name="Has A Metric", organization_id=org_id, user_id=user_id
+        )
+        requirement_without_metric = models.Requirement(
+            name="Has No Metric", organization_id=org_id, user_id=user_id
+        )
+        test_db.add_all([requirement_with_metric, requirement_without_metric])
+        test_db.flush()
+        metric = _metric(test_db, org_id, user_id, name="Accuracy", scope=["Single-Turn"])
+        _link_metric(test_db, requirement_with_metric, metric, org_id, user_id)
+
+        test_with_metric = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_with_metric.id
+        )
+        test_without_metric = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement_without_metric.id
+        )
+        test_db.add_all([test_with_metric, test_without_metric])
+        test_db.flush()
+        for test in (test_with_metric, test_without_metric):
+            _add_to_set(test_db, test, test_set, org_id, user_id)
+        test_db.commit()
+
+        plan = build_metric_plan(test_db, test_config, test_set, organization_id=str(org_id))
+
+        by_id = {g["id"]: g for g in plan["requirements"]}
+
+        assert [m["key"] for m in by_id[str(requirement_with_metric.id)]["metrics"]] == ["Accuracy"]
+
+        # The metric-less requirement keeps its own name and an empty
+        # metrics list -- it is not folded into a pooled "Unassigned" group.
+        metricless_id = str(requirement_without_metric.id)
+        assert metricless_id in by_id
+        assert by_id[metricless_id]["name"] == "Has No Metric"
+        assert by_id[metricless_id]["metrics"] == []
+        assert by_id[metricless_id]["test_ids"] == [str(test_without_metric.id)]
+
+        # No pooled "Unassigned" bucket exists here at all -- nothing in
+        # this run resolved from a test-set/execution-time source.
+        assert None not in by_id
+
+
 class TestScopeFilteredKeys:
     """cell_keys must carry the key the runtime will really write, not the
     plan's own row key. The runtime numbers duplicate names *after* scope
@@ -689,6 +905,7 @@ class TestDuplicateResults:
             "TestResult",
             organization_id=setup["org_id"],
         )
+        newer_metrics = {"Accuracy": {"is_successful": False}}
         newer = models.TestResult(
             test_run_id=test_run.id,
             test_configuration_id=setup["test_config"].id,
@@ -696,8 +913,9 @@ class TestDuplicateResults:
             organization_id=uuid.UUID(setup["org_id"]),
             user_id=setup["test_a"].user_id,
             status_id=fail_status.id,
-            test_metrics={"metrics": {"Accuracy": {"is_successful": False}}},
+            test_metrics={"metrics": newer_metrics},
             created_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            **_execution_verdict(newer_metrics),
         )
         test_db.add(newer)
         test_db.commit()
@@ -770,6 +988,10 @@ class TestPassRateIsOverTests:
         )
         test_db.add(test_run)
         test_db.flush()
+        mixed_metrics = {
+            "Good": {"is_successful": True},
+            "Bad": {"is_successful": False},
+        }
         test_db.add(
             models.TestResult(
                 test_run_id=test_run.id,
@@ -778,12 +1000,8 @@ class TestPassRateIsOverTests:
                 organization_id=org_id,
                 user_id=user_id,
                 status_id=fail_status.id,
-                test_metrics={
-                    "metrics": {
-                        "Good": {"is_successful": True},
-                        "Bad": {"is_successful": False},
-                    }
-                },
+                test_metrics={"metrics": mixed_metrics},
+                **_execution_verdict(mixed_metrics),
             )
         )
         test_db.commit()
@@ -798,6 +1016,66 @@ class TestPassRateIsOverTests:
         assert matrix.kpis.pass_rate == 0.0, "pass rate must be over tests, not verdicts"
         assert matrix.kpis.failures == 1
         assert matrix.kpis.verdicts_resolved == 2
+
+
+class TestReviewsCount:
+    """kpis.reviews_count backs the Reviews KPI card -- a coarse "how many
+    tests have at least one review" count, cheap enough to compute on every
+    live poll (unlike BreakdownsDrawer's full test-result fetch).
+    """
+
+    def test_zero_when_no_result_has_a_review(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.reviews_count == 0
+
+    def test_counts_a_test_with_a_review(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+
+        passed_result = (
+            test_db.query(models.TestResult)
+            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
+            .one()
+        )
+        passed_result.test_reviews = {"reviews": [{"review_id": "r1", "status": {"name": "Pass"}}]}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.reviews_count == 1
+
+    def test_an_empty_reviews_array_does_not_count(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+
+        passed_result = (
+            test_db.query(models.TestResult)
+            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
+            .one()
+        )
+        passed_result.test_reviews = {"reviews": []}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.reviews_count == 0
 
 
 class TestIsNewer:
@@ -827,3 +1105,198 @@ class TestIsNewer:
         assert _is_newer(None, dated) is False
         assert _is_newer(dated, None) is True
         assert _is_newer(None, None) is False
+
+
+class TestGetTestOutcomesForRun:
+    """get_test_outcomes_for_run reads v_test_result_stats.result directly,
+    which now derives from test_result.execution/verdict (see
+    app/outcomes.py) instead of a status-name synonym list. Exercised
+    against a real Postgres view -- see the module docstring.
+    """
+
+    def test_distinguishes_error_and_cancelled_from_pending(
+        self,
+        test_db: Session,
+        test_organization,
+        db_user,
+        db_test_configuration,
+        db_test_run,
+        db_status,
+    ):
+        """Bug this migration fixes: the old status-name CASE had no branch
+        for Error or Cancelled, so both silently read as pending --
+        indistinguishable from a test that hasn't run yet.
+        """
+        from rhesis.backend.app.crud.test_run import get_test_outcomes_for_run
+
+        org_id = test_organization.id
+        user_id = db_user.id
+
+        tests = {
+            label: models.Test(user_id=user_id, organization_id=org_id)
+            for label in ("passed", "failed", "error", "cancelled", "not_run")
+        }
+        test_db.add_all(tests.values())
+        test_db.flush()
+
+        for label, execution, verdict in (
+            ("passed", "ok", "pass"),
+            ("failed", "ok", "fail"),
+            ("error", "error", None),
+            ("cancelled", "cancelled", None),
+            ("not_run", "not_run", None),
+        ):
+            test_db.add(
+                models.TestResult(
+                    test_run_id=db_test_run.id,
+                    test_configuration_id=db_test_configuration.id,
+                    test_id=tests[label].id,
+                    organization_id=org_id,
+                    user_id=user_id,
+                    # v_test_result_stats inner-joins status -- a row with
+                    # no status_id would be invisible to the view entirely,
+                    # regardless of execution/verdict.
+                    status_id=db_status.id,
+                    execution=execution,
+                    verdict=verdict,
+                )
+            )
+        test_db.commit()
+
+        outcomes = get_test_outcomes_for_run(test_db, db_test_run.id, organization_id=str(org_id))
+
+        assert outcomes[str(tests["passed"].id)] == "passed"
+        assert outcomes[str(tests["failed"].id)] == "failed"
+        assert outcomes[str(tests["error"].id)] == "error"
+        assert outcomes[str(tests["cancelled"].id)] == "cancelled"
+        assert outcomes[str(tests["not_run"].id)] == "pending"
+
+
+class TestVerdictMatrixCaching:
+    """A terminal run's matrix is cached in VerdictMatrixCache; a live run's never is.
+
+    See services/verdict_matrix_cache.py's module docstring for why only terminal
+    runs are cached, and routers/test_result.py's three review endpoints for the
+    invalidation call sites this exercises.
+    """
+
+    @staticmethod
+    def _mark_terminal(test_db: Session, test_run, org_id, user_id):
+        """Give *test_run* a terminal status -- verdict_matrix_setup's own
+        db_status fixture is named "Active", which is never terminal."""
+        terminal_status = get_or_create_status(
+            test_db, "Completed", "TestRun", organization_id=str(org_id), user_id=str(user_id)
+        )
+        test_run.status_id = terminal_status.id
+        test_db.commit()
+        test_db.refresh(test_run)
+        return test_run
+
+    def test_completed_run_is_cached(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        assert get_verdict_matrix_cache().get(str(test_run.id), None) is None
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        assert matrix.is_terminal is True
+        cached = get_verdict_matrix_cache().get(str(test_run.id), None)
+        assert cached is not None
+
+    def test_completed_run_serves_stale_data_until_invalidated(
+        self, test_db: Session, verdict_matrix_setup
+    ):
+        """Demonstrates the cache actually short-circuits recomputation: a
+        metrics change made without going through the invalidating write path
+        (add/update/delete review) is invisible until invalidate() runs."""
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        first = get_verdict_matrix(test_db, test_run)
+        assert first.kpis.reviews_count == 0
+
+        # Simulate a review landing on test_a's result -- bypassing the real
+        # add_review endpoint (and its cache invalidation) on purpose.
+        passed_result = (
+            test_db.query(models.TestResult)
+            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
+            .one()
+        )
+        passed_result.test_reviews = {
+            "reviews": [{"review_id": "r1", "status": {"name": "Passed"}}]
+        }
+        test_db.commit()
+
+        stale = get_verdict_matrix(test_db, test_run)
+        assert stale.kpis.reviews_count == 0  # still the cached value, not recomputed
+
+        get_verdict_matrix_cache().invalidate(str(test_run.id))
+
+        fresh = get_verdict_matrix(test_db, test_run)
+        assert fresh.kpis.reviews_count == 1
+
+    def test_live_run_is_never_cached(self, test_db: Session, verdict_matrix_setup):
+        """verdict_matrix_setup's db_status ("Active") is non-terminal by construction --
+        this asserts the cache is never populated for it, not just that reads bypass it."""
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        assert matrix.is_terminal is False
+        assert get_verdict_matrix_cache().get(str(test_run.id), None) is None
+
+    def test_columns_none_and_default_are_cached_separately(
+        self, test_db: Session, verdict_matrix_setup
+    ):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        with_ids = get_verdict_matrix(test_db, test_run, columns=None)
+        without_ids = get_verdict_matrix(test_db, test_run, columns="none")
+
+        assert with_ids.test_ids is not None
+        assert without_ids.test_ids is None
+
+    def test_unparseable_cache_entry_recomputes_instead_of_raising(
+        self, test_db: Session, verdict_matrix_setup
+    ):
+        """An entry written before a VerdictMatrix schema change must not 500 the
+        grid -- it is discarded and recomputed, then overwritten."""
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
+
+        get_verdict_matrix_cache().set(str(test_run.id), None, '{"obsolete_shape": true}')
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        assert matrix.test_run_id == test_run.id
+        # The bad entry is replaced, so the next read is a normal hit.
+        assert get_verdict_matrix_cache().get(str(test_run.id), None) != '{"obsolete_shape": true}'

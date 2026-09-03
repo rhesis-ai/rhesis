@@ -10,9 +10,12 @@ import {
   Divider,
   Collapse,
   IconButton,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
@@ -24,6 +27,7 @@ import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-s
 import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
 import { useFiles } from '@/hooks/useFiles';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import { getEndpointFailure } from '@/utils/endpoint-failure';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface TestDetailOverviewTabProps {
@@ -159,6 +163,21 @@ export default function TestDetailOverviewTab({
       : test.test?.prompt?.content || 'No prompt available';
   }, [isMultiTurn, test, prompts, testConfig]);
 
+  // Non-null when the target rejected or never answered the call. Everything the endpoint
+  // did say about why lives in here; see utils/endpoint-failure.ts.
+  const endpointFailure = useMemo(
+    () => getEndpointFailure(test.test_output),
+    [test.test_output]
+  );
+
+  // `error` is a boolean flag on an invoker result and prose on a multi-turn contract
+  // failure, so only the prose form is usable as display text. Rendering the flag would
+  // put a bare "true" in the Response field.
+  const contractError =
+    typeof test.test_output?.error === 'string'
+      ? test.test_output.error
+      : undefined;
+
   const responseContent = useMemo(() => {
     if (isMultiTurn) {
       // goal_evaluation.reason is absent when no metric ran at all -- e.g. the evaluation
@@ -166,12 +185,22 @@ export default function TestDetailOverviewTab({
       // that explanation over a generic "no reasoning" dead end.
       return (
         test.test_output?.goal_evaluation?.reason ||
-        test.test_output?.error ||
+        contractError ||
+        endpointFailure?.message ||
         'No evaluation reasoning available'
       );
     }
-    return test.test_output?.output || 'No response available';
-  }, [isMultiTurn, test]);
+    // On a failed call the target's response body *is* the response, and it is the only
+    // place the actual reason appears (a safeguarding rejection, say). Falling straight to
+    // "No response available" threw away the one thing the reader came for.
+    return (
+      test.test_output?.output ||
+      endpointFailure?.responseBody ||
+      endpointFailure?.message ||
+      contractError ||
+      'No response available'
+    );
+  }, [isMultiTurn, test, endpointFailure, contractError]);
 
   const testStatus = useMemo(() => getEffectiveTestResultStatus(test), [test]);
   const testLabel = useMemo(() => {
@@ -212,6 +241,41 @@ export default function TestDetailOverviewTab({
     </Box>
   );
 
+  // Explains an Error status that would otherwise be unexplained: the status chip alone
+  // never said the target had rejected the call, let alone with which code.
+  //
+  // Gated on testStatus rather than on endpointFailure alone: getEffectiveTestResultStatus
+  // is the single arbiter of a result's status (it projects the backend's execution/verdict
+  // pair), so this only ever explains a status it decided. A result a reviewer has since
+  // overridden to Pass must not still be topped by a failure banner.
+  const endpointFailureBanner =
+    endpointFailure && testStatus === 'Error' ? (
+      <Alert
+        severity="warning"
+        icon={<ErrorOutlineIcon />}
+        sx={{ mb: 3, borderRadius: BORDER_RADIUS.md }}
+      >
+        <AlertTitle>
+          {endpointFailure.statusCode !== undefined
+            ? `Target endpoint returned HTTP ${endpointFailure.statusCode}`
+            : 'Target endpoint did not return a response'}
+          {endpointFailure.reason ? ` (${endpointFailure.reason})` : ''}
+        </AlertTitle>
+        <Typography
+          variant="body2"
+          sx={{ mb: endpointFailure.message ? 1 : 0 }}
+        >
+          The test could not be scored, because the endpoint never produced an
+          answer to evaluate.
+        </Typography>
+        {endpointFailure.message && (
+          <Box component="pre" sx={{ ...testPreviewSx, minHeight: 'unset' }}>
+            {endpointFailure.message}
+          </Box>
+        )}
+      </Alert>
+    ) : null;
+
   // Shared card styling matching Figma "Data Output Textfield" card
   const cardSx = {
     p: '30px',
@@ -228,6 +292,7 @@ export default function TestDetailOverviewTab({
     return (
       <Box sx={{ p: 3 }}>
         {statusHeader}
+        {endpointFailureBanner}
 
         <Paper variant="outlined" sx={cardSx}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -429,6 +494,7 @@ export default function TestDetailOverviewTab({
   return (
     <Box sx={{ p: 3 }}>
       {statusHeader}
+      {endpointFailureBanner}
 
       <Paper variant="outlined" sx={cardSx}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

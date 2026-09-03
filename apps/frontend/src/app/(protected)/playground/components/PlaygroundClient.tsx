@@ -18,6 +18,8 @@ import PlaygroundIcon from '@/components/PlaygroundIcon';
 import EndpointsIcon from '@/components/EndpointsIcon';
 import { useSearchParams } from 'next/navigation';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { Project } from '@/utils/api-client/interfaces/project';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -125,7 +127,16 @@ function ChatPlaceholder({
  * Main client component for the Playground feature.
  * Allows users to select an endpoint and chat with it interactively.
  */
-export default function PlaygroundClient() {
+interface PlaygroundClientProps {
+  /** Server-fetched data -- when present, skips the initial client fetch. */
+  initialEndpoints?: Endpoint[];
+  initialProjects?: Project[];
+}
+
+export default function PlaygroundClient({
+  initialEndpoints,
+  initialProjects,
+}: PlaygroundClientProps) {
   const searchParams = useSearchParams();
   const { allowed: canUsePlayground, loading: permsLoading } = useCanWithStatus(
     Capability.Playground.USE
@@ -135,7 +146,11 @@ export default function PlaygroundClient() {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(!permsLoading && canUsePlayground);
+  } = useEndpointOptions(
+    !permsLoading && canUsePlayground,
+    initialEndpoints,
+    initialProjects
+  );
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;

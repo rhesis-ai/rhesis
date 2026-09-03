@@ -34,8 +34,8 @@ import {
   isDeletedEntityError,
 } from '@/utils/entity-error-handler';
 import {
-  getTestResultStatusWithReview,
-  getTestResultLabelWithReview,
+  getEffectiveTestResultStatus,
+  getTestResultLabel,
 } from '@/utils/test-result-status';
 import { format } from 'date-fns';
 
@@ -147,8 +147,8 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
   }
 
   // Get test result status
-  const testStatus = getTestResultStatusWithReview(testResult);
-  const testLabel = getTestResultLabelWithReview(testResult);
+  const testStatus = getEffectiveTestResultStatus(testResult);
+  const testLabel = getTestResultLabel(testResult);
 
   return (
     <Box sx={{ p: theme => theme.spacing(2) }}>
@@ -332,16 +332,13 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
                     />
                   )}
                   {testResult.test_output.goal_achieved !== undefined && (
-                    <Chip
-                      label={
-                        testResult.test_output.goal_achieved ? 'Pass' : 'Fail'
-                      }
+                    // Outcome comes from the backend, not from goal_achieved:
+                    // a human review or an evaluation error must move this
+                    // chip the same way it moves the header chip above.
+                    <StatusChip
+                      status={testStatus}
+                      label={testStatus}
                       size="small"
-                      color={
-                        testResult.test_output.goal_achieved
-                          ? 'success'
-                          : 'error'
-                      }
                       variant="outlined"
                     />
                   )}

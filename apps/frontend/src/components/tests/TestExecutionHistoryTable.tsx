@@ -27,11 +27,12 @@ export default function TestExecutionHistoryTable({
         field: 'passed',
         headerName: 'Status',
         width: 120,
+        flex: 0,
         sortable: false,
         renderCell: params => (
           <StatusChip
-            passed={params.row.passed}
-            label={params.row.passed ? 'Pass' : 'Fail'}
+            status={params.row.status}
+            label={params.row.status}
             size="small"
             variant="outlined"
           />
@@ -107,7 +108,7 @@ export default function TestExecutionHistoryTable({
       {
         field: 'metrics',
         headerName: 'Metrics',
-        width: 140,
+        flex: 1.4,
         sortable: false,
         renderCell: params => {
           const item = params.row as TestExecutionHistoryRow;
@@ -121,7 +122,7 @@ export default function TestExecutionHistoryTable({
       {
         field: 'executedAt',
         headerName: 'Executed At',
-        width: 200,
+        flex: 2,
         sortable: false,
         renderCell: params => (
           <Typography variant="body2" color="text.secondary">
@@ -139,7 +140,6 @@ export default function TestExecutionHistoryTable({
       columns={columns}
       getRowId={row => row.id}
       disableRowSelectionOnClick
-      showToolbar={false}
       disablePaperWrapper
       pageSizeOptions={[10, 25, 50]}
       initialState={{

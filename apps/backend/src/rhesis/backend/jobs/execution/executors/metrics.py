@@ -3,7 +3,11 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.outcomes import (
+    classify_metrics,
+    outcome_of,
+    outcome_to_test_result_status_name,
+)
 from rhesis.backend.jobs.execution.constants import MetricScope
 
 logger = logging.getLogger(__name__)
@@ -159,27 +163,18 @@ def determine_status_from_metrics(metrics: Dict[str, Any]) -> str:
     """
     Determine test status from metric results.
 
+    Thin wrapper over the single classifier in app/outcomes.py -- see
+    playground/outcome-model/inventory.md section 4.1 for the seven
+    duplicated copies of this rule this one replaces. No HTTP-error
+    awareness: this call site's caller never persists a TestResult row (a
+    no-DB preview response), so there is no status_id to correct after the
+    fact if the caller later learns the invocation itself failed.
+
     Returns:
-        "Pass" if all metrics successful
-        "Fail" if any metric failed
-        "Error" if no valid metrics
+        "Pass" if all metrics passed, "Fail" if any definitively failed,
+        "Inconclusive" if the only disagreement is a metric with no
+        pass/fail verdict to give, "Error" if nothing could be evaluated
+        (no metrics, or a metric crashed while evaluating).
     """
-    if not metrics or not isinstance(metrics, dict):
-        return TestResultStatus.ERROR.value
-
-    # Check if all metrics passed
-    all_passed = True
-    has_metrics = False
-
-    for metric_name, metric_result in metrics.items():
-        if isinstance(metric_result, dict):
-            has_metrics = True
-            is_successful = metric_result.get("is_successful", False)
-            if not is_successful:
-                all_passed = False
-                break
-
-    if not has_metrics:
-        return TestResultStatus.ERROR.value
-
-    return TestResultStatus.PASS.value if all_passed else TestResultStatus.FAIL.value
+    execution, verdict = classify_metrics(metrics)
+    return outcome_to_test_result_status_name(outcome_of(execution, verdict))

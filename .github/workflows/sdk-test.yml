@@ -6,12 +6,24 @@ on:
     branches: [ main ]
     paths:
       - 'sdk/**'
+      - 'tests/sdk/**'
+      - 'tests/docker-compose.test.yml'
+      - '.github/workflows/sdk-test.yml'
   push:
     branches: [ main ]
     paths:
       - 'sdk/**'
+      - 'tests/sdk/**'
+      - 'tests/docker-compose.test.yml'
+      - '.github/workflows/sdk-test.yml'
   schedule:
     - cron: '0 0 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test-sdk:
@@ -20,6 +32,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
       with:
+        persist-credentials: false
         fetch-depth: 0  # Needed for git diff
 
     - name: Set up Python

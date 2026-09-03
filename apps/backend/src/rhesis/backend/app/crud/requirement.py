@@ -1,9 +1,5 @@
 """CRUD operations for requirements.
 
-Part of the incremental split of the ``crud`` monolith: ``crud/__init__.py`` still holds
-the bulk of the functions, and per-entity modules like this one take over as the code
-around them is touched.
-
 ``_REQUIREMENT_RELATED_FIELDS`` covers exactly what ``RequirementWithMetricsSchema`` in
 ``routers/requirement.py`` serializes -- user, and each metric with its metric_type,
 backend_type and tags. Status, organization and project are left out because nothing reads
@@ -41,7 +37,10 @@ _REQUIREMENT_RELATED_FIELDS = (
 
 
 def get_requirement(
-    db: Session, requirement_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    requirement_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Requirement]:
     """Get requirement with relationships eagerly loaded."""
     return get_item_detail(
@@ -61,8 +60,8 @@ def get_requirements(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Requirement]:
     """Get requirements."""
     return get_items(
@@ -77,8 +76,8 @@ def get_requirements_detail(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> List[models.Requirement]:
     """Get requirements with related objects for RequirementWithMetricsSchema, including metrics."""
     return get_items_detail(
@@ -98,8 +97,8 @@ def get_requirements_detail(
 def create_requirement(
     db: Session,
     requirement: schemas.RequirementCreate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> models.Requirement:
     """Create requirement."""
     return create_item(db, models.Requirement, requirement, organization_id, user_id)
@@ -109,8 +108,8 @@ def update_requirement(
     db: Session,
     requirement_id: uuid.UUID,
     requirement: schemas.RequirementUpdate,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Requirement]:
     """Update requirement."""
     return update_item(
@@ -119,7 +118,10 @@ def update_requirement(
 
 
 def delete_requirement(
-    db: Session, requirement_id: uuid.UUID, organization_id: str = None, user_id: str = None
+    db: Session,
+    requirement_id: uuid.UUID,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> Optional[models.Requirement]:
     """Delete requirement."""
     return delete_item(db, models.Requirement, requirement_id, organization_id, user_id)

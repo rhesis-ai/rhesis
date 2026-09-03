@@ -274,7 +274,7 @@ class TestTraceListEndpoint:
         """
         # Create traces with different characteristics
         # 3 development + 3 production traces
-        for i in range(3):
+        for _i in range(3):
             dev_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
             dev_span["environment"] = "development"
             dev_span["span_name"] = "ai.llm.invoke"
@@ -1195,341 +1195,157 @@ class TestQueryDataFactories:
 
 @pytest.mark.security
 class TestCrossOrganizationSecurity:
-    """
-    🔒 SECURITY: Test multi-tenant isolation for telemetry CRUD operations
+    """🔒 SECURITY: Test multi-tenant isolation for telemetry CRUD and query routes.
 
-    Note: The security fix adding organization_id filtering is VERIFIED WORKING
-    by all 33 existing telemetry tests passing. The CRUD functions now properly
-    filter by organization_id as required.
+    Each test builds two real orgs so the organization_id filtering is exercised
+    against an actual second tenant, not just asserted on a single org's rows.
     """
 
-    @pytest.mark.skip(
-        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
-    )
     def test_crud_functions_require_organization_id(self, test_db):
         """🔒 SECURITY: Verify CRUD functions accept and use organization_id parameter"""
         import uuid
 
         from rhesis.telemetry.schemas import OTELSpan
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
-        # Create test organization and project IDs
-        org_id = uuid.uuid4()
-        project_id = str(uuid.uuid4())
+        org, user, _ = create_test_organization_and_user(
+            test_db, f"CRUD Org {uuid.uuid4()}", f"crud-{uuid.uuid4()}@test.com", "CRUD User"
+        )
+        org_id = str(org.id)
+        # trace.project_id is a real FK, so the project has to exist
+        project = create_project(
+            test_db,
+            {"name": f"CRUD Project {uuid.uuid4()}", "description": "Test project"},
+            organization_id=str(org.id),
+            user_id=str(user.id),
+        )
+        project_id = str(project.id)
 
         # Create a test trace span using factory
         span_dict = TraceDataFactory.sample_data(project_id=project_id)
         span = OTELSpan(**span_dict)
 
         # Create spans with organization_id
-        spans = create_trace_spans(test_db, [span], str(org_id))
+        spans = create_trace_spans(test_db, [span], org_id)
         assert len(spans) == 1
-        assert spans[0].organization_id == org_id
+        assert str(spans[0].organization_id) == org_id
         trace_id = spans[0].trace_id
 
         # Test get_trace_by_id requires organization_id
         traces = get_trace_by_id(
-            test_db, trace_id=trace_id, project_id=project_id, organization_id=str(org_id)
+            test_db, trace_id=trace_id, project_id=project_id, organization_id=org_id
         )
         assert len(traces) == 1
-        assert traces[0].organization_id == org_id
+        assert str(traces[0].organization_id) == org_id
 
         # Test query_traces requires organization_id
-        rows = query_traces(test_db, project_id=project_id, organization_id=str(org_id))
+        rows = query_traces(test_db, project_id=project_id, organization_id=org_id)
         assert len(rows) >= 1
         # query_traces returns TraceRow(trace, span_count, total)
-        assert all(row.trace.organization_id == org_id for row in rows)
+        assert all(str(row.trace.organization_id) == org_id for row in rows)
         # Total count is embedded in each row via window function
         assert rows[0].total >= 1
 
-    @pytest.mark.skip(
-        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
-    )
-    def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):
-        """🔒 SECURITY: Test that users cannot access traces from other organizations"""
+    @staticmethod
+    def _org_client(test_db, client: TestClient, label: str):
+        """Fresh org + owner + project + a client authenticated as that owner.
+
+        Goes through ``create_test_organization_and_user`` rather than building
+        the org by hand: the telemetry routes are RBAC-gated, and only that
+        helper grants the Owner role a bare ``create_test_user`` leaves off.
+        """
         import uuid
 
-        from rhesis.backend.app.auth.token_utils import generate_api_token
-        from rhesis.backend.app.crud.token import create_token
-        from rhesis.backend.app.schemas.token import TokenCreate
-        from rhesis.backend.app.utils.encryption import hash_token
-        from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
+        from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
-        # Create two separate organizations with users
-        org_a = create_test_organization(test_db, f"Org A {uuid.uuid4()}")
-        user_a = create_test_user(test_db, org_a.id, f"user-a-{uuid.uuid4()}@test.com", "User A")
-
-        org_b = create_test_organization(test_db, f"Org B {uuid.uuid4()}")
-        user_b = create_test_user(test_db, org_b.id, f"user-b-{uuid.uuid4()}@test.com", "User B")
-
-        # Generate plaintext API tokens (must keep before they're encrypted in DB)
-        token_a_value = generate_api_token()
-        token_a_data = TokenCreate(
-            name="Test Token A",
-            token=token_a_value,
-            token_hash=hash_token(token_a_value),
-            token_type="bearer",
-            token_obfuscated=token_a_value[:3] + "..." + token_a_value[-4:],
-            expires_at=None,
-            user_id=user_a.id,
-            organization_id=org_a.id,
-        )
-        create_token(db=test_db, token=token_a_data)
-
-        token_b_value = generate_api_token()
-        token_b_data = TokenCreate(
-            name="Test Token B",
-            token=token_b_value,
-            token_hash=hash_token(token_b_value),
-            token_type="bearer",
-            token_obfuscated=token_b_value[:3] + "..." + token_b_value[-4:],
-            expires_at=None,
-            user_id=user_b.id,
-            organization_id=org_b.id,
-        )
-        create_token(db=test_db, token=token_b_data)
-
-        # Create a project for org A
-        project_a = create_project(
+        suffix = uuid.uuid4()
+        org, user, token = create_test_organization_and_user(
             test_db,
-            {"name": f"Project A {uuid.uuid4()}", "description": "Test project"},
-            organization_id=str(org_a.id),
-            user_id=str(user_a.id),
+            f"Org {label} {suffix}",
+            f"user-{label}-{suffix}@test.com".lower(),
+            f"User {label}",
+        )
+        project = create_project(
+            test_db,
+            {"name": f"Project {label} {suffix}", "description": "Test project"},
+            organization_id=str(org.id),
+            user_id=str(user.id),
         )
 
-        # Create authenticated clients for both orgs using plaintext tokens
-        client_a = TestClient(client.app)
-        client_a.headers = {"Authorization": f"Bearer {token_a_value}"}
+        org_client = TestClient(client.app)
+        org_client.headers = {"Authorization": f"Bearer {token.token}"}
+        return org_client, project
 
-        client_b = TestClient(client.app)
-        client_b.headers = {"Authorization": f"Bearer {token_b_value}"}
+    def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):
+        """🔒 SECURITY: Test that users cannot access traces from other organizations"""
+        client_a, project_a = self._org_client(test_db, client, "A")
+        client_b, _ = self._org_client(test_db, client, "B")
 
         # Ingest a trace for organization A
         span_data = TraceDataFactory.sample_data(project_id=str(project_a.id))
-        trace_batch = {"spans": [span_data]}
-        response = client_a.post("/telemetry/traces", json=trace_batch)
-        assert response.status_code == 200
+        response = client_a.post("/telemetry/traces", json={"spans": [span_data]})
+        assert response.status_code == 200, response.text
         trace_id = span_data["trace_id"]
 
         # Organization A should be able to access their trace
         response = client_a.get(f"/telemetry/traces/{trace_id}?project_id={project_a.id}")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["trace_id"] == trace_id
+        assert response.status_code == 200, response.text
+        assert response.json()["trace_id"] == trace_id
 
         # Organization B should NOT be able to access org A's trace
         response = client_b.get(f"/telemetry/traces/{trace_id}?project_id={project_a.id}")
         assert response.status_code == 404  # Not 403 to avoid information leakage
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.skip(
-        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
-    )
     def test_list_traces_only_shows_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""
-        import uuid
+        client_a, project_a = self._org_client(test_db, client, "A List")
+        client_b, project_b = self._org_client(test_db, client, "B List")
 
-        from rhesis.backend.app.auth.token_utils import generate_api_token
-        from rhesis.backend.app.crud.token import create_token
-        from rhesis.backend.app.schemas.token import TokenCreate
-        from rhesis.backend.app.utils.encryption import hash_token
-        from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
-
-        # Create two separate organizations with users
-        org_a = create_test_organization(test_db, f"Org A List {uuid.uuid4()}")
-        user_a = create_test_user(
-            test_db, org_a.id, f"user-a-list-{uuid.uuid4()}@test.com", "User A"
-        )
-
-        org_b = create_test_organization(test_db, f"Org B List {uuid.uuid4()}")
-        user_b = create_test_user(
-            test_db, org_b.id, f"user-b-list-{uuid.uuid4()}@test.com", "User B"
-        )
-
-        # Generate plaintext API tokens
-        token_a_value = generate_api_token()
-        create_token(
-            db=test_db,
-            token=TokenCreate(
-                name="Test Token A",
-                token=token_a_value,
-                token_hash=hash_token(token_a_value),
-                token_type="bearer",
-                token_obfuscated=token_a_value[:3] + "..." + token_a_value[-4:],
-                expires_at=None,
-                user_id=user_a.id,
-                organization_id=org_a.id,
-            ),
-        )
-
-        token_b_value = generate_api_token()
-        create_token(
-            db=test_db,
-            token=TokenCreate(
-                name="Test Token B",
-                token=token_b_value,
-                token_hash=hash_token(token_b_value),
-                token_type="bearer",
-                token_obfuscated=token_b_value[:3] + "..." + token_b_value[-4:],
-                expires_at=None,
-                user_id=user_b.id,
-                organization_id=org_b.id,
-            ),
-        )
-
-        # Create projects for both orgs
-        project_a = create_project(
-            test_db,
-            {"name": f"Project A {uuid.uuid4()}", "description": "Test project A"},
-            organization_id=str(org_a.id),
-            user_id=str(user_a.id),
-        )
-        project_b = create_project(
-            test_db,
-            {"name": f"Project B {uuid.uuid4()}", "description": "Test project B"},
-            organization_id=str(org_b.id),
-            user_id=str(user_b.id),
-        )
-
-        # Create authenticated clients using plaintext tokens
-        client_a = TestClient(client.app)
-        client_a.headers = {"Authorization": f"Bearer {token_a_value}"}
-
-        client_b = TestClient(client.app)
-        client_b.headers = {"Authorization": f"Bearer {token_b_value}"}
-
-        # Ingest trace for org A
         span_a = TraceDataFactory.sample_data(project_id=str(project_a.id))
-        client_a.post("/telemetry/traces", json={"spans": [span_a]})
+        assert client_a.post("/telemetry/traces", json={"spans": [span_a]}).status_code == 200
 
-        # Ingest trace for org B
         span_b = TraceDataFactory.sample_data(project_id=str(project_b.id))
-        client_b.post("/telemetry/traces", json={"spans": [span_b]})
+        assert client_b.post("/telemetry/traces", json={"spans": [span_b]}).status_code == 200
 
         # Org A should only see their own traces
         response = client_a.get(f"/telemetry/traces?project_id={project_a.id}")
-        assert response.status_code == 200
-        data = response.json()
-        trace_ids = {t["trace_id"] for t in data["traces"]}
+        assert response.status_code == 200, response.text
+        trace_ids = {t["trace_id"] for t in response.json()["traces"]}
         assert span_a["trace_id"] in trace_ids
         assert span_b["trace_id"] not in trace_ids
 
         # Org B should only see their own traces
         response = client_b.get(f"/telemetry/traces?project_id={project_b.id}")
-        assert response.status_code == 200
-        data = response.json()
-        trace_ids = {t["trace_id"] for t in data["traces"]}
+        assert response.status_code == 200, response.text
+        trace_ids = {t["trace_id"] for t in response.json()["traces"]}
         assert span_b["trace_id"] in trace_ids
         assert span_a["trace_id"] not in trace_ids
 
-        # Org A should get empty results when querying org B's project
+        # Org A must never see org B's traces, whatever status the cross-org query returns
         response = client_a.get(f"/telemetry/traces?project_id={project_b.id}")
-        # Could be 404/403 depending on project access logic, or empty list
         if response.status_code == 200:
-            data = response.json()
-            # Should not see org B's traces
-            trace_ids = {t["trace_id"] for t in data["traces"]}
+            trace_ids = {t["trace_id"] for t in response.json()["traces"]}
             assert span_b["trace_id"] not in trace_ids
 
-    @pytest.mark.skip(
-        reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing"
-    )
     def test_metrics_only_for_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that metrics endpoint only aggregates from user's organization"""
-        import uuid
+        client_a, project_a = self._org_client(test_db, client, "A Metrics")
+        client_b, project_b = self._org_client(test_db, client, "B Metrics")
 
-        from rhesis.backend.app.auth.token_utils import generate_api_token
-        from rhesis.backend.app.crud.token import create_token
-        from rhesis.backend.app.schemas.token import TokenCreate
-        from rhesis.backend.app.utils.encryption import hash_token
-        from tests.backend.fixtures.test_setup import create_test_organization, create_test_user
-
-        # Create two organizations with users
-        org_a = create_test_organization(test_db, f"Org A Metrics {uuid.uuid4()}")
-        user_a = create_test_user(
-            test_db, org_a.id, f"user-a-metrics-{uuid.uuid4()}@test.com", "User A"
-        )
-
-        org_b = create_test_organization(test_db, f"Org B Metrics {uuid.uuid4()}")
-        user_b = create_test_user(
-            test_db, org_b.id, f"user-b-metrics-{uuid.uuid4()}@test.com", "User B"
-        )
-
-        # Generate plaintext API tokens
-        token_a_value = generate_api_token()
-        create_token(
-            db=test_db,
-            token=TokenCreate(
-                name="Test Token A",
-                token=token_a_value,
-                token_hash=hash_token(token_a_value),
-                token_type="bearer",
-                token_obfuscated=token_a_value[:3] + "..." + token_a_value[-4:],
-                expires_at=None,
-                user_id=user_a.id,
-                organization_id=org_a.id,
-            ),
-        )
-
-        token_b_value = generate_api_token()
-        create_token(
-            db=test_db,
-            token=TokenCreate(
-                name="Test Token B",
-                token=token_b_value,
-                token_hash=hash_token(token_b_value),
-                token_type="bearer",
-                token_obfuscated=token_b_value[:3] + "..." + token_b_value[-4:],
-                expires_at=None,
-                user_id=user_b.id,
-                organization_id=org_b.id,
-            ),
-        )
-
-        # Create projects
-        project_a = create_project(
-            test_db,
-            {"name": f"Project A Metrics {uuid.uuid4()}", "description": "Test"},
-            organization_id=str(org_a.id),
-            user_id=str(user_a.id),
-        )
-        project_b = create_project(
-            test_db,
-            {"name": f"Project B Metrics {uuid.uuid4()}", "description": "Test"},
-            organization_id=str(org_b.id),
-            user_id=str(user_b.id),
-        )
-
-        # Create clients using plaintext tokens
-        client_a = TestClient(client.app)
-        client_a.headers = {"Authorization": f"Bearer {token_a_value}"}
-
-        client_b = TestClient(client.app)
-        client_b.headers = {"Authorization": f"Bearer {token_b_value}"}
-
-        # Ingest 3 traces for org A
-        for i in range(3):
+        for _ in range(3):
             span = TraceDataFactory.sample_data(project_id=str(project_a.id))
-            client_a.post("/telemetry/traces", json={"spans": [span]})
+            assert client_a.post("/telemetry/traces", json={"spans": [span]}).status_code == 200
 
-        # Ingest 2 traces for org B
-        for i in range(2):
+        for _ in range(2):
             span = TraceDataFactory.sample_data(project_id=str(project_b.id))
-            client_b.post("/telemetry/traces", json={"spans": [span]})
+            assert client_b.post("/telemetry/traces", json={"spans": [span]}).status_code == 200
 
-        # Org A metrics should only count their traces (at least 3)
+        # Each org's metrics count only its own traces
         response = client_a.get(f"/telemetry/metrics?project_id={project_a.id}")
-        assert response.status_code == 200
-        data = response.json()
-        # Should have at least the 3 traces we just created
-        assert data["total_traces"] >= 3
+        assert response.status_code == 200, response.text
+        assert response.json()["total_traces"] == 3
 
-        # Org B metrics should only count their traces (at least 2)
         response = client_b.get(f"/telemetry/metrics?project_id={project_b.id}")
-        assert response.status_code == 200
-        data = response.json()
-        # Should have at least the 2 traces we just created
-        assert data["total_traces"] >= 2
-
-        # Metrics should NOT aggregate across organizations
-        # Org A's metrics should not include org B's traces
-        # (already verified by checking counts match what we inserted)
+        assert response.status_code == 200, response.text
+        assert response.json()["total_traces"] == 2

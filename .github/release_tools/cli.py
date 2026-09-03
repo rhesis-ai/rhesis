@@ -8,6 +8,7 @@ import os
 import sys
 from pathlib import Path
 
+from .config import COMPONENTS, follows_platform
 from .processor import ReleaseProcessor
 from .publish import publish_releases
 from .utils import error, find_repository_root
@@ -20,15 +21,15 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s backend --minor frontend --patch sdk --major
-  %(prog)s --dry-run backend --patch frontend --minor platform --major
+  %(prog)s platform --minor sdk --patch
+  %(prog)s --dry-run platform --major polyphemus --minor
   %(prog)s --no-branch sdk --patch  # Skip branch creation
   %(prog)s --publish  # Create tags and GitHub releases from current release branch
   %(prog)s --publish --dry-run  # Preview what would be published
 
 Components:
-  backend, frontend, worker, chatbot, polyphemus, sdk
-  platform (for platform-wide releases)
+  platform (backend and frontend ship with it and take its version)
+  sdk, polyphemus, ee-backend
 
 Version Types:
   --patch   (0.0.X)
@@ -38,7 +39,7 @@ Version Types:
 Publish Mode:
   Use --publish to create git tags and GitHub releases based on the current
   release branch. This will:
-  • Parse component versions from the current release branch
+  • Read each component's version off the release branch
   • Create missing git tags for each component
   • Push tags to remote repository
   • Create GitHub releases (requires gh CLI)
@@ -63,20 +64,31 @@ Publish Mode:
     return parser
 
 
+def bumpable_components() -> list[str]:
+    """Components a release can bump: everything with its own version, plus the platform"""
+    return ["platform"] + [name for name in COMPONENTS if not follows_platform(name)]
+
+
+def reject_platform_followers(component_bumps: dict) -> bool:
+    """Refuse a bump for a component that takes the platform's version.
+
+    release_config.json lives on main, so a stale one can still name backend or frontend.
+    """
+    named = [component for component in component_bumps if follows_platform(component)]
+    if not named:
+        return True
+
+    error(f"These components ship with the platform and cannot be bumped: {', '.join(named)}")
+    error("Bump 'platform' instead - they take its version automatically.")
+    return False
+
+
 def parse_component_arguments(remaining_args: list) -> dict:
     """Parse component arguments from remaining command line arguments"""
     component_bumps = {}
     i = 0
     while i < len(remaining_args):
-        if remaining_args[i] in [
-            "backend",
-            "frontend",
-            "worker",
-            "chatbot",
-            "polyphemus",
-            "sdk",
-            "platform",
-        ]:
+        if remaining_args[i] in bumpable_components():
             component = remaining_args[i]
             if i + 1 < len(remaining_args) and remaining_args[i + 1] in [
                 "--patch",
@@ -90,8 +102,12 @@ def parse_component_arguments(remaining_args: list) -> dict:
                 error(f"Missing version type for component: {component}")
                 error("Must be one of: --patch, --minor, --major")
                 return {}
+        elif follows_platform(remaining_args[i]):
+            reject_platform_followers({remaining_args[i]: ""})
+            return {}
         else:
             error(f"Unknown argument: {remaining_args[i]}")
+            error(f"Must be one of: {', '.join(bumpable_components())}")
             return {}
 
     return component_bumps
@@ -128,6 +144,8 @@ def main():
         bump_config_file = Path(repo_root, bump_config_file)
         with open(bump_config_file, "r") as f:
             component_bumps = json.load(f)
+        if not reject_platform_followers(component_bumps):
+            sys.exit(1)
     else:
         # Handle regular release mode
         component_bumps = parse_component_arguments(remaining)

@@ -12,6 +12,9 @@ import {
   BACKDROP_COLORS,
   ELEVATION,
   FAB_GROUP_GAP,
+  FAB_SIZE,
+  GRID_CARD_INSET,
+  GRID_TOOLBAR_MIN_HEIGHT,
 } from './theme-constants';
 import {
   contrastTextFor,
@@ -21,7 +24,16 @@ import {
   deriveBrandSurfaces,
   deriveSecondaryAccents,
 } from './brand-palette';
-export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION, FAB_GROUP_GAP };
+export {
+  GREYSCALE,
+  BORDER_RADIUS,
+  BACKDROP_COLORS,
+  ELEVATION,
+  FAB_GROUP_GAP,
+  FAB_SIZE,
+  GRID_CARD_INSET,
+  GRID_TOOLBAR_MIN_HEIGHT,
+};
 
 /** Deployment brand overrides (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`, `BRAND_FONT_FAMILY`). */
 export interface BrandColors {
@@ -586,9 +598,6 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
           root: {
             '& .MuiOutlinedInput-root': {
               borderRadius: 8,
-              ...(mode === 'dark' && {
-                backgroundColor: GREYSCALE.dark.fieldSurface,
-              }),
               '& fieldset': {
                 borderColor:
                   mode === 'light'
@@ -611,16 +620,15 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
           root: {
             borderRadius: 8,
             ...(mode === 'dark' && {
-              backgroundColor: GREYSCALE.dark.fieldSurface,
-              color: '#ffffff',
+              color: gs.title,
+              backgroundColor: gs.fieldSurface,
             }),
           },
           notchedOutline: {
-            borderColor:
-              mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border,
+            borderColor: gs.border,
           },
           input: {
-            ...(mode === 'dark' && { color: '#ffffff' }),
+            ...(mode === 'dark' && { color: gs.title }),
           },
         },
       },

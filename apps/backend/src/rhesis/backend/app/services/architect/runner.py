@@ -165,7 +165,7 @@ async def build_agent(
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.main import app as fastapi_app
     from rhesis.backend.app.mcp_server.local_tools import LocalToolProvider
-    from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+    from rhesis.backend.app.utils.user_model_utils import resolve_model
     from rhesis.sdk.agents.architect.agent import ArchitectAgent
     from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
     from rhesis.sdk.agents.tools import ExploreEndpointTool
@@ -177,7 +177,7 @@ async def build_agent(
         if not user.is_active:
             raise ValueError(f"User {user_id} is inactive")
         delegation_token = create_service_delegation_token(user, "backend")
-        model = get_user_generation_model(db, user)
+        model = resolve_model(db, user, "generation")
         project_context = _resolve_project_context(db, project_id, organization_id)
 
     agent_state = session_data["agent_state"]
@@ -347,8 +347,12 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
     svc = EndpointService()
 
     def _invoke(endpoint_id: str, input_data: dict) -> dict:
+        from rhesis.backend.app.services.endpoint.result_processing import (
+            process_endpoint_result,
+        )
+
         with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-            return run_sync(
+            result = run_sync(
                 svc.invoke_endpoint(
                     db,
                     endpoint_id,
@@ -358,6 +362,11 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
                     project_id=project_id,
                 )
             )
+        # LocalEndpointTarget's contract is a dict with an ``output`` key, and a failed
+        # invocation returns an ErrorResponse model instead. Handing that over raw made the
+        # target's `result.get(...)` raise, and the session was told "'ErrorResponse' object
+        # has no attribute 'get'" instead of which status the endpoint actually returned.
+        return process_endpoint_result(result)
 
     def factory(endpoint_id: str) -> LocalEndpointTarget:
         name = endpoint_id
