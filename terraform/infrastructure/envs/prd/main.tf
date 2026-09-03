@@ -183,6 +183,17 @@ module "arc_gha_prd" {
   project_id  = var.project_id
   environment = "prd"
 
+  # prd's secrets were created by hand, so version 1 holds the REAL credential rather than
+  # the module's placeholder (dev and stg have placeholder in v1, real value in v2). Terraform
+  # must not manage versions here at all:
+  #   - creating one would make a placeholder `latest`, and ESO would sync
+  #     PLACEHOLDER_GITHUB_APP_ID into arc-runners, breaking prd's self-hosted runners;
+  #   - importing the existing one is worse, because secret_data is stored in Terraform state,
+  #     so the live GitHub App private key would land in the state bucket in plaintext, which
+  #     all four CI service accounts can read.
+  # The secret containers themselves ARE managed (imported below); only the versions are not.
+  manage_placeholder_versions = false
+
   depends_on = [module.eso_prd]
 }
 
@@ -393,20 +404,8 @@ import {
   id = "projects/rhesis-prd/secrets/prd-arc-github-app-private-key"
 }
 
-import {
-  to = module.arc_gha_prd.google_secret_manager_secret_version.arc_github_app_id_placeholder
-  id = "projects/969193216701/secrets/prd-arc-github-app-id/versions/1"
-}
 
-import {
-  to = module.arc_gha_prd.google_secret_manager_secret_version.arc_github_app_installation_id_placeholder
-  id = "projects/969193216701/secrets/prd-arc-github-app-installation-id/versions/1"
-}
 
-import {
-  to = module.arc_gha_prd.google_secret_manager_secret_version.arc_github_app_private_key_placeholder
-  id = "projects/969193216701/secrets/prd-arc-github-app-private-key/versions/1"
-}
 
 import {
   to = module.connect_gateway_prd.google_secret_manager_secret.mint_destination
