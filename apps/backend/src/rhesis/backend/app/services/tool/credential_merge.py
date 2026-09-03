@@ -53,6 +53,30 @@ def merge_azure_devops_credentials_on_update(
     return merged
 
 
+def merge_trello_credentials_on_update(
+    existing_credentials_json: str,
+    incoming_credentials: dict[str, str],
+) -> dict[str, str]:
+    """Preserve TRELLO_API_KEY/TRELLO_TOKEN when PATCH updates only one of them."""
+    merged = dict(incoming_credentials)
+
+    try:
+        existing_credentials = json.loads(existing_credentials_json)
+    except (json.JSONDecodeError, TypeError):
+        return merged
+
+    if not isinstance(existing_credentials, dict):
+        return merged
+
+    for key in ("TRELLO_API_KEY", "TRELLO_TOKEN"):
+        if not merged.get(key, "").strip():
+            existing_value = existing_credentials.get(key)
+            if isinstance(existing_value, str) and existing_value.strip():
+                merged[key] = existing_value.strip()
+
+    return merged
+
+
 def resolve_mcp_test_connection_credentials(
     provider: str,
     existing_credentials_json: str,
@@ -66,4 +90,6 @@ def resolve_mcp_test_connection_credentials(
         return prepare_azure_devops_credentials(merged)
     if provider == "gitlab":
         return merge_gitlab_credentials_on_update(existing_credentials_json, incoming_credentials)
+    if provider == "trello":
+        return merge_trello_credentials_on_update(existing_credentials_json, incoming_credentials)
     return dict(incoming_credentials)
