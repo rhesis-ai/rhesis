@@ -15,39 +15,11 @@ The **Rhesis agent skill** (`rhesis`) packages platform knowledge into one porta
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai) (or a self-hosted backend)
 - An API token — generate one at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
 
-## Install (any agent except Claude Code)
-
-<Callout type="warning">
-  **Using Claude Code? Skip to [Install in Claude Code](#install-in-claude-code) and do not run
-  `npx skills add`.** The plugin already includes the skill. Running both installs it twice, from
-  two sources that update through different channels, and one silently shadows the other.
-</Callout>
-
-Installs the skill across Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
-
-<CodeBlock language="bash">
-{`npx skills add rhesis-ai/skills`}
-</CodeBlock>
-
-The CLI detects your installed agents and asks where to place the skill. Add `-g` for a global install, or omit it for a project-level install.
-
-<CodeBlock language="bash">
-{`# Global install — available in all projects
-npx skills add rhesis-ai/skills -g
-
-# Install only for selected agents
-npx skills add rhesis-ai/skills -a cursor -a claude-code -g
-
-# Preview install targets without writing files
-npx skills add rhesis-ai/skills --list`}
-</CodeBlock>
-
-After installing the skill, connect the MCP server for your specific agent. The skill instructions and MCP connection are separate for most agents.
-
 ## Install in Claude Code
 
-The plugin bundles the skill and the MCP server configuration, so it is the only install step. Do
-not also run `npx skills add`.
+The plugin carries both the skill and the MCP server configuration, so it is the only install
+step. Do not also run `npx skills add` — that installs the skill a second time from a different
+source, and one copy silently shadows the other.
 
 **Step 1:** Add the marketplace and install the plugin:
 
@@ -98,6 +70,27 @@ server cannot explore an endpoint, create anything, or run a test.
 {`export RHESIS_MCP_URL=http://localhost:8080/mcp/
 export RHESIS_API_KEY=your_local_token`}
 </CodeBlock>
+
+## Install in other agents
+
+For Cursor, Codex, Gemini CLI, and 40+ other AI interfaces, the skill and the MCP server are two
+separate installs.
+
+**Step 1 — the skill.** The CLI detects your installed agents and asks where to place it. Add `-g`
+for a global install, or omit it for a project-level install.
+
+<CodeBlock language="bash">
+{`npx skills add rhesis-ai/skills -g
+
+# Install only for selected agents
+npx skills add rhesis-ai/skills -a cursor -a codex -g
+
+# Preview install targets without writing files
+npx skills add rhesis-ai/skills --list`}
+</CodeBlock>
+
+**Step 2 — the MCP server.** `npx skills` installs the skill instructions only, and the skill
+cannot do anything without the server. Configure it for your agent below.
 
 ## Install in Cursor
 
