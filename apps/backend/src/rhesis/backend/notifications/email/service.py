@@ -228,9 +228,7 @@ class EmailService:
         try:
             from rhesis.backend.app.auth.providers import ProviderRegistry
 
-            names = [
-                p.display_name for p in ProviderRegistry.get_enabled_oauth_providers()
-            ]
+            names = [p.display_name for p in ProviderRegistry.get_enabled_oauth_providers()]
         except Exception:
             names = []
 

@@ -101,7 +101,9 @@ export default function SetPasswordBanner() {
           },
         }}
       >
-        <CloseIcon sx={{ fontSize: theme => theme.typography.body2.fontSize }} />
+        <CloseIcon
+          sx={{ fontSize: theme => theme.typography.body2.fontSize }}
+        />
       </IconButton>
     </Box>
   );
