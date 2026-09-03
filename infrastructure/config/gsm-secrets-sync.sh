@@ -188,8 +188,12 @@ cleanup_vertex_key() {
 }
 trap cleanup_vertex_key EXIT INT TERM
 
+# VERTEX_KEY_FILE must already be set by the CALLER. This function is invoked inside a
+# command substitution to capture its stdout, and that runs in a subshell, so anything it
+# assigned would be invisible to the parent -- which is exactly how an earlier version left
+# a live private key behind in $TMPDIR: cleanup_vertex_key and the EXIT trap both saw an
+# empty path and silently did nothing.
 mint_vertex_key_b64() {
-  VERTEX_KEY_FILE="$(mktemp -t vertex-key-XXXXXX.json)"
   gcloud iam service-accounts keys create "${VERTEX_KEY_FILE}" \
     --iam-account="${VERTEX_SA}" --project="${PROJECT}" >/dev/null
   # tr -d '\n' guards against a base64 build that line-wraps (GNU coreutils wraps at 76
@@ -271,6 +275,9 @@ while read -r secret_key gsm_key; do
       continue
     fi
     echo -e "${BLUE}Mint${NC} GSM ${gsm_key} <- new key for ${VERTEX_SA}"
+    # Created here, not inside mint_vertex_key_b64: the assignment has to happen in this
+    # shell so cleanup_vertex_key and the EXIT trap can actually find the file.
+    VERTEX_KEY_FILE="$(mktemp -t vertex-key-XXXXXX.json)"
     value="$(mint_vertex_key_b64)"
   else
     value="$(
