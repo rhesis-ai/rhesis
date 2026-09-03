@@ -19,8 +19,11 @@ because it already holds `roles/billing.user`, but it is **not** usable: its onl
 `workloadIdentityUser` members are Kubernetes service accounts in the deleted
 `rhesis-worker{,-dev,-stg}` Autopilot clusters. That binding is Cloud Run era leftover.
 
-Managing budgets needs `roles/billing.costsManager`; `billing.user` is not enough. Granted
-on 2026-09-03:
+Two grants are needed, both applied 2026-09-03. They stay out-of-band on purpose: Terraform
+cannot grant itself the permissions it needs in order to run.
+
+Budgets need `roles/billing.costsManager` on the billing account; `billing.user` is not
+enough. Only a `billing.admin` (harry@, nicolai@) can grant it:
 
 ```bash
 gcloud billing accounts add-iam-policy-binding 01F632-DCD99F-C6AD14 \
@@ -28,8 +31,18 @@ gcloud billing accounts add-iam-policy-binding 01F632-DCD99F-C6AD14 \
   --role="roles/billing.costsManager"
 ```
 
-This stays out-of-band on purpose: Terraform cannot grant itself the permission it needs to
-run, and only a `billing.admin` (harry@, nicolai@) can grant it.
+The notification channels are a separate permission surface, easy to miss because it is not
+a billing role at all. Without it the plan fails at the import step with
+`Error 403 ... MonitoringNotificationChannel`, not at the budgets:
+
+```bash
+gcloud projects add-iam-policy-binding rhesis-platform-admin \
+  --member="serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com" \
+  --role="roles/monitoring.notificationChannelEditor"
+```
+
+`notificationChannelEditor` rather than `monitoring.editor`: Terraform manages these
+channels so read-only is not enough, but it needs nothing else in Monitoring.
 
 ## Applying
 

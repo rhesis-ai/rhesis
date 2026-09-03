@@ -116,7 +116,14 @@ jobs:
 
       - name: Plan
         working-directory: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}
-        run: terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
+        # pipefail is required, not stylistic. GitHub's default shell is `bash -e {0}`,
+        # which has -e but NOT -o pipefail, so `terraform plan | tee` exits with tee's
+        # status and a failed plan reported the job as passing. That masked a real 403 on
+        # the billing plan in PR #2690: the plan errored, the check went green.
+        shell: bash
+        run: |
+          set -o pipefail
+          terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
         env:
           TF_VAR_project_id: ${{ steps.tf_setup.outputs.project_id }}
           TF_VAR_region: ${{ secrets.TF_REGION }}
