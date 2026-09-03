@@ -241,6 +241,7 @@ def cmd_mint(args: argparse.Namespace) -> None:
         kid=args.kid,
         custom_features=custom_features,
         custom_limits=custom_limits,
+        custom_retention_days=args.retention_days,
     )
 
     if args.secret_name:
@@ -297,6 +298,7 @@ def cmd_issue(args: argparse.Namespace) -> None:
             kid=args.kid,
             custom_features=custom_features,
             custom_limits=custom_limits,
+            custom_retention_days=args.retention_days,
         )
         _print_summary(args.org, args.kid, token, dry_run=True)
         return
@@ -325,6 +327,7 @@ def cmd_issue(args: argparse.Namespace) -> None:
             dry_run=False,
             custom_features=custom_features,
             custom_limits=custom_limits,
+            custom_retention_days=args.retention_days,
         )
         # Best-effort: the license write above already succeeded, so a lookup
         # failure here should degrade to an unlabeled summary, not fail the
@@ -472,6 +475,17 @@ def _build_parser() -> argparse.ArgumentParser:
                 "Overlaid on the tier's live limits at enforcement time; resources left "
                 "out keep following the published tier. Use null for unlimited. This is "
                 'how a "custom" enterprise cap is set.'
+            ),
+        )
+        p.add_argument(
+            "--retention-days",
+            default=None,
+            type=int,
+            metavar="DAYS",
+            help=(
+                "Per-org trace retention window in days, overriding the tier's "
+                "published retention_days. Consumed by the trace retention sweep. "
+                "Must be a positive integer; omit to follow the tier."
             ),
         )
 

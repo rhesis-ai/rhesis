@@ -67,6 +67,13 @@ const nextConfig = {
   // @mui/material/useMediaQuery calls a 'use client' export at module-evaluation
   // time, which fails whenever the module lands in the RSC server graph. That is
   // fixed by patches/@mui+material+7.3.5.patch, which defers the call.
+  //
+  // That patch is why @mui/material is pinned to an exact version in
+  // package.json instead of "^7". postinstall runs `patch-package
+  // --error-on-fail`, and patch files are matched by the version in their
+  // name, so a floating range lets the first `npm install` after any 7.x
+  // release resolve past 7.3.5 and hard-fail the install if MUI has touched
+  // the patched lines. Bump the pin and re-cut the patch together.
 
   // Environment variables available to the client
   // NEXT_PUBLIC_ prefix guarantees availability in client components

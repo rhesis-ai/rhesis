@@ -109,6 +109,7 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.telemetry.evaluate",
         "rhesis.backend.jobs.telemetry.post_ingest",
         "rhesis.backend.jobs.retention",
+        "rhesis.backend.jobs.trace_retention",
     ],
     # Requires a `celery beat` process actually running against this app --
     # not deployed anywhere yet (see jobs/retention.py's own docstring for
@@ -119,6 +120,10 @@ CELERY_CONFIG = {
         "job-retention-sweep": {
             "task": "rhesis.backend.jobs.retention.sweep_expired_jobs",
             "schedule": crontab(hour=3, minute=0),
+        },
+        "trace-retention-sweep": {
+            "task": "rhesis.backend.jobs.trace_retention.sweep_expired_traces",
+            "schedule": crontab(hour=4, minute=0),
         },
     },
 }

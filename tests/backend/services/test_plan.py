@@ -17,7 +17,8 @@ class TestLabel:
     @pytest.mark.parametrize(
         ("edition", "expected"),
         [
-            ("community", "Community"),
+            # Not "Community": the pricing page advertises this tier as Free.
+            ("community", "Free"),
             ("team", "Team"),
             ("enterprise", "Enterprise"),
             # Separators become spaces, so a multi-word tier id reads as prose
@@ -41,7 +42,19 @@ class TestLabel:
         empty name as "no plan yet" and show nothing, which would hide the
         plan row entirely rather than showing something is wrong."""
         assert build_plan({"edition": "   "})["name"] == "Unknown"
-        assert build_plan({})["name"] == "Community"
+        assert build_plan({})["name"] == "Free"
+
+    def test_the_free_tier_is_named_as_the_pricing_page_advertises_it(self):
+        """``community`` is the internal id; the pricing page sells it as the
+        Free plan (see FREE_TIER_LIMITS and tier_config.yaml's header). Since
+        ``name`` is rendered verbatim, title-casing the id put "Community" in
+        the sidebar and usage page beside limits published as Free.
+
+        The mapping is an exception list over the title-case default, not a
+        replacement for it, so the unrecognised-tier property above still holds.
+        """
+        assert build_plan({"edition": "community"})["name"] == "Free"
+        assert build_plan({"edition": "COMMUNITY"})["name"] == "Free"
 
 
 class TestLapsedQualifier:
@@ -61,7 +74,7 @@ class TestLapsedQualifier:
         """A free org is not "inactive" -- it has nothing to reactivate. Only a
         tier that was paid for gets the qualifier."""
         plan = build_plan({"edition": "community", "licensed": False, "is_paid": False})
-        assert plan["name"] == "Community"
+        assert plan["name"] == "Free"
         assert plan["is_paid"] is False
         assert plan["is_active"] is False
 

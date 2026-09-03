@@ -156,6 +156,8 @@ class SignedTokenLicenseProvider:
         # the consuming side instead of two cases it has to distinguish.
         if entitlements.custom_limits:
             info["custom_limits"] = dict(entitlements.custom_limits)
+        if entitlements.custom_retention_days is not None:
+            info["custom_retention_days"] = entitlements.custom_retention_days
         return info
 
     # ------------------------------------------------------------------ #

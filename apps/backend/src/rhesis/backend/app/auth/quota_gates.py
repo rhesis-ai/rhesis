@@ -30,13 +30,25 @@ of the same thing.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import Depends, Response
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.dependencies import get_current_organization, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_current_organization,
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaResource, QuotaResourceLike
-from rhesis.backend.app.quota.enforcement import enforce_quota
+from rhesis.backend.app.quota.enforcement import (
+    QuotaExceededError,
+    check_backstop,
+    enforce_quota,
+)
+
+logger = logging.getLogger(__name__)
 
 #: Set on the response when a SOFT-policy org is past its limit but still
 #: inside the grace band -- allowed, but worth surfacing before the request
@@ -81,4 +93,65 @@ def require_quota(resource: QuotaResourceLike):
     return _dep
 
 
-__all__ = ["QUOTA_WARNING_HEADER", "require_quota"]
+def require_backstop(resource: QuotaResourceLike):
+    """Dependency factory: reject only at ``BACKSTOP_MULTIPLIER`` x the tier limit.
+
+    Unlike :func:`require_quota` this is a safety valve, not normal
+    enforcement. It **fails open**: any error during the check (DB
+    unreachable, bad org state, coding bug) logs a warning and allows the
+    request through. The telemetry ingest route's contract is that
+    ingestion never fails because of a billing-side problem.
+
+    That contract is why this takes ``tenant_context`` and looks the org up
+    itself rather than depending on ``get_current_organization``. FastAPI
+    resolves sub-dependencies *before* the function body, so a
+    ``get_current_organization`` that 403s on a missing org row -- or 500s
+    on a transient failure in its own ``db.get`` -- would break ingestion
+    from outside the ``try``, which is exactly what this gate exists to
+    prevent. Both dependencies below are already on the ingest route, so
+    FastAPI dedupes them and this adds no new pre-body failure mode.
+
+    Returns ``None`` (not the org) because the ingest route does not need
+    the org from this dependency -- it already has it from its own
+    ``get_tenant_context``.
+    """
+    resource = resource if isinstance(resource, QuotaResource) else QuotaResource(resource)
+
+    def _dep(
+        tenant_context: tuple = Depends(get_tenant_context),
+        db: Session = Depends(get_tenant_db_session),
+    ) -> None:
+        organization_id = None
+        try:
+            organization_id, _user_id = tenant_context
+            if not organization_id:
+                # No org to attribute usage to; nothing to backstop.
+                return
+            org = db.get(Organization, organization_id)
+            if org is None:
+                # Bad org state, so fail open like any other lookup problem.
+                # Falling through with org=None would resolve the *community*
+                # policy and backstop a possibly-paid org at 10x the free
+                # tier -- a 402 on ingest caused purely by a billing-side
+                # lookup, which is what this gate exists to prevent.
+                logger.warning(
+                    "Backstop skipped: no organization row for %s (fail-open)",
+                    organization_id,
+                )
+                return
+            verdict = check_backstop(db, str(organization_id), org, resource)
+            if not verdict.allowed:
+                raise QuotaExceededError(verdict)
+        except QuotaExceededError:
+            raise
+        except Exception:
+            logger.warning(
+                "Backstop check failed for org %s, allowing request (fail-open)",
+                organization_id,
+                exc_info=True,
+            )
+
+    return _dep
+
+
+__all__ = ["QUOTA_WARNING_HEADER", "require_backstop", "require_quota"]

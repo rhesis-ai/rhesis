@@ -118,6 +118,9 @@ LIC_LIMITS = "limits"
 #: enforcing it would pin every org to its mint-time numbers and silently
 #: ignore later pricing changes.
 LIC_CUSTOM_LIMITS = "custom_limits"
+#: Per-org retention-days override, present only when explicitly minted.
+#: Overlaid on the tier's ``retention_days`` by ``ConfigQuotaProvider``.
+LIC_CUSTOM_RETENTION_DAYS = "custom_retention_days"
 
 # --- Environment variable names --------------------------------------------
 ENV_TIER_CONFIG = "RHESIS_TIER_CONFIG"
@@ -181,6 +184,12 @@ class Entitlements:
     """Bespoke per-org limit overrides, empty unless explicitly minted. These
     *are* enforced, overlaid on the tier catalog. See :data:`LIC_CUSTOM_LIMITS`.
     Always a read-only mapping, see :meth:`__post_init__`."""
+
+    custom_retention_days: Any = None
+    """Per-org retention-days override, raw value from the token. Validated
+    by :class:`~rhesis.backend.ee.licensing.quota_provider.ConfigQuotaProvider`
+    at resolution time (must be a positive int, not a bool). ``None`` when
+    the claim is absent."""
 
     jti: Optional[str] = None
     """JWT ID for audit logging and future revocation support."""
@@ -256,6 +265,7 @@ __all__ = [
     "LIC_EDITION",
     "LIC_FEATURES",
     "LIC_CUSTOM_LIMITS",
+    "LIC_CUSTOM_RETENTION_DAYS",
     "LIC_LIMITS",
     "LIC_STATUS",
     "REQUIRED_CLAIMS",

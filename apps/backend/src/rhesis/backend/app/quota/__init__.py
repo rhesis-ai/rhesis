@@ -49,6 +49,11 @@ class QuotaResource(str, Enum):
         return self.value
 
     TEST_EXECUTIONS = "test_executions"
+    # Not enforced at the published limit (a 402 would be silently dropped
+    # by the exporter's BatchSpanProcessor). Instead: crossing notification
+    # at the tier cap, tier-based retention sweep (jobs/trace_retention.py),
+    # and a backstop at BACKSTOP_MULTIPLIER x the limit on the ingest route
+    # (require_backstop in auth/quota_gates.py).
     TRACING_SPANS = "tracing_spans"
     TEST_GENERATION = "test_generation"
     MODEL_TOKENS = "model_tokens"
@@ -129,6 +134,8 @@ FREE_TIER_LIMITS: dict[QuotaResource, int | None] = {
     QuotaResource.ENDPOINTS: 3,
 }
 
+FREE_TIER_RETENTION_DAYS: int = 14
+
 # Every resource explicitly set to None (unlimited). Explicit keys rather than
 # an empty dict so the /features wire shape stays stable: callers always see
 # all seven resource names, whether the deployment enforces quotas or not.
@@ -146,6 +153,8 @@ class QuotaPolicy:
     :param overage_tolerance_percent: how far past a limit a ``SOFT`` tier
         may run before it hard-blocks, as a whole percent. ``0`` means no
         grace, which makes ``SOFT`` behave identically to ``HARD``.
+    :param retention_days: how many days of trace/span data the org keeps.
+        ``None`` means no retention enforcement (data kept indefinitely).
 
     A percent rather than a float multiplier so the tier YAML reads as
     ``overage_tolerance_percent: 25`` instead of ``1.25``, and so
@@ -158,6 +167,7 @@ class QuotaPolicy:
     limits: dict[QuotaResource, int | None] = field(default_factory=dict)
     overage: OveragePolicy = OveragePolicy.HARD
     overage_tolerance_percent: int = 0
+    retention_days: int | None = None
 
     def ceiling_for(self, limit: Optional[int]) -> Optional[int]:
         """Return the value of ``used`` at which *limit* actually blocks.
@@ -199,6 +209,16 @@ class QuotaPolicy:
             limits={**self.limits, **overrides},
             overage=self.overage,
             overage_tolerance_percent=self.overage_tolerance_percent,
+            retention_days=self.retention_days,
+        )
+
+    def with_retention_override(self, days: int) -> "QuotaPolicy":
+        """Return a copy with :attr:`retention_days` replaced."""
+        return QuotaPolicy(
+            limits=dict(self.limits),
+            overage=self.overage,
+            overage_tolerance_percent=self.overage_tolerance_percent,
+            retention_days=days,
         )
 
 
@@ -302,7 +322,7 @@ class DefaultQuotaProvider:
     """
 
     def get_policy(self, org: Optional[Organization] = None) -> QuotaPolicy:
-        return QuotaPolicy(limits=dict(FREE_TIER_LIMITS))
+        return QuotaPolicy(limits=dict(FREE_TIER_LIMITS), retention_days=FREE_TIER_RETENTION_DAYS)
 
 
 class QuotaRegistry:
@@ -374,6 +394,7 @@ class QuotaRegistry:
 __all__ = [
     "DefaultQuotaProvider",
     "FREE_TIER_LIMITS",
+    "FREE_TIER_RETENTION_DAYS",
     "OveragePolicy",
     "QUOTA_RESOURCE_LABELS",
     "QuotaPolicy",

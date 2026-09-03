@@ -35,6 +35,7 @@ from rhesis.backend.ee.licensing.entitlements import (
     CLAIM_SUBJECT,
     LIC_ALL_FEATURES,
     LIC_CUSTOM_LIMITS,
+    LIC_CUSTOM_RETENTION_DAYS,
     LIC_EDITION,
     LIC_FEATURES,
     LIC_LIMITS,
@@ -215,6 +216,7 @@ def _payload_to_entitlements(payload: dict) -> Optional[Entitlements]:
             expires_at=expires_at,
             limits=_mapping_claim(lic, LIC_LIMITS),
             custom_limits=_mapping_claim(lic, LIC_CUSTOM_LIMITS),
+            custom_retention_days=lic.get(LIC_CUSTOM_RETENTION_DAYS),
             jti=payload.get(CLAIM_JWT_ID),
         )
     except (KeyError, TypeError, ValueError) as exc:
