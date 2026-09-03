@@ -43,6 +43,9 @@ from rhesis.backend.app.services.tool.credential_merge import (
     merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
 )
 from rhesis.backend.app.services.tool.credential_merge import (
+    merge_trello_credentials_on_update as _merge_trello_credentials_on_update,
+)
+from rhesis.backend.app.services.tool.credential_merge import (
     resolve_mcp_test_connection_credentials,
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
@@ -444,7 +447,12 @@ def _validate_and_merge_credentials_on_update(
     elif provider_type.type_value == "asana":
         _validate_asana_credentials(tool.credentials)
     elif provider_type.type_value == "trello":
-        _validate_trello_credentials(tool.credentials)
+        merged_credentials = _merge_trello_credentials_on_update(
+            existing_tool.credentials,
+            tool.credentials,
+        )
+        _validate_trello_credentials(merged_credentials)
+        tool = tool.model_copy(update={"credentials": merged_credentials})
     elif provider_type.type_value == "linear":
         _validate_linear_credentials(tool.credentials)
     elif provider_type.type_value == "azure_devops":
