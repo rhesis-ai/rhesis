@@ -372,13 +372,22 @@ def create_password_reset_token(user_id: str, email: str) -> str:
     )
 
 
-def create_magic_link_token(user_id: str, email: str) -> str:
-    """Create a 15-minute single-use magic link login token."""
+def create_magic_link_token(
+    user_id: str,
+    email: str,
+    expire_minutes: int = MAGIC_LINK_EXPIRE_MINUTES,
+) -> str:
+    """Create a single-use magic link login token.
+
+    Defaults to 15 minutes for interactive sign-in requests.
+    Invitation emails pass a longer TTL so the link survives
+    the hours or days before the recipient opens the email.
+    """
     return _create_email_flow_token(
         user_id=user_id,
         email=email,
         token_type="magic_link",
-        expire_minutes=MAGIC_LINK_EXPIRE_MINUTES,
+        expire_minutes=expire_minutes,
         with_jti=True,
     )
 

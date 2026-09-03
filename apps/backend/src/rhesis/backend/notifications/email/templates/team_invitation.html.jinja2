@@ -30,8 +30,8 @@
 
 {% call c.row_prose() %}
     {{ c.subhead("What's next?") }}
-    {{ c.p('Your account has been created and you can start using Rhesis AI right away:') }}
     {% if sso_enabled %}
+    {{ c.p('Your account has been created and you can start using Rhesis AI right away:') }}
     {{ c.bullets([
         'Click the "Sign in with single sign-on" button below',
         'Sign in with your ' ~ organization_name ~ ' account (single sign-on)',
@@ -39,21 +39,24 @@
         'Start collaborating with your team',
     ], ordered=True) }}
     {{ c.p(organization_name ~ " uses single sign-on, so you do not need a separate Rhesis AI password. The button below takes you to your organization's sign-in page — use your usual work account.", size=brand.type.small, color=brand.color.muted, bottom=0) }}
+    {% elif magic_link_url %}
+    {{ c.p('Click <strong>Get started</strong> to open Rhesis AI and sign in automatically. No password needed.') }}
     {% else %}
-    {{ c.bullets([
-        'Click the "Get started" button below',
-        'Sign in with your email address (' ~ recipient_email ~ ')',
-        'Complete your profile setup',
-        'Start collaborating with your team',
-    ], ordered=True) }}
+    {#- Fallback when the magic link could not be minted (e.g. SMTP-only deploy). -#}
+    {% if sign_in_methods %}
+    {{ c.p('Click <strong>Get started</strong> to sign in with ' ~ sign_in_methods ~ '. No password needed.') }}
+    {% else %}
+    {{ c.p('Click <strong>Get started</strong> to sign in. No password needed.') }}
+    {% endif %}
     {% endif %}
 {% endcall %}
 
-{% if sso_enabled or (frontend_url and frontend_url != 'N/A') %}
-{{ c.row_button(
-    sso_login_url if sso_enabled else frontend_url,
-    'Sign in with single sign-on' if sso_enabled else 'Get started',
-) }}
+{% if sso_enabled %}
+{{ c.row_button(sso_login_url, 'Sign in with single sign-on') }}
+{% elif magic_link_url %}
+{{ c.row_button(magic_link_url, 'Get started') }}
+{% elif frontend_url and frontend_url != 'N/A' %}
+{{ c.row_button(frontend_url, 'Get started') }}
 {% endif %}
 
 {{ c.row_rule() }}

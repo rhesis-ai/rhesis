@@ -1097,7 +1097,17 @@ async def verify_magic_link(
             detail="Invalid magic link",
         )
 
-    ttl_seconds = MAGIC_LINK_EXPIRE_MINUTES * 60
+    from datetime import datetime, timezone
+
+    # Derive the jti TTL from the token's actual expiry so longer-lived
+    # magic links (e.g. invitation emails) stay single-use for their
+    # full lifetime, not just the default 15-minute window.
+    exp = payload.get("exp")
+    if exp is not None:
+        remaining = int(exp - datetime.now(timezone.utc).timestamp())
+        ttl_seconds = max(remaining, 60)
+    else:
+        ttl_seconds = MAGIC_LINK_EXPIRE_MINUTES * 60
     try:
         claimed = await claim_token_jti(jti, ttl_seconds)
     except TokenStoreUnavailableError:
@@ -1124,8 +1134,6 @@ async def verify_magic_link(
         user.is_email_verified = True
 
     # Update last login and stamp first org join when applicable
-    from datetime import datetime, timezone
-
     current_time = datetime.now(timezone.utc)
     user.last_login_at = current_time
     mark_user_joined_if_needed(user, when=current_time)
