@@ -13,6 +13,7 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import type { ActivityLogEntry } from '@/utils/api-client/interfaces/job';
 import { ACTIVITY_LEVEL_COLOR } from '@/constants/jobs';
+import { CODE_FONT_SIZE } from '@/styles/theme-constants';
 import { BORDER_RADIUS } from '@/styles/theme';
 
 interface ActivityLogViewerProps {
@@ -114,8 +115,8 @@ export default function ActivityLogViewer({
         sx={{
           maxHeight: 480,
           overflowY: 'auto',
-          fontFamily: 'monospace',
-          fontSize: 13,
+          fontFamily: theme => theme.typography.fontFamilyCode,
+          fontSize: CODE_FONT_SIZE,
           p: 1.5,
         }}
       >
