@@ -47,35 +47,45 @@ done
 
 ### 3. Mint the key and write it to Secret Manager
 
-The value must be **single-line base64 of the JSON, with no trailing newline**. The SDK calls
-`base64.b64decode(..., validate=True)`, which rejects a newline outright, so a stray `\n`
-breaks auth on every pod.
+Use `--mint-vertex-key` on the existing secrets sync script; do not do this by hand:
 
 ```bash
-ENV=dev
-PROJECT=rhesis-dev-494712
-SA="rhesis-vertex-${ENV}@${PROJECT}.iam.gserviceaccount.com"
-KEY=$(mktemp)
-
-gcloud iam service-accounts keys create "${KEY}" --iam-account="${SA}" --project="${PROJECT}"
-
-# tr -d '\n' guards against a base64 build that line-wraps (GNU coreutils wraps at 76 chars).
-base64 < "${KEY}" | tr -d '\n' \
-  | gcloud secrets versions add "${ENV}-rhesis-google-application-credentials" \
-      --project="${PROJECT}" --data-file=-
-
-shred -u "${KEY}" 2>/dev/null || rm -f "${KEY}"
+S=infrastructure/config/gsm-secrets-sync.sh
+bash "$S" --project rhesis-dev-494712 --json-env dev --mint-vertex-key --dry-run
+bash "$S" --project rhesis-dev-494712 --json-env dev --mint-vertex-key
 ```
 
-Verify it round-trips exactly as the SDK will read it:
+That script already owned publishing to Secret Manager, including the `printf '%s'` upsert
+that avoids a trailing newline and the `secretmanager.secretAccessor` binding for ESO. The
+flag changes only where the value comes from: instead of reading
+`GOOGLE_APPLICATION_CREDENTIALS` out of `gsm-secrets.json`, it mints a fresh key for
+`rhesis-vertex-<env>@<project>`. It then reads the published version back and decodes it
+with the exact call the SDK makes, asserting `client_email` and `project_id`.
 
-```bash
-gcloud secrets versions access latest \
-  --secret="${ENV}-rhesis-google-application-credentials" --project="${PROJECT}" \
-  | python3 -c "import sys,base64,json; \
-      d=json.loads(base64.b64decode(sys.stdin.read(), validate=True)); \
-      print(d['client_email'], d['project_id'])"
-```
+In this mode the script needs neither `gsm-secrets.json` nor `jq`, so rotating a credential
+does not require a plaintext file of every other secret to be on disk.
+
+Two failure modes are why this is a script rather than copy-paste steps, because both break
+auth on every pod and neither is visible at the point of the mistake:
+
+- The value must be **single-line base64 with no trailing newline**. The SDK calls
+  `base64.b64decode(..., validate=True)`, which rejects a newline outright. GNU `base64`
+  line-wraps at 76 characters (BSD/macOS does not), and a shell redirect adds a newline, so
+  the script uses `tr -d '\n'` and `printf '%s'`.
+- The key must belong to the environment's own project, since the project is derived from
+  the key (see step 4). A key from the wrong project now succeeds silently against that
+  project instead of failing with a 403.
+
+The key never enters Terraform state, deliberately. `google_service_account_key` stores
+`private_key` in state in plaintext, and all four CI service accounts hold
+`storage.objectAdmin` on the entire state bucket with no per-prefix isolation, so a key in
+one environment's state would be readable by the others. That also matches the existing
+practice for the prd Cloudflare token, which is fetched in the CI action so it never reaches
+state.
+
+Preflight fails before minting anything if the service account does not exist, the secret
+does not exist, or `eso-<env>@` lacks `secretmanager.secretAccessor` on it. The key file is
+written with `umask 077` and shredded on exit, including on interrupt.
 
 ### 4. Nothing to change in the chart
 

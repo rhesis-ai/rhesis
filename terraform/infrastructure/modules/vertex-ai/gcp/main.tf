@@ -43,9 +43,16 @@ resource "google_project_iam_member" "vertex_user" {
   member  = "serviceAccount:${google_service_account.vertex.email}"
 }
 
-# No google_service_account_key resource here on purpose: Terraform stores the private
-# key in plaintext in state. Keys are minted out of band and piped straight into Secret
-# Manager as single-line base64 (see the runbook in this module's README).
+# No google_service_account_key resource here on purpose. It stores private_key in
+# Terraform state in plaintext, and all four CI service accounts hold
+# storage.objectAdmin on the whole rhesis-platform-admin-tfstate bucket with no
+# per-prefix isolation, so a key in one environment's state is readable by the
+# others. Same reasoning as the prd Cloudflare token, which envs/prd fetches in CI
+# so it never reaches state.
+#
+# Keys are minted out of band by
+# `infrastructure/config/gsm-secrets-sync.sh --mint-vertex-key`, which also verifies
+# the published value decodes exactly as the SDK reads it.
 #
 # The better end state is Workload Identity, which needs no key at all, as
 # modules/cnpg-barman-sa-gcp already does. That is blocked on two things: the chart
