@@ -533,6 +533,7 @@ def generate_and_save_test_set(
         elif test_type == TestSetType.MULTI_TURN.value:
             synthesizer = MultiTurnSynthesizer(
                 config=generation_config,
+                batch_size=batch_size,
                 model=model,
             )
         else:
