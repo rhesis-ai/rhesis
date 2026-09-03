@@ -187,13 +187,15 @@ module "wireguard_server" {
 # The return-side peeerings (env → wireguard) live in each env's main.tf.
 # Peering becomes ACTIVE once both sides exist.
 #
-# DANGER before applying this root: these three are count-gated on
-# var.enabled_environments, whose default is ["dev","stg"], while the workflow's
-# wireguard_envs input defaults to '["dev"]'. State currently holds all three, so
-# dispatching with either default sets count=0 for the others and DESTROYS those peerings.
-# WireGuard is our only practical access path to dev and stg, so that would cut our own
-# access. Always dispatch with wireguard_envs = ["dev","stg","prd"] and confirm the plan
-# reads "0 to destroy" before approving.
+# These three are count-gated on var.enabled_environments, which is destructive when it
+# under-reports: an omitted environment loses its peering here, its BIND9 zone, and (prd) the
+# WireGuard VM's cross-project NIC, which forces VM recreation. WireGuard is our only
+# practical access path to dev and stg, so that cuts our own access.
+#
+# Both defaults now list all three (this root's variable and the workflow's wireguard_envs
+# input). They previously read ["dev","stg"] and '["dev"]' respectively, so an apply
+# dispatched without touching the field would have destroyed the stg and prd peerings.
+# Still check the plan reads "0 to destroy" before approving an apply of this root.
 #
 # import_custom_routes below mirrors each env's export_custom_routes: true for prd only,
 # matching what was enabled out of band on both sides. Pinned rather than omitted so an
