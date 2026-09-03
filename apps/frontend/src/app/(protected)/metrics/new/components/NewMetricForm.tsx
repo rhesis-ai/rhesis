@@ -41,6 +41,7 @@ import { TEST_TYPES } from '@/constants/test-types';
 import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
 import { useTypeLookups } from '@/hooks/useLookups';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { validateScore } from '@/utils/validation';
 
 interface MetricFormData {
   name: string;
@@ -52,9 +53,11 @@ interface MetricFormData {
   score_type: ScoreTypeValue;
   categories: string[];
   passing_categories: string[];
-  min_score?: number;
-  max_score?: number;
-  threshold?: number;
+  // Raw text from the number inputs, not numbers: a partially typed value
+  // ('', '-', '0.') has no numeric form. Parsed once in handleSubmit.
+  min_score: string;
+  max_score: string;
+  threshold: string;
   threshold_operator: ThresholdOperator;
   explanation: string;
   model_id: string;
@@ -71,6 +74,9 @@ const initialFormData: MetricFormData = {
   score_type: SCORE_TYPES.NUMERIC,
   categories: [],
   passing_categories: [],
+  min_score: '',
+  max_score: '',
+  threshold: '',
   threshold_operator: '>=',
   explanation: '',
   model_id: '',
@@ -178,6 +184,17 @@ export default function NewMetricForm({
     }));
   };
 
+  // Only rendered for numeric metrics, so computing them unconditionally is harmless.
+  const minScoreError = showErrors
+    ? validateScore(formData.min_score, 'Minimum Score').message
+    : undefined;
+  const maxScoreError = showErrors
+    ? validateScore(formData.max_score, 'Maximum Score').message
+    : undefined;
+  const thresholdError = showErrors
+    ? validateScore(formData.threshold, 'Threshold Value').message
+    : undefined;
+
   const isStepValid = React.useCallback((): boolean => {
     // Common required fields
     if (!formData.name.trim()) return false;
@@ -186,12 +203,9 @@ export default function NewMetricForm({
 
     // Score type conditional validation
     if (formData.score_type === SCORE_TYPES.NUMERIC) {
-      if (formData.min_score == null || String(formData.min_score) === '')
-        return false;
-      if (formData.max_score == null || String(formData.max_score) === '')
-        return false;
-      if (formData.threshold == null || String(formData.threshold) === '')
-        return false;
+      if (!validateScore(formData.min_score).isValid) return false;
+      if (!validateScore(formData.max_score).isValid) return false;
+      if (!validateScore(formData.threshold).isValid) return false;
     }
 
     if (formData.score_type === SCORE_TYPES.CATEGORICAL) {
@@ -269,17 +283,19 @@ export default function NewMetricForm({
             ? formData.passing_categories
             : undefined,
         // Numeric metric fields
+        // Number, not parseFloat: validateScore rejects what Number rejects, so
+        // the two agree on what reaches the API. parseFloat would accept more.
         min_score:
           formData.score_type === SCORE_TYPES.NUMERIC
-            ? parseFloat(String(formData.min_score))
+            ? Number(formData.min_score)
             : undefined,
         max_score:
           formData.score_type === SCORE_TYPES.NUMERIC
-            ? parseFloat(String(formData.max_score))
+            ? Number(formData.max_score)
             : undefined,
         threshold:
           formData.score_type === SCORE_TYPES.NUMERIC
-            ? parseFloat(String(formData.threshold))
+            ? Number(formData.threshold)
             : undefined,
         threshold_operator:
           formData.score_type === SCORE_TYPES.NUMERIC
@@ -677,40 +693,20 @@ export default function NewMetricForm({
                 required
                 type="number"
                 label="Minimum Score"
-                value={formData.min_score || ''}
+                value={formData.min_score}
                 onChange={handleChange('min_score')}
-                error={
-                  showErrors &&
-                  (formData.min_score == null ||
-                    String(formData.min_score) === '')
-                }
-                helperText={
-                  showErrors &&
-                  (formData.min_score == null ||
-                    String(formData.min_score) === '')
-                    ? 'Required'
-                    : undefined
-                }
+                error={minScoreError !== undefined}
+                helperText={minScoreError}
                 fullWidth
               />
               <TextField
                 required
                 type="number"
                 label="Maximum Score"
-                value={formData.max_score || ''}
+                value={formData.max_score}
                 onChange={handleChange('max_score')}
-                error={
-                  showErrors &&
-                  (formData.max_score == null ||
-                    String(formData.max_score) === '')
-                }
-                helperText={
-                  showErrors &&
-                  (formData.max_score == null ||
-                    String(formData.max_score) === '')
-                    ? 'Required'
-                    : undefined
-                }
+                error={maxScoreError !== undefined}
+                helperText={maxScoreError}
                 fullWidth
               />
             </Box>
@@ -724,20 +720,10 @@ export default function NewMetricForm({
                   required
                   type="number"
                   label="Threshold Value"
-                  value={formData.threshold || ''}
+                  value={formData.threshold}
                   onChange={handleChange('threshold')}
-                  error={
-                    showErrors &&
-                    (formData.threshold == null ||
-                      String(formData.threshold) === '')
-                  }
-                  helperText={
-                    showErrors &&
-                    (formData.threshold == null ||
-                      String(formData.threshold) === '')
-                      ? 'Required'
-                      : undefined
-                  }
+                  error={thresholdError !== undefined}
+                  helperText={thresholdError}
                   fullWidth
                 />
                 <FormControl fullWidth>

@@ -9,6 +9,7 @@ import {
   validatePassword,
   validatePasswordConfirmation,
   validateLength,
+  validateScore,
   validateFields,
   DEFAULT_PASSWORD_POLICY,
 } from '../validation';
@@ -251,6 +252,47 @@ describe('validateLength', () => {
 
   it('trims whitespace before checking length', () => {
     expect(validateLength('  hi  ', 5).isValid).toBe(false);
+  });
+});
+
+describe('validateScore', () => {
+  it('accepts ordinary numbers', () => {
+    expect(validateScore('1.5').isValid).toBe(true);
+    expect(validateScore('-2').isValid).toBe(true);
+    expect(validateScore(' 3 ').isValid).toBe(true);
+  });
+
+  it('accepts zero, which a falsy check would reject', () => {
+    expect(validateScore('0').isValid).toBe(true);
+  });
+
+  it('rejects blank input', () => {
+    expect(validateScore('').isValid).toBe(false);
+    expect(validateScore('   ').isValid).toBe(false);
+    expect(validateScore('', 'Minimum Score').message).toBe(
+      'Minimum Score is required'
+    );
+  });
+
+  it('rejects a lone minus sign, which parseFloat reads as NaN', () => {
+    const result = validateScore('-', 'Threshold');
+    expect(result.isValid).toBe(false);
+    expect(result.message).toBe('Threshold must be a number');
+  });
+
+  it('rejects overflow literals that parseFloat turns into Infinity', () => {
+    // '1e999' is a valid floating-point literal, so it survives the number
+    // input's own sanitization, then serializes to null over JSON.
+    expect(validateScore('1e999').isValid).toBe(false);
+    expect(validateScore('-1e999').isValid).toBe(false);
+  });
+
+  it('rejects partial numbers that parseFloat would silently truncate', () => {
+    // parseFloat('1.2.3') is 1.2 and parseFloat('12abc') is 12, so these would
+    // submit a wrong value rather than fail.
+    expect(validateScore('1.2.3').isValid).toBe(false);
+    expect(validateScore('12abc').isValid).toBe(false);
+    expect(validateScore('1e').isValid).toBe(false);
   });
 });
 
