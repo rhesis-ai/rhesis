@@ -664,9 +664,16 @@ class TestHasIdentifyingField:
         )
 
     def test_no_model_branches_on_a_non_column_content_attribute(self):
-        """Guards against reintroducing the hasattr check on either function."""
+        """Guards against reintroducing the hasattr check on either function.
+
+        Asserted on the content branch itself rather than via a substitute
+        identifying field: some models (the stats views) have no ``nano_id`` and no
+        identifying field at all, so keying the assertion on one of those would fail
+        for a future content-hybrid model even while the branching stayed correct.
+        """
         from sqlalchemy import inspect as sa_inspect
 
+        checked = []
         for name in dir(models):
             model = getattr(models, name)
             if not hasattr(model, "__tablename__"):
@@ -675,10 +682,25 @@ class TestHasIdentifyingField:
                 columns = set(sa_inspect(model).columns.keys())
             except Exception:
                 continue
-            if "content" not in columns and hasattr(model, "content"):
-                # A content-less model must fall through to the identifying fields,
-                # not be treated as content-keyed.
-                assert crud_utils._has_identifying_field(model, {"nano_id": "x"}) is True
+            if "content" in columns or not hasattr(model, "content"):
+                continue
+
+            checked.append(model.__name__)
+            search_data = {"content": "x", "organization_id": str(uuid.uuid4())}
+
+            # `content` cannot identify a row it is not a column of.
+            assert crud_utils._has_identifying_field(model, search_data) is False, (
+                f"{model.__name__} treats a non-column content attribute as identifying"
+            )
+            # And no predicate may be built from it.
+            filters = crud_utils._build_search_filters_for_model(model, search_data)
+            assert not any("content" in str(f) for f in filters), (
+                f"{model.__name__} emitted a content predicate for a non-column attribute"
+            )
+
+        # Test is the one such model today; if that changes the loop covers it, but an
+        # empty loop would make this test silently vacuous.
+        assert "Test" in checked
 
     def test_test_without_an_identifying_field_is_not_reused(self):
         """Org seeding passes neither content nor an identifying field."""
