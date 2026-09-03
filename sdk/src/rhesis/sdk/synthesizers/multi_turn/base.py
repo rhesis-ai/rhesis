@@ -236,24 +236,39 @@ class MultiTurnSynthesizer:
             num_batches = 1
             self.batch_size = num_tests
 
-        all_tests = []
+        all_tests: List[dict] = []
         for batch_index in range(num_batches):
+            # Retry while the batch is short, not only when it is empty: validation
+            # drops tests whose requirement was never requested, and accepting the
+            # gap would silently return fewer tests than the caller asked for.
+            batch_tests: List[dict] = []
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
-                batch_tests = self._generate_batch()
-                if batch_tests:
+                batch_tests.extend(self._generate_batch())
+                if len(batch_tests) >= self.batch_size:
                     break
                 logger.warning(
-                    "[MultiTurnSynthesizer] Batch %d/%d attempt %d/%d produced no "
-                    "tests (%s), retrying",
+                    "[MultiTurnSynthesizer] Batch %d/%d attempt %d/%d produced %d of "
+                    "%d usable tests (%s), retrying",
                     batch_index + 1,
                     num_batches,
                     attempt,
                     _MAX_BATCH_RETRIES,
+                    len(batch_tests),
+                    self.batch_size,
                     self.last_error,
                 )
-            all_tests.extend(batch_tests)
+            all_tests.extend(batch_tests[: self.batch_size])
             if on_progress:
                 on_progress(len(all_tests), num_tests)
+
+        if len(all_tests) < num_tests:
+            logger.warning(
+                "[MultiTurnSynthesizer] Generated %d of %d requested tests after "
+                "%d retries per batch",
+                len(all_tests),
+                num_tests,
+                _MAX_BATCH_RETRIES,
+            )
 
         if not all_tests:
             reason = f": {self.last_error}" if self.last_error else ""

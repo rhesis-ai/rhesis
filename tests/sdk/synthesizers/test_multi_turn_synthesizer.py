@@ -507,9 +507,15 @@ def test_generate_batch_returns_empty_on_unexpected_response():
 @patch.object(MultiTurnSynthesizer, "_generate_batch")
 @patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set")
 def test_generate_retries_failed_batch(mock_create_test_set, mock_generate_batch):
-    """A batch that fails once should be retried before giving up."""
+    """A batch that fails once should be retried before giving up.
+
+    The second attempt has to fill the batch. Retry triggers on a *short* batch, not
+    only an empty one, so returning one test for a five-test request would itself be
+    retried rather than accepted.
+    """
     mock_model = Mock(spec=BaseLLM)
-    mock_generate_batch.side_effect = [[], _SAMPLE_BATCH]
+    full_batch = _SAMPLE_BATCH * 5
+    mock_generate_batch.side_effect = [[], full_batch]
     mock_test_set = Mock()
     mock_test_set.name = "Test Set"
     mock_create_test_set.return_value = mock_test_set
@@ -519,7 +525,7 @@ def test_generate_retries_failed_batch(mock_create_test_set, mock_generate_batch
     synthesizer.generate(num_tests=5)
 
     assert mock_generate_batch.call_count == 2
-    assert mock_create_test_set.call_args.kwargs["tests"] == _SAMPLE_BATCH
+    assert mock_create_test_set.call_args.kwargs["tests"] == full_batch
 
 
 @patch.object(MultiTurnSynthesizer, "_generate_batch")
@@ -685,3 +691,69 @@ def test_generation_config_rejects_unknown_field():
     silent dropping is what attached the wrong requirements in the first place."""
     with pytest.raises(ValidationError):
         GenerationConfig(generation_prompt="x", requirementz=["Summary Grounding"])
+
+
+def test_generate_tops_up_a_batch_short_on_validation():
+    """Dropping mis-attributed tests must not silently shrink the result.
+
+    generate() used to retry only on a completely empty batch, so a batch where
+    validation dropped some tests passed straight through and the caller got fewer
+    tests than requested with nothing raised.
+    """
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {
+        "tests": [_flat_test("Summary Grounding")] * 6 + [_flat_test("Compliance")] * 4
+    }
+    config = GenerationConfig(generation_prompt="x", requirements=["Summary Grounding"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+
+    with (
+        patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set") as create,
+        patch(
+            "rhesis.sdk.synthesizers.multi_turn.base.stamp_multi_turn",
+            side_effect=lambda ts: ts,
+        ),
+    ):
+        synthesizer.generate(num_tests=10)
+
+    kwargs = create.call_args.kwargs
+    assert kwargs["num_tests"] == 10
+    assert kwargs["requested_tests"] == 10
+    assert len(kwargs["tests"]) == 10
+    assert mock_model.generate.call_count == 2
+    assert all(t["requirement"] == "Summary Grounding" for t in kwargs["tests"])
+
+
+def test_generate_does_not_exceed_batch_size_when_topping_up():
+    """Topping up must trim, not overshoot."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {
+        "tests": [_flat_test("Summary Grounding")] * 4 + [_flat_test("Compliance")] * 6
+    }
+    config = GenerationConfig(generation_prompt="x", requirements=["Summary Grounding"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+
+    with (
+        patch("rhesis.sdk.synthesizers.multi_turn.base.create_test_set") as create,
+        patch(
+            "rhesis.sdk.synthesizers.multi_turn.base.stamp_multi_turn",
+            side_effect=lambda ts: ts,
+        ),
+    ):
+        synthesizer.generate(num_tests=10)
+
+    # 4 usable per attempt, 3 attempts = 12 collected, trimmed to the batch size.
+    assert len(create.call_args.kwargs["tests"]) == 10
+
+
+def test_generate_gives_up_after_max_retries_rather_than_looping():
+    """A model that never returns a requested requirement must not spin forever."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {"tests": [_flat_test("Compliance")] * 10}
+    config = GenerationConfig(generation_prompt="x", requirements=["Summary Grounding"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model, batch_size=10)
+
+    with pytest.raises(ValueError, match="Failed to generate any valid test cases"):
+        synthesizer.generate(num_tests=10)
+
+    assert mock_model.generate.call_count == 3
