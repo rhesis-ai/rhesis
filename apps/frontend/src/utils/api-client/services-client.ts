@@ -88,9 +88,11 @@ interface MultiTurnTest {
 
 interface GenerateMultiTurnTestsRequest {
   generation_prompt: string;
-  requirement?: string[];
-  category?: string[];
-  topic?: string[];
+  // Plural, matching the backend GenerationConfig. The backend still accepts the
+  // old singular spellings as aliases, but new callers should not use them.
+  requirements?: string[];
+  categories?: string[];
+  topics?: string[];
   num_tests?: number;
   model_id?: string; // Override user's default generation model for this request
 }
