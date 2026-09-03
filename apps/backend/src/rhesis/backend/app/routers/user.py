@@ -224,19 +224,26 @@ def create_user(
 
             # Mint a magic link so the "Get started" button logs the
             # invitee in directly. 7-day TTL — invitation emails are
-            # often opened hours or days after they arrive.
-            from rhesis.backend.app.auth.token_utils import create_magic_link_token
-            from rhesis.backend.app.config.settings import get_frontend_settings
-
+            # often opened hours or days after they arrive. Failures
+            # fall through to magic_link_url=None so the email still
+            # sends with the generic sign-in copy.
             magic_link_url = None
             if not _org_sso_enabled(organization):
-                token = create_magic_link_token(
-                    user_id=str(created_user.id),
-                    email=created_user.email,
-                    expire_minutes=60 * 24 * 7,
-                )
-                fe_url = get_frontend_settings().url
-                magic_link_url = f"{fe_url.rstrip('/')}/auth/magic-link?token={token}"
+                try:
+                    from rhesis.backend.app.auth.token_utils import create_magic_link_token
+                    from rhesis.backend.app.config.settings import get_frontend_settings
+
+                    token = create_magic_link_token(
+                        user_id=str(created_user.id),
+                        email=created_user.email,
+                        expire_minutes=60 * 24 * 7,
+                    )
+                    fe_url = get_frontend_settings().url
+                    magic_link_url = f"{fe_url.rstrip('/')}/auth/magic-link?token={token}"
+                except Exception:
+                    logger.warning(
+                        "Could not mint invitation magic link for %s", created_user.email
+                    )
 
             # Send the invitation email
             success = email_service.send_team_invitation_email(

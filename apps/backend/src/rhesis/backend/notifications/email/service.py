@@ -222,8 +222,10 @@ class EmailService:
     def _build_sign_in_methods_label() -> str:
         """Build a human-readable label from the currently enabled OAuth providers.
 
-        Returns something like "Google, GitHub, or a one-time email link",
-        or an empty string when no OAuth providers are enabled.
+        Always includes "a one-time email link" as the last option, so the
+        result is never empty. Examples: "Google, GitHub, or a one-time
+        email link", or just "a one-time email link" when no OAuth
+        providers are enabled.
         """
         try:
             from rhesis.backend.app.auth.providers import ProviderRegistry
