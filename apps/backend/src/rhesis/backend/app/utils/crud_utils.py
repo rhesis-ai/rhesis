@@ -1023,6 +1023,23 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
     return search_filters
 
 
+def _has_identifying_field(model: Type[T], search_data: Dict[str, Any]) -> bool:
+    """Whether search_data can actually identify a specific row of this model.
+
+    ``_build_search_filters_for_model`` always prepends an organization_id predicate,
+    so a non-empty filter list is not evidence that we can pick out one row. Reusing
+    the filter count as that evidence means a blank name matches the org's first row
+    and silently returns an unrelated entity.
+    """
+    columns = inspect(model).columns.keys()
+
+    if model.__name__ == "TypeLookup":
+        return bool(search_data.get("type_name")) and bool(search_data.get("type_value"))
+    if hasattr(model, "content"):
+        return bool(search_data.get("content"))
+    return any(field in columns and search_data.get(field) for field in IDENTIFYING_FIELDS)
+
+
 def get_or_create_entity(
     db: Session,
     model: Type[T],
@@ -1070,9 +1087,10 @@ def get_or_create_entity(
     # Build search filters for other identifying fields
     search_filters = _build_search_filters_for_model(model, search_data)
 
-    # Search for existing entity if we have sufficient filters
-    # The base query already includes organization filtering, so we just need identifying fields
-    if len(search_filters) >= 1:  # Need at least one identifying field
+    # Only reuse an existing row when the data actually identifies one. Counting
+    # search_filters is not enough: the organization predicate is always present, so
+    # a blank name would match the org's first row and return an unrelated entity.
+    if _has_identifying_field(model, search_data):
         db_entity = query.with_custom_filter(lambda q: q.filter(*search_filters)).first()
         if db_entity:
             return db_entity
