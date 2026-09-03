@@ -204,6 +204,9 @@ node_modules
 **/build/**
 **/dist/**
 
+# TypeScript incremental build cache: rewritten by every tsc --noEmit run
+*.tsbuildinfo
+
 # Documentation specific
 apps/documentation/.next/
 apps/documentation/out/
