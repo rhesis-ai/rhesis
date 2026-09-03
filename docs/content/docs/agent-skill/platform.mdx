@@ -15,9 +15,15 @@ The **Rhesis agent skill** (`rhesis`) packages platform knowledge into one porta
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai) (or a self-hosted backend)
 - An API token — generate one at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
 
-## Install (any agent)
+## Install (any agent except Claude Code)
 
-The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
+<Callout type="warning">
+  **Using Claude Code? Skip to [Install in Claude Code](#install-in-claude-code) and do not run
+  `npx skills add`.** The plugin already includes the skill. Running both installs it twice, from
+  two sources that update through different channels, and one silently shadows the other.
+</Callout>
+
+Installs the skill across Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
 
 <CodeBlock language="bash">
 {`npx skills add rhesis-ai/skills`}
@@ -40,22 +46,46 @@ After installing the skill, connect the MCP server for your specific agent. The 
 
 ## Install in Claude Code
 
-Claude Code uses a plugin system that bundles the skill and MCP server configuration together.
+The plugin bundles the skill and the MCP server configuration, so it is the only install step. Do
+not also run `npx skills add`.
 
-**Step 1:** Add the Rhesis marketplace and install the plugin:
+**Step 1:** Add the marketplace and install the plugin:
 
 <CodeBlock language="bash">
 {`/plugin marketplace add rhesis-ai/skills
 /plugin install rhesis@rhesis-ai`}
 </CodeBlock>
 
-**Step 2:** Set your API token:
+**Step 2:** Set your API token, either as a shell environment variable:
 
 <CodeBlock language="bash">
 {`export RHESIS_API_KEY=rhs_your_token_here`}
 </CodeBlock>
 
-The plugin reads `RHESIS_API_KEY` automatically. On next session start, the `rhesis` MCP server is connected and the skill is active.
+or in the `env` block of `~/.claude/settings.json`, which applies to every session without
+touching your shell profile:
+
+<CodeBlock filename="~/.claude/settings.json" language="json">
+{`{
+  "env": {
+    "RHESIS_API_KEY": "rhs_your_token_here"
+  }
+}`}
+</CodeBlock>
+
+**Step 3:** Restart Claude Code, then run `/mcp` to confirm the connection:
+
+<CodeBlock language="text">
+{`plugin:rhesis:rhesis · ✔ connected · 52 tools`}
+</CodeBlock>
+
+<Callout type="warning">
+  **If `/mcp` asks you to authenticate a connector named "Rhesis AI", the plugin's server is not
+  connected.** That is a separate claude.ai cloud connector using OAuth, and the skill will offer
+  it when the plugin's own server is missing. Do not authenticate it. Fix the plugin server
+  instead: confirm `RHESIS_API_KEY` is set, restart, and check `/mcp` again. When the plugin server
+  is connected, that connector correctly stays under "unused connectors".
+</Callout>
 
 **Self-hosted backend:**
 
@@ -157,9 +187,27 @@ Use the native Architect for maximum structural control. Use this skill when you
 - Verify `~/.cursor/skills/rhesis/SKILL.md` exists
 - Try explicitly invoking: type `/rhesis` in the chat
 
-**Claude Code skill loading issues**
+**Claude Code: the skill asks you to authenticate a "Rhesis AI" connector**
 
-- There is a known issue with `~/.claude/skills/` filesystem discovery in some versions of Claude Code. Use the plugin install path (`/plugin install rhesis@rhesis-ai`) instead — this uses a supported installation mechanism.
+The plugin's MCP server is not connected, so the skill is falling back to the claude.ai cloud
+connector, which uses OAuth instead of your API token. Do not authenticate it. Run `/mcp` and
+check for `plugin:rhesis:rhesis`:
+
+- Not listed at all — the plugin is not installed or not enabled. Check `claude plugin list`.
+- Listed but failed — `RHESIS_API_KEY` is unset or invalid. Set it (see step 2 above) and restart.
+  Environment variables are read at session start, so a running session will not pick up a new one.
+
+**Claude Code: `rhesis` appears twice, or edits to the skill have no effect**
+
+The skill is installed from two sources, usually because `npx skills add` was run alongside the
+plugin. One shadows the other, and they update through different channels. Remove the standalone
+copy and keep the plugin:
+
+<CodeBlock language="bash">
+{`rm ~/.claude/skills/rhesis`}
+</CodeBlock>
+
+This leaves `~/.agents/skills/rhesis` in place, so Cursor and Codex keep working.
 
 ## Source
 

@@ -29,11 +29,21 @@ If you already paste a spec or name an endpoint, the menu is skipped.
 
 ## Quick install
 
+Claude Code installs the skill and the MCP server together, as a plugin:
+
+<CodeBlock language="bash">
+{`/plugin marketplace add rhesis-ai/skills
+/plugin install rhesis@rhesis-ai`}
+</CodeBlock>
+
+Every other agent installs the skill on its own, then connects the MCP server separately:
+
 <CodeBlock language="bash">
 {`npx skills add rhesis-ai/skills -g`}
 </CodeBlock>
 
-Connect the MCP server in your agent — see [Install in Cursor](/docs/agent-skill/platform#install-in-cursor).
+Either way you need an API token. See [Install](/docs/agent-skill/platform#install-in-claude-code)
+for the token setup, how to verify the connection, and per-agent MCP configuration.
 
 ## Examples
 

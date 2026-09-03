@@ -17,51 +17,71 @@ This skill teaches your agent how to explore an AI endpoint's capabilities, desi
 
 ---
 
-## Install the skill (any agent)
+## Install in Claude Code
 
-The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
-
-```bash
-npx skills add rhesis-ai/skills
-```
-
-The CLI detects which agents you have installed and asks where to place the skill. Use `-g` for a global install (available in all projects) or omit it for project-level.
-
-```bash
-# Global install — available everywhere
-npx skills add rhesis-ai/skills -g
-
-# Install to specific agents only
-npx skills add rhesis-ai/skills -a cursor -a claude-code -g
-
-# See where it would be installed without installing
-npx skills add rhesis-ai/skills --list
-```
-
-> `npx skills` installs the skill instructions. The MCP server (which the skill uses to talk to Rhesis) is configured separately — see the sections below for your agent.
-
----
-
-## Connect the MCP server
-
-The skill needs the Rhesis MCP server connected to call platform tools. Set this up once per agent.
-
-### Claude Code
-
-```bash
-export RHESIS_API_KEY=rhs_your_token_here
-# Optional — defaults to https://api.rhesis.ai/mcp/
-export RHESIS_MCP_URL=http://localhost:8080/mcp/
-```
-
-The skill is bundled as a Claude Code plugin that includes the MCP config. To install via plugin (MCP + skill together):
+The plugin carries both the skill and the MCP server config, so it is the only install step. **Do
+not also run `npx skills add`** — that installs the skill a second time from a different source,
+and one copy silently shadows the other.
 
 ```
 /plugin marketplace add rhesis-ai/skills
 /plugin install rhesis@rhesis-ai
 ```
 
-Then set `RHESIS_API_KEY` as above.
+Then set your API token, either in your shell:
+
+```bash
+export RHESIS_API_KEY=rhs_your_token_here
+```
+
+or in the `env` block of `~/.claude/settings.json`, which applies to every session without
+touching your shell profile:
+
+```json
+{
+  "env": {
+    "RHESIS_API_KEY": "rhs_your_token_here"
+  }
+}
+```
+
+Restart Claude Code and run `/mcp`. You should see:
+
+```
+plugin:rhesis:rhesis · ✔ connected · 52 tools
+```
+
+If instead you are asked to authenticate a connector named "Rhesis AI", the plugin's server is not
+connected — see [Troubleshooting](#troubleshooting).
+
+For a self-hosted backend, also set `RHESIS_MCP_URL=http://localhost:8080/mcp/`.
+
+---
+
+## Install in other agents
+
+For Cursor, Codex, Gemini CLI, and 40+ other AI interfaces, the skill and the MCP server are two
+separate steps.
+
+**Step 1 — the skill.** The CLI detects which agents you have and asks where to place it. Use `-g`
+for a global install, or omit it for project-level.
+
+```bash
+npx skills add rhesis-ai/skills -g
+
+# Install to specific agents only
+npx skills add rhesis-ai/skills -a cursor -a codex -g
+
+# See where it would be installed without installing
+npx skills add rhesis-ai/skills --list
+```
+
+**Step 2 — the MCP server.** `npx skills` installs the skill instructions only. Configure the
+server for your agent using the sections below.
+
+---
+
+## Connect the MCP server
 
 ### Cursor
 
@@ -163,10 +183,20 @@ Use the native Architect when you want maximum structural control. Use this skil
 - Test connectivity: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp/`
 - In Cursor, restart the IDE after editing `.cursor/mcp.json`
 
-**Skill not activating:**
+**Claude Code asks you to authenticate a "Rhesis AI" connector:**
+- The plugin's MCP server is not connected, so the skill is falling back to the claude.ai cloud connector, which uses OAuth rather than your API token. Don't authenticate it.
+- Run `/mcp` and look for `plugin:rhesis:rhesis`. Missing entirely means the plugin isn't installed or enabled — check `claude plugin list`. Present but failed means `RHESIS_API_KEY` is unset or invalid.
+- Environment variables are read at session start, so set the token and restart; a running session won't pick up a new one.
+- Once the plugin's server is connected, that connector correctly stays under "unused connectors".
+
+**`rhesis` appears twice in Claude Code, or skill edits have no effect:**
+- The skill is installed from two sources, usually because `npx skills add` was run alongside the plugin. One shadows the other and they update through different channels.
+- Remove the standalone copy with `rm ~/.claude/skills/rhesis` and keep the plugin. This leaves `~/.agents/skills/rhesis` in place, so Cursor and Codex keep working.
+
+**Skill not activating (other agents):**
 - Run `npx skills list` to verify the skill is installed and shows the correct path
 - In Cursor, verify `~/.cursor/skills/rhesis/SKILL.md` exists
-- In Claude Code, try `/rhesis` explicitly; if the filesystem skill loading bug affects your version, use the plugin install path instead
+- Try invoking it explicitly by typing `/rhesis`
 
 **Tool-name collisions:**
 - If you have other MCP servers with generic tool names (e.g., `list_test_runs`), they may conflict. In Claude Code, Rhesis tools are prefixed by server name; in Cursor, check `.cursor/mcp.json` for conflicts.
