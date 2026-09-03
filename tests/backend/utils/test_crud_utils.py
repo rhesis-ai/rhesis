@@ -644,6 +644,56 @@ class TestHasIdentifyingField:
             is False
         )
 
+    def test_branching_agrees_with_the_filter_builder(self):
+        """The guard and the filter builder must never disagree about a branch.
+
+        If the guard reports a row is identifiable via a field the filter builder
+        never turns into a predicate, the lookup runs on the organization predicate
+        alone and ``.first()`` returns an unrelated row.
+
+        ``Test`` is the case that made this concrete: it exposes ``content`` as a
+        hybrid property proxying its prompt, so a ``hasattr`` check sent it down the
+        content branch even though there is no content column to filter on.
+        """
+        search_data = {"nano_id": "abc123", "organization_id": str(uuid.uuid4())}
+
+        assert crud_utils._has_identifying_field(models.Test, search_data) is True
+        filters = crud_utils._build_search_filters_for_model(models.Test, search_data)
+        assert any("nano_id" in str(f) for f in filters), (
+            "guard vouched for nano_id but the filter builder emitted no predicate for it"
+        )
+
+    def test_no_model_branches_on_a_non_column_content_attribute(self):
+        """Guards against reintroducing the hasattr check on either function."""
+        from sqlalchemy import inspect as sa_inspect
+
+        for name in dir(models):
+            model = getattr(models, name)
+            if not hasattr(model, "__tablename__"):
+                continue
+            try:
+                columns = set(sa_inspect(model).columns.keys())
+            except Exception:
+                continue
+            if "content" not in columns and hasattr(model, "content"):
+                # A content-less model must fall through to the identifying fields,
+                # not be treated as content-keyed.
+                assert crud_utils._has_identifying_field(model, {"nano_id": "x"}) is True
+
+    def test_test_without_an_identifying_field_is_not_reused(self):
+        """Org seeding passes neither content nor an identifying field."""
+        search_data = {
+            "prompt_id": str(uuid.uuid4()),
+            "test_type_id": str(uuid.uuid4()),
+            "organization_id": str(uuid.uuid4()),
+        }
+
+        assert crud_utils._has_identifying_field(models.Test, search_data) is False
+
+    def test_content_keyed_models_still_key_on_content(self):
+        assert crud_utils._has_identifying_field(models.Prompt, {"content": "hello"}) is True
+        assert crud_utils._has_identifying_field(models.Prompt, {"content": ""}) is False
+
     def test_blank_name_still_builds_the_org_filter(self):
         """Documents why the count-based check was wrong: filters are non-empty even
         when nothing identifies a row."""

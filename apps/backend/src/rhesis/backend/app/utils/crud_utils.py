@@ -1000,8 +1000,11 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
                     model.type_value == search_data["type_value"],
                 ]
             )
-    elif hasattr(model, "content"):
-        # Models using content as identifier
+    elif "content" in columns:
+        # Models using content as identifier. Keyed on a mapped column, not
+        # hasattr: Test exposes `content` as a hybrid property proxying its
+        # prompt, so hasattr sent it down this branch even though there is no
+        # content column to filter on.
         if "content" in search_data:
             search_filters.append(model.content == search_data["content"])
 
@@ -1030,12 +1033,18 @@ def _has_identifying_field(model: Type[T], search_data: Dict[str, Any]) -> bool:
     so a non-empty filter list is not evidence that we can pick out one row. Reusing
     the filter count as that evidence means a blank name matches the org's first row
     and silently returns an unrelated entity.
+
+    The branching here must stay identical to ``_build_search_filters_for_model``.
+    If this function reports that a row is identifiable via a field the filter
+    builder never turns into a predicate, the lookup runs on the organization
+    predicate alone and ``.first()`` returns an unrelated row — the exact failure
+    this guard exists to prevent.
     """
     columns = inspect(model).columns.keys()
 
     if model.__name__ == "TypeLookup":
         return bool(search_data.get("type_name")) and bool(search_data.get("type_value"))
-    if hasattr(model, "content"):
+    if "content" in columns:
         return bool(search_data.get("content"))
     return any(field in columns and search_data.get(field) for field in IDENTIFYING_FIELDS)
 
