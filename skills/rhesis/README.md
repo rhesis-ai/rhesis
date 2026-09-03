@@ -45,11 +45,15 @@ touching your shell profile:
 }
 ```
 
-Restart Claude Code and run `/mcp`. You should see:
+Restart Claude Code and run `/mcp`. Under the built-in servers you should see `rhesis` connected,
+with a tool count after it:
 
 ```
 plugin:rhesis:rhesis · ✔ connected · 52 tools
 ```
+
+That line is the only confirmation that matters. The skill on its own does nothing — every
+operation it performs is a call to this server.
 
 If instead you are asked to authenticate a connector named "Rhesis AI", the plugin's server is not
 connected — see [Troubleshooting](#troubleshooting).
@@ -152,7 +156,7 @@ You can also use it for direct operations without the full workflow:
 | `skills/rhesis/SKILL.md` | Skill instructions — loaded by all compatible agents |
 | `skills/rhesis/.mcp.json` | MCP server config bundled with the Claude Code plugin |
 | `skills/rhesis/references/workflow-index.md` | Router — read first, points at everything below |
-| `skills/rhesis/references/tool-catalog.md` | All 48 MCP tools with parameters and common mistakes |
+| `skills/rhesis/references/tool-catalog.md` | Every MCP tool with parameters and common mistakes |
 | `skills/rhesis/references/odata-patterns.md` | `$filter`, `$select`, navigation properties, batched lookups |
 | `skills/rhesis/references/exploration-strategies.md` | Domain probing, capability mapping, boundary discovery |
 | `skills/rhesis/references/result-analysis.md` | Single-run summaries, run comparison, failure patterns |

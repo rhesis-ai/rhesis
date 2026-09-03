@@ -73,11 +73,16 @@ touching your shell profile:
 }`}
 </CodeBlock>
 
-**Step 3:** Restart Claude Code, then run `/mcp` to confirm the connection:
+**Step 3:** Restart Claude Code, then run `/mcp`. Under the built-in servers you should see
+`rhesis` connected, with a tool count after it:
 
 <CodeBlock language="text">
 {`plugin:rhesis:rhesis · ✔ connected · 52 tools`}
 </CodeBlock>
+
+That line is the only confirmation that matters. The skill on its own does nothing — every
+platform operation it performs is a call to this server, so an installed skill with no connected
+server cannot explore an endpoint, create anything, or run a test.
 
 <Callout type="warning">
   **If `/mcp` asks you to authenticate a connector named "Rhesis AI", the plugin's server is not
