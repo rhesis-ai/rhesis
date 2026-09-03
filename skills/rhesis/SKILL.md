@@ -19,7 +19,7 @@ Platform operations use the `rhesis` MCP server. **Read `references/workflow-ind
 
 - Rhesis MCP connected — [install guide](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis#connect-the-mcp-server)
 - API token at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- Self-hosted: `RHESIS_MCP_URL=http://localhost:8080/mcp`
+- Self-hosted: `RHESIS_MCP_URL=http://localhost:8080/mcp/`
 
 ## Shared skeleton
 

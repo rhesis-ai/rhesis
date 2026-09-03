@@ -50,8 +50,8 @@ The skill needs the Rhesis MCP server connected to call platform tools. Set this
 
 ```bash
 export RHESIS_API_KEY=rhs_your_token_here
-# Optional — defaults to https://api.rhesis.ai/mcp
-export RHESIS_MCP_URL=http://localhost:8080/mcp
+# Optional — defaults to https://api.rhesis.ai/mcp/
+export RHESIS_MCP_URL=http://localhost:8080/mcp/
 ```
 
 The skill is bundled as a Claude Code plugin that includes the MCP config. To install via plugin (MCP + skill together):
@@ -67,7 +67,7 @@ Then set `RHESIS_API_KEY` as above.
 
 **One click** — click the badge to install the MCP server config automatically:
 
-[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=rhesis&config=eyJ1cmwiOiJodHRwczovL2FwaS5yaGVzaXMuYWkvbWNwIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiQmVhcmVyIFlPVVJfUkhFU0lTX0FQSV9LRVkifX0K)
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=rhesis&config=eyJ1cmwiOiJodHRwczovL2FwaS5yaGVzaXMuYWkvbWNwLyIsImhlYWRlcnMiOnsiQXV0aG9yaXphdGlvbiI6IkJlYXJlciBZT1VSX1JIRVNJU19BUElfS0VZIn19)
 
 After clicking, edit `.cursor/mcp.json` to replace `YOUR_RHESIS_API_KEY` with your actual token. Restart Cursor.
 
@@ -77,7 +77,7 @@ After clicking, edit `.cursor/mcp.json` to replace `YOUR_RHESIS_API_KEY` with yo
 {
   "mcpServers": {
     "rhesis": {
-      "url": "https://api.rhesis.ai/mcp",
+      "url": "https://api.rhesis.ai/mcp/",
       "headers": {
         "Authorization": "Bearer YOUR_RHESIS_API_KEY"
       }
@@ -90,7 +90,7 @@ After clicking, edit `.cursor/mcp.json` to replace `YOUR_RHESIS_API_KEY` with yo
 
 Add the Rhesis MCP server to your agent's MCP config file. The connection details are:
 
-- **URL:** `https://api.rhesis.ai/mcp` (or `http://localhost:8080/mcp` for self-hosted)
+- **URL:** `https://api.rhesis.ai/mcp/` (or `http://localhost:8080/mcp/` for self-hosted)
 - **Auth header:** `Authorization: Bearer <your-api-token>`
 
 Refer to your agent's documentation for the exact config file location and format.
@@ -160,7 +160,7 @@ Use the native Architect when you want maximum structural control. Use this skil
 
 **MCP server not connecting:**
 - Verify `RHESIS_API_KEY` is set and the token hasn't expired — regenerate at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- Test connectivity: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp`
+- Test connectivity: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp/`
 - In Cursor, restart the IDE after editing `.cursor/mcp.json`
 
 **Skill not activating:**
