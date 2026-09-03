@@ -204,4 +204,9 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         section=NotificationSection.USAGE,
         entity_type=None,
     ),
+    NotificationEventType.Account.PASSWORD_NOT_SET: NotificationKind(
+        event_type=NotificationEventType.Account.PASSWORD_NOT_SET,
+        section=NotificationSection.ACCOUNT,
+        entity_type=None,
+    ),
 }

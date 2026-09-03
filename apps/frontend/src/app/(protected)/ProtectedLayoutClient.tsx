@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import AuthErrorBoundary from './error-boundary';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import QuotaBanner from '@/components/auth/QuotaBanner';
+import SetPasswordBanner from '@/components/auth/SetPasswordBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
 import type { FeaturesResponse } from '@/utils/api-client/features-client';
 import { PermissionsProvider } from '@/contexts/PermissionsContext';
@@ -115,6 +116,7 @@ export function ProtectedLayoutClient({
                   />
                 )}
                 {!isOnboarding && !chromeless && <VerificationBanner />}
+                {!isOnboarding && !chromeless && <SetPasswordBanner />}
                 {!isOnboarding && !chromeless && <QuotaBanner />}
                 {content}
               </NotificationsProvider>

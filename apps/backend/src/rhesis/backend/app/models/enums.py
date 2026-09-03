@@ -107,6 +107,7 @@ class NotificationSection(str, Enum):
     TASKS = "tasks"
     ARCHITECT = "architect"
     USAGE = "usage"
+    ACCOUNT = "account"
 
 
 class NotificationEventType:
@@ -141,6 +142,12 @@ class NotificationEventType:
         #: Crossed the resource's ceiling -- the action it gates is now
         #: blocked (a 402 on the next attempt).
         BLOCKED = "usage.blocked"
+
+    class Account(str, Enum):
+        #: The user signed in (e.g. via invitation magic link) but has
+        #: no password and no external auth provider. Nudges them to
+        #: set a password so they can sign in independently.
+        PASSWORD_NOT_SET = "account.password_not_set"
 
 
 # Notification.entity_type reuses rhesis.backend.app.constants.EntityType
