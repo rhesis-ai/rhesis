@@ -50,6 +50,25 @@ def seeded_project(test_db, test_org_id, authenticated_user_id):
     test_db.rollback()
 
 
+@pytest.fixture
+def shared_tenant_session(test_db):
+    """Route the connector's tenant session at the shared test session.
+
+    ``receive_trace`` opens its own session via ``get_db_with_tenant_variables``
+    (a direct call, not a FastAPI dependency), so from a separate connection it
+    cannot see ``test_db``'s uncommitted fixture rows (seeded project +
+    membership). Sharing the session keeps everything inside ``test_db``'s
+    outer transaction, which still rolls back at teardown. Same seam as
+    ``mock_db_context`` below.
+    """
+    with patch(
+        "rhesis.backend.app.routers.connector.get_db_with_tenant_variables"
+    ) as mock_db:
+        mock_db.return_value.__enter__ = Mock(return_value=test_db)
+        mock_db.return_value.__exit__ = Mock(return_value=None)
+        yield test_db
+
+
 @pytest.mark.integration
 class TestConnectorWebSocket:
     """Test WebSocket connector functionality"""
@@ -275,7 +294,9 @@ class TestConnectorHTTPEndpoints:
             data = response.json()
             assert data["environment"] == "development"  # Default environment
 
-    def test_receive_trace_success(self, authenticated_client: TestClient, seeded_project):
+    def test_receive_trace_success(
+        self, authenticated_client: TestClient, seeded_project, shared_tenant_session
+    ):
         """Test receiving execution trace (legacy endpoint for connector traces)"""
         trace_data = {
             "project_id": str(seeded_project.id),
@@ -296,7 +317,9 @@ class TestConnectorHTTPEndpoints:
         data = response.json()
         assert data["status"] == "received"
 
-    def test_receive_trace_with_error(self, authenticated_client: TestClient, seeded_project):
+    def test_receive_trace_with_error(
+        self, authenticated_client: TestClient, seeded_project, shared_tenant_session
+    ):
         """Test receiving execution trace with error (legacy endpoint)"""
         trace_data = {
             "project_id": str(seeded_project.id),
@@ -317,7 +340,9 @@ class TestConnectorHTTPEndpoints:
         data = response.json()
         assert data["status"] == "received"
 
-    def test_receive_trace_with_long_output(self, authenticated_client: TestClient, seeded_project):
+    def test_receive_trace_with_long_output(
+        self, authenticated_client: TestClient, seeded_project, shared_tenant_session
+    ):
         """Test receiving execution trace with long output (legacy endpoint)"""
         trace_data = {
             "project_id": str(seeded_project.id),
@@ -339,7 +364,8 @@ class TestConnectorHTTPEndpoints:
         assert data["status"] == "received"
 
     def test_receive_trace_persists_record(
-        self, authenticated_client: TestClient, test_db, seeded_project, test_org_id
+        self, authenticated_client: TestClient, test_db, seeded_project, test_org_id,
+        shared_tenant_session
     ):
         """Trace is persisted and its id returned, not just logged."""
         trace_data = {
@@ -376,7 +402,8 @@ class TestConnectorHTTPEndpoints:
         assert record.executed_at == datetime(2024, 1, 1, tzinfo=timezone.utc)
 
     def test_receive_trace_persists_error(
-        self, authenticated_client: TestClient, test_db, seeded_project
+        self, authenticated_client: TestClient, test_db, seeded_project,
+        shared_tenant_session
     ):
         """Error traces persist the error payload too."""
         trace_data = {
