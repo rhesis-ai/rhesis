@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, Template
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from rhesis.sdk.entities.test import TestConfiguration
 from rhesis.sdk.entities.test_set import TestSet
@@ -20,10 +20,27 @@ _MAX_BATCH_RETRIES = 3
 
 
 class GenerationConfig(BaseModel):
+    """Configuration for multi-turn test generation.
+
+    The plural names are canonical. The singular spellings are accepted as aliases
+    because they were the shape callers used before, and silently dropping them meant
+    generating against the default requirements instead of the requested ones.
+    Anything else unknown is rejected rather than ignored, so the next typo in a field
+    name surfaces at construction instead of as quietly mis-attributed tests.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     generation_prompt: str
-    requirements: Optional[list[str]] = None
-    categories: Optional[list[str]] = None
-    topics: Optional[list[str]] = None
+    requirements: Optional[list[str]] = Field(
+        default=None, validation_alias=AliasChoices("requirements", "requirement")
+    )
+    categories: Optional[list[str]] = Field(
+        default=None, validation_alias=AliasChoices("categories", "category")
+    )
+    topics: Optional[list[str]] = Field(
+        default=None, validation_alias=AliasChoices("topics", "topic")
+    )
     additional_context: Optional[str] = None
 
 
@@ -106,6 +123,53 @@ class MultiTurnSynthesizer:
             "topic": flat["topic"],
         }
 
+    def _canonical_requirement(self, value: Any) -> Optional[str]:
+        """Map an LLM-emitted requirement onto the configured set.
+
+        Returns the caller's own spelling of the requirement, or ``None`` when the
+        model produced something that was never asked for. Matching is exact first,
+        then case- and whitespace-insensitive, so a model that answers "compliance"
+        for a requested "Compliance" is corrected rather than discarded.
+
+        With no configured requirements there is nothing to validate against and the
+        value passes through unchanged.
+        """
+        allowed = self.config.requirements
+        if not allowed:
+            return None if value is None else str(value)
+
+        text = str(value or "").strip()
+        if text in allowed:
+            return text
+        folded = text.casefold()
+        for candidate in allowed:
+            if folded == candidate.strip().casefold():
+                return candidate
+        return None
+
+    def _validated_tests(self, flat_tests: List[Dict[str, Any]]) -> List[dict]:
+        """Repack flat LLM tests, dropping any whose requirement was not requested."""
+        tests: List[dict] = []
+        dropped: List[str] = []
+        for flat in flat_tests:
+            nested = self._flat_test_to_nested(flat)
+            requirement = self._canonical_requirement(nested["requirement"])
+            if requirement is None:
+                dropped.append(str(nested["requirement"]))
+                continue
+            nested["requirement"] = requirement
+            tests.append({**nested, "test_type": TestType.MULTI_TURN.value})
+
+        if dropped:
+            logger.warning(
+                "[MultiTurnSynthesizer] Dropped %d test(s) with a requirement outside "
+                "the requested set %s: %s",
+                len(dropped),
+                self.config.requirements,
+                sorted(set(dropped)),
+            )
+        return tests
+
     def _generate_batch(self) -> List[dict]:
         """Generate a single batch of tests.
 
@@ -140,17 +204,7 @@ class MultiTurnSynthesizer:
             )
             return []
 
-        flat_tests = response["tests"]
-
-        batch_tests = [
-            {
-                **self._flat_test_to_nested(flat),
-                "test_type": TestType.MULTI_TURN.value,
-            }
-            for flat in flat_tests
-        ]
-
-        return batch_tests
+        return self._validated_tests(response["tests"])
 
     async def generate_stream(self, num_tests: int = 5) -> AsyncGenerator[Dict[str, Any], None]:
         """Yield multi-turn test dicts one-by-one as they parse from the LLM."""
@@ -168,10 +222,8 @@ class MultiTurnSynthesizer:
         token_stream = self.model.generate_stream(prompt=prompt, schema=FlatTests)
         async for chunk in token_stream:
             for flat in parser.feed(chunk):
-                yield {
-                    **self._flat_test_to_nested(flat),
-                    "test_type": TestType.MULTI_TURN.value,
-                }
+                for test in self._validated_tests([flat]):
+                    yield test
 
     def generate(
         self,

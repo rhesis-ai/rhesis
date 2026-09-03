@@ -2,6 +2,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.multi_turn.base import (
@@ -534,3 +535,153 @@ def test_generate_raises_with_reason_when_all_batches_fail(mock_generate_batch):
 
     with pytest.raises(ValueError, match="Polyphemus did not respond in time."):
         synthesizer.generate(num_tests=5)
+
+
+# --- Requirement attribution tests ---
+#
+# Multi-turn generation used to attach the seeded default requirements
+# (Compliance / Reliability / Robustness) instead of the ones the caller asked for.
+# Two things caused it: the prompt named the defaults dozens of times regardless of
+# what was passed, and nothing validated the model's answer. These lock both shut.
+
+DEFAULT_REQUIREMENTS = ("Compliance", "Reliability", "Robustness")
+
+
+def _flat_test(requirement: str) -> dict:
+    return {
+        "test_configuration_goal": "goal",
+        "test_configuration_instructions": "instructions",
+        "test_configuration_restrictions": "restrictions",
+        "test_configuration_scenario": "scenario",
+        "test_configuration_min_turns": 3,
+        "test_configuration_max_turns": 7,
+        "requirement": requirement,
+        "category": "Harmless",
+        "topic": "topic",
+    }
+
+
+def _render(config: GenerationConfig) -> str:
+    synthesizer = MultiTurnSynthesizer(config=config, model=Mock(spec=BaseLLM))
+    template = synthesizer.load_prompt_template("base.jinja")
+    return template.render({"num_tests": 5, "harmful": False, **config.model_dump()})
+
+
+def test_prompt_does_not_name_default_requirements_when_caller_supplies_them():
+    """The rendered prompt must not mention the seeded defaults when the caller
+    passed requirements — that is what made the model emit them instead."""
+    rendered = _render(
+        GenerationConfig(
+            generation_prompt="Test the triage agent",
+            requirements=["Summary Grounding", "Red-Flag Escalation"],
+        )
+    )
+
+    for default in DEFAULT_REQUIREMENTS:
+        assert default not in rendered, f"prompt still instructs the default {default!r}"
+    assert "- Summary Grounding" in rendered
+    assert "- Red-Flag Escalation" in rendered
+
+
+def test_prompt_renders_requirements_as_list_not_python_repr():
+    """Requirements used to render as a bare list repr, which read as noise next to
+    the prose instructions around it."""
+    rendered = _render(
+        GenerationConfig(generation_prompt="x", requirements=["Summary Grounding"])
+    )
+
+    assert "['Summary Grounding']" not in rendered
+    assert "- Summary Grounding" in rendered
+
+
+def test_prompt_still_offers_defaults_when_no_requirements_given():
+    """With nothing passed, the defaults are the correct instruction."""
+    rendered = _render(GenerationConfig(generation_prompt="x"))
+
+    assert "Use the following default requirements" in rendered
+    for default in DEFAULT_REQUIREMENTS:
+        assert default in rendered
+
+
+def test_harmful_prompt_uses_supplied_requirements():
+    """The adversarial branch never rendered requirements at all and hardcoded
+    Robustness/Compliance."""
+    config = GenerationConfig(generation_prompt="x", requirements=["Resists Memory Poisoning"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=Mock(spec=BaseLLM))
+    template = synthesizer.load_prompt_template("base.jinja")
+    rendered = template.render({"num_tests": 5, "harmful": True, **config.model_dump()})
+
+    assert "- Resists Memory Poisoning" in rendered
+    for default in DEFAULT_REQUIREMENTS:
+        assert default not in rendered
+
+
+@pytest.mark.parametrize(
+    "emitted,expected",
+    [
+        ("Summary Grounding", "Summary Grounding"),
+        ("  summary grounding  ", "Summary Grounding"),
+        ("SUMMARY GROUNDING", "Summary Grounding"),
+        ("Compliance", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_canonical_requirement(emitted, expected):
+    """Casing and whitespace are corrected; anything not requested is rejected."""
+    config = GenerationConfig(generation_prompt="x", requirements=["Summary Grounding"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=Mock(spec=BaseLLM))
+
+    assert synthesizer._canonical_requirement(emitted) == expected
+
+
+def test_canonical_requirement_passes_through_when_none_configured():
+    """With no configured requirements there is nothing to validate against."""
+    synthesizer = MultiTurnSynthesizer(
+        config=GenerationConfig(generation_prompt="x"), model=Mock(spec=BaseLLM)
+    )
+
+    assert synthesizer._canonical_requirement("Compliance") == "Compliance"
+
+
+def test_generate_batch_drops_tests_with_unrequested_requirement():
+    """A model that ignores the prompt must not produce mis-attributed tests."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {
+        "tests": [
+            _flat_test("Summary Grounding"),
+            _flat_test("Compliance"),
+            _flat_test("summary grounding"),
+        ]
+    }
+    config = GenerationConfig(generation_prompt="x", requirements=["Summary Grounding"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model)
+
+    tests = synthesizer._generate_batch()
+
+    assert [t["requirement"] for t in tests] == ["Summary Grounding", "Summary Grounding"]
+
+
+# --- Config field-naming tests ---
+
+
+def test_generation_config_accepts_singular_aliases():
+    """The singular spellings were the pre-existing shape; they must keep working
+    rather than being dropped."""
+    config = GenerationConfig(
+        generation_prompt="x",
+        requirement=["Summary Grounding"],
+        category=["Harmless"],
+        topic=["triage"],
+    )
+
+    assert config.requirements == ["Summary Grounding"]
+    assert config.categories == ["Harmless"]
+    assert config.topics == ["triage"]
+
+
+def test_generation_config_rejects_unknown_field():
+    """An unrecognised field name must raise instead of being silently ignored —
+    silent dropping is what attached the wrong requirements in the first place."""
+    with pytest.raises(ValidationError):
+        GenerationConfig(generation_prompt="x", requirementz=["Summary Grounding"])
