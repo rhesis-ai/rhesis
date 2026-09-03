@@ -26,7 +26,12 @@ class GenerationConfig(BaseModel):
 
     # Plural names are canonical and match the SDK's GenerationConfig. The singular
     # spellings stay accepted as aliases so older clients keep working.
-    model_config = ConfigDict(populate_by_name=True)
+    #
+    # extra="forbid" because pydantic's default is to drop unknown keys, and a dropped
+    # requirements key generates against the default requirements instead of the
+    # requested ones. `requirements` being required already made a typo there loud, but
+    # `categories` and `topics` are optional and were silently ignored.
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     generation_prompt: Optional[str] = None  # Describe what you want to test
     # Required, not optional: both generation routes already reject an empty list
@@ -259,9 +264,13 @@ class GenerateMultiTurnTestsRequest(BaseModel):
     ``GenerationConfig`` exactly — the config dict is built by copying them across, and
     a name that does not line up is dropped silently by pydantic rather than raising.
     The older singular spellings stay accepted as aliases for existing clients.
+
+    ``extra="forbid"`` because every field here is optional, so a misspelled
+    ``requirements`` would otherwise be dropped at the HTTP boundary and generation would
+    fall back to the default requirements with nothing raised.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     generation_prompt: str
     requirements: Optional[list[str]] = Field(
