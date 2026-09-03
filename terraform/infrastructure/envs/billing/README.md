@@ -44,6 +44,26 @@ gcloud projects add-iam-policy-binding rhesis-platform-admin \
 `notificationChannelEditor` rather than `monitoring.editor`: Terraform manages these
 channels so read-only is not enough, but it needs nothing else in Monitoring.
 
+## Prerequisite: two APIs
+
+`billingbudgets.googleapis.com` and `monitoring.googleapis.com` must be on in
+`rhesis-platform-admin`. Both are declared in `main.tf`, but that cannot bootstrap this
+root: Terraform refreshes and imports the existing budgets before it would create those
+resources, so the first plan needs them already enabled. Enabled out-of-band 2026-09-03:
+
+```bash
+gcloud services enable billingbudgets.googleapis.com monitoring.googleapis.com \
+  --project=rhesis-platform-admin
+```
+
+Symptom when `billingbudgets` is missing, which names the project by number rather than id
+and does not mention budgets in the resource path, so it reads like an IAM problem:
+
+```
+Error 403: Cloud Billing Budget API has not been used in project 211583725977
+  before or it is disabled
+```
+
 ## Applying
 
 Plans run automatically on any PR touching `terraform/**`. To apply, dispatch

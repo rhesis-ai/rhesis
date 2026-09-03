@@ -31,6 +31,26 @@ provider "google" {
   region  = var.region
 }
 
+# ── APIs ─────────────────────────────────────────────────────────────
+# Declared for durability, but note they cannot bootstrap this root: Terraform refreshes
+# and imports the existing budgets before it would create these resources, so the very
+# first plan needs both APIs already on. They were enabled out-of-band on 2026-09-03 after
+# the first plan failed with:
+#   Error 403: Cloud Billing Budget API has not been used in project 211583725977
+# Keeping them here stops a later `terraform destroy` or a disabled API silently breaking
+# budget management, and records the dependency where someone will look for it.
+resource "google_project_service" "billingbudgets" {
+  project            = var.project_id
+  service            = "billingbudgets.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "monitoring" {
+  project            = var.project_id
+  service            = "monitoring.googleapis.com"
+  disable_on_destroy = false
+}
+
 # ── Notification channels ────────────────────────────────────────────
 # Budget alerts also reach billing-account admins by default (that default is
 # left on deliberately, so removing a channel cannot silence alerts entirely).
