@@ -84,13 +84,19 @@ export default function EndpointSdkConnectionPanel() {
             {/* Function Parameters */}
             {endpoint.endpoint_metadata.function_schema?.parameters && (
               <Grid size={12}>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
+                  Function Parameters
+                </Typography>
                 {parameterRows.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No parameters
                   </Typography>
                 ) : (
                   <BaseTable<ParameterRow>
-                    title="Function Parameters"
                     columns={[
                       {
                         id: 'name',
