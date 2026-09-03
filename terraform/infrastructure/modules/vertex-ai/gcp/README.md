@@ -23,6 +23,13 @@ Run one environment at a time, in the order dev, stg, prd, and verify before mov
 Merge the change and let `.github/workflows/terraform-infrastructure.yml` apply it. This
 enables the API and creates the service account. It changes no traffic on its own.
 
+dev and stg plan clean at `4 to add, 0 to change`. **prd needed drift reconciliation first**:
+its ARC GitHub App secrets and the license mint secret were created by hand, so Terraform
+planned to create them and would have aborted on `ALREADY_EXISTS` after changing live VPN
+peering config. Those are adopted by `import` blocks in `envs/prd/main.tf`. If a future
+environment plans more than the Vertex resources plus `local_file.cluster_env_<env>`, stop
+and reconcile before applying rather than pushing through.
+
 ### 2. Check the models exist in the new project
 
 Model availability is per project and per location, so confirm before cutting over. Note

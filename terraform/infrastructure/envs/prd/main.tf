@@ -183,6 +183,17 @@ module "arc_gha_prd" {
   project_id  = var.project_id
   environment = "prd"
 
+  # prd's secrets were created by hand, so version 1 holds the REAL credential rather than
+  # the module's placeholder (dev and stg have placeholder in v1, real value in v2). Terraform
+  # must not manage versions here at all:
+  #   - creating one would make a placeholder `latest`, and ESO would sync
+  #     PLACEHOLDER_GITHUB_APP_ID into arc-runners, breaking prd's self-hosted runners;
+  #   - importing the existing one is worse, because secret_data is stored in Terraform state,
+  #     so the live GitHub App private key would land in the state bucket in plaintext, which
+  #     all four CI service accounts can read.
+  # The secret containers themselves ARE managed (imported below); only the versions are not.
+  manage_placeholder_versions = false
+
   depends_on = [module.eso_prd]
 }
 
@@ -310,6 +321,8 @@ resource "google_compute_firewall" "wireguard_dns" {
 }
 
 # ── Return-side peering: prd VPC → wireguard VPC (cross-project) ────
+# Required for BIND9/DNS routing from GKE pods and for kubectl via WireGuard VPN.
+# Both sides must exist for ACTIVE state.
 resource "google_compute_network_peering" "prd_to_wireguard" {
   name         = "peering-prd-to-wireguard"
   network      = module.prd.vpc_self_link
@@ -317,6 +330,22 @@ resource "google_compute_network_peering" "prd_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  # prd is the ONLY peering exchanging custom routes; dev and stg are false. That asymmetry
+  # was enabled out of band and is pinned here rather than left to the provider default, so
+  # it is visible in code and cannot silently revert on the next apply.
+  #
+  # It is inert today: no VPC contains a custom route to export. The wireguard VPC learns
+  # prd's subnet and master CIDRs (10.6.0.0/23, 10.6.4.0/28, 10.7.0.0/17) through ordinary
+  # subnet-route exchange -- the two flags above -- exactly as it does for dev and stg with
+  # this off. Do not "tidy" it to false on the assumption it is dead: the matching
+  # import_custom_routes = true on the wireguard side is pinned too, and turning the pair
+  # off is a separate decision.
+  #
+  # What would make it load-bearing is modules/gateway/gcp/, which is never instantiated.
+  # That module exports a VM-next-hop route for the GKE master CIDR, and GCP only propagates
+  # such a route over a peering when custom-route exchange is on.
+  export_custom_routes = true
 
   timeouts { create = "15m" }
 
@@ -335,3 +364,57 @@ EOT
   file_permission      = "0644"
   directory_permission = "0755"
 }
+
+# ── Adopt resources that were created by hand in prd ─────────────────
+# dev and stg went through Terraform; prd did not. Proof: dev's and stg's
+# <env>-arc-github-app-id hold the module's literal "PLACEHOLDER_GITHUB_APP_ID" in version 1
+# with the real value added later as version 2, while prd has a single version holding the
+# real value. So prd's secrets were created with `gcloud secrets create` and Terraform never
+# owned them, which is why this root planned 8 spurious creates while dev and stg planned
+# clean.
+#
+# Importing the VERSION resources is mandatory, not tidiness. prd's ARC secrets feed the
+# arc-runners/arc-github-app-secret ExternalSecret, which drives live self-hosted runners.
+# If Terraform created the placeholder versions instead, each would become `latest` and ESO
+# would sync "PLACEHOLDER_GITHUB_APP_ID" into the cluster within its 1h refresh, breaking
+# prd CI. Importing is safe because modules/arc-gha/gcp/main.tf sets
+# `ignore_changes = [secret_data]` on all three, so the imported real value is never
+# rewritten back to the placeholder.
+#
+# Note the id formats differ by resource type, and this is easy to get wrong: secrets use
+# the project ID, versions use the project NUMBER (969193216701). Both were taken from the
+# `id` attributes Terraform already stored for the equivalent dev resources rather than
+# inferred, so they match what the provider writes to state.
+#
+# Terraform drops an import block once applied, so delete this whole section after the first
+# successful apply.
+
+import {
+  to = module.arc_gha_prd.google_secret_manager_secret.arc_github_app_id
+  id = "projects/rhesis-prd/secrets/prd-arc-github-app-id"
+}
+
+import {
+  to = module.arc_gha_prd.google_secret_manager_secret.arc_github_app_installation_id
+  id = "projects/rhesis-prd/secrets/prd-arc-github-app-installation-id"
+}
+
+import {
+  to = module.arc_gha_prd.google_secret_manager_secret.arc_github_app_private_key
+  id = "projects/rhesis-prd/secrets/prd-arc-github-app-private-key"
+}
+
+
+
+
+import {
+  to = module.connect_gateway_prd.google_secret_manager_secret.mint_destination
+  id = "projects/rhesis-prd/secrets/prd-rhesis-selfhosted-license-mint"
+}
+
+# Deliberately NOT imported:
+# module.connect_gateway_prd.google_secret_manager_secret_iam_member.ci_manage_mint_destination
+# does not exist in prd -- the mint secret only carries the workflow-granted
+# secretVersionAdder for the default compute SA, while dev and stg both have
+# roles/secretmanager.admin for their license-ci-<env>@. Letting Terraform create it brings
+# prd in line with the other two, so it is a legitimate create rather than drift.

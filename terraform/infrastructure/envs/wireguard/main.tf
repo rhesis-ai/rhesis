@@ -186,6 +186,18 @@ module "wireguard_server" {
 # ── Cross-project VPC peerings: wireguard → each env ────────────────
 # The return-side peeerings (env → wireguard) live in each env's main.tf.
 # Peering becomes ACTIVE once both sides exist.
+#
+# DANGER before applying this root: these three are count-gated on
+# var.enabled_environments, whose default is ["dev","stg"], while the workflow's
+# wireguard_envs input defaults to '["dev"]'. State currently holds all three, so
+# dispatching with either default sets count=0 for the others and DESTROYS those peerings.
+# WireGuard is our only practical access path to dev and stg, so that would cut our own
+# access. Always dispatch with wireguard_envs = ["dev","stg","prd"] and confirm the plan
+# reads "0 to destroy" before approving.
+#
+# import_custom_routes below mirrors each env's export_custom_routes: true for prd only,
+# matching what was enabled out of band on both sides. Pinned rather than omitted so an
+# apply of this root cannot silently revert prd's half of the pair.
 
 resource "google_compute_network_peering" "wireguard_to_dev" {
   count = local.dev_enabled ? 1 : 0
@@ -196,6 +208,9 @@ resource "google_compute_network_peering" "wireguard_to_dev" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  # Pairs with export_custom_routes = false on dev_to_wireguard in envs/dev/main.tf.
+  import_custom_routes = false
 
   timeouts { create = "15m" }
 
@@ -212,6 +227,9 @@ resource "google_compute_network_peering" "wireguard_to_stg" {
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
 
+  # Pairs with export_custom_routes = false on stg_to_wireguard in envs/stg/main.tf.
+  import_custom_routes = false
+
   timeouts { create = "15m" }
 
   depends_on = [module.wireguard]
@@ -226,6 +244,11 @@ resource "google_compute_network_peering" "wireguard_to_prd" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  # The one true in the set, pairing with export_custom_routes = true on prd_to_wireguard
+  # in envs/prd/main.tf. Matches live and is inert today; see the note there for why it is
+  # kept rather than tidied to false.
+  import_custom_routes = true
 
   timeouts { create = "15m" }
 
