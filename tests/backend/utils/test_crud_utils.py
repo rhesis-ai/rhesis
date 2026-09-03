@@ -601,3 +601,55 @@ class TestStringCleaning:
         assert result["name"] == "johndoe"
         assert result["data"] == {"nested": "value"}
         assert result["non_column"] == "keep\x00me"
+
+
+class TestHasIdentifyingField:
+    """Guard on entity reuse in get_or_create_entity.
+
+    _build_search_filters_for_model always prepends an organization_id predicate, so a
+    non-empty filter list never proved the data could identify one row. Using the filter
+    count as that proof meant a blank name matched the org's first row and returned an
+    unrelated entity — which is how generated tests ended up attached to whichever
+    requirement happened to come back first.
+    """
+
+    @pytest.mark.parametrize(
+        "model,search_data,expected",
+        [
+            (models.Requirement, {"name": "Summary Grounding"}, True),
+            (models.Requirement, {"name": ""}, False),
+            (models.Requirement, {"name": None}, False),
+            (models.Requirement, {}, False),
+            (models.Topic, {"name": "triage"}, True),
+            (models.Topic, {"name": ""}, False),
+            (models.Category, {"name": "Harmless"}, True),
+            (models.Category, {"name": ""}, False),
+            # Content-keyed models
+            (models.Prompt, {"content": "hello"}, True),
+            (models.Prompt, {"content": ""}, False),
+            # TypeLookup needs both halves of its compound key
+            (models.TypeLookup, {"type_name": "a", "type_value": "b"}, True),
+            (models.TypeLookup, {"type_name": "a"}, False),
+        ],
+    )
+    def test_identifies_only_with_a_usable_key(self, model, search_data, expected):
+        assert crud_utils._has_identifying_field(model, search_data) is expected
+
+    def test_organization_id_alone_does_not_identify(self):
+        """The regression itself: org scope is not an identifier."""
+        assert (
+            crud_utils._has_identifying_field(
+                models.Requirement, {"organization_id": str(uuid.uuid4()), "name": ""}
+            )
+            is False
+        )
+
+    def test_blank_name_still_builds_the_org_filter(self):
+        """Documents why the count-based check was wrong: filters are non-empty even
+        when nothing identifies a row."""
+        filters = crud_utils._build_search_filters_for_model(
+            models.Requirement, {"name": "", "organization_id": str(uuid.uuid4())}
+        )
+
+        assert len(filters) == 1
+        assert crud_utils._has_identifying_field(models.Requirement, {"name": ""}) is False

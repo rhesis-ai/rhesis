@@ -104,9 +104,9 @@ const generateSamplesForTestType = async (
     // Generate multi-turn tests
     const response = await servicesClient.generateMultiTurnTests({
       generation_prompt: description,
-      requirement: activeRequirements,
-      category: activeCategories,
-      topic: activeTopics,
+      requirements: activeRequirements,
+      categories: activeCategories,
+      topics: activeTopics,
       num_tests: numTests,
       ...(modelId ? { model_id: modelId } : {}),
     });

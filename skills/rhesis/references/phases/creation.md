@@ -13,14 +13,17 @@ Execute the approved plan exactly — no extra entities.
 7. `assign_tag` — if planned (PRD path); `entity_type` `Requirement` or `Metric`
 8. `generate_test_set` — per set; `config.requirements`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
 9. **Wait for generation** — call `await_task` with the `task_id`(s) from the responses. Do NOT poll `get_job_status` manually; the system resumes when all tasks finish.
-10. `get_test_set` + `list_test_set_tests` spot-check generated prompts
+10. `get_test_set` + `list_test_set_tests` spot-check generated prompts **and requirement
+    attribution** — every test's `requirement` must be one the plan asked for. If tests came back
+    on requirements you never named (`Compliance`, `Reliability`, `Robustness` are the seeded
+    org defaults), stop and tell the user rather than continuing to execution
 11. Summarize by name (never IDs); offer execution: "Would you like me to run these against [endpoint name]?"
 
 **Critical:** test sets are generated LAST, only after every requirement, metric, and requirement→metric link is in place. Calling `generate_test_set` before that point is rejected with "Cannot generate test sets yet…". Wait until the "Plan progress" line shows N/N for requirements, metrics, and mappings.
 
 ## Multi-Turn test sets
 
-Multi-Turn and Single-Turn test sets produce structurally different tests. Getting this wrong creates a test set that says "Multi-Turn" but contains Single-Turn tests.
+Multi-Turn and Single-Turn test sets produce structurally different tests. Two things go wrong here: a test set that says "Multi-Turn" but contains Single-Turn tests, and tests attributed to requirements nobody asked for. Verify both at step 10.
 
 - **`generate_test_set`**: pass `test_type: "Multi-Turn"`. The synthesizer generates goals and instructions instead of prompts. Omitting `test_type` or leaving the default produces Single-Turn tests regardless of the test set name.
 - **`create_test_set_bulk`**: pass `test_set_type: "Multi-Turn"`. Each test in the `tests` array must use `test_configuration` (with `goal`, optional `instructions`, `restrictions`, `scenario`, `max_turns`) instead of `prompt`, and set `test_type: "Multi-Turn"` on each test object. The server types each test from its own content, so tests carrying a `prompt` land as Single-Turn even inside a Multi-Turn set. Do NOT send `prompt` and `test_configuration` on the same test.
