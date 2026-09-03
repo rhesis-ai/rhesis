@@ -207,6 +207,12 @@ resource "google_compute_network_peering" "dev_to_wireguard" {
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
 
+  # Pinned to the provider default rather than omitted, so this peering's custom-route
+  # setting is explicit in code. prd deliberately differs (true) -- see the longer note on
+  # google_compute_network_peering.prd_to_wireguard in envs/prd/main.tf. DNS and VPN access
+  # to dev work with this off, which is the evidence that prd's true is inert.
+  export_custom_routes = false
+
   timeouts { create = "15m" }
 
   depends_on = [module.dev]

@@ -208,6 +208,8 @@ resource "google_compute_firewall" "wireguard_dns" {
 }
 
 # ── Return-side peering: stg VPC → wireguard VPC (cross-project) ────
+# Required for BIND9/DNS routing from GKE pods and for kubectl via WireGuard VPN.
+# Both sides must exist for ACTIVE state.
 resource "google_compute_network_peering" "stg_to_wireguard" {
   name         = "peering-stg-to-wireguard"
   network      = module.stg.vpc_self_link
@@ -215,6 +217,12 @@ resource "google_compute_network_peering" "stg_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  # Pinned to the provider default rather than omitted, so this peering's custom-route
+  # setting is explicit in code. prd deliberately differs (true) -- see the longer note on
+  # google_compute_network_peering.prd_to_wireguard in envs/prd/main.tf. DNS and VPN access
+  # to stg work with this off, which is the evidence that prd's true is inert.
+  export_custom_routes = false
 
   timeouts { create = "15m" }
 
