@@ -367,6 +367,7 @@ def get_item_detail(
     related_fields: tuple | list | None = None,
     selectin_chains: list | None = None,
     extra_filter: Callable[[Query], Query] | None = None,
+    derived_fields: bool = True,
 ) -> Optional[T]:
     """
     Get a single item with explicitly declared relationships eagerly loaded.
@@ -398,6 +399,12 @@ def get_item_detail(
         extra_filter: Optional query transform for entity-specific needs that
             don't fit the generic filters above -- e.g. deferring a large
             column (``TestRun``'s ``endpoint.last_token``).
+        derived_fields: Set False for a response schema that serializes none of
+            comments/tasks/tags. The default cascade costs 3+ selectin queries
+            and can re-add a joinedload ``related_fields`` deliberately left out
+            (any one-hop relation carrying ``TagsMixin``, e.g. ``organization``).
+            Also skips ``selectin_chains``, which is applied through the same
+            call.
 
     Returns:
         Item with relationships loaded or None if not found
@@ -410,11 +417,12 @@ def get_item_detail(
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_related(*(related_fields or ()))
-        .with_default_derived_field_loads(selectin_chains)
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
         .with_visibility_filter(user_id)
     )
+    if derived_fields:
+        builder = builder.with_default_derived_field_loads(selectin_chains)
     if extra_filter:
         builder = builder.with_custom_filter(extra_filter)
     item = builder.filter_by_id(item_id)
@@ -992,8 +1000,11 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
                     model.type_value == search_data["type_value"],
                 ]
             )
-    elif hasattr(model, "content"):
-        # Models using content as identifier
+    elif "content" in columns:
+        # Models using content as identifier. Keyed on a mapped column, not
+        # hasattr: Test exposes `content` as a hybrid property proxying its
+        # prompt, so hasattr sent it down this branch even though there is no
+        # content column to filter on.
         if "content" in search_data:
             search_filters.append(model.content == search_data["content"])
 
@@ -1013,6 +1024,29 @@ def _build_search_filters_for_model(model: Type[T], search_data: Dict[str, Any])
                 search_filters.append(getattr(model, field) == search_data[field])
 
     return search_filters
+
+
+def _has_identifying_field(model: Type[T], search_data: Dict[str, Any]) -> bool:
+    """Whether search_data can actually identify a specific row of this model.
+
+    ``_build_search_filters_for_model`` always prepends an organization_id predicate,
+    so a non-empty filter list is not evidence that we can pick out one row. Reusing
+    the filter count as that evidence means a blank name matches the org's first row
+    and silently returns an unrelated entity.
+
+    The branching here must stay identical to ``_build_search_filters_for_model``.
+    If this function reports that a row is identifiable via a field the filter
+    builder never turns into a predicate, the lookup runs on the organization
+    predicate alone and ``.first()`` returns an unrelated row — the exact failure
+    this guard exists to prevent.
+    """
+    columns = inspect(model).columns.keys()
+
+    if model.__name__ == "TypeLookup":
+        return bool(search_data.get("type_name")) and bool(search_data.get("type_value"))
+    if "content" in columns:
+        return bool(search_data.get("content"))
+    return any(field in columns and search_data.get(field) for field in IDENTIFYING_FIELDS)
 
 
 def get_or_create_entity(
@@ -1062,9 +1096,10 @@ def get_or_create_entity(
     # Build search filters for other identifying fields
     search_filters = _build_search_filters_for_model(model, search_data)
 
-    # Search for existing entity if we have sufficient filters
-    # The base query already includes organization filtering, so we just need identifying fields
-    if len(search_filters) >= 1:  # Need at least one identifying field
+    # Only reuse an existing row when the data actually identifies one. Counting
+    # search_filters is not enough: the organization predicate is always present, so
+    # a blank name would match the org's first row and return an unrelated entity.
+    if _has_identifying_field(model, search_data):
         db_entity = query.with_custom_filter(lambda q: q.filter(*search_filters)).first()
         if db_entity:
             return db_entity

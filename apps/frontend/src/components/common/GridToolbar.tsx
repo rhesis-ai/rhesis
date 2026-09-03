@@ -5,7 +5,11 @@ import Box from '@mui/material/Box';
 import { SxProps, Theme } from '@mui/material/styles';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
-import { BORDER_RADIUS } from '@/styles/theme';
+import {
+  BORDER_RADIUS,
+  GRID_CARD_INSET,
+  GRID_TOOLBAR_MIN_HEIGHT,
+} from '@/styles/theme';
 
 export interface ToolbarPillTab {
   label: string;
@@ -187,9 +191,9 @@ export function PrimarySegmentedPills({
 
 /** Toolbar row inside a linked-data card (Figma 1435:46915) — below a card header. */
 export const linkedGridToolbarSx: SxProps<Theme> = {
-  px: '30px',
+  px: GRID_CARD_INSET,
   pt: 0,
-  pb: '30px',
+  pb: GRID_CARD_INSET,
   minHeight: 'auto',
   borderBottom: 'none',
 };
@@ -201,7 +205,7 @@ export const sectionCardGridBleedSx: SxProps<Theme> = {
 };
 
 /** Shared 30px horizontal inset for grids/tables embedded in a bleeded section card. */
-export const SECTION_CARD_GRID_INSET_PX = '30px';
+export const SECTION_CARD_GRID_INSET_PX = GRID_CARD_INSET;
 
 /** Table horizontal padding inside a bleeded section-card grid area. */
 export const sectionCardGridTableInsetSx: SxProps<Theme> = {
@@ -285,9 +289,9 @@ export function GridToolbar({
     display: 'flex',
     alignItems: 'center',
     gap: 1.5,
-    px: '30px',
-    py: '30px',
-    minHeight: 52,
+    px: GRID_CARD_INSET,
+    py: GRID_CARD_INSET,
+    minHeight: GRID_TOOLBAR_MIN_HEIGHT,
   };
 
   return (

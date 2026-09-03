@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -27,7 +21,10 @@ import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import {
+  TestRunDetail,
+  VerdictMatrix,
+} from '@/utils/api-client/interfaces/test-run';
 import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useViewingEntity } from '@/contexts/NotificationsContext';
@@ -41,20 +38,12 @@ import {
   type BatchRunOutcome,
 } from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
-import { hasOtherRunsForTestSet } from './comparison-runs';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import {
   getTestEvaluationSummary,
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
-
-const TAB_KEYS = [
-  'summary',
-  'linked_entities',
-  'configuration',
-  'traces',
-] as const;
-type TabKey = (typeof TAB_KEYS)[number];
+import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
 
 const TAB_LABELS: Record<TabKey, string> = {
   summary: 'Summary',
@@ -62,24 +51,6 @@ const TAB_LABELS: Record<TabKey, string> = {
   linked_entities: 'Tests',
   traces: 'Traces',
 };
-
-function tabIndexFromKey(
-  key: string | null,
-  preferLinkedEntities: boolean
-): number {
-  if (key === 'results') {
-    return TAB_KEYS.indexOf('linked_entities');
-  }
-  if (key === 'stats') {
-    return TAB_KEYS.indexOf('summary');
-  }
-  if (key === 'logs') {
-    return TAB_KEYS.indexOf('traces');
-  }
-  const idx = TAB_KEYS.indexOf(key as TabKey);
-  if (idx >= 0) return idx;
-  return preferLinkedEntities ? TAB_KEYS.indexOf('linked_entities') : 0;
-}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -115,13 +86,21 @@ interface TestRunMainViewProps {
   initialSelectedTestId?: string;
   /** Drawer tab to open when deep-linking via selectedresult (e.g. "reviews"). */
   initialDetailTab?: string;
-  /** Server-prefetched results (small runs only); see `useTestRunDetailData`. */
+  /** Server-prefetched results (small runs only, only when the Tests tab is opening); see
+   * `useTestRunDetailData`. */
   initialTestResults?: TestResultDetail[];
-  /** Whether the test set has other runs to compare with, when the server already checked. */
-  initialHasComparisonRuns?: boolean;
-  /** Server-prefetched first page of this run's traces; see `TestRunTracesTab`. */
+  /** Server-prefetched verdict grid, always fetched -- it's what the default Summary tab
+   * renders; see `useTestRunLive`. */
+  initialVerdictMatrix?: VerdictMatrix;
+  /** Server-prefetched first page of this run's traces, only when the Traces tab is opening;
+   * see `TestRunTracesTab`. */
   initialTraces?: TraceSummary[];
   initialTracesTotalCount?: number;
+  /** Whether the test set for this run still exists (server-prefetched). `undefined` means the
+   * check was skipped (no capability or no test set ID). */
+  initialTestSetExists?: boolean;
+  /** Whether other runs exist on the same test set (server-prefetched). */
+  initialHasComparisonRuns?: boolean;
 }
 
 export default function TestRunMainView({
@@ -134,9 +113,11 @@ export default function TestRunMainView({
   initialSelectedTestId,
   initialDetailTab,
   initialTestResults,
-  initialHasComparisonRuns,
+  initialVerdictMatrix,
   initialTraces,
   initialTracesTotalCount,
+  initialTestSetExists,
+  initialHasComparisonRuns = false,
 }: TestRunMainViewProps) {
   const testRun = useLiveTestRun(testRunId, initialTestRun);
   // Already watching this run live on screen -- a completion notification
@@ -189,13 +170,8 @@ export default function TestRunMainView({
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  // Whether another test run exists on the same test set to compare against.
-  const [hasComparisonRuns, setHasComparisonRuns] = useState(
-    initialHasComparisonRuns ?? false
-  );
-  const comparisonSeededRef = useRef(initialHasComparisonRuns !== undefined);
-  const [testSetExists, setTestSetExists] = useState<boolean | null>(null);
-  const [testSetCheckError, setTestSetCheckError] = useState(false);
+  const hasComparisonRuns = initialHasComparisonRuns;
+  const testSetExists = initialTestSetExists ?? null;
 
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
@@ -424,65 +400,6 @@ export default function TestRunMainView({
     setIsRerunDrawerOpen(true);
   }, [testRun, notifications, testSetExists]);
 
-  const testSetId = testRun.test_configuration?.test_set?.id;
-
-  useEffect(() => {
-    if (!testSetId) {
-      setTestSetExists(false);
-      setTestSetCheckError(false);
-      return;
-    }
-    let cancelled = false;
-    setTestSetCheckError(false);
-    (async () => {
-      try {
-        await new ApiClientFactory().getTestSetsClient().getTestSet(testSetId);
-        if (!cancelled) {
-          setTestSetExists(true);
-          setTestSetCheckError(false);
-        }
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const status = (err as { status?: number })?.status;
-        if (status === 404 || status === 410) {
-          setTestSetExists(false);
-          setTestSetCheckError(false);
-        } else {
-          setTestSetExists(null);
-          setTestSetCheckError(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [testSetId]);
-
-  useEffect(() => {
-    // Already answered by the server for this run's test set.
-    if (comparisonSeededRef.current) return;
-    if (!testSetId) {
-      setHasComparisonRuns(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const has = await hasOtherRunsForTestSet(
-          new ApiClientFactory(),
-          testSetId,
-          testRunId
-        );
-        if (!cancelled) setHasComparisonRuns(has);
-      } catch {
-        if (!cancelled) setHasComparisonRuns(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [testSetId, testRunId]);
-
   const handleCompare = useCallback(() => {
     window.open(
       `/test-runs/${testRunId}/compare`,
@@ -577,11 +494,7 @@ export default function TestRunMainView({
         ? 'You do not have permission to re-run tests'
         : !testRun.test_configuration_id
           ? 'Cannot re-run: No test configuration found'
-          : testSetCheckError
-            ? "Couldn't verify test set availability"
-            : testSetExists === null
-              ? 'Checking test set…'
-              : 'Re-run test';
+          : 'Re-run test';
 
   const title = testRun.name?.trim() || `Test Run ${testRunId}`;
 
@@ -655,6 +568,7 @@ export default function TestRunMainView({
         <RunSummary
           testRunId={testRunId}
           testRun={testRun}
+          initialMatrix={initialVerdictMatrix}
           onViewRequirement={handleDrilldownToRequirement}
           onViewMetric={handleDrilldownToMetric}
           onViewFailures={handleDrilldownToFailures}

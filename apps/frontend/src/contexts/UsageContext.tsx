@@ -37,6 +37,11 @@ import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 export interface UsageState {
   resources: Readonly<Record<string, UsageResourceItem>>;
+  /**
+   * Machine id for the licence edition. Never for display or styling — for the
+   * plan, use `usePlan()`, which is server-seeded and so avoids this context's
+   * one-round-trip loading window.
+   */
   edition: string | null;
   loading: boolean;
   error: Error | null;

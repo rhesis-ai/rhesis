@@ -6,12 +6,16 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme';
 import {
   type NavigationLinkItem,
   type NavigationActionItem,
 } from '@/types/navigation';
-import { collapsedNavItemSx } from './sidebar-utils';
+import {
+  collapsedNavItemSx,
+  navCardIconSx,
+  navCardLabelSx,
+  navCardRowSx,
+} from './sidebar-utils';
 
 interface NavLinkItemProps {
   item: NavigationLinkItem | NavigationActionItem;
@@ -23,28 +27,15 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const isAction = item.kind === 'action';
 
   const sharedSx: SxProps<Theme> = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    px: '14px',
-    py: '8px',
-    borderRadius: BORDER_RADIUS.sm,
-    textDecoration: 'none',
-    cursor: 'pointer',
-    '&:hover': {
-      bgcolor: (theme: Theme) => theme.palette.greyscale.surface1,
-    },
-    transition: 'background-color 0.15s ease',
+    ...navCardRowSx(),
     ...(collapsed ? collapsedNavItemSx : {}),
   };
 
   const iconNode = item.icon && (
     <Box
       sx={{
-        display: 'flex',
-        flexShrink: 0,
+        ...navCardIconSx,
         color: (theme: Theme) => theme.palette.greyscale.body,
-        '& svg': { width: 24, height: 24 },
       }}
     >
       {item.icon}
@@ -54,12 +45,10 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const labelNode = !collapsed && (
     <>
       <Typography
+        variant="bodyMReg"
         sx={{
-          fontSize: 14,
-          fontWeight: 400,
-          lineHeight: '22px',
+          ...navCardLabelSx,
           color: (theme: Theme) => theme.palette.greyscale.body,
-          whiteSpace: 'nowrap',
           flex: 1,
         }}
       >

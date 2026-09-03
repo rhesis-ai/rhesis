@@ -299,6 +299,29 @@ export const validatePasswordConfirmation = (
 };
 
 /**
+ * Numeric score validation for metric score fields.
+ *
+ * Uses `Number` rather than `parseFloat`, which stops at the first invalid
+ * character and so silently reads '1.2.3' as 1.2 and '12abc' as 12. The
+ * isFinite check additionally rejects '1e999': a valid floating-point literal
+ * that overflows to Infinity, which JSON serializes as null.
+ */
+export const validateScore = (
+  value: string,
+  fieldName: string = 'Score'
+): ValidationResult => {
+  if (!value.trim()) {
+    return { isValid: false, message: `${fieldName} is required` };
+  }
+
+  if (!Number.isFinite(Number(value))) {
+    return { isValid: false, message: `${fieldName} must be a number` };
+  }
+
+  return { isValid: true };
+};
+
+/**
  * Generic length validation
  */
 export const validateLength = (

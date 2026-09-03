@@ -389,7 +389,7 @@ def test_goal_achievement_judge_evaluate_real(sample_conversation):
     from rhesis.sdk.models import VertexAILLM
 
     judge = GoalAchievementJudge(
-        model=VertexAILLM(model_name="gemini-2.0-flash"),
+        model=VertexAILLM(model_name="gemini-3.1-flash-lite"),
         threshold=0.7,
     )
 

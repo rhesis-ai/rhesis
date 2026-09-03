@@ -97,11 +97,27 @@ describe('RunClockProvider', () => {
     const textCb = jest.fn();
     let clockRef: ReturnType<typeof useRunClock> | null = null;
 
+    /** The clock captured during render, or a thrown failure if Capturer
+     *  never ran. A plain `clockRef!` read here would be a non-null
+     *  assertion, and a local guard cannot work: in this scope TypeScript
+     *  narrows clockRef to its `null` initializer, since the only assignment
+     *  is inside Capturer. Reads inside this function use the declared type. */
+    const requireClock = () => {
+      if (!clockRef) {
+        throw new Error('useRunClock was never captured during render');
+      }
+      return clockRef;
+    };
+
     function Capturer() {
       clockRef = useRunClock();
       React.useEffect(() => {
-        const unsubFrame = clockRef!.subscribeFrame(frameCb);
-        const unsubText = clockRef!.subscribeText(textCb);
+        // Read the captured clock once and guard, rather than asserting
+        // non-null twice; useRunClock() above assigns it during render.
+        const clock = clockRef;
+        if (!clock) return;
+        const unsubFrame = clock.subscribeFrame(frameCb);
+        const unsubText = clock.subscribeText(textCb);
         return () => {
           unsubFrame();
           unsubText();
@@ -119,7 +135,7 @@ describe('RunClockProvider', () => {
     frameCb.mockClear();
     textCb.mockClear();
 
-    clockRef!.poke();
+    requireClock().poke();
 
     expect(frameCb).toHaveBeenCalledTimes(1);
     expect(textCb).toHaveBeenCalledTimes(1);

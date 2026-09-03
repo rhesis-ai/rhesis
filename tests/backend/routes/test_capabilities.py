@@ -89,6 +89,11 @@ def _make_db_mock(*, is_owner: bool, is_member: bool) -> Mock:
 
     db = Mock()
     db.query.side_effect = _query_side_effect
+    # A real Session always has a real dict here; _is_org_owner/_is_project_member
+    # memoize on it per request. Plain Mock()'s attribute auto-vivification returns
+    # a Mock (not a dict) for db.info, and a bare Mock has no __contains__, so
+    # `key in cache` raises TypeError without this.
+    db.info = {}
     return db
 
 

@@ -1097,7 +1097,17 @@ async def verify_magic_link(
             detail="Invalid magic link",
         )
 
-    ttl_seconds = MAGIC_LINK_EXPIRE_MINUTES * 60
+    from datetime import datetime, timezone
+
+    # Derive the jti TTL from the token's actual expiry so longer-lived
+    # magic links (e.g. invitation emails) stay single-use for their
+    # full lifetime, not just the default 15-minute window.
+    exp = payload.get("exp")
+    if exp is not None:
+        remaining = int(exp - datetime.now(timezone.utc).timestamp())
+        ttl_seconds = max(remaining, 60)
+    else:
+        ttl_seconds = MAGIC_LINK_EXPIRE_MINUTES * 60
     try:
         claimed = await claim_token_jti(jti, ttl_seconds)
     except TokenStoreUnavailableError:
@@ -1124,8 +1134,6 @@ async def verify_magic_link(
         user.is_email_verified = True
 
     # Update last login and stamp first org join when applicable
-    from datetime import datetime, timezone
-
     current_time = datetime.now(timezone.utc)
     user.last_login_at = current_time
     mark_user_joined_if_needed(user, when=current_time)
@@ -1139,6 +1147,10 @@ async def verify_magic_link(
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
     auth_code = await create_auth_code(access_token, refresh_tok)
+
+    # Nudge the user to set a password if they have none and no external
+    # auth provider (e.g. they clicked an invitation magic link).
+    _maybe_notify_password_not_set(db, user)
 
     # Track login activity
     if get_telemetry_settings().is_telemetry_enabled:
@@ -1164,6 +1176,55 @@ async def verify_magic_link(
             "organization_id": (str(user.organization_id) if user.organization_id else None),
         },
     }
+
+
+_EMAIL_PROVIDER_TYPES = {None, "email"}
+
+
+def _maybe_notify_password_not_set(db: Session, user) -> None:
+    """Send a one-time "set your password" notification if the user needs one.
+
+    Fires when the user has no password_hash and no external auth provider
+    (OAuth/SSO). Skips silently if a notification for this event already
+    exists for the user so they are not nagged on every magic-link sign-in.
+    """
+    if user.password_hash:
+        return
+    provider = getattr(user, "provider_type", None)
+    if provider is not None:
+        provider = provider.value if hasattr(provider, "value") else str(provider)
+    if provider not in _EMAIL_PROVIDER_TYPES:
+        return
+
+    from rhesis.backend.app.models.enums import NotificationEventType
+    from rhesis.backend.app.models.notification import Notification
+    from rhesis.backend.app.services.notification import RenderedNotification, notify
+
+    try:
+        already_sent = (
+            db.query(Notification.id)
+            .filter(
+                Notification.user_id == user.id,
+                Notification.event_type == NotificationEventType.Account.PASSWORD_NOT_SET.value,
+            )
+            .first()
+        )
+        if already_sent:
+            return
+
+        notify(
+            db,
+            event_type=NotificationEventType.Account.PASSWORD_NOT_SET,
+            rendered=RenderedNotification(
+                title="Set a password",
+                body="Set a password so you can sign in anytime without a magic link.",
+            ),
+            user_id=str(user.id),
+            organization_id=str(user.organization_id) if user.organization_id else None,
+        )
+        db.commit()
+    except Exception:
+        logger.warning("Failed to send password-not-set notification for user %s", user.id)
 
 
 # =============================================================================

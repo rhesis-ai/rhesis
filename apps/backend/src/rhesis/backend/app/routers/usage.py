@@ -41,6 +41,10 @@ class UsageResourceItem(BaseModel):
 
 class UsageResponse(BaseModel):
     resources: Dict[str, UsageResourceItem] = Field(default_factory=dict)
+    #: Machine identifier for the licence edition. Diagnostics and analytics
+    #: only -- never for display or for deciding styling. The plan a client
+    #: renders lives on ``GET /features`` (see ``services.plan``), which is
+    #: server-seeded in the protected layout and so has it on first paint.
     edition: str
 
 

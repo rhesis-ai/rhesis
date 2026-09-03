@@ -19,18 +19,16 @@
  */
 
 import * as React from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  Drawer,
-  FormControlLabel,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import Drawer from '@mui/material/Drawer';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import { ContentCopy as CopyIcon } from '@mui/icons-material';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BACKDROP_COLORS } from '@/styles/theme';

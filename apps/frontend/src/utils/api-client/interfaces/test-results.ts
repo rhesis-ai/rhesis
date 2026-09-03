@@ -98,9 +98,11 @@ export interface GoalEvaluation {
 }
 
 export interface TestOutput {
-  // Single-turn fields
-  output: string;
-  context: string[];
+  // Single-turn fields.
+  // Optional because a failed invocation may produce no model answer at all; read it
+  // through getEndpointFailure() (utils/endpoint-failure.ts) rather than assuming a string.
+  output?: string;
+  context?: string[];
   metadata?: Record<string, unknown>;
 
   // Multi-turn (Penelope) fields
@@ -123,12 +125,49 @@ export interface TestOutput {
   // Status field for multi-turn tests
   status?: 'success' | 'failure' | 'timeout' | 'error';
   /**
-   * Why a multi-turn result has no metrics and reports Error -- e.g. the test's evaluation
-   * contract is stale or too ambiguous to score against. Set by the backend's
-   * evaluate_multi_turn_metrics (re-score) or resolve_multi_turn_contract (live, when the
-   * conversation was never run). Not an HTTP error field.
+   * Why this result has no metrics and reports Error. Two unrelated writers set it, with
+   * two different types, so narrow before using it as text:
+   *
+   * - A failed invocation stores the invoker's boolean flag (`true`), with the human text
+   *   in `output`/`message`. Read those, or `getEndpointFailure()`, for the reason.
+   * - A multi-turn contract that was stale or too ambiguous to score against stores prose
+   *   (evaluate_multi_turn_metrics / resolve_multi_turn_contract).
    */
-  error?: string;
+  error?: string | boolean;
+
+  /**
+   * Invoker failure detail, present when the target rejected or never answered the call.
+   * Written by every invoker via ErrorResponse, and by the batch path's error records.
+   * `error_type` is the discriminator: `http_error` for a 4xx/5xx, or an invoker-specific
+   * category such as `sdk_timeout` / `network_error` that carries no status code.
+   * Read these through getEndpointFailure() rather than individually.
+   */
+  error_type?: string;
+  status_code?: number;
+  reason?: string;
+  /** The target's own response body, which is usually where the real reason is. */
+  response_content?: string;
+  /** Pre-existing rows only: the WebSocket invoker used to write the body here. */
+  response_body?: string;
+  response_headers?: Record<string, unknown>;
+  request?: Record<string, unknown>;
+
+  /** Multi-turn: the invoker error is nested in the first turn's tool message. */
+  history?: PenelopeTurn[];
+}
+
+/**
+ * One entry of a Penelope trace's `history`. Only the parts the UI reads are typed: the
+ * first `send_message_to_target` interaction is where a multi-turn endpoint failure is
+ * recorded, and nothing else in the frontend had been reaching into it.
+ */
+export interface PenelopeTurn {
+  target_interaction?: {
+    tool_name?: string;
+    tool_message?: {
+      content?: string | Record<string, unknown>;
+    };
+  };
 }
 
 // Test Reviews interfaces

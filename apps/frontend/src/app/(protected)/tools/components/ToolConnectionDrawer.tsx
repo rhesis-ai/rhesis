@@ -17,7 +17,6 @@ import { FilledStatusAlert } from '@/components/common/FilledStatusAlert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -28,10 +27,7 @@ import {
   TypeLookup,
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
-import {
-  TOOL_PROVIDER_ICONS,
-  formatToolProviderDisplayName,
-} from '@/config/tool-providers';
+import { formatToolProviderDisplayName } from '@/config/tool-providers';
 import { getErrorMessage } from '@/utils/entity-error-handler';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
@@ -376,6 +372,7 @@ export function ToolConnectionDrawer({
       setCredentialsModified(false);
       setScopeMetadataModified(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tool` and `providers` are tracked by value through tool?.id / toolProviderKey / providerIdsKey. Depending on the objects themselves would re-run this whole form reset on any new reference and wipe what the user has typed.
   }, [
     open,
     isEditMode,
@@ -1378,12 +1375,6 @@ export function ToolConnectionDrawer({
       }
     }
   };
-
-  // Determine icon and display name
-  const providerIconKey = provider?.type_value ?? '';
-  const providerIcon = TOOL_PROVIDER_ICONS[providerIconKey] || (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
-  );
 
   const displayName = provider?.type_value
     ? formatToolProviderDisplayName(provider.type_value)

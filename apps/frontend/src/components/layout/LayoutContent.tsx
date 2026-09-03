@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Box, useTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
+import NextTopLoader from 'nextjs-toploader';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
@@ -130,6 +131,11 @@ export function LayoutContent({
       <SessionGuard>
         <AppRouterCacheProvider options={{ enableCssLayer: true }}>
           <CssBaseline />
+          <NextTopLoader
+            color={theme.palette.primary.main}
+            showSpinner={false}
+            shadow={false}
+          />
           <QueryClientProvider client={queryClient}>
             <QuickStartProvider value={initialQuickStart}>
               <ActiveProjectProvider

@@ -198,7 +198,9 @@ describe('MetricDetailView — evaluation steps (issue #1045)', () => {
     // debt, out of scope for #1045), so query by icon testid and walk up to
     // the button ancestor.
     const deleteIcons = screen.getAllByTestId('DeleteIcon');
-    const deleteButtons = deleteIcons.map(icon => icon.closest('button')!);
+    const deleteButtons = deleteIcons
+      .map(icon => icon.closest('button'))
+      .filter((button): button is HTMLButtonElement => button !== null);
     // The second step's delete button is the last one rendered before "Add Step".
     await act(async () => {
       fireEvent.click(deleteButtons[deleteButtons.length - 1]);

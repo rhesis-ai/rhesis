@@ -9,6 +9,7 @@ import {
   STATUS_LABEL,
   type TestResultStatus,
 } from '@/constants/outcomes';
+import { getEndpointFailure } from './endpoint-failure';
 
 // Re-export the TestResultStatus type for convenience
 export type { TestResultStatus } from '@/constants/outcomes';
@@ -227,6 +228,14 @@ export function getTestEvaluationSummary(test: TestResultDetail): string {
     .filter(Boolean);
   if (evidence && evidence.length > 0) {
     return evidence.join(' · ');
+  }
+
+  // Last resort, and the only thing available when the endpoint refused the call: there is
+  // no metric reasoning to show because nothing was evaluated. Returning '' left the grid's
+  // Evaluation cell showing a bare dash for the whole run.
+  const failure = getEndpointFailure(test.test_output);
+  if (failure) {
+    return failure.summary;
   }
 
   return '';

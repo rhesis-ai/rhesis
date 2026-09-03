@@ -5,10 +5,15 @@ This provider enables access to Google's Vertex AI models (including Gemini) via
 It supports regional deployment and automatic credential detection (base64 or file path).
 
 
-Regional availability:
-    • gemini-2.0-flash: Available in us-central1, us-east4, us-west1,
-      europe-west1, europe-west4 (NOT in europe-west3)
-    • gemini-2.5-flash: Available in all regions
+Regional availability (verified 2026-09-02):
+    • gemini-3.1-flash-lite: eu, europe-west1, europe-west4 — the current default
+    • gemini-2.5-flash, gemini-2.5-pro: europe-west4
+    • text-embedding-005: eu, europe-west4 (embeddings use :predict, not :generateContent)
+    • gemini-2.0-flash: RETIRED. Returns 404 "Publisher model was not found".
+
+Note that "eu" is a valid VERTEX_AI_LOCATION multi-region, and is what the deployed
+environments use; it routes to whichever European region has capacity, so a single
+request can bill in europe-west1 while another bills in europe-west4.
 
 For detailed usage and configuration options, see VertexAILLM class documentation.
 """
@@ -243,7 +248,8 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         with regional deployment support and automatic credential detection.
 
         Args:
-            model_name (str): The name of the Vertex AI model to use (default: "gemini-2.0-flash").
+            model_name (str): The name of the Vertex AI model to use
+                (default: "gemini-3.1-flash-lite").
             credentials (Optional[str]): Service account credentials (auto-detected format)
                 - Base64-encoded JSON string (for K8s/production)
                 - Or file path to JSON file (standard for local development)
@@ -267,12 +273,12 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
 
         Examples:
             >>> # Using environment variables (recommended)
-            >>> llm = VertexAILLM(model_name="gemini-2.0-flash")
+            >>> llm = VertexAILLM(model_name="gemini-3.1-flash-lite")
             >>> result = llm.generate("Tell me a joke.")
 
             >>> # Passing credentials directly (for Berlin/Europe)
             >>> llm = VertexAILLM(
-            ...     model_name="gemini-2.0-flash",
+            ...     model_name="gemini-3.1-flash-lite",
             ...     credentials="/path/to/service-account.json",
             ...     location="europe-west4",  # Netherlands - best for Europe
             ...     project="my-gcp-project"

@@ -98,6 +98,28 @@ variable "release_channel" {
   default     = "STABLE"
 }
 
+variable "monitoring_enable_components" {
+  description = <<-EOT
+    GKE metrics sent to Cloud Monitoring. SYSTEM_COMPONENTS only by default: the in-cluster
+    kube-prometheus-stack is the source of truth, so adding POD/CADVISOR/KUBELET/DCGM here
+    pays Cloud Monitoring per sample for data we already collect ourselves.
+  EOT
+  type        = list(string)
+  default     = ["SYSTEM_COMPONENTS"]
+}
+
+variable "enable_managed_prometheus" {
+  description = "Run Google Managed Prometheus. Off: kube-prometheus-stack already covers this in-cluster, and running both bills twice for the same samples."
+  type        = bool
+  default     = false
+}
+
+variable "logging_enable_components" {
+  description = "Log sources sent to Cloud Logging"
+  type        = list(string)
+  default     = ["SYSTEM_COMPONENTS", "WORKLOADS"]
+}
+
 variable "machine_type" {
   description = "GCE machine type for node pool"
   type        = string

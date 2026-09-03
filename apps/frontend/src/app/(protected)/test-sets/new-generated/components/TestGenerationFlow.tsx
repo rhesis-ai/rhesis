@@ -104,9 +104,9 @@ const generateSamplesForTestType = async (
     // Generate multi-turn tests
     const response = await servicesClient.generateMultiTurnTests({
       generation_prompt: description,
-      requirement: activeRequirements,
-      category: activeCategories,
-      topic: activeTopics,
+      requirements: activeRequirements,
+      categories: activeCategories,
+      topics: activeTopics,
       num_tests: numTests,
       ...(modelId ? { model_id: modelId } : {}),
     });
@@ -246,11 +246,20 @@ const convertTestEventToSample = (
   };
 };
 
+interface TestGenerationFlowProps {
+  /** Server-fetched data -- when present, skips the initial client fetch. */
+  initialModels?: Model[];
+  initialSources?: Source[];
+}
+
 /**
  * TestGenerationFlow Component
  * Main orchestrator for the test generation flow
  */
-export default function TestGenerationFlow() {
+export default function TestGenerationFlow({
+  initialModels,
+  initialSources,
+}: TestGenerationFlowProps) {
   const router = useRouter();
   const { show } = useNotifications();
 
@@ -301,31 +310,44 @@ export default function TestGenerationFlow() {
     string | null
   >(null);
 
-  // Prefetched dropdown data — fetched eagerly on mount so selectors open instantly
-  const [prefetchedModels, setPrefetchedModels] = useState<Model[]>([]);
-  const [prefetchedSources, setPrefetchedSources] = useState<Source[]>([]);
-  const [isLoadingModels, setIsLoadingModels] = useState(true);
-  const [isLoadingSources, setIsLoadingSources] = useState(true);
+  // Prefetched dropdown data — server-fetched when available, otherwise
+  // fetched eagerly on mount so selectors open instantly
+  const [prefetchedModels, setPrefetchedModels] = useState<Model[]>(
+    initialModels ?? []
+  );
+  const [prefetchedSources, setPrefetchedSources] = useState<Source[]>(
+    initialSources ?? []
+  );
+  const [isLoadingModels, setIsLoadingModels] = useState(
+    initialModels === undefined
+  );
+  const [isLoadingSources, setIsLoadingSources] = useState(
+    initialSources === undefined
+  );
 
   useEffect(() => {
     const factory = new ApiClientFactory();
 
-    factory
-      .getModelsClient()
-      .getModels({ sort_by: 'name', sort_order: 'asc', skip: 0, limit: 100 })
-      .then(res => setPrefetchedModels(res.data || []))
-      .catch(() => setPrefetchedModels([]))
-      .finally(() => setIsLoadingModels(false));
+    if (initialModels === undefined) {
+      factory
+        .getModelsClient()
+        .getModels({ sort_by: 'name', sort_order: 'asc', skip: 0, limit: 100 })
+        .then(res => setPrefetchedModels(res.data || []))
+        .catch(() => setPrefetchedModels([]))
+        .finally(() => setIsLoadingModels(false));
+    }
 
-    factory
-      .getSourcesClient()
-      .getSources({ limit: 100, skip: 0 })
-      .then(res =>
-        setPrefetchedSources(Array.isArray(res) ? res : res?.data || [])
-      )
-      .catch(() => setPrefetchedSources([]))
-      .finally(() => setIsLoadingSources(false));
-  }, []);
+    if (initialSources === undefined) {
+      factory
+        .getSourcesClient()
+        .getSources({ limit: 100, skip: 0 })
+        .then(res =>
+          setPrefetchedSources(Array.isArray(res) ? res : res?.data || [])
+        )
+        .catch(() => setPrefetchedSources([]))
+        .finally(() => setIsLoadingSources(false));
+    }
+  }, [initialModels, initialSources]);
 
   const handleTestTypeChange = useCallback((newType: TestType) => {
     setTestType(newType);

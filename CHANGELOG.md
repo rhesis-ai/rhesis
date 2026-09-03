@@ -13,6 +13,40 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-01
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.15.0**
+- **Frontend 0.15.0**
+- **SDK 0.15.0**
+
+### Summary of Changes
+
+**Backend v0.15.0:**
+- Enhanced target endpoint failure handling to capture and surface detailed HTTP status codes, error reasons, and raw response bodies (such as safeguarding rejections) across the UI and API.
+- Significantly optimized test run detail page loading times by resolving N+1 database queries, caching verdict grids for completed runs, and lazy-loading heavy multi-turn transcripts.
+- Aligned tier usage limits with published pricing, introduced enforcement for custom Enterprise quotas via license tokens, and added a visual plan status indicator with upgrade prompts to the sidebar.
+
+**Frontend v0.15.0:**
+- Enhanced test failure diagnostics by surfacing detailed HTTP status codes, error reasons, and raw response bodies directly within the test results UI.
+- Improved navigation responsiveness with a new progress bar and custom page-shaped loading skeletons that eliminate layout shifts.
+- Added a dedicated Plan indicator and Upgrade shortcut to the sidebar footer, ensuring clear visibility of subscription status and seamless upgrade paths.
+- Optimized performance across detail pages, significantly reducing load times through parallelized server-side prefetching and lazy-loaded conversation transcripts.
+
+**SDK v0.15.0:**
+- Added default timeouts to all outbound HTTP requests (with dedicated limits for REST calls and LLM paths) to prevent indefinite hanging.
+- Improved stability and type safety by resolving background asyncio task lifecycle issues and explicitly defining optional parameters across SDK signatures.
+- Updated SDK guidelines to reference test runs by their human-readable names rather than UUIDs for better clarity.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.14.0] - 2026-08-27
 
 ### Platform Release

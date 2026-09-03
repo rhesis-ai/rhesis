@@ -4,12 +4,21 @@ import '@testing-library/jest-dom';
 
 import UsageOverviewTab from '../UsageOverviewTab';
 import { useUsageForPeriod } from '@/hooks/useUsageForPeriod';
+import { usePlan } from '@/contexts/FeaturesContext';
 
 jest.mock('@/hooks/useUsageForPeriod', () => ({
   useUsageForPeriod: jest.fn(),
 }));
 
+// The plan is not period-scoped, so it comes from `usePlan` (backed by
+// `GET /features`) rather than from the period's usage snapshot.
+jest.mock('@/contexts/FeaturesContext', () => ({
+  ...jest.requireActual('@/contexts/FeaturesContext'),
+  usePlan: jest.fn(),
+}));
+
 const mockUseUsage = useUsageForPeriod as jest.Mock;
+const mockUsePlan = usePlan as jest.Mock;
 
 const USAGE_RESOURCES = {
   test_executions: {
@@ -40,11 +49,17 @@ const USAGE_RESOURCES = {
 
 beforeEach(() => {
   mockUseUsage.mockReset();
+  mockUsePlan.mockReset();
   mockUseUsage.mockReturnValue({
     resources: USAGE_RESOURCES,
     edition: 'community',
     loading: false,
     error: null,
+  });
+  mockUsePlan.mockReturnValue({
+    name: 'Community',
+    is_paid: false,
+    is_active: false,
   });
 });
 
@@ -56,6 +71,7 @@ describe('UsageOverviewTab', () => {
       loading: true,
       error: null,
     });
+    mockUsePlan.mockReturnValue(null);
 
     render(<UsageOverviewTab />);
 
@@ -69,6 +85,7 @@ describe('UsageOverviewTab', () => {
       loading: false,
       error: new Error('boom'),
     });
+    mockUsePlan.mockReturnValue(null);
 
     render(<UsageOverviewTab />);
 
@@ -98,12 +115,12 @@ describe('UsageOverviewTab', () => {
     expect(screen.getByText(/999.*\(Unlimited\)/)).toBeInTheDocument();
   });
 
-  it('shows a plan chip and an upgrade link for the community edition', () => {
+  it('shows a plan badge and an upgrade link for a free org', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('community')).toBeInTheDocument();
+    expect(screen.getByText('Community')).toBeInTheDocument();
     const upgradeLink = screen.getByRole('link', { name: 'Upgrade' });
-    expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/editions');
+    expect(upgradeLink).toHaveAttribute('href', 'https://rhesis.ai/pricing');
     expect(upgradeLink).toHaveAttribute('target', '_blank');
     expect(upgradeLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
@@ -174,19 +191,46 @@ describe('UsageOverviewTab', () => {
     expect(screen.getByText(/Jan 1, 2026 – Jan 31, 2026/)).toBeInTheDocument();
   });
 
-  it('hides the upgrade link for a paid edition', () => {
+  it('hides the upgrade link for an active paid plan', () => {
     mockUseUsage.mockReturnValue({
       resources: USAGE_RESOURCES,
       edition: 'enterprise',
       loading: false,
       error: null,
     });
+    mockUsePlan.mockReturnValue({
+      name: 'Enterprise',
+      is_paid: true,
+      is_active: true,
+    });
 
     render(<UsageOverviewTab />);
 
-    expect(screen.getByText('enterprise')).toBeInTheDocument();
+    expect(screen.getByText('Enterprise')).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Upgrade' })
     ).not.toBeInTheDocument();
+  });
+
+  it('marks a lapsed paid plan inactive and offers the upgrade', () => {
+    // A canceled licence is held to community limits while still reporting
+    // its edition, so this page would otherwise show "enterprise" beside
+    // free-tier ceilings and no way to act on it.
+    mockUseUsage.mockReturnValue({
+      resources: USAGE_RESOURCES,
+      edition: 'enterprise',
+      loading: false,
+      error: null,
+    });
+    mockUsePlan.mockReturnValue({
+      name: 'Enterprise (inactive)',
+      is_paid: true,
+      is_active: false,
+    });
+
+    render(<UsageOverviewTab />);
+
+    expect(screen.getByText('Enterprise (inactive)')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Upgrade' })).toBeInTheDocument();
   });
 });

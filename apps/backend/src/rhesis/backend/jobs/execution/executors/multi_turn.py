@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.services.test_run_timing import TestPhase
+from rhesis.backend.app.utils.response_extractor import summarize_endpoint_failure
 from rhesis.backend.jobs.execution.executors.base import BaseTestExecutor
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
 from rhesis.backend.jobs.execution.executors.output_providers import (
@@ -149,12 +150,17 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             )
 
             # Return execution summary
-            result_summary = {
+            result_summary: Dict[str, Any] = {
                 "test_id": test_id,
                 "test_result_id": str(test_result_id) if test_result_id else None,
                 "execution_time": execution_time,
                 "metrics": metrics_results,
             }
+            # Same as the single-turn executor: lets the caller say why in the activity
+            # log. For multi-turn the detail is buried in the first turn's tool message.
+            endpoint_failure = summarize_endpoint_failure(penelope_trace)
+            if endpoint_failure:
+                result_summary["endpoint_error"] = endpoint_failure
 
             logger.info(
                 f"[MultiTurnExecutor] Multi-turn test execution completed successfully "

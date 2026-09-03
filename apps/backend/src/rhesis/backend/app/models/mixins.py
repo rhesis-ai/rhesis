@@ -274,7 +274,21 @@ class ReviewsMixin:
         return target.get("type", default_type)
 
     def _compute_review_state(self):
-        """Single-pass over all reviews. Returns (last_review, matches_review, review_summary)."""
+        """Single-pass over all reviews. Returns (last_review, matches_review, review_summary).
+
+        Cached on the instance: ``last_review``/``matches_review``/``review_summary`` are three
+        separate properties that each call this, and response serialization reads all three
+        back-to-back for the same row -- without caching that's three identical passes over the
+        same review list per row, per request.
+        """
+        cached = self.__dict__.get("_review_state_cache")
+        if cached is not None:
+            return cached
+        result = self._compute_review_state_uncached()
+        self.__dict__["_review_state_cache"] = result
+        return result
+
+    def _compute_review_state_uncached(self):
         reviews = self._get_all_reviews()
         if not reviews:
             return None, False, None

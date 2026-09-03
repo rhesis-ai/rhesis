@@ -4,7 +4,9 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import (
     UUID4,
+    AliasChoices,
     BaseModel,
+    ConfigDict,
     Field,
     StringConstraints,
     field_validator,
@@ -22,13 +24,28 @@ class GenerationConfig(BaseModel):
     between frontend requests and SDK expectations.
     """
 
+    # Plural names are canonical and match the SDK's GenerationConfig. The singular
+    # spellings stay accepted as aliases so older clients keep working.
+    #
+    # extra="forbid" because pydantic's default is to drop unknown keys, and a dropped
+    # requirements key generates against the default requirements instead of the
+    # requested ones. `requirements` being required already made a typo there loud, but
+    # `categories` and `topics` are optional and were silently ignored.
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
     generation_prompt: Optional[str] = None  # Describe what you want to test
     # Required, not optional: both generation routes already reject an empty list
     # with a 400. Declaring it here puts the requirement in the OpenAPI schema,
     # which is what MCP clients and the Architect agent read.
-    requirements: List[str] = Field(..., min_length=1)  # Requirements to test
-    categories: Optional[List[str]] = None  # Test categories
-    topics: Optional[List[str]] = None  # Topics to cover
+    requirements: List[str] = Field(
+        ..., min_length=1, validation_alias=AliasChoices("requirements", "requirement")
+    )
+    categories: Optional[List[str]] = Field(
+        default=None, validation_alias=AliasChoices("categories", "category")
+    )
+    topics: Optional[List[str]] = Field(
+        default=None, validation_alias=AliasChoices("topics", "topic")
+    )
     additional_context: Optional[str] = None  # Additional context (JSON string)
 
 
@@ -241,12 +258,30 @@ class CategoriesResponse(BaseModel):
 
 
 class GenerateMultiTurnTestsRequest(BaseModel):
-    """Request for generating multi-turn test cases."""
+    """Request for generating multi-turn test cases.
+
+    These fields are lists, so the plural names are canonical and match
+    ``GenerationConfig`` exactly — the config dict is built by copying them across, and
+    a name that does not line up is dropped silently by pydantic rather than raising.
+    The older singular spellings stay accepted as aliases for existing clients.
+
+    ``extra="forbid"`` because every field here is optional, so a misspelled
+    ``requirements`` would otherwise be dropped at the HTTP boundary and generation would
+    fall back to the default requirements with nothing raised.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     generation_prompt: str
-    requirement: Optional[list[str]] = None
-    category: Optional[list[str]] = None
-    topic: Optional[list[str]] = None
+    requirements: Optional[list[str]] = Field(
+        default=None, validation_alias=AliasChoices("requirements", "requirement")
+    )
+    categories: Optional[list[str]] = Field(
+        default=None, validation_alias=AliasChoices("categories", "category")
+    )
+    topics: Optional[list[str]] = Field(
+        default=None, validation_alias=AliasChoices("topics", "topic")
+    )
     num_tests: int = Field(default=5, ge=1, le=200)
     model_id: Optional[UUID4] = None  # Override user's default generation model for this request
 

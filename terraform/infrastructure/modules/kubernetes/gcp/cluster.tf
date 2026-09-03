@@ -45,5 +45,20 @@ resource "google_container_cluster" "cluster" {
     channel = var.release_channel
   }
 
+  # Declared so these stop being invisible drift: they were trimmed with gcloud during the
+  # 2026-08 cost work and nothing in Terraform owned them, meaning any future change here
+  # would silently re-enable paid metric collection. Defaults match what all three clusters
+  # already run, so adding this is a no-op on apply.
+  monitoring_config {
+    enable_components = var.monitoring_enable_components
+    managed_prometheus {
+      enabled = var.enable_managed_prometheus
+    }
+  }
+
+  logging_config {
+    enable_components = var.logging_enable_components
+  }
+
   deletion_protection = var.deletion_protection
 }

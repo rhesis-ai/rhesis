@@ -71,6 +71,18 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
 describe('useTestRunLive', () => {
   let subscribedHandlers: Map<string, (msg: any) => void>;
 
+  /** The handler the hook registered for `eventType`, or a thrown failure if
+   *  it never registered one. Replaces a non-null assertion per call site, so
+   *  a hook that silently stops subscribing fails here by name rather than
+   *  further down on an unrelated expectation. */
+  const requireHandler = (eventType: string) => {
+    const handler = subscribedHandlers.get(eventType);
+    if (!handler) {
+      throw new Error(`useTestRunLive subscribed no handler for ${eventType}`);
+    }
+    return handler;
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsConnected = true;
@@ -109,11 +121,10 @@ describe('useTestRunLive', () => {
     await waitFor(() => expect(result.current.matrix).toBeDefined());
     mockGetVerdictMatrix.mockClear();
 
-    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
-    expect(handler).toBeDefined();
+    const handler = requireHandler(EventType.TEST_RUN_PROGRESSED);
 
     act(() => {
-      handler!({ channel: 'test_run:other-id' });
+      handler({ channel: 'test_run:other-id' });
     });
 
     // Should not trigger a refetch for a different channel
@@ -126,10 +137,10 @@ describe('useTestRunLive', () => {
     await waitFor(() => expect(result.current.matrix).toBeDefined());
     mockGetVerdictMatrix.mockClear();
 
-    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    const handler = requireHandler(EventType.TEST_RUN_PROGRESSED);
 
     await act(async () => {
-      handler!({ channel: 'test_run:run-1' });
+      handler({ channel: 'test_run:run-1' });
     });
 
     await waitFor(() => expect(mockGetVerdictMatrix).toHaveBeenCalled());
@@ -144,9 +155,9 @@ describe('useTestRunLive', () => {
       makeMatrix({ test_ids: null, version: 2 })
     );
 
-    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    const handler = requireHandler(EventType.TEST_RUN_PROGRESSED);
     await act(async () => {
-      handler!({ channel: 'test_run:run-1' });
+      handler({ channel: 'test_run:run-1' });
     });
 
     await waitFor(() =>
@@ -169,9 +180,9 @@ describe('useTestRunLive', () => {
       makeMatrix({ test_ids: null, version: 2 })
     );
 
-    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    const handler = requireHandler(EventType.TEST_RUN_PROGRESSED);
     await act(async () => {
-      handler!({ channel: 'test_run:run-1' });
+      handler({ channel: 'test_run:run-1' });
     });
 
     await waitFor(() => expect(result.current.matrix?.version).toBe(2));
@@ -187,9 +198,9 @@ describe('useTestRunLive', () => {
     mockGetVerdictMatrix.mockResolvedValue(
       makeMatrix({ test_ids: ['t3', 't4'], version: 2 })
     );
-    const handler = subscribedHandlers.get(EventType.TEST_RUN_PROGRESSED);
+    const handler = requireHandler(EventType.TEST_RUN_PROGRESSED);
     await act(async () => {
-      handler!({ channel: 'test_run:run-1' });
+      handler({ channel: 'test_run:run-1' });
     });
 
     await waitFor(() => expect(result.current.matrix?.version).toBe(2));
@@ -209,11 +220,11 @@ describe('useTestRunLive', () => {
 
     await waitFor(() => expect(result.current.matrix).toBeDefined());
 
-    const handler = subscribedHandlers.get(EventType.SUBSCRIPTION_ERROR);
+    const handler = requireHandler(EventType.SUBSCRIPTION_ERROR);
     expect(handler).toBeDefined();
 
     act(() => {
-      handler!({ channel: 'test_run:run-1' });
+      handler({ channel: 'test_run:run-1' });
     });
 
     // After subscription error, the hook should fall back to polling

@@ -1,14 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Chip,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  Skeleton,
-  Typography,
-} from '@mui/material';
+import Chip from '@mui/material/Chip';
+import MenuItem from '@mui/material/MenuItem';
+import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import Skeleton from '@mui/material/Skeleton';
+import Typography from '@mui/material/Typography';
 import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useFeature } from '@/contexts/FeaturesContext';

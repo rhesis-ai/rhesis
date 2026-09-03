@@ -45,10 +45,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import type {
-  RequirementReference,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';

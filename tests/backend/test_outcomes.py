@@ -71,13 +71,13 @@ class TestClassifyMetrics:
         metrics = {"Accuracy": {"is_successful": True}, "Toxicity": {"is_successful": False}}
         assert classify_metrics(metrics) == (Execution.OK, Verdict.FAIL)
 
-    def test_http_error_beats_present_metrics(self):
-        """Bug: a stale/partial metrics dict must never paper over an HTTP
-        error -- the endpoint's answer was never obtained, so nothing it
+    def test_endpoint_error_beats_present_metrics(self):
+        """Bug: a stale/partial metrics dict must never paper over a failed
+        invocation -- the endpoint's answer was never obtained, so nothing it
         appears to say can be trusted.
         """
         metrics = {"Accuracy": {"is_successful": True}}
-        assert classify_metrics(metrics, http_error=True) == (Execution.ERROR, None)
+        assert classify_metrics(metrics, endpoint_error=True) == (Execution.ERROR, None)
 
     def test_no_metrics_is_error(self):
         assert classify_metrics({}) == (Execution.ERROR, None)
@@ -135,7 +135,7 @@ class TestClassifyMetrics:
         raising -- the classifier and the projection must never disagree
         about which combinations are legal.
         """
-        for metrics, http_error in [
+        for metrics, endpoint_error in [
             ({"a": {"is_successful": True}}, False),
             ({"a": {"is_successful": False}}, False),
             ({"a": {"is_successful": None}}, False),
@@ -144,7 +144,7 @@ class TestClassifyMetrics:
             (None, False),
             ({"a": {"is_successful": True}}, True),
         ]:
-            execution, verdict = classify_metrics(metrics, http_error=http_error)
+            execution, verdict = classify_metrics(metrics, endpoint_error=endpoint_error)
             outcome_of(execution, verdict)  # must not raise
 
 

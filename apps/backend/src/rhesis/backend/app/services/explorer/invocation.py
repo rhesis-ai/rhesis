@@ -13,12 +13,25 @@ from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
+from rhesis.backend.app.utils.response_extractor import (
+    get_http_error_status_code,
+    is_endpoint_failure,
+)
 
 logger = logging.getLogger(__name__)
 
 # Endpoint output when the endpoint responded but said nothing. Callers treat this as
 # "not worth evaluating" rather than as a failure.
 NO_OUTPUT = "[no output]"
+
+
+def _failure_message(processed: dict) -> str:
+    """Describe a failed invocation for the caller's error slot."""
+    message = processed.get("output") or processed.get("message") or "Endpoint invocation failed"
+    status_code = get_http_error_status_code(processed)
+    if status_code is not None and f"{status_code}" not in str(message):
+        return f"HTTP {status_code}: {message}"
+    return str(message)
 
 
 class EndpointInvoker:
@@ -80,6 +93,12 @@ class EndpointInvoker:
                         user_id=self._user_id,
                     )
                 processed = process_endpoint_result(raw)
+                # An invoker failure comes back as a *return value*, not an exception, so
+                # the handler below never sees it. Without this check the error text was
+                # returned as a successful output: callers then persisted "HTTP 401 error
+                # from endpoint" as a test's output and ran LLM judges over it.
+                if is_endpoint_failure(processed):
+                    return "", _failure_message(processed)
                 return (processed.get("output") or "").strip() or NO_OUTPUT, None
             except Exception as e:  # noqa: BLE001
                 return "", str(e)

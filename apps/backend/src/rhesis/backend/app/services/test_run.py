@@ -20,6 +20,7 @@ from rhesis.backend.app.outcomes import (
     VERDICT_CHAR,
     Outcome,
 )
+from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +458,20 @@ def get_verdict_matrix(
     character per test in ``test_ids``' order: ``.`` pending, ``P`` passed,
     ``F`` failed, ``S`` scored with no pass/fail threshold, ``E`` execution
     error, ``X`` not applicable to that test.
+
+    Once the run is terminal, this is read from (and written to)
+    ``VerdictMatrixCache`` -- see its module docstring for what invalidates it
+    and why a live run's grid is never cached.
     """
+    status_name = test_run.status.name if test_run.status else ""
+    is_terminal = status_name in _TERMINAL_RUN_STATUSES
+    cache = get_verdict_matrix_cache()
+
+    if is_terminal:
+        cached = cache.get_matrix(str(test_run.id), columns)
+        if cached is not None:
+            return cached
+
     org_id = str(test_run.organization_id) if test_run.organization_id else None
     attributes = test_run.attributes or {}
     plan = attributes.get("metric_plan")
@@ -589,19 +603,17 @@ def get_verdict_matrix(
         passing_tests / (passing_tests + failing_tests) if (passing_tests + failing_tests) else None
     )
 
-    status_name = test_run.status.name if test_run.status else ""
-
     # Always sent, unlike test_ids: this is the part that actually changes
     # between polls while a run is in flight.
     started_ds, generated_ds, resolved_ds, elapsed_ds = _build_timing_columns(
         test_run.id, test_order
     )
 
-    return schemas.VerdictMatrix(
+    matrix = schemas.VerdictMatrix(
         test_run_id=test_run.id,
         project_id=test_run.project_id,
         status=status_name,
-        is_terminal=status_name in _TERMINAL_RUN_STATUSES,
+        is_terminal=is_terminal,
         test_ids=None if columns == "none" else [uuid.UUID(tid) for tid in test_order],
         test_status="".join(
             _TEST_STATUS_CHAR.get(outcomes.get(tid, ""), VERDICT_CHAR[Outcome.PENDING])
@@ -623,3 +635,8 @@ def get_verdict_matrix(
             reviews_count=reviews_count,
         ),
     )
+
+    if is_terminal:
+        cache.set_matrix(str(test_run.id), columns, matrix)
+
+    return matrix

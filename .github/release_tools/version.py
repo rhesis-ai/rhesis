@@ -166,7 +166,7 @@ def _update_pyproject_version(config_path: Path, new_version: str) -> bool:
 
 
 def _update_package_version(config_path: Path, new_version: str, repo_root: Path) -> bool:
-    """Update version in package.json"""
+    """Update version in package.json and its lockfile"""
     try:
         with open(config_path, "r") as f:
             data = json.load(f)
@@ -178,8 +178,43 @@ def _update_package_version(config_path: Path, new_version: str, repo_root: Path
             # Add a newline to the end of the file, to make the frontend linter happy
             f.write("\n")
         success(f"Updated {config_path.relative_to(repo_root)} version to: {new_version}")
-        return True
+        return _update_package_lock_version(config_path, new_version, repo_root)
 
     except Exception as e:
         error(f"Failed to update {config_path}: {e}")
+        return False
+
+
+def _update_package_lock_version(config_path: Path, new_version: str, repo_root: Path) -> bool:
+    """Mirror the new version into the sibling package-lock.json, when there is one.
+
+    Bumping only package.json leaves the lockfile a release behind, so the next
+    `npm install` rewrites it and the version churn surfaces as unrelated noise in
+    whichever PR ran it. uv keeps uv.lock in step for the Python components; npm
+    only does the same when it runs, which release does not do.
+    """
+    lock_path = config_path.parent / "package-lock.json"
+    if not lock_path.exists():
+        return True
+
+    try:
+        with open(lock_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        data["version"] = new_version
+        # lockfileVersion 2 and 3 repeat the root package's version under packages[""].
+        root_package = data.get("packages", {}).get("")
+        if root_package is not None:
+            root_package["version"] = new_version
+
+        with open(lock_path, "w", encoding="utf-8") as f:
+            # indent=2 plus a trailing newline reproduces npm's own formatting byte for
+            # byte, so rewriting the file touches nothing but the version fields.
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        success(f"Updated {lock_path.relative_to(repo_root)} version to: {new_version}")
+        return True
+
+    except Exception as e:
+        error(f"Failed to update {lock_path}: {e}")
         return False

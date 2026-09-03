@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, Optional
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
-    has_http_error_in_result,
+    has_endpoint_failure_in_result,
 )
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
@@ -30,11 +30,12 @@ async def evaluate_metrics(
     on_emit: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """Run async metric evaluation, returning merged results."""
-    # HTTP errors are not model answers; do not score metrics against them.
-    if has_http_error_in_result(output):
+    # A failed invocation is not a model answer; do not score metrics against it.
+    if has_endpoint_failure_in_result(output):
         status_code = get_http_error_status_code(output)
         logger.info(
-            f"[BATCH] HTTP error for test {test_id} (status_code={status_code}); skipping metrics"
+            f"[BATCH] Endpoint failure for test {test_id} "
+            f"(status_code={status_code}); skipping metrics"
         )
         return {}
 

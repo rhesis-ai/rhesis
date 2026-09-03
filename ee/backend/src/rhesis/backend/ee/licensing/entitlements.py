@@ -101,7 +101,26 @@ LIC_EDITION = "edition"
 LIC_STATUS = "status"
 LIC_ALL_FEATURES = "all_features"
 LIC_FEATURES = "features"
+#: Tier limits as they stood when the token was minted. A snapshot for audit
+#: and diagnostics -- NOT enforced. Enforcement resolves limits from the live
+#: tier catalog (``tier_config.yaml``) so a published pricing change applies
+#: without re-minting every customer's token. See :data:`LIC_CUSTOM_LIMITS`
+#: for the part that does override.
 LIC_LIMITS = "limits"
+#: Bespoke per-org limit overrides, present only when explicitly minted
+#: (``mint_token(custom_limits=...)`` / ``rhesis-license --limits``). Overlaid
+#: per-resource on the tier's catalog limits by
+#: :class:`~rhesis.backend.ee.licensing.quota_provider.ConfigQuotaProvider`.
+#:
+#: Deliberately separate from :data:`LIC_LIMITS` rather than merged into it:
+#: because that claim is a full tier snapshot, a merged override is
+#: indistinguishable from "the tier looked like this at mint time", and
+#: enforcing it would pin every org to its mint-time numbers and silently
+#: ignore later pricing changes.
+LIC_CUSTOM_LIMITS = "custom_limits"
+#: Per-org retention-days override, present only when explicitly minted.
+#: Overlaid on the tier's ``retention_days`` by ``ConfigQuotaProvider``.
+LIC_CUSTOM_RETENTION_DAYS = "custom_retention_days"
 
 # --- Environment variable names --------------------------------------------
 ENV_TIER_CONFIG = "RHESIS_TIER_CONFIG"
@@ -130,7 +149,8 @@ class Entitlements:
           "status": "active|past_due|canceled",
           "all_features": true,
           "features": ["sso", "api_clients"],
-          "limits": {"seats": 50}
+          "limits": {"seats": 50},
+          "custom_limits": {"test_executions": 500000}
         }
 
     ``sub`` and ``expires_at`` come from the standard JWT top-level claims.
@@ -156,14 +176,26 @@ class Entitlements:
     """UTC expiry derived from the ``exp`` JWT claim; ``None`` if absent."""
 
     limits: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
-    """Arbitrary limit map (e.g. ``{"seats": 50}``). Always a read-only mapping —
-    see :meth:`__post_init__`."""
+    """Tier limits as of minting (e.g. ``{"seats": 50}``) — a snapshot, not
+    enforced. See :data:`LIC_LIMITS`. Always a read-only mapping, see
+    :meth:`__post_init__`."""
+
+    custom_limits: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    """Bespoke per-org limit overrides, empty unless explicitly minted. These
+    *are* enforced, overlaid on the tier catalog. See :data:`LIC_CUSTOM_LIMITS`.
+    Always a read-only mapping, see :meth:`__post_init__`."""
+
+    custom_retention_days: Any = None
+    """Per-org retention-days override, raw value from the token. Validated
+    by :class:`~rhesis.backend.ee.licensing.quota_provider.ConfigQuotaProvider`
+    at resolution time (must be a positive int, not a bool). ``None`` when
+    the claim is absent."""
 
     jti: Optional[str] = None
     """JWT ID for audit logging and future revocation support."""
 
     def __post_init__(self) -> None:
-        """Coerce ``limits`` to a read-only mapping.
+        """Coerce the limit mappings to read-only.
 
         ``Entitlements`` is frozen, but that only blocks attribute
         *reassignment* — it does nothing to stop in-place mutation of a
@@ -174,8 +206,10 @@ class Entitlements:
         using the same token. Wrapping in ``MappingProxyType`` makes that a
         ``TypeError`` instead of a silent cross-request leak.
         """
-        if not isinstance(self.limits, MappingProxyType):
-            object.__setattr__(self, "limits", MappingProxyType(dict(self.limits)))
+        for attr in ("limits", "custom_limits"):
+            value = getattr(self, attr)
+            if not isinstance(value, MappingProxyType):
+                object.__setattr__(self, attr, MappingProxyType(dict(value)))
 
     def is_expired(self) -> bool:
         """Return ``True`` if the license has passed its expiry window.
@@ -230,6 +264,8 @@ __all__ = [
     "LIC_ALL_FEATURES",
     "LIC_EDITION",
     "LIC_FEATURES",
+    "LIC_CUSTOM_LIMITS",
+    "LIC_CUSTOM_RETENTION_DAYS",
     "LIC_LIMITS",
     "LIC_STATUS",
     "REQUIRED_CLAIMS",

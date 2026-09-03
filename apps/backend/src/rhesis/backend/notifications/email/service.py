@@ -137,6 +137,7 @@ class EmailService:
         frontend_url: Optional[str] = None,
         organization_slug: Optional[str] = None,
         sso_enabled: bool = False,
+        magic_link_url: Optional[str] = None,
     ) -> bool:
         """
         Send a team invitation email to a new user.
@@ -154,6 +155,9 @@ class EmailService:
                 sign-in instructions differ: an SSO org's users authenticate
                 through their identity provider, not with an email address, so
                 pointing them at the generic sign-in page is misleading.
+            magic_link_url: Pre-authenticated URL that logs the invitee in
+                directly. When set, the "Get started" button uses this instead
+                of the bare frontend URL.
 
         Returns:
             bool: True if email was sent successfully, False otherwise
@@ -183,6 +187,11 @@ class EmailService:
         if sso_enabled and organization_slug:
             sso_login_url = f"{frontend_url.rstrip('/')}/?org={quote(organization_slug)}"
 
+        # Build a human-readable list of sign-in methods from the provider
+        # registry so the copy always matches whichever OAuth backends are
+        # enabled in this deployment.
+        sign_in_methods = self._build_sign_in_methods_label()
+
         template_variables = {
             "recipient_email": recipient_email,
             "recipient_name": recipient_name or "",
@@ -197,6 +206,8 @@ class EmailService:
             # undefined instead, which Jinja treats as falsy.
             "sso_enabled": bool(sso_login_url),
             "sso_login_url": sso_login_url,
+            "magic_link_url": magic_link_url or "",
+            "sign_in_methods": sign_in_methods,
         }
 
         return self.send_email(
@@ -206,6 +217,27 @@ class EmailService:
             template_variables=template_variables,
             task_id="team_invitation",
         )
+
+    @staticmethod
+    def _build_sign_in_methods_label() -> str:
+        """Build a human-readable label from the currently enabled OAuth providers.
+
+        Always includes "a one-time email link" as the last option, so the
+        result is never empty. Examples: "Google, GitHub, or a one-time
+        email link", or just "a one-time email link" when no OAuth
+        providers are enabled.
+        """
+        try:
+            from rhesis.backend.app.auth.providers import ProviderRegistry
+
+            names = [p.display_name for p in ProviderRegistry.get_enabled_oauth_providers()]
+        except Exception:
+            names = []
+
+        parts = list(names) + ["a one-time email link"]
+        if len(parts) == 1:
+            return parts[0]
+        return ", ".join(parts[:-1]) + ", or " + parts[-1]
 
     def send_welcome_email(
         self,

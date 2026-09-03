@@ -92,6 +92,7 @@ def _mock_db(*, is_owner: bool, is_member: bool) -> MagicMock:
     the ``filter_by`` call received a ``owner_id`` keyword argument.
     """
     db = MagicMock()
+    db.info = {}  # real dict, not a MagicMock -- so the per-request memo caches actually engage
 
     def _query_side_effect(model):
         q = MagicMock()
@@ -313,6 +314,62 @@ class TestDefaultAuthorizationProvider:
         p = Principal(user_id=USER_ID, organization_id=OTHER_ORG_ID, kind="session")
         db = _mock_db(is_owner=False, is_member=False)
         assert not self.provider.is_authorized(p, "test_set:read", project_id=PROJECT_ID, db=db)
+
+
+class TestDefaultAuthorizationProviderPerRequestMemo:
+    """``_is_org_owner``/``_is_project_member`` are memoized on ``db.info`` for the
+    life of the request -- ``authorize()`` and ``effective_permissions()`` (the
+    latter up to twice, once per project scope) each call these, so one request
+    can otherwise run the same query 2-3 times. See rbac.py's docstrings."""
+
+    def setup_method(self):
+        self.provider = DefaultAuthorizationProvider()
+
+    def test_is_org_owner_queries_once_across_repeated_calls(self):
+        p = _principal()
+        db = _mock_db(is_owner=True, is_member=False)
+
+        first = self.provider._is_org_owner(p, db)
+        second = self.provider._is_org_owner(p, db)
+
+        assert first is True
+        assert second is True
+        db.query.assert_called_once()
+
+    def test_is_project_member_queries_once_across_repeated_calls(self):
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=True)
+
+        first = self.provider._is_project_member(p, PROJECT_ID, db)
+        second = self.provider._is_project_member(p, PROJECT_ID, db)
+
+        assert first is True
+        assert second is True
+        db.query.assert_called_once()
+
+    def test_is_project_member_cache_is_keyed_per_project(self):
+        """A cache hit for project A must not leak into a lookup for project B."""
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=True)
+
+        self.provider._is_project_member(p, PROJECT_ID, db)
+        self.provider._is_project_member(p, OTHER_PROJECT_ID, db)
+
+        assert db.query.call_count == 2
+
+    def test_authorize_and_effective_permissions_share_the_org_owner_cache(self):
+        """The two independent call sites (route authorization, then affordance
+        precompute) hit the same memo when given the same session: is_authorized
+        checks org-ownership once, and get_effective_permissions -- which calls
+        the provider at both project_id=None and project_id=PROJECT_ID -- has its
+        org-owner bypass short-circuit both of those without a second query."""
+        p = _principal()
+        db = _mock_db(is_owner=True, is_member=False)
+
+        self.provider.is_authorized(p, "test_set:read", project_id=PROJECT_ID, db=db)
+        self.provider.get_effective_permissions(p, project_id=PROJECT_ID, db=db)
+
+        db.query.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

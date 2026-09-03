@@ -601,3 +601,127 @@ class TestStringCleaning:
         assert result["name"] == "johndoe"
         assert result["data"] == {"nested": "value"}
         assert result["non_column"] == "keep\x00me"
+
+
+class TestHasIdentifyingField:
+    """Guard on entity reuse in get_or_create_entity.
+
+    _build_search_filters_for_model always prepends an organization_id predicate, so a
+    non-empty filter list never proved the data could identify one row. Using the filter
+    count as that proof meant a blank name matched the org's first row and returned an
+    unrelated entity — which is how generated tests ended up attached to whichever
+    requirement happened to come back first.
+    """
+
+    @pytest.mark.parametrize(
+        "model,search_data,expected",
+        [
+            (models.Requirement, {"name": "Summary Grounding"}, True),
+            (models.Requirement, {"name": ""}, False),
+            (models.Requirement, {"name": None}, False),
+            (models.Requirement, {}, False),
+            (models.Topic, {"name": "triage"}, True),
+            (models.Topic, {"name": ""}, False),
+            (models.Category, {"name": "Harmless"}, True),
+            (models.Category, {"name": ""}, False),
+            # Content-keyed models
+            (models.Prompt, {"content": "hello"}, True),
+            (models.Prompt, {"content": ""}, False),
+            # TypeLookup needs both halves of its compound key
+            (models.TypeLookup, {"type_name": "a", "type_value": "b"}, True),
+            (models.TypeLookup, {"type_name": "a"}, False),
+        ],
+    )
+    def test_identifies_only_with_a_usable_key(self, model, search_data, expected):
+        assert crud_utils._has_identifying_field(model, search_data) is expected
+
+    def test_organization_id_alone_does_not_identify(self):
+        """The regression itself: org scope is not an identifier."""
+        assert (
+            crud_utils._has_identifying_field(
+                models.Requirement, {"organization_id": str(uuid.uuid4()), "name": ""}
+            )
+            is False
+        )
+
+    def test_branching_agrees_with_the_filter_builder(self):
+        """The guard and the filter builder must never disagree about a branch.
+
+        If the guard reports a row is identifiable via a field the filter builder
+        never turns into a predicate, the lookup runs on the organization predicate
+        alone and ``.first()`` returns an unrelated row.
+
+        ``Test`` is the case that made this concrete: it exposes ``content`` as a
+        hybrid property proxying its prompt, so a ``hasattr`` check sent it down the
+        content branch even though there is no content column to filter on.
+        """
+        search_data = {"nano_id": "abc123", "organization_id": str(uuid.uuid4())}
+
+        assert crud_utils._has_identifying_field(models.Test, search_data) is True
+        filters = crud_utils._build_search_filters_for_model(models.Test, search_data)
+        assert any("nano_id" in str(f) for f in filters), (
+            "guard vouched for nano_id but the filter builder emitted no predicate for it"
+        )
+
+    def test_no_model_branches_on_a_non_column_content_attribute(self):
+        """Guards against reintroducing the hasattr check on either function.
+
+        Asserted on the content branch itself rather than via a substitute
+        identifying field: some models (the stats views) have no ``nano_id`` and no
+        identifying field at all, so keying the assertion on one of those would fail
+        for a future content-hybrid model even while the branching stayed correct.
+        """
+        from sqlalchemy import inspect as sa_inspect
+
+        checked = []
+        for name in dir(models):
+            model = getattr(models, name)
+            if not hasattr(model, "__tablename__"):
+                continue
+            try:
+                columns = set(sa_inspect(model).columns.keys())
+            except Exception:
+                continue
+            if "content" in columns or not hasattr(model, "content"):
+                continue
+
+            checked.append(model.__name__)
+            search_data = {"content": "x", "organization_id": str(uuid.uuid4())}
+
+            # `content` cannot identify a row it is not a column of.
+            assert crud_utils._has_identifying_field(model, search_data) is False, (
+                f"{model.__name__} treats a non-column content attribute as identifying"
+            )
+            # And no predicate may be built from it.
+            filters = crud_utils._build_search_filters_for_model(model, search_data)
+            assert not any("content" in str(f) for f in filters), (
+                f"{model.__name__} emitted a content predicate for a non-column attribute"
+            )
+
+        # Test is the one such model today; if that changes the loop covers it, but an
+        # empty loop would make this test silently vacuous.
+        assert "Test" in checked
+
+    def test_test_without_an_identifying_field_is_not_reused(self):
+        """Org seeding passes neither content nor an identifying field."""
+        search_data = {
+            "prompt_id": str(uuid.uuid4()),
+            "test_type_id": str(uuid.uuid4()),
+            "organization_id": str(uuid.uuid4()),
+        }
+
+        assert crud_utils._has_identifying_field(models.Test, search_data) is False
+
+    def test_content_keyed_models_still_key_on_content(self):
+        assert crud_utils._has_identifying_field(models.Prompt, {"content": "hello"}) is True
+        assert crud_utils._has_identifying_field(models.Prompt, {"content": ""}) is False
+
+    def test_blank_name_still_builds_the_org_filter(self):
+        """Documents why the count-based check was wrong: filters are non-empty even
+        when nothing identifies a row."""
+        filters = crud_utils._build_search_filters_for_model(
+            models.Requirement, {"name": "", "organization_id": str(uuid.uuid4())}
+        )
+
+        assert len(filters) == 1
+        assert crud_utils._has_identifying_field(models.Requirement, {"name": ""}) is False

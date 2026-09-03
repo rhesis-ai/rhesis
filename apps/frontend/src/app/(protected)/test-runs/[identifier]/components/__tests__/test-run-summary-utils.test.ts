@@ -125,9 +125,12 @@ describe('aggregateMetricStats', () => {
       },
     });
 
+    const goalAchievement = result.test_metrics?.metrics?.['Goal Achievement'];
+    expect(goalAchievement).toBeDefined();
+
     expect(
       getEffectiveMetricSuccess(
-        result.test_metrics!.metrics!['Goal Achievement'] as {
+        goalAchievement as {
           is_successful: boolean;
           override?: { original_value: boolean };
         }

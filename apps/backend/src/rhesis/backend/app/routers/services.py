@@ -379,9 +379,9 @@ async def generate_multiturn_tests_endpoint(
     Args:
         request: The request containing the generation prompt and optional parameters
             - generation_prompt: Description of what to test
-            - requirement: Optional requirement type (e.g., "Compliance", "Reliability")
-            - category: Optional category (e.g., "Harmful", "Harmless")
-            - topic: Optional specific topic
+            - requirements: Optional list of requirement names the tests must target
+            - categories: Optional list of categories (e.g., "Harmful", "Harmless")
+            - topics: Optional list of topics
             - num_tests: Number of tests to generate (default: 5)
         db: Database session
         tenant_context: Tenant context containing organization_id and user_id
@@ -407,12 +407,11 @@ async def generate_multiturn_tests_endpoint(
                     detail=f"Model {model_id_str} not found or not accessible",
                 )
 
-        # Prepare config dict from request
         config = {
             "generation_prompt": request.generation_prompt,
-            "requirement": request.requirement,
-            "category": request.category,
-            "topic": request.topic,
+            "requirements": request.requirements,
+            "categories": request.categories,
+            "topics": request.topics,
         }
 
         test_cases = await generate_multiturn_tests(

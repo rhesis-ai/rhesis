@@ -66,7 +66,7 @@ class ExploreEndpointTool(BaseTool):
         target_factory: ``(endpoint_id) -> Target`` callable that
             creates a target for any endpoint (unbound mode).
         model: Model for Penelope to use during exploration. Accepts a
-            model string (e.g. ``"vertex_ai/gemini-2.0-flash"``) or a
+            model string (e.g. ``"vertex_ai/gemini-3.1-flash-lite"``) or a
             ``BaseLLM`` instance. If ``None``, Penelope uses its default.
         max_turns: Maximum conversation turns for each exploration.
             Defaults to 5.

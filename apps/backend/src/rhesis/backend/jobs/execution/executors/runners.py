@@ -10,8 +10,8 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
-    has_http_error_in_result,
-    is_http_error_response,
+    has_endpoint_failure_in_result,
+    is_endpoint_failure,
     normalize_context_to_list,
 )
 from rhesis.backend.jobs.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
@@ -245,11 +245,11 @@ class SingleTurnRunner(BaseRunner):
             except Exception:
                 logger.debug("on_test_phase(evaluating) failed", exc_info=True)
 
-        # HTTP errors are not model answers; skip metrics and leave status Error.
-        if is_http_error_response(processed_result):
+        # A failed invocation is not a model answer; skip metrics and leave status Error.
+        if is_endpoint_failure(processed_result):
             status_code = get_http_error_status_code(processed_result)
             logger.info(
-                f"[SingleTurnRunner] HTTP error for test {test_id} "
+                f"[SingleTurnRunner] Endpoint failure for test {test_id} "
                 f"(status_code={status_code}); skipping metrics"
             )
             return execution_time, processed_result, {}
@@ -416,11 +416,11 @@ class MultiTurnRunner(BaseRunner):
             except Exception:
                 logger.debug("on_test_phase(evaluating) failed", exc_info=True)
 
-        # First target message HTTP error → no metrics, status Error.
-        if has_http_error_in_result(penelope_trace):
+        # First target message failed → no metrics, status Error.
+        if has_endpoint_failure_in_result(penelope_trace):
             status_code = get_http_error_status_code(penelope_trace)
             logger.info(
-                f"[MultiTurnRunner] HTTP error on first target message "
+                f"[MultiTurnRunner] Endpoint failure on first target message "
                 f"(status_code={status_code}); skipping metrics"
             )
             return execution_time, penelope_trace, {}

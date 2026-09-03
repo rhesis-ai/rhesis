@@ -7,7 +7,7 @@ resources:
 configMapGenerator:
   - name: loki-config
     literals:
-      - retention-period=360h
+      - retention-period=72h
       - storage-size=10Gi
     options:
       annotations:

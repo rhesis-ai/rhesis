@@ -1,6 +1,6 @@
 {
   "name": "rhesis-app",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "engines": {
     "node": ">=20.9.0"
   },
@@ -8,7 +8,7 @@
     "dev": "next dev --webpack -H 0.0.0.0 -p ${PORT:-3000}",
     "dev:turbo": "next dev --turbo -H 0.0.0.0 -p ${PORT:-3000}",
     "build": "npm run clean && next build --webpack",
-    "postinstall": "patch-package",
+    "postinstall": "patch-package --error-on-fail",
     "start": "next start -p ${PORT}",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx && npm --prefix ../../ee/frontend run lint",
     "lint:errors": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0 && npm --prefix ../../ee/frontend run lint",
@@ -39,7 +39,7 @@
     "@icons-pack/react-simple-icons": "^13.12.0",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7",
-    "@mui/material": "^7",
+    "@mui/material": "7.3.5",
     "@mui/material-nextjs": "^7",
     "@mui/x-charts": "^8.19.0",
     "@mui/x-data-grid": "^7.27.3",
@@ -62,6 +62,7 @@
     "markdown-to-jsx": "^9.7.1",
     "next": "^16.2.11",
     "next-auth": "5.0.0-beta.32",
+    "nextjs-toploader": "^3.9.17",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-mentions": "^4.4.10",

@@ -67,6 +67,7 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
 
     from rhesis.backend.app.database import get_db_with_tenant_variables
     from rhesis.backend.app.models.test_result import TestResult
+    from rhesis.backend.app.services.invokers.common.errors import INTERNAL_ERROR_TYPE
     from rhesis.backend.jobs.execution.batch.persist import persist_result
 
     failed = [r for r in results if r.get("status") == "failed"]
@@ -103,12 +104,35 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
             logger.warning(f"[BATCH] Cannot persist error record for {tid}: no snapshot data")
             continue
 
+        message = result.get("error", "Execution failed")
+        # Mirrors the ErrorResponse shape the primary path stores (``_run_single_turn``
+        # persists the invoker dict verbatim), so ``test_output.error`` means the same
+        # thing however the row was written: a boolean flag, with the human text in
+        # ``output``/``message``. It previously held the message here and a bool there,
+        # which left readers guessing at the type.
+        #
+        # ``output`` matters because the detail views read it: a record setting only
+        # ``error`` renders as "No response available".
+        error_output: Dict[str, Any] = {
+            "output": message,
+            "message": message,
+            "error": True,
+        }
+        # ...but only when the target is actually to blame. EndpointService tags its own
+        # unexpected exceptions error_type="internal_error", status_code=500; attributing
+        # those would have the UI tell the user their endpoint returned HTTP 500 and send
+        # them debugging a service that never saw the request.
+        if result.get("error_type") and result["error_type"] != INTERNAL_ERROR_TYPE:
+            error_output["error_type"] = result["error_type"]
+            if result.get("status_code") is not None:
+                error_output["status_code"] = result["status_code"]
+
         try:
             persist_result(
                 ctx,
                 tid,
                 snapshot["test"],
-                {"error": result.get("error", "Execution failed")},
+                error_output,
                 {},
                 [],
                 result.get("execution_time", 0),
@@ -219,10 +243,16 @@ def execute_tests_as_batch(
     succeeded = sum(1 for r in results if r.get("status") == "succeeded")
     failed = sum(1 for r in results if r.get("status") == "failed")
     cancelled = sum(1 for r in results if r.get("status") == "cancelled")
+    endpoint_errors = sum(1 for r in results if r.get("status") == "endpoint_error")
     if on_progress:
         on_progress(total_tests, total_tests)
     if on_emit:
         parts = [f"{succeeded} succeeded", f"{failed} failed"]
+        # Counted separately from both: the test ran and produced a row, but the endpoint
+        # rejected the call, so folding it into "succeeded" hides the only fact that
+        # matters when an entire run comes back empty.
+        if endpoint_errors:
+            parts.append(f"{endpoint_errors} rejected by endpoint")
         if cancelled:
             parts.append(f"{cancelled} cancelled")
         on_emit(f"Batch complete: {', '.join(parts)}")

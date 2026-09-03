@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-01
+
+### Added
+
+- **Navigation Feedback & Skeletons**: Added a navigation progress bar and delayed (500ms) route-level loading skeletons to provide immediate visual feedback without flashing on fast loads.
+- **Custom Loading Skeletons**: Introduced page-specific skeletons matching real layouts, including Card Directories (metrics, requirements, models, tools, projects), Insights Dashboard, Section Pages, and a Playground header spinner.
+- **Sidebar Plan Indicator**: Added a dedicated Plan card in the sidebar footer displaying the organization's current tier, an active/inactive status badge, a custom Crown icon, and an upgrade link (gated on organization update permissions).
+- **Detailed Endpoint Failure Views**: Unscorable or failed test runs now display a detailed banner on the Overview tab showing the HTTP status code, failure reason, and the target's raw response body.
+
+### Changed
+
+- **Performance Optimizations**:
+  - Parallelized sub-resource SSR prefetches on detail pages (experiments, requirements, tasks, test runs, etc.) to eliminate sequential round-trips before first paint.
+  - Optimized Test Run detail pages by lazy-loading conversation transcripts in the drawer and prefetching only active tab data.
+  - Seeded the verdict matrix from SSR to allow the Summary tab to render immediately.
+- **Centralized Session Guards**: Replaced scattered inline authentication checks and bespoke error alerts across SSR pages with a unified `requireSession()` helper routing through the shared `error.tsx` boundary.
+- **Metric Tuning UI**: Locked the toolbar height to prevent the grid from shifting when runs start/finish, and updated review marks to render hollow when open and filled/stroked when decided.
+- **Dark Mode Inputs**: Enhanced visual distinction for outlined input fields in dark mode by applying a subtle background fill.
+
+### Fixed
+
+- **Stale Closure in Reviews**: Fixed a bug in `TestsTableView` where confirming a review after a network delay could apply the action to a newly navigated test instead of the selected one.
+- **Lapsed License UX**: Fixed a bug where organizations with lapsed paid licenses were locked out of upgrade prompts and billing links because the UI still treated them as active "enterprise" users.
+- **Grid Flicker & Layout Shifts**: Resolved flex-column flickering on mount and premature "no-project" flashes by gating column measurements on the grid's ready state.
+- **Misleading Metric Scores**: Stopped failed or unscored tests from reporting "0.0%" or "0 of 0 metrics passed," which falsely implied a calculated score of zero.
+- **Conversation History Visibility**: Fixed an issue where multi-turn conversation tabs claimed "No conversation history available" if a target response was empty.
+- **Dependency Stability**: Cleaned up React hook dependencies and stabilized inline arrays/fallbacks to prevent redundant component re-renders.
+
 ## [0.14.0] - 2026-08-27
 
 ### Added

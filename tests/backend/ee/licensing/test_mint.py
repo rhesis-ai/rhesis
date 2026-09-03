@@ -212,7 +212,7 @@ class TestMintTokenOverrides:
         assert ent.allows("sso") is True
         assert ent.allows("api_clients") is True
 
-    def test_custom_limits_merge_with_tier_defaults(self, private_key_env):
+    def test_custom_limits_land_in_their_own_claim(self, private_key_env):
         from rhesis.backend.ee.licensing.mint import mint_token
 
         ent = verify_token(
@@ -224,22 +224,85 @@ class TestMintTokenOverrides:
             )
         )
         assert ent is not None
-        assert ent.limits["seats"] == 200
-        assert ent.limits["extra_quota"] == 50
+        assert ent.custom_limits["seats"] == 200
+        assert ent.custom_limits["extra_quota"] == 50
 
-    def test_custom_limits_override_tier_seat_count(self, private_key_env):
+    def test_custom_limits_leave_the_tier_snapshot_alone(self, private_key_env):
+        """The ``limits`` snapshot must keep reporting the tier, not the override.
+
+        The two claims answer different questions -- "what did this tier look
+        like when minted" vs "what was negotiated for this org" -- and only the
+        second is enforced. Merging the override into the snapshot is what would
+        make a bespoke cap indistinguishable from the tier's own number, and pin
+        the org to its mint-time limits for every other resource.
+        """
         from rhesis.backend.ee.licensing.mint import mint_token
+        from rhesis.backend.ee.licensing.tiers import resolve_tier
+
+        seats = str(QuotaResource.SEATS)
+        tier_seats = resolve_tier(LicenseEdition.TEAM).limits[QuotaResource.SEATS]
 
         ent = verify_token(
             mint_token(
                 self.ORG_ID,
                 LicenseEdition.TEAM,
                 kid="test-v1",
-                custom_limits={str(QuotaResource.SEATS): 99},
+                custom_limits={seats: 99},
             )
         )
         assert ent is not None
-        assert ent.limits[str(QuotaResource.SEATS)] == 99
+        assert ent.custom_limits[seats] == 99
+        assert ent.limits[seats] == tier_seats
+
+    def test_no_custom_limits_means_an_empty_override_map(self, private_key_env):
+        """Absent is the common case and must not read as "capped at nothing"."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
+        assert ent is not None
+        assert dict(ent.custom_limits) == {}
+
+    def test_custom_retention_days_survives_a_mint_verify_round_trip(self, private_key_env):
+        """End-to-end producer check. The read path (verify -> Entitlements ->
+        provider.info -> ConfigQuotaProvider) is only reachable if minting can
+        actually write this claim, which it could not before."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.ENTERPRISE,
+                kid="test-v1",
+                custom_retention_days=180,
+            )
+        )
+        assert ent is not None
+        assert ent.custom_retention_days == 180
+
+    def test_no_custom_retention_days_leaves_the_claim_absent(self, private_key_env):
+        """Absent must stay absent so the resolver keeps the tier's own value
+        instead of seeing an override it was never given."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1"))
+        assert ent is not None
+        assert ent.custom_retention_days is None
+
+    @pytest.mark.parametrize("bad", [0, -30, True, False])
+    def test_a_non_positive_retention_override_is_refused_at_mint_time(
+        self, private_key_env, bad
+    ):
+        """Caught when the token is issued rather than silently ignored at
+        resolution time, so a bad deal never ships as a signed licence."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="custom_retention_days"):
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.ENTERPRISE,
+                kid="test-v1",
+                custom_retention_days=bad,
+            )
 
 
 # ---------------------------------------------------------------------------

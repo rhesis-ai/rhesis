@@ -21,7 +21,7 @@ from rhesis.backend.app.outcomes import (
     outcome_to_test_result_status_name,
 )
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.app.utils.response_extractor import has_http_error_in_result
+from rhesis.backend.app.utils.response_extractor import has_endpoint_failure_in_result
 
 logger = logging.getLogger(__name__)
 
@@ -246,12 +246,12 @@ def create_test_result_record(
     Returns:
         UUID of the created test result, or None if creation failed
     """
-    # HTTP errors must never become Pass/Fail from metric scores.
-    http_error = has_http_error_in_result(processed_result)
-    if http_error:
+    # A failed invocation must never become Pass/Fail from metric scores.
+    endpoint_error = has_endpoint_failure_in_result(processed_result)
+    if endpoint_error:
         metrics_results = {}
 
-    execution, verdict = classify_metrics(metrics_results, http_error=http_error)
+    execution, verdict = classify_metrics(metrics_results, endpoint_error=endpoint_error)
     outcome = outcome_of(execution, verdict)
     status_value = outcome_to_test_result_status_name(outcome)
 

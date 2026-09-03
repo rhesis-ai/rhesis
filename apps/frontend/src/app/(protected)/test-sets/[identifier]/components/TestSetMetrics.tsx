@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -24,7 +24,6 @@ import AddIcon from '@mui/icons-material/Add';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { useCan } from '@/components/common/Can';

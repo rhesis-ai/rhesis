@@ -55,7 +55,12 @@ def log_batch_report(
     """Emit a structured batch profiling report via the standard logger."""
     failed = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "failed")
     skipped = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "skipped")
-    succeeded = total_tests - failed - skipped
+    # Broken out of the succeeded remainder: a run the endpoint rejected wholesale would
+    # otherwise be logged as 100% ok, which is exactly the wrong signal when triaging.
+    rejected = sum(
+        1 for r in results if isinstance(r, dict) and r.get("status") == "endpoint_error"
+    )
+    succeeded = total_tests - failed - skipped - rejected
 
     user = round(after.user_cpu_s - before.user_cpu_s, 2)
     sys_cpu = round(after.system_cpu_s - before.system_cpu_s, 2)
@@ -69,7 +74,7 @@ def log_batch_report(
     cpu_pct = round(total_cpu / (wall_s or 1) * 100, 1)
 
     logger.info(
-        "[BATCH] run=%s tests=%d (ok=%d fail=%d skip=%d) concurrency=%d | "
+        "[BATCH] run=%s tests=%d (ok=%d fail=%d skip=%d rejected=%d) concurrency=%d | "
         "wall=%ss | cpu: user=%ss sys=%ss total=%ss (%s%%) | "
         "mem: peak_rss=%sMB growth=%sMB | ctx_sw: vol=%d invol=%d",
         test_run_id,
@@ -77,6 +82,7 @@ def log_batch_report(
         succeeded,
         failed,
         skipped,
+        rejected,
         concurrency,
         wall_s,
         user,

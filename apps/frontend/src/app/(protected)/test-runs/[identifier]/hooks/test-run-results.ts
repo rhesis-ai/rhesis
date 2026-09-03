@@ -25,6 +25,7 @@ export async function fetchAllTestResults(
       skip,
       sort_by: 'created_at',
       sort_order: 'desc',
+      stripConversation: true,
     });
 
     testResults = [...testResults, ...response.data];
@@ -53,6 +54,7 @@ export async function fetchSmallTestRunResults(
     skip: 0,
     sort_by: 'created_at',
     sort_order: 'desc',
+    stripConversation: true,
   });
   const totalCount = response.pagination?.totalCount || 0;
   return response.data.length < totalCount ? undefined : response.data;

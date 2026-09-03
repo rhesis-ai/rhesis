@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-01
+
+### Added
+- **Detailed Endpoint Failure Reporting**: Added support for capturing and surfacing target endpoint failure details (including HTTP status codes, reasons, and raw response bodies) for both single-turn and multi-turn tests, preventing them from being misclassified as successful runs or graded with zero scores.
+- **Subscription Plan Contract**: Introduced a new `plan` display contract on the `/features` endpoint that reports organization subscription details (`is_paid`, `is_active`, and formatted plan name) to drive UI plan badges and upgrade paths.
+- **Custom Enterprise Quota Enforcement**: Added support for enforcing custom, per-organization resource limits via a dedicated `custom_limits` claim in the license JWT.
+- **Test Facets Endpoint**: Added a `GET /tests/facets` endpoint to retrieve distinct metadata values (requirements, categories, topics, and test types) present on active tests for scoped filtering.
+
+### Changed
+- **Usage Limit Alignment**: Aligned default tier limits with published pricing (Free model tokens capped at 1M, Team tracing spans at 1M, and Team model tokens at 25M).
+- **Terms of Service Update**: Bumped the Terms & Conditions version to 2.0 to prompt user re-consent for the commercial SaaS terms.
+- **Unified Model Resolution**: Consolidated model and embedder resolution into a single, secure interface (`resolve_model`, `resolve_embedder`, `validate_model`) to ensure consistent quota gating, delegation, and usage tracking.
+- **CRUD Architecture Split**: Completed the modularization of the monolithic CRUD package, extracting operations into dedicated `crud/test.py` and `crud/test_set.py` submodules.
+
+### Fixed
+- **Performance & N+1 Queries**: Resolved multiple N+1 query issues and over-fetching on test results list, test run details, and multi-turn test executions by implementing explicit eager-loading chains and caching the verdict grid in Redis for terminal runs.
+- **Database Indexing**: Restored missing organization-scoped indexes on `comment` and `task` tables, significantly optimizing tenant-isolated queries.
+- **Outbound Request Timeouts**: Enforced default timeouts on all outbound HTTP requests across the SDK and backend services (including GitHub integration) to prevent unresponsive upstreams from hanging threads indefinitely.
+- **License Validation Hardening**: Fixed a security gap where stringified boolean claims (e.g., `"false"`) in license tokens were evaluated as truthy, and restricted feature iteration to strict sequences.
+- **License Shadowing**: Fixed an issue where an inactive or expired blanket license could shadow and override an organization's active custom license.
+- **Migration Downgrades**: Fixed a syntax error in migration downgrades caused by SQLAlchemy silently stripping bind parameters during inline UUID casts.
+- **Task Garbage Collection**: Fixed a bug where background asyncio tasks (such as detached preflight connectivity checks and client socket closures) were prematurely garbage-collected before completion.
+- **License Status Minting**: Fixed a silent failure where invalid or empty `--status` arguments during license generation minted tokens with an `UNKNOWN` status, causing valid organizations to revert to community limits.
+
+### Removed
+- **Pytest Marker Cleanup**: Consolidated backend test markers down to five core categories (`unit`, `integration`, `slow`, `security`, `ee`), removing twelve obsolete and redundant area markers.
+
+
 ## [0.14.0] - 2026-08-27
 
 ### Added

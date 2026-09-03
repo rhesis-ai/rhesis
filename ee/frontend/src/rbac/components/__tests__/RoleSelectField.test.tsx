@@ -24,8 +24,6 @@ jest.mock('../../api/rbac-client', () => rbacClientMock);
 import { invalidateRoles } from '../../api/role-cache';
 import RoleSelectField from '../RoleSelectField';
 
-const SESSION_TOKEN = 'session-token';
-
 const VIEWER_ROLE = makeRole({
   id: 'role-viewer',
   name: 'viewer',

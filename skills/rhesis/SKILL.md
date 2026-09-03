@@ -17,9 +17,18 @@ Platform operations use the `rhesis` MCP server. **Read `references/workflow-ind
 
 ## Prerequisites
 
-- Rhesis MCP connected — [install guide](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis#connect-the-mcp-server)
+Every platform operation in this skill is an `rhesis` MCP tool call. Without that server the skill
+can do nothing — there is no offline mode and no substitute.
+
+- Rhesis MCP connected — [install guide](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis#install-in-claude-code)
 - API token at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- Self-hosted: `RHESIS_MCP_URL=http://localhost:8080/mcp`
+- Self-hosted: `RHESIS_MCP_URL=http://localhost:8080/mcp/`
+
+**If the `rhesis` MCP tools are not available, stop and say so.** Tell the user to install the
+plugin and set `RHESIS_API_KEY`, then restart. Do not improvise from memory, do not answer platform
+questions without the tools, and **do not authenticate a different MCP server or connector that
+happens to be named after Rhesis** — an OAuth connector of a similar name is not this server, and
+authenticating it does not make these tools appear.
 
 ## Shared skeleton
 

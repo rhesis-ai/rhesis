@@ -71,7 +71,9 @@ export default function ExperimentRunsTab({
     initialData: initialRuns,
   });
 
-  const runs = data?.items ?? [];
+  // Memoised so the `?? []` fallback does not hand a fresh array to the
+  // filter memo below on every render, which defeated it entirely.
+  const runs = useMemo(() => data?.items ?? [], [data?.items]);
   const error =
     fetchError instanceof Error
       ? fetchError.message

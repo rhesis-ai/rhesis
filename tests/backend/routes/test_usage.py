@@ -28,6 +28,10 @@ class TestUsageEndpoint:
         response = authenticated_client.get("/usage")
         body = response.json()
 
+        # No `plan` here. It moved to GET /features, which the frontend's
+        # protected layout server-seeds, so plan surfaces have it on first paint
+        # instead of one round trip late. `edition` stays as the machine id for
+        # diagnostics. Contract covered in routes/test_features.py.
         assert set(body.keys()) == {"resources", "edition"}
         assert isinstance(body["resources"], dict)
         assert isinstance(body["edition"], str)
