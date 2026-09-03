@@ -134,7 +134,7 @@ export default function ProfileForm({ userSettings }: ProfileFormProps) {
           <Grid size={{ xs: 12, md: 6 }}>
             <ViewField
               label="Email"
-              value={userSettings?.email}
+              value={userSettings?.email ?? session?.user?.email}
               helperText="Your login email address"
             />
           </Grid>

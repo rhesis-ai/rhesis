@@ -21,8 +21,8 @@ export default async function SettingsPage() {
   try {
     const factory = await createServerApiFactory();
     userSettings = await factory.getUsersClient().getUserSettings();
-  } catch {
-    // Render the page without prefilled values.
+  } catch (err) {
+    console.warn('[settings] failed to prefetch user settings:', err);
   }
 
   const breadcrumbs = [{ label: 'Settings', href: '/settings' }];
