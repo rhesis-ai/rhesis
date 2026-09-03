@@ -38,6 +38,29 @@ class _FixedPolicyProvider:
         return self._policy
 
 
+@pytest.fixture
+def clean_registry():
+    """Reset the registry before each test, restore the real state after.
+
+    Mirrors ``clean_registry`` in ``test_quota_registry.py``, and the
+    save/restore is the whole point. A bare ``QuotaRegistry.reset()`` on
+    teardown is not enough: ``ee.bootstrap()`` installs the config-backed
+    provider once at process import time, so resetting leaves the *default*
+    provider -- with real free-tier integer limits -- for the rest of the
+    suite. A later test that mocks its DB session then reaches
+    ``check_quota``'s ceiling comparison with a Mock usage value and dies on
+    ``Mock < int``, in a file that has nothing to do with quotas.
+    """
+    saved_provider = QuotaRegistry._provider
+    QuotaRegistry.reset()
+    yield
+    QuotaRegistry._provider = saved_provider
+
+
+def _install(policy: QuotaPolicy) -> None:
+    QuotaRegistry.set_quota_provider(_FixedPolicyProvider(policy))
+
+
 def _settings(monkeypatch, *, enabled: bool, dry_run: bool = False, override_days=None):
     monkeypatch.setattr(
         "rhesis.backend.jobs.trace_retention.get_trace_retention_settings",
@@ -118,16 +141,14 @@ class TestSweepDisabledByDefault:
 @pytest.mark.integration
 class TestSweepDeletesPastTheWindow:
     def test_deletes_old_traces_but_keeps_recent(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         _settings(monkeypatch, enabled=True)
         monkeypatch.setattr(
             "rhesis.backend.app.quota.get_application_settings",
             lambda: SimpleNamespace(usage_quotas_enabled=True),
         )
-        QuotaRegistry.set_quota_provider(
-            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=30))
-        )
+        _install(QuotaPolicy(limits={}, retention_days=30))
         db = real_commit_test_db
         org, user = _org(db, "Trace Ret Delete Org", "trace-ret-delete@test.com")
         project_id = _project(db, org)
@@ -135,50 +156,42 @@ class TestSweepDeletesPastTheWindow:
         old_trace_id = _trace(db, org, project_id, created_at=_OLD)
         recent_trace_id = _trace(db, org, project_id, created_at=_RECENT)
 
-        try:
-            result = sweep_expired_traces()
+        result = sweep_expired_traces()
 
-            assert result["enabled"] is True
-            assert result["dry_run"] is False
-            assert result["traces_affected"] >= 1
-            assert not _trace_exists(db, old_trace_id)
-            assert _trace_exists(db, recent_trace_id)
-        finally:
-            QuotaRegistry.reset()
+        assert result["enabled"] is True
+        assert result["dry_run"] is False
+        assert result["traces_affected"] >= 1
+        assert not _trace_exists(db, old_trace_id)
+        assert _trace_exists(db, recent_trace_id)
 
 
 @pytest.mark.integration
 class TestSweepDryRun:
     def test_dry_run_counts_without_deleting(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         _settings(monkeypatch, enabled=True, dry_run=True)
         monkeypatch.setattr(
             "rhesis.backend.app.quota.get_application_settings",
             lambda: SimpleNamespace(usage_quotas_enabled=True),
         )
-        QuotaRegistry.set_quota_provider(
-            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=30))
-        )
+        _install(QuotaPolicy(limits={}, retention_days=30))
         db = real_commit_test_db
         org, user = _org(db, "Trace Ret DryRun Org", "trace-ret-dryrun@test.com")
         project_id = _project(db, org)
         old_trace_id = _trace(db, org, project_id, created_at=_OLD)
 
-        try:
-            result = sweep_expired_traces()
+        result = sweep_expired_traces()
 
-            assert result["dry_run"] is True
-            assert result["traces_affected"] >= 1
-            assert _trace_exists(db, old_trace_id), "dry-run must not actually delete"
-        finally:
-            QuotaRegistry.reset()
+        assert result["dry_run"] is True
+        assert result["traces_affected"] >= 1
+        assert _trace_exists(db, old_trace_id), "dry-run must not actually delete"
 
 
 @pytest.mark.integration
 class TestSweepDeletesInBatches:
     def test_all_expired_rows_go_even_when_they_span_several_batches(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         """The delete is chunked to bound lock duration and WAL growth, so the
         loop has to come back for the remaining rows. Batch size is patched
@@ -210,7 +223,7 @@ class TestSweepDeletesInBatches:
 @pytest.mark.integration
 class TestSweepUnlimitedRetention:
     def test_unlimited_retention_skips_the_org(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         """An org whose resolved retention_days is None (unlimited, e.g.
         enterprise default) is skipped entirely."""
@@ -219,27 +232,22 @@ class TestSweepUnlimitedRetention:
             "rhesis.backend.app.quota.get_application_settings",
             lambda: SimpleNamespace(usage_quotas_enabled=True),
         )
-        QuotaRegistry.set_quota_provider(
-            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=None))
-        )
+        _install(QuotaPolicy(limits={}, retention_days=None))
         db = real_commit_test_db
         org, user = _org(db, "Trace Ret Unlimited Org", "trace-ret-unlimited@test.com")
         project_id = _project(db, org)
         old_trace_id = _trace(db, org, project_id, created_at=_OLD)
 
-        try:
-            result = sweep_expired_traces()
+        result = sweep_expired_traces()
 
-            assert result["orgs_swept"] == 0
-            assert _trace_exists(db, old_trace_id)
-        finally:
-            QuotaRegistry.reset()
+        assert result["orgs_swept"] == 0
+        assert _trace_exists(db, old_trace_id)
 
 
 @pytest.mark.integration
 class TestSweepGlobalOverride:
     def test_override_days_supersedes_tier_retention(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         """TRACE_RETENTION_DAYS env var overrides the tier-resolved value.
         With a 200-day override, a 100-day-old trace is kept."""
@@ -248,22 +256,17 @@ class TestSweepGlobalOverride:
             "rhesis.backend.app.quota.get_application_settings",
             lambda: SimpleNamespace(usage_quotas_enabled=True),
         )
-        QuotaRegistry.set_quota_provider(
-            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=30))
-        )
+        _install(QuotaPolicy(limits={}, retention_days=30))
         db = real_commit_test_db
         org, user = _org(db, "Trace Ret Override Org", "trace-ret-override@test.com")
         project_id = _project(db, org)
         old_trace_id = _trace(db, org, project_id, created_at=_OLD)
 
-        try:
-            sweep_expired_traces()
+        sweep_expired_traces()
 
-            assert _trace_exists(db, old_trace_id), (
-                "100-day-old trace should survive a 200-day override"
-            )
-        finally:
-            QuotaRegistry.reset()
+        assert _trace_exists(db, old_trace_id), (
+            "100-day-old trace should survive a 200-day override"
+        )
 
 
 @pytest.mark.integration
@@ -291,16 +294,14 @@ class TestSweepOrgIsolation:
         assert not _trace_exists(db, trace_b_id)
 
     def test_one_organizations_failure_does_not_block_the_rest(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         _settings(monkeypatch, enabled=True)
         monkeypatch.setattr(
             "rhesis.backend.app.quota.get_application_settings",
             lambda: SimpleNamespace(usage_quotas_enabled=True),
         )
-        QuotaRegistry.set_quota_provider(
-            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=30))
-        )
+        _install(QuotaPolicy(limits={}, retention_days=30))
         db = real_commit_test_db
         org_a, _ = _org(db, "Trace Fail Org A", "trace-fail-a@test.com")
         org_b, _ = _org(db, "Trace Fail Org B", "trace-fail-b@test.com")
@@ -319,19 +320,16 @@ class TestSweepOrgIsolation:
 
         monkeypatch.setattr(trace_retention, "_sweep_organization", flaky_sweep)
 
-        try:
-            result = sweep_expired_traces()
+        result = sweep_expired_traces()
 
-            assert _trace_exists(db, trace_a_id), "org_a's failure is swallowed"
-            assert not _trace_exists(db, trace_b_id), "org_b is still swept"
-            assert result["orgs_failed"] >= 1, (
-                "a failed org must be counted, not reported as a clean run"
-            )
-        finally:
-            QuotaRegistry.reset()
+        assert _trace_exists(db, trace_a_id), "org_a's failure is swallowed"
+        assert not _trace_exists(db, trace_b_id), "org_b is still swept"
+        assert result["orgs_failed"] >= 1, (
+            "a failed org must be counted, not reported as a clean run"
+        )
 
     def test_a_failed_sweep_is_not_reported_as_a_clean_run(
-        self, monkeypatch, real_commit_test_db: Session
+        self, monkeypatch, real_commit_test_db: Session, clean_registry
     ):
         """_sweep_organization returns None on failure, not 0, so a run where
         every org errored is distinguishable from "nothing to delete" -- the
@@ -341,9 +339,7 @@ class TestSweepOrgIsolation:
             "rhesis.backend.app.quota.get_application_settings",
             lambda: SimpleNamespace(usage_quotas_enabled=True),
         )
-        QuotaRegistry.set_quota_provider(
-            _FixedPolicyProvider(QuotaPolicy(limits={}, retention_days=30))
-        )
+        _install(QuotaPolicy(limits={}, retention_days=30))
         db = real_commit_test_db
         org, _ = _org(db, "Trace AllFail Org", "trace-allfail@test.com")
         project_id = _project(db, org)
@@ -355,12 +351,9 @@ class TestSweepOrgIsolation:
             lambda org, cutoff, *, dry_run: None,
         )
 
-        try:
-            result = sweep_expired_traces()
+        result = sweep_expired_traces()
 
-            assert result["traces_affected"] == 0
-            assert result["orgs_swept"] == 0
-            assert result["orgs_failed"] >= 1
-            assert _trace_exists(db, old_trace_id)
-        finally:
-            QuotaRegistry.reset()
+        assert result["traces_affected"] == 0
+        assert result["orgs_swept"] == 0
+        assert result["orgs_failed"] >= 1
+        assert _trace_exists(db, old_trace_id)
