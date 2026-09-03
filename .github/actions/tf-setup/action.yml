@@ -66,7 +66,18 @@ runs:
                      echo "service_account=$TF_SA_PRD" >> "$GITHUB_OUTPUT" ;;
           wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> "$GITHUB_OUTPUT"
                      echo "service_account=$TF_SA_WIREGUARD" >> "$GITHUB_OUTPUT" ;;
-          *)         echo "::error::Unknown environment '$ENV' -- expected dev, stg, prd, or wireguard/admin."
+          # envs/billing manages billing-account budgets. It reuses the admin
+          # project and terraform-wireguard rather than taking its own secrets:
+          # the notification channels live in rhesis-platform-admin anyway, and
+          # terraform-wireguard is the only SA there GitHub Actions can
+          # impersonate (terraform-deployer holds billing.user but its only
+          # workloadIdentityUser members are KSAs in the deleted rhesis-worker
+          # clusters). Budgets need roles/billing.costsManager, granted to
+          # terraform-wireguard out-of-band on 2026-09-03 -- Terraform cannot
+          # grant itself the permission it needs to run.
+          billing)   echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> "$GITHUB_OUTPUT"
+                     echo "service_account=$TF_SA_WIREGUARD" >> "$GITHUB_OUTPUT" ;;
+          *)         echo "::error::Unknown environment '$ENV' -- expected dev, stg, prd, wireguard/admin, or billing."
                      exit 1 ;;
         esac
 
