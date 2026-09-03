@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Box, Button, IconButton, Typography, useTheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
@@ -8,11 +8,30 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useRouter } from 'next/navigation';
 import { useUserSettings } from '@/hooks/useUserSettings';
 
+const STORAGE_KEY = 'rhesis:set-password-banner-dismissed';
+
+function readDismissed(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export default function SetPasswordBanner() {
   const theme = useTheme();
   const router = useRouter();
   const { data: settings, isLoading } = useUserSettings();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(readDismissed);
+
+  const dismiss = useCallback(() => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(STORAGE_KEY, '1');
+    } catch {
+      // storage unavailable
+    }
+  }, []);
 
   if (isLoading || dismissed || !settings) return null;
 
@@ -87,7 +106,7 @@ export default function SetPasswordBanner() {
       </Box>
       <IconButton
         size="small"
-        onClick={() => setDismissed(true)}
+        onClick={dismiss}
         aria-label="Dismiss banner"
         sx={{
           position: 'absolute',
