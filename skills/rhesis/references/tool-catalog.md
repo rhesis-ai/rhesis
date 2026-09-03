@@ -334,6 +334,8 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
 
 **Common mistakes:** Omitting `config.requirements` (rejected with "At least one requirement must be specified"), omitting `name`, omitting `test_type` for a Multi-Turn test set. If this call fails, fix the argument it names and call it again — do **not** fall back to `create_test_set_bulk`, which stores only the prompts you write by hand and produces a far smaller test set than the user asked for.
 
+**Verify afterwards:** generation can return tests attributed to requirements you did not pass. After `await_task`, run `list_test_set_tests` and confirm each test's `requirement` is one of the names in `config.requirements`. `Compliance`, `Reliability`, and `Robustness` are the seeded org defaults — seeing them when you asked for something else means the attribution is wrong, not that the tests are fine.
+
 ---
 
 ### `create_test_set_bulk`
