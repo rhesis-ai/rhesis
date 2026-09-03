@@ -32,10 +32,9 @@ DRY_RUN=0
 ONLY_SECRET_KEY=""
 MINT_VERTEX_KEY=0
 VERTEX_SA=""
-VERTEX_KEY_FILE=""
 
-# Any key material this script writes to disk must be owner-only from the moment it
-# exists, not chmod'ed afterwards.
+# Nothing here writes key material to disk (see mint_vertex_key_b64), but keep the tight
+# umask so a future change that does write a file cannot default to group/world readable.
 umask 077
 
 RED=''
@@ -181,25 +180,31 @@ if [[ "${MINT_VERTEX_KEY}" -eq 1 ]]; then
   fi
 fi
 
-cleanup_vertex_key() {
-  [[ -n "${VERTEX_KEY_FILE}" && -f "${VERTEX_KEY_FILE}" ]] || return 0
-  # shred where available; rm is the fallback and still removes the file.
-  shred -u "${VERTEX_KEY_FILE}" 2>/dev/null || rm -f "${VERTEX_KEY_FILE}"
-}
-trap cleanup_vertex_key EXIT INT TERM
-
-# VERTEX_KEY_FILE must already be set by the CALLER. This function is invoked inside a
-# command substitution to capture its stdout, and that runs in a subshell, so anything it
-# assigned would be invisible to the parent -- which is exactly how an earlier version left
-# a live private key behind in $TMPDIR: cleanup_vertex_key and the EXIT trap both saw an
-# empty path and silently did nothing.
+# Mints via the IAM REST API rather than `gcloud iam service-accounts keys create`, because
+# that command takes a file path and pre-checks write permission on it, so it cannot emit to
+# stdout. The API's privateKeyData field is already single-line base64 of the JSON key,
+# which is exactly the stored format, so the key material only ever exists in a pipe: no
+# temp file, no local base64 step, and nothing to clean up.
+#
+# That is a deliberate simplification after a bug. The previous version wrote the key to
+# mktemp and relied on an EXIT trap to shred it, but the trap saw an empty path (the
+# variable was assigned inside a command substitution, which runs in a subshell) and the dev
+# rotation left a live private key in $TMPDIR. Not writing the file removes that whole class
+# of failure instead of fixing one instance of it.
 mint_vertex_key_b64() {
-  gcloud iam service-accounts keys create "${VERTEX_KEY_FILE}" \
-    --iam-account="${VERTEX_SA}" --project="${PROJECT}" >/dev/null
-  # tr -d '\n' guards against a base64 build that line-wraps (GNU coreutils wraps at 76
-  # chars; BSD/macOS does not). upsert_secret_value pipes with printf '%s', so no newline
-  # is added on the way out either.
-  base64 < "${VERTEX_KEY_FILE}" | tr -d '\n'
+  curl -sS -X POST \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    -H "Content-Type: application/json" \
+    "https://iam.googleapis.com/v1/projects/${PROJECT}/serviceAccounts/${VERTEX_SA}/keys" \
+    -d '{"privateKeyType":"TYPE_GOOGLE_CREDENTIALS_FILE","keyAlgorithm":"KEY_ALG_RSA_2048"}' \
+    | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+if 'error' in d:
+    sys.exit('mint failed: ' + str(d['error'].get('message', ''))[:300])
+# Written with no trailing newline; upsert_secret_value pipes it with printf '%s'.
+sys.stdout.write(d['privateKeyData'])
+"
 }
 
 verify_vertex_credential() {
@@ -275,9 +280,6 @@ while read -r secret_key gsm_key; do
       continue
     fi
     echo -e "${BLUE}Mint${NC} GSM ${gsm_key} <- new key for ${VERTEX_SA}"
-    # Created here, not inside mint_vertex_key_b64: the assignment has to happen in this
-    # shell so cleanup_vertex_key and the EXIT trap can actually find the file.
-    VERTEX_KEY_FILE="$(mktemp -t vertex-key-XXXXXX.json)"
     value="$(mint_vertex_key_b64)"
   else
     value="$(
@@ -298,7 +300,6 @@ while read -r secret_key gsm_key; do
   bind_eso_accessor "${gsm_key}"
   if [[ "${MINT_VERTEX_KEY}" -eq 1 ]]; then
     verify_vertex_credential "${gsm_key}"
-    cleanup_vertex_key
   fi
   SYNCED=1
 done < <(
