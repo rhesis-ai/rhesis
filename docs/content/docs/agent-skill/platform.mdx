@@ -28,14 +28,19 @@ source, and one copy silently shadows the other.
 /plugin install rhesis@rhesis-ai`}
 </CodeBlock>
 
-**Step 2:** Set your API token, either as a shell environment variable:
+**Step 2:** The install prompts for your API token and stores it in your OS keychain, so there is
+nothing to place by hand. Generate a token at
+[app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
+
+If you skipped the prompt, set it later with:
 
 <CodeBlock language="bash">
-{`export RHESIS_API_KEY=rhs_your_token_here`}
+{`/plugin configure rhesis@rhesis-ai`}
 </CodeBlock>
 
-or in the `env` block of `~/.claude/settings.json`, which applies to every session without
-touching your shell profile:
+The server also reads `RHESIS_API_KEY` when the prompted value is unset, which suits CI and
+self-hosted setups that manage secrets elsewhere. Either export it, or put it in the `env` block of
+`~/.claude/settings.json` so it applies to every session without touching your shell profile:
 
 <CodeBlock filename="~/.claude/settings.json" language="json">
 {`{
@@ -44,6 +49,8 @@ touching your shell profile:
   }
 }`}
 </CodeBlock>
+
+Either way the token is read at session start, so a running session will not pick up a new one.
 
 **Step 3:** Restart Claude Code, then run `/mcp`. The plugin's server is listed under **Built-in
 MCPs**, named with a `plugin:` prefix rather than plain `rhesis`, with a tool count after it:
