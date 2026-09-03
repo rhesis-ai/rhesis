@@ -1,7 +1,13 @@
 """add execution_trace table
 
+RLS policies are declared explicitly below (ENABLE + FORCE +
+tenant_isolation PERMISSIVE + project_isolation RESTRICTIVE), mirroring
+449d5364b4ff_create_notification_table: the auto_apply_rls_policies
+trigger does not reliably fire for a brand-new CREATE TABLE, and
+test_rls_coverage.py replays migrations fresh.
+
 Revision ID: b7e1c9d4a2f3
-Revises: f2b3c4d5e6a7
+Revises: b258958270d0
 Create Date: 2026-08-26 00:00:00.000000
 
 """
@@ -16,7 +22,7 @@ import rhesis.backend.app.models.guid
 
 # revision identifiers, used by Alembic.
 revision: str = "b7e1c9d4a2f3"
-down_revision: Union[str, None] = "f2b3c4d5e6a7"
+down_revision: Union[str, None] = "b258958270d0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -69,6 +75,33 @@ def upgrade() -> None:
     op.create_index(op.f("ix_execution_trace_function_name"), "execution_trace", ["function_name"])
     op.create_index(op.f("ix_execution_trace_status"), "execution_trace", ["status"])
     op.create_index(op.f("ix_execution_trace_executed_at"), "execution_trace", ["executed_at"])
+
+    # RLS: tenant_isolation (PERMISSIVE, organization_id) + project_isolation
+    # (RESTRICTIVE, fail-closed on project_id) -- exact bodies duplicated from
+    # 449d5364b4ff_create_notification_table. DROP ... IF EXISTS first so this
+    # stays idempotent where the auto-apply trigger already created them.
+    op.execute("ALTER TABLE execution_trace ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE execution_trace FORCE ROW LEVEL SECURITY")
+    op.execute("DROP POLICY IF EXISTS tenant_isolation ON execution_trace")
+    op.execute(
+        """
+        CREATE POLICY tenant_isolation ON execution_trace
+            USING (organization_id = current_setting('app.current_organization')::uuid)
+        """
+    )
+    op.execute("DROP POLICY IF EXISTS project_isolation ON execution_trace")
+    op.execute(
+        """
+        CREATE POLICY project_isolation ON execution_trace
+            AS RESTRICTIVE
+            FOR ALL
+            USING (
+                project_id = NULLIF(current_setting('app.current_project', true), '')::uuid
+                OR project_id IS NULL
+                OR current_setting('app.current_organization', true) = ''
+            )
+        """
+    )
 
 
 def downgrade() -> None:
