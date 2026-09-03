@@ -43,8 +43,9 @@ config:
   authDisposableEmailExtraDomains: ""
   authDefaultSsoOrganization: ""
 
-  # GCP
-  vertexAiProject: "playground-437609"
+  # vertexAiProject is deliberately not set: it derives from the service account
+  # key delivered as GOOGLE_APPLICATION_CREDENTIALS, so rotating the key moves
+  # identity and project together. See values.yaml.
 
   # AI model — Vertex defaults in dev (GOOGLE_APPLICATION_CREDENTIALS in ESO);
   # avoids requiring RHESIS_API_KEY for rhesis/rhesis

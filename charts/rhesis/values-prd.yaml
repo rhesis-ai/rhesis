@@ -52,10 +52,14 @@ config:
   authDisposableEmailExtraDomains: ""
   authDefaultSsoOrganization: ""
 
-  # GCP
-  # TODO: migrate to rhesis-prd. Currently shared with dev for Vertex AI quota/billing.
-  # Audit logs and quota are split across projects until this is resolved.
-  vertexAiProject: "playground-437609"
+  # vertexAiProject is deliberately not set: it derives from the service account
+  # key delivered as GOOGLE_APPLICATION_CREDENTIALS, so rotating the key moves
+  # identity and project together. See values.yaml.
+  #
+  # This retires the "TODO: migrate to rhesis-prd" that sat here: prd no longer
+  # pins playground-437609, so the move happens when the key is rotated to
+  # rhesis-vertex-prd@rhesis-prd. Until that rotation, the old key still resolves
+  # to playground-437609, so removing the pin changes nothing on its own.
 
   # AI / Vertex
   defaultGenerationModel: "vertex_ai/gemini-3.1-flash-lite"

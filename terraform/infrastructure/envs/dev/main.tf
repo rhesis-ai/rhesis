@@ -64,9 +64,13 @@ module "gke_dev" {
   wireguard_cidr         = local.cidrs.wireguard.network
   # e2-medium (~940m allocatable CPU/node) cannot fit the rhesis stack (~1400m requests)
   # plus platform DaemonSets; causes OOM, probe timeouts, and failed scale-up.
-  # Match stg sizing; keep min 2 nodes so cluster-autoscaler does not pack everything on one VM.
+  #
+  # min_node_count is PER ZONE on a regional cluster, so 1 already floors this at 3 nodes,
+  # one per zone. That satisfies the "don't let the autoscaler pack everything onto one VM"
+  # concern this was previously raised to 2 for, while 2 would mean a 6-node floor. Keeping
+  # a node in every zone is also what lets pods with zonal persistent disks reschedule.
   machine_type           = "e2-standard-2"
-  min_node_count         = 2
+  min_node_count         = 1
   max_node_count         = 6
   deletion_protection    = var.gke_deletion_protection
 
@@ -94,6 +98,15 @@ module "eso_dev" {
   environment = "dev"
 
   depends_on = [module.gke_dev]
+}
+
+# Vertex AI identity owned by this project, so dev's Gemini traffic stops billing
+# into playground-437609 via the shared gemini-vertex-sa key.
+module "vertex_ai_dev" {
+  source = "../../modules/vertex-ai/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
 }
 
 module "external_dns_dev" {
