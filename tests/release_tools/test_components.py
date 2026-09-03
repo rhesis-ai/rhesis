@@ -130,3 +130,65 @@ def test_package_version_is_written_with_a_trailing_newline(tmp_path):
 
     assert json.loads(path.read_text())["version"] == "0.15.0"
     assert path.read_text().endswith("}\n")
+
+
+def _write_lock(path, version, extra=None):
+    """A minimal lockfileVersion 3 file, formatted the way npm writes one."""
+    data = {
+        "name": "frontend",
+        "version": version,
+        "lockfileVersion": 3,
+        "packages": {"": {"name": "frontend", "version": version}},
+    }
+    if extra:
+        data["packages"].update(extra)
+    path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def test_package_lock_version_is_bumped_alongside_package_json(tmp_path):
+    """A bump that skips the lockfile leaves it a release behind, per the 0.15.0 release."""
+    package_json = tmp_path / "package.json"
+    package_json.write_text(json.dumps({"name": "frontend", "version": "0.14.0"}, indent=2) + "\n")
+    lock = tmp_path / "package-lock.json"
+    _write_lock(lock, "0.14.0")
+
+    assert _update_package_version(package_json, "0.15.0", tmp_path)
+
+    data = json.loads(lock.read_text())
+    # lockfileVersion 2 and 3 carry the root version twice, and npm rewrites both.
+    assert data["version"] == "0.15.0"
+    assert data["packages"][""]["version"] == "0.15.0"
+
+
+def test_package_lock_rewrite_touches_only_the_version_fields(tmp_path):
+    """Any formatting drift here lands as churn in whichever PR next runs npm install."""
+    package_json = tmp_path / "package.json"
+    package_json.write_text(json.dumps({"name": "frontend", "version": "0.14.0"}, indent=2) + "\n")
+    lock = tmp_path / "package-lock.json"
+    _write_lock(lock, "0.14.0", extra={"node_modules/react": {"version": "19.2.1"}})
+    original = lock.read_text()
+
+    assert _update_package_version(package_json, "0.15.0", tmp_path)
+
+    assert lock.read_text() == original.replace('"0.14.0"', '"0.15.0"')
+
+
+def test_package_version_succeeds_when_there_is_no_lockfile(tmp_path):
+    """Only the frontend ships a package-lock.json, so its absence is not a failure."""
+    path = tmp_path / "package.json"
+    path.write_text(json.dumps({"name": "docs", "version": "0.14.0"}, indent=2) + "\n")
+
+    assert _update_package_version(path, "0.15.0", tmp_path)
+    assert not (tmp_path / "package-lock.json").exists()
+
+
+def test_frontend_lockfile_version_matches_package_json(repo_root):
+    """The real files: this drifted once and only showed up as noise in an unrelated PR."""
+    package_json = repo_root / COMPONENTS["frontend"].config_file
+    lock = package_json.parent / "package-lock.json"
+
+    expected = json.loads(package_json.read_text())["version"]
+    data = json.loads(lock.read_text())
+
+    assert data["version"] == expected
+    assert data["packages"][""]["version"] == expected
