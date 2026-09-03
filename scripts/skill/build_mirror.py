@@ -82,6 +82,24 @@ def build_claude_plugin() -> dict:
         # skills/ at the plugin root is scanned by default, so no `skills` field is needed.
         # .mcp.json is not at the plugin root, so that one must be declared.
         "mcpServers": "./skills/rhesis/.mcp.json",
+        # Prompts for the API key at install time and stores it in the OS keychain, so
+        # users no longer have to place it themselves. `sensitive` keeps it out of
+        # settings.json; `description` is required by the manifest schema.
+        #
+        # Deliberately not `required`: the key is also readable from RHESIS_API_KEY, and
+        # marking it required would block anyone already set up that way when the plugin
+        # updates. `.mcp.json` falls back to the environment variable.
+        "userConfig": {
+            "api_key": {
+                "type": "string",
+                "title": "Rhesis API key",
+                "description": (
+                    "Generate one at https://app.rhesis.ai/tokens. Leave blank to use the "
+                    "RHESIS_API_KEY environment variable instead."
+                ),
+                "sensitive": True,
+            }
+        },
     }
 
 

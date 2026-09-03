@@ -4,7 +4,7 @@
       "type": "http",
       "url": "${RHESIS_MCP_URL:-https://api.rhesis.ai/mcp/}",
       "headers": {
-        "Authorization": "Bearer ${RHESIS_API_KEY}"
+        "Authorization": "Bearer ${user_config.api_key:-${RHESIS_API_KEY}}"
       }
     }
   }
