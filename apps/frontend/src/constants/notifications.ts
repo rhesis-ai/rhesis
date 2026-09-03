@@ -16,6 +16,9 @@ export const NotificationSection = {
   // notification still needs a section to group and display under in the
   // notification drawer (`NotificationsDrawer.tsx`).
   USAGE: 'usage',
+  // Account-level notifications (e.g. "set a password"). Badges no nav
+  // item; the drawer links to the settings page.
+  ACCOUNT: 'account',
 } as const;
 
 export type NotificationSection =

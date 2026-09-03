@@ -54,6 +54,7 @@ const SECTION_ROUTES: Record<NotificationSection, string> = {
   [NotificationSection.TASKS]: '/tasks',
   [NotificationSection.ARCHITECT]: '/architect',
   [NotificationSection.USAGE]: '/organizations/usage',
+  [NotificationSection.ACCOUNT]: '/settings?tab=security',
 };
 
 /** The recourse link's base label, keyed by `NotificationSection` -- what a
@@ -65,6 +66,7 @@ const SECTION_LINK_LABEL: Record<NotificationSection, string> = {
   [NotificationSection.TASKS]: 'View task',
   [NotificationSection.ARCHITECT]: 'Open architect',
   [NotificationSection.USAGE]: 'Org usage',
+  [NotificationSection.ACCOUNT]: 'Go to settings',
 };
 
 function sectionLinkLabel(
