@@ -30,7 +30,37 @@ peering config. Those are adopted by `import` blocks in `envs/prd/main.tf`. If a
 environment plans more than the Vertex resources plus `local_file.cluster_env_<env>`, stop
 and reconcile before applying rather than pushing through.
 
-### 2. Check the models exist in the new project
+### 2a. Confirm the cluster actually derives the project from the key
+
+**Stop here unless this prints an empty value.** This is the single check that would have
+prevented the 2026-09-03 prd incident, and it costs one command:
+
+```bash
+CTX=connectgateway_rhesis-dev-494712_global_dev
+kubectl --context="$CTX" -n rhesis get configmap rhesis-config \
+  -o jsonpath='{.data.VERTEX_AI_PROJECT}'; echo "  <- must be empty"
+```
+
+Empty means the SDK takes the project from the credential (step 4), so the key is the single
+source of truth and the two halves cannot drift apart. A **non-empty** value means the cluster is
+still running an older render of `values-<env>.yaml` that pins `vertexAiProject`. Rotating the key
+then puts the new service account against the old project and every Vertex call returns:
+
+```
+Permission 'aiplatform.endpoints.predict' denied on resource
+'projects/<old-project>/locations/eu/publishers/google/models/...'
+```
+
+That is what happened to prd: its ArgoCD apps are pinned to a **commit**, not a branch, so the
+merged chart change never reached the cluster while dev and stg picked it up. Merging is not
+deploying. If the value is non-empty, confirm the app is on a revision that includes the change:
+
+```bash
+kubectl --context="$CTX" -n argocd get application rhesis \
+  -o jsonpath='{.spec.source.targetRevision}{"  "}{.status.sync.status}{"\n"}'
+```
+
+### 2b. Check the models exist in the new project
 
 Model availability is per project and per location, so confirm before cutting over. Note
 `VERTEX_AI_LOCATION` is `eu` (a multi-region), not `europe-west4`, while
@@ -119,48 +149,98 @@ step 3 and the per-project billing breakdown, not with a pinned value.
 ESO has `refreshInterval: 1h`, and the secret reaches pods via `secretRef envFrom`, so env
 vars are fixed at pod start. Both a resync and a restart are needed:
 
+Resync first, and **confirm the Kubernetes Secret actually changed before restarting** —
+restarting early just brings pods up on the old credential and teaches you nothing:
+
 ```bash
 CTX=connectgateway_rhesis-dev-494712_global_dev
 kubectl --context="${CTX}" -n rhesis annotate externalsecret rhesis-app-secrets \
   force-sync="$(date +%s)" --overwrite
+
+kubectl --context="${CTX}" -n rhesis get secret rhesis-app-secrets \
+  -o jsonpath='{.data.GOOGLE_APPLICATION_CREDENTIALS}' | base64 -d \
+  | python3 -c "import sys,base64,json; d=json.loads(base64.b64decode(sys.stdin.read().strip(),validate=True)); print(d['client_email'],'->',d['project_id'])"
+
 kubectl --context="${CTX}" -n rhesis rollout restart \
   deploy/backend deploy/worker-default deploy/chatbot deploy/polyphemus
 ```
 
 Deployment names are `backend`, `chatbot`, `docs`, `frontend`, `otel-collector`, `polyphemus`,
-`telemetry-processor`, `worker-default`. Every one of them receives `rhesis-app-secrets` via
-`envFrom`, but only the four above are expected to call Vertex; confirm against the new
-project's invocation metric and widen the restart if any traffic is missing.
+`telemetry-processor`, `worker-default`. Every one receives `rhesis-app-secrets` via `envFrom`,
+but only the four above call Vertex. `apps/worker` has no model references of its own, yet it
+imports `rhesis.backend.worker` and runs `rhesis.backend.jobs.*`, so it executes the backend's
+Vertex code and must be restarted.
+
+Expect this to be slow on a busy cluster: on stg the restart triggered a node scale-up and an
+8 minute image pull. Old pods keep serving throughout, so that is slow rather than an outage.
+
+Then check **every pod**, not `kubectl exec deploy/<name>`. That form picks a single pod, and on
+2026-09-03 it hit a fresh one while a pod from the previous ReplicaSet was still serving the old
+credential — the rollout looked complete when a third of requests were still failing:
+
+```bash
+for p in $(kubectl --context="${CTX}" -n rhesis get pods -o name | sed 's|pod/||' \
+           | grep -E "^(backend|worker-default|chatbot|polyphemus)-"); do
+  printf "%-34s " "$p"
+  kubectl --context="${CTX}" -n rhesis exec "$p" -- printenv GOOGLE_APPLICATION_CREDENTIALS 2>/dev/null \
+    | python3 -c "import sys,base64,json; d=json.loads(base64.b64decode(sys.stdin.read().strip(),validate=True)); print(d['client_email'].split('@')[0],'->',d['project_id'])"
+done
+```
 
 ### 6. Verify, then move on
 
-Confirm calls now bill to the new project and are succeeding:
+First check for the failure this whole sequence guards against. A non-zero count here, with the
+**old** project in the message, means the credential and `VERTEX_AI_PROJECT` disagree: step 2a was
+skipped, or the chart change is not deployed:
 
 ```bash
-gcloud logging read 'protoPayload.serviceName="aiplatform.googleapis.com"' \
-  --project="${PROJECT}" --freshness=15m --limit=5
+kubectl --context="${CTX}" -n rhesis logs deploy/backend --since=5m --tail=400 \
+  | grep -c "aiplatform.endpoints.predict"     # must be 0
 ```
 
-The authoritative signal is the metric
-`aiplatform.googleapis.com/publisher/online_serving/model_invocation_count` in the **new**
-project starting to record invocations while the old project's goes quiet. Billing export
-confirms it a day later.
+Then confirm traffic moved. The authoritative signal is the metric
+`aiplatform.googleapis.com/publisher/online_serving/model_invocation_count` in the **new** project
+starting to record invocations while the old project's goes quiet. Billing export confirms it a
+day later.
+
+These workloads are bursty and idle for long stretches, so an empty metric is not evidence of
+failure — wait for a burst. The stronger immediate signal is the per-pod check in step 5, since
+env vars are fixed at pod start: if every pod holds the new credential, nothing can reach the old
+project regardless of what the metric has recorded yet.
 
 ## Rollback
 
-One command, because the project follows the key. Secret Manager's `latest` resolves to the
-newest *enabled* version, so disabling the version you just added reverts to the previous
-key, and the project reverts with it:
+**Do not use `gcloud secrets versions disable`.** Secret Manager's `latest` points at the
+highest version *number* regardless of state, so disabling the version you just added does not
+fall back to the previous one: it makes the secret unreadable.
+
+```
+gcloud secrets versions disable 2   ->  2 disabled, 1 enabled
+gcloud secrets versions access latest
+    ERROR: FAILED_PRECONDITION: Secret Version [...] 
+```
+
+Destroying the version does not help either; `latest` still resolves to it. An earlier version
+of this README claimed `latest` skipped disabled versions and recommended `disable` as a
+one-command rollback. That was wrong, and following it during the 2026-09-03 prd incident turned a
+broken credential into an unreadable secret.
+
+Roll back by adding a **new** version holding the old value, copied from the last known-good
+version so the key never touches disk:
 
 ```bash
 ENV=dev
 PROJECT=rhesis-dev-494712
-gcloud secrets versions disable <new-version> \
-  --secret="${ENV}-rhesis-google-application-credentials" --project="${PROJECT}"
+S="${ENV}-rhesis-google-application-credentials"
+GOOD=<last known-good version number>
+
+gcloud secrets versions access "${GOOD}" --secret="$S" --project="$PROJECT" \
+  | tr -d '\n' \
+  | gcloud secrets versions add "$S" --project="$PROJECT" --data-file=-
 # then force-sync and restart as in step 5
 ```
 
-No need to re-upload the old key, and no chart revert.
+No chart revert is needed, because the project follows the key.
 
 Do **not** disable `aiplatform.googleapis.com` in `playground-437609` as a rollback step.
 That is what caused the 2026-09-02 outage: all three environments authenticate into that
