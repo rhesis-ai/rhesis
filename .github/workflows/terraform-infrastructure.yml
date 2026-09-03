@@ -16,10 +16,16 @@ on:
         options: [plan, apply]
         default: plan
       wireguard_envs:
-        description: 'Admin project only: enabled environments (JSON array, e.g. ["dev"] or ["dev","stg"])'
+        # Defaults to all three because this input is DESTRUCTIVE when it under-reports:
+        # omitting an environment destroys its VPC peering, drops its BIND9 zone, and (for
+        # prd) removes the WireGuard VM's cross-project NIC, which forces VM recreation.
+        # The old '["dev"]' default meant an admin/wireguard apply dispatched without
+        # touching this field would have cut our own access to stg and prd.
+        # Narrow it only for a genuine bootstrap where an env's remote state does not exist.
+        description: 'Admin project only: enabled environments. Narrow ONLY for bootstrap -- omitting an env destroys its peering and DNS.'
         required: false
         type: string
-        default: '["dev"]'
+        default: '["dev","stg","prd"]'
 
   push:
     branches: [main, 'v*']

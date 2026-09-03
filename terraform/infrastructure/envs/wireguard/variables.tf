@@ -21,9 +21,18 @@ variable "state_bucket" {
 }
 
 variable "enabled_environments" {
-  description = "Which environments to peer with and configure BIND9 for"
+  description = <<-EOT
+    Which environments to peer with and configure BIND9 for. Defaults to everything that
+    actually exists, because this list is destructive when it under-reports: anything omitted
+    has its peering destroyed, its BIND9 zone dropped, and (for prd) the WireGuard VM's
+    cross-project NIC removed, which forces instance recreation.
+
+    Narrow it only for a genuine bootstrap, where an environment's remote state does not yet
+    exist. All three have existed since 2026-07, so the incremental-rollout case this was
+    written for is spent.
+  EOT
   type        = list(string)
-  default     = ["dev", "stg"]
+  default     = ["dev", "stg", "prd"]
 
   validation {
     condition     = alltrue([for e in var.enabled_environments : contains(["dev", "stg", "prd"], e)])
