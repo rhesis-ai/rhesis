@@ -20,20 +20,20 @@ The **Rhesis agent skill** (`rhesis`) packages platform knowledge into one porta
 The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
 
 <CodeBlock language="bash">
-{`npx skills add rhesis-ai/rhesis`}
+{`npx skills add rhesis-ai/skills`}
 </CodeBlock>
 
 The CLI detects your installed agents and asks where to place the skill. Add `-g` for a global install, or omit it for a project-level install.
 
 <CodeBlock language="bash">
 {`# Global install — available in all projects
-npx skills add rhesis-ai/rhesis -g
+npx skills add rhesis-ai/skills -g
 
 # Install only for selected agents
-npx skills add rhesis-ai/rhesis -a cursor -a claude-code -g
+npx skills add rhesis-ai/skills -a cursor -a claude-code -g
 
 # Preview install targets without writing files
-npx skills add rhesis-ai/rhesis --list`}
+npx skills add rhesis-ai/skills --list`}
 </CodeBlock>
 
 After installing the skill, connect the MCP server for your specific agent. The skill instructions and MCP connection are separate for most agents.
@@ -45,7 +45,7 @@ Claude Code uses a plugin system that bundles the skill and MCP server configura
 **Step 1:** Add the Rhesis marketplace and install the plugin:
 
 <CodeBlock language="bash">
-{`/plugin marketplace add rhesis-ai/rhesis
+{`/plugin marketplace add rhesis-ai/skills
 /plugin install rhesis@rhesis-ai`}
 </CodeBlock>
 
@@ -60,7 +60,7 @@ The plugin reads `RHESIS_API_KEY` automatically. On next session start, the `rhe
 **Self-hosted backend:**
 
 <CodeBlock language="bash">
-{`export RHESIS_MCP_URL=http://localhost:8080/mcp
+{`export RHESIS_MCP_URL=http://localhost:8080/mcp/
 export RHESIS_API_KEY=your_local_token`}
 </CodeBlock>
 
@@ -74,7 +74,7 @@ Add the following to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` 
 {`{
   "mcpServers": {
     "rhesis": {
-      "url": "https://api.rhesis.ai/mcp",
+      "url": "https://api.rhesis.ai/mcp/",
       "headers": {
         "Authorization": "Bearer YOUR_RHESIS_API_KEY"
       }
@@ -85,14 +85,14 @@ Add the following to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` 
 
 Replace `YOUR_RHESIS_API_KEY` with your actual token. Restart Cursor after editing.
 
-For self-hosted backends, replace `https://api.rhesis.ai/mcp` with `http://localhost:8080/mcp`.
+For self-hosted backends, replace `https://api.rhesis.ai/mcp/` with `http://localhost:8080/mcp/`.
 
 ### Install the skill
 
 Use the universal installer:
 
 <CodeBlock language="bash">
-{`npx skills add rhesis-ai/rhesis -a cursor -g`}
+{`npx skills add rhesis-ai/skills -a cursor -g`}
 </CodeBlock>
 
 Cursor loads the skill automatically on the next session. If you prefer a project-level install, omit `-g` and run the command from the project where the skill should be available.
@@ -148,7 +148,7 @@ Use the native Architect for maximum structural control. Use this skill when you
 **MCP server not connecting**
 
 - Verify your API token is valid and has not expired — regenerate at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- Test connectivity: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp`
+- Test connectivity: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp/`
 - In Cursor, restart the IDE after editing `.cursor/mcp.json`
 
 **Skill not activating (Cursor)**
