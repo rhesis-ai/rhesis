@@ -45,8 +45,8 @@ touching your shell profile:
 }
 ```
 
-Restart Claude Code and run `/mcp`. Under the built-in servers you should see `rhesis` connected,
-with a tool count after it:
+Restart Claude Code and run `/mcp`. The plugin's server is listed under **Built-in MCPs**, named
+with a `plugin:` prefix rather than plain `rhesis`, with a tool count after it:
 
 ```
 plugin:rhesis:rhesis · ✔ connected · 52 tools
