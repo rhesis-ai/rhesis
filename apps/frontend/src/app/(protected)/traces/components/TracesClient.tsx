@@ -5,12 +5,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Alert, Box, Typography } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceDrawer from './TraceDrawer';
+import TraceMetricsSummary from './TraceMetricsSummary';
 import { useList } from '@/hooks/useList';
 import { tracesList } from './list';
 import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import {
+  buildTraceQueryParams,
   EMPTY_TRACE_DRAWER_FILTERS,
   hasActiveTraceDrawerFilters,
   sanitizeTraceDrawerFiltersForTestRunScope,
@@ -192,6 +194,26 @@ export default function TracesClient({
   const showFilteredEmpty =
     !listLoading && traces.length === 0 && totalCount === 0;
 
+  // GET /telemetry/metrics only narrows by project, environment and time, so any
+  // other active filter makes the rollup broader than the listed rows. Tell it,
+  // rather than letting the two silently disagree.
+  const rollupProjectId = drawerFilters.projectId || scopedProjectId;
+  const hasUnsupportedRollupFilters = Boolean(
+    searchQuery.trim() ||
+    (typeFilter && typeFilter !== 'all') ||
+    drawerFilters.endpointId ||
+    drawerFilters.traceSource ||
+    drawerFilters.traceMetricsStatus ||
+    drawerFilters.testRunId ||
+    drawerFilters.testResultId ||
+    drawerFilters.testId ||
+    fixedTestRunId
+  );
+  const rollupTimeParams = useMemo(
+    () => buildTraceQueryParams(drawerFilters, '', 'all'),
+    [drawerFilters]
+  );
+
   return (
     <>
       {error && (
@@ -199,6 +221,15 @@ export default function TracesClient({
           {error}
         </Alert>
       )}
+
+      <TraceMetricsSummary
+        projectId={rollupProjectId}
+        environment={drawerFilters.environment ?? undefined}
+        startTimeAfter={rollupTimeParams.start_time_after}
+        startTimeBefore={rollupTimeParams.start_time_before}
+        hasUnsupportedFilters={hasUnsupportedRollupFilters}
+        refreshTrigger={refreshTrigger}
+      />
 
       <TracesTable
         traces={traces}

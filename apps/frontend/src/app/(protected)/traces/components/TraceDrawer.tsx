@@ -25,6 +25,11 @@ import {
   toMentionId,
 } from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
+import {
+  formatCost,
+  formatTokenCount,
+  tokenSplitLabel,
+} from '@/utils/trace-utils';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { experimentHref } from '@/utils/experiment-links';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
@@ -603,6 +608,21 @@ export default function TraceDrawer({
             <GridBadge label={`${trace.span_count} spans`} size="grid" />
             <GridBadge label={formatDuration(trace.duration_ms)} size="grid" />
             <GridBadge label={trace.environment} size="grid" />
+            {trace.total_tokens > 0 && (
+              <GridBadge
+                label={`${formatTokenCount(trace.total_tokens)} tokens`}
+                size="grid"
+                // Native title rather than MUI Tooltip: GridBadge is not a
+                // forwardRef component, so Tooltip cannot anchor to it.
+                title={tokenSplitLabel(
+                  trace.total_input_tokens,
+                  trace.total_output_tokens
+                )}
+              />
+            )}
+            {trace.total_cost_usd > 0 && (
+              <GridBadge label={formatCost(trace.total_cost_usd)} size="grid" />
+            )}
             {trace.error_count > 0 && (
               <GridBadge
                 label={`${trace.error_count} errors`}

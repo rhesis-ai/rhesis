@@ -94,6 +94,66 @@ export function formatTokenCount(tokens: number): string {
   return tokens.toLocaleString();
 }
 
+export interface SpanUsage {
+  input: number;
+  output: number;
+  total: number;
+  costUsd: number | null;
+}
+
+/**
+ * Token counts and cost for one span, or null when it has neither.
+ *
+ * Tokens come off the raw span attributes; cost comes from `cost_usd`, which the
+ * backend fills in from the enrichment breakdown -- the attributes never carry a
+ * price. Most spans (tool calls, function spans) have neither, and an empty
+ * "Usage" block on every span is noise, hence the null.
+ */
+export function spanUsage(span: SpanNode): SpanUsage | null {
+  const attrs = span.attributes ?? {};
+  const asCount = (value: unknown): number => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  };
+
+  const input = asCount(attrs['ai.llm.tokens.input']);
+  const output = asCount(attrs['ai.llm.tokens.output']);
+  // Reported rather than derived: Google ADK folds cache-read tokens into its
+  // total, so input + output can fall short of it.
+  const reportedTotal = asCount(attrs['ai.llm.tokens.total']);
+  const total = reportedTotal > 0 ? reportedTotal : input + output;
+  const costUsd =
+    typeof span.cost_usd === 'number' && span.cost_usd > 0
+      ? span.cost_usd
+      : null;
+
+  if (total === 0 && costUsd === null) {
+    return null;
+  }
+
+  return { input, output, total, costUsd };
+}
+
+/**
+ * Input/output tokens as two separate figures, deliberately not presented as a
+ * breakdown of the total: Google ADK folds cache-read tokens into the total it
+ * reports, so input + output legitimately falls short of it.
+ *
+ * Returns undefined when neither figure is known, so the caller renders no
+ * tooltip rather than an empty one.
+ */
+export function tokenSplitLabel(
+  inputTokens: number | null | undefined,
+  outputTokens: number | null | undefined
+): string | undefined {
+  const input = inputTokens ?? 0;
+  const output = outputTokens ?? 0;
+  if (input === 0 && output === 0) {
+    return undefined;
+  }
+  return `${formatTokenCount(input)} input \u00b7 ${formatTokenCount(output)} output`;
+}
+
 /**
  * Get span type from span name
  * Returns human-readable type label
