@@ -18,6 +18,7 @@ from rhesis.backend.jobs.execution.shared import (
     create_execution_result,
     create_failure_result,
     is_task_revoked,
+    run_on_thread_loop,
     trigger_results_collection,
     update_test_run_start,
 )
@@ -163,7 +164,7 @@ def execute_tests_sequentially(
             )
 
     # Cooperative cancellation: checked once per test, the only safe point in
-    # a loop that otherwise blocks on a synchronous asyncio.run() per test.
+    # a loop that otherwise blocks on a synchronous run_on_thread_loop() per test.
     # Same revoke set the batch runner polls, populated by revoke() from
     # either the test-run cancel endpoint or the job cancel endpoint.
     celery_task_id = (test_run.attributes or {}).get("task_id")
@@ -188,9 +189,7 @@ def execute_tests_sequentially(
                 logger.debug("on_test_phase(generating) failed", exc_info=True)
 
         try:
-            import asyncio
-
-            result = asyncio.run(
+            result = run_on_thread_loop(
                 execute_test(
                     db=session,
                     test_config_id=str(test_config.id),

@@ -71,7 +71,7 @@ ALLOWED_SITES: frozenset[tuple[str, int]] = frozenset(
         ("apps/backend/src/rhesis/backend/app/services/experiment.py", 208),
         # auth_token_project_id is a UUID project reference, not a secret token;
         # comparing it to another project UUID is safe (no timing oracle risk)
-        ("apps/backend/src/rhesis/backend/app/services/connector/manager.py", 1005),
+        ("apps/backend/src/rhesis/backend/app/services/connector/manager.py", 1033),
     }
 )
 

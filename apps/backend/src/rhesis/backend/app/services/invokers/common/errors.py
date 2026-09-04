@@ -148,6 +148,22 @@ _TRANSIENT_ERROR_TYPES = frozenset(
         "websocket_error",
         "timeout_error",
         "connection_error",
+        # These two mean the request never reached the SDK: the send failed, or
+        # no connection was available. Retrying is the first real delivery, so it
+        # is safe whatever the endpoint does. Left permanent, a single blip became
+        # a permanently failed test -- invoke_with_retry skipped it, and the batch
+        # recovery round skipped it too because it reports status="endpoint_error"
+        # rather than "failed".
+        #
+        # ``sdk_timeout`` is deliberately NOT here. A timeout means we stopped
+        # waiting, not that the function did not run: the SDK may have completed
+        # it and missed the window. Retrying would invoke a stateful endpoint a
+        # second time -- a multi-turn agent would replay a turn into a
+        # conversation that already advanced -- and we cannot assume an arbitrary
+        # user endpoint is idempotent. Genuine timeouts are also rare now that a
+        # full Redis pool no longer discards responses.
+        "sdk_send_failed",
+        "sdk_disconnected",
     }
 )
 

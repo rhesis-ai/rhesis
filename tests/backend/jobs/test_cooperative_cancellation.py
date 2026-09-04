@@ -133,7 +133,7 @@ class TestBatchSkipsCollectionOnCancellation:
             ),
             patch("rhesis.backend.jobs.execution.shared.update_test_run_start"),
             patch("rhesis.backend.jobs.execution.batch.run_batch", return_value=MagicMock()),
-            patch("rhesis.backend.jobs.execution.batch._run_async", return_value=results),
+            patch("rhesis.backend.jobs.execution.batch.run_on_thread_loop", return_value=results),
             patch("rhesis.backend.jobs.execution.batch._persist_failed_results"),
             patch("rhesis.backend.jobs.execution.batch._mark_test_run_cancelled") as mock_mark,
             patch(

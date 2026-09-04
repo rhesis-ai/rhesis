@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import random
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
@@ -29,6 +30,13 @@ from rhesis.backend.app.services.connector.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Routing/connection keys are written with a 30s TTL, so a heartbeat must refresh
+# well inside that. Jitter only ever SHORTENS the wait (never lengthens it), which
+# de-synchronises the per-connection loops without risking key expiry: the slowest
+# possible tick stays at the full interval.
+_HEARTBEAT_INTERVAL = 10
+_HEARTBEAT_JITTER = 0.3
 
 _EXECUTE_TEST_EXTRA_KEYS = frozenset(
     {
@@ -245,13 +253,20 @@ class ConnectionManager:
     async def _heartbeat_loop(self, connection_id: str) -> None:
         """Refresh Redis keys for a connection and its project routes.
 
-        Runs every 10 s while the connection is alive.  Refreshes the
-        connection-level key (``ws:conn:{connection_id}``) and every
-        project routing key registered through this connection.
+        Runs roughly every ``_HEARTBEAT_INTERVAL`` seconds while the connection is
+        alive. Refreshes the connection-level key (``ws:conn:{connection_id}``) and
+        every project routing key registered through this connection.
+
+        The interval is jittered because there is one of these loops per connected
+        SDK. Sleeping a fixed 10s makes every loop that started together stay in
+        lockstep forever, so with tens of endpoints -- which is what happens when
+        they all reconnect after a backend restart -- each tick fires a synchronised
+        burst of setex calls that saturates the Redis pool and queues test-result
+        publishing behind it. Spreading them keeps the load flat.
         """
         try:
             while connection_id in self._connections:
-                await asyncio.sleep(10)
+                await asyncio.sleep(_HEARTBEAT_INTERVAL * random.uniform(1 - _HEARTBEAT_JITTER, 1))
 
                 if connection_id not in self._connections:
                     break
@@ -602,6 +617,15 @@ class ConnectionManager:
                     exc_info=True,
                 )
 
+        # No local waiter means nothing ever reads this back out of the dict: the
+        # worker waits over Redis, and the publish task holds its own reference to
+        # ``result``. Discard here rather than inside that task so the entry cannot
+        # outlive a scheduling failure, an unavailable Redis, or a failed publish --
+        # ``cleanup_test_result`` is only ever reached from the local-WebSocket path,
+        # so anything left here leaks the full payload for the life of the process.
+        if event is None:
+            self._test_results.pop(test_run_id, None)
+
     async def _publish_rpc_response(self, run_id: str, result: Dict[str, Any]) -> None:
         """Publish RPC response to Redis for cross-instance waiters."""
         try:
@@ -638,6 +662,10 @@ class ConnectionManager:
                     f"Failed to publish metric RPC response: {e}",
                     exc_info=True,
                 )
+
+        # See _resolve_test_result: with no local waiter this entry is unreachable.
+        if event is None:
+            self._metric_results.pop(metric_run_id, None)
 
     def get_metric_result(self, metric_run_id: str) -> Optional[Dict[str, Any]]:
         """Get metric result if available (non-destructive)."""

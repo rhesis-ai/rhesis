@@ -75,6 +75,49 @@ class TestClassifyErrorResponse:
         err = classify_error_response(resp)
         assert err.transient is True
 
+    @pytest.mark.parametrize(
+        "error_type",
+        ["sdk_send_failed", "sdk_disconnected"],
+    )
+    def test_undelivered_sdk_requests_are_transient(self, error_type):
+        """Neither reached the SDK, so retrying is the first real delivery.
+
+        Left permanent, one blip became a permanently failed test: the retry
+        skipped it and the batch recovery round skipped it too.
+        """
+        resp = ErrorResponse(
+            output="SDK error",
+            error_type=error_type,
+            message="transport-level failure",
+        )
+        err = classify_error_response(resp)
+        assert err.transient is True
+        assert err.error_type == error_type
+
+    def test_sdk_timeout_is_not_retried(self):
+        """A timeout means we stopped waiting, not that the function did not run.
+
+        The SDK may have completed the call and missed the window, so retrying
+        would invoke a stateful endpoint twice. A multi-turn agent would replay a
+        turn into a conversation that has already advanced, and we cannot assume
+        an arbitrary user endpoint is idempotent.
+        """
+        resp = ErrorResponse(
+            output="SDK function execution timed out",
+            error_type="sdk_timeout",
+            message="Function did not respond within 120.0 seconds",
+        )
+        assert classify_error_response(resp).transient is False
+
+    def test_sdk_function_error_stays_permanent(self):
+        """The SDK function itself raising is the target's answer, not transport."""
+        resp = ErrorResponse(
+            output="SDK function error: rejected by policy",
+            error_type="sdk_function_error",
+            message="rejected by policy",
+        )
+        assert classify_error_response(resp).transient is False
+
 
 class TestInvokeWithRetry:
     @pytest.mark.asyncio
@@ -98,7 +141,9 @@ class TestInvokeWithRetry:
             call_count += 1
             if call_count < 3:
                 raise EndpointInvocationError(
-                    "gateway timeout", transient=True, status_code=504,
+                    "gateway timeout",
+                    transient=True,
+                    status_code=504,
                 )
             return {"output": "ok"}
 
@@ -113,7 +158,9 @@ class TestInvokeWithRetry:
         async def _factory():
             calls.append(1)
             raise EndpointInvocationError(
-                "bad request", transient=False, status_code=400,
+                "bad request",
+                transient=False,
+                status_code=400,
             )
 
         with pytest.raises(EndpointInvocationError) as exc_info:
@@ -129,7 +176,9 @@ class TestInvokeWithRetry:
         async def _factory():
             calls.append(1)
             raise EndpointInvocationError(
-                "always fails", transient=True, status_code=503,
+                "always fails",
+                transient=True,
+                status_code=503,
             )
 
         with pytest.raises(EndpointInvocationError) as exc_info:

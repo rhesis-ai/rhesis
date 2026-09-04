@@ -169,9 +169,18 @@ def summarize_endpoint_failure(result: Union[Dict, Any]) -> Optional[Dict[str, A
         return None
 
     status_code = get_http_error_status_code(result)
-    message = truncate_for_narration(
-        str(details.get("output") or details.get("message") or "").strip()
-    )
+    output = str(details.get("output") or "").strip()
+    detail = str(details.get("message") or "").strip()
+    # ``output`` names the failure, ``message`` carries the cause. Taking only ``output``
+    # collapsed every connector fault into one opaque line: the five distinct reasons an
+    # SDK send can fail all read "Failed to send request to SDK", so the actual cause
+    # ("Event loop is closed") reached neither the UI nor the activity log. REST already
+    # folds its detail into ``output``, hence the containment check rather than always
+    # appending.
+    message = output or detail
+    if output and detail and detail not in output:
+        message = f"{output}: {detail}"
+    message = truncate_for_narration(message)
 
     label = f"HTTP {status_code}" if status_code is not None else "an error"
     summary = f"Endpoint returned {label}"

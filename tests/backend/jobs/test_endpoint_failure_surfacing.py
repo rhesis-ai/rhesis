@@ -417,6 +417,33 @@ class TestActivityLogNarration:
     def test_returns_none_for_a_successful_result(self):
         assert summarize_endpoint_failure({"output": "the model answered"}) is None
 
+    def test_connector_cause_is_kept_not_swallowed_by_the_headline(self):
+        """``output`` names the failure, ``message`` says why.
+
+        All five reasons an SDK send can fail share the headline "Failed to send
+        request to SDK", so dropping ``message`` made them indistinguishable in the
+        UI and the activity log. A real run failed on "Event loop is closed" and
+        nobody could see it.
+        """
+        response = ErrorResponse(
+            output="Failed to send request to SDK",
+            error=True,
+            error_type="sdk_send_failed",
+            message="Event loop is closed",
+        )
+        summary = summarize_endpoint_failure(process_endpoint_result(response))
+
+        assert summary is not None
+        assert "Failed to send request to SDK" in summary["message"]
+        assert "Event loop is closed" in summary["message"]
+
+    def test_cause_is_not_duplicated_when_the_headline_already_contains_it(self):
+        """REST folds its detail into ``output``; appending would repeat it."""
+        summary = summarize_endpoint_failure(process_endpoint_result(_http_400_error_response()))
+
+        assert summary is not None
+        assert summary["message"].count("HTTP 400 error from endpoint") == 1
+
     def test_a_huge_response_body_is_capped(self):
         """A target may answer a 4xx with an HTML error page or an echoed payload. Each
         narrated test becomes an ActivityLog row on an unbounded Text column, so the

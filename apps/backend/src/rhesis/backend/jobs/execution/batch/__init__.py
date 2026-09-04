@@ -10,9 +10,7 @@ Public API:
     ExecutionContext         — re-exported for type hints
 """
 
-import asyncio
 import logging
-import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -31,29 +29,11 @@ from rhesis.backend.jobs.execution.batch.profiling import (
     log_batch_report,
 )
 from rhesis.backend.jobs.execution.batch.runner import run_batch
+from rhesis.backend.jobs.execution.shared import run_on_thread_loop
 
 __all__ = ["execute_tests_as_batch", "ExecutionContext"]
 
 logger = logging.getLogger(__name__)
-
-# Per-thread event loop, reused across tasks in the same Celery worker thread.
-# asyncio.run() creates and destroys a loop each invocation; LiteLLM's internal
-# LoggingWorker spawns background tasks on the loop that are destroyed mid-flight
-# when the loop closes, producing "Task was destroyed but it is pending!" warnings
-# and potentially dropping logging callbacks.  Reusing a loop per thread keeps
-# those background tasks alive for the thread's lifetime.
-# Thread-local (not process-global) so it is safe under --pool threads.
-_thread_local = threading.local()
-
-
-def _run_async(coro):
-    """Run a coroutine on the calling thread's persistent event loop."""
-    loop = getattr(_thread_local, "loop", None)
-    if loop is None or loop.is_closed():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        _thread_local.loop = loop
-    return loop.run_until_complete(coro)
 
 
 def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any]]) -> None:
@@ -225,7 +205,7 @@ def execute_tests_as_batch(
 
     # Phase 2: Async execution (DB-free, uses deferred tracing).
     test_ids = [str(t.id) for t in tests if str(t.id) in ctx.test_data]
-    results = _run_async(
+    results = run_on_thread_loop(
         run_batch(
             ctx,
             test_ids,

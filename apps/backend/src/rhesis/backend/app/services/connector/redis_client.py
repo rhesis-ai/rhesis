@@ -1,6 +1,7 @@
 """Redis client for SDK RPC communication between workers and backend."""
 
 import logging
+import os
 import time
 
 import redis.asyncio as redis
@@ -24,6 +25,87 @@ _HEALTH_CHECK_INTERVAL_SECONDS = 30
 
 # Per-command reconnect attempts on a dropped connection.
 _COMMAND_RETRIES = 3
+
+# Ceiling on pooled connections, per backend process.
+#
+# With tens of connected SDKs the pool saturates to whatever ceiling it is given:
+# one heartbeat loop per connection (manager.py:180) plus a publish burst
+# comfortably exceeds it, so the headroom is genuinely used rather than idle.
+# Measured at 100 endpoints and 1000 concurrent publishes: zero loss at both 16
+# and 32, p95 ~40ms, and the pool pinned at its ceiling in every case. 32 is
+# chosen for headroom, not throughput; it costs 32 sockets per pod against a
+# default Valkey maxclients of 10000.
+#
+# Do not lower it towards the number of *blocking* consumers (the blpop RPC
+# listener, heartbeat bursts): at 3 the pool starves completely and publishes
+# are dropped. Raising it far past 32 showed no measured benefit, and a large
+# non-blocking pool was actually slower because opening connections is not free.
+_DEFAULT_MAX_CONNECTIONS = 32
+
+# Floor enforced below. Measured: at 3 the pool starves completely and drops
+# responses, and the drop is silent (the publish fails, the worker waits out its
+# 120s timeout and blames the endpoint). Too nasty to leave to a typo in an env var.
+_MIN_MAX_CONNECTIONS = 16
+
+
+def _resolve_max_connections() -> int:
+    """Read the ceiling from the environment, refusing to go below the floor."""
+    raw = os.getenv("REDIS_MAX_CONNECTIONS")
+    if raw is None:
+        return _DEFAULT_MAX_CONNECTIONS
+    try:
+        requested = int(raw)
+    except ValueError:
+        logger.warning(
+            f"REDIS_MAX_CONNECTIONS={raw!r} is not an integer; using {_DEFAULT_MAX_CONNECTIONS}"
+        )
+        return _DEFAULT_MAX_CONNECTIONS
+    if requested < _MIN_MAX_CONNECTIONS:
+        logger.warning(
+            f"REDIS_MAX_CONNECTIONS={requested} is below the safe floor of "
+            f"{_MIN_MAX_CONNECTIONS}; clamping. Below the floor the pool starves "
+            f"behind the blpop listener and heartbeats, and SDK test results are "
+            f"silently dropped."
+        )
+        return _MIN_MAX_CONNECTIONS
+    return requested
+
+
+_MAX_CONNECTIONS = _resolve_max_connections()
+
+# How long a caller waits for a free connection before giving up. Bursts should
+# queue for microseconds; this only trips if the pool is genuinely saturated.
+_POOL_TIMEOUT_SECONDS = 5
+
+
+def create_client(redis_url: str) -> redis.Redis:
+    """Build the pooled Redis client for SDK RPC.
+
+    BlockingConnectionPool, not the default pool: the default RAISES
+    ``ConnectionError("Too many connections")`` the moment the pool is full, and
+    ``retry_on_error`` does NOT cover it because redis-py acquires the connection
+    before its retry wrapper. That turned a burst of concurrent test results into
+    "Failed to publish RPC response: Too many connections", losing the response so
+    the worker stalled the full SDK_FUNCTION_TIMEOUT (120s) and reported a bogus
+    endpoint timeout. Blocking makes an over-capacity burst wait instead of vanish.
+
+    Opens no socket; the caller pings to verify reachability.
+    """
+    pool = redis.BlockingConnectionPool.from_url(
+        redis_url,
+        max_connections=_MAX_CONNECTIONS,
+        timeout=_POOL_TIMEOUT_SECONDS,
+        decode_responses=True,
+        encoding="utf-8",
+        health_check_interval=_HEALTH_CHECK_INTERVAL_SECONDS,
+        socket_keepalive=True,
+        retry=Retry(ExponentialBackoff(cap=1.0, base=0.05), _COMMAND_RETRIES),
+        # Without retry_on_error redis-py raises a dropped connection at the
+        # call site instead of reconnecting, which floods the RPC listener's
+        # blpop loop with ConnectionError (closes #1695).
+        retry_on_error=[RedisConnectionError, RedisTimeoutError],
+    )
+    return redis.Redis(connection_pool=pool)
 
 
 class RedisConnectionManager:
@@ -53,20 +135,8 @@ class RedisConnectionManager:
 
         try:
             redis_url = get_redis_settings().broker_url
-            self._client = await redis.from_url(
-                redis_url,
-                decode_responses=True,
-                encoding="utf-8",
-                max_connections=3,
-                health_check_interval=_HEALTH_CHECK_INTERVAL_SECONDS,
-                socket_keepalive=True,
-                retry=Retry(ExponentialBackoff(cap=1.0, base=0.05), _COMMAND_RETRIES),
-                # Without retry_on_error redis-py raises a dropped connection at the
-                # call site instead of reconnecting, which floods the RPC listener's
-                # blpop loop with ConnectionError (closes #1695).
-                retry_on_error=[RedisConnectionError, RedisTimeoutError],
-            )
-            # Actually test the connection - from_url() doesn't connect until first use
+            self._client = create_client(redis_url)
+            # Actually test the connection - create_client() doesn't open a socket
             await self._client.ping()
             self._initialized = True
             self._last_failed_at = 0  # reset cooldown on success
