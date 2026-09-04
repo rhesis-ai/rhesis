@@ -59,8 +59,20 @@ async def get_rpc_client() -> "SDKRpcClient":
         client = getattr(_tls, "rpc_client", None)
         if _usable(client):
             return client
-        # Stale-loop clients are dropped, not closed: awaiting close() would run
-        # on the dead loop.
+
+        # A stale-loop client is dropped rather than closed: aclose() would run on
+        # the dead loop. Its sockets linger until GC, and redis-py's __del__ only
+        # closes them when a loop is running, so this genuinely leaks a connection.
+        # Warn rather than swallow it: with a persistent per-thread loop this should
+        # never fire, so if it appears in production some caller is churning loops
+        # and the leak is worth chasing.
+        if client is not None and client._redis is not None:
+            logger.warning(
+                "RPC client was built on a stale event loop; rebuilding and "
+                "abandoning its connections. A caller is creating a new loop per "
+                "call -- use execution/shared.py:run_on_thread_loop instead."
+            )
+
         client = SDKRpcClient()
         await client.initialize()
         client._loop = loop

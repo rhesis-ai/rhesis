@@ -610,31 +610,24 @@ class ConnectionManager:
         # Publish to Redis for cross-instance waiters
         if redis_manager.is_available:
             try:
-                self._track_background_task(
-                    self._publish_rpc_response(
-                        test_run_id, result, discard_from=None if event else self._test_results
-                    )
-                )
+                self._track_background_task(self._publish_rpc_response(test_run_id, result))
             except Exception as e:
                 logger.error(
                     f"Failed to schedule RPC response publish: {e}",
                     exc_info=True,
                 )
 
-    async def _publish_rpc_response(
-        self,
-        run_id: str,
-        result: Dict[str, Any],
-        discard_from: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Publish RPC response to Redis for cross-instance waiters.
+        # No local waiter means nothing ever reads this back out of the dict: the
+        # worker waits over Redis, and the publish task holds its own reference to
+        # ``result``. Discard here rather than inside that task so the entry cannot
+        # outlive a scheduling failure, an unavailable Redis, or a failed publish --
+        # ``cleanup_test_result`` is only ever reached from the local-WebSocket path,
+        # so anything left here leaks the full payload for the life of the process.
+        if event is None:
+            self._test_results.pop(test_run_id, None)
 
-        ``discard_from`` is the store holding this result when there is no local
-        waiter for it. A worker waits over Redis, never on this process's dict, so
-        once the result is on the wire nothing reads it back and keeping it leaks
-        the full payload for the life of the process -- ``cleanup_test_result`` is
-        only ever reached from the local-WebSocket path.
-        """
+    async def _publish_rpc_response(self, run_id: str, result: Dict[str, Any]) -> None:
+        """Publish RPC response to Redis for cross-instance waiters."""
         try:
             channel = f"ws:rpc:response:{run_id}"
             await redis_manager.client.publish(channel, json.dumps(result))
@@ -644,10 +637,6 @@ class ConnectionManager:
                 f"Failed to publish RPC response for {run_id}: {e}",
                 exc_info=True,
             )
-        finally:
-            # Also on failure: a result nobody can read is not worth retaining.
-            if discard_from is not None:
-                discard_from.pop(run_id, None)
 
     def _resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
         """Store a metric result and wake up any waiting coroutine."""
@@ -667,18 +656,16 @@ class ConnectionManager:
 
         if redis_manager.is_available:
             try:
-                self._track_background_task(
-                    self._publish_rpc_response(
-                        metric_run_id,
-                        result,
-                        discard_from=None if event else self._metric_results,
-                    )
-                )
+                self._track_background_task(self._publish_rpc_response(metric_run_id, result))
             except Exception as e:
                 logger.error(
                     f"Failed to publish metric RPC response: {e}",
                     exc_info=True,
                 )
+
+        # See _resolve_test_result: with no local waiter this entry is unreachable.
+        if event is None:
+            self._metric_results.pop(metric_run_id, None)
 
     def get_metric_result(self, metric_run_id: str) -> Optional[Dict[str, Any]]:
         """Get metric result if available (non-destructive)."""

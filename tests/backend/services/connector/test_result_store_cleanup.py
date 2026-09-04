@@ -113,6 +113,32 @@ class TestRpcResultCleanup:
         asyncio.run(_flow())
         assert "metric_1" not in manager._metric_results
 
+    def test_result_is_discarded_when_scheduling_the_publish_fails(self, manager):
+        """The discard must not depend on the publish task ever running."""
+
+        async def _flow():
+            with patch("rhesis.backend.app.services.connector.manager.redis_manager") as rm:
+                rm.is_available = True
+                rm.client = AsyncMock()
+                with patch.object(
+                    manager, "_track_background_task", side_effect=RuntimeError("no loop")
+                ):
+                    manager._resolve_test_result("invoke_sched", {"status": "success"})
+
+        asyncio.run(_flow())
+        assert "invoke_sched" not in manager._test_results
+
+    def test_result_is_discarded_when_redis_is_unavailable(self, manager):
+        """With Redis down the publish is never scheduled at all."""
+
+        async def _flow():
+            with patch("rhesis.backend.app.services.connector.manager.redis_manager") as rm:
+                rm.is_available = False
+                manager._resolve_test_result("invoke_nordis", {"status": "success"})
+
+        asyncio.run(_flow())
+        assert "invoke_nordis" not in manager._test_results
+
     def test_many_rpc_results_do_not_accumulate(self, manager):
         """The shape of the leak: a batch run must not grow the dict."""
 

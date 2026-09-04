@@ -40,7 +40,38 @@ _COMMAND_RETRIES = 3
 # listener, heartbeat bursts): at 3 the pool starves completely and publishes
 # are dropped. Raising it far past 32 showed no measured benefit, and a large
 # non-blocking pool was actually slower because opening connections is not free.
-_MAX_CONNECTIONS = int(os.getenv("REDIS_MAX_CONNECTIONS", "32"))
+_DEFAULT_MAX_CONNECTIONS = 32
+
+# Floor enforced below. Measured: at 3 the pool starves completely and drops
+# responses, and the drop is silent (the publish fails, the worker waits out its
+# 120s timeout and blames the endpoint). Too nasty to leave to a typo in an env var.
+_MIN_MAX_CONNECTIONS = 16
+
+
+def _resolve_max_connections() -> int:
+    """Read the ceiling from the environment, refusing to go below the floor."""
+    raw = os.getenv("REDIS_MAX_CONNECTIONS")
+    if raw is None:
+        return _DEFAULT_MAX_CONNECTIONS
+    try:
+        requested = int(raw)
+    except ValueError:
+        logger.warning(
+            f"REDIS_MAX_CONNECTIONS={raw!r} is not an integer; using {_DEFAULT_MAX_CONNECTIONS}"
+        )
+        return _DEFAULT_MAX_CONNECTIONS
+    if requested < _MIN_MAX_CONNECTIONS:
+        logger.warning(
+            f"REDIS_MAX_CONNECTIONS={requested} is below the safe floor of "
+            f"{_MIN_MAX_CONNECTIONS}; clamping. Below the floor the pool starves "
+            f"behind the blpop listener and heartbeats, and SDK test results are "
+            f"silently dropped."
+        )
+        return _MIN_MAX_CONNECTIONS
+    return requested
+
+
+_MAX_CONNECTIONS = _resolve_max_connections()
 
 # How long a caller waits for a free connection before giving up. Bursts should
 # queue for microseconds; this only trips if the pool is genuinely saturated.

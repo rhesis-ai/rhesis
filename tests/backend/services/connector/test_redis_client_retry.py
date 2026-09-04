@@ -226,6 +226,38 @@ class TestRedisConnectionResilience:
         )
         assert pool.timeout is not None and pool.timeout > 0
 
+    def test_env_ceiling_cannot_be_set_below_the_safe_floor(self):
+        """A too-low ceiling drops responses silently, so it is clamped, loudly.
+
+        Below the floor the pool starves behind the blpop listener and the
+        per-connection heartbeats: the publish fails, the worker waits out its
+        120s timeout, and the failure is reported against the endpoint.
+        """
+        from rhesis.backend.app.services.connector.redis_client import (
+            _MIN_MAX_CONNECTIONS,
+            _resolve_max_connections,
+        )
+
+        with patch.dict("os.environ", {"REDIS_MAX_CONNECTIONS": "3"}):
+            assert _resolve_max_connections() == _MIN_MAX_CONNECTIONS
+
+    def test_env_ceiling_above_the_floor_is_honoured(self):
+        from rhesis.backend.app.services.connector.redis_client import (
+            _resolve_max_connections,
+        )
+
+        with patch.dict("os.environ", {"REDIS_MAX_CONNECTIONS": "64"}):
+            assert _resolve_max_connections() == 64
+
+    def test_unparseable_env_ceiling_falls_back_to_the_default(self):
+        from rhesis.backend.app.services.connector.redis_client import (
+            _DEFAULT_MAX_CONNECTIONS,
+            _resolve_max_connections,
+        )
+
+        with patch.dict("os.environ", {"REDIS_MAX_CONNECTIONS": "lots"}):
+            assert _resolve_max_connections() == _DEFAULT_MAX_CONNECTIONS
+
     def test_pool_ceiling_clears_the_blocking_consumers(self):
         """The ceiling is a resource bound, not a throughput knob.
 
