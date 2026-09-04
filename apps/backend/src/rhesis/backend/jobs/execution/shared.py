@@ -5,7 +5,9 @@ This module contains common logic used by both parallel and sequential execution
 to ensure consistent behavior and results.
 """
 
+import asyncio
 import logging
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +21,33 @@ from rhesis.backend.jobs.enums import ExecutionMode
 from rhesis.backend.jobs.execution.results import collect_results
 
 logger = logging.getLogger(__name__)
+
+# Per-thread event loop, reused across tests in the same Celery worker thread.
+# Thread-local (not process-global) so it is safe under --pool threads.
+_thread_local = threading.local()
+
+
+def run_on_thread_loop(coro):
+    """Run a coroutine on the calling thread's persistent event loop.
+
+    Never use ``asyncio.run()`` per test instead of this. It closes the loop each
+    time, and anything cached across tests that holds loop-bound resources breaks
+    on the next call:
+
+    - ``redis.asyncio`` clients are bound to the loop that created them, and the
+      SDK RPC client is cached per thread. A closed loop leaves its pooled
+      connections dead, so every other SDK test failed with "Event loop is closed"
+      surfacing as "Failed to send request to SDK".
+    - LiteLLM's LoggingWorker spawns background tasks on the loop that are
+      destroyed mid-flight, producing "Task was destroyed but it is pending!"
+      and potentially dropping logging callbacks.
+    """
+    loop = getattr(_thread_local, "loop", None)
+    if loop is None or loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _thread_local.loop = loop
+    return loop.run_until_complete(coro)
 
 
 def is_task_revoked(task_id: Optional[str]) -> bool:
