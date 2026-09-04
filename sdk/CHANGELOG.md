@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-09-04
+
+### Changed
+- Updated the default Vertex AI model from the retired `gemini-2.0-flash` to `gemini-3.1-flash-lite` to prevent 404 errors.
+- Standardized generation configuration fields to use plural names (`requirements`, `categories`, `topics`) as canonical fields. Singular names are retained as aliases for backward compatibility, while completely unknown fields are now strictly rejected.
+- Enhanced Vertex AI configuration to automatically derive the target Google Cloud project ID directly from the service account key when the project is not explicitly configured.
+
+### Fixed
+- Fixed an issue in multi-turn test generation where generated tests were incorrectly attributed to default requirements (Compliance, Reliability, Robustness) instead of the caller's requested requirements.
+- Fixed a bug where the harmful test generation branch failed to render requested requirements.
+- Added validation to sanitize casing and whitespace of model-returned requirements, dropping unrequested requirements with a warning.
+- Fixed an issue where test generation batches could return fewer tests than requested due to validation filtering; the SDK now retries to top up short batches up to the retry limit.
+- Fixed an entity resolution bug in `get_or_create_entity` where blank names could cause lookup collisions and incorrectly reuse existing entities across tenant scopes.
+
+
 ## [0.15.0] - 2026-09-01
 
 ### Changed

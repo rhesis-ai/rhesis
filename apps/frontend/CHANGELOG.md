@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-09-04
+
+### Added
+
+- Introduced a dismissible `SetPasswordBanner` and in-app notifications for invited users who sign in without a password, prompting them to set one in their security settings.
+- Implemented server-side prefetching for several key views (Settings page, Manual Writer test dimensions, New Metric form models, Playground picker endpoints, and Test Generation models/sources) to improve initial page load performance.
+- Added a centralized `CODE_FONT_SIZE` theme token to ensure consistent monospace font sizing across code editors, log viewers, and token displays.
+
+### Changed
+
+- Converted client-side redirect pages to Next.js Server Components for faster routing.
+- Updated multi-turn test generation requests to use canonical plural configuration field names (`requirements`, `categories`, `topics`).
+- Refactored metric score inputs to handle partial text states (e.g., negative signs, decimals) during editing, applying strict numeric validation only on submission.
+
+### Fixed
+
+- Fixed the Mapping tab for SDK endpoints to display a read-only view of request/response mappings instead of rendering a blank panel.
+- Resolved a double-border styling issue on the SDK connection panel's Function Parameters table and restored its title above the empty state.
+- Fixed the settings page to gracefully fall back and display the user's email if server-side prefetching fails.
+- Fixed the settings page to automatically refresh and reflect changes after a successful password update.
+- Improved validation feedback on metric score fields to clearly distinguish between "is required" and "must be a number" errors.
+- Fixed a bug where repeated metric type parameters would overwrite instead of retaining the first value.
+- Pinned the `@mui/material` dependency to prevent post-install patch failures and build crashes in the RSC server graph.
+
 ## [0.15.0] - 2026-09-01
 
 ### Added
