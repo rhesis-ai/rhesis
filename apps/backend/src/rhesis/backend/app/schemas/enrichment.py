@@ -12,6 +12,12 @@ class CostBreakdown(BaseModel):
     model_name: str = Field(..., description="Model name used")
     input_tokens: int = Field(..., ge=0, description="Number of input tokens")
     output_tokens: int = Field(..., ge=0, description="Number of output tokens")
+    total_tokens: int = Field(
+        0,
+        ge=0,
+        description="Total tokens for this span, as reported rather than derived: "
+        "Google ADK folds cache-read tokens in, so it can exceed input + output",
+    )
     input_cost_usd: float = Field(..., ge=0, description="Cost of input tokens in USD")
     output_cost_usd: float = Field(..., ge=0, description="Cost of output tokens in USD")
     total_cost_usd: float = Field(..., ge=0, description="Total cost for this span in USD")
@@ -25,6 +31,11 @@ class TokenCosts(BaseModel):
 
     total_cost_usd: float = Field(..., ge=0, description="Total cost across all spans in USD")
     total_cost_eur: float = Field(..., ge=0, description="Total cost across all spans in EUR")
+    total_input_tokens: int = Field(0, ge=0, description="Input tokens across all llm.invoke spans")
+    total_output_tokens: int = Field(
+        0, ge=0, description="Output tokens across all llm.invoke spans"
+    )
+    total_tokens: int = Field(0, ge=0, description="Total tokens across all llm.invoke spans")
     breakdown: List[CostBreakdown] = Field(..., description="Per-span cost breakdown")
 
 

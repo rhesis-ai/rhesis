@@ -25,58 +25,49 @@ for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
 
 logger = logging.getLogger(__name__)
 
+# Stands in for a missing ai.llm.model.name so the span's tokens still get recorded.
+UNKNOWN_MODEL_NAME = "unknown"
 
-def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
+
+def _span_token_counts(span: Trace) -> tuple[int, int, int]:
+    """Input, output and total tokens for a span.
+
+    The reported total is trusted rather than derived: Google ADK folds cache-read
+    tokens into ``ai.llm.tokens.total``, so for its spans the total legitimately
+    exceeds ``input + output``. Only fall back to the sum when no total was sent.
     """
-    Calculate token costs for LLM spans using LiteLLM's pricing database.
+    input_tokens = int(span.attributes.get(AIAttributes.LLM_TOKENS_INPUT, 0) or 0)
+    output_tokens = int(span.attributes.get(AIAttributes.LLM_TOKENS_OUTPUT, 0) or 0)
+    reported_total = span.attributes.get(AIAttributes.LLM_TOKENS_TOTAL)
+    if reported_total is None:
+        return input_tokens, output_tokens, input_tokens + output_tokens
+    return input_tokens, output_tokens, int(reported_total)
 
-    Costs are calculated in both USD and EUR for European operations.
 
-    Args:
-        spans: List of trace spans
+def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
+    """Price a single ``llm.invoke`` span.
 
-    Returns:
-        TokenCosts model with cost breakdown or None if no LLM spans
+    Always returns a breakdown: tokens are known even when the price is not, so an
+    unpriced model (self-hosted, or missing from LiteLLM) is recorded at zero cost
+    rather than dropped. Dropping it would make a trace that mixes priced and
+    unpriced spans undercount its tokens.
     """
-    total_cost_usd = 0.0
-    total_cost_eur = 0.0
-    cost_breakdown = []
+    input_tokens, output_tokens, total_tokens = _span_token_counts(span)
+    model_name = span.attributes.get(AIAttributes.MODEL_NAME)
 
-    # Get exchange rate for EUR conversion
-    usd_to_eur = get_usd_to_eur_rate()
+    if input_tokens == 0 and output_tokens == 0:
+        logger.warning(
+            f"⚠️  Zero tokens for span {span.span_id}! "
+            f"Available attributes: {list(span.attributes.keys())}"
+        )
 
-    logger.info(f"🔍 Calculating costs for {len(spans)} spans")
+    input_cost_usd = 0.0
+    output_cost_usd = 0.0
 
-    for span in spans:
-        # Only process LLM invocation spans (use semantic layer constant)
-        operation_type = span.attributes.get(AIAttributes.OPERATION_TYPE)
-        logger.debug(f"Span {span.span_id}: operation_type={operation_type}")
-
-        if operation_type != AIAttributes.OPERATION_LLM_INVOKE:
-            logger.debug(f"⏭️  Skipping span {span.span_id}: not an LLM invocation")
-            continue
-
-        model_name = span.attributes.get(AIAttributes.MODEL_NAME)
-        logger.info(f"📊 Processing LLM span {span.span_id}: model={model_name}")
-
-        if not model_name:
-            logger.warning(f"⚠️  Skipping span {span.span_id}: no model name")
-            continue
-
-        # Get token counts (use semantic layer constants for token attributes)
-        input_tokens = span.attributes.get(AIAttributes.LLM_TOKENS_INPUT, 0)
-        output_tokens = span.attributes.get(AIAttributes.LLM_TOKENS_OUTPUT, 0)
-
-        logger.info(f"🎯 Span {span.span_id} tokens: input={input_tokens}, output={output_tokens}")
-
-        # Log all attributes for debugging
-        if input_tokens == 0 and output_tokens == 0:
-            logger.warning(
-                f"⚠️  Zero tokens for span {span.span_id}! "
-                f"Available attributes: {list(span.attributes.keys())}"
-            )
-
-        # Use LiteLLM's cost_per_token (maintains up-to-date pricing for all providers)
+    if not model_name:
+        logger.warning(f"⚠️  Span {span.span_id} has no model name: recording tokens at zero cost")
+        model_name = UNKNOWN_MODEL_NAME
+    else:
         try:
             # Returns tuple: (prompt_cost_usd, completion_cost_usd)
             input_cost_usd, output_cost_usd = litellm.cost_per_token(
@@ -84,49 +75,63 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
                 prompt_tokens=input_tokens,
                 completion_tokens=output_tokens,
             )
-
-            span_cost_usd = input_cost_usd + output_cost_usd
-
-            # Convert to EUR
-            span_cost_eur = span_cost_usd * usd_to_eur
-            input_cost_eur = input_cost_usd * usd_to_eur
-            output_cost_eur = output_cost_usd * usd_to_eur
-
-            logger.info(
-                f"💰 Calculated costs for {model_name}: "
-                f"${span_cost_usd:.6f} USD, €{span_cost_eur:.6f} EUR"
-            )
-
         except Exception as e:
-            # If LiteLLM doesn't have pricing for this model, log and skip
             logger.warning(
                 f"❌ LiteLLM cost calculation failed for model {model_name}: {e}. "
-                f"Tokens: input={input_tokens}, output={output_tokens}"
+                f"Recording tokens at zero cost: input={input_tokens}, output={output_tokens}"
             )
-            continue
 
-        total_cost_usd += span_cost_usd
-        total_cost_eur += span_cost_eur
+    span_cost_usd = input_cost_usd + output_cost_usd
 
-        # Create Pydantic model for breakdown
-        cost_breakdown.append(
-            CostBreakdown(
-                span_id=span.span_id,
-                model_name=model_name,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                input_cost_usd=round(input_cost_usd, 6),
-                output_cost_usd=round(output_cost_usd, 6),
-                total_cost_usd=round(span_cost_usd, 6),
-                input_cost_eur=round(input_cost_eur, 6),
-                output_cost_eur=round(output_cost_eur, 6),
-                total_cost_eur=round(span_cost_eur, 6),
-            )
-        )
+    return CostBreakdown(
+        span_id=span.span_id,
+        model_name=model_name,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        input_cost_usd=round(input_cost_usd, 6),
+        output_cost_usd=round(output_cost_usd, 6),
+        total_cost_usd=round(span_cost_usd, 6),
+        input_cost_eur=round(input_cost_usd * usd_to_eur, 6),
+        output_cost_eur=round(output_cost_usd * usd_to_eur, 6),
+        total_cost_eur=round(span_cost_usd * usd_to_eur, 6),
+    )
+
+
+def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
+    """
+    Calculate token counts and costs for LLM spans using LiteLLM's pricing database.
+
+    Only ``llm.invoke`` spans are counted. That filter is what keeps the totals
+    correct: frameworks like pydantic-ai report aggregated usage on the agent-run
+    span *and* per-call usage on its child model-call spans, so summing every span
+    would double-count them.
+
+    Costs are calculated in both USD and EUR for European operations.
+
+    Args:
+        spans: List of trace spans
+
+    Returns:
+        TokenCosts model with token totals and cost breakdown, or None if the trace
+        has no LLM invocation spans at all.
+    """
+    usd_to_eur = get_usd_to_eur_rate()
+
+    logger.info(f"🔍 Calculating costs for {len(spans)} spans")
+
+    cost_breakdown = [
+        _price_span(span, usd_to_eur)
+        for span in spans
+        if span.attributes.get(AIAttributes.OPERATION_TYPE) == AIAttributes.OPERATION_LLM_INVOKE
+    ]
 
     if not cost_breakdown:
-        logger.warning("⚠️  No cost breakdown calculated - no LLM spans with valid tokens found")
+        logger.warning("⚠️  No cost breakdown calculated - trace has no llm.invoke spans")
         return None
+
+    total_cost_usd = sum(span.total_cost_usd for span in cost_breakdown)
+    total_cost_eur = sum(span.total_cost_eur for span in cost_breakdown)
 
     logger.info(
         f"✅ Cost calculation complete: {len(cost_breakdown)} spans, "
@@ -136,6 +141,9 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     return TokenCosts(
         total_cost_usd=round(total_cost_usd, 6),
         total_cost_eur=round(total_cost_eur, 6),
+        total_input_tokens=sum(span.input_tokens for span in cost_breakdown),
+        total_output_tokens=sum(span.output_tokens for span in cost_breakdown),
+        total_tokens=sum(span.total_tokens for span in cost_breakdown),
         breakdown=cost_breakdown,
     )
 
