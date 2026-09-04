@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import random
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
@@ -29,6 +30,13 @@ from rhesis.backend.app.services.connector.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Routing/connection keys are written with a 30s TTL, so a heartbeat must refresh
+# well inside that. Jitter only ever SHORTENS the wait (never lengthens it), which
+# de-synchronises the per-connection loops without risking key expiry: the slowest
+# possible tick stays at the full interval.
+_HEARTBEAT_INTERVAL = 10
+_HEARTBEAT_JITTER = 0.3
 
 _EXECUTE_TEST_EXTRA_KEYS = frozenset(
     {
@@ -245,13 +253,20 @@ class ConnectionManager:
     async def _heartbeat_loop(self, connection_id: str) -> None:
         """Refresh Redis keys for a connection and its project routes.
 
-        Runs every 10 s while the connection is alive.  Refreshes the
-        connection-level key (``ws:conn:{connection_id}``) and every
-        project routing key registered through this connection.
+        Runs roughly every ``_HEARTBEAT_INTERVAL`` seconds while the connection is
+        alive. Refreshes the connection-level key (``ws:conn:{connection_id}``) and
+        every project routing key registered through this connection.
+
+        The interval is jittered because there is one of these loops per connected
+        SDK. Sleeping a fixed 10s makes every loop that started together stay in
+        lockstep forever, so with tens of endpoints -- which is what happens when
+        they all reconnect after a backend restart -- each tick fires a synchronised
+        burst of setex calls that saturates the Redis pool and queues test-result
+        publishing behind it. Spreading them keeps the load flat.
         """
         try:
             while connection_id in self._connections:
-                await asyncio.sleep(10)
+                await asyncio.sleep(_HEARTBEAT_INTERVAL * random.uniform(1 - _HEARTBEAT_JITTER, 1))
 
                 if connection_id not in self._connections:
                     break
@@ -595,15 +610,31 @@ class ConnectionManager:
         # Publish to Redis for cross-instance waiters
         if redis_manager.is_available:
             try:
-                self._track_background_task(self._publish_rpc_response(test_run_id, result))
+                self._track_background_task(
+                    self._publish_rpc_response(
+                        test_run_id, result, discard_from=None if event else self._test_results
+                    )
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to schedule RPC response publish: {e}",
                     exc_info=True,
                 )
 
-    async def _publish_rpc_response(self, run_id: str, result: Dict[str, Any]) -> None:
-        """Publish RPC response to Redis for cross-instance waiters."""
+    async def _publish_rpc_response(
+        self,
+        run_id: str,
+        result: Dict[str, Any],
+        discard_from: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Publish RPC response to Redis for cross-instance waiters.
+
+        ``discard_from`` is the store holding this result when there is no local
+        waiter for it. A worker waits over Redis, never on this process's dict, so
+        once the result is on the wire nothing reads it back and keeping it leaks
+        the full payload for the life of the process -- ``cleanup_test_result`` is
+        only ever reached from the local-WebSocket path.
+        """
         try:
             channel = f"ws:rpc:response:{run_id}"
             await redis_manager.client.publish(channel, json.dumps(result))
@@ -613,6 +644,10 @@ class ConnectionManager:
                 f"Failed to publish RPC response for {run_id}: {e}",
                 exc_info=True,
             )
+        finally:
+            # Also on failure: a result nobody can read is not worth retaining.
+            if discard_from is not None:
+                discard_from.pop(run_id, None)
 
     def _resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
         """Store a metric result and wake up any waiting coroutine."""
@@ -632,7 +667,13 @@ class ConnectionManager:
 
         if redis_manager.is_available:
             try:
-                self._track_background_task(self._publish_rpc_response(metric_run_id, result))
+                self._track_background_task(
+                    self._publish_rpc_response(
+                        metric_run_id,
+                        result,
+                        discard_from=None if event else self._metric_results,
+                    )
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to publish metric RPC response: {e}",

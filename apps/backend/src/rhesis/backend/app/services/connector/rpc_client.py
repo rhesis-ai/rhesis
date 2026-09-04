@@ -15,22 +15,57 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Thread-local RPC client
 # ---------------------------------------------------------------------------
-# With the coroutine/thread Celery pool each worker thread owns its own event
-# loop (see batch/__init__.py:_thread_local).  redis.asyncio clients are tied
-# to the event loop they were created on, so one client per thread is both
-# correct and avoids the cost of creating a new connection + PING on every
-# single test invocation (the old per-call pattern).
+# With the coroutine/thread Celery pool each worker thread runs its tests on one
+# persistent event loop (see execution/shared.py:run_on_thread_loop).  redis.asyncio
+# clients are tied to the event loop they were created on, so caching one per thread
+# avoids the cost of creating a new connection + PING on every single test invocation
+# (the old per-call pattern).  The cache is keyed by thread but validated against the
+# running loop, because a caller is free to hand this thread a different loop.
 _tls = threading.local()
 
 
 async def get_rpc_client() -> "SDKRpcClient":
-    """Return the thread-local SDKRpcClient, initializing it on first access."""
+    """Return the thread-local SDKRpcClient, initializing it on first access.
+
+    Rebuilds when the running loop is not the one the cached client was created
+    on. A thread is not guaranteed to keep one loop for its lifetime -- a caller
+    using ``asyncio.run()`` per call gets a fresh loop each time -- and a client
+    carried across a closed loop holds dead connections that fail every command
+    with "Event loop is closed".
+    """
+    loop = asyncio.get_running_loop()
+
+    def _usable(c: "SDKRpcClient | None") -> bool:
+        # A client built on a loop that has since been replaced holds dead
+        # connections; every command on it fails with "Event loop is closed".
+        return c is not None and c._redis is not None and c._loop is loop
+
     client: "SDKRpcClient | None" = getattr(_tls, "rpc_client", None)
-    if client is None or client._redis is None:
+    if _usable(client):
+        return client
+
+    # Serialize initialization. Without this the check above and the store below
+    # straddle an await, so at batch start every concurrent test builds its own
+    # client and opens its own Redis connection; the last writer wins and the
+    # rest leak, since close() is never called. Measured 14 orphaned connections
+    # at batch_concurrency=15.
+    lock = getattr(_tls, "rpc_init_lock", None)
+    if lock is None or getattr(_tls, "rpc_init_lock_loop", None) is not loop:
+        lock = asyncio.Lock()
+        _tls.rpc_init_lock = lock
+        _tls.rpc_init_lock_loop = loop
+
+    async with lock:
+        client = getattr(_tls, "rpc_client", None)
+        if _usable(client):
+            return client
+        # Stale-loop clients are dropped, not closed: awaiting close() would run
+        # on the dead loop.
         client = SDKRpcClient()
         await client.initialize()
+        client._loop = loop
         _tls.rpc_client = client
-    return client
+        return client
 
 
 class SDKRpcClient:
@@ -39,6 +74,8 @@ class SDKRpcClient:
     def __init__(self):
         """Initialize RPC client."""
         self._redis = None
+        # The loop this client's connections are bound to; see get_rpc_client().
+        self._loop = None
 
     async def initialize(self):
         """
@@ -64,6 +101,7 @@ class SDKRpcClient:
         if self._redis:
             await self._redis.aclose()
             self._redis = None
+        self._loop = None
         _tls.rpc_client = None
 
     async def is_connected(self, project_id: str, environment: str) -> bool:

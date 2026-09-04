@@ -11,7 +11,6 @@ The fix replaces the permanent latch with a time-based cooldown
 recovers.
 """
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -46,12 +45,15 @@ class TestRedisRetryCooldown:
         mock_client.ping = AsyncMock(side_effect=ConnectionError("Redis down"))
         mock_client.close = AsyncMock()
 
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            return_value=mock_client,
+        with (
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+                return_value=mock_redis_settings,
+            ),
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.create_client",
+                return_value=mock_client,
+            ),
         ):
             await redis_manager.initialize()
 
@@ -69,15 +71,18 @@ class TestRedisRetryCooldown:
         mock_client_fail.ping = AsyncMock(side_effect=ConnectionError("Redis down"))
         mock_client_fail.close = AsyncMock()
 
-        async def _from_url_fail(*args, **kwargs):
+        def _build_failing(*args, **kwargs):
             return mock_client_fail
 
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            side_effect=_from_url_fail,
+        with (
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+                return_value=mock_redis_settings,
+            ),
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.create_client",
+                side_effect=_build_failing,
+            ),
         ):
             await redis_manager.initialize()
         assert not redis_manager._initialized
@@ -89,15 +94,18 @@ class TestRedisRetryCooldown:
         mock_client_ok = AsyncMock()
         mock_client_ok.ping = AsyncMock(return_value=True)
 
-        async def _from_url_ok(*args, **kwargs):
+        def _build_ok(*args, **kwargs):
             return mock_client_ok
 
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            side_effect=_from_url_ok,
+        with (
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+                return_value=mock_redis_settings,
+            ),
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.create_client",
+                side_effect=_build_ok,
+            ),
         ):
             await redis_manager.initialize()
 
@@ -113,12 +121,15 @@ class TestRedisRetryCooldown:
         mock_client.ping = AsyncMock(side_effect=ConnectionError("Redis down"))
         mock_client.close = AsyncMock()
 
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            return_value=mock_client,
+        with (
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+                return_value=mock_redis_settings,
+            ),
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.create_client",
+                return_value=mock_client,
+            ),
         ):
             await redis_manager.initialize()
 
@@ -129,12 +140,15 @@ class TestRedisRetryCooldown:
         mock_client2 = AsyncMock()
         mock_client2.ping = AsyncMock(return_value=True)
 
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            return_value=mock_client2,
+        with (
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+                return_value=mock_redis_settings,
+            ),
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.create_client",
+                return_value=mock_client2,
+            ),
         ):
             await redis_manager.initialize()
 
@@ -151,12 +165,15 @@ class TestRedisRetryCooldown:
         mock_client.ping = AsyncMock(side_effect=ConnectionError("down"))
         mock_client.close = AsyncMock()
 
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            return_value=mock_client,
+        with (
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
+                return_value=mock_redis_settings,
+            ),
+            patch(
+                "rhesis.backend.app.services.connector.redis_client.create_client",
+                return_value=mock_client,
+            ),
         ):
             await redis_manager.initialize()
 
@@ -166,43 +183,19 @@ class TestRedisRetryCooldown:
 class TestRedisConnectionResilience:
     """Verify the client is built so redis-py reconnects on its own (closes #1695)."""
 
-    @pytest.mark.asyncio
-    async def test_dropped_connection_is_retried_not_raised(
-        self, redis_manager, mock_redis_settings
-    ):
+    def test_dropped_connection_is_retried_not_raised(self):
         """A dropped connection must reconnect instead of surfacing to the caller.
 
-        Asserted against a real redis-py connection built from the same kwargs, so this
-        catches an option being dropped or renamed — not just "from_url got a dict".
+        Asserted against the real client the code builds, so this catches an
+        option being dropped or renamed rather than just "a builder was called".
         """
-        import redis.asyncio as real_redis
         from redis.exceptions import ConnectionError as RedisConnectionError
         from redis.exceptions import TimeoutError as RedisTimeoutError
 
-        recorded = {}
+        from rhesis.backend.app.services.connector.redis_client import create_client
 
-        async def _capture(url, **kwargs):
-            recorded["url"] = url
-            recorded["kwargs"] = kwargs
-            client = AsyncMock()
-            client.ping = AsyncMock(return_value=True)
-            return client
-
-        with patch(
-            "rhesis.backend.app.services.connector.redis_client.get_redis_settings",
-            return_value=mock_redis_settings,
-        ), patch(
-            "rhesis.backend.app.services.connector.redis_client.redis.from_url",
-            side_effect=_capture,
-        ):
-            await redis_manager.initialize()
-
-        assert redis_manager.is_available
-
-        # from_url() does not open a socket, so this is safe without a Redis server.
-        connection = real_redis.from_url(
-            recorded["url"], **recorded["kwargs"]
-        ).connection_pool.make_connection()
+        # create_client() opens no socket, so this is safe with no Redis server.
+        connection = create_client("redis://localhost:6379/0").connection_pool.make_connection()
 
         # Zero retries or an empty retry_on_error is what made blpop raise instead of reconnect.
         assert connection.retry._retries > 0
@@ -213,3 +206,42 @@ class TestRedisConnectionResilience:
         # Keeps an idle pooled connection from being handed out already dead.
         assert connection.health_check_interval > 0
         assert connection.socket_keepalive is True
+
+    def test_pool_blocks_instead_of_dropping_a_response(self):
+        """An over-capacity burst must wait, never raise.
+
+        The default ConnectionPool raises ConnectionError("Too many connections")
+        the instant it is full, and redis-py acquires the connection *before* its
+        retry wrapper so retry_on_error cannot save it. That lost SDK responses:
+        the publish failed, the worker never woke, and the test reported a bogus
+        120s endpoint timeout. Concurrency 15 lost a third of a 40-test run.
+        """
+        import redis.asyncio as redis_asyncio
+
+        from rhesis.backend.app.services.connector.redis_client import create_client
+
+        pool = create_client("redis://localhost:6379/0").connection_pool
+        assert isinstance(pool, redis_asyncio.BlockingConnectionPool), (
+            "must be a blocking pool; the default one discards responses under load"
+        )
+        assert pool.timeout is not None and pool.timeout > 0
+
+    def test_pool_ceiling_clears_the_blocking_consumers(self):
+        """The ceiling is a resource bound, not a throughput knob.
+
+        It must stay above the connections pinned by blocking operations (the
+        blpop RPC listener plus one heartbeat loop per connected SDK), or
+        publishes queue behind them and starve. Measured: 3 starves completely
+        with 3+ listeners; 16 stayed clean at every load tested.
+        """
+        from rhesis.backend.app.services.connector.redis_client import (
+            _MAX_CONNECTIONS,
+            create_client,
+        )
+
+        assert _MAX_CONNECTIONS >= 16, (
+            f"{_MAX_CONNECTIONS} is too close to the number of blocking consumers; "
+            "with tens of connected SDKs the pool saturates and publishes queue"
+        )
+        pool = create_client("redis://localhost:6379/0").connection_pool
+        assert pool.max_connections == _MAX_CONNECTIONS
