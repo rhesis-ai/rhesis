@@ -2,7 +2,11 @@ import type { Theme } from '@mui/material/styles';
 
 /** Typography variants the page skeletons stand in for. */
 export type SkeletonTextVariant =
-  'h4' | 'h6' | 'bodyLReg' | 'bodyMReg' | 'bodySReg';
+  | 'h4'
+  | 'h6'
+  | 'bodyLReg'
+  | 'bodyMReg'
+  | 'bodySReg';
 
 /**
  * Sizes a `variant="text"` Skeleton to the typography variant it replaces.
