@@ -365,7 +365,12 @@ def receive_trace(
             executed_at=datetime.fromtimestamp(trace.timestamp, tz=timezone.utc),
         )
         db.add(record)
-        db.commit()
+        # Flush (not commit): the PK is a server-side default
+        # (gen_random_uuid()), so the id only materializes on flush, while the
+        # commit itself stays owned by get_db_with_tenant_variables at context
+        # exit, where the tenant GUCs are still valid.
+        db.flush()
+        trace_id = str(record.id)
 
     logger.info("=" * 80)
     logger.info("📊 EXECUTION TRACE RECEIVED")
@@ -386,4 +391,4 @@ def receive_trace(
 
     logger.info("=" * 80)
 
-    return TraceResponse(status="received", trace_id=str(record.id))
+    return TraceResponse(status="received", trace_id=trace_id)

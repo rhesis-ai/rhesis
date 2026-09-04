@@ -8,7 +8,7 @@ from .chunk import Chunk
 from .comment import Comment
 from .embedding import Embedding
 from .endpoint import Endpoint
-from .execution_trace import ExecutionTrace
+from rhesis.backend.app.models.execution_trace import ExecutionTrace
 from .experiment import Experiment
 from .file import File
 from .guid import GUID
@@ -99,6 +99,7 @@ __all__ = [
     "Test",
     "Tool",
     "Trace",
+    "ExecutionTrace",
     "behavior_metric_association",
     "requirement_metric_association",
     "test_test_set_association",

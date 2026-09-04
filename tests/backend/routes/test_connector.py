@@ -428,6 +428,74 @@ class TestConnectorHTTPEndpoints:
         assert record.error == "Something went wrong"
         assert record.environment == "staging"
 
+    def test_receive_trace_persists_through_real_tenant_session(
+        self, real_commit_client, real_commit_test_db, test_org_id, authenticated_user_id
+    ):
+        """RLS fail-closed path: the endpoint's own session persists the trace.
+
+        Unlike the tests above (which share ``test_db``'s session via
+        ``shared_tenant_session`` and therefore never set the RLS GUCs), this
+        goes through the real ``get_db_with_tenant_variables`` on a separate
+        connection, so ``project_isolation`` actually enforces the scope. Rows
+        are really committed and cleaned up explicitly (see
+        ``real_commit_test_db``).
+        """
+        from rhesis.backend.app import models
+
+        project = models.Project(
+            name=f"Connector Trace RLS Project {uuid.uuid4().hex[:8]}",
+            organization_id=uuid.UUID(test_org_id),
+        )
+        real_commit_test_db.add(project)
+        real_commit_test_db.flush()
+        real_commit_test_db.add(
+            models.ProjectMembership(
+                project_id=project.id,
+                user_id=uuid.UUID(authenticated_user_id),
+                organization_id=uuid.UUID(test_org_id),
+            )
+        )
+        real_commit_test_db.commit()
+        try:
+            trace_data = {
+                "project_id": str(project.id),
+                "environment": "development",
+                "function_name": "rls_probe_func",
+                "status": "success",
+                "duration_ms": 7.5,
+                "inputs": {"param": "value"},
+                "output": "ok",
+                "error": None,
+                "timestamp": 1704067200.0,
+            }
+
+            response = real_commit_client.post("/connector/trace", json=trace_data)
+
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["status"] == "received"
+            assert data["trace_id"]
+
+            real_commit_test_db.expire_all()
+            record = (
+                real_commit_test_db.query(ExecutionTrace)
+                .filter(ExecutionTrace.id == uuid.UUID(data["trace_id"]))
+                .one()
+            )
+            assert record.project_id == project.id
+            assert record.function_name == "rls_probe_func"
+        finally:
+            real_commit_test_db.query(ExecutionTrace).filter(
+                ExecutionTrace.project_id == project.id
+            ).delete(synchronize_session=False)
+            real_commit_test_db.query(models.ProjectMembership).filter(
+                models.ProjectMembership.project_id == project.id
+            ).delete(synchronize_session=False)
+            real_commit_test_db.query(models.Project).filter(
+                models.Project.id == project.id
+            ).delete(synchronize_session=False)
+            real_commit_test_db.commit()
+
 
 @pytest.mark.integration
 class TestConnectorIntegration:
