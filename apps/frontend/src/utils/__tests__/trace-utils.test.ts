@@ -14,7 +14,10 @@ import {
   getTreeDepth,
   formatTraceDate,
   getStatusChipProps,
+  spanUsage,
+  tokenSplitLabel,
 } from '../trace-utils';
+import type { SpanNode } from '../api-client/interfaces/telemetry';
 
 describe('trace-utils', () => {
   describe('formatDurationShort', () => {
@@ -121,6 +124,102 @@ describe('trace-utils', () => {
     it('formats numbers with thousands separator', () => {
       expect(formatTokenCount(1000)).toContain('1');
       expect(formatTokenCount(10000)).toContain('10');
+    });
+  });
+
+  describe('spanUsage', () => {
+    const span = (
+      attributes: Record<string, string | number | boolean>,
+      costUsd?: number | null
+    ) =>
+      ({
+        span_id: 'a',
+        span_name: 'ai.llm.invoke',
+        span_kind: 'CLIENT',
+        start_time: '2026-01-01T00:00:00Z',
+        end_time: '2026-01-01T00:00:01Z',
+        duration_ms: 1000,
+        status_code: 'OK',
+        attributes,
+        cost_usd: costUsd,
+        events: [],
+        children: [],
+        execution: 'completed',
+        verdict: null,
+      }) as unknown as SpanNode;
+
+    it('returns null for a span with neither tokens nor cost', () => {
+      expect(spanUsage(span({ 'ai.tool.name': 'search' }))).toBeNull();
+    });
+
+    it('reads the token counts off the attributes', () => {
+      expect(
+        spanUsage(
+          span({
+            'ai.llm.tokens.input': 100,
+            'ai.llm.tokens.output': 50,
+            'ai.llm.tokens.total': 150,
+          })
+        )
+      ).toEqual({ input: 100, output: 50, total: 150, costUsd: null });
+    });
+
+    it('trusts the reported total over input + output', () => {
+      // Google ADK folds cache-read tokens into the total it reports.
+      const usage = spanUsage(
+        span({
+          'ai.llm.tokens.input': 100,
+          'ai.llm.tokens.output': 50,
+          'ai.llm.tokens.total': 950,
+        })
+      );
+
+      expect(usage?.total).toBe(950);
+    });
+
+    it('derives the total when none is reported', () => {
+      const usage = spanUsage(
+        span({ 'ai.llm.tokens.input': 100, 'ai.llm.tokens.output': 50 })
+      );
+
+      expect(usage?.total).toBe(150);
+    });
+
+    it('reports a cost-only span, for an unpriced-token edge case', () => {
+      expect(spanUsage(span({}, 0.0042))).toEqual({
+        input: 0,
+        output: 0,
+        total: 0,
+        costUsd: 0.0042,
+      });
+    });
+
+    it('treats a zero or absent cost as no cost', () => {
+      expect(
+        spanUsage(span({ 'ai.llm.tokens.total': 10 }, 0))?.costUsd
+      ).toBeNull();
+      expect(
+        spanUsage(span({ 'ai.llm.tokens.total': 10 }, null))?.costUsd
+      ).toBeNull();
+    });
+
+    it('ignores non-numeric attribute values', () => {
+      expect(spanUsage(span({ 'ai.llm.tokens.total': 'lots' }))).toBeNull();
+    });
+  });
+
+  describe('tokenSplitLabel', () => {
+    it('labels the two figures without implying they sum to the total', () => {
+      expect(tokenSplitLabel(1204, 318)).toBe('1,204 input \u00b7 318 output');
+    });
+
+    it('returns undefined when neither figure is known', () => {
+      expect(tokenSplitLabel(0, 0)).toBeUndefined();
+      expect(tokenSplitLabel(null, undefined)).toBeUndefined();
+    });
+
+    it('still labels when only one figure is known', () => {
+      expect(tokenSplitLabel(100, 0)).toBe('100 input \u00b7 0 output');
     });
   });
 

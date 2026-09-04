@@ -21,6 +21,7 @@ import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
+import { formatCost, formatTokenCount } from '@/utils/trace-utils';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import TraceFilterDrawer, {
@@ -291,6 +292,35 @@ export default function TracesTable({
         flex: 0.8,
         minWidth: 60,
         align: 'center',
+      },
+      // Not sortable: this grid paginates server-side but sorts client-side, and
+      // list.ts drops sort_by/sort_order before calling the API -- so a sortable
+      // Tokens or Cost header would silently reorder the current page only.
+      {
+        field: 'total_tokens',
+        headerName: 'Tokens',
+        flex: 1,
+        minWidth: 70,
+        align: 'right',
+        sortable: false,
+        renderCell: params => (
+          <Typography variant="body2">
+            {params.value ? formatTokenCount(params.value as number) : '\u2014'}
+          </Typography>
+        ),
+      },
+      {
+        field: 'total_cost_usd',
+        headerName: 'Cost',
+        flex: 1,
+        minWidth: 70,
+        align: 'right',
+        sortable: false,
+        renderCell: params => (
+          <Typography variant="body2">
+            {params.value ? formatCost(params.value as number) : '\u2014'}
+          </Typography>
+        ),
       },
       {
         field: 'trace_metrics_status',

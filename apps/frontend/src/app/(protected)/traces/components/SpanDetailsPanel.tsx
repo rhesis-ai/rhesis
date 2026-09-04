@@ -31,6 +31,7 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
+import { formatCost, formatTokenCount, spanUsage } from '@/utils/trace-utils';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
@@ -316,12 +317,17 @@ export default function SpanDetailsPanel({
     ? parseIfJSON(String(agentOutput))
     : null;
 
-  // Filter out agent I/O from LLM attributes (displayed separately)
+  // Filter out agent I/O and token counts from LLM attributes (displayed separately)
   const {
     'ai.agent.input': _____,
     'ai.agent.output': ______,
+    'ai.llm.tokens.input': _______,
+    'ai.llm.tokens.output': ________,
+    'ai.llm.tokens.total': _________,
     ...otherLlmAttributes
   } = llmAttributes;
+
+  const usage = spanUsage(span);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -437,6 +443,49 @@ export default function SpanDetailsPanel({
                       )}
                     </Box>
                   </Box>
+
+                  {/* Usage - omitted entirely for the tool and function spans
+                      that have neither tokens nor a cost. */}
+                  {usage && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Usage
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 1 }}
+                      >
+                        {usage.total > 0 && (
+                          <GridBadge
+                            size="detail"
+                            label={`${formatTokenCount(usage.total)} tokens`}
+                          />
+                        )}
+                        {usage.input > 0 && (
+                          <GridBadge
+                            size="detail"
+                            label={`${formatTokenCount(usage.input)} input`}
+                          />
+                        )}
+                        {usage.output > 0 && (
+                          <GridBadge
+                            size="detail"
+                            label={`${formatTokenCount(usage.output)} output`}
+                          />
+                        )}
+                        {usage.costUsd !== null && (
+                          <GridBadge
+                            size="detail"
+                            label={formatCost(usage.costUsd)}
+                          />
+                        )}
+                        {span.model_name && (
+                          <GridBadge size="detail" label={span.model_name} />
+                        )}
+                      </Stack>
+                    </Box>
+                  )}
                 </Stack>
               </CardContent>
             </Card>

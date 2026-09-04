@@ -16,7 +16,11 @@ from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import (
+    AISpanAttributes,
+    EnrichedDataKeys,
+    TestExecutionContext,
+)
 from rhesis.backend.app.schemas.telemetry import (
     OTELSpanCreate,
     StatusCode,
@@ -40,6 +44,9 @@ class TraceRow(NamedTuple):
     total: int
     tags_count: int
     comments_count: int
+    # Summed over the trace's llm.invoke spans. Only used when the trace has not
+    # been enriched yet -- see services/telemetry/token_totals.py.
+    llm_tokens: int
 
 
 # ============================================================================
@@ -332,7 +339,30 @@ def query_traces(
         .scalar_subquery()
     )
 
-    # -- Column 3: total — total matching rows *before* LIMIT/OFFSET
+    # -- Column 3: llm_tokens — tokens over this trace's llm.invoke spans.
+    #    The pre-enrichment fallback: enrichment is dispatched asynchronously after
+    #    ingest, so a freshly ingested trace has no enriched_data and would
+    #    otherwise list as 0 while the detail endpoint reported the real figure.
+    #    The llm.invoke filter is the same one enrichment applies, so the two
+    #    numbers agree instead of double-counting aggregate-reporting frameworks.
+    llm_tokens_col = (
+        select(
+            func.coalesce(
+                func.sum(InnerTrace.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()), 0
+            )
+        )
+        .where(
+            and_(
+                InnerTrace.trace_id == models.Trace.trace_id,
+                InnerTrace.organization_id == org_uuid,
+                InnerTrace.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
+                == AISpanAttributes.OPERATION_LLM_INVOKE,
+            )
+        )
+        .scalar_subquery()
+    )
+
+    # -- Column 4: total — total matching rows *before* LIMIT/OFFSET
     #    Uses a window function so pagination total comes from the same query.
     total_col = func.count().over().label("total_count")
 
@@ -360,7 +390,14 @@ def query_traces(
     )
 
     query = (
-        db.query(models.Trace, span_count_col, total_col, tags_count_col, comments_count_col)
+        db.query(
+            models.Trace,
+            span_count_col,
+            total_col,
+            tags_count_col,
+            comments_count_col,
+            llm_tokens_col,
+        )
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             # Scoped to what the loop below actually reads off this chain (existence
@@ -511,7 +548,14 @@ def query_traces(
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [
-        TraceRow(trace=r[0], span_count=r[1], total=r[2], tags_count=r[3], comments_count=r[4])
+        TraceRow(
+            trace=r[0],
+            span_count=r[1],
+            total=r[2],
+            tags_count=r[3],
+            comments_count=r[4],
+            llm_tokens=int(r[5] or 0),
+        )
         for r in results
     ]
 
@@ -850,8 +894,6 @@ def get_trace_metrics_aggregated(
     from sqlalchemy import case, literal_column
     from sqlalchemy.sql import functions as sqlfunc
 
-    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
-
     T = models.Trace
 
     filters = [
@@ -868,17 +910,61 @@ def get_trace_metrics_aggregated(
 
     base = db.query(T).filter(*filters).subquery()
 
-    # JSONB extraction expressions for tokens and costs
-    tokens_expr = base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()
-    cost_expr = base.c.enriched_data[EnrichedDataKeys.COSTS][
-        EnrichedDataKeys.TOTAL_COST_USD
-    ].as_float()
+    # Tokens and costs aggregate per *trace*, not per span row.
+    #
+    # enriched_data is a trace-level blob that mark_trace_processed writes onto every
+    # span of the trace, so summing it across span rows multiplies the real figure by
+    # the span count. Collapse to one row per trace first: MAX is exact for the
+    # enriched columns precisely because every row carries the same value.
+    #
+    # raw_tokens is the pre-enrichment fallback, summed over llm.invoke spans only --
+    # the same filter enrichment applies, so an unenriched trace reports the number it
+    # will keep once enrichment lands. Cost has no fallback; it cannot be derived from
+    # span attributes.
+    per_trace = (
+        db.query(
+            base.c.trace_id.label("trace_id"),
+            func.max(
+                base.c.enriched_data[EnrichedDataKeys.COSTS][
+                    EnrichedDataKeys.TOTAL_TOKENS
+                ].as_float()
+            ).label("enriched_tokens"),
+            func.max(
+                base.c.enriched_data[EnrichedDataKeys.COSTS][
+                    EnrichedDataKeys.TOTAL_COST_USD
+                ].as_float()
+            ).label("cost_usd"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
+                            == AISpanAttributes.OPERATION_LLM_INVOKE,
+                            base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float(),
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("raw_tokens"),
+        )
+        .group_by(base.c.trace_id)
+        .subquery()
+    )
+
+    token_cost_agg = db.query(
+        func.coalesce(
+            func.sum(
+                func.coalesce(per_trace.c.enriched_tokens, per_trace.c.raw_tokens, 0),
+            ),
+            0,
+        ).label("total_tokens"),
+        func.coalesce(func.sum(per_trace.c.cost_usd), 0).label("total_cost_usd"),
+    ).one()
 
     agg = db.query(
         func.count(func.distinct(base.c.trace_id)).label("total_traces"),
         func.count(base.c.id).label("total_spans"),
-        func.coalesce(func.sum(tokens_expr), 0).label("total_tokens"),
-        func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
         func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
         func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
         func.coalesce(sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0).label(
@@ -912,8 +998,8 @@ def get_trace_metrics_aggregated(
     return {
         "total_traces": agg.total_traces or 0,
         "total_spans": total_spans,
-        "total_tokens": int(agg.total_tokens or 0),
-        "total_cost_usd": round(float(agg.total_cost_usd or 0), 6),
+        "total_tokens": int(token_cost_agg.total_tokens or 0),
+        "total_cost_usd": round(float(token_cost_agg.total_cost_usd or 0), 6),
         "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
         "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
         "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),

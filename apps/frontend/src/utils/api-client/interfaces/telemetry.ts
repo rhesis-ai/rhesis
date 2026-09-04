@@ -79,6 +79,9 @@ export interface SpanNode {
   status_code: string;
   status_message?: string;
   attributes: Record<string, string | number | boolean>;
+  /** Priced by enrichment; absent until a trace has been enriched. */
+  cost_usd?: number | null;
+  model_name?: string | null;
   events: SpanEvent[];
   children: SpanNode[];
   trace_metrics?: Record<string, unknown>;
@@ -101,6 +104,13 @@ export interface TraceSummary {
   duration_ms: number;
   span_count: number;
   root_operation: string;
+
+  // Token usage and cost. Summed over the trace's llm.invoke spans, so a trace with
+  // no LLM spans omits them rather than reporting zero.
+  total_tokens?: number | null;
+  total_input_tokens?: number | null;
+  total_output_tokens?: number | null;
+  total_cost_usd?: number | null;
 
   // Endpoint information (optional)
   endpoint_id?: string;
@@ -128,6 +138,14 @@ export interface TraceDetailResponse {
   duration_ms: number;
   span_count: number;
   error_count: number;
+
+  // Token usage and cost across the trace's llm.invoke spans. The detail endpoint
+  // has the whole span set, so unlike TraceSummary it always resolves the split.
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+
   root_spans: SpanNode[];
 
   // Trace metrics evaluation. execution/verdict are the source of truth

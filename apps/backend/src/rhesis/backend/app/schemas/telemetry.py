@@ -103,6 +103,8 @@ class TraceSummary(BaseModel):
     root_operation: str
     status_code: str
     total_tokens: Optional[int] = None
+    total_input_tokens: Optional[int] = None
+    total_output_tokens: Optional[int] = None
     total_cost_usd: Optional[float] = None
     total_cost_eur: Optional[float] = None
     has_errors: bool
@@ -189,6 +191,10 @@ class SpanNode(BaseModel):
     status_code: str
     status_message: Optional[str]
     attributes: Dict[str, Any]
+    # Priced by enrichment, which the frontend cannot reach any other way: the raw
+    # attributes carry tokens but never a cost.
+    cost_usd: Optional[float] = None
+    model_name: Optional[str] = None
     events: List[Dict[str, Any]]
     children: List["SpanNode"] = Field(default_factory=list)
 
@@ -226,6 +232,8 @@ class TraceDetailResponse(BaseModel):
     span_count: int
     error_count: int
     total_tokens: int
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
     total_cost_usd: float
     root_spans: List[SpanNode]
 
