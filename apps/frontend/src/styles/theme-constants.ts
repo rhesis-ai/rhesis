@@ -108,6 +108,9 @@ export const BACKDROP_COLORS = {
   filter: 'rgba(0, 101, 140, 0.8)',
 } as const;
 
+/** Font size for monospace / code blocks (px). */
+export const CODE_FONT_SIZE = 13;
+
 /** Horizontal gap between FAB buttons in a page-header action group (Figma) */
 export const FAB_GROUP_GAP = '20px';
 

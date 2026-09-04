@@ -19,6 +19,7 @@ import {
 import EditableSection from '@/components/common/EditableSection';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { CODE_FONT_SIZE } from '@/styles/theme-constants';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
 import { testEndpointMapping } from '@/actions/endpoints';
 import MappingEditor from '../../components/MappingEditor';
@@ -45,6 +46,47 @@ function mappingFromEndpoint(endpoint: {
   };
 }
 
+const codeSx = {
+  m: 0,
+  p: 2,
+  bgcolor: 'action.hover',
+  borderRadius: 1,
+  overflow: 'auto',
+  fontFamily: (theme: import('@mui/material/styles').Theme) =>
+    theme.typography.fontFamilyCode,
+  fontSize: CODE_FONT_SIZE,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+};
+
+function SdkMappingReadOnly() {
+  const { endpoint } = useEndpointDetailContext();
+  const mapping = mappingFromEndpoint(endpoint);
+
+  return (
+    <SectionCard title="Mapping">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Request mapping
+          </Typography>
+          <Typography component="pre" variant="body2" sx={codeSx}>
+            {mapping.reqBody || '{}'}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Response mapping
+          </Typography>
+          <Typography component="pre" variant="body2" sx={codeSx}>
+            {mapping.resBody || '{}'}
+          </Typography>
+        </Box>
+      </Box>
+    </SectionCard>
+  );
+}
+
 export default function EndpointMappingTab() {
   const { endpoint, saveFields } = useEndpointDetailContext();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
@@ -66,7 +108,7 @@ export default function EndpointMappingTab() {
   );
 
   if (endpoint.connection_type === 'SDK') {
-    return null;
+    return <SdkMappingReadOnly />;
   }
 
   const handleAutoConfigureApply = async (result: AutoConfigureResult) => {
@@ -259,21 +301,7 @@ export default function EndpointMappingTab() {
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
                     Request mapping
                   </Typography>
-                  <Typography
-                    component="pre"
-                    variant="body2"
-                    sx={{
-                      m: 0,
-                      p: 2,
-                      bgcolor: 'action.hover',
-                      borderRadius: 1,
-                      overflow: 'auto',
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
+                  <Typography component="pre" variant="body2" sx={codeSx}>
                     {draft.reqBody || '{}'}
                   </Typography>
                 </Box>
@@ -281,21 +309,7 @@ export default function EndpointMappingTab() {
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
                     Response mapping
                   </Typography>
-                  <Typography
-                    component="pre"
-                    variant="body2"
-                    sx={{
-                      m: 0,
-                      p: 2,
-                      bgcolor: 'action.hover',
-                      borderRadius: 1,
-                      overflow: 'auto',
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
+                  <Typography component="pre" variant="body2" sx={codeSx}>
                     {draft.resBody || '{}'}
                   </Typography>
                 </Box>

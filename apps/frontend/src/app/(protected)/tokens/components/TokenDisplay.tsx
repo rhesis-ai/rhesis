@@ -6,6 +6,7 @@ import { TokenResponse } from '@/utils/api-client/interfaces/token';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { formatDate } from '@/utils/date';
+import { CODE_FONT_SIZE } from '@/styles/theme-constants';
 
 interface TokenDisplayProps {
   open: boolean;
@@ -75,7 +76,7 @@ export default function TokenDisplay({
                 variant="outlined"
                 InputProps={{ readOnly: true }}
                 inputProps={{
-                  style: { fontFamily: 'monospace', fontSize: 13 },
+                  style: { fontFamily: 'monospace', fontSize: CODE_FONT_SIZE },
                 }}
               />
               <IconButton

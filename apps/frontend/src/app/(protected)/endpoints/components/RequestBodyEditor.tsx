@@ -11,6 +11,7 @@ import {
 import dynamic from 'next/dynamic';
 import type { OnMount, BeforeMount } from '@monaco-editor/react';
 import { useTheme } from '@mui/material/styles';
+import { CODE_FONT_SIZE } from '@/styles/theme-constants';
 import { editorContainerSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
 
@@ -272,7 +273,7 @@ export default function RequestBodyEditor({
           scrollBeyondLastLine: false,
           automaticLayout: true,
           padding: { top: 8, bottom: 8 },
-          fontSize: 13,
+          fontSize: CODE_FONT_SIZE,
           wordWrap: 'on',
           tabSize: 2,
           formatOnType: true,

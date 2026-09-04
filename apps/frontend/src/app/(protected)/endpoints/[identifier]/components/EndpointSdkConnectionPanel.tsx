@@ -64,7 +64,10 @@ export default function EndpointSdkConnectionPanel() {
                     endpoint.endpoint_metadata.sdk_connection.function_name
                   }
                   bgcolor="transparent"
-                  inputSx={{ fontFamily: 'monospace', fontWeight: 500 }}
+                  inputSx={{
+                    fontFamily: theme => theme.typography.fontFamilyCode,
+                    fontWeight: 500,
+                  }}
                 />
               </Grid>
             )}
@@ -88,60 +91,65 @@ export default function EndpointSdkConnectionPanel() {
                 >
                   Function Parameters
                 </Typography>
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 2, bgcolor: 'background.default' }}
-                >
-                  {parameterRows.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
-                      No parameters
-                    </Typography>
-                  ) : (
-                    <BaseTable<ParameterRow>
-                      columns={[
-                        {
-                          id: 'name',
-                          label: 'Parameter',
-                          render: row => (
-                            <Typography
-                              variant="body2"
-                              sx={{ fontFamily: 'monospace', fontWeight: 500 }}
-                            >
-                              {row.name}
-                            </Typography>
-                          ),
-                        },
-                        {
-                          id: 'type',
-                          label: 'Type',
-                          render: row => (
-                            <Typography
-                              variant="caption"
-                              sx={{ fontFamily: 'monospace' }}
-                              color="text.secondary"
-                            >
-                              {row.type}
-                            </Typography>
-                          ),
-                        },
-                        {
-                          id: 'default',
-                          label: 'Default',
-                          render: row => (
-                            <Typography
-                              variant="caption"
-                              sx={{ fontFamily: 'monospace' }}
-                              color="text.secondary"
-                            >
-                              {row.defaultValue}
-                            </Typography>
-                          ),
-                        },
-                      ]}
-                      data={parameterRows}
-                    />
-                  )}
-                </Paper>
+                {parameterRows.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No parameters
+                  </Typography>
+                ) : (
+                  <BaseTable<ParameterRow>
+                    columns={[
+                      {
+                        id: 'name',
+                        label: 'Parameter',
+                        render: row => (
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: theme =>
+                                theme.typography.fontFamilyCode,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {row.name}
+                          </Typography>
+                        ),
+                      },
+                      {
+                        id: 'type',
+                        label: 'Type',
+                        render: row => (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontFamily: theme =>
+                                theme.typography.fontFamilyCode,
+                            }}
+                            color="text.secondary"
+                          >
+                            {row.type}
+                          </Typography>
+                        ),
+                      },
+                      {
+                        id: 'default',
+                        label: 'Default',
+                        render: row => (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontFamily: theme =>
+                                theme.typography.fontFamilyCode,
+                            }}
+                            color="text.secondary"
+                          >
+                            {row.defaultValue}
+                          </Typography>
+                        ),
+                      },
+                    ]}
+                    data={parameterRows}
+                  />
+                )}
               </Grid>
             )}
 
