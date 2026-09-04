@@ -54,6 +54,11 @@ from rhesis.backend.app.services.review import (
     get_review_status_details,
     update_review_metadata,
 )
+from rhesis.backend.app.services.telemetry.token_totals import (
+    trace_cost_usd,
+    trace_summary_totals,
+    trace_token_totals,
+)
 from rhesis.backend.app.services.trace_review_override import (
     apply_review_override as trace_apply_review_override,
 )
@@ -394,13 +399,13 @@ def list_traces(
         for row in rows:
             trace = row.trace
             has_errors = trace.status_code == StatusCode.ERROR.value
-            total_tokens = trace.total_tokens or 0
-            total_cost_usd = 0.0
-            total_cost_eur = 0.0
-            costs = (trace.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-            if costs:
-                total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
-                total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
+            (
+                total_input_tokens,
+                total_output_tokens,
+                total_tokens,
+                total_cost_usd,
+                total_cost_eur,
+            ) = trace_summary_totals(trace.enriched_data, row.llm_tokens)
 
             # Get endpoint information from eagerly loaded relationships
             trace_endpoint_id = None
@@ -449,6 +454,8 @@ def list_traces(
                 endpoint_id=trace_endpoint_id,
                 endpoint_name=trace_endpoint_name,
                 total_tokens=total_tokens if total_tokens > 0 else None,
+                total_input_tokens=total_input_tokens if total_input_tokens > 0 else None,
+                total_output_tokens=total_output_tokens if total_output_tokens > 0 else None,
                 total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
                 total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
                 has_errors=has_errors,
@@ -594,20 +601,25 @@ def get_trace(
         # Build proper span tree
         from rhesis.backend.app.services.telemetry.tree_builder import build_span_tree
 
-        root_spans = build_span_tree(spans)
+        # enriched_data is trace-level and written onto every span, so any span
+        # carries the whole breakdown. Index it once for the tree builder.
+        costs = (spans[0].enriched_data or {}).get(EnrichedDataKeys.COSTS) or {}
+        cost_by_span_id = {
+            entry[EnrichedDataKeys.SPAN_ID]: entry
+            for entry in costs.get(EnrichedDataKeys.BREAKDOWN) or []
+            if entry.get(EnrichedDataKeys.SPAN_ID)
+        }
+
+        root_spans = build_span_tree(spans, cost_by_span_id)
 
         # Calculate trace-level metrics
         total_duration = max(span.end_time for span in spans) - min(
             span.start_time for span in spans
         )
-        total_tokens = sum(span.total_tokens or 0 for span in spans)
+        total_input_tokens, total_output_tokens, total_tokens = trace_token_totals(spans)
         error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
 
-        # Extract costs from enriched data
-        total_cost = 0.0
-        costs = (spans[0].enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-        if costs:
-            total_cost = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
+        total_cost = trace_cost_usd(spans[0].enriched_data)
 
         # Build relationship objects from first span
         from rhesis.backend.app.schemas.endpoint import Endpoint
@@ -678,6 +690,8 @@ def get_trace(
             span_count=len(spans),
             error_count=error_count,
             total_tokens=total_tokens,
+            total_input_tokens=total_input_tokens,
+            total_output_tokens=total_output_tokens,
             total_cost_usd=total_cost,
             root_spans=root_spans,
             trace_metrics_status=trace_metrics_status_name,

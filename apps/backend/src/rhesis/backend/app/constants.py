@@ -251,7 +251,14 @@ class AISpanAttributes:
 
     OPERATION_TYPE = "ai.operation.type"
     MODEL_NAME = "ai.model.name"
+    TOKENS_INPUT = "ai.llm.tokens.input"
+    TOKENS_OUTPUT = "ai.llm.tokens.output"
     TOKENS_TOTAL = "ai.llm.tokens.total"
+
+    # Only spans with this operation type carry countable token usage. Agent-run
+    # spans repeat their children's tokens as an aggregate, so counting them too
+    # double-counts the trace.
+    OPERATION_LLM_INVOKE = "llm.invoke"
 
 
 # Keys inside Trace.enriched_data (JSONB) populated by the enrichment service.
@@ -261,6 +268,12 @@ class EnrichedDataKeys:
     COSTS = "costs"
     TOTAL_COST_USD = "total_cost_usd"
     TOTAL_COST_EUR = "total_cost_eur"
+    TOTAL_TOKENS = "total_tokens"
+    TOTAL_INPUT_TOKENS = "total_input_tokens"
+    TOTAL_OUTPUT_TOKENS = "total_output_tokens"
+    BREAKDOWN = "breakdown"
+    SPAN_ID = "span_id"
+    MODEL_NAME = "model_name"
 
 
 # Test Execution Context Constants

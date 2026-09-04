@@ -16,7 +16,11 @@ from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import (
+    AISpanAttributes,
+    EnrichedDataKeys,
+    TestExecutionContext,
+)
 from rhesis.backend.app.schemas.telemetry import (
     OTELSpanCreate,
     StatusCode,
@@ -40,6 +44,9 @@ class TraceRow(NamedTuple):
     total: int
     tags_count: int
     comments_count: int
+    # Summed over the trace's llm.invoke spans. Only used when the trace has not
+    # been enriched yet -- see services/telemetry/token_totals.py.
+    llm_tokens: int
 
 
 # ============================================================================
@@ -332,7 +339,30 @@ def query_traces(
         .scalar_subquery()
     )
 
-    # -- Column 3: total — total matching rows *before* LIMIT/OFFSET
+    # -- Column 3: llm_tokens — tokens over this trace's llm.invoke spans.
+    #    The pre-enrichment fallback: enrichment is dispatched asynchronously after
+    #    ingest, so a freshly ingested trace has no enriched_data and would
+    #    otherwise list as 0 while the detail endpoint reported the real figure.
+    #    The llm.invoke filter is the same one enrichment applies, so the two
+    #    numbers agree instead of double-counting aggregate-reporting frameworks.
+    llm_tokens_col = (
+        select(
+            func.coalesce(
+                func.sum(InnerTrace.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()), 0
+            )
+        )
+        .where(
+            and_(
+                InnerTrace.trace_id == models.Trace.trace_id,
+                InnerTrace.organization_id == org_uuid,
+                InnerTrace.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
+                == AISpanAttributes.OPERATION_LLM_INVOKE,
+            )
+        )
+        .scalar_subquery()
+    )
+
+    # -- Column 4: total — total matching rows *before* LIMIT/OFFSET
     #    Uses a window function so pagination total comes from the same query.
     total_col = func.count().over().label("total_count")
 
@@ -360,7 +390,14 @@ def query_traces(
     )
 
     query = (
-        db.query(models.Trace, span_count_col, total_col, tags_count_col, comments_count_col)
+        db.query(
+            models.Trace,
+            span_count_col,
+            total_col,
+            tags_count_col,
+            comments_count_col,
+            llm_tokens_col,
+        )
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             # Scoped to what the loop below actually reads off this chain (existence
@@ -511,7 +548,14 @@ def query_traces(
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [
-        TraceRow(trace=r[0], span_count=r[1], total=r[2], tags_count=r[3], comments_count=r[4])
+        TraceRow(
+            trace=r[0],
+            span_count=r[1],
+            total=r[2],
+            tags_count=r[3],
+            comments_count=r[4],
+            llm_tokens=int(r[5] or 0),
+        )
         for r in results
     ]
 
@@ -849,8 +893,6 @@ def get_trace_metrics_aggregated(
 
     from sqlalchemy import case, literal_column
     from sqlalchemy.sql import functions as sqlfunc
-
-    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
 
     T = models.Trace
 

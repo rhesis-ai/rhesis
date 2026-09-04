@@ -9,6 +9,7 @@ This module tests the telemetry query endpoints including:
 - Error handling and edge cases
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -1206,6 +1207,7 @@ class TestCrossOrganizationSecurity:
         import uuid
 
         from rhesis.telemetry.schemas import OTELSpan
+
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
         org, user, _ = create_test_organization_and_user(
@@ -1349,3 +1351,253 @@ class TestCrossOrganizationSecurity:
         response = client_b.get(f"/telemetry/metrics?project_id={project_b.id}")
         assert response.status_code == 200, response.text
         assert response.json()["total_traces"] == 2
+
+
+@pytest.mark.integration
+class TestTraceTokenAndCostVisibility:
+    """Tokens and cost as the trace UI reads them, over the real endpoints.
+
+    The list column, the drawer chips and the project rollup must all report the
+    same figure for the same trace -- they used to report three different ones.
+    """
+
+    @staticmethod
+    def _span(trace_id, span_id, project_id, *, parent=None, operation, tokens=None):
+        now = datetime.now(timezone.utc)
+        attributes = {"ai.operation.type": operation}
+        if tokens is not None:
+            attributes["ai.model.name"] = "gpt-4"
+            attributes["ai.llm.tokens.input"] = tokens[0]
+            attributes["ai.llm.tokens.output"] = tokens[1]
+            attributes["ai.llm.tokens.total"] = tokens[2]
+        return {
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "parent_span_id": parent,
+            "project_id": project_id,
+            "environment": "development",
+            "span_name": "ai.llm.invoke" if operation == "llm.invoke" else "ai.agent.invoke",
+            "span_kind": "CLIENT",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(milliseconds=250)).isoformat(),
+            "status_code": "OK",
+            "attributes": attributes,
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    @staticmethod
+    def _summary(client, project_id, trace_id):
+        response = client.get(f"/telemetry/traces?project_id={project_id}&limit=100")
+        assert response.status_code == status.HTTP_200_OK
+        for trace in response.json()["traces"]:
+            if trace["trace_id"] == trace_id:
+                return trace
+        raise AssertionError(f"trace {trace_id} missing from the list response")
+
+    def _ingest(self, client, spans):
+        response = client.post("/telemetry/traces", json={"spans": spans})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_pydantic_ai_run_is_not_double_counted(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The agent-run span repeats its children's aggregate under the same keys.
+
+        Summing every span would report 840; only the llm.invoke spans count.
+        """
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        agent_span = uuid.uuid4().hex[:16]
+        spans = [
+            self._span(
+                trace_id, agent_span, project_id, operation="agent.invoke", tokens=(300, 120, 420)
+            ),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(100, 50, 150),
+            ),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(200, 70, 270),
+            ),
+        ]
+        self._ingest(authenticated_client, spans)
+
+        response = authenticated_client.get(f"/telemetry/traces/{trace_id}?project_id={project_id}")
+        assert response.status_code == status.HTTP_200_OK
+        detail = response.json()
+
+        assert detail["total_tokens"] == 420
+        assert detail["total_input_tokens"] == 300
+        assert detail["total_output_tokens"] == 120
+
+    def test_list_and_detail_report_the_same_tokens(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The core bug: the list read the root span alone and so showed 0."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        agent_span = uuid.uuid4().hex[:16]
+        spans = [
+            # A root span with no token attributes at all -- the usual shape, and
+            # what the list used to read its figure from.
+            self._span(trace_id, agent_span, project_id, operation="agent.invoke"),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(100, 50, 150),
+            ),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(200, 70, 270),
+            ),
+        ]
+        self._ingest(authenticated_client, spans)
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+        summary = self._summary(authenticated_client, project_id, trace_id)
+
+        assert detail["total_tokens"] == 420
+        assert summary["total_tokens"] == detail["total_tokens"]
+
+    def test_reported_total_survives_the_round_trip(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Google ADK folds cache-read tokens into its total, so it exceeds in + out."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        self._ingest(
+            authenticated_client,
+            [
+                self._span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(100, 50, 950),
+                )
+            ],
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+
+        assert detail["total_tokens"] == 950
+        assert self._summary(authenticated_client, project_id, trace_id)["total_tokens"] == 950
+
+    def test_trace_with_no_llm_spans_omits_tokens(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The list sends null so the column shows an em dash rather than a 0."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        self._ingest(
+            authenticated_client,
+            [self._span(trace_id, uuid.uuid4().hex[:16], project_id, operation="tool.invoke")],
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+
+        assert detail["total_tokens"] == 0
+        assert self._summary(authenticated_client, project_id, trace_id)["total_tokens"] is None
+
+    def test_span_nodes_expose_cost_once_enriched(
+        self, authenticated_client: TestClient, db_project, test_db, test_org_id
+    ):
+        """Per-span cost reaches the Span Details panel, and only for priced spans."""
+        from rhesis.backend.app.crud.telemetry import mark_trace_processed
+
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        agent_span = uuid.uuid4().hex[:16]
+        llm_span = uuid.uuid4().hex[:16]
+        self._ingest(
+            authenticated_client,
+            [
+                self._span(
+                    trace_id,
+                    agent_span,
+                    project_id,
+                    operation="agent.invoke",
+                    tokens=(100, 50, 150),
+                ),
+                self._span(
+                    trace_id,
+                    llm_span,
+                    project_id,
+                    parent=agent_span,
+                    operation="llm.invoke",
+                    tokens=(100, 50, 150),
+                ),
+            ],
+        )
+
+        # Stand in for the async enrichment job, which does not run in tests.
+        mark_trace_processed(
+            test_db,
+            trace_id,
+            {
+                "costs": {
+                    "total_cost_usd": 0.006,
+                    "total_cost_eur": 0.0054,
+                    "total_input_tokens": 100,
+                    "total_output_tokens": 50,
+                    "total_tokens": 150,
+                    "breakdown": [
+                        {
+                            "span_id": llm_span,
+                            "model_name": "gpt-4",
+                            "input_tokens": 100,
+                            "output_tokens": 50,
+                            "total_tokens": 150,
+                            "input_cost_usd": 0.003,
+                            "output_cost_usd": 0.003,
+                            "total_cost_usd": 0.006,
+                            "input_cost_eur": 0.0027,
+                            "output_cost_eur": 0.0027,
+                            "total_cost_eur": 0.0054,
+                        }
+                    ],
+                }
+            },
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+
+        def walk(nodes):
+            for node in nodes:
+                yield node
+                yield from walk(node["children"])
+
+        by_span = {node["span_id"]: node for node in walk(detail["root_spans"])}
+
+        assert detail["total_cost_usd"] == pytest.approx(0.006)
+        assert by_span[llm_span]["cost_usd"] == pytest.approx(0.006)
+        assert by_span[llm_span]["model_name"] == "gpt-4"
+        # The agent-run span is never priced, so it shows no Usage cost.
+        assert by_span[agent_span]["cost_usd"] is None
+        assert by_span[agent_span]["model_name"] is None
