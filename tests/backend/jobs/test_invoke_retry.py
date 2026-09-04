@@ -76,6 +76,35 @@ class TestClassifyErrorResponse:
         assert err.transient is True
 
 
+    @pytest.mark.parametrize(
+        "error_type",
+        ["sdk_send_failed", "sdk_disconnected", "sdk_timeout"],
+    )
+    def test_sdk_transport_errors_are_transient(self, error_type):
+        """All three are transport-level, so a second attempt can succeed.
+
+        Left permanent, one blip became a permanently failed test: the retry
+        skipped it and the batch recovery round skipped it too.
+        """
+        resp = ErrorResponse(
+            output="SDK error",
+            error_type=error_type,
+            message="transport-level failure",
+        )
+        err = classify_error_response(resp)
+        assert err.transient is True
+        assert err.error_type == error_type
+
+    def test_sdk_function_error_stays_permanent(self):
+        """The SDK function itself raising is the target's answer, not transport."""
+        resp = ErrorResponse(
+            output="SDK function error: rejected by policy",
+            error_type="sdk_function_error",
+            message="rejected by policy",
+        )
+        assert classify_error_response(resp).transient is False
+
+
 class TestInvokeWithRetry:
     @pytest.mark.asyncio
     async def test_success_on_first_attempt(self):

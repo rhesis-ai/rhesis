@@ -148,6 +148,16 @@ _TRANSIENT_ERROR_TYPES = frozenset(
         "websocket_error",
         "timeout_error",
         "connection_error",
+        # The SDK connector's failures are all transport-level: a dropped
+        # WebSocket, a reconnect window, a response that never made it back.
+        # None of them say the target rejected the call, and every one of them
+        # can succeed on a second attempt. Left permanent, a single blip became
+        # a permanently failed test -- invoke_with_retry skipped it, and the
+        # batch recovery round skipped it too because it reports
+        # status="endpoint_error" rather than "failed".
+        "sdk_send_failed",
+        "sdk_disconnected",
+        "sdk_timeout",
     }
 )
 
