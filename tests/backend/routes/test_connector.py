@@ -9,6 +9,7 @@ This module tests the WebSocket connector endpoints including:
 """
 
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -16,12 +17,57 @@ from starlette.websockets import WebSocketDisconnect
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.models.execution_trace import ExecutionTrace
+
 # A valid, stable project UUID used across trigger tests.
 _TEST_PROJECT_ID = str(uuid.uuid4())
 
 # Path to the membership guard so tests can bypass it when they are
 # exercising connection-manager behaviour rather than authorization.
 _MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_membership"
+
+
+@pytest.fixture
+def seeded_project(test_db, test_org_id, authenticated_user_id):
+    """Real project row (plus the API user's membership) so persisted
+    execution traces satisfy the FK and the real membership guard."""
+    from rhesis.backend.app import models
+
+    project = models.Project(
+        name=f"Connector Trace Project {uuid.uuid4().hex[:8]}",
+        organization_id=uuid.UUID(test_org_id),
+    )
+    test_db.add(project)
+    test_db.flush()
+    test_db.add(
+        models.ProjectMembership(
+            project_id=project.id,
+            user_id=uuid.UUID(authenticated_user_id),
+            organization_id=uuid.UUID(test_org_id),
+        )
+    )
+    test_db.flush()
+    yield project
+    test_db.rollback()
+
+
+@pytest.fixture
+def shared_tenant_session(test_db):
+    """Route the connector's tenant session at the shared test session.
+
+    ``receive_trace`` opens its own session via ``get_db_with_tenant_variables``
+    (a direct call, not a FastAPI dependency), so from a separate connection it
+    cannot see ``test_db``'s uncommitted fixture rows (seeded project +
+    membership). Sharing the session keeps everything inside ``test_db``'s
+    outer transaction, which still rolls back at teardown. Same seam as
+    ``mock_db_context`` below.
+    """
+    with patch(
+        "rhesis.backend.app.routers.connector.get_db_with_tenant_variables"
+    ) as mock_db:
+        mock_db.return_value.__enter__ = Mock(return_value=test_db)
+        mock_db.return_value.__exit__ = Mock(return_value=None)
+        yield test_db
 
 
 @pytest.mark.integration
@@ -249,10 +295,12 @@ class TestConnectorHTTPEndpoints:
             data = response.json()
             assert data["environment"] == "development"  # Default environment
 
-    def test_receive_trace_success(self, authenticated_client: TestClient):
+    def test_receive_trace_success(
+        self, authenticated_client: TestClient, seeded_project, shared_tenant_session
+    ):
         """Test receiving execution trace (legacy endpoint for connector traces)"""
         trace_data = {
-            "project_id": "test-project",
+            "project_id": str(seeded_project.id),
             "environment": "development",
             "function_name": "test_func",
             "status": "success",
@@ -270,10 +318,12 @@ class TestConnectorHTTPEndpoints:
         data = response.json()
         assert data["status"] == "received"
 
-    def test_receive_trace_with_error(self, authenticated_client: TestClient):
+    def test_receive_trace_with_error(
+        self, authenticated_client: TestClient, seeded_project, shared_tenant_session
+    ):
         """Test receiving execution trace with error (legacy endpoint)"""
         trace_data = {
-            "project_id": "test-project",
+            "project_id": str(seeded_project.id),
             "environment": "development",
             "function_name": "test_func",
             "status": "error",
@@ -291,10 +341,12 @@ class TestConnectorHTTPEndpoints:
         data = response.json()
         assert data["status"] == "received"
 
-    def test_receive_trace_with_long_output(self, authenticated_client: TestClient):
+    def test_receive_trace_with_long_output(
+        self, authenticated_client: TestClient, seeded_project, shared_tenant_session
+    ):
         """Test receiving execution trace with long output (legacy endpoint)"""
         trace_data = {
-            "project_id": "test-project",
+            "project_id": str(seeded_project.id),
             "environment": "development",
             "function_name": "test_func",
             "status": "success",
@@ -311,6 +363,138 @@ class TestConnectorHTTPEndpoints:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "received"
+
+    def test_receive_trace_persists_record(
+        self, authenticated_client: TestClient, test_db, seeded_project, test_org_id,
+        shared_tenant_session
+    ):
+        """Trace is persisted and its id returned, not just logged."""
+        trace_data = {
+            "project_id": str(seeded_project.id),
+            "environment": "development",
+            "function_name": "test_func",
+            "status": "success",
+            "duration_ms": 123.45,
+            "inputs": {"param": "value"},
+            "output": "success result",
+            "error": None,
+            "timestamp": 1704067200.0,  # 2024-01-01T00:00:00Z
+        }
+
+        response = authenticated_client.post("/connector/trace", json=trace_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == "received"
+        assert data["trace_id"]
+
+        record = (
+            test_db.query(ExecutionTrace)
+            .filter(ExecutionTrace.id == uuid.UUID(data["trace_id"]))
+            .one()
+        )
+        assert record.project_id == seeded_project.id
+        assert record.organization_id == uuid.UUID(test_org_id)
+        assert record.function_name == "test_func"
+        assert record.inputs == {"param": "value"}
+        assert record.output == "success result"
+        assert record.duration_ms == pytest.approx(123.45)
+        assert record.status == "success"
+        assert record.executed_at == datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+    def test_receive_trace_persists_error(
+        self, authenticated_client: TestClient, test_db, seeded_project,
+        shared_tenant_session
+    ):
+        """Error traces persist the error payload too."""
+        trace_data = {
+            "project_id": str(seeded_project.id),
+            "environment": "staging",
+            "function_name": "boom_func",
+            "status": "error",
+            "duration_ms": 5.0,
+            "inputs": {},
+            "output": None,
+            "error": "Something went wrong",
+            "timestamp": 1704067200.0,
+        }
+
+        response = authenticated_client.post("/connector/trace", json=trace_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        record = test_db.query(ExecutionTrace).filter_by(id=uuid.UUID(data["trace_id"])).one()
+        assert record.status == "error"
+        assert record.error == "Something went wrong"
+        assert record.environment == "staging"
+
+    def test_receive_trace_persists_through_real_tenant_session(
+        self, real_commit_client, real_commit_test_db, test_org_id, authenticated_user_id
+    ):
+        """RLS fail-closed path: the endpoint's own session persists the trace.
+
+        Unlike the tests above (which share ``test_db``'s session via
+        ``shared_tenant_session`` and therefore never set the RLS GUCs), this
+        goes through the real ``get_db_with_tenant_variables`` on a separate
+        connection, so ``project_isolation`` actually enforces the scope. Rows
+        are really committed and cleaned up explicitly (see
+        ``real_commit_test_db``).
+        """
+        from rhesis.backend.app import models
+
+        project = models.Project(
+            name=f"Connector Trace RLS Project {uuid.uuid4().hex[:8]}",
+            organization_id=uuid.UUID(test_org_id),
+        )
+        real_commit_test_db.add(project)
+        real_commit_test_db.flush()
+        real_commit_test_db.add(
+            models.ProjectMembership(
+                project_id=project.id,
+                user_id=uuid.UUID(authenticated_user_id),
+                organization_id=uuid.UUID(test_org_id),
+            )
+        )
+        real_commit_test_db.commit()
+        try:
+            trace_data = {
+                "project_id": str(project.id),
+                "environment": "development",
+                "function_name": "rls_probe_func",
+                "status": "success",
+                "duration_ms": 7.5,
+                "inputs": {"param": "value"},
+                "output": "ok",
+                "error": None,
+                "timestamp": 1704067200.0,
+            }
+
+            response = real_commit_client.post("/connector/trace", json=trace_data)
+
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["status"] == "received"
+            assert data["trace_id"]
+
+            real_commit_test_db.expire_all()
+            record = (
+                real_commit_test_db.query(ExecutionTrace)
+                .filter(ExecutionTrace.id == uuid.UUID(data["trace_id"]))
+                .one()
+            )
+            assert record.project_id == project.id
+            assert record.function_name == "rls_probe_func"
+        finally:
+            real_commit_test_db.query(ExecutionTrace).filter(
+                ExecutionTrace.project_id == project.id
+            ).delete(synchronize_session=False)
+            real_commit_test_db.query(models.ProjectMembership).filter(
+                models.ProjectMembership.project_id == project.id
+            ).delete(synchronize_session=False)
+            real_commit_test_db.query(models.Project).filter(
+                models.Project.id == project.id
+            ).delete(synchronize_session=False)
+            real_commit_test_db.commit()
 
 
 @pytest.mark.integration
