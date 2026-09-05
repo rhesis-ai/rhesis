@@ -64,6 +64,8 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'LINEAR_API_TOKEN';
     case 'azure_devops':
       return 'AZURE_DEVOPS_PAT';
+    case 'trello':
+      return 'TRELLO_TOKEN';
     case 'jira':
       return 'JIRA_API_TOKEN';
     case 'confluence':
@@ -174,6 +176,9 @@ export function ToolConnectionDrawer({
 
   // Asana workspace scope
   const [workspaceGid, setWorkspaceGid] = useState('');
+
+  // Trello API Key
+  const [trelloApiKey, setTrelloApiKey] = useState('');
 
   // Azure DevOps fields (org/email are encrypted credentials; project is metadata)
   const [azureOrg, setAzureOrg] = useState('');
@@ -296,7 +301,7 @@ export function ToolConnectionDrawer({
       );
 
       if (
-        currentProviderType === 'asana' &&
+        (currentProviderType === 'asana' || currentProviderType === 'trello') &&
         typeof tool.tool_metadata?.workspace_gid === 'string'
       ) {
         setWorkspaceGid(tool.tool_metadata.workspace_gid);
@@ -306,6 +311,7 @@ export function ToolConnectionDrawer({
         setInitialWorkspaceGid('');
       }
 
+      setTrelloApiKey(currentProviderType === 'trello' ? '************' : '');
       setInstanceUrl('************');
       setUsername('************');
 
@@ -394,6 +400,9 @@ export function ToolConnectionDrawer({
       const azureEmailChanged = Boolean(
         azureEmail && azureEmail !== '************'
       );
+      const trelloApiKeyChanged = Boolean(
+        trelloApiKey && trelloApiKey !== '************'
+      );
       const scopeMetadataChanged =
         repositoryUrl !== initialRepositoryUrl ||
         projectNamespace !== initialProjectNamespace ||
@@ -407,7 +416,8 @@ export function ToolConnectionDrawer({
         usernameChanged ||
         gitlabApiUrlChanged ||
         azureOrgChanged ||
-        azureEmailChanged;
+        azureEmailChanged ||
+        trelloApiKeyChanged;
 
       setCredentialsModified(credentialsChanged);
       setScopeMetadataModified(scopeMetadataChanged);
@@ -429,6 +439,7 @@ export function ToolConnectionDrawer({
     workspaceGid,
     azureOrg,
     azureEmail,
+    trelloApiKey,
     azureProject,
     initialRepositoryUrl,
     initialProjectNamespace,
@@ -525,6 +536,28 @@ export function ToolConnectionDrawer({
     return trimmed ? { workspace_gid: trimmed } : undefined;
   };
 
+  const buildTrelloCredentials = (
+    apiKey: string,
+    token: string
+  ): Record<string, string> => {
+    // Both TRELLO_API_KEY and TRELLO_TOKEN are required by the backend validator.
+    // Callers must ensure neither value is a placeholder before calling this function.
+    return {
+      TRELLO_API_KEY: apiKey.trim(),
+      TRELLO_TOKEN: token.trim(),
+    };
+  };
+
+  const buildTrelloMetadata = (
+    workspace: string
+  ): Record<string, unknown> | undefined => {
+    const trimmed = workspace.trim();
+    // workspace_gid stores the Trello workspace ID (also called organization ID or short name).
+    // The backend and MCP config read this key for both Asana and Trello; it maps to
+    // Trello's "idOrganization" / organization shortName field.
+    return trimmed ? { workspace_gid: trimmed } : undefined;
+  };
+
   const buildAzureDevOpsCredentials = (
     org: string,
     email: string,
@@ -567,6 +600,10 @@ export function ToolConnectionDrawer({
 
     if (currentProviderType === 'asana') {
       return buildAsanaMetadata(workspaceGid);
+    }
+
+    if (currentProviderType === 'trello') {
+      return buildTrelloMetadata(workspaceGid);
     }
 
     if (currentProviderType === 'azure_devops' && azureProject.trim()) {
@@ -655,12 +692,14 @@ export function ToolConnectionDrawer({
           return;
         }
 
-        // When the Asana workspace field is cleared, buildScopeMetadataFromForm
+        // When the Asana or Trello workspace field is cleared, buildScopeMetadataFromForm
         // returns undefined and JSON would drop the key, so the backend would
         // test against the stored workspace_gid. Send an explicit empty object
         // so the test reflects the cleared scope.
         const scopeMetadata =
-          currentProviderType === 'asana' && !workspaceGid.trim()
+          (currentProviderType === 'asana' ||
+            currentProviderType === 'trello') &&
+          !workspaceGid.trim()
             ? {}
             : parsedMetadata;
 
@@ -690,6 +729,18 @@ export function ToolConnectionDrawer({
           if (urlIsPlaceholder || usernameIsPlaceholder || tokenIsPlaceholder) {
             setError(
               'Please re-enter the URL, email, and API token to test updated credentials.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+        } else if (currentProviderType === 'trello') {
+          // Trello requires both TRELLO_API_KEY and TRELLO_TOKEN for every request.
+          // If either field is still a placeholder, require the user to re-enter it.
+          const apiKeyIsPlaceholder =
+            trelloApiKey === '************' || !trelloApiKey.trim();
+          if (tokenIsPlaceholder || apiKeyIsPlaceholder) {
+            setError(
+              'Please re-enter both your Trello API Key and Token to test updated credentials.'
             );
             setTestingConnection(false);
             return;
@@ -728,6 +779,8 @@ export function ToolConnectionDrawer({
             azureEmail,
             authToken
           );
+        } else if (currentProviderType === 'trello') {
+          credentials = buildTrelloCredentials(trelloApiKey, authToken);
         } else {
           credentials = {
             [credentialKey]: authToken.trim(),
@@ -832,6 +885,8 @@ export function ToolConnectionDrawer({
             azureEmail,
             authToken
           );
+        } else if (provider.type_value === 'trello') {
+          credentials = buildTrelloCredentials(trelloApiKey, authToken);
         }
         // Handle other providers
         else {
@@ -984,13 +1039,34 @@ export function ToolConnectionDrawer({
             }
           }
         }
-        // Handle other providers - only update if token was changed
+        // Handle other providers: update credentials if token changed, OR for Trello if the
+        // API key changed (Trello has two credential fields, either of which may be updated).
         else if (
-          authToken &&
-          authToken.trim() &&
-          authToken !== '************'
+          (authToken && authToken.trim() && authToken !== '************') ||
+          (currentProviderType === 'trello' &&
+            trelloApiKey &&
+            trelloApiKey.trim() &&
+            trelloApiKey !== '************')
         ) {
-          if (currentProviderType === 'gitlab') {
+          if (currentProviderType === 'trello') {
+            // Both fields are required by the backend; ensure the user has re-entered
+            // whichever field they changed (neither can remain as a placeholder).
+            const tokenIsPlaceholder =
+              !authToken.trim() || authToken === '************';
+            const apiKeyIsPlaceholder =
+              !trelloApiKey.trim() || trelloApiKey === '************';
+            if (tokenIsPlaceholder || apiKeyIsPlaceholder) {
+              setError(
+                'Please re-enter both your Trello API Key and Token to save updated credentials.'
+              );
+              setLoading(false);
+              return;
+            }
+            updates.credentials = buildTrelloCredentials(
+              trelloApiKey,
+              authToken
+            );
+          } else if (currentProviderType === 'gitlab') {
             updates.credentials = buildGitLabCredentials(
               authToken,
               gitlabApiUrl
@@ -1087,6 +1163,16 @@ export function ToolConnectionDrawer({
           metadataToUpdate = {
             ...(metadataToUpdate || tool.tool_metadata || {}),
             ...(buildAsanaMetadata(workspaceGid) || {}),
+          };
+          if (!workspaceGid.trim() && metadataToUpdate.workspace_gid) {
+            delete metadataToUpdate.workspace_gid;
+          }
+        }
+
+        if (providerType === 'trello') {
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            ...(buildTrelloMetadata(workspaceGid) || {}),
           };
           if (!workspaceGid.trim() && metadataToUpdate.workspace_gid) {
             delete metadataToUpdate.workspace_gid;
@@ -1522,7 +1608,9 @@ export function ToolConnectionDrawer({
 
                 <TextField
                   label={
-                    providerType === 'jira' || providerType === 'confluence'
+                    providerType === 'jira' ||
+                    providerType === 'confluence' ||
+                    providerType === 'trello'
                       ? 'API Token'
                       : providerType === 'azure_devops'
                         ? 'Personal Access Token'
@@ -1607,6 +1695,28 @@ export function ToolConnectionDrawer({
                   </>
                 )}
 
+                {providerType === 'trello' && (
+                  <TextField
+                    label="API Key"
+                    fullWidth
+                    required={!isEditMode}
+                    value={trelloApiKey}
+                    onChange={e => setTrelloApiKey(e.target.value)}
+                    onFocus={_e => {
+                      if (isEditMode && trelloApiKey === '************') {
+                        setTrelloApiKey('');
+                      }
+                    }}
+                    onBlur={e => {
+                      if (isEditMode && !e.target.value) {
+                        setTrelloApiKey('************');
+                      }
+                    }}
+                    placeholder="Your Trello API Key"
+                    helperText="API Key generated from the Trello Power-Up Admin Portal"
+                  />
+                )}
+
                 {providerType === 'asana' && (
                   <TextField
                     label="Workspace GID (optional)"
@@ -1615,6 +1725,17 @@ export function ToolConnectionDrawer({
                     onChange={e => setWorkspaceGid(e.target.value)}
                     placeholder="1234567890"
                     helperText="Optional Asana workspace scope for search and import"
+                  />
+                )}
+
+                {providerType === 'trello' && (
+                  <TextField
+                    label="Workspace ID (optional)"
+                    fullWidth
+                    value={workspaceGid}
+                    onChange={e => setWorkspaceGid(e.target.value)}
+                    placeholder="1234567890"
+                    helperText="Optional Trello workspace ID for scoping search and import"
                   />
                 )}
 
@@ -1646,6 +1767,9 @@ export function ToolConnectionDrawer({
                       (!isEditMode &&
                         providerType === 'azure_devops' &&
                         (!azureOrg.trim() || !azureEmail.trim())) ||
+                      (!isEditMode &&
+                        providerType === 'trello' &&
+                        !trelloApiKey.trim()) ||
                       (!isEditMode &&
                         (providerType === 'jira' ||
                           providerType === 'confluence') &&

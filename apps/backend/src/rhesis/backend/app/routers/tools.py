@@ -43,6 +43,9 @@ from rhesis.backend.app.services.tool.credential_merge import (
     merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
 )
 from rhesis.backend.app.services.tool.credential_merge import (
+    merge_trello_credentials_on_update as _merge_trello_credentials_on_update,
+)
+from rhesis.backend.app.services.tool.credential_merge import (
     resolve_mcp_test_connection_credentials,
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
@@ -138,6 +141,34 @@ def _validate_linear_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
+def _validate_trello_credentials(credentials: dict[str, str] | None) -> None:
+    token = (credentials or {}).get("TRELLO_TOKEN", "")
+    key = (credentials or {}).get("TRELLO_API_KEY", "")
+
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="TRELLO integrations require 'TRELLO_TOKEN'",
+        )
+
+    if not isinstance(key, str) or not key.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="TRELLO integrations require 'TRELLO_API_KEY'",
+        )
+
+
+def _validate_trello_workspace_gid(tool_metadata: dict | None) -> None:
+    if not tool_metadata or "workspace_gid" not in tool_metadata:
+        return
+    workspace_gid = tool_metadata["workspace_gid"]
+    if not isinstance(workspace_gid, str) or not workspace_gid.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Trello 'workspace_gid' must be a non-empty string",
+        )
+
+
 def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
     if not tool_metadata or "project" not in tool_metadata:
         raise HTTPException(
@@ -196,6 +227,9 @@ def _validate_mcp_test_connection_request(
     elif provider == "asana":
         _validate_asana_credentials(credentials)
         _validate_asana_workspace_gid(tool_metadata)
+    elif provider == "trello":
+        _validate_trello_credentials(credentials)
+        _validate_trello_workspace_gid(tool_metadata)
     elif provider == "linear":
         _validate_linear_credentials(credentials)
     elif provider == "azure_devops":
@@ -241,6 +275,9 @@ def _validate_provider_type_switch(
     elif provider_type.type_value == "asana":
         _validate_asana_credentials(tool.credentials)
         _validate_asana_workspace_gid(tool.tool_metadata)
+    elif provider_type.type_value == "trello":
+        _validate_trello_credentials(tool.credentials)
+        _validate_trello_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "linear":
         _validate_linear_credentials(tool.credentials)
     elif provider_type.type_value == "azure_devops":
@@ -288,6 +325,9 @@ def create_tool(
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "trello":
+            _validate_trello_credentials(tool.credentials)
+            _validate_trello_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
@@ -352,6 +392,81 @@ def read_tool(
     return tool
 
 
+def _validate_tool_metadata_on_update(
+    tool_metadata: dict,
+    provider_type: "models.TypeLookup",
+) -> None:
+    """Validate provider-specific metadata fields on a tool update."""
+    if provider_type.type_value == "jira":
+        if "space_key" not in tool_metadata:
+            raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
+        if (
+            not isinstance(tool_metadata["space_key"], str)
+            or not tool_metadata["space_key"].strip()
+        ):
+            raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
+    elif provider_type.type_value == "gitlab":
+        _validate_gitlab_project(tool_metadata)
+    elif provider_type.type_value == "asana":
+        _validate_asana_workspace_gid(tool_metadata)
+    elif provider_type.type_value == "trello":
+        _validate_trello_workspace_gid(tool_metadata)
+    elif provider_type.type_value == "azure_devops":
+        _validate_azure_devops_project(tool_metadata)
+
+
+def _validate_and_merge_credentials_on_update(
+    tool: "schemas.ToolUpdate",
+    existing_tool: "models.Tool",
+    provider_type: "models.TypeLookup",
+) -> "schemas.ToolUpdate":
+    """Validate and, where necessary, merge credentials on a tool update.
+
+    Returns the (possibly updated) tool schema so callers can capture merged
+    credentials without mutating the original object.
+    """
+    if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
+        try:
+            validate_base_url(tool.credentials["JIRA_URL"], "JIRA_URL")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    elif provider_type.type_value == "confluence" and "CONFLUENCE_URL" in tool.credentials:
+        try:
+            validate_base_url(tool.credentials["CONFLUENCE_URL"], "CONFLUENCE_URL")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    elif provider_type.type_value == "gitlab":
+        merged_credentials = _merge_gitlab_credentials_on_update(
+            existing_tool.credentials,
+            tool.credentials,
+        )
+        _validate_gitlab_credentials(merged_credentials)
+        tool = tool.model_copy(update={"credentials": merged_credentials})
+    elif provider_type.type_value == "shortcut":
+        _validate_shortcut_credentials(tool.credentials)
+    elif provider_type.type_value == "asana":
+        _validate_asana_credentials(tool.credentials)
+    elif provider_type.type_value == "trello":
+        merged_credentials = _merge_trello_credentials_on_update(
+            existing_tool.credentials,
+            tool.credentials,
+        )
+        _validate_trello_credentials(merged_credentials)
+        tool = tool.model_copy(update={"credentials": merged_credentials})
+    elif provider_type.type_value == "linear":
+        _validate_linear_credentials(tool.credentials)
+    elif provider_type.type_value == "azure_devops":
+        merged_credentials = prepare_azure_devops_credentials(
+            _merge_azure_devops_credentials_on_update(
+                existing_tool.credentials,
+                tool.credentials,
+            )
+        )
+        _validate_azure_devops_credentials(merged_credentials)
+        tool = tool.model_copy(update={"credentials": merged_credentials})
+    return tool
+
+
 @router.patch("/{tool_id}", response_model=schemas.Tool)
 def update_tool(
     tool_id: uuid.UUID,
@@ -386,54 +501,10 @@ def update_tool(
     _validate_provider_type_switch(existing_tool, tool, provider_type)
 
     if tool.tool_metadata is not None and provider_type:
-        if provider_type.type_value == "jira":
-            if "space_key" not in tool.tool_metadata:
-                raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
-            if (
-                not isinstance(tool.tool_metadata["space_key"], str)
-                or not tool.tool_metadata["space_key"].strip()
-            ):
-                raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
-        elif provider_type.type_value == "gitlab":
-            _validate_gitlab_project(tool.tool_metadata)
-        elif provider_type.type_value == "asana":
-            _validate_asana_workspace_gid(tool.tool_metadata)
-        elif provider_type.type_value == "azure_devops":
-            _validate_azure_devops_project(tool.tool_metadata)
+        _validate_tool_metadata_on_update(tool.tool_metadata, provider_type)
 
     if tool.credentials is not None and provider_type:
-        if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
-            try:
-                validate_base_url(tool.credentials["JIRA_URL"], "JIRA_URL")
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
-        elif provider_type.type_value == "confluence" and "CONFLUENCE_URL" in tool.credentials:
-            try:
-                validate_base_url(tool.credentials["CONFLUENCE_URL"], "CONFLUENCE_URL")
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
-        elif provider_type.type_value == "gitlab":
-            merged_credentials = _merge_gitlab_credentials_on_update(
-                existing_tool.credentials,
-                tool.credentials,
-            )
-            _validate_gitlab_credentials(merged_credentials)
-            tool = tool.model_copy(update={"credentials": merged_credentials})
-        elif provider_type.type_value == "shortcut":
-            _validate_shortcut_credentials(tool.credentials)
-        elif provider_type.type_value == "asana":
-            _validate_asana_credentials(tool.credentials)
-        elif provider_type.type_value == "linear":
-            _validate_linear_credentials(tool.credentials)
-        elif provider_type.type_value == "azure_devops":
-            merged_credentials = prepare_azure_devops_credentials(
-                _merge_azure_devops_credentials_on_update(
-                    existing_tool.credentials,
-                    tool.credentials,
-                )
-            )
-            _validate_azure_devops_credentials(merged_credentials)
-            tool = tool.model_copy(update={"credentials": merged_credentials})
+        tool = _validate_and_merge_credentials_on_update(tool, existing_tool, provider_type)
 
     db_tool = tool_crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
