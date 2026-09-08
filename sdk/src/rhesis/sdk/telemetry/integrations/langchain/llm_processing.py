@@ -31,17 +31,21 @@ def set_llm_attributes(span: trace.Span, serialized: Dict, kwargs: Dict, request
 
 
 def add_chat_prompt_event(span: trace.Span, messages: List[List[Any]]) -> None:
-    """Add prompt event from chat messages."""
+    """Add one prompt event per message in the first chat generation.
+
+    Emitting only the first message would record the system prompt and lose the
+    user's actual question, which is the part worth reading back.
+    """
     if not messages or not messages[0]:
         return
 
-    first_msg = messages[0][0]
-    content = str(getattr(first_msg, "content", ""))[:MAX_CONTENT_LENGTH]
-    role = getattr(first_msg, "type", "user")
-    span.add_event(
-        AIEvents.PROMPT,
-        {AIAttributes.PROMPT_ROLE: role, AIAttributes.PROMPT_CONTENT: content},
-    )
+    for message in messages[0]:
+        content = str(getattr(message, "content", ""))[:MAX_CONTENT_LENGTH]
+        role = getattr(message, "type", None) or "user"
+        span.add_event(
+            AIEvents.PROMPT,
+            {AIAttributes.PROMPT_ROLE: role, AIAttributes.PROMPT_CONTENT: content},
+        )
 
 
 def extract_and_set_tokens(span: trace.Span, response: Any) -> None:
@@ -330,15 +334,16 @@ def _set_token_attributes(
         span.set_attribute(
             AIAttributes.LLM_TOKENS_TOTAL, total_tokens or (input_tokens + output_tokens)
         )
-        logger.info(
-            f"✅ Set token attributes from {token_source}: "
+        logger.debug(
+            f"Set token attributes from {token_source}: "
             f"input={input_tokens}, output={output_tokens}, "
             f"total={total_tokens or (input_tokens + output_tokens)}"
         )
     else:
-        # Log warning with available response structure for debugging
-        logger.warning(
-            f"⚠️  Could not extract tokens from LLM response. "
+        # Absent token counts are normal for streaming responses and for
+        # providers that do not report usage, so this stays off the hot path.
+        logger.debug(
+            f"Could not extract tokens from LLM response. "
             f"Response type: {type(response).__name__}, "
             f"Has llm_output: {hasattr(response, 'llm_output')}, "
             f"Has generations: {hasattr(response, 'generations')}, "

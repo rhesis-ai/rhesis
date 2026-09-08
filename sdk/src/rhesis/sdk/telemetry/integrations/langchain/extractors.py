@@ -31,16 +31,20 @@ PROVIDER_PATTERNS = {
 
 
 def extract_agent_name(
-    serialized: Dict | None, tags: List[str] | None, metadata: Dict | None
+    serialized: Dict | None,
+    tags: List[str] | None,
+    metadata: Dict | None,
+    kwargs: Dict | None = None,
 ) -> str:
-    """Extract agent name from metadata or serialized data.
+    """Extract agent name from metadata, serialized data, or callback kwargs.
 
     Priority order:
     1. Explicit agent_name in metadata
     2. langgraph_node in metadata (LangGraph convention)
     3. name from serialized data
     4. Last element from serialized id path
-    5. "unknown" as fallback
+    5. name from the callback kwargs (how LangGraph passes the graph name)
+    6. "unknown" as fallback
     """
     # Priority 1: Explicit agent name in metadata
     if metadata:
@@ -59,11 +63,51 @@ def extract_agent_name(
         if "id" in serialized and isinstance(serialized["id"], list):
             return serialized["id"][-1] if serialized["id"] else "unknown"
 
+    # Priority 4: LangGraph passes the compiled graph's name here, not in
+    # ``serialized`` (which is None for graph runs).
+    if kwargs and (name := kwargs.get("name")):
+        return name
+
     return "unknown"
 
 
+def is_langgraph_run(metadata: Dict | None) -> bool:
+    """True if this run originated inside a LangGraph graph.
+
+    LangGraph stamps ``ls_integration`` on every run it dispatches - both the
+    graph root and each node - which is what separates a graph node from an
+    anonymous LCEL step.
+    """
+    return bool(metadata) and metadata.get("ls_integration") == "langgraph"
+
+
+def is_langgraph_node(metadata: Dict | None) -> bool:
+    """True if this run carries a LangGraph node identity.
+
+    Note this is also true for runs *nested inside* a node (a routing function,
+    an LCEL step), which inherit the node's metadata verbatim - use
+    :func:`is_inner_sequence_step` to tell them apart.
+    """
+    return bool(metadata) and metadata.get("langgraph_node") is not None
+
+
+def is_inner_sequence_step(tags: List[str] | None) -> bool:
+    """True if this run is a step inside an LCEL sequence rather than a unit of work.
+
+    LangChain tags sequence steps ``seq:step:N``. Inside a LangGraph node this
+    marks the pieces the node is built from - notably the routing function of a
+    conditional edge, which inherits the node's metadata exactly and would
+    otherwise be traced as a second copy of the node.
+    """
+    return bool(tags) and any(t.startswith("seq:step:") for t in tags)
+
+
 def is_agent(name: str, tags: List[str] | None, metadata: Dict | None) -> bool:
-    """Determine if this represents an agent based on name, tags, or metadata."""
+    """Whether this run should be *labelled* an agent.
+
+    This is a naming hint only. It must not be used to decide whether a run is
+    traced at all - see :func:`should_trace_chain`.
+    """
     # Check for agent-related patterns in name
     agent_patterns = [
         "agent",
@@ -88,6 +132,32 @@ def is_agent(name: str, tags: List[str] | None, metadata: Dict | None) -> bool:
             return True
 
     return False
+
+
+def should_trace_chain(name: str, tags: List[str] | None, metadata: Dict | None) -> bool:
+    """Whether a chain run deserves its own span.
+
+    Every LangGraph run is traced: the nodes and the graph root are the units
+    users reason about, and their names carry no reliable marker (a node called
+    ``summarizer`` or ``model`` is as much a step as one called ``orchestrator``).
+
+    Anonymous LCEL sub-chains are not traced - a three-step
+    ``prompt | llm | parser`` fires three chain runs and none is meaningful on
+    its own. Skipping them keeps traces readable; they are still tracked for
+    parenting so nothing below them is orphaned.
+    """
+    if is_langgraph_run(metadata):
+        # The graph root and each node body, but not the LCEL steps within a
+        # node - those repeat the node's own metadata.
+        return not is_inner_sequence_step(tags)
+
+    # Explicit opt-in from the caller.
+    if metadata and (metadata.get("is_agent") or metadata.get("agent_name")):
+        return True
+
+    # Frameworks outside LangGraph (AgentExecutor and friends) still only
+    # announce themselves through naming.
+    return is_agent(name, tags, metadata)
 
 
 def extract_agent_input(inputs: Dict[str, Any]) -> str:
@@ -191,6 +261,58 @@ def extract_tool_output(output: Any) -> str:
     if isinstance(output, dict):
         return str(output.get("content", output))
     return str(output)
+
+
+# =============================================================================
+# Retriever Extraction
+# =============================================================================
+
+# Per-document preview budget, so one long document cannot crowd out the rest.
+_DOCUMENT_PREVIEW_LENGTH = 200
+
+
+def extract_retriever_backend(
+    serialized: Dict | None,
+    metadata: Dict | None = None,
+    kwargs: Dict | None = None,
+) -> str:
+    """Name the retriever/vector store behind a retrieval call.
+
+    ``serialized`` is None for retrievers; LangChain reports the name through
+    metadata and the callback kwargs instead.
+    """
+    if metadata and (name := metadata.get("ls_retriever_name")):
+        return str(name)
+
+    if serialized:
+        if name := serialized.get("name"):
+            return str(name)
+        if isinstance(serialized.get("id"), list) and serialized["id"]:
+            return str(serialized["id"][-1])
+
+    if kwargs and (name := kwargs.get("name")):
+        return str(name)
+
+    return "unknown"
+
+
+def summarize_documents(documents: Any) -> str:
+    """Summarize retrieved documents for the results event.
+
+    Keeps a short preview per document rather than full text: retrieved
+    context is often far larger than the content cap.
+    """
+    if not documents:
+        return "[no documents]"
+
+    previews = []
+    for i, doc in enumerate(documents):
+        content = getattr(doc, "page_content", None)
+        if content is None and isinstance(doc, dict):
+            content = doc.get("page_content")
+        previews.append(f"[{i}] {str(content or doc)[:_DOCUMENT_PREVIEW_LENGTH]}")
+
+    return "\n".join(previews)[:MAX_CONTENT_LENGTH]
 
 
 # =============================================================================
