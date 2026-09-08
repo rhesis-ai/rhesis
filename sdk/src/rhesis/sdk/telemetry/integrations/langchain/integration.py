@@ -1,7 +1,7 @@
 """LangChain integration class for framework-level instrumentation."""
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
 from rhesis.sdk.telemetry.integrations.langchain.callback import create_langchain_callback
@@ -11,6 +11,32 @@ from rhesis.sdk.telemetry.integrations.langchain.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _GlobalCallbackRef:
+    """Process-global callback holder for ``register_configure_hook``.
+
+    The hook only ever calls ``.get()`` on what it is given, so this stands in
+    for a ContextVar deliberately: a ContextVar set via ``.set()`` is invisible
+    to threads that did not inherit the enabling context (``ThreadPoolExecutor``,
+    ``run_in_executor``, bare ``threading.Thread``), which silently drops every
+    LLM and chain span raised there. Tracing is process-wide, so the holder is
+    too - matching what the removed ``set_default_callback_manager`` did.
+    """
+
+    def __init__(self) -> None:
+        self._callback: Any = None
+
+    def get(self) -> Any:
+        return self._callback
+
+    def set(self, callback: Any) -> None:
+        self._callback = callback
+
+
+# Registered with LangChain exactly once; enable/disable swap the referent.
+_rhesis_callback_ref = _GlobalCallbackRef()
+_hook_registered = False
 
 
 class LangChainIntegration(BaseIntegration):
@@ -55,31 +81,38 @@ class LangChainIntegration(BaseIntegration):
             return False
 
     def _register_global_callback(self) -> None:
-        """Register callback globally using LangChain's callback manager."""
-        try:
-            from langchain_core.callbacks.manager import CallbackManager
-            from langchain_core.globals import set_default_callback_manager
+        """Register callback globally via LangChain's configure-hook system.
 
-            set_default_callback_manager(CallbackManager(handlers=[self._callback]))
-            logger.debug("Configured callback via set_default_callback_manager")
+        ``register_configure_hook`` injects our handler into every
+        ``CallbackManager.configure()`` call, which runs on each runnable
+        invocation. This replaced the removed ``set_default_callback_manager``.
+        """
+        global _hook_registered
+
+        _rhesis_callback_ref.set(self._callback)
+
+        # LangChain has no way to unregister a hook, so only ever add one.
+        if _hook_registered:
+            return
+
+        try:
+            from langchain_core.tracers.context import register_configure_hook
+
+            register_configure_hook(_rhesis_callback_ref, inheritable=True)
+            _hook_registered = True
+            logger.debug("Registered callback via register_configure_hook")
         except (ImportError, AttributeError) as e:
-            logger.debug(f"Could not use set_default_callback_manager: {e}")
-            self._register_fallback_callback()
+            logger.debug(f"Could not register configure hook: {e}")
 
-    def _register_fallback_callback(self) -> None:
-        """Fallback callback registration for older LangChain versions."""
-        try:
-            from langchain_core.callbacks import manager as cb_module
-            from langchain_core.callbacks.manager import CallbackManager
+    def disable(self) -> None:
+        """Disable LangChain observation.
 
-            if hasattr(cb_module, "_default_callback_manager"):
-                if cb_module._default_callback_manager is None:
-                    cb_module._default_callback_manager = CallbackManager(handlers=[self._callback])
-                else:
-                    cb_module._default_callback_manager.add_handler(self._callback)
-                logger.debug("Added callback via fallback method")
-        except Exception as e:
-            logger.debug(f"Fallback registration failed: {e}")
+        The configure hook cannot be unregistered, so clear the callback it
+        reads instead - otherwise spans keep being emitted after disable().
+        """
+        if self._enabled:
+            _rhesis_callback_ref.set(None)
+        super().disable()
 
     def _patch_tool_invocation(self) -> None:
         """Patch BaseTool.invoke/ainvoke to ensure callbacks are triggered."""

@@ -167,7 +167,7 @@ class LangGraphIntegration(BaseIntegration):
             # Also set up global callback via context variable as a fallback
             # This is how LangSmith achieves transparent tracing
             try:
-                from langchain_core.callbacks.manager import tracing_v2_callback_var
+                from langchain_core.tracers.context import tracing_v2_callback_var
 
                 # Set our callback handler directly in the context variable
                 # LangGraph will pick it up via _get_trace_callbacks()
