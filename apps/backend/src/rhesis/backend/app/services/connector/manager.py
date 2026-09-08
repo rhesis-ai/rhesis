@@ -28,6 +28,7 @@ from rhesis.backend.app.services.connector.schemas import (
     RegisterMessage,
     WebSocketConnectionContext,
 )
+from rhesis.backend.app.services.connector.session import DbSessionFactory, resolve_session
 
 logger = logging.getLogger(__name__)
 
@@ -595,9 +596,10 @@ class ConnectionManager:
             logger.warning(f"Ignoring late result for cancelled test run: {test_run_id}")
             return
 
-        logger.info(
-            f"Received test result from SDK: {test_run_id} "
-            f"(status: {result.get('status', 'unknown')})"
+        logger.debug(
+            "Received test result from SDK: %s (status: %s)",
+            test_run_id,
+            result.get("status", "unknown"),
         )
 
         self._test_results[test_run_id] = result
@@ -838,52 +840,31 @@ class ConnectionManager:
                 return pk.split(":", 1)
         return ("", "")
 
-    async def handle_message(
+    async def _handle_register_message(
         self,
-        connection_id: str = "",
-        message: Dict[str, Any] | None = None,
+        connection_id: str,
+        message: Dict[str, Any],
         db: Optional[Session] = None,
+        db_factory: Optional[DbSessionFactory] = None,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
-        """Handle incoming WebSocket message from SDK.
+    ) -> Dict[str, Any]:
+        """Authorize a register frame, add routing, and sync endpoints/metrics.
 
-        For ``register`` messages the project_id/environment are taken
-        from the message payload and authorized against the connection's
-        immutable context. For other messages they are resolved from
-        the routing table.
-
-        Returns:
-            Response message to send back, or None if no response needed.
+        Authorization and the sync share one session so they stay in a single
+        transaction, as they did when the router opened the session per message.
         """
-        if message is None:
-            message = {}
+        reg_project_id = message.get("project_id") or ""
+        reg_environment = message.get("environment") or ""
 
-        message_type = message.get("type")
-
-        msg_project_id = message.get("project_id", "")
-        msg_environment = message.get("environment", "")
-
-        if not msg_project_id and connection_id:
-            msg_project_id, msg_environment = self._resolve_project_for_connection(connection_id)
-
-        logger.info(
-            f"Processing message type: {message_type} "
-            f"from connection={connection_id or 'rpc'} "
-            f"({msg_project_id}:{msg_environment})"
-        )
-
-        if message_type == "register":
-            reg_project_id = message.get("project_id") or ""
-            reg_environment = message.get("environment") or ""
-
+        with resolve_session(db, db_factory) as session:
             # Project-scoped registration (endpoints + metrics)
             if connection_id and reg_project_id and reg_environment:
                 authorized = await self._authorize_and_register(
                     connection_id=connection_id,
                     project_id=reg_project_id,
                     environment=reg_environment,
-                    db=db,
+                    db=session,
                     organization_id=organization_id,
                     user_id=user_id,
                 )
@@ -910,7 +891,7 @@ class ConnectionManager:
                     project_id=reg_project_id,
                     environment=reg_environment,
                     message=message,
-                    db=db,
+                    db=session,
                     organization_id=organization_id,
                     user_id=user_id,
                 )
@@ -930,12 +911,64 @@ class ConnectionManager:
                 project_id="",
                 environment="",
                 message=message,
-                db=db,
+                db=session,
                 organization_id=organization_id,
                 user_id=user_id,
             )
             response["connection_id"] = connection_id
             return response
+
+    async def handle_message(
+        self,
+        connection_id: str = "",
+        message: Dict[str, Any] | None = None,
+        db: Optional[Session] = None,
+        db_factory: Optional[DbSessionFactory] = None,
+        organization_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Handle incoming WebSocket message from SDK.
+
+        For ``register`` messages the project_id/environment are taken
+        from the message payload and authorized against the connection's
+        immutable context. For other messages they are resolved from
+        the routing table.
+
+        Callers pass ``db_factory`` rather than an open ``db`` so that the
+        message types that need no database never pay for a session. Only
+        ``register`` and late validation results open one.
+
+        Returns:
+            Response message to send back, or None if no response needed.
+        """
+        if message is None:
+            message = {}
+
+        message_type = message.get("type")
+
+        msg_project_id = message.get("project_id", "")
+        msg_environment = message.get("environment", "")
+
+        if not msg_project_id and connection_id:
+            msg_project_id, msg_environment = self._resolve_project_for_connection(connection_id)
+
+        logger.debug(
+            "Processing message type: %s from connection=%s (%s:%s)",
+            message_type,
+            connection_id or "rpc",
+            msg_project_id,
+            msg_environment,
+        )
+
+        if message_type == "register":
+            return await self._handle_register_message(
+                connection_id=connection_id,
+                message=message,
+                db=db,
+                db_factory=db_factory,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
         elif message_type == "test_result":
             test_run_id = message.get("test_run_id")
@@ -960,7 +993,11 @@ class ConnectionManager:
                 self._resolve_test_result(test_run_id, message)
 
             await message_handler.handle_test_result_message(
-                msg_project_id, msg_environment, message, db
+                msg_project_id,
+                msg_environment,
+                message,
+                db=db,
+                db_factory=db_factory,
             )
             return None
 
@@ -1006,55 +1043,64 @@ class ConnectionManager:
         auth_org_id = context.organization_id
         auth_user_id = context.user_id
 
-        if db and auth_org_id and auth_user_id:
-            from uuid import UUID
-
-            from rhesis.backend.app.models.project import Project
-            from rhesis.backend.app.models.project_membership import ProjectMembership
-
-            try:
-                project_uuid = UUID(project_id)
-                auth_user_uuid = UUID(auth_user_id)
-                auth_org_uuid = UUID(auth_org_id)
-            except ValueError as exc:
-                logger.error(f"Invalid UUID format in register: {exc}")
-                return False
-
-            project = db.query(Project).filter_by(id=project_uuid).first()
-            if project is None:
-                logger.error(f"Project {project_id} not found (org {auth_org_id})")
-                return False
-
-            # Authorization: membership check (primary) OR token-scoped access
-            # (fallback for API tokens that were explicitly scoped to this project
-            # — e.g. tokens created before the membership backfill migration ran,
-            # or service-account tokens where the owner has no membership row).
-            auth_token_project_id = context.token_project_id
-            token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
-
-            if not token_scoped:
-                membership = (
-                    db.query(ProjectMembership)
-                    .filter_by(
-                        project_id=project_uuid,
-                        user_id=auth_user_uuid,
-                        organization_id=auth_org_uuid,
-                    )
-                    .first()
-                )
-                if not membership:
-                    logger.error(
-                        f"Project {project_id} access denied: user {auth_user_id} "
-                        f"is not a member and token is not scoped to this project "
-                        f"(org {auth_org_id})"
-                    )
-                    return False
-
-            logger.info(
-                f"Project authorized: {project.name} ({project_id}) for connection "
-                f"{connection_id} "
-                f"(via {'token scope' if token_scoped else 'membership'})"
+        # Fail closed. Without a session, or without an authenticated org and user,
+        # the membership check below cannot run, and skipping it would populate the
+        # routing table for a project this connection was never authorized for.
+        if db is None or not auth_org_id or not auth_user_id:
+            logger.error(
+                f"Refusing to register project {project_id}: cannot authorize "
+                f"(db={db is not None}, org={bool(auth_org_id)}, user={bool(auth_user_id)})"
             )
+            return False
+
+        from uuid import UUID
+
+        from rhesis.backend.app.models.project import Project
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+
+        try:
+            project_uuid = UUID(project_id)
+            auth_user_uuid = UUID(auth_user_id)
+            auth_org_uuid = UUID(auth_org_id)
+        except ValueError as exc:
+            logger.error(f"Invalid UUID format in register: {exc}")
+            return False
+
+        project = db.query(Project).filter_by(id=project_uuid).first()
+        if project is None:
+            logger.error(f"Project {project_id} not found (org {auth_org_id})")
+            return False
+
+        # Authorization: membership check (primary) OR token-scoped access
+        # (fallback for API tokens that were explicitly scoped to this project
+        # — e.g. tokens created before the membership backfill migration ran,
+        # or service-account tokens where the owner has no membership row).
+        auth_token_project_id = context.token_project_id
+        token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
+
+        if not token_scoped:
+            membership = (
+                db.query(ProjectMembership)
+                .filter_by(
+                    project_id=project_uuid,
+                    user_id=auth_user_uuid,
+                    organization_id=auth_org_uuid,
+                )
+                .first()
+            )
+            if not membership:
+                logger.error(
+                    f"Project {project_id} access denied: user {auth_user_id} "
+                    f"is not a member and token is not scoped to this project "
+                    f"(org {auth_org_id})"
+                )
+                return False
+
+        logger.info(
+            f"Project authorized: {project.name} ({project_id}) for connection "
+            f"{connection_id} "
+            f"(via {'token scope' if token_scoped else 'membership'})"
+        )
 
         # Populate routing table
         key = self.get_connection_key(project_id, environment)

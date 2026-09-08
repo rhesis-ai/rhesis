@@ -7,12 +7,16 @@ This module tests the SDKMessageHandler class including:
 - Error handling and logging
 """
 
+import logging
 from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.connector.handler import SDKMessageHandler
+from rhesis.backend.app.services.connector.schemas import TestResultMessage
+
+TEST_RESULT_LOGGER = "rhesis.backend.app.services.connector.handlers.test_result"
 
 
 class TestSDKMessageHandler:
@@ -198,11 +202,11 @@ class TestSDKMessageHandler:
                 message=sample_test_result_message,
             )
 
-            mock_log.assert_called_once_with(
-                project_context["project_id"],
-                project_context["environment"],
-                sample_test_result_message,
-            )
+            mock_log.assert_called_once()
+            logged_project, logged_env, logged_result = mock_log.call_args.args
+            assert logged_project == project_context["project_id"]
+            assert logged_env == project_context["environment"]
+            assert logged_result.test_run_id == sample_test_result_message["test_run_id"]
 
     @pytest.mark.asyncio
     async def test_handle_test_result_message_error(
@@ -229,60 +233,82 @@ class TestSDKMessageHandler:
         )
 
     def test_log_test_result_success(
-        self, handler: SDKMessageHandler, sample_test_result_message, project_context
+        self, handler: SDKMessageHandler, sample_test_result_message, project_context, caplog
     ):
-        """Test logging of successful test result"""
+        """A successful result costs exactly one INFO record."""
         from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
 
-        # Should not raise any exceptions
-        test_result_handler._log_test_result(
-            project_id=project_context["project_id"],
-            environment=project_context["environment"],
-            message=sample_test_result_message,
-        )
+        with caplog.at_level(logging.INFO, logger=TEST_RESULT_LOGGER):
+            test_result_handler._log_test_result(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                result=TestResultMessage(**sample_test_result_message),
+            )
+
+        records = [r for r in caplog.records if r.name == TEST_RESULT_LOGGER]
+        assert len(records) == 1
+        assert records[0].levelno == logging.INFO
+        assert sample_test_result_message["test_run_id"] in records[0].getMessage()
 
     def test_log_test_result_error(
-        self, handler: SDKMessageHandler, sample_test_result_error_message, project_context
+        self, handler: SDKMessageHandler, sample_test_result_error_message, project_context, caplog
     ):
-        """Test logging of error test result"""
+        """A failed result costs one ERROR record carrying the error."""
         from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
 
-        # Should not raise any exceptions
-        test_result_handler._log_test_result(
-            project_id=project_context["project_id"],
-            environment=project_context["environment"],
-            message=sample_test_result_error_message,
+        with caplog.at_level(logging.INFO, logger=TEST_RESULT_LOGGER):
+            test_result_handler._log_test_result(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                result=TestResultMessage(**sample_test_result_error_message),
+            )
+
+        records = [r for r in caplog.records if r.name == TEST_RESULT_LOGGER]
+        assert len(records) == 1
+        assert records[0].levelno == logging.ERROR
+        assert sample_test_result_error_message["error"] in records[0].getMessage()
+
+    def test_log_test_result_output_only_at_debug(
+        self, handler: SDKMessageHandler, project_context, caplog
+    ):
+        """The payload never reaches INFO, and is truncated when it does appear."""
+        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
+
+        result = TestResultMessage(
+            test_run_id="test_abc123",
+            status="success",
+            output="x" * 1000,
+            duration_ms=100.0,
         )
 
-    def test_log_test_result_long_output(self, handler: SDKMessageHandler, project_context):
-        """Test logging of test result with long output"""
-        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
+        with caplog.at_level(logging.INFO, logger=TEST_RESULT_LOGGER):
+            test_result_handler._log_test_result(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                result=result,
+            )
+        assert not any("xxx" in r.getMessage() for r in caplog.records)
 
-        long_output_message = {
-            "type": "test_result",
-            "test_run_id": "test_abc123",
-            "status": "success",
-            "output": "x" * 1000,  # Long output to trigger truncation
-            "error": None,
-            "duration_ms": 100.0,
-        }
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG, logger=TEST_RESULT_LOGGER):
+            test_result_handler._log_test_result(
+                project_id=project_context["project_id"],
+                environment=project_context["environment"],
+                result=result,
+            )
 
-        # Should not raise any exceptions
-        test_result_handler._log_test_result(
+        debug_messages = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        assert len(debug_messages) == 1
+        assert "..." in debug_messages[0]
+        assert len(debug_messages[0]) < 1000
+
+    @pytest.mark.asyncio
+    async def test_handle_test_result_message_invalid(
+        self, handler: SDKMessageHandler, project_context
+    ):
+        """A malformed frame is logged and dropped, never raised."""
+        await handler.handle_test_result_message(
             project_id=project_context["project_id"],
             environment=project_context["environment"],
-            message=long_output_message,
-        )
-
-    def test_log_test_result_invalid_message(self, handler: SDKMessageHandler, project_context):
-        """Test logging of invalid test result message"""
-        from rhesis.backend.app.services.connector.handlers.test_result import test_result_handler
-
-        invalid_message = {"type": "test_result", "invalid": "data"}
-
-        # Should handle gracefully and not raise exceptions
-        test_result_handler._log_test_result(
-            project_id=project_context["project_id"],
-            environment=project_context["environment"],
-            message=invalid_message,
+            message={"type": "test_result", "invalid": "data"},
         )

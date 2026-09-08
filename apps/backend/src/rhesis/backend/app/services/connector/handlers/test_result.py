@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.connector.schemas import TestResultMessage
+from rhesis.backend.app.services.connector.session import DbSessionFactory, resolve_session
 
 logger = logging.getLogger(__name__)
 
@@ -20,60 +21,76 @@ class TestResultHandler:
         environment: str,
         message: Dict[str, Any],
         db: Optional[Session] = None,
+        db_factory: Optional[DbSessionFactory] = None,
     ) -> None:
         """
         Handle test result message from SDK.
 
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-            message: Test result message
-            db: Database session for updating endpoint status
-        """
-        self._log_test_result(project_id, environment, message)
-
-        # Handle late-arriving validation results if database session provided
-        if db:
-            await self._handle_late_validation_result(project_id, environment, message, db)
-
-    def _log_test_result(self, project_id: str, environment: str, message: Dict[str, Any]) -> None:
-        """
-        Log test result details.
+        Only ``validation_`` run ids touch the database, so that check runs
+        before any session is acquired — every other result is the hot path and
+        must not pay for a session it never uses.
 
         Args:
             project_id: Project identifier
             environment: Environment name
             message: Test result message
+            db: Open session, when the caller already owns one
+            db_factory: Opens a session on demand, for the late-validation path
         """
         try:
             result = TestResultMessage(**message)
-            logger.info("=" * 80)
-            logger.info("📥 TEST RESULT RECEIVED")
-            logger.info(f"Project: {project_id}:{environment}")
-            logger.info(f"Test Run ID: {result.test_run_id}")
-            logger.info(f"Status: {result.status}")
-            logger.info(f"Duration: {result.duration_ms}ms")
-
-            if result.status == "success":
-                # Log output (truncate if too long)
-                output_str = str(result.output)
-                if len(output_str) > 500:
-                    logger.info(f"Output (first 500 chars): {output_str[:500]}...")
-                    logger.info(f"Output (last 100 chars): ...{output_str[-100:]}")
-                else:
-                    logger.info(f"Output: {output_str}")
-            else:
-                logger.error(f"Error: {result.error}")
-
-            logger.info("=" * 80)
         except Exception as e:
-            logger.error(f"Error logging test result: {e}")
+            logger.error(f"Error parsing test result: {e}")
+            return
+
+        self._log_test_result(project_id, environment, result)
+
+        if not result.test_run_id.startswith("validation_"):
+            return
+
+        with resolve_session(db, db_factory) as session:
+            if session is not None:
+                await self._handle_late_validation_result(project_id, environment, result, session)
+
+    def _log_test_result(
+        self, project_id: str, environment: str, result: TestResultMessage
+    ) -> None:
+        """Log one record per result, with the payload only at DEBUG.
+
+        This runs once per inbound result on the WebSocket loop, and every record
+        is JSON-formatted and regex-redacted before it reaches stdout, so the
+        number of records matters more than what is in them.
+        """
+        if result.status != "success":
+            logger.error(
+                "Test result %s:%s run=%s failed after %sms: %s",
+                project_id,
+                environment,
+                result.test_run_id,
+                result.duration_ms,
+                result.error,
+            )
+            return
+
+        logger.info(
+            "Test result %s:%s run=%s status=%s duration=%sms",
+            project_id,
+            environment,
+            result.test_run_id,
+            result.status,
+            result.duration_ms,
+        )
+        if logger.isEnabledFor(logging.DEBUG):
+            output_str = str(result.output)
+            if len(output_str) > 500:
+                output_str = f"{output_str[:500]}...{output_str[-100:]}"
+            logger.debug("Test result %s output: %s", result.test_run_id, output_str)
 
     async def _handle_late_validation_result(
         self,
         project_id: str,
         environment: str,
-        message: Dict[str, Any],
+        result: TestResultMessage,
         db: Session,
     ) -> None:
         """
@@ -85,18 +102,10 @@ class TestResultHandler:
         Args:
             project_id: Project identifier
             environment: Environment name
-            message: Test result message
+            result: Parsed test result, already known to be a validation run
             db: Database session
         """
         try:
-            # Parse the test result
-            result = TestResultMessage(**message)
-
-            # Check if this is a validation test (test_run_id starts with "validation_")
-            if not result.test_run_id.startswith("validation_"):
-                logger.debug(f"Not a validation test result: {result.test_run_id}")
-                return
-
             logger.info(f"🔄 Processing late validation result for {result.test_run_id}")
 
             # Find the endpoint by project_id, environment, and function name

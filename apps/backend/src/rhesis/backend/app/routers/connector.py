@@ -7,6 +7,7 @@ import os
 import time
 import uuid
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Dict
 
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -69,7 +70,12 @@ def _assert_project_membership(db: Session, project_id_str: str, user: User) -> 
 # --- Security limits (configurable via env) ---
 MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", str(1024 * 1024)))
 IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))
-RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "50"))
+# Useful concurrency on one connection is roughly limit x call latency, so the
+# old default of 50 capped a single endpoint at ~100 in-flight 2s calls, well
+# below what one pod can absorb. Over the limit the frame is dropped and the
+# caller sees only a 120s timeout, so setting this too low is paid for in
+# mystery stalls rather than in backpressure.
+RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "500"))
 
 
 async def require_websocket_user(websocket: WebSocket) -> tuple[User, str | None]:
@@ -152,6 +158,10 @@ async def _message_loop(
     """
     msg_timestamps: list[float] = []
 
+    def _open_db(project_id: str):
+        """Open a tenant-scoped session, for the handlers that need one."""
+        return get_db_with_tenant_variables(context.organization_id, context.user_id, project_id)
+
     while True:
         try:
             data = await asyncio.wait_for(
@@ -200,10 +210,10 @@ async def _message_loop(
             )
             continue
 
-        # Resolve the project_id for this message so the DB session scope
-        # matches the actual project.  Without this, auto_filter appends
-        # "WHERE project_id IS NULL" to every query on the session, which
-        # conflicts with the explicit "WHERE project_id = ?" filters in
+        # Resolve the project_id for this message so that a session opened
+        # downstream is scoped to the actual project.  Without this, auto_filter
+        # appends "WHERE project_id IS NULL" to every query on the session,
+        # which conflicts with the explicit "WHERE project_id = ?" filters in
         # sync_sdk_endpoints/test_result handlers and returns zero rows.
         #
         # - register:    project_id is in the message payload itself.
@@ -217,16 +227,13 @@ async def _message_loop(
                 context.connection_id
             )
 
-        with get_db_with_tenant_variables(
-            context.organization_id, context.user_id, scope_project_id
-        ) as db:
-            response = await connection_manager.handle_message(
-                connection_id=context.connection_id,
-                message=message,
-                db=db,
-                organization_id=context.organization_id,
-                user_id=context.user_id,
-            )
+        response = await connection_manager.handle_message(
+            connection_id=context.connection_id,
+            message=message,
+            db_factory=partial(_open_db, scope_project_id),
+            organization_id=context.organization_id,
+            user_id=context.user_id,
+        )
 
         if response:
             await websocket.send_json(response)

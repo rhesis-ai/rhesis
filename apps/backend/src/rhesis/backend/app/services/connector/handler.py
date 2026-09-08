@@ -10,6 +10,7 @@ from rhesis.backend.app.services.connector.handlers import (
     registration_handler,
     test_result_handler,
 )
+from rhesis.backend.app.services.connector.session import DbSessionFactory
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class SDKMessageHandler:
         environment: str,
         message: Dict[str, Any],
         db: Optional[Session] = None,
+        db_factory: Optional[DbSessionFactory] = None,
     ) -> None:
         """
         Handle test result message from SDK.
@@ -57,6 +59,7 @@ class SDKMessageHandler:
             environment=environment,
             message=message,
             db=db,
+            db_factory=db_factory,
         )
 
     async def handle_pong_message(self, project_id: str, environment: str) -> None:
