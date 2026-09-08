@@ -1043,55 +1043,64 @@ class ConnectionManager:
         auth_org_id = context.organization_id
         auth_user_id = context.user_id
 
-        if db and auth_org_id and auth_user_id:
-            from uuid import UUID
-
-            from rhesis.backend.app.models.project import Project
-            from rhesis.backend.app.models.project_membership import ProjectMembership
-
-            try:
-                project_uuid = UUID(project_id)
-                auth_user_uuid = UUID(auth_user_id)
-                auth_org_uuid = UUID(auth_org_id)
-            except ValueError as exc:
-                logger.error(f"Invalid UUID format in register: {exc}")
-                return False
-
-            project = db.query(Project).filter_by(id=project_uuid).first()
-            if project is None:
-                logger.error(f"Project {project_id} not found (org {auth_org_id})")
-                return False
-
-            # Authorization: membership check (primary) OR token-scoped access
-            # (fallback for API tokens that were explicitly scoped to this project
-            # — e.g. tokens created before the membership backfill migration ran,
-            # or service-account tokens where the owner has no membership row).
-            auth_token_project_id = context.token_project_id
-            token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
-
-            if not token_scoped:
-                membership = (
-                    db.query(ProjectMembership)
-                    .filter_by(
-                        project_id=project_uuid,
-                        user_id=auth_user_uuid,
-                        organization_id=auth_org_uuid,
-                    )
-                    .first()
-                )
-                if not membership:
-                    logger.error(
-                        f"Project {project_id} access denied: user {auth_user_id} "
-                        f"is not a member and token is not scoped to this project "
-                        f"(org {auth_org_id})"
-                    )
-                    return False
-
-            logger.info(
-                f"Project authorized: {project.name} ({project_id}) for connection "
-                f"{connection_id} "
-                f"(via {'token scope' if token_scoped else 'membership'})"
+        # Fail closed. Without a session, or without an authenticated org and user,
+        # the membership check below cannot run, and skipping it would populate the
+        # routing table for a project this connection was never authorized for.
+        if db is None or not auth_org_id or not auth_user_id:
+            logger.error(
+                f"Refusing to register project {project_id}: cannot authorize "
+                f"(db={db is not None}, org={bool(auth_org_id)}, user={bool(auth_user_id)})"
             )
+            return False
+
+        from uuid import UUID
+
+        from rhesis.backend.app.models.project import Project
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+
+        try:
+            project_uuid = UUID(project_id)
+            auth_user_uuid = UUID(auth_user_id)
+            auth_org_uuid = UUID(auth_org_id)
+        except ValueError as exc:
+            logger.error(f"Invalid UUID format in register: {exc}")
+            return False
+
+        project = db.query(Project).filter_by(id=project_uuid).first()
+        if project is None:
+            logger.error(f"Project {project_id} not found (org {auth_org_id})")
+            return False
+
+        # Authorization: membership check (primary) OR token-scoped access
+        # (fallback for API tokens that were explicitly scoped to this project
+        # — e.g. tokens created before the membership backfill migration ran,
+        # or service-account tokens where the owner has no membership row).
+        auth_token_project_id = context.token_project_id
+        token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
+
+        if not token_scoped:
+            membership = (
+                db.query(ProjectMembership)
+                .filter_by(
+                    project_id=project_uuid,
+                    user_id=auth_user_uuid,
+                    organization_id=auth_org_uuid,
+                )
+                .first()
+            )
+            if not membership:
+                logger.error(
+                    f"Project {project_id} access denied: user {auth_user_id} "
+                    f"is not a member and token is not scoped to this project "
+                    f"(org {auth_org_id})"
+                )
+                return False
+
+        logger.info(
+            f"Project authorized: {project.name} ({project_id}) for connection "
+            f"{connection_id} "
+            f"(via {'token scope' if token_scoped else 'membership'})"
+        )
 
         # Populate routing table
         key = self.get_connection_key(project_id, environment)

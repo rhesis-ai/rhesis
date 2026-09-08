@@ -9,6 +9,7 @@ This module tests the ConnectionManager class including:
 - Message routing and handling
 """
 
+import uuid
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -349,6 +350,42 @@ class TestConnectionManager:
         )
 
         assert response is None
+
+    @pytest.mark.asyncio
+    async def test_register_without_a_session_is_refused(
+        self, manager: ConnectionManager, sample_register_message, project_context, mock_websocket
+    ):
+        """Project-scoped register fails closed when no session can be opened.
+
+        Without one the membership check cannot run, and skipping it would add
+        routing for a project the connection was never authorized for.
+        """
+        conn_id = "conn-test-123"
+        context = WebSocketConnectionContext(
+            user_id=str(uuid.uuid4()),
+            organization_id=str(uuid.uuid4()),
+            token_project_id=None,
+        )
+        await manager.connect(conn_id, context, mock_websocket)
+
+        message = {
+            **sample_register_message,
+            "project_id": str(uuid.uuid4()),
+            "environment": project_context["environment"],
+        }
+
+        response = await manager.handle_message(
+            connection_id=conn_id,
+            message=message,
+            db=None,
+            db_factory=None,
+            organization_id=context.organization_id,
+            user_id=context.user_id,
+        )
+
+        assert response["status"] == "error"
+        assert manager._connection_projects.get(conn_id, set()) == set()
+        assert manager._project_routing == {}
 
     @pytest.mark.asyncio
     async def test_handle_message_hot_path_opens_no_session(
