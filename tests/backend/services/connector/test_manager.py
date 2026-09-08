@@ -9,6 +9,7 @@ This module tests the ConnectionManager class including:
 - Message routing and handling
 """
 
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -348,6 +349,84 @@ class TestConnectionManager:
         )
 
         assert response is None
+
+    @pytest.mark.asyncio
+    async def test_handle_message_hot_path_opens_no_session(
+        self,
+        manager: ConnectionManager,
+        sample_test_result_message,
+        sample_pong_message,
+        project_context,
+    ):
+        """Normal results, metric results and pongs must open no DB session.
+
+        A session costs a pool checkout and a GUC round trip on the WebSocket
+        loop, and none of these three message types issues a single query.
+        """
+        conn_id = "conn-test-123"
+        key = manager.get_connection_key(
+            project_context["project_id"], project_context["environment"]
+        )
+        manager._connection_projects[conn_id] = {key}
+
+        def exploding_factory():
+            raise AssertionError("the hot path must not open a database session")
+
+        hot_path_messages = [
+            sample_test_result_message,
+            {"type": "metric_result", "metric_run_id": "invoke_m1", "status": "success"},
+            sample_pong_message,
+        ]
+
+        for message in hot_path_messages:
+            response = await manager.handle_message(
+                connection_id=conn_id,
+                message=message,
+                db_factory=exploding_factory,
+                organization_id=None,
+            )
+            assert response is None
+
+    @pytest.mark.asyncio
+    async def test_handle_message_validation_result_opens_a_session(
+        self, manager: ConnectionManager, project_context
+    ):
+        """A late validation result is the one test_result that needs a session."""
+        conn_id = "conn-test-123"
+        key = manager.get_connection_key(
+            project_context["project_id"], project_context["environment"]
+        )
+        manager._connection_projects[conn_id] = {key}
+
+        session = Mock()
+        opened = []
+
+        @contextmanager
+        def factory():
+            opened.append(session)
+            yield session
+
+        target = (
+            "rhesis.backend.app.services.connector.handlers."
+            "test_result_handler._handle_late_validation_result"
+        )
+        with patch(target, new=AsyncMock()) as mock_late:
+            await manager.handle_message(
+                connection_id=conn_id,
+                message={
+                    "type": "test_result",
+                    "test_run_id": "validation_abc123",
+                    "status": "success",
+                    "output": {},
+                    "duration_ms": 1.0,
+                },
+                db_factory=factory,
+                organization_id=None,
+            )
+
+        assert opened == [session]
+        mock_late.assert_awaited_once()
+        assert mock_late.await_args.args[-1] is session
 
     @pytest.mark.asyncio
     async def test_multiple_connections_different_environments(self, manager: ConnectionManager):

@@ -7,6 +7,7 @@ import os
 import time
 import uuid
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Dict
 
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -157,6 +158,10 @@ async def _message_loop(
     """
     msg_timestamps: list[float] = []
 
+    def _open_db(project_id: str):
+        """Open a tenant-scoped session, for the handlers that need one."""
+        return get_db_with_tenant_variables(context.organization_id, context.user_id, project_id)
+
     while True:
         try:
             data = await asyncio.wait_for(
@@ -205,10 +210,10 @@ async def _message_loop(
             )
             continue
 
-        # Resolve the project_id for this message so the DB session scope
-        # matches the actual project.  Without this, auto_filter appends
-        # "WHERE project_id IS NULL" to every query on the session, which
-        # conflicts with the explicit "WHERE project_id = ?" filters in
+        # Resolve the project_id for this message so that a session opened
+        # downstream is scoped to the actual project.  Without this, auto_filter
+        # appends "WHERE project_id IS NULL" to every query on the session,
+        # which conflicts with the explicit "WHERE project_id = ?" filters in
         # sync_sdk_endpoints/test_result handlers and returns zero rows.
         #
         # - register:    project_id is in the message payload itself.
@@ -222,16 +227,13 @@ async def _message_loop(
                 context.connection_id
             )
 
-        with get_db_with_tenant_variables(
-            context.organization_id, context.user_id, scope_project_id
-        ) as db:
-            response = await connection_manager.handle_message(
-                connection_id=context.connection_id,
-                message=message,
-                db=db,
-                organization_id=context.organization_id,
-                user_id=context.user_id,
-            )
+        response = await connection_manager.handle_message(
+            connection_id=context.connection_id,
+            message=message,
+            db_factory=partial(_open_db, scope_project_id),
+            organization_id=context.organization_id,
+            user_id=context.user_id,
+        )
 
         if response:
             await websocket.send_json(response)

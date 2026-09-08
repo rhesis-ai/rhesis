@@ -8,14 +8,15 @@ This module tests the WebSocket connector endpoints including:
 - HTTP endpoints (trigger, status, trace)
 """
 
+import json
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from starlette.websockets import WebSocketDisconnect
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from rhesis.backend.app.models.execution_trace import ExecutionTrace
 
@@ -630,3 +631,62 @@ class TestConnectorEdgeCases:
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
             assert data["connected"] is False
+
+
+async def test_message_loop_opens_no_session_for_test_result():
+    """The message loop must not open a session per inbound frame.
+
+    A session is a pool checkout plus a GUC round trip on the event loop, and
+    the SDK sends one of these frames per finished test. Only the handlers that
+    actually query should pay for one.
+    """
+    from rhesis.backend.app.routers import connector as connector_router
+    from rhesis.backend.app.services.connector.schemas import WebSocketConnectionContext
+
+    frames = [
+        json.dumps(
+            {
+                "type": "test_result",
+                "test_run_id": "invoke_abc123",
+                "status": "success",
+                "output": {},
+                "duration_ms": 1.0,
+            }
+        )
+    ]
+
+    class _StubWebSocket:
+        def __init__(self):
+            self.sent = []
+
+        async def receive_text(self):
+            if frames:
+                return frames.pop(0)
+            raise WebSocketDisconnect()
+
+        async def send_json(self, payload):
+            self.sent.append(payload)
+
+        async def close(self, **kwargs):
+            pass
+
+    context = WebSocketConnectionContext(
+        user_id=str(uuid.uuid4()),
+        organization_id=str(uuid.uuid4()),
+        token_project_id=None,
+    )
+
+    def _explode(*args, **kwargs):
+        raise AssertionError("the message loop must not open a database session")
+
+    handled = AsyncMock(return_value=None)
+    with (
+        patch.object(connector_router, "get_db_with_tenant_variables", _explode),
+        patch.object(connector_router.connection_manager, "handle_message", handled),
+    ):
+        with pytest.raises(WebSocketDisconnect):
+            await connector_router._message_loop(_StubWebSocket(), context)
+
+    handled.assert_awaited_once()
+    assert "db" not in handled.await_args.kwargs
+    assert callable(handled.await_args.kwargs["db_factory"])
