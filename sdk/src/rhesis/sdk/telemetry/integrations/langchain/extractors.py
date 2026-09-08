@@ -91,6 +91,29 @@ def is_langgraph_node(metadata: Dict | None) -> bool:
     return bool(metadata) and metadata.get("langgraph_node") is not None
 
 
+def is_langgraph_root(metadata: Dict | None) -> bool:
+    """True if this run is the graph itself rather than one of its nodes."""
+    return is_langgraph_run(metadata) and not is_langgraph_node(metadata)
+
+
+def extract_conversation_id(metadata: Dict | None) -> Optional[str]:
+    """Resolve the conversation this run belongs to.
+
+    An id bound by the caller wins. Failing that, fall back to LangGraph's own
+    ``thread_id`` - the key it checkpoints multi-turn state under, so it is the
+    identity the app already treats as the conversation.
+    """
+    from rhesis.telemetry.context import get_conversation_id
+
+    if conversation_id := get_conversation_id():
+        return str(conversation_id)
+
+    if metadata and (thread_id := metadata.get("thread_id")):
+        return str(thread_id)
+
+    return None
+
+
 def is_inner_sequence_step(tags: List[str] | None) -> bool:
     """True if this run is a step inside an LCEL sequence rather than a unit of work.
 

@@ -3,14 +3,25 @@
 import asyncio
 import logging
 import threading
-from typing import Any, Dict, List
+from typing import Any, Dict, List, NamedTuple
 
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from rhesis.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.telemetry.context import is_llm_observation_active, is_tracing_disabled
+from rhesis.telemetry.constants import ConversationContext
+from rhesis.telemetry.context import (
+    get_conversation_trace_id,
+    get_root_trace_id,
+    is_llm_observation_active,
+    is_tracing_disabled,
+)
+from rhesis.telemetry.conversation import (
+    anchor_conversation,
+    build_conversation_parent_context,
+    get_conversation_anchor,
+)
 from rhesis.telemetry.schemas import AIOperationType
 
 from .extractors import (
@@ -18,8 +29,10 @@ from .extractors import (
     extract_agent_input,
     extract_agent_name,
     extract_agent_output,
+    extract_conversation_id,
     extract_retriever_backend,
     extract_tool_output,
+    is_langgraph_root,
     should_trace_chain,
     summarize_documents,
 )
@@ -31,9 +44,23 @@ from .llm_processing import (
 
 logger = logging.getLogger(__name__)
 
+_CONVERSATION_ATTRS = ConversationContext.SpanAttributes
+
 # An open span, the context token keeping it current, and the execution context
 # that token belongs to.
 SpanEntry = tuple[trace.Span, Any, tuple]
+
+
+class _TurnClaim(NamedTuple):
+    """A run that opens a conversation turn, and the trace to open it on.
+
+    ``parent_context`` is a synthetic parent onto an earlier turn's trace, or
+    None for the first turn of a conversation.
+    """
+
+    conversation_id: str
+    parent_context: Any
+
 
 # Ceiling on in-flight bookkeeping. A run that never reports completion - a
 # cancelled task, a killed worker - would otherwise hold its entry for the life
@@ -96,15 +123,24 @@ def create_langchain_callback():
                 return key
             return self._skipped_parents.get(key)
 
-        def _start_span(self, name: str, run_id: Any, parent_run_id: Any = None) -> SpanEntry:
+        def _start_span(
+            self,
+            name: str,
+            run_id: Any,
+            parent_run_id: Any = None,
+            conversation_context: Any = None,
+        ) -> SpanEntry:
             """Start a span parented to its run's nearest traced ancestor.
 
             The parent is passed explicitly rather than by attaching it to the
             ambient context first: LangChain fires callbacks across tasks and
             threads, so the ambient context is not a reliable carrier and
             relying on it produced spans parented to whatever ran last.
+
+            ``conversation_context`` only applies to a run with no traced
+            ancestor, and puts it on an earlier turn's trace.
             """
-            parent_context = None
+            parent_context = conversation_context
             if parent_key := self._resolve_parent_key(parent_run_id):
                 parent_span = self._spans[parent_key][0]
                 parent_context = trace.set_span_in_context(parent_span)
@@ -159,6 +195,52 @@ def create_langchain_callback():
             # longer reads the ambient context.
             if token and attached_in == _execution_ident():
                 otel_context.detach(token)
+
+        # =====================================================================
+        # Conversation Turns
+        # =====================================================================
+
+        def _resolve_turn(self, parent_run_id: Any, metadata: Dict | None) -> _TurnClaim | None:
+            """Decide whether this run opens a conversation turn, and on which trace.
+
+            Only a LangGraph root qualifies, and only when nothing else already
+            owns the turn. Two spans claiming ``is_turn_root`` in one exchange
+            makes the exporter strip the real parent of one of them, detaching
+            its subtree into a phantom turn - so an enclosing ``conversation_turn``,
+            ``@endpoint`` or ``@observe`` stands this down, as does any ambient
+            span this run would nest under.
+            """
+            if parent_run_id or not is_langgraph_root(metadata):
+                return None
+
+            if get_root_trace_id() is not None or get_conversation_trace_id() is not None:
+                return None
+
+            if trace.get_current_span().get_span_context().is_valid:
+                return None
+
+            conversation_id = extract_conversation_id(metadata)
+            if not conversation_id:
+                return None
+
+            anchor = get_conversation_anchor(conversation_id)
+            parent_context = build_conversation_parent_context(anchor) if anchor else None
+            return _TurnClaim(conversation_id, parent_context)
+
+        def _claim_turn_root(self, span: trace.Span, claim: _TurnClaim) -> None:
+            """Mark a span as the root of a conversation turn.
+
+            The exporter reads these two attributes to give every span sharing
+            this trace the same conversation id.
+            """
+            span.set_attribute(_CONVERSATION_ATTRS.IS_TURN_ROOT, True)
+            span.set_attribute(_CONVERSATION_ATTRS.CONVERSATION_ID, claim.conversation_id)
+
+            span_context = span.get_span_context()
+            if span_context.is_valid:
+                # First turn of this conversation anchors it; later turns were
+                # already pulled onto that trace by the parent context above.
+                anchor_conversation(claim.conversation_id, format(span_context.trace_id, "032x"))
 
         def _should_skip_llm(self, run_id: Any) -> bool:
             """Check if LLM span should be skipped (deduplication or tracing disabled)."""
@@ -436,12 +518,20 @@ def create_langchain_callback():
             self._agent_run_ids[run_id_str] = agent_name
             self._current_agent = agent_name
 
+            conversation = self._resolve_turn(parent_run_id, metadata)
+
             span, token, ident = self._start_span(
-                AIOperationType.AGENT_INVOKE, run_id, parent_run_id
+                AIOperationType.AGENT_INVOKE,
+                run_id,
+                parent_run_id,
+                conversation_context=conversation.parent_context if conversation else None,
             )
 
             span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_INVOKE)
             span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
+
+            if conversation:
+                self._claim_turn_root(span, conversation)
 
             # Capture agent input
             input_str = extract_agent_input(inputs)

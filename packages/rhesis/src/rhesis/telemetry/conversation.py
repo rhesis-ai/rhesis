@@ -123,6 +123,25 @@ class _ConversationAnchors:
 _anchors = _ConversationAnchors()
 
 
+def get_conversation_anchor(conversation_id: str) -> Optional[str]:
+    """Trace id this conversation's first turn was recorded on, if one is known.
+
+    Exposed so a framework integration that opens its own turn root can join the
+    same anchor this module uses, rather than keeping a second store that would
+    disagree with it for the same conversation id.
+    """
+    return _anchors.get(conversation_id)
+
+
+def anchor_conversation(conversation_id: str, trace_id: str) -> None:
+    """Record ``trace_id`` as this conversation's anchor if it has none yet.
+
+    First writer wins, so whichever turn ran first keeps the id anything else in
+    the process already observed and published.
+    """
+    _anchors.set(conversation_id, trace_id)
+
+
 class ConversationTurn:
     """Handle for one turn. Set :attr:`output` to record the reply.
 
@@ -248,6 +267,8 @@ def conversation_turn(
 __all__ = [
     "DEFAULT_TURN_SPAN_NAME",
     "ConversationTurn",
+    "anchor_conversation",
     "build_conversation_parent_context",
     "conversation_turn",
+    "get_conversation_anchor",
 ]
