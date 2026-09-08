@@ -6,6 +6,7 @@ import logging
 import os
 import time
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.error_handlers import PublicHTTPException
+from rhesis.backend.app.models.execution_trace import ExecutionTrace as ExecutionTraceModel
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.models.user import User
@@ -344,8 +346,31 @@ def receive_trace(
     organization_id = str(current_user.organization_id)
     user_id = str(current_user.id)
 
-    with get_db_with_tenant_variables(organization_id, user_id, "") as db:
-        _assert_project_membership(db, trace.project_id, current_user)
+    # Project scope (not org-level "") is required here: project_isolation is a
+    # fail-closed RESTRICTIVE policy, so inserting this project-scoped row with
+    # an empty project scope would be denied by RLS in production.
+    with get_db_with_tenant_variables(organization_id, user_id, str(trace.project_id)) as db:
+        _assert_project_membership(db, str(trace.project_id), current_user)
+
+        record = ExecutionTraceModel(
+            project_id=trace.project_id,
+            organization_id=current_user.organization_id,
+            environment=trace.environment,
+            function_name=trace.function_name,
+            inputs=trace.inputs,
+            output=trace.output,
+            duration_ms=trace.duration_ms,
+            status=trace.status,
+            error=trace.error,
+            executed_at=datetime.fromtimestamp(trace.timestamp, tz=timezone.utc),
+        )
+        db.add(record)
+        # Flush (not commit): the PK is a server-side default
+        # (gen_random_uuid()), so the id only materializes on flush, while the
+        # commit itself stays owned by get_db_with_tenant_variables at context
+        # exit, where the tenant GUCs are still valid.
+        db.flush()
+        trace_id = str(record.id)
 
     logger.info("=" * 80)
     logger.info("📊 EXECUTION TRACE RECEIVED")
@@ -366,7 +391,4 @@ def receive_trace(
 
     logger.info("=" * 80)
 
-    # TODO: Store trace in database for analytics
-    # For now, traces are logged
-
-    return TraceResponse(status="received")
+    return TraceResponse(status="received", trace_id=trace_id)
