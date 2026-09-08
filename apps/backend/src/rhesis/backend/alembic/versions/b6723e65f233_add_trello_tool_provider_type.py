@@ -1,6 +1,6 @@
 """Add Trello ToolProviderType
 Revision ID: b6723e65f233
-Revises: 105b0268e6a4
+Revises: b258958270d0
 Create Date: 2026-09-02
 """
 
@@ -15,7 +15,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 # revision identifiers, used by Alembic.
 revision: str = "b6723e65f233"
-down_revision: Union[str, None] = "105b0268e6a4"
+down_revision: Union[str, None] = "b258958270d0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
