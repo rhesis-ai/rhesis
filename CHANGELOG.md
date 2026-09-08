@@ -13,6 +13,41 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-09-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.15.1**
+- **Frontend 0.15.1**
+- **SDK 0.15.1**
+
+### Summary of Changes
+
+**Backend v0.15.1:**
+- Enhanced test run reliability by resolving intermittent SDK response loss, expanding the Redis connection pool, and surfacing detailed execution failure reasons in the UI.
+- Introduced one-click sign-in via secure 7-day magic links in team invitation emails, alongside new prompts and notifications for invited users to set a password.
+- Implemented automated trace retention sweeps and telemetry ingest backstops to manage storage and enforce quota limits.
+- Fixed multi-turn test generation to correctly honor requested requirements, respect custom batch sizes, and validate configuration fields.
+
+**Frontend v0.15.1:**
+- Improved page load performance and transitions by moving client-side redirects and data prefetching (for settings, playground, metrics, and test generation) to the server.
+- Added a dismissible banner and in-app notifications prompting invited users who sign in via magic links to set a secure password.
+- Fixed the SDK endpoint Mapping tab to display a read-only view instead of a blank panel, and improved the styling of the Function Parameters table.
+- Enhanced validation on metric score fields to reject non-numeric inputs and provide clearer error messages.
+
+**SDK v0.15.1:**
+- Replaced the retired `gemini-2.0-flash` default model with `gemini-3.1-flash-lite` to prevent 404 errors on Vertex AI.
+- Fixed multi-turn test generation to correctly respect and attribute requested requirements instead of defaulting to seeded ones.
+- Added validation to correct requirement casing/whitespace and automatically retry/top up test batches when invalid tests are dropped.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.15.0] - 2026-09-01
 
 ### Platform Release

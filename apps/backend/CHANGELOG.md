@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-09-04
+
+### Added
+- **One-Click Invitation Sign-In:** Team invitation emails now embed a secure 7-day magic link token, allowing invitees to sign in automatically.
+- **Set Password Flow for Invitees:** Added in-app notifications, a dismissible dashboard banner, and settings wiring to prompt invited users without passwords or external OAuth providers to set a password.
+- **Trace Retention & Automated Sweep:** Introduced a Celery job (`trace_retention.sweep_expired_traces`) to automatically hard-delete expired trace rows based on organization tier limits or custom license overrides.
+- **Ingest Backstop Gate:** Added a fail-open backstop gate at 10x tier limits on the telemetry ingest route to protect system stability.
+- **Custom Retention Overrides:** Added support for minting, verifying, and enforcing custom trace retention windows (`custom_retention_days`) via license tokens.
+
+### Changed
+- **Pluralized Generation Config Fields:** Normalized multi-turn generation configuration field names to plural (`requirements`, `categories`, `topics`) at the API boundary. Singular names are still accepted as aliases for backward compatibility.
+- **Strict Config Validation:** Configured the multi-turn generation endpoint to reject unknown fields with a `422 Unprocessable Entity` error instead of silently ignoring them.
+- **Tier Renaming:** Renamed the "Community" tier to "Free" in usage summaries and billing displays to align with public pricing.
+- **Default Batch Size:** Adjusted the default batch size for multi-turn generation to 20 (matching the single-turn default) when no explicit batch size is provided.
+
+### Fixed
+- **SDK Response Loss in Test Runs:** Resolved intermittent test result loss during parallel and sequential test runs by sharing a thread-safe event loop helper and replacing the capped Redis connection pool with a dynamic `BlockingConnectionPool`.
+- **Concurrency & RPC Defects:** Fixed client leaks, uncleaned RPC test results, and synchronized heartbeat bursts that saturated the Redis connection pool during concurrent test runs.
+- **SDK Error Resilience & UI Visibility:** Marked connection drops and send failures as transient to trigger automatic retries, and propagated specific SDK failure reasons to the UI instead of displaying a single opaque error.
+- **Multi-Turn Batch Size Ignored:** Fixed an issue where `MultiTurnSynthesizer` ignored the requested `batch_size` parameter and defaulted to 10.
+- **Requirement Attribution in Multi-Turn Tests:** Fixed a template rendering bug that caused multi-turn tests to attribute themselves to default requirements (Compliance, Reliability, Robustness) instead of the caller's requested requirements.
+- **Entity Reuse & Org Seeding:** Fixed `get_or_create_entity` to require a valid identifying key before reusing an existing database row, preventing arbitrary row reuse and resolving an issue where seeded tests were incorrectly merged.
+- **Hybrid Property Filtering:** Fixed model search filters and entity reuse checks to correctly distinguish between mapped database columns and hybrid properties (such as `Test.content`), preventing incorrect query predicate generation.
+
+
 ## [0.15.0] - 2026-09-01
 
 ### Added
