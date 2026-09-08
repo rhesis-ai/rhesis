@@ -8,7 +8,7 @@ from .chunk import Chunk
 from .comment import Comment
 from .embedding import Embedding
 from .endpoint import Endpoint
-from rhesis.backend.app.models.execution_trace import ExecutionTrace
+from .execution_trace import ExecutionTrace
 from .experiment import Experiment
 from .file import File
 from .guid import GUID

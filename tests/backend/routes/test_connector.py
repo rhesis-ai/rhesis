@@ -429,7 +429,8 @@ class TestConnectorHTTPEndpoints:
         assert record.environment == "staging"
 
     def test_receive_trace_persists_through_real_tenant_session(
-        self, real_commit_client, real_commit_test_db, test_org_id, authenticated_user_id
+        self, real_commit_client, real_commit_test_db, test_org_id, authenticated_user_id,
+        rhesis_api_key,
     ):
         """RLS fail-closed path: the endpoint's own session persists the trace.
 
@@ -441,6 +442,10 @@ class TestConnectorHTTPEndpoints:
         ``real_commit_test_db``).
         """
         from rhesis.backend.app import models
+
+        # real_commit_client (unlike authenticated_client) carries no auth
+        # header, so set the session bearer token explicitly.
+        real_commit_client.headers.update({"Authorization": f"Bearer {rhesis_api_key}"})
 
         project = models.Project(
             name=f"Connector Trace RLS Project {uuid.uuid4().hex[:8]}",
