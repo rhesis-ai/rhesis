@@ -1,4 +1,4 @@
-"""Tests for conversation grouping in the LangChain/LangGraph integration.
+"""Tests for conversation grouping in the LangGraph integration.
 
 LangGraph checkpoints multi-turn state under ``thread_id``, so that is the
 identity an app already treats as the conversation. The integration falls back

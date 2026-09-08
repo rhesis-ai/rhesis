@@ -1,4 +1,8 @@
-"""Tests for the shape of the spans the LangChain/LangGraph callback emits.
+"""Tests for the shape of the spans emitted for a LangGraph run.
+
+The handler under test is the shared LangChain callback - LangGraph reuses it
+verbatim - but every case here drives a graph, which is where these regressions
+showed up.
 
 These cover regressions where spans were silently dropped or fragmented:
 
@@ -9,6 +13,7 @@ These cover regressions where spans were silently dropped or fragmented:
   skipped run became a root span in its own trace.
 """
 
+import threading
 from typing import Annotated, List, TypedDict
 
 import pytest
@@ -21,6 +26,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.retrievers import BaseRetriever
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.graph.state import CompiledStateGraph
+from opentelemetry import context as otel_context
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -50,6 +57,58 @@ class _FakeSpan:
 
 class State(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
+
+
+@pytest.fixture(autouse=True)
+def only_our_handler():
+    """Run these tests against exactly one handler.
+
+    ``LangGraphIntegration.enable()`` registers a handler process-wide and
+    patches ``CompiledStateGraph`` in place, and another module in this
+    directory calls it. If it has, every graph here would be traced twice:
+    once by the handler under test and once by that one. Both attach and detach
+    ambient OTEL context around the same runs, which reparents the spans being
+    asserted on and leaks tokens into later modules.
+
+    So borrow a pristine graph class and an empty registration for the duration
+    of each test, and hand back whatever was there. Production only ever has
+    the single handler these tests assume.
+    """
+    from rhesis.sdk.telemetry.integrations.langchain import integration as lc_integration
+    from rhesis.sdk.telemetry.integrations.langgraph import GraphPatchState
+
+    previous_callback = lc_integration._rhesis_callback_ref.get()
+    lc_integration._rhesis_callback_ref.set(None)
+
+    # GraphPatchState holds the real method captured when the patch went on.
+    accessors = {
+        "invoke": GraphPatchState.get_invoke,
+        "ainvoke": GraphPatchState.get_ainvoke,
+        "stream": GraphPatchState.get_stream,
+        "astream": GraphPatchState.get_astream,
+    }
+    patched = {}
+    for name, get_original in accessors.items():
+        original = get_original()
+        if original is not None:
+            patched[name] = getattr(CompiledStateGraph, name)
+            setattr(CompiledStateGraph, name, original)
+
+    clean_context = otel_context.get_current()
+
+    yield
+
+    # Hand back a clean ambient context. The handler attaches a token per span
+    # and can only detach it from the execution that attached it, so a span
+    # raised on a worker thread, or ended out of order, leaves one attached.
+    # Left in place it becomes the implicit parent of spans in later modules,
+    # which then stop being roots.
+    if otel_context.get_current() is not clean_context:
+        otel_context.attach(clean_context)
+
+    for name, method in patched.items():
+        setattr(CompiledStateGraph, name, method)
+    lc_integration._rhesis_callback_ref.set(previous_callback)
 
 
 @pytest.fixture
@@ -122,7 +181,12 @@ class TestNodesAreTracedRegardlessOfName:
     def test_graph_root_is_traced(self, callback, exporter):
         run_pipeline(callback, ["researcher", "analyst"])
         spans = exporter.get_finished_spans()
-        roots = [s for s in named(spans, AGENT_INVOKE) if s.parent is None]
+        # Root of this run, which is not the same as root of the whole trace:
+        # an enclosing span from elsewhere may legitimately be its parent.
+        own = {s.context.span_id for s in spans}
+        roots = [
+            s for s in named(spans, AGENT_INVOKE) if s.parent is None or s.parent.span_id not in own
+        ]
         assert len(roots) == 1
 
     def test_conditional_edge_router_is_not_a_second_copy_of_the_node(self, callback, exporter):
@@ -208,6 +272,57 @@ class TestSequentialEdgesAreNotHandoffs:
         assert named(spans, "ai.agent.handoff") == []
 
 
+class TestHandoffSourceUnderConcurrency:
+    """Each handoff names the agent that actually made it.
+
+    LangGraph runs parallel nodes on separate threads against one shared
+    handler, so a single "current agent" field reports whichever node started
+    last for every one of them.
+    """
+
+    def test_source_is_per_execution_when_the_run_has_no_parent(self, callback, exporter):
+        """Tools reached through the patched ``BaseTool.invoke`` are root runs.
+
+        They carry no ``parent_run_id``, so ancestry cannot identify the caller
+        and only the execution the tool runs on can. Driven directly, with both
+        agents pushed before either tool starts, so the interleaving that
+        breaks a shared field is guaranteed rather than hoped for.
+        """
+        started = threading.Barrier(2)
+
+        def agent_hands_off(agent_name: str, target: str):
+            callback.on_chain_start(
+                None,
+                {},
+                run_id=f"run-{agent_name}",
+                metadata={"agent_name": agent_name},
+            )
+            started.wait(timeout=5)
+            callback.on_tool_start(
+                {"name": f"transfer_to_{target}"},
+                "{}",
+                run_id=f"tool-{agent_name}",
+                parent_run_id=None,
+            )
+            callback.on_tool_end("ok", run_id=f"tool-{agent_name}")
+
+        threads = [
+            threading.Thread(target=agent_hands_off, args=("alpha_specialist", "billing")),
+            threading.Thread(target=agent_hands_off, args=("beta_specialist", "shipping")),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+
+        handoffs = named(exporter.get_finished_spans(), "ai.agent.handoff")
+        sources = {
+            s.attributes.get("ai.agent.handoff.to"): s.attributes.get("ai.agent.handoff.from")
+            for s in handoffs
+        }
+        assert sources == {"billing": "alpha_specialist", "shipping": "beta_specialist"}
+
+
 class TestPromptCapture:
     """The whole prompt is recorded, not just its first message."""
 
@@ -287,7 +402,7 @@ class TestBookkeepingIsBounded:
 
     def test_open_span_tracking_is_capped(self, callback):
         for i in range(MAX_TRACKED_RUNS + 50):
-            callback._track_span(f"run-{i}", (_FakeSpan(), None, ()))
+            callback._track_span(f"run-{i}", (_FakeSpan(), None, (), None))
 
         assert len(callback._spans) <= MAX_TRACKED_RUNS
 
@@ -295,15 +410,15 @@ class TestBookkeepingIsBounded:
         oldest = _FakeSpan()
         callback._track_span("run-oldest", (oldest, None, ()))
         for i in range(MAX_TRACKED_RUNS):
-            callback._track_span(f"run-{i}", (_FakeSpan(), None, ()))
+            callback._track_span(f"run-{i}", (_FakeSpan(), None, (), None))
 
         assert "run-oldest" not in callback._spans
         assert oldest.ended, "an evicted span must be ended, or it never exports"
 
     def test_eviction_clears_the_matching_agent_entry(self, callback):
-        callback._track_span("run-oldest", (_FakeSpan(), None, ()))
-        callback._agent_run_ids["run-oldest"] = "some-agent"
+        callback._track_span("run-oldest", (_FakeSpan(), None, (), None))
+        callback._push_agent("run-oldest", "some-agent")
         for i in range(MAX_TRACKED_RUNS):
-            callback._track_span(f"run-{i}", (_FakeSpan(), None, ()))
+            callback._track_span(f"run-{i}", (_FakeSpan(), None, (), None))
 
         assert "run-oldest" not in callback._agent_run_ids

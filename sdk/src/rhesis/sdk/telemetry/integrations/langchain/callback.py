@@ -46,9 +46,20 @@ logger = logging.getLogger(__name__)
 
 _CONVERSATION_ATTRS = ConversationContext.SpanAttributes
 
-# An open span, the context token keeping it current, and the execution context
-# that token belongs to.
-SpanEntry = tuple[trace.Span, Any, tuple]
+# An open span, the context token keeping it current, the execution context
+# that token belongs to, and the run whose span parents it.
+SpanEntry = tuple[trace.Span, Any, tuple, "str | None"]
+
+# How far to walk a run's ancestors looking for the agent it runs inside.
+# Deeper than any real graph nests; a cap so the walk cannot spin.
+MAX_ANCESTRY_DEPTH = 64
+
+
+class _AgentRun(NamedTuple):
+    """An open agent span: its name, and the execution it was opened on."""
+
+    name: str
+    ident: tuple
 
 
 class _TurnClaim(NamedTuple):
@@ -102,9 +113,19 @@ def create_langchain_callback():
             # *was* traced. Without this a skipped chain orphans everything
             # below it into its own trace.
             self._skipped_parents: Dict[str, str | None] = {}
-            self._agent_run_ids: Dict[str, str] = {}  # run_id -> agent_name mapping
-            # Innermost agent currently running, used as the handoff source.
-            self._current_agent: str | None = None
+            self._agent_run_ids: Dict[str, _AgentRun] = {}
+            # Agents currently on the stack, per thread/task. Tools reached
+            # through the patched BaseTool.invoke arrive as root runs with no
+            # parent_run_id, so ancestry alone cannot say which agent called
+            # them; the execution they run on can. Keyed per execution rather
+            # than held in one field because LangGraph runs parallel nodes on
+            # separate threads, which a single field cannot represent.
+            self._agent_stacks: Dict[tuple, List[str]] = {}
+            # One handler instance serves the whole process, and LangGraph runs
+            # parallel nodes on separate threads, so every read-then-write over
+            # the maps above has to be atomic. Reentrant because the helpers
+            # below call each other.
+            self._lock = threading.RLock()
 
         # =====================================================================
         # Span Management
@@ -118,10 +139,64 @@ def create_langchain_callback():
             """
             if not parent_run_id:
                 return None
-            key = str(parent_run_id)
-            if key in self._spans:
-                return key
-            return self._skipped_parents.get(key)
+            with self._lock:
+                key = str(parent_run_id)
+                if key in self._spans:
+                    return key
+                return self._skipped_parents.get(key)
+
+        def _enclosing_agent(self, parent_run_id: Any) -> str | None:
+            """Name the agent this run is executing inside, if any.
+
+            Ancestry first, since it is exact. Runs that arrive without a
+            parent - anything reached through the patched ``BaseTool.invoke`` -
+            fall back to the innermost agent on this thread or task.
+            """
+            with self._lock:
+                if agent_name := self._agent_from_ancestry(parent_run_id):
+                    return agent_name
+                stack = self._agent_stacks.get(_execution_ident())
+                return stack[-1] if stack else None
+
+        def _agent_from_ancestry(self, parent_run_id: Any) -> str | None:
+            """Walk a run's parents for the nearest one that is an agent."""
+            key = self._resolve_parent_key(parent_run_id)
+            # Bounded rather than `while key`: a hot path must not be able to
+            # spin, whatever shape the run tree arrives in.
+            for _ in range(MAX_ANCESTRY_DEPTH):
+                if key is None:
+                    return None
+                if agent := self._agent_run_ids.get(key):
+                    return agent.name
+                entry = self._spans.get(key)
+                key = entry[3] if entry else None
+            return None
+
+        def _push_agent(self, run_id_str: str, agent_name: str) -> None:
+            """Record an agent as running, and as innermost on this execution."""
+            ident = _execution_ident()
+            with self._lock:
+                self._agent_run_ids[run_id_str] = _AgentRun(agent_name, ident)
+                self._agent_stacks.setdefault(ident, []).append(agent_name)
+
+        def _pop_agent(self, run_id_str: str) -> None:
+            """Drop an agent that has ended, and unstack it."""
+            with self._lock:
+                agent = self._agent_run_ids.pop(run_id_str, None)
+                if agent is None:
+                    return
+                stack = self._agent_stacks.get(agent.ident)
+                if not stack:
+                    return
+                # Remove this agent specifically: nested agents on one
+                # execution need not end in the order they started.
+                for i in range(len(stack) - 1, -1, -1):
+                    if stack[i] == agent.name:
+                        del stack[i]
+                        break
+                if not stack:
+                    # Or the map grows one entry per thread ever used.
+                    self._agent_stacks.pop(agent.ident, None)
 
         def _start_span(
             self,
@@ -141,26 +216,34 @@ def create_langchain_callback():
             ancestor, and puts it on an earlier turn's trace.
             """
             parent_context = conversation_context
-            if parent_key := self._resolve_parent_key(parent_run_id):
-                parent_span = self._spans[parent_key][0]
-                parent_context = trace.set_span_in_context(parent_span)
+            parent_key = None
+            with self._lock:
+                # Resolved and read together: the parent's span can be ended by
+                # another thread between the two.
+                if resolved := self._resolve_parent_key(parent_run_id):
+                    if entry := self._spans.get(resolved):
+                        parent_key = resolved
+                        parent_context = trace.set_span_in_context(entry[0])
 
             span = self.tracer.start_span(name=name, kind=SpanKind.CLIENT, context=parent_context)
             # Kept current so nested @observe() spans attach to this one.
             token = otel_context.attach(trace.set_span_in_context(span))
-            return span, token, _execution_ident()
+            return span, token, _execution_ident(), parent_key
 
         def _skip_run(self, run_id: Any, parent_run_id: Any = None) -> None:
             """Record a run we are not tracing so its children keep their parent."""
-            if len(self._skipped_parents) >= MAX_TRACKED_RUNS:
-                self._skipped_parents.pop(next(iter(self._skipped_parents)), None)
-            self._skipped_parents[str(run_id)] = self._resolve_parent_key(parent_run_id)
+            parent_key = self._resolve_parent_key(parent_run_id)
+            with self._lock:
+                if len(self._skipped_parents) >= MAX_TRACKED_RUNS:
+                    self._skipped_parents.pop(next(iter(self._skipped_parents), None), None)
+                self._skipped_parents[str(run_id)] = parent_key
 
         def _track_span(self, run_id_str: str, entry: SpanEntry) -> None:
             """Record an open span, evicting the oldest if we are at the ceiling."""
-            if len(self._spans) >= MAX_TRACKED_RUNS:
-                self._abandon_oldest_span()
-            self._spans[run_id_str] = entry
+            with self._lock:
+                if len(self._spans) >= MAX_TRACKED_RUNS:
+                    self._abandon_oldest_span()
+                self._spans[run_id_str] = entry
 
         def _abandon_oldest_span(self) -> None:
             """Close out the longest-running span so its slot can be reused.
@@ -168,12 +251,21 @@ def create_langchain_callback():
             Ending it is better than dropping it: an unended span is never
             exported at all, so the work would vanish from the trace entirely.
             """
-            oldest = next(iter(self._spans))
-            span, _token, _ident = self._spans.pop(oldest)
-            span.set_status(Status(StatusCode.ERROR, "run did not report completion"))
-            span.end()
-            self._active_run_ids.discard(oldest)
-            self._agent_run_ids.pop(oldest, None)
+            with self._lock:
+                oldest = next(iter(self._spans), None)
+                if oldest is None:
+                    return
+                entry = self._spans.pop(oldest, None)
+                self._active_run_ids.discard(oldest)
+                # Unstack it too, or an abandoned agent stays innermost for
+                # every later tool on that execution.
+                self._pop_agent(oldest)
+
+            if entry is None:
+                return
+
+            entry[0].set_status(Status(StatusCode.ERROR, "run did not report completion"))
+            entry[0].end()
             # Deliberately not detaching: this is the oldest token while newer
             # ones are still attached, so resetting it would discard their
             # context too. Newer spans release theirs normally.
@@ -182,13 +274,15 @@ def create_langchain_callback():
         def _end_span(self, run_id: Any) -> None:
             """End the span for a run and release its context token."""
             run_id_str = str(run_id)
-            self._skipped_parents.pop(run_id_str, None)
-            if run_id_str not in self._spans:
+            with self._lock:
+                self._skipped_parents.pop(run_id_str, None)
+                entry = self._spans.pop(run_id_str, None)
+                self._active_run_ids.discard(run_id_str)
+            if entry is None:
                 return
 
-            span, token, attached_in = self._spans.pop(run_id_str)
+            span, token, attached_in, _parent_key = entry
             span.end()
-            self._active_run_ids.discard(run_id_str)
 
             # Only detach where the token is actually valid. Leaving it attached
             # elsewhere is harmless: the task is finishing and parenting no
@@ -242,15 +336,33 @@ def create_langchain_callback():
                 # already pulled onto that trace by the parent context above.
                 anchor_conversation(claim.conversation_id, format(span_context.trace_id, "032x"))
 
+        def _claim_run(self, run_id: Any) -> bool:
+            """Take ownership of a run, or report it as already claimed.
+
+            Checking and claiming together, so two threads cannot both open a
+            span for the same run.
+            """
+            run_id_str = str(run_id)
+            with self._lock:
+                if run_id_str in self._active_run_ids:
+                    return False
+                self._active_run_ids.add(run_id_str)
+                return True
+
+        def _is_claimed(self, run_id_str: str) -> bool:
+            """Cheap pre-filter for runs already being traced.
+
+            Not atomic with the claim that follows it, and does not need to be:
+            it only avoids work, and :meth:`_claim_run` settles who wins.
+            """
+            return run_id_str in self._active_run_ids
+
         def _should_skip_llm(self, run_id: Any) -> bool:
-            """Check if LLM span should be skipped (deduplication or tracing disabled)."""
+            """Whether an LLM span is unwanted here, before claiming the run."""
             if is_tracing_disabled():
                 return True
             if is_llm_observation_active():
                 logger.debug(f"Skipping LLM span - @observe.llm() active for {run_id}")
-                return True
-            if str(run_id) in self._active_run_ids:
-                logger.debug(f"Skipping duplicate LLM span for {run_id}")
                 return True
             return False
 
@@ -268,16 +380,16 @@ def create_langchain_callback():
             **kwargs: Any,
         ) -> None:
             """Start span for chat model invocation."""
-            if self._should_skip_llm(run_id):
+            if self._should_skip_llm(run_id) or not self._claim_run(run_id):
                 return
 
             run_id_str = str(run_id)
-            self._active_run_ids.add(run_id_str)
 
-            span, token, ident = self._start_span(AIOperationType.LLM_INVOKE, run_id, parent_run_id)
+            entry = self._start_span(AIOperationType.LLM_INVOKE, run_id, parent_run_id)
+            span = entry[0]
             set_llm_attributes(span, serialized, kwargs, request_type="chat")
             add_chat_prompt_event(span, messages)
-            self._track_span(run_id_str, (span, token, ident))
+            self._track_span(run_id_str, entry)
 
         def on_llm_start(
             self,
@@ -289,13 +401,13 @@ def create_langchain_callback():
             **kwargs: Any,
         ) -> None:
             """Start span for non-chat LLM invocation."""
-            if self._should_skip_llm(run_id):
+            if self._should_skip_llm(run_id) or not self._claim_run(run_id):
                 return
 
             run_id_str = str(run_id)
-            self._active_run_ids.add(run_id_str)
 
-            span, token, ident = self._start_span(AIOperationType.LLM_INVOKE, run_id, parent_run_id)
+            entry = self._start_span(AIOperationType.LLM_INVOKE, run_id, parent_run_id)
+            span = entry[0]
             set_llm_attributes(
                 span, serialized, kwargs, request_type=serialized.get("_type", "llm")
             )
@@ -308,7 +420,7 @@ def create_langchain_callback():
                         AIAttributes.PROMPT_CONTENT: prompts[0][:MAX_CONTENT_LENGTH],
                     },
                 )
-            self._track_span(run_id_str, (span, token, ident))
+            self._track_span(run_id_str, entry)
 
         def on_llm_end(
             self, response: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
@@ -318,7 +430,7 @@ def create_langchain_callback():
             if not span_data:
                 return
 
-            span, _, _ = span_data
+            span = span_data[0]
             try:
                 extract_and_set_tokens(span, response)
                 span.set_status(Status(StatusCode.OK))
@@ -353,10 +465,8 @@ def create_langchain_callback():
                 return
 
             run_id_str = str(run_id)
-            if run_id_str in self._active_run_ids:
+            if not self._claim_run(run_id):
                 return
-
-            self._active_run_ids.add(run_id_str)
             tool_name = serialized.get("name", "unknown")
 
             # Detect handoff tools (transfer_to_* pattern)
@@ -364,21 +474,19 @@ def create_langchain_callback():
                 # Extract target agent from tool name
                 target_agent = tool_name.replace("transfer_to_", "")
 
-                span, token, ident = self._start_span(
-                    AIOperationType.AGENT_HANDOFF, run_id, parent_run_id
-                )
+                entry = self._start_span(AIOperationType.AGENT_HANDOFF, run_id, parent_run_id)
+                span = entry[0]
 
                 span.set_attribute(
                     AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_HANDOFF
                 )
-                if self._current_agent:
-                    span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, self._current_agent)
+                if from_agent := self._enclosing_agent(parent_run_id):
+                    span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, from_agent)
                 span.set_attribute(AIAttributes.AGENT_HANDOFF_TO, target_agent)
             else:
                 # Regular tool invocation
-                span, token, ident = self._start_span(
-                    AIOperationType.TOOL_INVOKE, run_id, parent_run_id
-                )
+                entry = self._start_span(AIOperationType.TOOL_INVOKE, run_id, parent_run_id)
+                span = entry[0]
 
                 span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_TOOL_INVOKE)
                 span.set_attribute(AIAttributes.TOOL_NAME, tool_name)
@@ -388,7 +496,7 @@ def create_langchain_callback():
                     {AIAttributes.TOOL_INPUT_CONTENT: input_str[:MAX_CONTENT_LENGTH]},
                 )
 
-            self._track_span(run_id_str, (span, token, ident))
+            self._track_span(run_id_str, entry)
 
         def on_tool_end(
             self, output: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
@@ -434,12 +542,11 @@ def create_langchain_callback():
                 return
 
             run_id_str = str(run_id)
-            if run_id_str in self._active_run_ids:
+            if not self._claim_run(run_id):
                 return
 
-            self._active_run_ids.add(run_id_str)
-
-            span, token, ident = self._start_span(AIOperationType.RETRIEVAL, run_id, parent_run_id)
+            entry = self._start_span(AIOperationType.RETRIEVAL, run_id, parent_run_id)
+            span = entry[0]
             span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_RETRIEVAL)
             span.set_attribute(
                 AIAttributes.RETRIEVAL_BACKEND,
@@ -449,7 +556,7 @@ def create_langchain_callback():
                 AIEvents.RETRIEVAL_QUERY,
                 {AIAttributes.PROMPT_CONTENT: str(query)[:MAX_CONTENT_LENGTH]},
             )
-            self._track_span(run_id_str, (span, token, ident))
+            self._track_span(run_id_str, entry)
 
         def on_retriever_end(
             self, documents: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
@@ -502,8 +609,8 @@ def create_langchain_callback():
 
             run_id_str = str(run_id)
 
-            # Skip if we've already processed this run
-            if run_id_str in self._active_run_ids:
+            # Cheap pre-filter; the claim below decides it for real.
+            if self._is_claimed(run_id_str):
                 return
 
             agent_name = extract_agent_name(serialized, tags, metadata, kwargs)
@@ -514,18 +621,19 @@ def create_langchain_callback():
                 self._skip_run(run_id, parent_run_id)
                 return
 
-            self._active_run_ids.add(run_id_str)
-            self._agent_run_ids[run_id_str] = agent_name
-            self._current_agent = agent_name
+            if not self._claim_run(run_id):
+                return
+            self._push_agent(run_id_str, agent_name)
 
             conversation = self._resolve_turn(parent_run_id, metadata)
 
-            span, token, ident = self._start_span(
+            entry = self._start_span(
                 AIOperationType.AGENT_INVOKE,
                 run_id,
                 parent_run_id,
                 conversation_context=conversation.parent_context if conversation else None,
             )
+            span = entry[0]
 
             span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_INVOKE)
             span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
@@ -541,7 +649,7 @@ def create_langchain_callback():
                     {AIAttributes.AGENT_INPUT_CONTENT: input_str[:MAX_CONTENT_LENGTH]},
                 )
 
-            self._track_span(run_id_str, (span, token, ident))
+            self._track_span(run_id_str, entry)
 
         def on_chain_end(
             self,
@@ -568,7 +676,7 @@ def create_langchain_callback():
                 )
             span_data[0].set_status(Status(StatusCode.OK))
             self._end_span(run_id)
-            self._release_agent(run_id_str)
+            self._pop_agent(run_id_str)
 
         def on_chain_error(
             self,
@@ -588,17 +696,10 @@ def create_langchain_callback():
             span_data[0].set_status(Status(StatusCode.ERROR, str(error)))
             span_data[0].record_exception(error)
             self._end_span(run_id)
-            self._release_agent(run_id_str)
+            self._pop_agent(run_id_str)
 
         # =====================================================================
         # Helper Methods
         # =====================================================================
-
-        def _release_agent(self, run_id_str: str) -> None:
-            """Drop bookkeeping for an agent span that has ended."""
-            if run_id_str in self._agent_run_ids:
-                agent_name = self._agent_run_ids.pop(run_id_str)
-                if self._current_agent == agent_name:
-                    self._current_agent = None
 
     return RhesisLangChainCallback()
