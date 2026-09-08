@@ -69,7 +69,12 @@ def _assert_project_membership(db: Session, project_id_str: str, user: User) -> 
 # --- Security limits (configurable via env) ---
 MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", str(1024 * 1024)))
 IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))
-RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "50"))
+# Useful concurrency on one connection is roughly limit x call latency, so the
+# old default of 50 capped a single endpoint at ~100 in-flight 2s calls, well
+# below what one pod can absorb. Over the limit the frame is dropped and the
+# caller sees only a 120s timeout, so setting this too low is paid for in
+# mystery stalls rather than in backpressure.
+RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "500"))
 
 
 async def require_websocket_user(websocket: WebSocket) -> tuple[User, str | None]:
