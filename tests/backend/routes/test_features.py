@@ -193,10 +193,9 @@ class TestFeaturesEndpoint:
         instead of 403-ing mid-onboarding users. The org-bearing invariant
         stays covered by ``test_license_info_reflects_org``.
         """
-        org_stub = Mock(spec=Organization)
-
+        # organization_id=None returns before any db.get() call, so no org
+        # stub is needed here (unlike the org-bearing fixture above).
         db_stub = Mock()
-        db_stub.get.return_value = org_stub
 
         user_id = UUID("22222222-2222-2222-2222-222222222222")
         user_stub = Mock(organization_id=None, id=user_id)
@@ -204,8 +203,12 @@ class TestFeaturesEndpoint:
         def _override_db_session():
             yield db_stub
 
-        # get_tenant_context is intentionally NOT overridden: the no-org path
-        # must never reach it (the route resolves the org without it).
+        def _fail_if_tenant_context_called():
+            raise AssertionError("no-org path must not reach get_tenant_context")
+
+        # The no-org path must never reach the tenant context: fail loudly
+        # if it does, instead of relying on the real dependency to error.
+        app.dependency_overrides[get_tenant_context] = _fail_if_tenant_context_called
         app.dependency_overrides[get_tenant_db_session] = _override_db_session
         app.dependency_overrides[get_db_session] = _override_db_session
         app.dependency_overrides[require_current_user_or_token] = lambda: user_stub
@@ -215,6 +218,7 @@ class TestFeaturesEndpoint:
             app.dependency_overrides.clear()
 
         assert response.status_code == status.HTTP_200_OK
+        db_stub.get.assert_not_called()
         body = response.json()
         assert body["license"] == {"edition": "community", "licensed": False}
         assert body["enabled"] == []
