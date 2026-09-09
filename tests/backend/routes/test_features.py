@@ -220,7 +220,7 @@ class TestFeaturesEndpoint:
         assert response.status_code == status.HTTP_200_OK
         db_stub.get.assert_not_called()
         body = response.json()
-        assert body["license"] == {"edition": "community", "licensed": False}
+        assert body["license"] == {"edition": "community", "licensed": False, "is_paid": False}
         assert body["enabled"] == []
         assert body["warnings"] == {}
         assert body["limits"] == limits_to_wire(FREE_TIER_LIMITS)
