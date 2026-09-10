@@ -134,8 +134,6 @@ max-statements = 80
 "scripts/check_organization_filtering.py" = ["C901"]
 # endpoint, decorator: switch on sync/async, binding, mappings and serializers.
 "sdk/src/rhesis/sdk/decorators/endpoint.py" = ["C901"]
-# create_langchain_callback: one callback per LangChain event, closed over shared span state.
-"sdk/src/rhesis/sdk/telemetry/integrations/langchain/callback.py" = ["C901"]
 # client: fixture builds an app with a route per error class.
 "tests/backend/security/test_error_handlers.py" = ["C901"]
 

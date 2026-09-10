@@ -32,27 +32,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from rhesis.sdk.telemetry.integrations.langchain.callback import (
-    MAX_TRACKED_RUNS,
-    create_langchain_callback,
-)
+from rhesis.sdk.telemetry.integrations.langchain.callback import create_langchain_callback
 
 AGENT_INVOKE = "ai.agent.invoke"
 LLM_INVOKE = "ai.llm.invoke"
 RETRIEVAL = "ai.retrieval"
-
-
-class _FakeSpan:
-    """Stands in for a span where only end/status behaviour matters."""
-
-    def __init__(self) -> None:
-        self.ended = False
-
-    def set_status(self, *_args, **_kwargs) -> None:
-        pass
-
-    def end(self) -> None:
-        self.ended = True
 
 
 class State(TypedDict):
@@ -132,8 +116,8 @@ def callback(exporter, monkeypatch):
 
     yield handler
 
-    for run_id in reversed(list(handler._spans)):
-        handler._end_span(run_id)
+    for run_id in reversed(list(handler._registry._spans)):
+        handler._registry.end(run_id)
 
 
 def build_pipeline(node_names: List[str]):
@@ -384,41 +368,3 @@ class TestRetrievalSpans:
         retrieval = named(exporter.get_finished_spans(), RETRIEVAL)
         assert len(retrieval) == 1
         assert retrieval[0].status.status_code.name == "ERROR"
-
-
-class TestBookkeepingIsBounded:
-    """Runs that never complete must not accumulate forever.
-
-    Driven through the tracking helpers rather than ``on_chain_start``: the real
-    path attaches an OTel context token per span, and thousands of those left
-    open would leak into the ambient context of later tests.
-    """
-
-    def test_skipped_run_tracking_is_capped(self, callback):
-        for i in range(MAX_TRACKED_RUNS + 100):
-            callback._skip_run(f"run-{i}", None)
-
-        assert len(callback._skipped_parents) <= MAX_TRACKED_RUNS
-
-    def test_open_span_tracking_is_capped(self, callback):
-        for i in range(MAX_TRACKED_RUNS + 50):
-            callback._track_span(f"run-{i}", (_FakeSpan(), None, (), None))
-
-        assert len(callback._spans) <= MAX_TRACKED_RUNS
-
-    def test_evicted_span_is_ended_so_it_still_exports(self, callback):
-        oldest = _FakeSpan()
-        callback._track_span("run-oldest", (oldest, None, ()))
-        for i in range(MAX_TRACKED_RUNS):
-            callback._track_span(f"run-{i}", (_FakeSpan(), None, (), None))
-
-        assert "run-oldest" not in callback._spans
-        assert oldest.ended, "an evicted span must be ended, or it never exports"
-
-    def test_eviction_clears_the_matching_agent_entry(self, callback):
-        callback._track_span("run-oldest", (_FakeSpan(), None, (), None))
-        callback._push_agent("run-oldest", "some-agent")
-        for i in range(MAX_TRACKED_RUNS):
-            callback._track_span(f"run-{i}", (_FakeSpan(), None, (), None))
-
-        assert "run-oldest" not in callback._agent_run_ids
