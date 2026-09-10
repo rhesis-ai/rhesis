@@ -1,8 +1,8 @@
 """Fixtures for the Haystack integration tests.
 
-Every fixture here is scoped to this package. Three of the four are autouse because the state they
-manage is process-wide: Haystack's content-tracing flag, the integration's ContextVars, and the
-tracer Haystack keeps in a module-level global.
+Every fixture here is scoped to this package. Most are autouse because the state they manage is
+process-wide: Haystack's content-tracing flag, the integration's ContextVars, the tracer Haystack
+keeps in a module-level global, and the conversation anchor store shared with the rest of Rhesis.
 """
 
 import pytest
@@ -16,6 +16,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from rhesis.telemetry import conversation as rhesis_conversation
 
 from rhesis.sdk.telemetry.integrations.haystack.integration import get_integration
 from rhesis.sdk.telemetry.integrations.haystack.tracer import (
@@ -66,6 +67,19 @@ def reset_context_vars():
     tracing_context_var.reset(context_token)
     span_stack_var.reset(stack_token)
     trace_id_var.reset(trace_token)
+
+
+@pytest.fixture(autouse=True)
+def reset_conversation_anchors():
+    """Forget which trace each conversation started on.
+
+    ``RhesisTracing`` joins the turns of a conversation through the anchor store in
+    ``rhesis.telemetry.conversation``, which is process-wide and shared with ``conversation_turn``.
+    Without this, two tests using the same conversation id would land on one trace.
+    """
+    rhesis_conversation._anchors.clear()
+    yield
+    rhesis_conversation._anchors.clear()
 
 
 @pytest.fixture(autouse=True)
