@@ -23,27 +23,16 @@ auto_instrument("langgraph")`}
 
 ### LangGraph
 
-With LangGraph auto-instrumentation, every `graph.invoke()`, `graph.ainvoke()`, `graph.stream()`, and `graph.astream()` call is traced automatically. Nodes are classified as agents based on their name.
+With LangGraph auto-instrumentation, every `graph.invoke()`, `graph.ainvoke()`, `graph.stream()`, and `graph.astream()` call is traced automatically. Every node gets an `ai.agent.invoke` span, under one for the graph itself, whatever the nodes are called.
 
-A node is treated as an agent if its name contains one of these keywords (case-insensitive):
-
-| Keyword | Example node name |
-|---|---|
-| `agent` | `research_agent`, `agent_node` |
-| `specialist` | `billing_specialist` |
-| `orchestrator` | `main_orchestrator` |
-| `coordinator` | `task_coordinator` |
-| `supervisor` | `supervisor` |
-
-Nodes that don't match are traced as regular spans. To explicitly mark a node, set `agent_name` or `is_agent` in the invocation metadata:
+To label a node with something other than its node name, set `agent_name` in the invocation metadata:
 
 <CodeBlock filename="app.py" language="python">
 {`# Explicit agent name — overrides the node name in traces
-graph.invoke(state, config={"metadata": {"agent_name": "researcher"}})
-
-# Mark as agent without renaming
-graph.invoke(state, config={"metadata": {"is_agent": True}})`}
+graph.invoke(state, config={"metadata": {"agent_name": "researcher"}})`}
 </CodeBlock>
+
+Outside LangGraph there is no equivalent marker, so a chain is traced as an agent when its name contains `agent`, `specialist`, `orchestrator`, `coordinator` or `supervisor`, or when the invocation metadata sets `agent_name` or `is_agent`.
 
 ### Agent name resolution
 
@@ -53,14 +42,14 @@ The agent name on each `ai.agent.invoke` span is resolved with this priority ord
 2. `metadata.langgraph_node` — set automatically by LangGraph for each node.
 3. `serialized.name` — provided by the framework when available.
 4. Last segment of `serialized.id` — falls back to the class path (for example `ChatGoogleGenerativeAI`).
-5. `"unknown"` — when none of the above is set.
+5. The run's own name — how LangGraph reports the compiled graph's name, which is what labels the span for the graph itself.
+6. `"unknown"` — when none of the above is set.
 
 ### Handoff detection
 
-Handoffs are detected automatically in two ways:
+Any tool whose name starts with `transfer_to_` creates an `ai.agent.handoff` span, attributed to the agent that called it. Detection runs in the LangChain callback's tool path, so it works for any LangChain-based system — including LangGraph and the LangGraph prebuilt agents that emit these tools — not just LangGraph specifically.
 
-- **`transfer_to_*` tools** — any tool whose name starts with `transfer_to_` creates an `ai.agent.handoff` span. Detection runs in the LangChain callback's tool path, so it works for any LangChain-based system (including LangGraph and the LangGraph prebuilt agents that emit these tools), not just LangGraph specifically.
-- **Sequential transitions** — when one agent ends and a different agent starts, a handoff span is created between them.
+An edge from one node to the next is not a handoff. Only an explicit transfer is, so a linear pipeline and an agent looping with a tool both report none.
 
 ### More Frameworks
 
@@ -69,7 +58,7 @@ LangGraph, Microsoft Agent Framework and Google ADK all produce native `ai.agent
 - For **MAF**, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/docs/tracing/agent-framework).
 - For **Google ADK**, both of its multi-agent mechanisms produce edges: a `transfer_to_agent` call becomes the handoff span directly, and an `AgentTool` delegation gets a synthesized one alongside its tool span - see [Google ADK](/docs/tracing/google-adk#multi-agent-handoffs).
 
-LangChain is supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection there requires LangGraph node naming conventions or `transfer_to_*` tool names. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
+LangChain outside LangGraph is supported for general tracing (LLM calls, tools, retrieval), but there an agent span depends on the naming or metadata described above, and a handoff span on a `transfer_to_*` tool name. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
 
 ## Manual Decoration
 

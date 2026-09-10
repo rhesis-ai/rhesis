@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Auto-Instrumentation
 
-Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack applications. It traces LLM calls, tool invocations, and chain executions without modifying your code.
+Zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack applications. It traces LLM calls, tool invocations, retrieval, and chain executions without modifying your code.
 
 <Mermaid chart={`flowchart LR
     AI["auto_instrument()"] --> LC["LangChain"]
@@ -78,11 +78,13 @@ response = llm.invoke("Explain quantum computing")`}
 
 ### What Gets Traced
 
-- LLM invocations with token counts
-- Prompt templates and chains (LCEL)
+- LLM invocations with token counts, one `ai.prompt` event per message sent
 - Tool calls with inputs and outputs
+- Retriever calls, with the query, the documents returned and how many
 - Streaming responses
 - Errors and exceptions
+
+The steps of an LCEL pipeline are not spans of their own — a `prompt | llm | parser` chain reports three of them and none is a unit of work. The LLM call inside it is traced.
 
 ### LCEL Chain Example
 
@@ -176,19 +178,27 @@ LangGraph runs on top of LangChain's callback system. To avoid emitting duplicat
 
 ## Trace Output
 
-Each node in the graph produces spans following [semantic conventions](/docs/tracing/semantic-conventions). In this example, `researcher` and `analyst` are not named with agent keywords, so their LLM calls are traced as `ai.llm.invoke` spans directly.
+Each node in the graph produces spans following [semantic conventions](/docs/tracing/semantic-conventions). The graph itself gets an `ai.agent.invoke` span and every node gets one beneath it, whatever the node is called, with its LLM, tool and retrieval spans nested inside. One graph run is one trace.
 
 <Mermaid chart={`flowchart TD
     subgraph Trace["Trace: User Query"]
-        R["ai.llm.invoke\\n(researcher node)"]
-        A["ai.llm.invoke\\n(analyst node)"]
+        G["ai.agent.invoke\\n(graph)"]
+        R["ai.agent.invoke\\n(researcher node)"]
+        RL["ai.llm.invoke"]
+        A["ai.agent.invoke\\n(analyst node)"]
+        AL["ai.llm.invoke"]
         T["ai.tool.invoke\\n(if used)"]
     end
 
-    R --> A
+    G --> R
+    R --> RL
+    G --> A
+    A --> AL
     A --> T`} />
 
-Spans include attributes for model name, provider, token counts (input/output), and tool names. To get `ai.agent.invoke` spans for multi-agent systems, see [Multi-Agent Tracing](/docs/tracing/multi-agent).
+Spans include attributes for model name, provider, token counts (input/output), and tool names.
+
+Delegation between agents is traced separately as `ai.agent.handoff` — see [Multi-Agent Tracing](/docs/tracing/multi-agent). Grouping the turns of one session into a conversation is covered in [Conversation Tracing](/docs/tracing/conversation-tracing).
 
 ## Combining with Decorators
 

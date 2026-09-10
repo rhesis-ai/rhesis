@@ -60,6 +60,20 @@ def chat(input: str, session_id: str = None) -> dict:
 
 The `session_id` field in the response is mapped to `conversation_id` internally — they refer to the same concept. When the same `session_id` is returned across turns, Rhesis links all spans into a single conversation thread.
 
+### LangGraph: thread_id
+
+A LangGraph app that already checkpoints its turns under a `thread_id` needs nothing extra. When no conversation id is bound, the LangGraph integration uses that `thread_id`, so the turns of one thread arrive as a single trace:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import auto_instrument
+
+auto_instrument("langgraph")
+
+graph.invoke(state, config={"configurable": {"thread_id": "user-42"}})`}
+</CodeBlock>
+
+An id bound explicitly — by a test run, by `@endpoint`, or by `conversation_turn` below — takes precedence over `thread_id`.
+
 ## Standalone Apps: Owning the Turn
 
 Behind `@endpoint` the turn root is the endpoint span and Rhesis fills in the reply from the mapped response, so there is nothing more to do. A **standalone** run has no endpoint — a terminal chat, a script, a worker — and there the framework integration has to guess the turn's reply from the model spans it can see. That works when the reply *is* the model's last message. It does not when your app composes the reply itself: from a tool result, from a template, from its own branching. That text appears in no span, and the agent framework's run span has already ended by the time your code holds it, so nothing downstream can recover it.

@@ -3,7 +3,7 @@ import { Table } from '@/components/Table'
 
 # Configure Telemetry: Auto-Instrumentation
 
-Auto-instrumentation traces every LLM call, tool invocation, and chain or graph execution in supported frameworks without touching your application code — one call to `auto_instrument()`, no decorators or manual spans. If you're building on LangChain, LangGraph, Microsoft Agent Framework, or Pydantic AI, this is the fastest path to a working trace.
+Auto-instrumentation traces every LLM call, tool invocation, retrieval, and chain or graph execution in supported frameworks without touching your application code — one call to `auto_instrument()`, no decorators or manual spans. If you're building on LangChain, LangGraph, Microsoft Agent Framework, or Pydantic AI, this is the fastest path to a working trace.
 
 ## Prerequisites
 
@@ -88,7 +88,7 @@ flowchart LR
     subgraph Callback-based
         LC[LangChain] --> CB[Global callback handler]
         LG[LangGraph] --> CB
-        CB --> Spans1["ai.llm.invoke / ai.tool.invoke<br/>spans, properly nested"]
+        CB --> Spans1["ai.agent.invoke / ai.llm.invoke<br/>ai.tool.invoke / ai.retrieval<br/>spans, properly nested"]
     end
     subgraph Span-translating
         MAF[Microsoft Agent Framework] --> TR[Translating exporter]
@@ -97,7 +97,7 @@ flowchart LR
     end
 ```
 
-**Callback-based (LangChain/LangGraph):** the SDK registers a global callback handler that intercepts `on_chat_model_start`, `on_tool_start`, `on_chain_start`, and equivalents, creating properly-nested Rhesis-convention spans directly. LangGraph reuses the LangChain callback rather than creating its own, so `auto_instrument("langgraph")` alone already covers chains, tools, and LLM calls invoked from graph nodes.
+**Callback-based (LangChain/LangGraph):** the SDK registers a global callback handler that intercepts `on_chat_model_start`, `on_tool_start`, `on_retriever_start`, `on_chain_start`, and equivalents, creating properly-nested Rhesis-convention spans directly. LangGraph reuses the LangChain callback rather than creating its own, so `auto_instrument("langgraph")` alone already covers chains, tools, and LLM calls invoked from graph nodes.
 
 **Span-translating (MAF/Pydantic AI):** these frameworks already emit standard OpenTelemetry GenAI spans (`gen_ai.*`). The SDK wraps the OTLP exporter with a translating exporter that rewrites span names and attributes into the Rhesis `ai.*` schema at export time.
 
