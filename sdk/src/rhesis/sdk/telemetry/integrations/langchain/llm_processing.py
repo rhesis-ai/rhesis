@@ -14,7 +14,12 @@ from opentelemetry import trace
 from rhesis.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.telemetry.token_extraction import extract_token_usage
 
-from .extractors import MAX_CONTENT_LENGTH, extract_model_name, extract_provider
+from .extractors import (
+    MAX_CONTENT_LENGTH,
+    extract_model_name,
+    extract_provider,
+    tool_call_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -209,12 +214,8 @@ def _extract_tool_calls(msg: Any) -> List[str]:
     tool_calls_extracted = []
 
     # Location 1: msg.tool_calls (standard LangChain)
-    if hasattr(msg, "tool_calls") and msg.tool_calls:
-        for tc in msg.tool_calls:
-            if isinstance(tc, dict):
-                tool_calls_extracted.append(tc.get("name", "unknown"))
-            else:
-                tool_calls_extracted.append(getattr(tc, "name", "unknown"))
+    if getattr(msg, "tool_calls", None):
+        tool_calls_extracted.extend(tool_call_names(msg.tool_calls))
 
     # Location 2: additional_kwargs.tool_calls (some providers)
     if not tool_calls_extracted:

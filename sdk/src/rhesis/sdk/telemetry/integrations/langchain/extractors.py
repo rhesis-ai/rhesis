@@ -183,6 +183,22 @@ def should_trace_chain(name: str, tags: List[str] | None, metadata: Dict | None)
     return is_agent(name, tags, metadata)
 
 
+def tool_call_names(tool_calls: Any) -> List[str]:
+    """Name each tool call, whether the provider returns dicts or objects.
+
+    Assuming dicts raises ``AttributeError`` inside the callback, and LangChain
+    swallows handler exceptions - so the visible symptom is a span that never
+    ends rather than an error.
+    """
+    names = []
+    for call in tool_calls or ():
+        if isinstance(call, dict):
+            names.append(str(call.get("name", "unknown")))
+        else:
+            names.append(str(getattr(call, "name", "unknown")))
+    return names
+
+
 def extract_agent_input(inputs: Dict[str, Any]) -> str:
     """Extract human-readable input from agent inputs.
 
@@ -250,8 +266,7 @@ def extract_agent_output(outputs: Dict[str, Any]) -> str:
             if not content:
                 tool_calls = getattr(last_msg, "tool_calls", None)
                 if tool_calls:
-                    tool_names = [tc.get("name", "unknown") for tc in tool_calls]
-                    content = f"[Tool calls: {', '.join(tool_names)}]"
+                    content = f"[Tool calls: {', '.join(tool_call_names(tool_calls))}]"
 
             if content:
                 return content[:MAX_CONTENT_LENGTH]
