@@ -26,8 +26,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.retrievers import BaseRetriever
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
-from langgraph.graph.state import CompiledStateGraph
-from opentelemetry import context as otel_context
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -41,58 +39,6 @@ RETRIEVAL = "ai.retrieval"
 
 class State(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
-
-
-@pytest.fixture(autouse=True)
-def only_our_handler():
-    """Run these tests against exactly one handler.
-
-    ``LangGraphIntegration.enable()`` registers a handler process-wide and
-    patches ``CompiledStateGraph`` in place, and another module in this
-    directory calls it. If it has, every graph here would be traced twice:
-    once by the handler under test and once by that one. Both attach and detach
-    ambient OTEL context around the same runs, which reparents the spans being
-    asserted on and leaks tokens into later modules.
-
-    So borrow a pristine graph class and an empty registration for the duration
-    of each test, and hand back whatever was there. Production only ever has
-    the single handler these tests assume.
-    """
-    from rhesis.sdk.telemetry.integrations.langchain import integration as lc_integration
-    from rhesis.sdk.telemetry.integrations.langgraph import GraphPatchState
-
-    previous_callback = lc_integration._rhesis_callback_ref.get()
-    lc_integration._rhesis_callback_ref.set(None)
-
-    # GraphPatchState holds the real method captured when the patch went on.
-    accessors = {
-        "invoke": GraphPatchState.get_invoke,
-        "ainvoke": GraphPatchState.get_ainvoke,
-        "stream": GraphPatchState.get_stream,
-        "astream": GraphPatchState.get_astream,
-    }
-    patched = {}
-    for name, get_original in accessors.items():
-        original = get_original()
-        if original is not None:
-            patched[name] = getattr(CompiledStateGraph, name)
-            setattr(CompiledStateGraph, name, original)
-
-    clean_context = otel_context.get_current()
-
-    yield
-
-    # Hand back a clean ambient context. The handler attaches a token per span
-    # and can only detach it from the execution that attached it, so a span
-    # raised on a worker thread, or ended out of order, leaves one attached.
-    # Left in place it becomes the implicit parent of spans in later modules,
-    # which then stop being roots.
-    if otel_context.get_current() is not clean_context:
-        otel_context.attach(clean_context)
-
-    for name, method in patched.items():
-        setattr(CompiledStateGraph, name, method)
-    lc_integration._rhesis_callback_ref.set(previous_callback)
 
 
 @pytest.fixture

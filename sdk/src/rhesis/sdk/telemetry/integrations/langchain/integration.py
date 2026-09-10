@@ -8,6 +8,7 @@ from rhesis.sdk.telemetry.integrations.langchain.callback import create_langchai
 from rhesis.sdk.telemetry.integrations.langchain.utils import (
     ToolPatchState,
     ensure_callback_in_config,
+    restore_class_method,
 )
 
 logger = logging.getLogger(__name__)
@@ -105,14 +106,42 @@ class LangChainIntegration(BaseIntegration):
             logger.debug(f"Could not register configure hook: {e}")
 
     def disable(self) -> None:
-        """Disable LangChain observation.
+        """Disable LangChain observation and restore what was patched.
 
         The configure hook cannot be unregistered, so clear the callback it
         reads instead - otherwise spans keep being emitted after disable().
         """
-        if self._enabled:
-            _rhesis_callback_ref.set(None)
+        _rhesis_callback_ref.set(None)
+        self._unpatch_tool_invocation()
         super().disable()
+
+    def _unpatch_tool_invocation(self) -> None:
+        """Put BaseTool's own invoke/ainvoke back.
+
+        The patch lives on the class and closes over this integration's
+        callback, so leaving it would keep tracing tools through a handler that
+        has been disabled.
+        """
+        original_invoke = ToolPatchState.get_invoke()
+        original_ainvoke = ToolPatchState.get_ainvoke()
+        if original_invoke is None and original_ainvoke is None:
+            ToolPatchState.reset()
+            return
+
+        try:
+            from langchain_core.tools import BaseTool
+        except ImportError:
+            ToolPatchState.reset()
+            return
+
+        if original_invoke is not None:
+            restore_class_method(BaseTool, "invoke", original_invoke)
+        if original_ainvoke is not None:
+            restore_class_method(BaseTool, "ainvoke", original_ainvoke)
+
+        # Only after restoring: the patched methods resolve the original here.
+        ToolPatchState.reset()
+        logger.debug("Restored BaseTool invocation")
 
     def _patch_tool_invocation(self) -> None:
         """Patch BaseTool.invoke/ainvoke to ensure callbacks are triggered."""
