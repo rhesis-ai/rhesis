@@ -15,7 +15,9 @@ from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
-import rhesis.sdk.telemetry.integrations.langgraph as lg_module
+from rhesis.sdk.telemetry.integrations.langchain import (
+    get_integration as langchain_integration,
+)
 from rhesis.sdk.telemetry.integrations.langchain.extractors import (
     extract_agent_name,
 )
@@ -34,13 +36,17 @@ class SimpleState(TypedDict):
 
 @pytest.fixture(autouse=True)
 def reset_patch_state():
-    """Reset graph patching state before each test."""
-    lg_module._graph_patching_done = False
-    lg_module._original_graph_invoke = None
-    lg_module._original_graph_ainvoke = None
-    lg_module._original_graph_stream = None
-    lg_module._original_graph_astream = None
+    """Start unpatched, and leave the classes as they were found.
+
+    ``enable()`` patches ``CompiledStateGraph`` and ``BaseTool`` in place, so
+    without disabling afterwards every graph invoked later in the session - in
+    any module - keeps getting this test's callback injected on top of its own.
+    """
+    GraphPatchState.reset()
     yield
+    LangGraphIntegration().disable()
+    langchain_integration().disable()
+    GraphPatchState.reset()
 
 
 @pytest.fixture

@@ -1,409 +1,402 @@
-"""LangChain callback handler for OpenTelemetry tracing."""
+"""LangChain callback handler for OpenTelemetry tracing.
+
+Translates LangChain's callback events into Rhesis ``ai.*`` spans. Where a span
+belongs in the run tree, and when it ends, is
+:class:`~rhesis.sdk.telemetry.integrations.langchain.span_registry.SpanRegistry`'s
+job; this module only decides what each event means.
+"""
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from rhesis.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.telemetry.context import is_llm_observation_active, is_tracing_disabled
-from rhesis.telemetry.schemas import AIOperationType
-
-from .extractors import (
+from rhesis.sdk.telemetry.integrations.langchain.extractors import (
     MAX_CONTENT_LENGTH,
     extract_agent_input,
     extract_agent_name,
     extract_agent_output,
+    extract_retriever_backend,
     extract_tool_output,
-    is_agent,
+    should_trace_chain,
+    summarize_documents,
 )
-from .llm_processing import (
+from rhesis.sdk.telemetry.integrations.langchain.llm_processing import (
     add_chat_prompt_event,
     extract_and_set_tokens,
     set_llm_attributes,
 )
+from rhesis.sdk.telemetry.integrations.langchain.span_registry import SpanRegistry
+from rhesis.sdk.telemetry.integrations.langchain.turns import claim_turn_root, resolve_turn
+from rhesis.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.telemetry.context import is_llm_observation_active, is_tracing_disabled
+from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)
 
+# Tools named this way are a delegation, not a call: LangGraph's supervisor and
+# swarm patterns both hand off by having the model call transfer_to_<agent>.
+HANDOFF_TOOL_PREFIX = "transfer_to_"
+
+# Every span carries the short form of its operation as an attribute alongside
+# the full ai.<domain>.<action> span name.
+_OPERATION_ATTRIBUTE = {
+    AIOperationType.LLM_INVOKE: AIAttributes.OPERATION_LLM_INVOKE,
+    AIOperationType.TOOL_INVOKE: AIAttributes.OPERATION_TOOL_INVOKE,
+    AIOperationType.RETRIEVAL: AIAttributes.OPERATION_RETRIEVAL,
+    AIOperationType.AGENT_INVOKE: AIAttributes.OPERATION_AGENT_INVOKE,
+    AIOperationType.AGENT_HANDOFF: AIAttributes.OPERATION_AGENT_HANDOFF,
+}
+
+
+class RhesisSpanRecorder:
+    """Records Rhesis spans from LangChain callback events.
+
+    Deliberately not a ``BaseCallbackHandler`` subclass: langchain_core is an
+    optional dependency, so the base class can only be imported at call time.
+    :func:`create_langchain_callback` mixes the two together, which keeps this
+    class importable - and unit testable - without langchain installed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.tracer = trace.get_tracer(__name__)
+        self._registry = SpanRegistry()
+
+    # =====================================================================
+    # Span helpers shared by the event handlers
+    # =====================================================================
+
+    def _open(
+        self,
+        operation: str,
+        run_id: Any,
+        parent_run_id: Any = None,
+        conversation_context: Any = None,
+    ) -> trace.Span:
+        """Start and track a span for `run_id`, parented to its nearest ancestor.
+
+        The parent is passed to the tracer explicitly rather than attached to
+        the ambient context first: LangChain fires callbacks across tasks and
+        threads, so the ambient context is not a reliable carrier and relying
+        on it parented spans to whatever ran last.
+
+        ``conversation_context`` applies only to a run with no traced ancestor,
+        and puts it on an earlier turn's trace.
+        """
+        parent_context, parent_key = self._registry.resolve_parent(parent_run_id)
+        span = self.tracer.start_span(
+            name=operation,
+            kind=SpanKind.CLIENT,
+            context=parent_context or conversation_context,
+        )
+        span.set_attribute(AIAttributes.OPERATION_TYPE, _OPERATION_ATTRIBUTE[operation])
+        self._registry.track(run_id, span, parent_key)
+        return span
+
+    def _begin(self, run_id: Any) -> bool:
+        """Whether to record this run, claiming it if so."""
+        if is_tracing_disabled():
+            return False
+        return self._registry.claim(run_id)
+
+    def _succeed(self, run_id: Any) -> None:
+        """Mark a run's span OK and end it."""
+        if span := self._registry.span_for(run_id):
+            span.set_status(Status(StatusCode.OK))
+        self._registry.end(run_id)
+
+    def _fail(self, run_id: Any, error: BaseException) -> bool:
+        """Record an error on a run's span and end it.
+
+        Returns whether there was a span, so a caller can clean up a run that
+        was skipped rather than traced.
+        """
+        span = self._registry.span_for(run_id)
+        if span is None:
+            return False
+        span.set_status(Status(StatusCode.ERROR, str(error)))
+        span.record_exception(error)
+        self._registry.end(run_id)
+        return True
+
+    def _add_content_event(self, run_id: Any, event: str, attribute: str, content: str) -> None:
+        """Attach a truncated content event to a run's span, if it has one."""
+        if span := self._registry.span_for(run_id):
+            span.add_event(event, {attribute: content[:MAX_CONTENT_LENGTH]})
+
+    # =====================================================================
+    # LLM
+    # =====================================================================
+
+    def on_chat_model_start(
+        self,
+        serialized: Dict[str, Any],
+        messages: List[List[Any]],
+        *,
+        run_id: Any,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        """Start span for chat model invocation."""
+        if self._skip_llm(run_id) or not self._begin(run_id):
+            return
+
+        span = self._open(AIOperationType.LLM_INVOKE, run_id, parent_run_id)
+        set_llm_attributes(span, serialized, kwargs, request_type="chat")
+        add_chat_prompt_event(span, messages)
+
+    def on_llm_start(
+        self,
+        serialized: Dict[str, Any],
+        prompts: List[str],
+        *,
+        run_id: Any,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        """Start span for non-chat LLM invocation."""
+        if self._skip_llm(run_id) or not self._begin(run_id):
+            return
+
+        span = self._open(AIOperationType.LLM_INVOKE, run_id, parent_run_id)
+        set_llm_attributes(span, serialized, kwargs, request_type=serialized.get("_type", "llm"))
+
+        if prompts:
+            span.add_event(
+                AIEvents.PROMPT,
+                {
+                    AIAttributes.PROMPT_ROLE: "user",
+                    AIAttributes.PROMPT_CONTENT: prompts[0][:MAX_CONTENT_LENGTH],
+                },
+            )
+
+    def on_llm_end(
+        self, response: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """End LLM span with token counts and completion."""
+        span = self._registry.span_for(run_id)
+        if span is None:
+            return
+        try:
+            extract_and_set_tokens(span, response)
+        finally:
+            self._succeed(run_id)
+
+    def on_llm_error(
+        self, error: Exception, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """Handle LLM errors."""
+        self._fail(run_id, error)
+
+    def _skip_llm(self, run_id: Any) -> bool:
+        """Whether an LLM span is unwanted here, before claiming the run."""
+        if is_llm_observation_active():
+            logger.debug("Skipping LLM span - @observe.llm() active for %s", run_id)
+            return True
+        return False
+
+    # =====================================================================
+    # Tools
+    # =====================================================================
+
+    def on_tool_start(
+        self,
+        serialized: Dict[str, Any],
+        input_str: str,
+        *,
+        run_id: Any,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        """Start a tool span, or a handoff span for a delegation tool."""
+        if not self._begin(run_id):
+            return
+
+        tool_name = serialized.get("name", "unknown")
+        if tool_name.startswith(HANDOFF_TOOL_PREFIX):
+            self._open_handoff(tool_name, run_id, parent_run_id)
+            return
+
+        span = self._open(AIOperationType.TOOL_INVOKE, run_id, parent_run_id)
+        span.set_attribute(AIAttributes.TOOL_NAME, tool_name)
+        span.set_attribute(AIAttributes.TOOL_TYPE, "function")
+        span.add_event(
+            AIEvents.TOOL_INPUT,
+            {AIAttributes.TOOL_INPUT_CONTENT: input_str[:MAX_CONTENT_LENGTH]},
+        )
+
+    def _open_handoff(self, tool_name: str, run_id: Any, parent_run_id: Any) -> None:
+        """Record one agent delegating to another."""
+        span = self._open(AIOperationType.AGENT_HANDOFF, run_id, parent_run_id)
+        if from_agent := self._registry.enclosing_agent(parent_run_id):
+            span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, from_agent)
+        span.set_attribute(
+            AIAttributes.AGENT_HANDOFF_TO,
+            tool_name[len(HANDOFF_TOOL_PREFIX) :],
+        )
+
+    def on_tool_end(
+        self, output: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """End tool span."""
+        if self._registry.span_for(run_id) is None:
+            return
+        self._add_content_event(
+            run_id,
+            AIEvents.TOOL_OUTPUT,
+            AIAttributes.TOOL_OUTPUT_CONTENT,
+            extract_tool_output(output),
+        )
+        self._succeed(run_id)
+
+    def on_tool_error(
+        self, error: Exception, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """Handle tool errors."""
+        self._fail(run_id, error)
+
+    # =====================================================================
+    # Retrieval
+    # =====================================================================
+
+    def on_retriever_start(
+        self,
+        serialized: Dict[str, Any],
+        query: str,
+        *,
+        run_id: Any,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Start a retrieval span."""
+        if not self._begin(run_id):
+            return
+
+        span = self._open(AIOperationType.RETRIEVAL, run_id, parent_run_id)
+        span.set_attribute(
+            AIAttributes.RETRIEVAL_BACKEND,
+            extract_retriever_backend(serialized, metadata, kwargs),
+        )
+        span.add_event(
+            AIEvents.RETRIEVAL_QUERY,
+            {AIAttributes.PROMPT_CONTENT: str(query)[:MAX_CONTENT_LENGTH]},
+        )
+
+    def on_retriever_end(
+        self, documents: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """End a retrieval span with the documents it returned."""
+        span = self._registry.span_for(run_id)
+        if span is None:
+            return
+        try:
+            span.set_attribute(
+                AIAttributes.RETRIEVAL_TOP_K, len(documents) if documents is not None else 0
+            )
+            span.add_event(
+                AIEvents.RETRIEVAL_RESULTS,
+                {AIAttributes.COMPLETION_CONTENT: summarize_documents(documents)},
+            )
+        finally:
+            self._succeed(run_id)
+
+    def on_retriever_error(
+        self, error: BaseException, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """Handle retrieval errors."""
+        self._fail(run_id, error)
+
+    # =====================================================================
+    # Chains and agents
+    # =====================================================================
+
+    def on_chain_start(
+        self,
+        serialized: Dict[str, Any],
+        inputs: Dict[str, Any],
+        *,
+        run_id: Any,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Start a span for this chain run if it is worth tracing."""
+        if is_tracing_disabled() or self._registry.is_claimed(run_id):
+            return
+
+        agent_name = extract_agent_name(serialized, tags, metadata, kwargs)
+
+        # Untraced runs are still recorded, so their children stay attached to
+        # the nearest traced ancestor instead of becoming new roots.
+        if not should_trace_chain(agent_name, tags, metadata):
+            self._registry.skip(run_id, parent_run_id)
+            return
+
+        if not self._registry.claim(run_id):
+            return
+        self._registry.push_agent(run_id, agent_name)
+
+        turn = resolve_turn(parent_run_id, metadata)
+        span = self._open(
+            AIOperationType.AGENT_INVOKE,
+            run_id,
+            parent_run_id,
+            conversation_context=turn.parent_context if turn else None,
+        )
+        span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
+
+        if turn:
+            claim_turn_root(span, turn)
+
+        if input_str := extract_agent_input(inputs):
+            span.add_event(
+                AIEvents.AGENT_INPUT,
+                {AIAttributes.AGENT_INPUT_CONTENT: input_str[:MAX_CONTENT_LENGTH]},
+            )
+
+    def on_chain_end(
+        self, outputs: Dict[str, Any], *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """End agent span."""
+        if self._registry.span_for(run_id) is None:
+            self._registry.forget_skipped(run_id)
+            return
+
+        if output_str := extract_agent_output(outputs):
+            self._add_content_event(
+                run_id, AIEvents.AGENT_OUTPUT, AIAttributes.AGENT_OUTPUT_CONTENT, output_str
+            )
+        self._succeed(run_id)
+        self._registry.pop_agent(run_id)
+
+    def on_chain_error(
+        self, error: BaseException, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
+    ) -> None:
+        """Handle agent errors."""
+        if not self._fail(run_id, error):
+            self._registry.forget_skipped(run_id)
+            return
+        self._registry.pop_agent(run_id)
+
 
 def create_langchain_callback():
-    """Create and return a LangChain callback handler for OpenTelemetry tracing."""
+    """Create a LangChain callback handler that records Rhesis spans."""
     try:
         from langchain_core.callbacks.base import BaseCallbackHandler
     except ImportError:
         from langchain.callbacks.base import BaseCallbackHandler
 
-    class RhesisLangChainCallback(BaseCallbackHandler):
-        """OpenTelemetry callback handler for LangChain operations."""
-
-        def __init__(self):
-            super().__init__()
-            self.tracer = trace.get_tracer(__name__)
-            self._spans: Dict[str, tuple[trace.Span, Any, Any]] = {}
-            self._active_run_ids: set = set()
-            # Agent deduplication: track active agents to avoid nested duplicates
-            self._active_agents: set = set()  # Currently active agent names
-            self._agent_run_ids: Dict[str, str] = {}  # run_id -> agent_name mapping
-            # Track agents for handoff detection
-            self._current_agent: str | None = None
-            self._last_ended_agent: str | None = None
-
-        # =====================================================================
-        # Span Management
-        # =====================================================================
-
-        def _start_span(
-            self, name: str, run_id: Any, parent_run_id: Any = None
-        ) -> tuple[trace.Span, Any, Any]:
-            """Start a span with proper parent context and make it current."""
-            parent_token = None
-            if parent_run_id and str(parent_run_id) in self._spans:
-                parent_span, _, _ = self._spans[str(parent_run_id)]
-                parent_token = otel_context.attach(trace.set_span_in_context(parent_span))
-
-            span = self.tracer.start_span(name=name, kind=SpanKind.CLIENT)
-            current_token = otel_context.attach(trace.set_span_in_context(span))
-            return span, parent_token, current_token
-
-        def _end_span(self, run_id: Any) -> None:
-            """End span and detach context tokens in reverse order."""
-            run_id_str = str(run_id)
-            if run_id_str not in self._spans:
-                return
-
-            span, parent_token, current_token = self._spans.pop(run_id_str)
-            span.end()
-            self._active_run_ids.discard(run_id_str)
-
-            if current_token:
-                otel_context.detach(current_token)
-            if parent_token:
-                otel_context.detach(parent_token)
-
-        def _should_skip_llm(self, run_id: Any) -> bool:
-            """Check if LLM span should be skipped (deduplication or tracing disabled)."""
-            if is_tracing_disabled():
-                return True
-            if is_llm_observation_active():
-                logger.debug(f"Skipping LLM span - @observe.llm() active for {run_id}")
-                return True
-            if str(run_id) in self._active_run_ids:
-                logger.debug(f"Skipping duplicate LLM span for {run_id}")
-                return True
-            return False
-
-        # =====================================================================
-        # LLM Callbacks
-        # =====================================================================
-
-        def on_chat_model_start(
-            self,
-            serialized: Dict[str, Any],
-            messages: List[List[Any]],
-            *,
-            run_id: Any,
-            parent_run_id: Any = None,
-            **kwargs: Any,
-        ) -> None:
-            """Start span for chat model invocation."""
-            if self._should_skip_llm(run_id):
-                return
-
-            run_id_str = str(run_id)
-            self._active_run_ids.add(run_id_str)
-
-            span, parent_token, current_token = self._start_span(
-                AIOperationType.LLM_INVOKE, run_id, parent_run_id
-            )
-            set_llm_attributes(span, serialized, kwargs, request_type="chat")
-            add_chat_prompt_event(span, messages)
-            self._spans[run_id_str] = (span, parent_token, current_token)
-
-        def on_llm_start(
-            self,
-            serialized: Dict[str, Any],
-            prompts: List[str],
-            *,
-            run_id: Any,
-            parent_run_id: Any = None,
-            **kwargs: Any,
-        ) -> None:
-            """Start span for non-chat LLM invocation."""
-            if self._should_skip_llm(run_id):
-                return
-
-            run_id_str = str(run_id)
-            self._active_run_ids.add(run_id_str)
-
-            span, parent_token, current_token = self._start_span(
-                AIOperationType.LLM_INVOKE, run_id, parent_run_id
-            )
-            set_llm_attributes(
-                span, serialized, kwargs, request_type=serialized.get("_type", "llm")
-            )
-
-            if prompts:
-                span.add_event(
-                    AIEvents.PROMPT,
-                    {
-                        AIAttributes.PROMPT_ROLE: "user",
-                        AIAttributes.PROMPT_CONTENT: prompts[0][:MAX_CONTENT_LENGTH],
-                    },
-                )
-            self._spans[run_id_str] = (span, parent_token, current_token)
-
-        def on_llm_end(
-            self, response: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
-        ) -> None:
-            """End LLM span with token counts and completion."""
-            span_data = self._spans.get(str(run_id))
-            if not span_data:
-                return
-
-            span, _, _ = span_data
-            try:
-                extract_and_set_tokens(span, response)
-                span.set_status(Status(StatusCode.OK))
-            finally:
-                self._end_span(run_id)
-
-        def on_llm_error(
-            self, error: Exception, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
-        ) -> None:
-            """Handle LLM errors."""
-            span_data = self._spans.get(str(run_id))
-            if span_data:
-                span_data[0].set_status(Status(StatusCode.ERROR, str(error)))
-                span_data[0].record_exception(error)
-                self._end_span(run_id)
-
-        # =====================================================================
-        # Tool Callbacks
-        # =====================================================================
-
-        def on_tool_start(
-            self,
-            serialized: Dict[str, Any],
-            input_str: str,
-            *,
-            run_id: Any,
-            parent_run_id: Any = None,
-            **kwargs: Any,
-        ) -> None:
-            """Start tool span or handoff span."""
-            if is_tracing_disabled():
-                return
-
-            run_id_str = str(run_id)
-            if run_id_str in self._active_run_ids:
-                return
-
-            self._active_run_ids.add(run_id_str)
-            tool_name = serialized.get("name", "unknown")
-
-            # Detect handoff tools (transfer_to_* pattern)
-            if tool_name.startswith("transfer_to_"):
-                # Extract target agent from tool name
-                target_agent = tool_name.replace("transfer_to_", "")
-
-                span, parent_token, current_token = self._start_span(
-                    AIOperationType.AGENT_HANDOFF, run_id, parent_run_id
-                )
-
-                span.set_attribute(
-                    AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_HANDOFF
-                )
-                if self._current_agent:
-                    span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, self._current_agent)
-                span.set_attribute(AIAttributes.AGENT_HANDOFF_TO, target_agent)
-            else:
-                # Regular tool invocation
-                span, parent_token, current_token = self._start_span(
-                    AIOperationType.TOOL_INVOKE, run_id, parent_run_id
-                )
-
-                span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_TOOL_INVOKE)
-                span.set_attribute(AIAttributes.TOOL_NAME, tool_name)
-                span.set_attribute(AIAttributes.TOOL_TYPE, "function")
-                span.add_event(
-                    AIEvents.TOOL_INPUT,
-                    {AIAttributes.TOOL_INPUT_CONTENT: input_str[:MAX_CONTENT_LENGTH]},
-                )
-
-            self._spans[run_id_str] = (span, parent_token, current_token)
-
-        def on_tool_end(
-            self, output: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
-        ) -> None:
-            """End tool span."""
-            span_data = self._spans.get(str(run_id))
-            if span_data:
-                output_str = extract_tool_output(output)
-                span_data[0].add_event(
-                    AIEvents.TOOL_OUTPUT,
-                    {AIAttributes.TOOL_OUTPUT_CONTENT: output_str[:MAX_CONTENT_LENGTH]},
-                )
-                span_data[0].set_status(Status(StatusCode.OK))
-                self._end_span(run_id)
-
-        def on_tool_error(
-            self, error: Exception, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any
-        ) -> None:
-            """Handle tool errors."""
-            span_data = self._spans.get(str(run_id))
-            if span_data:
-                span_data[0].set_status(Status(StatusCode.ERROR, str(error)))
-                span_data[0].record_exception(error)
-                self._end_span(run_id)
-
-        # =====================================================================
-        # Agent Callbacks (for multi-agent systems)
-        # =====================================================================
-
-        def on_chain_start(
-            self,
-            serialized: Dict[str, Any],
-            inputs: Dict[str, Any],
-            *,
-            run_id: Any,
-            parent_run_id: Any = None,
-            tags: List[str] | None = None,
-            metadata: Dict[str, Any] | None = None,
-            **kwargs: Any,
-        ) -> None:
-            """Start agent span if this represents an agent."""
-            if is_tracing_disabled():
-                return
-
-            run_id_str = str(run_id)
-
-            # Skip if we've already processed this run
-            if run_id_str in self._active_run_ids:
-                return
-
-            # Extract agent name
-            agent_name = extract_agent_name(serialized, tags, metadata)
-
-            # Only create spans for agents, skip everything else
-            if not is_agent(agent_name, tags, metadata):
-                return
-
-            # Deduplicate: Only create one span per agent name at a time
-            if agent_name in self._active_agents:
-                return
-
-            # Detect handoff: if a different agent is starting after another ended
-            if (
-                self._last_ended_agent
-                and self._last_ended_agent != agent_name
-                and self._last_ended_agent not in self._active_agents
-            ):
-                self._create_handoff_span(
-                    from_agent=self._last_ended_agent,
-                    to_agent=agent_name,
-                    parent_run_id=parent_run_id,
-                )
-                self._last_ended_agent = None
-
-            self._active_run_ids.add(run_id_str)
-            self._active_agents.add(agent_name)
-            self._agent_run_ids[run_id_str] = agent_name
-            self._current_agent = agent_name
-
-            span, parent_token, current_token = self._start_span(
-                AIOperationType.AGENT_INVOKE, run_id, parent_run_id
-            )
-
-            span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_INVOKE)
-            span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
-
-            # Capture agent input
-            input_str = extract_agent_input(inputs)
-            if input_str:
-                span.add_event(
-                    AIEvents.AGENT_INPUT,
-                    {AIAttributes.AGENT_INPUT_CONTENT: input_str[:MAX_CONTENT_LENGTH]},
-                )
-
-            self._spans[run_id_str] = (span, parent_token, current_token)
-
-        def on_chain_end(
-            self,
-            outputs: Dict[str, Any],
-            *,
-            run_id: Any,
-            parent_run_id: Any = None,
-            **kwargs: Any,
-        ) -> None:
-            """End agent span."""
-            run_id_str = str(run_id)
-            span_data = self._spans.get(run_id_str)
-            if span_data:
-                # Capture agent output
-                output_str = extract_agent_output(outputs)
-                if output_str:
-                    span_data[0].add_event(
-                        AIEvents.AGENT_OUTPUT,
-                        {AIAttributes.AGENT_OUTPUT_CONTENT: output_str[:MAX_CONTENT_LENGTH]},
-                    )
-                span_data[0].set_status(Status(StatusCode.OK))
-                self._end_span(run_id)
-                # Clear agent from active set and track for handoff detection
-                if run_id_str in self._agent_run_ids:
-                    agent_name = self._agent_run_ids.pop(run_id_str)
-                    self._active_agents.discard(agent_name)
-                    self._last_ended_agent = agent_name
-
-        def on_chain_error(
-            self,
-            error: BaseException,
-            *,
-            run_id: Any,
-            parent_run_id: Any = None,
-            **kwargs: Any,
-        ) -> None:
-            """Handle agent errors."""
-            run_id_str = str(run_id)
-            span_data = self._spans.get(run_id_str)
-            if span_data:
-                span_data[0].set_status(Status(StatusCode.ERROR, str(error)))
-                span_data[0].record_exception(error)
-                self._end_span(run_id)
-                # Clear agent from active set
-                if run_id_str in self._agent_run_ids:
-                    agent_name = self._agent_run_ids.pop(run_id_str)
-                    self._active_agents.discard(agent_name)
-
-        # =====================================================================
-        # Helper Methods
-        # =====================================================================
-
-        def _create_handoff_span(
-            self, from_agent: str, to_agent: str, parent_run_id: Any = None
-        ) -> None:
-            """Create a handoff span to trace agent transitions."""
-            import uuid
-
-            handoff_run_id = str(uuid.uuid4())
-
-            span, parent_token, current_token = self._start_span(
-                AIOperationType.AGENT_HANDOFF, handoff_run_id, parent_run_id
-            )
-
-            span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_HANDOFF)
-            span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, from_agent)
-            span.set_attribute(AIAttributes.AGENT_HANDOFF_TO, to_agent)
-
-            # End the handoff span immediately (it's a point-in-time event)
-            span.set_status(Status(StatusCode.OK))
-            span.end()
-
-            # Clean up context tokens
-            if current_token:
-                otel_context.detach(current_token)
-            if parent_token:
-                otel_context.detach(parent_token)
-
-    return RhesisLangChainCallback()
+    # Built here rather than declared at module level because the base class
+    # comes from an optional dependency. RhesisSpanRecorder leads the MRO so
+    # its handlers win over BaseCallbackHandler's no-op defaults.
+    handler_type = type(
+        "RhesisLangChainCallback",
+        (RhesisSpanRecorder, BaseCallbackHandler),
+        {"__doc__": "OpenTelemetry callback handler for LangChain operations."},
+    )
+    return handler_type()

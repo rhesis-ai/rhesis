@@ -38,6 +38,33 @@ class ToolPatchState:
         global _tool_patching_done
         _tool_patching_done = done
 
+    @staticmethod
+    def reset() -> None:
+        """Forget the captured originals.
+
+        Only safe once the class has been restored: the patched methods look
+        the original up here on every call.
+        """
+        global _original_tool_invoke, _original_tool_ainvoke, _tool_patching_done
+        _original_tool_invoke = None
+        _original_tool_ainvoke = None
+        _tool_patching_done = False
+
+
+def restore_class_method(cls: type, name: str, original: Callable) -> None:
+    """Undo an in-place method patch, leaving `cls` as it was found.
+
+    Patching assigns onto the class, which installs an entry in its ``__dict__``
+    whether or not the method lived there before. Restoring by assignment alone
+    would leave an inherited method shadowed by a copy of itself, so drop the
+    override first and only reinstate the original if the class really did
+    define it.
+    """
+    if cls.__dict__.get(name) is not original and name in cls.__dict__:
+        delattr(cls, name)
+    if getattr(cls, name, None) is not original:
+        setattr(cls, name, original)
+
 
 def ensure_callback_in_config(config: Optional[dict], callback: Any) -> dict:
     """Ensure our callback is included in the RunnableConfig."""
