@@ -207,8 +207,7 @@ export async function resolveSingleCreatedRun(
   if (outcome.members.length !== 1) return null;
 
   const resultRecord = outcome.members[0].result as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const testConfigurationId =
     (resultRecord?.test_configuration_id as string | undefined) ?? null;
   if (!testConfigurationId) return null;

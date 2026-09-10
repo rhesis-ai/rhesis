@@ -39,28 +39,28 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-09-01T14:43:11.020496Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-notebook = false
-gitpython = false
-mistune = false
-torch = false
-langchain-core = false
-pyarrow = false
-pyjwt = false
-starlette = false
-bleach = false
-litellm = false
 aiohttp = false
+bleach = false
 cryptography = false
-langsmith = false
-python-multipart = false
-pydantic-settings = false
-jupyterlab = false
+gitpython = false
 jupyter-server = false
+jupyterlab = false
 langchain = false
+langchain-core = false
+langsmith = false
+litellm = false
+mistune = false
+notebook = false
+pyarrow = false
+pydantic-settings = false
+pyjwt = false
+python-multipart = false
+starlette = false
+torch = false
 tornado = false
 
 [manifest]
@@ -6739,7 +6739,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.15.1"
+version = "0.15.2"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -7018,7 +7018,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.15.1"
+version = "0.15.2"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

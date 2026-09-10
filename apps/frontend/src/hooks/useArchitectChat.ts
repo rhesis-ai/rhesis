@@ -658,8 +658,7 @@ export function useArchitectChat(
     unsubs.push(
       subscribe(EventType.SUBSCRIPTION_ERROR, (msg: WebSocketMessage) => {
         const payload = msg.payload as
-          | { channel?: string; error?: string }
-          | undefined;
+          { channel?: string; error?: string } | undefined;
         const deniedChannel = payload?.channel ?? msg.channel;
         if (deniedChannel !== `architect:${sessionId}`) return;
 

@@ -13,6 +13,40 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-10
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.15.2**
+- **Frontend 0.15.2**
+- **SDK 0.15.2**
+
+### Summary of Changes
+
+**Backend v0.15.2:**
+- Overhauled LangChain and LangGraph telemetry to ensure reliable, thread-safe tracing, support multi-turn conversation grouping via `thread_id`, and capture previously missing agent and retrieval spans.
+- Significantly improved SDK WebSocket performance and throughput by lazy-loading database sessions and raising the default rate limit to 500 messages per second.
+- Enabled database persistence for connector execution traces, returning a `trace_id` to prevent trace data loss on server restarts.
+- Fixed a 403 authorization issue during onboarding by allowing users without an organization to gracefully access free-tier features.
+
+**Frontend v0.15.2:**
+- Updated platform and SDK dependencies to version 0.15.1
+- Applied Prettier formatting fixes across 32 frontend files to improve codebase consistency
+
+**SDK v0.15.2:**
+- Upgraded LangChain and LangGraph ecosystem dependencies to current stable releases.
+- Overhauled telemetry tracing to reliably capture all LangGraph nodes, multi-message prompts, tool calls, and RAG retrieval operations.
+- Added automatic conversation grouping for LangGraph turns using `thread_id`.
+- Improved concurrency safety, resolved memory leaks from in-flight runs, and ensured the integration cleanly unpatches when disabled.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.15.1] - 2026-09-04
 
 ### Platform Release

@@ -18,8 +18,7 @@ interface UseListAuthGateOptions {
 }
 
 type ListAuthGateResult =
-  | { ready: true }
-  | { ready: false; node: React.ReactNode };
+  { ready: true } | { ready: false; node: React.ReactNode };
 
 /**
  * Shared client-side render gate for list pages: session loading -> perms

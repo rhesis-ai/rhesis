@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-10
+
+### Changed
+
+- Updated platform and SDK dependencies to version 0.15.1.
+
+### Fixed
+
+- Resolved code formatting inconsistencies across 32 frontend files using Prettier.
+
 ## [0.15.1] - 2026-09-04
 
 ### Added

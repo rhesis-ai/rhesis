@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-10
+
+### Added
+- Support for tracing retriever calls as `ai.retrieval` spans, capturing the query, results, and `top_k` parameters.
+- Automatic grouping of multi-turn LangGraph conversations by mapping the graph's `thread_id` to the conversation ID.
+- Process-wide tracing support for LLM calls executed within background threads (e.g., `ThreadPoolExecutor` or `run_in_executor`).
+
+### Changed
+- Raised minimum dependency floors for the LangChain ecosystem: `langchain >=1.4.0`, `langchain-core >=1.6.0`, `langgraph >=1.2.0`, `langgraph-checkpoint >=4.1.0`, `langgraph-sdk >=0.4.0`, `langchain-google-genai >=4.3.0`, `langchain-openai >=1.4.0`, and `langsmith >=0.11.0`.
+- Improved LangGraph tracing heuristics to capture spans based on graph structure rather than relying on specific node naming keywords (e.g., "agent", "specialist").
+- Refactored the internal LangChain callback implementation to separate concerns across span registry, turn management, and event handling.
+- Moved per-call token logging from warning to debug level to reduce console noise when token counts are unavailable.
+
+### Fixed
+- Fixed missing telemetry spans for LLM calls by registering callbacks via `register_configure_hook` to support `langchain-core` 1.5+.
+- Fixed orphaned LLM spans by ensuring untraced intermediate LCEL steps correctly pass parent span context to their descendants.
+- Fixed thread-safety issues during concurrent LangGraph runs by introducing locks on internal bookkeeping maps.
+- Fixed a memory leak by capping in-flight run bookkeeping and evicting stale runs that never report completion.
+- Fixed an issue where disabling the integration failed to clean up patched global state (e.g., `CompiledStateGraph` and `BaseTool` methods).
+- Fixed an `AttributeError` in `on_chain_end` when handling object-based tool calls from certain LLM providers.
+- Fixed prompt event logging to emit one event per message instead of only recording the first message.
+- Fixed false-positive handoff detection on sequential graph transitions.
+
+
 ## [0.15.1] - 2026-09-04
 
 ### Changed
