@@ -1,0 +1,25 @@
+{{- /*
+Only when a second pod can exist: a PDB with minAvailable 1 on a single replica
+would block node drains and GKE upgrades outright instead of protecting the
+Service. With the HPA on, minReplicas is the floor that matters.
+*/ -}}
+{{- $c := .Values.backend }}
+{{- $multi := or (gt (int $c.replicas) 1) (and $c.hpa.enabled (gt (int $c.hpa.minReplicas) 1)) }}
+{{- if and $c.enabled $multi }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backend
+    tier: backend
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+      tier: backend
+{{- end }}
