@@ -83,7 +83,9 @@ def create_endpoint(
     db: Session, endpoint: schemas.EndpointCreate, organization_id: str, user_id: str
 ) -> models.Endpoint:
     """Create endpoint."""
-    timeout_seconds = endpoint.timeout_seconds
+    timeout_seconds = (
+        endpoint.timeout_seconds if hasattr(endpoint, "timeout_seconds") else None
+    )
     db_endpoint = create_item(db, models.Endpoint, endpoint, organization_id, user_id)
     if timeout_seconds is not None:
         _set_metadata_timeout(db_endpoint, timeout_seconds)
@@ -100,10 +102,12 @@ def update_endpoint(
     user_id: str,
 ) -> Optional[models.Endpoint]:
     """Update endpoint."""
-    timeout_was_set = "timeout_seconds" in endpoint.model_fields_set
+    fields_set = getattr(endpoint, "model_fields_set", set())
+    timeout_was_set = "timeout_seconds" in fields_set
     db_endpoint = update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
     if db_endpoint is not None and timeout_was_set:
-        _set_metadata_timeout(db_endpoint, endpoint.timeout_seconds)
+        timeout_seconds = getattr(endpoint, "timeout_seconds", None)
+        _set_metadata_timeout(db_endpoint, timeout_seconds)
         db.flush()
         db.refresh(db_endpoint)
     return db_endpoint
