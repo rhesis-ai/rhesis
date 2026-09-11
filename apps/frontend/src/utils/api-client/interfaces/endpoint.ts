@@ -25,6 +25,7 @@ export interface EndpointMetadata {
   last_error?: string;
   created_at?: string;
   last_registered?: string;
+  timeout_seconds?: number | null;
   [key: string]: unknown;
 }
 
