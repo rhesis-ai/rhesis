@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, field_validator
+from pydantic import UUID4, BaseModel, field_validator, model_validator
 
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -51,6 +51,17 @@ class EndpointBase(Base):
 
     # Tracing control
     disable_tracing: bool = False
+
+    # Invocation timeout in seconds. Stored in endpoint_metadata; exposed here
+    # as a convenience field so callers don't have to manage the JSON blob.
+    timeout_seconds: Optional[int] = None
+
+    @field_validator("timeout_seconds")
+    @classmethod
+    def _validate_timeout_seconds(cls, v: int | None) -> int | None:
+        if v is not None and (v < 1 or v > 3600):
+            raise ValueError("timeout_seconds must be between 1 and 3600")
+        return v
 
     auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
@@ -183,6 +194,8 @@ class Endpoint(Base, ServerIdentity):
     # Tracing control
     disable_tracing: bool = False
 
+    timeout_seconds: Optional[int] = None
+
     auth_type: Optional[EndpointAuthType] = None
     has_auth_token: bool = False
     # Sensitive fields excluded from response:
@@ -193,6 +206,21 @@ class Endpoint(Base, ServerIdentity):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_timeout_from_metadata(cls, data):
+        """Pull timeout_seconds out of endpoint_metadata when the ORM model is serialised."""
+        if isinstance(data, dict):
+            meta = data.get("endpoint_metadata")
+        else:
+            meta = getattr(data, "endpoint_metadata", None)
+        if isinstance(meta, dict) and "timeout_seconds" in meta:
+            if isinstance(data, dict):
+                data.setdefault("timeout_seconds", meta["timeout_seconds"])
+            elif not getattr(data, "timeout_seconds", None):
+                data.timeout_seconds = meta["timeout_seconds"]
+        return data
 
 
 # The detailed model with expanded relations
