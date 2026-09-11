@@ -1016,3 +1016,55 @@ class TestEdgeCases:
         assert result is not None
         assert result["test_configuration"] is not None
         assert "goal" in result["test_configuration"]
+
+
+@pytest.mark.unit
+class TestInPlaceExecutionPrefetchRunsOffTheLoop:
+    """Model resolution and the test lookup happen before the first await.
+
+    They are psycopg2 calls reached from an ``async def`` handler, so they must
+    run in a worker thread. The runners this service calls afterwards still
+    query on the loop -- that is why ``POST /tests/execute`` is still in
+    ``tests/backend/test_no_sync_db_on_loop.py``'s allowlist.
+    """
+
+    @pytest.mark.asyncio
+    async def test_models_and_test_are_loaded_in_one_worker_thread(self):
+        import threading
+
+        threads: list = []
+
+        def _resolve(*_args, **_kwargs):
+            threads.append(threading.get_ident())
+            return "gpt-4"
+
+        inline_test = MagicMock()
+        inline_test.id = uuid4()
+        inline_test.prompt_id = None
+        inline_test.test_type.type_value = "Single-Turn"
+
+        def _load(*_args, **_kwargs):
+            threads.append(threading.get_ident())
+            return inline_test, str(inline_test.id), "prompt", "expected"
+
+        with (
+            patch.object(test_execution, "resolve_model", _resolve),
+            patch.object(test_execution, "_load_test_for_execution", _load),
+            patch.object(test_execution, "SingleTurnRunner") as runner_class,
+        ):
+            runner_class.return_value.run = AsyncMock(return_value=(1.0, {"out": 1}, {}))
+
+            result = await test_execution.execute_test_in_place(
+                db=MagicMock(),
+                request_data={"prompt": {"content": "hi"}},
+                endpoint_id=str(uuid4()),
+                organization_id=str(uuid4()),
+                user_id=str(uuid4()),
+                evaluate_metrics=False,
+            )
+
+        assert result["test_id"] == str(inline_test.id)
+        # Two resolve_model calls plus the test lookup, all on one worker thread.
+        assert len(threads) == 3
+        assert len(set(threads)) == 1
+        assert threading.get_ident() not in threads

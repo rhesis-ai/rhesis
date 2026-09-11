@@ -1,6 +1,9 @@
+import functools
 import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
+
+import anyio
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -92,7 +95,11 @@ def _resolve_tool_client(
     tool_metadata: Optional[Dict[str, Any]] = None,
     project_id: Optional[str] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
-    """Build an MCP client, provider name, and optional scope context for a saved tool."""
+    """Build an MCP client, provider name, and optional scope context for a saved tool.
+
+    Opens its own session, so callers on the event loop must invoke it through
+    ``anyio.to_thread.run_sync``.
+    """
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         return _get_mcp_tool_config(
             db, tool_id, organization_id, user_id, tool_metadata_override=tool_metadata
@@ -107,7 +114,10 @@ def _resolve_params_client(
     tool_metadata: Optional[Dict[str, Any]] = None,
     project_id: Optional[str] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
-    """Build an MCP client from unsaved credentials."""
+    """Build an MCP client from unsaved credentials.
+
+    Opens its own session; call it through ``anyio.to_thread.run_sync``.
+    """
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         return _get_mcp_client_from_params(
             provider_type_id,
@@ -117,6 +127,20 @@ def _resolve_params_client(
             user_id,
             tool_metadata=tool_metadata,
         )
+
+
+def _resolve_query_client(
+    ctx: EndpointContext, tool_id: str
+) -> Tuple[Any, str, Optional[Dict[str, str]]]:
+    """Build an MCP client, provider name and scope context for a saved tool.
+
+    Goes through the context's own session factory rather than
+    ``get_db_with_tenant_variables`` directly, so the project scope the caller
+    put on ``ctx`` still applies. Opens a session, so callers on the event loop
+    must invoke it through ``anyio.to_thread.run_sync``.
+    """
+    with ctx.get_db() as db:
+        return _get_mcp_tool_config(db, tool_id, ctx.organization_id, ctx.user_id)
 
 
 async def query_mcp(
@@ -138,10 +162,9 @@ async def query_mcp(
     if not ctx.user_id:
         raise ValueError("user_id is required")
 
-    with ctx.get_db() as db:
-        client, provider, scope_context = _get_mcp_tool_config(
-            db, tool_id, ctx.organization_id, ctx.user_id
-        )
+    client, provider, scope_context = await anyio.to_thread.run_sync(
+        _resolve_query_client, ctx, tool_id
+    )
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render(
@@ -215,8 +238,10 @@ async def mcp_extract(
     if not user_id:
         raise ValueError("user_id is required")
 
-    client, provider, scope_context = _resolve_tool_client(
-        organization_id, user_id, tool_id, project_id=project_id
+    client, provider, scope_context = await anyio.to_thread.run_sync(
+        functools.partial(
+            _resolve_tool_client, organization_id, user_id, tool_id, project_id=project_id
+        )
     )
     query = f"Extract the full content of: {identifier}"
     template = jinja_env.get_template("mcp_extract_prompt.jinja2")
@@ -261,21 +286,27 @@ async def mcp_health_check(
         raise ValueError("user_id is required")
 
     if tool_id:
-        client, provider, scope_context = _resolve_tool_client(
-            organization_id,
-            user_id,
-            tool_id,
-            tool_metadata=tool_metadata,
-            project_id=project_id,
+        client, provider, scope_context = await anyio.to_thread.run_sync(
+            functools.partial(
+                _resolve_tool_client,
+                organization_id,
+                user_id,
+                tool_id,
+                tool_metadata=tool_metadata,
+                project_id=project_id,
+            )
         )
     elif provider_type_id is not None and credentials is not None:
-        client, provider, scope_context = _resolve_params_client(
-            organization_id,
-            user_id,
-            provider_type_id,
-            credentials,
-            tool_metadata=tool_metadata,
-            project_id=project_id,
+        client, provider, scope_context = await anyio.to_thread.run_sync(
+            functools.partial(
+                _resolve_params_client,
+                organization_id,
+                user_id,
+                provider_type_id,
+                credentials,
+                tool_metadata=tool_metadata,
+                project_id=project_id,
+            )
         )
     else:
         raise ToolConfigurationError(
