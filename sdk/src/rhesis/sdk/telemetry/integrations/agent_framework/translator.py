@@ -358,17 +358,25 @@ class _ConversationContentRegistry:
     It is the gate for turn-root stamping: only when the agent has set a real
     conversation id for the run does the root ``workflow.run`` span become a
     Rhesis conversation turn root. Pure single-turn runs (e.g. the ``run_traces``
-    smoke test) set no id and stay plain traces. All stores are bounded; the
-    oldest entries are evicted once the cap is hit. Input/output strings are
+    smoke test) set no id and stay plain traces.
+
+    Entries are released a bounded number of reads after the first exporter
+    reads them, rather than on that read, so that several wrapped exporters all
+    stamp the same content; see :meth:`read_for_root`. Every store is bounded
+    independently of that, the oldest entries being evicted once the cap is hit.
+    Input/output strings are
     truncated to :data:`~rhesis.telemetry.constants.ConversationContext.MAX_IO_LENGTH`
     at record time.
     """
 
-    def __init__(self, max_entries: int = 4096) -> None:
+    def __init__(self, max_entries: int = 4096, max_served: int = 512) -> None:
         self._input_by_trace: dict[int, str] = {}
         self._output_by_trace: dict[int, str] = {}
         self._session_by_trace: dict[int, str] = {}
         self._max_entries = max_entries
+        # Traces whose content has been handed to an exporter, oldest first.
+        self._served: dict[int, None] = {}
+        self._max_served = max_served
         self._lock = threading.Lock()
 
     def _evict_if_needed(self, store: dict[int, str]) -> None:
@@ -431,22 +439,57 @@ class _ConversationContentRegistry:
         with self._lock:
             return self._session_by_trace.get(trace_id)
 
-    def consume(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
-        """Pop and return ``(session_id, input, output)`` for ``trace_id``.
+    def read_for_root(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
+        """Return ``(session_id, input, output)`` for ``trace_id`` and queue its release.
 
-        Called exactly once per trace when its root ``workflow.run`` span is
-        exported, so per-trace entries do not linger for the process lifetime
-        (bounding memory beyond the eviction cap and removing any risk of stale
-        content resurfacing if a trace id were ever reused). Returns all-``None``
-        when nothing was recorded for the trace.
+        Read rather than popped. ``enable()`` wraps *every* exporter on the
+        provider, so a process running its own OTLP collector beside Rhesis has
+        two translating exporters, each exporting the same spans. Popping here
+        gave the content to whichever reached the trace root first and left the
+        other stamping a root span with no conversation on it.
+
+        Returns all-``None`` when nothing was recorded for the trace.
         """
         if trace_id is None:
             return None, None, None
         with self._lock:
-            session = self._session_by_trace.pop(trace_id, None)
-            conv_input = self._input_by_trace.pop(trace_id, None)
-            conv_output = self._output_by_trace.pop(trace_id, None)
+            session = self._session_by_trace.get(trace_id)
+            conv_input = self._input_by_trace.get(trace_id)
+            conv_output = self._output_by_trace.get(trace_id)
+            self._queue_release(trace_id)
         return session, conv_input, conv_output
+
+    def release(self, trace_id: int | None) -> None:
+        """Queue ``trace_id``'s entries for release without reading them.
+
+        For a run whose content nothing will stamp: a ``workflow.run`` nested
+        under an ``@endpoint``/``@observe`` span, where that span owns the turn.
+        """
+        if trace_id is None:
+            return
+        with self._lock:
+            self._queue_release(trace_id)
+
+    def _queue_release(self, trace_id: int) -> None:
+        """Drop the entries of whatever has fallen far enough behind.
+
+        Deferred rather than immediate so every exporter reading the same batch
+        sees the same content, and bounded so a long-running process does not
+        hold 10 KB of conversation text per trace until the entry cap evicts it.
+        The queue is deliberately larger than an OTEL export batch, since a busy
+        service can flush hundreds of run roots at once and the exporters do not
+        drain their queues in lockstep.
+
+        Caller holds the lock.
+        """
+        self._served.pop(trace_id, None)
+        self._served[trace_id] = None
+        while len(self._served) > self._max_served:
+            stale = next(iter(self._served))
+            del self._served[stale]
+            self._session_by_trace.pop(stale, None)
+            self._input_by_trace.pop(stale, None)
+            self._output_by_trace.pop(stale, None)
 
 
 # Shared singleton: the dedup processor records chat I/O at span end, the
@@ -491,9 +534,9 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
     if trace_id is None:
         return None
 
-    # Release per-trace entries on every workflow.run export, even when nested
-    # under @endpoint/@observe (no stamping in that case).
-    session_id, conv_input, conv_output = _conversation_content.consume(trace_id)
+    # Queue the per-trace entries for release on every workflow.run export, even
+    # when nested under @endpoint/@observe (no stamping in that case).
+    session_id, conv_input, conv_output = _conversation_content.read_for_root(trace_id)
 
     if getattr(span, "parent", None) is not None:
         return None
