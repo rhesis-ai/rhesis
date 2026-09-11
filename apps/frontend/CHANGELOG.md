@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated platform and SDK dependencies to version 0.15.1.
+- Updated platform and SDK dependencies to version 0.15.2.
 
 ### Fixed
 

@@ -31,7 +31,7 @@ This release includes the following component versions:
 - Fixed a 403 authorization issue during onboarding by allowing users without an organization to gracefully access free-tier features.
 
 **Frontend v0.15.2:**
-- Updated platform and SDK dependencies to version 0.15.1
+- Updated platform and SDK dependencies to version 0.15.2
 - Applied Prettier formatting fixes across 32 frontend files to improve codebase consistency
 
 **SDK v0.15.2:**
