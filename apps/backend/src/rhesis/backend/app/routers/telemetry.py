@@ -309,6 +309,15 @@ def list_traces(
         True,
         description=("Return only root spans (one per trace). Set to false to return all spans."),
     ),
+    sort_by: Optional[str] = Query(
+        None,
+        description=(
+            "Field to sort by. One of: "
+            "start_time, duration_ms, trace_id, environment, root_operation, "
+            "span_count, total_tokens, total_cost_usd."
+        ),
+    ),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     limit: int = Query(100, ge=1, le=1000, description="Results per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_tenant_db_session),
@@ -381,6 +390,8 @@ def list_traces(
             test_id=test_id,
             conversation_id=conversation_id,
             trace_metrics_status=(trace_metrics_status.value if trace_metrics_status else None),
+            sort_by=sort_by,
+            sort_order=sort_order,
             limit=limit,
             offset=offset,
         )
@@ -481,6 +492,9 @@ def list_traces(
             offset=offset,
         )
 
+    except HTTPException:
+        # A deliberate 4xx, such as an unsortable sort_by, must not become a 500.
+        raise
     except Exception as e:
         # Check if it's a database permission error
         error_msg = str(e).lower()

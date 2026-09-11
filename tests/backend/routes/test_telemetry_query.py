@@ -1604,6 +1604,138 @@ class TestTraceTokenAndCostVisibility:
 
 
 @pytest.mark.integration
+class TestTraceListSorting:
+    """Server-side sorting on the traces list.
+
+    Sorting has to happen in SQL: sorting in the browser only reorders the rows on
+    the current page, so "most expensive first" would really mean "most expensive of
+    the newest 50".
+    """
+
+    @staticmethod
+    def _span(trace_id, span_id, project_id, *, tokens, started):
+        return {
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "project_id": project_id,
+            "environment": "development",
+            "span_name": "ai.llm.invoke",
+            "span_kind": "CLIENT",
+            "start_time": started.isoformat(),
+            "end_time": (started + timedelta(milliseconds=250)).isoformat(),
+            "status_code": "OK",
+            "attributes": {
+                "ai.operation.type": "llm.invoke",
+                "ai.model.name": "gpt-4",
+                "ai.llm.tokens.input": tokens[0],
+                "ai.llm.tokens.output": tokens[1],
+                "ai.llm.tokens.total": tokens[2],
+            },
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    @pytest.fixture
+    def three_traces(self, authenticated_client: TestClient, db_project):
+        """Three single-span traces with deliberately different token counts."""
+        project_id = str(db_project.id)
+        now = datetime.now(timezone.utc)
+        made = []
+        for index, tokens in enumerate([(10, 5, 15), (400, 100, 500), (60, 20, 80)]):
+            trace_id = uuid.uuid4().hex
+            span = self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                tokens=tokens,
+                started=now - timedelta(minutes=index),
+            )
+            response = authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+            assert response.status_code == status.HTTP_200_OK
+            made.append((trace_id, tokens[2]))
+        return project_id, made
+
+    def _tokens_in_order(self, client, project_id, order):
+        response = client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_tokens&sort_order={order}&limit=100"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        return [t["total_tokens"] for t in response.json()["traces"] if t["total_tokens"]]
+
+    def test_sorts_by_tokens_descending(self, authenticated_client: TestClient, three_traces):
+        project_id, _ = three_traces
+
+        tokens = self._tokens_in_order(authenticated_client, project_id, "desc")
+
+        assert tokens == sorted(tokens, reverse=True)
+        assert tokens[0] == 500
+
+    def test_sorts_by_tokens_ascending(self, authenticated_client: TestClient, three_traces):
+        project_id, _ = three_traces
+
+        tokens = self._tokens_in_order(authenticated_client, project_id, "asc")
+
+        assert tokens == sorted(tokens)
+
+    def test_unpriced_traces_sort_last_on_cost(
+        self, authenticated_client: TestClient, three_traces
+    ):
+        """Cost has no pre-enrichment fallback, so every one of these is unpriced.
+
+        Postgres puts NULLs first on DESC, so without NULLS LAST a "most expensive"
+        sort would lead with traces whose cost is simply unknown.
+        """
+        project_id, _ = three_traces
+
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_cost_usd&sort_order=desc&limit=100"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        costs = [t["total_cost_usd"] for t in response.json()["traces"]]
+        priced = [c for c in costs if c is not None]
+        assert costs[: len(priced)] == priced
+
+    def test_sorting_is_stable_across_pages(self, authenticated_client: TestClient, three_traces):
+        """Rows tied on the sort key need a tiebreaker or paging repeats them."""
+        project_id, _ = three_traces
+
+        first = authenticated_client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_cost_usd&sort_order=desc&limit=2&offset=0"
+        ).json()["traces"]
+        second = authenticated_client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_cost_usd&sort_order=desc&limit=2&offset=2"
+        ).json()["traces"]
+
+        ids = [t["trace_id"] for t in first] + [t["trace_id"] for t in second]
+        assert len(ids) == len(set(ids))
+
+    def test_unknown_sort_field_is_rejected(self, authenticated_client: TestClient, db_project):
+        """The three columns with no SQL sort key must not silently do nothing."""
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&sort_by=endpoint_name"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "endpoint_name" in response.json()["detail"]
+
+    def test_default_ordering_is_unchanged(self, authenticated_client: TestClient, three_traces):
+        """No sort_by keeps the newest-first order the list has always had."""
+        project_id, _ = three_traces
+
+        response = authenticated_client.get(f"/telemetry/traces?project_id={project_id}&limit=100")
+
+        assert response.status_code == status.HTTP_200_OK
+        starts = [t["start_time"] for t in response.json()["traces"]]
+        assert starts == sorted(starts, reverse=True)
+
+
+@pytest.mark.integration
 class TestTokenTotalFallbackShapes:
     """Span shapes where the reported total is missing or contradicts input/output."""
 

@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, asc, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -49,6 +49,87 @@ def span_total_tokens_expr(attributes):
         + func.coalesce(attributes[AISpanAttributes.TOKENS_OUTPUT].as_float(), 0.0),
         0.0,
     )
+
+
+# Grid fields the traces list can sort by, mapped to how each is ordered in SQL.
+#
+# Deliberately a whitelist: the columns left out (conversation_input, endpoint_name,
+# trace_metrics_status) have no SQL sort key -- they come from a JSONB attribute, a
+# three-hop join and a relationship -- so the grid marks them unsortable rather than
+# sorting one page of rows and calling it ordered.
+TRACE_SORT_FIELDS = frozenset(
+    {
+        "start_time",
+        "duration_ms",
+        "trace_id",
+        "environment",
+        "root_operation",
+        "span_count",
+        "total_tokens",
+        "total_cost_usd",
+    }
+)
+
+
+def _trace_sort_clauses(
+    sort_by: Optional[str], sort_order: str, span_count_col, llm_tokens_col
+) -> list:
+    """ORDER BY clauses for the traces list.
+
+    Sorting is server-side so a page of results is genuinely the top N of the whole
+    filtered set, not the newest N reshuffled in the browser.
+
+    Always ends with start_time then id. Without a tiebreaker the many rows tied at
+    zero cost have no defined order between pages, and pagination silently repeats
+    and skips rows.
+    """
+    from fastapi import HTTPException
+
+    if sort_by and sort_by not in TRACE_SORT_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot sort traces by '{sort_by}'. "
+                f"Sortable fields: {', '.join(sorted(TRACE_SORT_FIELDS))}"
+            ),
+        )
+
+    columns = {
+        "start_time": models.Trace.start_time,
+        "duration_ms": models.Trace.duration_ms,
+        "trace_id": models.Trace.trace_id,
+        "environment": models.Trace.environment,
+        "root_operation": models.Trace.span_name,
+        "span_count": span_count_col,
+        # Mirrors what the response actually shows: the enriched total when the trace
+        # has been priced, the llm.invoke sum until then.
+        "total_tokens": func.coalesce(
+            models.Trace.enriched_data[EnrichedDataKeys.COSTS][
+                EnrichedDataKeys.TOTAL_TOKENS
+            ].as_float(),
+            llm_tokens_col,
+            0,
+        ),
+        # Cost has no pre-enrichment fallback, so unpriced traces sort last rather
+        # than leading a "most expensive first" list on a NULLS FIRST default.
+        "total_cost_usd": models.Trace.enriched_data[EnrichedDataKeys.COSTS][
+            EnrichedDataKeys.TOTAL_COST_USD
+        ].as_float(),
+    }
+
+    descending = sort_order.lower() != "asc"
+    clauses = []
+
+    if sort_by:
+        expression = columns[sort_by]
+        ordered = desc(expression) if descending else asc(expression)
+        clauses.append(ordered.nullslast())
+
+    if sort_by != "start_time":
+        clauses.append(desc(models.Trace.start_time))
+    clauses.append(desc(models.Trace.id))
+
+    return clauses
 
 
 class TraceRow(NamedTuple):
@@ -303,6 +384,8 @@ def query_traces(
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
     trace_metrics_status: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: str = "desc",
     limit: int = 100,
     offset: int = 0,
 ) -> List[TraceRow]:
@@ -561,7 +644,11 @@ def query_traces(
         )
         query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
-    results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
+    query = query.order_by(
+        *_trace_sort_clauses(sort_by, sort_order, span_count_col, llm_tokens_col)
+    )
+
+    results = query.limit(limit).offset(offset).all()
     return [
         TraceRow(
             trace=r[0],
