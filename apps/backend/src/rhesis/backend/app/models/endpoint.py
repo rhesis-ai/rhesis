@@ -81,3 +81,12 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
     @property
     def has_auth_token(self) -> bool:
         return bool(self.auth_token)
+
+    @property
+    def timeout_seconds(self) -> int | None:
+        """Invocation timeout from endpoint_metadata, or None for system default."""
+        if self.endpoint_metadata and isinstance(self.endpoint_metadata, dict):
+            val = self.endpoint_metadata.get("timeout_seconds")
+            if val is not None:
+                return int(val)
+        return None

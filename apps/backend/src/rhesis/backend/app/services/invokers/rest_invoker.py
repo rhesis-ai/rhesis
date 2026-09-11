@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # worker thread (i.e. the same batch), avoiding the TCP handshake overhead of
 # creating a fresh client per invocation.
 _tls = threading.local()
-_HTTP_TIMEOUT = 30.0
+_DEFAULT_HTTP_TIMEOUT = 30.0
 
 # The event loop holds only a weak reference to a running task. The close below is
 # fire-and-forget, so without a reference here it can be collected before the socket
@@ -56,7 +56,7 @@ def _get_http_client() -> httpx.AsyncClient:
                 current_loop.create_task(client.aclose())
             except Exception:
                 pass
-        client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
+        client = httpx.AsyncClient(timeout=_DEFAULT_HTTP_TIMEOUT)
         _tls.http_client = client
         _tls.http_client_loop = current_loop
     return client
@@ -132,7 +132,10 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             )
 
             # Make async request and handle response
-            response = await self._async_request(method, url, headers, request_body)
+            ep_timeout = float(endpoint.timeout_seconds) if endpoint.timeout_seconds else None
+            response = await self._async_request(
+                method, url, headers, request_body, timeout=ep_timeout
+            )
 
             # Log response summary
             logger.debug(f"Response received: {response.status_code}")
@@ -412,6 +415,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         url: str,
         headers: Dict[str, str],
         body: Any,
+        *,
+        timeout: float | None = None,
     ) -> httpx.Response:
         """Make an async HTTP request. Retried on transient failures.
 
@@ -419,13 +424,16 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         across all tests in the same worker-thread batch.
         """
         client = _get_http_client()
+        kw: Dict[str, Any] = {"headers": headers}
+        if timeout is not None:
+            kw["timeout"] = timeout
         if method == "GET":
-            return await client.get(url, headers=headers, params=body)
+            return await client.get(url, params=body, **kw)
         elif method == "POST":
-            return await client.post(url, headers=headers, json=body)
+            return await client.post(url, json=body, **kw)
         elif method == "PUT":
-            return await client.put(url, headers=headers, json=body)
+            return await client.put(url, json=body, **kw)
         elif method == "DELETE":
-            return await client.delete(url, headers=headers, json=body)
+            return await client.delete(url, json=body, **kw)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")

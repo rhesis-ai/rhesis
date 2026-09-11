@@ -6,10 +6,12 @@ import { Capability } from '@/constants/capabilities';
 import {
   Box,
   FormControl,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
   Select,
+  TextField,
 } from '@mui/material';
 import { SECTION_GRID } from '@/styles/theme-constants';
 import EditableSection from '@/components/common/EditableSection';
@@ -225,6 +227,66 @@ export default function EndpointConnectionTab() {
             }
             editorWrapperStyle={editorWrapperStyle}
           />
+        )}
+      </EditableSection>
+
+      <EditableSection<{ timeout_seconds: string }>
+        editable={canEditEndpoint}
+        title="Timeout"
+        initialValue={{
+          timeout_seconds: endpoint.timeout_seconds
+            ? String(endpoint.timeout_seconds)
+            : '',
+        }}
+        onSave={async draft => {
+          const parsed = parseInt(draft.timeout_seconds, 10);
+          await saveFields({
+            timeout_seconds: !isNaN(parsed) && parsed > 0 ? parsed : null,
+          });
+        }}
+      >
+        {({ draft, setDraft, isEditing }) => (
+          <Grid
+            container
+            columnSpacing={SECTION_GRID.columnSpacing}
+            rowSpacing={SECTION_GRID.rowSpacing}
+          >
+            <Grid size={{ xs: 12, md: 6 }}>
+              {isEditing ? (
+                <Box>
+                  <TextField
+                    fullWidth
+                    label="Timeout (seconds)"
+                    type="number"
+                    value={draft.timeout_seconds}
+                    onChange={e =>
+                      setDraft(prev => ({
+                        ...prev,
+                        timeout_seconds: e.target.value,
+                      }))
+                    }
+                    placeholder="30"
+                    slotProps={{
+                      input: { inputProps: { min: 1 } },
+                    }}
+                  />
+                  <FormHelperText>
+                    Leave empty for the system default (30s for REST, 120s for
+                    SDK endpoints)
+                  </FormHelperText>
+                </Box>
+              ) : (
+                <ViewField
+                  label="Timeout"
+                  value={
+                    endpoint.timeout_seconds
+                      ? `${endpoint.timeout_seconds}s`
+                      : 'System default'
+                  }
+                />
+              )}
+            </Grid>
+          </Grid>
         )}
       </EditableSection>
     </Box>

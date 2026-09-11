@@ -20,6 +20,7 @@ const defaultFormData: FormData = {
   auth_token: '',
   request_headers: '{}',
   disable_tracing: false,
+  timeout_seconds: '',
 };
 
 const projects = [
