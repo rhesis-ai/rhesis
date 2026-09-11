@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Generator, Optional
@@ -239,7 +240,9 @@ engine = create_engine(
     # Optimized connection args
     connect_args={
         "connect_timeout": 10,  # Allow a bit more time
-        "application_name": "rhesis-backend",
+        # Set per process by start.sh (API, celery main, celery architect) so
+        # pg_stat_activity shows who holds which connections.
+        "application_name": os.getenv("RHESIS_PROCESS_ROLE", "rhesis-backend"),
         "keepalives_idle": "300",  # More aggressive keepalive
         "keepalives_interval": "10",  # Check more frequently
         "keepalives_count": "3",

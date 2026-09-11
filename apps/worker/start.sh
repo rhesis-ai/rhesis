@@ -260,13 +260,15 @@ echo "Pool:        threads"
 echo "Log level:   $CELERY_WORKER_LOGLEVEL"
 echo "Extra opts:  ${CELERY_WORKER_OPTS:-none}"
 
-# Start main worker in background
-$MAIN_CMD &
+# Start main worker in background. RHESIS_PROCESS_ROLE becomes the Postgres
+# application_name (database.py), so pg_stat_activity can tell the two workers
+# and the API apart.
+RHESIS_PROCESS_ROLE=rhesis-celery-main $MAIN_CMD &
 MAIN_PID=$!
 echo "Main Celery worker started with PID: $MAIN_PID"
 
 # Start architect worker in background
-$ARCHITECT_CMD &
+RHESIS_PROCESS_ROLE=rhesis-celery-architect $ARCHITECT_CMD &
 ARCHITECT_PID=$!
 echo "Architect Celery worker started with PID: $ARCHITECT_PID"
 
