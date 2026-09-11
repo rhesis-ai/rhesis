@@ -1129,7 +1129,12 @@ class TestConversationContentRegistry:
         assert registry._adk_session_by_trace.get(2) is not None, "the newer one is still live"
 
     def test_a_trace_with_nothing_recorded_does_not_take_a_slot(self):
-        """Otherwise a run of content-free traces evicts the ones with content."""
+        """Otherwise a run of content-free traces evicts the ones with content.
+
+        A single-turn run sets no conversation id, and content capture can be off
+        entirely, so reads that find nothing are the common case in some
+        processes.
+        """
         registry = translator._ConversationContentRegistry(max_served=1)
         registry.record_rhesis_conversation_id(1, "conv-1")
         registry.read_for_root(1)
@@ -1138,6 +1143,48 @@ class TestConversationContentRegistry:
             assert registry.read_for_root(empty) == (None, None, None)
 
         assert registry.read_for_root(1) == ("conv-1", None, None)
+
+    @pytest.mark.parametrize(
+        "record",
+        [
+            pytest.param(
+                lambda reg, tid: reg.record_rhesis_conversation_id(tid, f"conv-{tid}"),
+                id="rhesis-conversation-id-only",
+            ),
+            pytest.param(
+                lambda reg, tid: reg.record_model_span(
+                    tid, start_time=1, end_time=2, adk_session_id=f"adk-{tid}"
+                ),
+                id="adk-session-id-only",
+            ),
+            pytest.param(
+                lambda reg, tid: reg.record_model_span(
+                    tid, start_time=1, end_time=2, input_text="query"
+                ),
+                id="input-only",
+            ),
+            pytest.param(
+                lambda reg, tid: reg.record_model_span(
+                    tid, start_time=1, end_time=2, output_text="answer"
+                ),
+                id="output-only",
+            ),
+        ],
+    )
+    def test_content_in_any_one_store_counts_as_content(self, record):
+        """A store left out of the "is there anything here" check makes its
+        entries invisible to the release queue, so they are never freed and the
+        store grows until the entry cap evicts it -- which is the leak the queue
+        exists to stop."""
+        registry = translator._ConversationContentRegistry(max_served=1)
+        record(registry, 1)
+        registry.read_for_root(1)
+        assert registry.read_for_root(1) != (None, None, None), "precondition: trace 1 has content"
+
+        record(registry, 2)
+        registry.read_for_root(2)
+
+        assert registry.read_for_root(1) == (None, None, None), "trace 1 should be released"
 
     @pytest.mark.asyncio
     async def test_every_wrapped_exporter_stamps_the_conversation(
