@@ -8,6 +8,7 @@ import json
 import logging
 from typing import Optional
 
+import anyio
 from fastapi import Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
@@ -83,6 +84,14 @@ def get_websocket_token(
     )
 
 
+def _load_ws_token_user(user_id: str) -> Optional[User]:
+    """Load the user a WebSocket token was minted for. Runs in a worker thread."""
+    from rhesis.backend.app.database import get_db
+
+    with get_db() as db:
+        return db.query(User).filter(User.id == user_id).first()
+
+
 async def authenticate_websocket_token(
     websocket: WebSocket,
     token: Optional[str] = None,
@@ -103,17 +112,13 @@ async def authenticate_websocket_token(
     ws_token_service = get_ws_token_service()
     ws_payload = ws_token_service.validate_ws_token(token)
     if ws_payload:
-        # WebSocket token is valid - look up user
-        from rhesis.backend.app.database import get_db
-        from rhesis.backend.app.models.user import User as UserModel
-
+        # WebSocket token is valid - look up user (in a worker thread, off the loop)
         try:
-            with get_db() as db:
-                user = db.query(UserModel).filter(UserModel.id == ws_payload["sub"]).first()
-                if user:
-                    logger.debug(f"WebSocket auth via WS token for user {user.id}")
-                    # WS tokens are always issued from session auth — session principal.
-                    return user, resolve_principal(user)
+            user = await anyio.to_thread.run_sync(_load_ws_token_user, ws_payload["sub"])
+            if user:
+                logger.debug(f"WebSocket auth via WS token for user {user.id}")
+                # WS tokens are always issued from session auth — session principal.
+                return user, resolve_principal(user)
         except Exception as e:
             logger.warning(f"WebSocket token user lookup failed: {e}")
 

@@ -95,6 +95,21 @@ class ChannelAuthorizer:
         db: "Optional[Session]" = None,
         principal: "Optional[Principal]" = None,
     ) -> tuple[bool, Optional[str]]:
+        """Async entry point; see :meth:`authorize_sync` for the rules.
+
+        Every check is synchronous, so callers that hold a session should run
+        :meth:`authorize_sync` in a worker thread instead of awaiting this on
+        the event loop.
+        """
+        return self.authorize_sync(user, channel, db=db, principal=principal)
+
+    def authorize_sync(
+        self,
+        user: User,
+        channel: str,
+        db: "Optional[Session]" = None,
+        principal: "Optional[Principal]" = None,
+    ) -> tuple[bool, Optional[str]]:
         """Check if user can subscribe to channel.
 
         Args:
@@ -135,7 +150,7 @@ class ChannelAuthorizer:
 
         # Protected resources: verify ownership via organization
         if prefix in self.PROTECTED_RESOURCE_PREFIXES:
-            return await self._authorize_resource_channel(
+            return self._authorize_resource_channel(
                 user, prefix, resource_id, db=db, principal=principal
             )
 
@@ -172,7 +187,7 @@ class ChannelAuthorizer:
             return False, "Cannot subscribe to other organization's channel"
         return True, None
 
-    async def _authorize_resource_channel(
+    def _authorize_resource_channel(
         self,
         user: User,
         prefix: str,

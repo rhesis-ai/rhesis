@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Tuple
 
+import anyio
 from fastapi import Depends, HTTPException, Request, WebSocket, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -155,6 +156,51 @@ def _send_welcome_email(user: User) -> None:
         logger.error(f"Error type: {type(e).__name__}")
 
 
+def _load_user_by_id(user_id) -> Optional[User]:
+    """Look a user up in a short-lived session. Runs in a worker thread.
+
+    ``get_db`` is read from this module at call time on purpose: the test
+    fixtures monkeypatch ``user_utils.get_db`` to share the test transaction.
+    """
+    with get_db() as db:
+        return user_crud.get_user_by_id(db, user_id)
+
+
+def _load_user_for_api_token(
+    token_value: str,
+) -> Optional[tuple[User, Optional[str], Optional[frozenset]]]:
+    """Validate an ``rh-*`` token and load its owner. Runs in a worker thread.
+
+    Returns ``(user, token_project_id, token_scopes)``. The token's fields are
+    read here, inside the session, so nothing lazy-loads after it closes.
+    """
+    with get_db() as db:
+        is_valid, _ = validate_token(token_value, db=db)
+        if not is_valid:
+            return None
+        token = get_token_by_value(db, token_value)
+        if not token:
+            return None
+        user = user_crud.get_user_by_id(db, token.user_id)
+        if not user:
+            return None
+        project_id = str(token.project_id) if token.project_id is not None else None
+        scopes = getattr(token, "scopes", None)
+        return user, project_id, None if scopes is None else frozenset(scopes)
+
+
+def _store_api_token_state(request, project_id: Optional[str], scopes: Optional[frozenset]):
+    """Record what an API token carries so downstream dependencies can scope by it."""
+    # get_project_context falls back to the token's project_id
+    if project_id is not None:
+        setattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, project_id)
+    # SP9: None means "inherit the owner's full access", so only narrow when set
+    if scopes is not None:
+        setattr(request.state, REQUEST_STATE_API_TOKEN_SCOPES, scopes)
+    # Always a token, even when it carries no scopes and no project_id
+    setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
+
+
 async def get_current_user(request: Request) -> Optional[User]:
     """
     Get current user from session using org-aware database session.
@@ -162,15 +208,15 @@ async def get_current_user(request: Request) -> Optional[User]:
     Uses a simple session to get user and organization_id, then returns the user
     only if they have an organization_id. The actual database operations that
     need tenant context should pass organization_id and user_id directly to CRUD operations.
+
+    The lookup runs in the threadpool: this dependency sits on every request, and a
+    psycopg2 call here would block the event loop for the whole worker.
     """
     if "user_id" not in request.session:
         return None
 
     user_id = request.session.get("user_id")
-
-    # Get the user with a basic session - no organization context needed for user lookup
-    with get_db() as db:
-        user = user_crud.get_user_by_id(db, user_id)
+    user = await anyio.to_thread.run_sync(_load_user_by_id, user_id)
 
     # User must have an organization_id to proceed
     if not user or not user.organization_id:
@@ -192,14 +238,7 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
         user_id = user_info.get("id")
 
         if user_id:
-            # Get the user with a basic session - no organization context needed for user lookup
-            with get_db() as db:
-                user = user_crud.get_user_by_id(db, user_id)
-
-            if not user:
-                return None
-
-            return user
+            return await anyio.to_thread.run_sync(_load_user_by_id, user_id)
 
     except Exception:
         return None
@@ -237,63 +276,18 @@ async def get_authenticated_user_with_context(
 
     # Try bearer token
     if credentials.credentials.startswith("rh-"):
-        token_value = credentials.credentials
-
-        # Use basic session for token validation and user lookup - no organization context needed
-        with get_db() as db:
-            is_valid, _ = validate_token(token_value, db=db)
-
-            if is_valid:
-                token = get_token_by_value(db, token_value)
-                if token:
-                    user = user_crud.get_user_by_id(db, token.user_id)
-
-                    # Handle user based on organization requirement
-                    # Must be inside the context manager
-                    if user:
-                        # Access all attributes we need within transaction context
-                        organization_id = user.organization_id
-
-                        # Store token's project_id on request state so
-                        # get_project_context can use it as a fallback
-                        if token.project_id is not None:
-                            setattr(
-                                request.state,
-                                REQUEST_STATE_API_TOKEN_PROJECT_ID,
-                                str(token.project_id),
-                            )
-
-                        # SP9: store the token's explicit permission scopes on
-                        # request state so the PEP backstop can include them in
-                        # the Principal.  None means "inherit owner's full access".
-                        token_scopes = getattr(token, "scopes", None)
-                        if token_scopes is not None:
-                            setattr(
-                                request.state,
-                                REQUEST_STATE_API_TOKEN_SCOPES,
-                                frozenset(token_scopes),
-                            )
-
-                        # Always mark the auth kind as a token so resolve_principal
-                        # callers can set kind correctly even when the token carries
-                        # no scopes and no project_id (unscoped rh-* tokens).
-                        setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
-
-                        if without_context:
-                            # without_context allows users without organization
-                            request.state.user = user
-                            return user
-                        else:
-                            # Require organization_id when not without_context
-                            if not organization_id:
-                                raise HTTPException(
-                                    status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="User is not associated with an organization",
-                                )
-                            # Return user - tenant context should be passed
-                            # directly to CRUD operations when needed
-                            request.state.user = user
-                            return user
+        resolved = await anyio.to_thread.run_sync(_load_user_for_api_token, credentials.credentials)
+        if resolved:
+            user, token_project_id, token_scopes = resolved
+            _store_api_token_state(request, token_project_id, token_scopes)
+            if not without_context and not user.organization_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User is not associated with an organization",
+                )
+            # Tenant context is passed directly to CRUD operations when needed
+            request.state.user = user
+            return user
 
     # Try JWT token if secret_key is provided
     if secret_key and credentials and not credentials.credentials.startswith("rh-"):
