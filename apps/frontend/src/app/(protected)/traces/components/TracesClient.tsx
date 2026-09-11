@@ -114,6 +114,8 @@ export default function TracesClient({
     rowsPerPage: pageSize,
     onPageChange,
     onRowsPerPageChange,
+    sortModel,
+    onSortModelChange,
   } = useList(descriptor, {
     filters,
     enabled: !projectLoading && !!scopedProjectId,
@@ -256,6 +258,8 @@ export default function TracesClient({
           onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
           onFilterDrawerClose={() => setFilterDrawerOpen(false)}
           fixedTestRunId={fixedTestRunId}
+          sortModel={sortModel}
+          onSortModelChange={onSortModelChange}
         />
 
         {showFilteredEmpty && (
