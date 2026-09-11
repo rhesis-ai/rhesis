@@ -3,9 +3,10 @@
 # kube-prometheus-stack (kube-state-metrics + node-exporter + kubelet) and cert-manager
 # already expose by default, so nothing extra needs to be scraped for these to work.
 #
-# Deliberately not covered here (would need new ServiceMonitors first): Postgres/Valkey
+# Deliberately not covered here (would need new ServiceMonitors first): Valkey
 # exporter metrics, ingress-nginx request/error-rate metrics, ArgoCD sync/health drift,
-# External Secrets Operator sync failures.
+# External Secrets Operator sync failures. Postgres (CNPG) alerts live in
+# postgres-alerts.yaml.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaAlertRuleGroup
 metadata:

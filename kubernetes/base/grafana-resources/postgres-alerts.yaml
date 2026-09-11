@@ -1,0 +1,67 @@
+# Postgres (CloudNativePG) alerts, shared by dev/stg/prd like basic-alerts.yaml and
+# routed through the same default-notifications contact point (Discord). Metrics
+# come from the CNPG instance exporter scraped by the PodMonitor in
+# clusters/{stg,prd}/cnpg-cluster/cnpg-podmonitor.yaml. dev has no CNPG cluster, so
+# the queries return no data there; noDataState: OK keeps them silent.
+#
+# Metric names are the CNPG default exporter's (cnpg-default-monitoring ConfigMap:
+# query "backends" column "total" -> cnpg_backends_total, query "pg_settings"
+# column "setting" -> cnpg_pg_settings_setting{name=...}). Confirm both against the
+# scraped series once the PodMonitor is live in stg.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: rhesis-postgres-alerts
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folderRef: rhesis-alerts
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  # 1m, not basic-alerts' 5m: `for: 2m` needs evaluations at least that often.
+  interval: 1m
+  rules:
+    - uid: rhesis-postgres-connections-high
+      title: Postgres connections high
+      condition: B
+      for: 2m
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 300
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            # Backends of one instance (every database/user/application/state)
+            # over that instance's own max_connections. `pod` is the instance pod,
+            # so the primary is judged against its own limit. Filtered by
+            # namespace: the PodMonitor does not copy cnpg.io/* pod labels onto
+            # the series, and the rhesis namespace holds one CNPG cluster.
+            expr: sum by (pod) (cnpg_backends_total{namespace="rhesis"}) / on (pod) group_left () cnpg_pg_settings_setting{namespace="rhesis", name="max_connections"}
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 300
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: gt, params: [0.8] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "Postgres {{ $labels.pod }} is above 80% of max_connections"
+        description: "Backends on {{ $labels.pod }} have exceeded 80% of max_connections for 2 minutes. Check pg_stat_activity by application_name and state on the primary (the -rw service), not the -ro replica."
