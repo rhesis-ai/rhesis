@@ -1664,6 +1664,173 @@ def test_exporter_skips_turn_root_on_nested_workflow_run():
     assert sa.CONVERSATION_OUTPUT not in attrs
 
 
+class TestNestedRunRootRelease:
+    """Who frees the per-trace content when no MAF span will stamp it.
+
+    A run under a Rhesis ``@endpoint``/``@observe`` span has its turn owned by
+    that span, so no MAF span reads the content and nothing used to free it
+    either: the entries sat until the store's 4096-entry cap evicted them, which
+    is the leak the release queue exists to prevent. Releasing from any nested
+    span instead would be wrong the other way round, because inside a MAF-rooted
+    trace the root is the reader and exports last.
+    """
+
+    @pytest.fixture(autouse=True)
+    def forget_marked_traces(self):
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        tr_mod._maf_rooted_traces.clear()
+        yield
+        tr_mod._maf_rooted_traces.clear()
+
+    @staticmethod
+    def _queued_for_release(trace_id: int) -> bool:
+        """Whether the trace has reached the release queue.
+
+        The entries are still readable at this point, deliberately: the queue
+        frees them once enough other traces have been read past them, so that
+        every wrapped exporter sees the same content. Reaching the queue is what
+        distinguishes "will be freed" from "left to the entry cap".
+        """
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        return trace_id in tr_mod._conversation_content._release._served
+
+    @staticmethod
+    def _record(trace_id: int) -> None:
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        tr_mod._conversation_content.record_session(trace_id, f"sess-{trace_id}")
+        tr_mod._conversation_content.record_chat(trace_id, input_text="q", output_text="a")
+
+    @pytest.mark.parametrize(
+        "nested_name",
+        [
+            pytest.param("invoke_agent researcher", id="plain-agent-run"),
+            pytest.param("workflow.run", id="workflow-run"),
+        ],
+    )
+    def test_a_nested_run_root_releases_when_no_maf_span_roots_the_trace(self, nested_name):
+        """The ``@endpoint`` path: the endpoint span owns the turn, so nobody reads."""
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        trace_id = 0xE0DE01
+        self._record(trace_id)
+        # No mark: the trace root is the enclosing Rhesis span, not a MAF span.
+        nested = _FakeChatSpan(span_id=900, trace_id=trace_id, parent_id=1, name=nested_name)
+
+        tr_mod.MAFTranslatingExporter(InMemorySpanExporter()).export([nested])
+
+        assert self._queued_for_release(trace_id), "nothing will read this, so free it"
+
+    @pytest.mark.parametrize(
+        "nested_name",
+        [
+            pytest.param("invoke_agent researcher", id="agent-inside-a-workflow"),
+            pytest.param("workflow.run", id="sub-workflow-inside-a-workflow"),
+        ],
+    )
+    def test_a_nested_run_root_leaves_the_content_when_a_maf_span_roots_the_trace(
+        self, nested_name
+    ):
+        """The root exports after its children, so an early release loses its content.
+
+        The sub-workflow case is the one the previous rule got wrong: it released
+        on every nested ``workflow.run``, including one under a ``workflow.run``
+        trace root that still had to read.
+        """
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        trace_id = 0xE0DE02
+        self._record(trace_id)
+        tr_mod._maf_rooted_traces.mark(trace_id)
+        nested = _FakeChatSpan(span_id=901, trace_id=trace_id, parent_id=1, name=nested_name)
+
+        tr_mod.MAFTranslatingExporter(InMemorySpanExporter()).export([nested])
+
+        assert not self._queued_for_release(trace_id), "the trace root still has to read this"
+
+    def test_the_root_still_reads_after_a_nested_span_exported(self):
+        """Children export first, so the ordering has to survive end to end."""
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        trace_id = 0xE0DE03
+        self._record(trace_id)
+        tr_mod._maf_rooted_traces.mark(trace_id)
+        nested = _FakeChatSpan(span_id=902, trace_id=trace_id, parent_id=903, name="invoke_agent a")
+        root = _FakeChatSpan(span_id=903, trace_id=trace_id, parent_id=None, name="workflow.run")
+
+        captured = InMemorySpanExporter()
+        tr_mod.MAFTranslatingExporter(captured).export([nested, root])
+
+        stamped = next(
+            s for s in captured.get_finished_spans() if s.name == "function.workflow.run"
+        )
+        sa = ConversationContext.SpanAttributes
+        assert stamped.attributes.get(sa.CONVERSATION_ID) == f"sess-{trace_id}"
+        assert stamped.attributes.get(sa.CONVERSATION_INPUT) == "q"
+
+
+class TestMarkingTheTraceRoot:
+    """``on_start`` is where the mark has to happen.
+
+    A trace root always starts before the nested spans that ask about it, and it
+    exports after them, so start is the only moment the answer is available in
+    time. Without the mark every nested run root would queue a release the root
+    still needs.
+    """
+
+    @pytest.fixture(autouse=True)
+    def forget_marked_traces(self):
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        tr_mod._maf_rooted_traces.clear()
+        yield
+        tr_mod._maf_rooted_traces.clear()
+
+    @staticmethod
+    def _started(span) -> None:
+        processor = MAFLLMDedupSpanProcessor()
+        processor.activate()
+        try:
+            processor.on_start(span)
+        finally:
+            processor.deactivate()
+
+    def test_a_parentless_maf_span_marks_its_trace(self):
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        trace_id = 0xB0A501
+        self._started(
+            _FakeChatSpan(span_id=910, trace_id=trace_id, parent_id=None, name="workflow.run")
+        )
+
+        assert tr_mod._maf_rooted_traces.contains(trace_id)
+
+    def test_a_nested_maf_span_does_not(self):
+        """Otherwise every trace looks MAF-rooted and nothing is ever released."""
+        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+        trace_id = 0xB0A502
+        self._started(
+            _FakeChatSpan(span_id=911, trace_id=trace_id, parent_id=1, name="invoke_agent a")
+        )
+
+        assert not tr_mod._maf_rooted_traces.contains(trace_id)
+
+
+def test_maf_rooted_traces_is_bounded():
+    """A long-running process must not grow the marker set without limit."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    marks = tr_mod._MafRootedTraces(max_entries=2)
+    for trace_id in (1, 2, 3):
+        marks.mark(trace_id)
+
+    assert marks.contains(1) is False, "the oldest mark is evicted"
+    assert marks.contains(2) and marks.contains(3)
+
+
 def test_conversation_content_registry_truncates_io_at_record_time():
     from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
 

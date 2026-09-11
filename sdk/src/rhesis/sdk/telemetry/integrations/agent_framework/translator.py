@@ -487,6 +487,56 @@ class _ConversationContentRegistry:
 # translating exporter reads it when stamping a root ``workflow.run`` span.
 _conversation_content = _ConversationContentRegistry()
 
+
+class _MafRootedTraces:
+    """Trace ids whose trace root is a MAF span.
+
+    Answers the one question a *nested* run root needs: will anything in this
+    trace read the conversation content? Only a MAF span at the trace root ever
+    stamps a turn, so when one exists it is the reader and a nested span must
+    leave the content alone. When none exists - the run sits under a Rhesis
+    ``@endpoint``/``@observe`` span, which owns the turn itself - nobody reads,
+    so the nested span can release instead of leaving the entries to the store's
+    eviction cap.
+
+    Marked at span *start*, where a trace root always precedes the nested spans
+    that ask about it, and read at export. One entry per trace rather than per
+    span, and bounded, so a long-running process cannot grow it without limit.
+    """
+
+    def __init__(self, max_entries: int = 4096) -> None:
+        self._traces: dict[int, None] = {}
+        self._max_entries = max_entries
+        self._lock = threading.Lock()
+
+    def mark(self, trace_id: int | None) -> None:
+        """Record that this trace is rooted by a MAF span. Never raises."""
+        if trace_id is None:
+            return
+        try:
+            with self._lock:
+                while len(self._traces) >= self._max_entries:
+                    try:
+                        del self._traces[next(iter(self._traces))]
+                    except StopIteration:  # pragma: no cover - racy but harmless
+                        break
+                self._traces[trace_id] = None
+        except Exception:  # noqa: BLE001 - marking must never break tracing
+            logger.debug("Failed to mark a MAF-rooted trace", exc_info=True)
+
+    def contains(self, trace_id: int | None) -> bool:
+        if trace_id is None:
+            return False
+        with self._lock:
+            return trace_id in self._traces
+
+    def clear(self) -> None:
+        with self._lock:
+            self._traces.clear()
+
+
+_maf_rooted_traces = _MafRootedTraces()
+
 # MAF opens its own root span per turn, so OTEL mints a fresh trace id each time
 # and a conversation arrives as one unrelated trace per turn -- every turn
 # correctly labelled with the same conversation id, and none of them together.
@@ -509,12 +559,13 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
     Reads the per-trace chat I/O through
     :meth:`~_ConversationContentRegistry.read_for_root`, which queues it for
     release rather than taking it, so the other wrapped exporters still see it.
-    A ``workflow.run`` that is *not* the trace root queues the release without
-    reading, since an enclosing ``@endpoint``/``@observe`` span owns the turn and
-    nothing else in the trace will read that content. A nested ``invoke_agent``
-    does not, because inside a workflow that is every agent in the run and the
-    first would release what the root needs. So a plain ``agent.run()`` under an
-    enclosing Rhesis span leaves its entries to the store's own eviction cap.
+
+    A run root that is *not* the trace root stamps nothing, and whether it may
+    release turns on what roots the trace. A MAF span there is the reader and
+    exports after its children, so releasing would take what it needs; anything
+    else - a Rhesis ``@endpoint``/``@observe`` span owning the turn - means
+    nothing reads, so the entries are released instead of being left to the
+    store's eviction cap. See :class:`_MafRootedTraces`.
 
     When stamped, the span always gets the conversation ``input``/``output``
     (from the nested chat spans via :data:`_conversation_content`) so the
@@ -545,11 +596,12 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
         return None
 
     if getattr(span, "parent", None) is not None:
-        # Release per-trace entries on a nested workflow.run, which is the
-        # @endpoint/@observe path: nothing else in the trace will read them.
-        # Not for a nested agent span - inside a workflow that is every agent in
-        # the run, and the first one would release the content the root needs.
-        if is_workflow_run:
+        # A MAF span at the trace root is the one that reads this content, and
+        # it exports after its children, so releasing here would take what it
+        # needs. With no MAF root the turn belongs to an enclosing
+        # @endpoint/@observe span, nothing reads, and leaving the entries to the
+        # store's eviction cap is the leak the release queue exists to prevent.
+        if not _maf_rooted_traces.contains(trace_id):
             _conversation_content.release(trace_id)
         return None
 
@@ -831,6 +883,10 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
             # parent chain tool -> chat -> invoke_agent is fully indexed before
             # any of them export.
             _handoff_ancestry.record(span)
+            # A MAF span with no parent roots the trace, which tells the nested
+            # run roots that something here will read the conversation content.
+            if getattr(span, "parent", None) is None:
+                _maf_rooted_traces.mark(self._trace_id(span))
             # Claim this turn's trace for the conversation on every MAF span, not
             # just the chat spans below: the claim has to be recorded before any
             # span of the trace is exported, and the workflow/agent root starts
