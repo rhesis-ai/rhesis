@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+import anyio
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import test_set as test_set_crud
@@ -275,6 +276,63 @@ async def run_metrics_on_text(
     return metric_results
 
 
+@dataclass(frozen=True)
+class _EvaluationTarget:
+    """The plain data one test contributes to an evaluation run.
+
+    Read off the ORM object in the prefetch thread so the concurrent evaluations,
+    which run on the event loop, never touch the session.
+    """
+
+    test_id: str
+    input_text: str
+    existing_meta: ExplorerTestMetadata
+
+
+def _collect_evaluation_targets(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    test_ids: Optional[List[UUID]],
+    topic: Optional[str],
+    include_subtopics: bool,
+    overwrite: bool,
+) -> Tuple[List[Any], List[_EvaluationTarget], int]:
+    """Resolve the test set and reduce its eligible tests to evaluation targets.
+
+    Runs in a worker thread. Returns the eligible ORM tests (kept only so the write
+    at the end can reuse them, on the same session and never concurrently), the plain
+    targets the evaluation coroutines work from, and the skipped count.
+    """
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
+    if db_test_set is None:
+        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
+
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+
+    eligible: List[Any] = []
+    targets: List[_EvaluationTarget] = []
+    skipped = 0
+    for t in _build_eligible_tests(tests, test_ids, topic, include_subtopics):
+        meta = t.test_metadata or {}
+        if not overwrite and meta.get("label", "").strip():
+            skipped += 1
+            continue
+        eligible.append(t)
+        targets.append(
+            _EvaluationTarget(
+                test_id=str(t.id),
+                input_text=(t.prompt.content or "").strip(),
+                existing_meta=parse_explorer_test_metadata(t.test_metadata),
+            )
+        )
+
+    return eligible, targets, skipped
+
+
 async def evaluate_tests_for_explorer_set(
     db: Session,
     test_set_identifier: str,
@@ -294,7 +352,8 @@ async def evaluate_tests_for_explorer_set(
     Parameters
     ----------
     db : Session
-        Database session
+        Database session. Only ever touched inside ``anyio.to_thread.run_sync``,
+        so an ``async def`` caller can hand over its request session.
     test_set_identifier : str
         Test set identifier (UUID, nano_id, or slug)
     organization_id : str
@@ -322,36 +381,34 @@ async def evaluate_tests_for_explorer_set(
     ValueError
         If any metric name does not exist or the test set is not found.
     """
-    sdk_metrics = resolve_sdk_metrics(db, organization_id, user_id, metric_names)
-
-    db_test_set = test_set_crud.resolve_test_set(
-        test_set_identifier, db, organization_id=organization_id
+    sdk_metrics = await anyio.to_thread.run_sync(
+        resolve_sdk_metrics, db, organization_id, user_id, metric_names
     )
-    if db_test_set is None:
-        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
 
-    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
-    eligible_raw = _build_eligible_tests(tests, test_ids, topic, include_subtopics)
+    eligible, targets, skipped = await anyio.to_thread.run_sync(
+        _collect_evaluation_targets,
+        db,
+        test_set_identifier,
+        organization_id,
+        user_id,
+        test_ids,
+        topic,
+        include_subtopics,
+        overwrite,
+    )
 
-    eligible = []
-    skipped = 0
-    for t in eligible_raw:
-        meta = t.test_metadata or {}
-        if not overwrite and meta.get("label", "").strip():
-            skipped += 1
-            continue
-        eligible.append(t)
+    async def _evaluate_test(
+        target: _EvaluationTarget,
+    ) -> Tuple[Dict[str, Any], Optional[ExplorerTestMetadata]]:
+        """Evaluate one target, returning its outcome and the metadata to persist.
 
-    async def _evaluate_test(test) -> Tuple[Dict[str, Any], Optional[ExplorerTestMetadata]]:
-        """Evaluate one test, returning its outcome and the metadata to persist.
-
-        Returns the metadata rather than assigning it: these run concurrently on the
-        shared request session, so the writes are applied together once all have landed.
+        Returns the metadata rather than assigning it: these run concurrently, so the
+        writes are applied together once all have landed, in one worker thread.
         A None metadata means this outcome writes nothing.
         """
-        test_id_str = str(test.id)
-        input_text = (test.prompt.content or "").strip()
-        existing_meta = parse_explorer_test_metadata(test.test_metadata)
+        test_id_str = target.test_id
+        input_text = target.input_text
+        existing_meta = target.existing_meta
         output_text = existing_meta.output or ""
 
         if not output_text or output_text == NO_OUTPUT:
@@ -414,21 +471,19 @@ async def evaluate_tests_for_explorer_set(
 
     semaphore = asyncio.Semaphore(EVAL_MAX_CONCURRENCY)
 
-    async def _bounded(test):
+    async def _bounded(target: _EvaluationTarget):
         async with semaphore:
-            return await _evaluate_test(test)
+            return await _evaluate_test(target)
 
-    evaluated = list(await asyncio.gather(*(_bounded(t) for t in eligible)))
+    evaluated = list(await asyncio.gather(*(_bounded(t) for t in targets)))
 
     # gather preserves order, so each outcome still lines up with its test.
-    set_explorer_test_metadata(
-        db,
-        [
-            (test, meta)
-            for test, (_, meta) in zip(eligible, evaluated, strict=True)
-            if meta is not None
-        ],
-    )
+    updates = [
+        (test, meta)
+        for test, (_, meta) in zip(eligible, evaluated, strict=True)
+        if meta is not None
+    ]
+    await anyio.to_thread.run_sync(set_explorer_test_metadata, db, updates)
     all_outcomes = [outcome for outcome, _ in evaluated]
 
     results = [

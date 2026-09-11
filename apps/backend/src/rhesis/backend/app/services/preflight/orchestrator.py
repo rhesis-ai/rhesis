@@ -5,8 +5,10 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import anyio
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.database import scope_project_id
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
@@ -34,7 +36,13 @@ from .constants import (
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
 )
-from .utils import _apply_test_set_fields, _make_composite_key, _make_result, _publish_result
+from .utils import (
+    OffLoopDb,
+    _apply_test_set_fields,
+    _make_composite_key,
+    _make_result,
+    _publish_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +78,68 @@ def _result_to_payload(r: PreflightCheckResult) -> dict:
     }
 
 
+def _load_endpoint_or_raise(db: Session, endpoint_id: UUID, organization_id: str):
+    """Look the endpoint up, letting ItemDeletedException through to the caller."""
+    return get_item_detail(db, Endpoint, endpoint_id, organization_id=organization_id)
+
+
+def _test_set_name(db: Session, test_set_id: UUID) -> str:
+    test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+    return test_set.name if test_set else str(test_set_id)
+
+
+def _load_endpoint(db: Session, endpoint_id: UUID, organization_id: str) -> Optional[Endpoint]:
+    """Look the endpoint up, reporting a soft-deleted one the same as a missing one."""
+    try:
+        return _load_endpoint_or_raise(db, endpoint_id, organization_id)
+    except ItemDeletedException:
+        return None
+
+
+async def _connectivity_branch(
+    db: OffLoopDb,
+    endpoint_id: UUID,
+    organization_id: str,
+    correlation_id: Optional[str],
+    publish: bool,
+) -> PreflightCheckResult:
+    """Run the connectivity check on a session of its own.
+
+    The invoker holds the session for the whole probe and writes a trace with it, so
+    it cannot have the run's shared session -- that one is only safe one caller at a
+    time. The endpoint is reloaded inside the new session for the same reason: an ORM
+    object stays bound to the session that loaded it.
+    """
+    try:
+        async with db.spawn_session() as check_db:
+            endpoint = await anyio.to_thread.run_sync(
+                _load_endpoint, check_db, endpoint_id, organization_id
+            )
+            if endpoint is None:
+                result = _make_result(
+                    CHECK_ENDPOINT_CONNECTIVITY,
+                    PreflightCheckStatus.FAILED,
+                    "Endpoint not found",
+                )
+            else:
+                return await check_endpoint_connectivity(
+                    check_db, endpoint, correlation_id, publish
+                )
+    except Exception as e:
+        # Matches what check_endpoint_connectivity reports for its own failures, so
+        # opening the session cannot turn into a differently-worded result.
+        result = _make_result(
+            CHECK_ENDPOINT_CONNECTIVITY,
+            PreflightCheckStatus.FAILED,
+            "Unexpected error during connectivity check",
+            str(e),
+        )
+
+    _apply_test_set_fields(result)
+    await _publish_result(result, correlation_id, publish)
+    return result
+
+
 async def run_preflight_checks_multi(
     db: Session,
     user: User,
@@ -87,6 +157,10 @@ async def run_preflight_checks_multi(
 
     Shared checks (endpoint, models) run once.
     Per-test-set checks run for each test set.
+
+    ``db`` is only ever touched inside ``anyio.to_thread.run_sync`` (see
+    :class:`~rhesis.backend.app.services.preflight.utils.OffLoopDb`), so an
+    ``async def`` caller can hand over its request session.
     """
     results: List[PreflightCheckResult] = []
     tasks: list[tuple[str, asyncio.Task]] = []
@@ -95,10 +169,12 @@ async def run_preflight_checks_multi(
         {str(ts_id): ts_name for ts_id, ts_name, _ in test_sets} if multi else {}
     )
 
+    organization_id = str(user.organization_id)
+    # Every query below runs through this: in a worker thread, one at a time.
+    off_loop = OffLoopDb(db, organization_id, str(user.id), scope_project_id(db))
+
     try:
-        endpoint = get_item_detail(
-            db, Endpoint, endpoint_id, organization_id=str(user.organization_id)
-        )
+        endpoint = await off_loop.run(_load_endpoint_or_raise, endpoint_id, organization_id)
         endpoint_status = "not found"
     except ItemDeletedException:
         endpoint = None
@@ -113,7 +189,9 @@ async def run_preflight_checks_multi(
             tasks.append(
                 (
                     CHECK_ENDPOINT_CONNECTIVITY,
-                    check_endpoint_connectivity(db, endpoint, correlation_id, publish),
+                    _connectivity_branch(
+                        off_loop, endpoint_id, organization_id, correlation_id, publish
+                    ),
                 )
             )
         else:
@@ -147,7 +225,7 @@ async def run_preflight_checks_multi(
     tasks.append(
         (
             CHECK_EVALUATION_MODEL,
-            check_evaluation_model(db, user, evaluation_model_id, correlation_id, publish),
+            check_evaluation_model(off_loop, user, evaluation_model_id, correlation_id, publish),
         )
     )
 
@@ -156,7 +234,7 @@ async def run_preflight_checks_multi(
         tasks.append(
             (
                 CHECK_EXECUTION_MODEL,
-                check_execution_model(db, user, execution_model_id, correlation_id, publish),
+                check_execution_model(off_loop, user, execution_model_id, correlation_id, publish),
             )
         )
 
@@ -169,7 +247,7 @@ async def run_preflight_checks_multi(
             (
                 _make_composite_key(CHECK_TEST_SET_NOT_EMPTY, ts_id_str),
                 check_test_set_not_empty(
-                    db,
+                    off_loop,
                     ts_id,
                     correlation_id,
                     publish,
@@ -182,10 +260,10 @@ async def run_preflight_checks_multi(
             (
                 _make_composite_key(CHECK_REQUIREMENT_METRIC_COVERAGE, ts_id_str),
                 check_requirement_metric_coverage(
-                    db,
+                    off_loop,
                     ts_id,
                     metric_mode,
-                    str(user.organization_id),
+                    organization_id,
                     selected_metrics,
                     correlation_id,
                     publish,
@@ -199,7 +277,7 @@ async def run_preflight_checks_multi(
                 (
                     _make_composite_key(CHECK_METRIC_COMPATIBILITY, ts_id_str),
                     check_metric_compatibility(
-                        db,
+                        off_loop,
                         endpoint,
                         ts_id,
                         metric_mode,
@@ -225,7 +303,7 @@ async def run_preflight_checks_multi(
             (
                 _make_composite_key(CHECK_METRIC_FUNCTIONALITY, ts_id_str),
                 check_metric_functionality(
-                    db,
+                    off_loop,
                     user,
                     ts_id,
                     metric_mode,
@@ -310,8 +388,7 @@ async def run_preflight_checks(
     publish: bool = True,
 ) -> List[PreflightCheckResult]:
     """Run preflight checks for a single test set (backward compat)."""
-    test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
-    ts_name = test_set.name if test_set else str(test_set_id)
+    ts_name = await anyio.to_thread.run_sync(_test_set_name, db, test_set_id)
     return await run_preflight_checks_multi(
         db=db,
         user=user,

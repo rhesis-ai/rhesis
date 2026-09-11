@@ -1,6 +1,8 @@
 """Tests for preflight check service."""
 
 import asyncio
+import threading
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -19,10 +21,21 @@ from rhesis.backend.app.services.preflight import (
     compute_summary,
 )
 from rhesis.backend.app.services.preflight.utils import (
+    OffLoopDb,
     _apply_test_set_fields,
     _make_composite_key,
     _make_result,
 )
+
+
+def _off_loop(session) -> OffLoopDb:
+    """Wrap a mock session the way the orchestrator does.
+
+    The checks take an :class:`OffLoopDb`, not a Session: every query they run goes
+    through it into a worker thread. The mock session underneath is unchanged, so
+    ``db.query...`` setups and assertions still work.
+    """
+    return OffLoopDb(session)
 
 
 class TestConstants:
@@ -150,6 +163,51 @@ class TestComputeSummary:
         assert passed == 1
 
 
+class TestOffLoopDb:
+    """The promise the preflight checks make: no query on the event loop, one at a time."""
+
+    @pytest.mark.asyncio
+    async def test_run_executes_in_a_worker_thread(self):
+        session = MagicMock()
+        db = OffLoopDb(session)
+
+        def _work(passed_session, value):
+            return passed_session, value, threading.current_thread().name
+
+        got_session, value, thread_name = await db.run(_work, 7)
+
+        assert got_session is session
+        assert value == 7
+        assert thread_name != threading.current_thread().name
+
+    @pytest.mark.asyncio
+    async def test_concurrent_runs_never_overlap(self):
+        db = OffLoopDb(MagicMock())
+        in_flight = 0
+        max_in_flight = 0
+
+        def _work(_session):
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            time.sleep(0.01)
+            in_flight -= 1
+
+        await asyncio.gather(*(db.run(_work) for _ in range(5)))
+
+        assert max_in_flight == 1
+
+    @pytest.mark.asyncio
+    async def test_run_propagates_the_exception(self):
+        db = OffLoopDb(MagicMock())
+
+        def _boom(_session):
+            raise RuntimeError("connection lost")
+
+        with pytest.raises(RuntimeError, match="connection lost"):
+            await db.run(_boom)
+
+
 class TestCheckTestSetNotEmpty:
     @pytest.mark.asyncio
     async def test_empty_test_set(self):
@@ -160,7 +218,7 @@ class TestCheckTestSetNotEmpty:
         query = db.query.return_value.filter.return_value
         query.count.return_value = 0
 
-        result = await check_test_set_not_empty(db, ts_id, publish=False)
+        result = await check_test_set_not_empty(_off_loop(db), ts_id, publish=False)
         assert result.status == PreflightCheckStatus.FAILED
         assert "no tests" in result.message.lower()
 
@@ -173,7 +231,7 @@ class TestCheckTestSetNotEmpty:
         query = db.query.return_value.filter.return_value
         query.count.return_value = 42
 
-        result = await check_test_set_not_empty(db, ts_id, publish=False)
+        result = await check_test_set_not_empty(_off_loop(db), ts_id, publish=False)
         assert result.status == PreflightCheckStatus.PASSED
         assert "42" in result.message
 
@@ -185,7 +243,7 @@ class TestCheckTestSetNotEmpty:
         db = MagicMock()
         db.query.side_effect = RuntimeError("connection lost")
 
-        result = await check_test_set_not_empty(db, ts_id, publish=False)
+        result = await check_test_set_not_empty(_off_loop(db), ts_id, publish=False)
         assert result.status == PreflightCheckStatus.FAILED
         assert "connection lost" in result.detail
 
@@ -215,7 +273,7 @@ class TestCheckEvaluationModel:
                 return_value="OpenAI / gpt-4o",
             ),
         ):
-            result = await check_evaluation_model(db, user, publish=False)
+            result = await check_evaluation_model(_off_loop(db), user, publish=False)
 
         assert result.status == PreflightCheckStatus.PASSED
         assert result.detail == "OpenAI / gpt-4o"
@@ -229,7 +287,7 @@ class TestCheckEvaluationModel:
         user.organization_id = uuid4()
 
         with patch(self.MODEL_UTIL, side_effect=asyncio.TimeoutError()):
-            result = await check_evaluation_model(db, user, publish=False)
+            result = await check_evaluation_model(_off_loop(db), user, publish=False)
 
         assert result.status == PreflightCheckStatus.FAILED
         assert "timed out" in result.message.lower()
@@ -243,7 +301,7 @@ class TestCheckEvaluationModel:
         user.organization_id = uuid4()
 
         with patch(self.MODEL_UTIL, side_effect=ValueError("No API key configured")):
-            result = await check_evaluation_model(db, user, publish=False)
+            result = await check_evaluation_model(_off_loop(db), user, publish=False)
 
         assert result.status == PreflightCheckStatus.FAILED
         assert "No API key configured" in result.detail
@@ -325,7 +383,7 @@ class TestValidateMetricsLoadable:
             patch(self.MODEL_UTIL, return_value=mock_model),
             patch(self.PREPARE_METRICS, return_value=mock_tasks),
         ):
-            result = await _validate_metrics_loadable(db, user, [metric1, metric2])
+            result = await _validate_metrics_loadable(_off_loop(db), user, [metric1, metric2])
 
         assert result.status == PreflightCheckStatus.PASSED
         assert "2" in result.message
@@ -345,7 +403,7 @@ class TestValidateMetricsLoadable:
         }
 
         with patch(self.VALIDATE_CONFIGS, return_value=([], invalid_results)):
-            result = await _validate_metrics_loadable(db, user, [MagicMock()])
+            result = await _validate_metrics_loadable(_off_loop(db), user, [MagicMock()])
 
         assert result.status == PreflightCheckStatus.WARNING
         assert "failed to load" in result.message.lower()
@@ -368,7 +426,7 @@ class TestValidateMetricsLoadable:
                 side_effect=RuntimeError("Failed to create metric"),
             ),
         ):
-            result = await _validate_metrics_loadable(db, user, [MagicMock()])
+            result = await _validate_metrics_loadable(_off_loop(db), user, [MagicMock()])
 
         assert result.status == PreflightCheckStatus.WARNING
         assert "Failed to create metric" in result.detail
@@ -525,7 +583,7 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom", selected_metrics=[], publish=False
+            _off_loop(db), endpoint, ts_id, "define_custom", selected_metrics=[], publish=False
         )
 
         assert result.status == PreflightCheckStatus.SKIPPED
@@ -547,7 +605,7 @@ class TestCheckMetricCompatibility:
             side_effect=ItemDeletedException("TestSet", str(ts_id)),
         ):
             result = await check_metric_compatibility(
-                db, endpoint, ts_id, "use_test_set", publish=False
+                _off_loop(db), endpoint, ts_id, "use_test_set", publish=False
             )
 
         assert result.status == PreflightCheckStatus.FAILED
@@ -572,7 +630,12 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom", selected_metrics=[metric], publish=False
+            _off_loop(db),
+            endpoint,
+            ts_id,
+            "define_custom",
+            selected_metrics=[metric],
+            publish=False,
         )
 
         assert result.status == PreflightCheckStatus.PASSED
@@ -597,7 +660,12 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom", selected_metrics=[metric], publish=False
+            _off_loop(db),
+            endpoint,
+            ts_id,
+            "define_custom",
+            selected_metrics=[metric],
+            publish=False,
         )
 
         assert result.status == PreflightCheckStatus.WARNING
@@ -627,7 +695,12 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom", selected_metrics=[metric], publish=False
+            _off_loop(db),
+            endpoint,
+            ts_id,
+            "define_custom",
+            selected_metrics=[metric],
+            publish=False,
         )
 
         assert result.status == PreflightCheckStatus.WARNING
@@ -654,7 +727,7 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db,
+            _off_loop(db),
             endpoint,
             ts_id,
             "define_custom",
@@ -679,7 +752,12 @@ class TestCheckMetricCompatibility:
         ts_id = uuid4()
 
         result = await check_metric_compatibility(
-            db, endpoint, ts_id, "define_custom", selected_metrics=[MagicMock()], publish=False
+            _off_loop(db),
+            endpoint,
+            ts_id,
+            "define_custom",
+            selected_metrics=[MagicMock()],
+            publish=False,
         )
 
         assert result.status == PreflightCheckStatus.FAILED

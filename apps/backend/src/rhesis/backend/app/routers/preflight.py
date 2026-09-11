@@ -4,13 +4,14 @@ import asyncio
 import logging
 import uuid
 
+import anyio
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import TestSetType
-from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_tenant_session
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -33,6 +34,7 @@ from rhesis.backend.app.services.preflight import (
     compute_summary,
     run_preflight_checks_multi,
 )
+from rhesis.backend.app.services.preflight.utils import off_loop_tenant_session
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
@@ -117,6 +119,41 @@ def _determine_applicable_checks(
     return checks
 
 
+def _load_user(db: Session, user_id: str):
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def _resolve_requested_test_sets(
+    db: Session, test_set_ids: list
+) -> list[tuple[uuid.UUID, str, bool]]:
+    """Load the requested test sets and reduce them to plain (id, name, multi-turn) tuples.
+
+    Runs in a worker thread, so the ORM rows never reach the event loop: everything
+    downstream -- including the background task's own session -- works from the tuples.
+    """
+    # Eager-load test_set_type so _is_multi_turn() doesn't lazy-load it once per test set.
+    db_test_sets = (
+        QueryBuilder(db, TestSet)
+        .with_custom_filter(lambda q: q.filter(TestSet.id.in_(test_set_ids)))
+        .with_related(include(TestSet.test_set_type))
+        .all()
+    )
+
+    found_ids = {ts.id for ts in db_test_sets}
+    missing = [str(tid) for tid in test_set_ids if tid not in found_ids]
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Test set(s) not found: {', '.join(missing)}",
+        )
+
+    # Preserve request order
+    ts_by_id = {ts.id: ts for ts in db_test_sets}
+    return [
+        (tid, ts_by_id[tid].name or str(tid), _is_multi_turn(ts_by_id[tid])) for tid in test_set_ids
+    ]
+
+
 async def _publish_failure_complete(correlation_id: str, message: str) -> None:
     """Publish a PREFLIGHT_COMPLETE event with failed summary."""
     try:
@@ -164,11 +201,9 @@ async def _run_preflight_background(
     test_sets: list[tuple[uuid.UUID, str, bool]],
 ) -> None:
     """Run preflight checks in a background task with its own DB session."""
-    from rhesis.backend.app.database import get_db_with_tenant_variables
-
     try:
-        with get_db_with_tenant_variables(organization_id, user_id, project_id) as db:
-            user = db.query(User).filter(User.id == user_id).first()
+        async with off_loop_tenant_session(organization_id, user_id, project_id) as db:
+            user = await anyio.to_thread.run_sync(_load_user, db, user_id)
             if not user:
                 logger.error(f"Preflight background task: user {user_id} not found")
                 return
@@ -202,32 +237,12 @@ async def _run_preflight_background(
 @router.post("")
 async def run_preflight(
     request: PreflightCheckRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    # Query all requested test sets, eager-loading test_set_type so
-    # _is_multi_turn() below doesn't lazy-load it once per test set.
-    db_test_sets = (
-        QueryBuilder(db, TestSet)
-        .with_custom_filter(lambda q: q.filter(TestSet.id.in_(request.test_set_ids)))
-        .with_related(include(TestSet.test_set_type))
-        .all()
+    test_sets: list[tuple[uuid.UUID, str, bool]] = await anyio.to_thread.run_sync(
+        _resolve_requested_test_sets, db, request.test_set_ids
     )
-
-    found_ids = {ts.id for ts in db_test_sets}
-    missing = [str(tid) for tid in request.test_set_ids if tid not in found_ids]
-    if missing:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Test set(s) not found: {', '.join(missing)}",
-        )
-
-    # Build (id, name, is_multi_turn) tuples preserving request order
-    ts_by_id = {ts.id: ts for ts in db_test_sets}
-    test_sets: list[tuple[uuid.UUID, str, bool]] = [
-        (tid, ts_by_id[tid].name or str(tid), _is_multi_turn(ts_by_id[tid]))
-        for tid in request.test_set_ids
-    ]
 
     if request.mode == PreflightMode.SYNC:
         results = await run_preflight_checks_multi(

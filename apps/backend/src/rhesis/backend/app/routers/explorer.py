@@ -11,6 +11,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import anyio
 import pydantic
 from fastapi import Body, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -21,6 +22,8 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import only_explorer_test_sets
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -94,6 +97,37 @@ def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: st
             detail="Test set not found with provided identifier",
         )
     return db_test_set
+
+
+def _resolve_endpoint_for_test_set(
+    db: Session,
+    identifier: str,
+    organization_id: str,
+    request_endpoint_id,
+) -> str:
+    """Resolve the test set and the endpoint to invoke against it.
+
+    Runs in a worker thread: both steps are psycopg2 work, and the test set is an
+    ORM object that must not escape onto the event loop.
+    """
+    db_test_set = _resolve_test_set_or_raise(identifier, db, organization_id)
+    return resolve_endpoint_id(test_set=db_test_set, request_endpoint_id=request_endpoint_id)
+
+
+def _resolve_metric_names_for_test_set(
+    db: Session,
+    identifier: str,
+    organization_id: str,
+    request_metric_names,
+) -> List[str]:
+    """Resolve the test set and the metric names to evaluate with. Runs in a worker thread."""
+    db_test_set = _resolve_test_set_or_raise(identifier, db, organization_id)
+    return resolve_metric_names(
+        test_set=db_test_set,
+        db=db,
+        organization_id=organization_id,
+        request_metric_names=request_metric_names,
+    )
 
 
 @router.post(
@@ -655,7 +689,7 @@ def delete_explorer_test(
 async def generate_outputs(
     test_set_identifier: str,
     body: GenerateOutputsRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -666,11 +700,13 @@ async def generate_outputs(
     (test_metadata.output).
     """
     organization_id, user_id = tenant_context
-    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
     try:
-        endpoint_id = resolve_endpoint_id(
-            test_set=db_test_set,
-            request_endpoint_id=body.endpoint_id,
+        endpoint_id = await anyio.to_thread.run_sync(
+            _resolve_endpoint_for_test_set,
+            db,
+            test_set_identifier,
+            str(organization_id),
+            body.endpoint_id,
         )
         return await generate_outputs_for_tests(
             db=db,
@@ -699,7 +735,7 @@ async def generate_outputs(
 async def evaluate_tests(
     test_set_identifier: str,
     body: EvaluateRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -710,13 +746,13 @@ async def evaluate_tests(
     test's metadata.
     """
     organization_id, user_id = tenant_context
-    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
     try:
-        metric_names = resolve_metric_names(
-            test_set=db_test_set,
-            db=db,
-            organization_id=str(organization_id),
-            request_metric_names=body.metric_names,
+        metric_names = await anyio.to_thread.run_sync(
+            _resolve_metric_names_for_test_set,
+            db,
+            test_set_identifier,
+            str(organization_id),
+            body.metric_names,
         )
         return await evaluate_tests_for_explorer_set(
             db=db,
@@ -752,7 +788,7 @@ async def evaluate_tests(
 async def generate_suggestions_endpoint(
     test_set_identifier: str,
     body: GenerateSuggestionsRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
