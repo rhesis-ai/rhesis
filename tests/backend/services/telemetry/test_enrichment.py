@@ -16,6 +16,7 @@ from rhesis.backend.app.services.telemetry.enrichment import (
     detect_anomalies,
     extract_metadata,
 )
+from rhesis.backend.app.services.telemetry.enrichment.core import UNKNOWN_MODEL_NAME
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
 
@@ -135,8 +136,12 @@ class TestCalculateTokenCosts:
 
         assert costs is None
 
-    def test_calculate_costs_unknown_model(self):
-        """Test cost calculation gracefully handles unknown models (skips them)."""
+    def test_calculate_costs_unknown_model_keeps_tokens(self):
+        """An unpriceable model still contributes its tokens, at zero cost.
+
+        Tokens are known even when the price is not, so dropping the span would make
+        a self-hosted or unrecognised model report zero usage.
+        """
         spans = [
             Mock(
                 spec=Trace,
@@ -146,14 +151,185 @@ class TestCalculateTokenCosts:
                     AIAttributes.MODEL_NAME: "unknown-model-xyz-123",
                     AIAttributes.LLM_TOKENS_INPUT: 100,
                     AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                    AIAttributes.LLM_TOKENS_TOTAL: 150,
                 },
             )
         ]
 
         costs = calculate_token_costs(spans)
 
-        # Should return None since LiteLLM will fail to price unknown model
-        assert costs is None
+        assert costs is not None
+        assert costs.total_cost_usd == 0.0
+        assert costs.total_cost_eur == 0.0
+        assert costs.total_input_tokens == 100
+        assert costs.total_output_tokens == 50
+        assert costs.total_tokens == 150
+
+    def test_calculate_costs_mixed_priced_and_unpriced(self):
+        """A trace mixing a priced and an unpriced model counts both models' tokens."""
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="priced",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 100,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                    AIAttributes.LLM_TOKENS_TOTAL: 150,
+                },
+            ),
+            Mock(
+                spec=Trace,
+                span_id="unpriced",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "unknown-model-xyz-123",
+                    AIAttributes.LLM_TOKENS_INPUT: 200,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 70,
+                    AIAttributes.LLM_TOKENS_TOTAL: 270,
+                },
+            ),
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert len(costs.breakdown) == 2
+        assert costs.total_tokens == 420
+        assert costs.total_input_tokens == 300
+        assert costs.total_output_tokens == 120
+
+        # Only the priced span carries cost; the unpriced one is recorded at zero.
+        expected_usd = sum(
+            litellm.cost_per_token(model="gpt-4", prompt_tokens=100, completion_tokens=50)
+        )
+        assert costs.total_cost_usd == pytest.approx(expected_usd, rel=0.01)
+        unpriced = next(b for b in costs.breakdown if b.span_id == "unpriced")
+        assert unpriced.total_cost_usd == 0.0
+        assert unpriced.total_tokens == 270
+
+    def test_calculate_costs_missing_model_name_keeps_tokens(self):
+        """A span with no model name is recorded at zero cost rather than dropped."""
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.LLM_TOKENS_INPUT: 30,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 20,
+                    AIAttributes.LLM_TOKENS_TOTAL: 50,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert costs.total_tokens == 50
+        assert costs.total_cost_usd == 0.0
+        assert costs.breakdown[0].model_name == UNKNOWN_MODEL_NAME
+
+    def test_reported_total_is_trusted_not_derived(self):
+        """Google ADK folds cache-read tokens into the reported total.
+
+        Its ``ai.llm.tokens.total`` therefore exceeds ``input + output`` on purpose,
+        and deriving the total would silently discard the cached tokens.
+        """
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="adk-span",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 100,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                    # 800 cache-read tokens folded in by google_adk/mapping.py
+                    AIAttributes.LLM_TOKENS_TOTAL: 950,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert costs.total_tokens == 950
+        assert costs.total_input_tokens == 100
+        assert costs.total_output_tokens == 50
+
+    def test_total_falls_back_to_sum_when_not_reported(self):
+        """A span with no reported total derives one from input + output."""
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 100,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert costs.total_tokens == 150
+
+    def test_aggregated_agent_span_is_not_double_counted(self):
+        """pydantic-ai reports usage twice; only the llm.invoke spans are counted.
+
+        Its agent-run span carries the aggregate of its children's usage under the
+        same ``ai.llm.tokens.*`` keys, so counting every span would roughly double
+        the trace's real figure.
+        """
+        spans = [
+            # Agent-run span carrying the aggregate of both model calls.
+            Mock(
+                spec=Trace,
+                span_id="agent-run",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_AGENT_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 300,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 120,
+                    AIAttributes.LLM_TOKENS_TOTAL: 420,
+                },
+            ),
+            Mock(
+                spec=Trace,
+                span_id="model-call-1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 100,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                    AIAttributes.LLM_TOKENS_TOTAL: 150,
+                },
+            ),
+            Mock(
+                spec=Trace,
+                span_id="model-call-2",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 200,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 70,
+                    AIAttributes.LLM_TOKENS_TOTAL: 270,
+                },
+            ),
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        # The children sum to 420 -- the same figure the agent span reports. Counting
+        # all three spans would give 840.
+        assert costs.total_tokens == 420
+        assert len(costs.breakdown) == 2
 
     def test_calculate_costs_model_variants(self):
         """Test that LiteLLM handles model variants (e.g., gpt-4-0613)."""
