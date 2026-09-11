@@ -44,12 +44,15 @@ import {
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
 import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
+import TestRunReviewsTab from './TestRunReviewsTab';
+import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 
 const TAB_LABELS: Record<TabKey, string> = {
   summary: 'Summary',
   configuration: 'Configuration',
   linked_entities: 'Tests',
   traces: 'Traces',
+  reviews: 'Reviews',
 };
 
 interface TabPanelProps {
@@ -140,11 +143,14 @@ export default function TestRunMainView({
     )
   );
 
-  // Fetch test results for the Tests tab.
-  const needsTestResults = React.useRef(
-    activeTab === TAB_KEYS.indexOf('linked_entities')
-  );
-  if (activeTab === TAB_KEYS.indexOf('linked_entities')) {
+  // Fetch test results for the Tests tab, and for Reviews, which builds its list
+  // out of the reviews hanging off those same results.
+  const tabsNeedingResults = [
+    TAB_KEYS.indexOf('linked_entities'),
+    TAB_KEYS.indexOf('reviews'),
+  ];
+  const needsTestResults = React.useRef(tabsNeedingResults.includes(activeTab));
+  if (tabsNeedingResults.includes(activeTab)) {
     needsTestResults.current = true;
   }
 
@@ -338,6 +344,16 @@ export default function TestRunMainView({
     }));
     handleTabChange(TAB_KEYS.indexOf('linked_entities'));
   }, [handleTabChange]);
+
+  /** The Reviews tab opens a result in place rather than sending you to the Tests
+   *  tab, the same way the playground opens a trace from a conversation. */
+  const [reviewedResultId, setReviewedResultId] = useState<string | null>(null);
+  const reviewedResult = useMemo(
+    () =>
+      testResults.find(result => String(result.id) === reviewedResultId) ??
+      null,
+    [testResults, reviewedResultId]
+  );
 
   const handleTestResultUpdate = useCallback(
     (updatedTest: TestResultDetail) => {
@@ -624,6 +640,33 @@ export default function TestRunMainView({
           currentUserPicture={currentUserPicture}
           initialTraces={initialTraces}
           initialTracesTotalCount={initialTracesTotalCount}
+        />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={4}>
+        <TestRunReviewsTab
+          testResults={testResults}
+          loading={loading}
+          onViewTestResult={setReviewedResultId}
+        />
+        <TestResultDrawer
+          open={reviewedResult !== null}
+          onClose={() => setReviewedResultId(null)}
+          test={reviewedResult}
+          prompts={prompts}
+          requirements={requirements}
+          testRunId={testRunId}
+          onTestResultUpdate={handleTestResultUpdate}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+          initialTab={TEST_RESULT_DRAWER_TAB.reviews}
+          testSetType={
+            testRun.test_configuration?.test_set?.test_set_type?.type_value
+          }
+          project={testRun.test_configuration?.endpoint?.project}
+          projectName={testRun.test_configuration?.endpoint?.project?.name}
+          metricsSource={testRun.test_configuration?.attributes?.metrics_source}
         />
       </TabPanel>
 

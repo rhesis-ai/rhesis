@@ -773,6 +773,7 @@ def get_metrics(
     environment: Optional[str] = Query(None, description="Environment filter"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
     start_time_before: Optional[datetime] = Query(None, description="Start time <= (ISO 8601)"),
+    test_run_id: Optional[str] = Query(None, description="Scope metrics to a single test run"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ) -> TraceMetricsResponse:
@@ -795,6 +796,7 @@ def get_metrics(
         environment: Environment filter (optional)
         start_time_after: Start of time range
         start_time_before: End of time range
+        test_run_id: Narrow every metric to one test run (optional)
 
     Returns:
         Aggregated metrics
@@ -809,11 +811,15 @@ def get_metrics(
             environment=environment,
             start_time_after=start_time_after,
             start_time_before=start_time_before,
+            test_run_id=test_run_id,
         )
 
         logger.info(f"Calculated metrics for project {project_id}")
         return TraceMetricsResponse(**result)
 
+    except HTTPException:
+        # A deliberate 4xx, such as a malformed test_run_id, must not become a 500.
+        raise
     except Exception as e:
         # Check if it's a database permission error
         error_msg = str(e).lower()

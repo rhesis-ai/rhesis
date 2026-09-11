@@ -197,17 +197,18 @@ export default function TracesClient({
   const showFilteredEmpty =
     !listLoading && traces.length === 0 && totalCount === 0;
 
-  // GET /telemetry/metrics only narrows by project, environment and time, so any
-  // other active filter makes the rollup broader than the listed rows. Tell it,
-  // rather than letting the two silently disagree.
+  // GET /telemetry/metrics narrows by project, environment, time and test run, so
+  // any other active filter makes the rollup broader than the listed rows. Tell
+  // it, rather than letting the two silently disagree.
   const rollupProjectId = drawerFilters.projectId || scopedProjectId;
+  const rollupTestRunId =
+    fixedTestRunId ?? drawerFilters.testRunId ?? undefined;
   const hasUnsupportedRollupFilters = Boolean(
     searchQuery.trim() ||
     (typeFilter && typeFilter !== 'all') ||
     drawerFilters.endpointId ||
     drawerFilters.traceSource ||
     drawerFilters.traceMetricsStatus ||
-    drawerFilters.testRunId ||
     drawerFilters.testResultId ||
     drawerFilters.testId
   );
@@ -218,19 +219,17 @@ export default function TracesClient({
 
   return (
     <>
-      {/* Project totals sit above the grid card, not inside it. Skipped on a test
-          run's Traces tab: the metrics endpoint cannot filter by test run, so the
-          tiles there would count the whole project next to a dozen listed rows. */}
-      {!fixedTestRunId && (
-        <TraceMetricsSummary
-          projectId={rollupProjectId}
-          environment={drawerFilters.environment ?? undefined}
-          startTimeAfter={rollupTimeParams.start_time_after}
-          startTimeBefore={rollupTimeParams.start_time_before}
-          hasUnsupportedFilters={hasUnsupportedRollupFilters}
-          refreshTrigger={refreshTrigger}
-        />
-      )}
+      {/* Totals sit above the grid card, not inside it. The metrics endpoint scopes
+          by test run, so on a run's Traces tab these describe that run. */}
+      <TraceMetricsSummary
+        projectId={rollupProjectId}
+        testRunId={rollupTestRunId}
+        environment={drawerFilters.environment ?? undefined}
+        startTimeAfter={rollupTimeParams.start_time_after}
+        startTimeBefore={rollupTimeParams.start_time_before}
+        hasUnsupportedFilters={hasUnsupportedRollupFilters}
+        refreshTrigger={refreshTrigger}
+      />
 
       <Paper sx={GRID_PAPER_SX}>
         {error && (
