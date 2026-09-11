@@ -29,7 +29,7 @@ All migration paths use **`apps/backend/migrate.sh`**, which runs `alembic upgra
 
 - **Local dev** — `start.sh` loads `.env`, then calls `migrate.sh` (uses `uv run alembic` when needed).
 - **Docker Compose** — `start.sh` in the backend container calls `migrate.sh`.
-- **Kubernetes** — `start.sh` calls `migrate.sh` on boot, same as Docker Compose. Set `SKIP_MIGRATIONS=true` to suppress it when migrations run as a separate step.
+- **Kubernetes (Helm chart)** — a `backend-migrate` Job runs `migrate.sh` before the backend Deployment rolls (ArgoCD PreSync / Helm pre-upgrade hook), and the backend pods start with `SKIP_MIGRATIONS=true`. Set `backend.migrations.job.enabled: false` in the chart values to run migrations at pod boot instead.
 
 When `BACKEND_ENV` is `local`, `migrate.sh` skips the Postgres wait loop and database ownership step (Postgres is already running). All other environments — including the SDK integration test backend — run both before applying migrations.
 

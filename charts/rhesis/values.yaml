@@ -205,6 +205,25 @@ backend:
     tlsSecretName: "rhesis-backend-tls"
   env: []
   # disableSecurityContext: false
+  # Schema migrations. When job.enabled, templates/backend/migrate-job.yaml
+  # renders a Job that runs migrate.sh before the Deployment rolls (ArgoCD
+  # PreSync hook, Helm pre-install/pre-upgrade hook) and the backend pods get
+  # SKIP_MIGRATIONS=true. Set to false to run migrations at pod boot instead,
+  # which a first install with the in-chart postgresql subchart needs: the
+  # hook runs before the database StatefulSet exists.
+  migrations:
+    job:
+      enabled: true
+      backoffLimit: 1
+      # Hard cap on one run; a stuck upgrade fails the sync instead of hanging.
+      activeDeadlineSeconds: 900
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "250m"
+        limits:
+          memory: "2Gi"
+          cpu: "1000m"
 
 # ---------------------------------------------------------------------------
 # Frontend

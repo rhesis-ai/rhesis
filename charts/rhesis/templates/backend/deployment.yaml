@@ -43,6 +43,11 @@ spec:
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
             - name: CELERY_RESULT_BACKEND
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
+            {{- if .Values.backend.migrations.job.enabled }}
+            # Migrations run in the PreSync Job (migrate-job.yaml), not at boot.
+            - name: SKIP_MIGRATIONS
+              value: "true"
+            {{- end }}
             {{- with .Values.backend.env }}
             {{- range . }}
             - name: {{ .name }}
@@ -52,10 +57,10 @@ spec:
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           {{- with .Values.backend.startupProbe }}
-          # Suspends liveness and readiness until startup succeeds, so a slow
-          # `alembic upgrade head` can't be SIGKILLed mid-migration. Without it,
-          # liveness has to be widened to cover the worst-case migration, which
-          # would slow crash detection for an already-running pod.
+          # Suspends liveness and readiness until startup succeeds, so slow boot
+          # work is not SIGKILLed and liveness can stay tight. With
+          # backend.migrations.job.enabled=false this also has to cover
+          # `alembic upgrade head`, which then runs at boot again.
           startupProbe:
             httpGet:
               path: {{ .httpGet.path | quote }}
