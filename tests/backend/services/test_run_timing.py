@@ -23,7 +23,10 @@ from rhesis.backend.app.services.test_run_timing import (
 
 def _memory_cache() -> TestRunTimingCache:
     """A cache pinned to its in-memory fallback (no Redis in unit tests)."""
-    with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+    with patch(
+        "rhesis.backend.app.services.cache._create_redis_client",
+        side_effect=ConnectionError("unavailable"),
+    ):
         cache = TestRunTimingCache()
         cache.initialize()
     assert cache._using_redis is False
