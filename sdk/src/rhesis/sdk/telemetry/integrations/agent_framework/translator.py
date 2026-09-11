@@ -35,6 +35,7 @@ from rhesis.sdk.telemetry.integrations.agent_framework import mapping
 from rhesis.sdk.telemetry.integrations.genai import (
     AncestryRegistry,
     ConversationTraceRegistry,
+    DeferredReleaseQueue,
     RetracedSpan,
 )
 from rhesis.sdk.telemetry.integrations.genai import (
@@ -380,10 +381,15 @@ class _ConversationContentRegistry:
         self._output_by_trace: dict[int, str] = {}
         self._session_by_trace: dict[int, str] = {}
         self._max_entries = max_entries
-        # Traces whose content has been handed to an exporter, oldest first.
-        self._served: dict[int, None] = {}
-        self._max_served = max_served
         self._lock = threading.Lock()
+        # Every store goes in: one left out never gets freed. Guarded by the
+        # lock above, which the queue expects the caller to hold.
+        self._release = DeferredReleaseQueue(
+            self._session_by_trace,
+            self._input_by_trace,
+            self._output_by_trace,
+            max_served=max_served,
+        )
 
     def _evict_if_needed(self, store: dict[int, str]) -> None:
         if len(store) < self._max_entries:
@@ -462,7 +468,7 @@ class _ConversationContentRegistry:
             session = self._session_by_trace.get(trace_id)
             conv_input = self._input_by_trace.get(trace_id)
             conv_output = self._output_by_trace.get(trace_id)
-            self._queue_release(trace_id)
+            self._release.queue_release(trace_id)
         return session, conv_input, conv_output
 
     def release(self, trace_id: int | None) -> None:
@@ -474,44 +480,7 @@ class _ConversationContentRegistry:
         if trace_id is None:
             return
         with self._lock:
-            self._queue_release(trace_id)
-
-    def _queue_release(self, trace_id: int) -> None:
-        """Drop the entries of whatever has fallen far enough behind.
-
-        Deferred rather than immediate so every exporter reading the same batch
-        sees the same content, and bounded so a long-running process does not
-        hold 10 KB of conversation text per trace until the entry cap evicts it.
-        The queue is deliberately larger than an OTEL export batch, since a busy
-        service can flush hundreds of run roots at once and the exporters do not
-        drain their queues in lockstep.
-
-        Caller holds the lock.
-        """
-        if not self._has_entries(trace_id):
-            # Nothing to release, so it must not take a slot: a run of traces
-            # with no conversation content on them would otherwise push out the
-            # entries of the ones that have it.
-            return
-        self._served.pop(trace_id, None)
-        self._served[trace_id] = None
-        while len(self._served) > self._max_served:
-            stale = next(iter(self._served))
-            del self._served[stale]
-            self._session_by_trace.pop(stale, None)
-            self._input_by_trace.pop(stale, None)
-            self._output_by_trace.pop(stale, None)
-
-    def _has_entries(self, trace_id: int) -> bool:
-        """Whether any of the three stores holds something for this trace."""
-        return any(
-            trace_id in store
-            for store in (
-                self._session_by_trace,
-                self._input_by_trace,
-                self._output_by_trace,
-            )
-        )
+            self._release.queue_release(trace_id)
 
 
 # Shared singleton: the dedup processor records chat I/O at span end, the
