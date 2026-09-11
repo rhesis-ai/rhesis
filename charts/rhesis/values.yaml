@@ -265,6 +265,7 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
+    podAnnotations: {}
     env: []
 
 # ---------------------------------------------------------------------------

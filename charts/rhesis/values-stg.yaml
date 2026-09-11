@@ -136,6 +136,11 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
+    # Autoscaler scale-down never drains this pod's node, so a post-deploy
+    # scale-down cannot kill an in-flight test run. A GKE node upgrade still
+    # can; at this usage that is a rare, accepted interruption.
+    podAnnotations:
+      cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     env:
       - name: CELERY_WORKER_CONCURRENCY
         value: "16"
