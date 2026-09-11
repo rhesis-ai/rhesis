@@ -32,6 +32,20 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_
 logger = logging.getLogger(__name__)
 
 
+def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
+    """Validate and convert a UUID string, raising a 400 rather than a 500 on garbage."""
+    from fastapi import HTTPException
+
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
+        )
+
+
 def span_total_tokens_expr(attributes):
     """Per-span token total in SQL, matching ``_span_token_counts`` in enrichment/core.py.
 
@@ -409,19 +423,7 @@ def query_traces(
     """
     from uuid import UUID
 
-    from fastapi import HTTPException
     from sqlalchemy.orm import aliased, joinedload
-
-    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
-        """Validate and convert UUID string, raising HTTPException if invalid."""
-        if not value:
-            return None
-        try:
-            return UUID(value)
-        except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
-            )
 
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
@@ -985,11 +987,18 @@ def get_trace_metrics_aggregated(
     environment: Optional[str] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    test_run_id: Optional[str] = None,
 ) -> dict:
     """Compute trace metrics using SQL-level aggregation.
 
     Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
     to avoid loading large result sets into Python memory.
+
+    ``test_run_id`` narrows every metric to one run. It is a column on every span
+    row, stamped at ingest, so the scoping is exact. Note that ``total_spans``
+    counts span rows while the traces list shows one deduped root span per trace;
+    ``total_traces`` is a distinct count of trace_id, so that one still lines up
+    with the rows on screen.
     """
     from uuid import UUID
 
@@ -1009,6 +1018,9 @@ def get_trace_metrics_aggregated(
         filters.append(T.start_time >= start_time_after)
     if start_time_before:
         filters.append(T.start_time <= start_time_before)
+    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
+    if test_run_uuid:
+        filters.append(T.test_run_id == test_run_uuid)
 
     base = db.query(T).filter(*filters).subquery()
 

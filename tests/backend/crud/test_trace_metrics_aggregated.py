@@ -12,6 +12,7 @@ import pytest
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.schemas import SpanKind, StatusCode
 
+from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.crud.telemetry import (
     create_trace_spans,
     get_trace_metrics_aggregated,
@@ -90,9 +91,7 @@ def six_span_trace(test_db, db_project, test_org_id):
 class TestTokenAndCostAggregation:
     """Tokens and cost aggregate once per trace, not once per span row."""
 
-    def test_cost_is_not_multiplied_by_span_count(
-        self, test_db, six_span_trace, test_org_id
-    ):
+    def test_cost_is_not_multiplied_by_span_count(self, test_db, six_span_trace, test_org_id):
         """Regression: this used to report 6x the trace's real cost."""
         _, project_id = six_span_trace
 
@@ -116,9 +115,7 @@ class TestTokenAndCostAggregation:
 
         assert metrics["total_tokens"] == TRACE_TOKENS
 
-    def test_span_counts_and_error_rate_still_span_level(
-        self, test_db, db_project, test_org_id
-    ):
+    def test_span_counts_and_error_rate_still_span_level(self, test_db, db_project, test_org_id):
         """Collapsing tokens per trace must not collapse the span-level metrics."""
         trace_id = uuid.uuid4().hex
         project_id = str(db_project.id)
@@ -185,3 +182,109 @@ class TestTokenAndCostAggregation:
 
         assert metrics["total_tokens"] == 30
         assert metrics["total_cost_usd"] == 0.0
+
+
+def run_span(trace_id, project_id, test_run_id, *, operation, tokens=None):
+    """A span stamped with a test run, the way test execution ingests them."""
+    created = span(trace_id, uuid.uuid4().hex[:16], project_id, operation=operation, tokens=tokens)
+    created.attributes[TestExecutionContext.SpanAttributes.TEST_RUN_ID] = str(test_run_id)
+    return created
+
+
+@pytest.mark.integration
+class TestTestRunScoping:
+    """Metrics narrowed to a single test run.
+
+    Without this the test run Traces tab has to hide its rollup tiles, because the
+    only numbers available cover the whole project.
+    """
+
+    @pytest.fixture
+    def two_runs(self, test_db, db_project, test_org_id, db_test_run, db_test_run_running):
+        """Two runs in one project: 2 llm spans totalling 150 tokens, and 1 of 500."""
+        project_id = str(db_project.id)
+        run_a, run_b = db_test_run.id, db_test_run_running.id
+
+        trace_a = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                run_span(trace_a, project_id, run_a, operation="agent.invoke"),
+                run_span(trace_a, project_id, run_a, operation="llm.invoke", tokens=(50, 25, 75)),
+                run_span(trace_a, project_id, run_a, operation="llm.invoke", tokens=(50, 25, 75)),
+            ],
+            organization_id=test_org_id,
+        )
+
+        trace_b = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                run_span(
+                    trace_b, project_id, run_b, operation="llm.invoke", tokens=(400, 100, 500)
+                ),
+            ],
+            organization_id=test_org_id,
+        )
+        return project_id, str(run_a), str(run_b), trace_a
+
+    def test_counts_only_the_requested_run(self, test_db, two_runs, test_org_id):
+        project_id, run_a, _, _ = two_runs
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id, test_run_id=run_a
+        )
+
+        assert metrics["total_traces"] == 1
+        assert metrics["total_spans"] == 3
+        assert metrics["total_tokens"] == 150
+
+    def test_the_other_run_does_not_leak_in(self, test_db, two_runs, test_org_id):
+        project_id, _, run_b, _ = two_runs
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id, test_run_id=run_b
+        )
+
+        assert metrics["total_traces"] == 1
+        assert metrics["total_spans"] == 1
+        assert metrics["total_tokens"] == 500
+
+    def test_without_a_run_the_whole_project_is_counted(self, test_db, two_runs, test_org_id):
+        """The Traces page passes no test_run_id and must be unaffected."""
+        project_id, _, _, _ = two_runs
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_traces"] >= 2
+        assert metrics["total_tokens"] >= 650
+
+    def test_cost_is_scoped_too(self, test_db, two_runs, test_org_id):
+        """Enrichment writes its blob per trace, so cost has to follow the same filter."""
+        project_id, run_a, run_b, trace_a = two_runs
+        mark_trace_processed(test_db, trace_a, enrichment_blob())
+
+        priced = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id, test_run_id=run_a
+        )
+        unpriced = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id, test_run_id=run_b
+        )
+
+        assert priced["total_cost_usd"] == pytest.approx(TRACE_COST_USD)
+        assert unpriced["total_cost_usd"] == 0.0
+
+    def test_malformed_run_id_is_a_400(self, test_db, db_project, test_org_id):
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as caught:
+            get_trace_metrics_aggregated(
+                test_db,
+                organization_id=test_org_id,
+                project_id=str(db_project.id),
+                test_run_id="not-a-uuid",
+            )
+
+        assert caught.value.status_code == 400

@@ -13,6 +13,8 @@ import { formatCost, formatTokenCount } from '@/utils/trace-utils';
 
 interface TraceMetricsSummaryProps {
   projectId: string | null;
+  /** Narrows the totals to one test run, for the Traces tab inside a run. */
+  testRunId?: string;
   environment?: string;
   startTimeAfter?: string;
   startTimeBefore?: string;
@@ -35,6 +37,7 @@ interface TraceMetricsSummaryProps {
  */
 export default function TraceMetricsSummary({
   projectId,
+  testRunId,
   environment,
   startTimeAfter,
   startTimeBefore,
@@ -59,6 +62,7 @@ export default function TraceMetricsSummary({
         ).getTelemetryClient();
         const result = await client.getMetrics({
           project_id: projectId,
+          ...(testRunId ? { test_run_id: testRunId } : {}),
           ...(environment ? { environment } : {}),
           ...(startTimeAfter ? { start_time_after: startTimeAfter } : {}),
           ...(startTimeBefore ? { start_time_before: startTimeBefore } : {}),
@@ -80,7 +84,14 @@ export default function TraceMetricsSummary({
     return () => {
       cancelled = true;
     };
-  }, [projectId, environment, startTimeAfter, startTimeBefore, refreshTrigger]);
+  }, [
+    projectId,
+    testRunId,
+    environment,
+    startTimeAfter,
+    startTimeBefore,
+    refreshTrigger,
+  ]);
 
   if (!metrics) {
     return null;

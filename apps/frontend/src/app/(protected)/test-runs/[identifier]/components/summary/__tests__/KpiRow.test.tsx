@@ -11,6 +11,22 @@ import type {
   TestRunDetail,
 } from '@/utils/api-client/interfaces/test-run';
 
+// The Usage card fetches its own totals; drive them rather than the network.
+jest.mock('../../../hooks/useTestRunUsage', () => ({
+  useTestRunUsage: jest.fn(() => null),
+}));
+
+import { useTestRunUsage } from '../../../hooks/useTestRunUsage';
+import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
+
+function mockUsage(usage: Partial<TraceMetricsResponse> | null) {
+  (useTestRunUsage as jest.Mock).mockReturnValue(usage);
+}
+
+beforeEach(() => {
+  mockUsage(null);
+});
+
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue({
     clearRect: jest.fn(),
@@ -389,31 +405,63 @@ describe('KpiRow', () => {
     expect(onViewFailures).not.toHaveBeenCalled();
   });
 
-  it('shows "No reviews yet" on the Reviews card when nothing has been reviewed', () => {
+  it('omits the Usage card until the token and cost numbers arrive', () => {
+    // Showing zeros would read as "this run cost nothing", which is a different
+    // claim from "we do not know yet".
+    mockUsage(null);
     renderWithClock(
       <KpiRow
-        matrix={makeMatrix({ reviews_count: 0 })}
+        matrix={makeMatrix({})}
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.getByText('Reviews')).toBeInTheDocument();
-    expect(screen.getByText('No reviews yet')).toBeInTheDocument();
+    expect(screen.queryByText('Usage')).not.toBeInTheDocument();
   });
 
-  it('shows the review count and a "of N tests" subtitle when reviews exist', () => {
+  it('shows tokens and cost side by side on the Usage card', () => {
+    mockUsage({
+      total_traces: 12,
+      total_spans: 190,
+      total_tokens: 45735,
+      total_cost_usd: 0.012695,
+    });
     renderWithClock(
       <KpiRow
-        matrix={makeMatrix({ reviews_count: 3, tests_executed: 5 })}
+        matrix={makeMatrix({})}
         testRun={makeTestRun()}
         isRunning={false}
         testIds={[]}
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('of 5 tests')).toBeInTheDocument();
+    expect(screen.getByText('Usage')).toBeInTheDocument();
+    expect(screen.getByText('45,735')).toBeInTheDocument();
+    expect(screen.getByText('tokens')).toBeInTheDocument();
+    // formatCost drops to two decimals above a cent, same as the Traces page.
+    expect(screen.getByText('$0.01')).toBeInTheDocument();
+    expect(screen.getByText('cost')).toBeInTheDocument();
+    expect(screen.getByText('across 12 traces')).toBeInTheDocument();
+  });
+
+  it('says trace rather than traces when the run produced one', () => {
+    mockUsage({
+      total_traces: 1,
+      total_spans: 3,
+      total_tokens: 150,
+      total_cost_usd: 0.001,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('across 1 trace')).toBeInTheDocument();
   });
 });
