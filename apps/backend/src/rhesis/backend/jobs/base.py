@@ -640,6 +640,10 @@ class BaseJob(Task):
         writes a DEBUG line via the dispatcher, so stdout keeps the full
         narrative regardless.
 
+        ``db``: a session the line should join instead of the sink opening
+        its own -- see ``events.emit``. Pass it from a task body that is
+        already inside a transaction for the work the line describes.
+
         A narration call is not allowed to fail the job it is narrating, so
         the whole body is wrapped -- unlike ``_emit_lifecycle_event``, which
         leaves that to each of its two callers, ``emit()`` is called directly

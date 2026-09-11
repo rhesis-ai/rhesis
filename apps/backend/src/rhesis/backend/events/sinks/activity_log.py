@@ -1,9 +1,12 @@
 """Writes user-facing job logs to the ``activity_log`` table.
 
-Opens its own session and commits immediately, so a log line survives the
-task transaction rolling back -- you want the failure narrative precisely
-when the transaction dies. Non-critical: a dropped log line must never fail
-the work it describes.
+Without a caller session it opens its own and commits immediately, so a log
+line survives the task transaction rolling back -- you want the failure
+narrative precisely when the transaction dies. With ``emit(..., db=...)`` it
+joins the caller's transaction instead (flush, not commit -- the dispatcher
+promises "join", and committing would also commit the caller's unrelated
+pending work), so the line lands or rolls back with the work it describes.
+Non-critical: a dropped log line must never fail the work it describes.
 """
 
 import logging

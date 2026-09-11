@@ -2,13 +2,18 @@
 Synchronous DB persistence for batch test results.
 
 Runs inside ``asyncio.to_thread()`` — opens a short-lived session,
-writes deferred traces, creates the test-result record, and signals
-conversation completion for multi-turn tests.
+writes deferred traces, creates the test-result record, ticks the job's
+progress counter in the same transaction, and signals conversation
+completion for multi-turn tests.
 """
 
 import logging
 from typing import Any, Dict
 
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app.models.job import Job
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 
@@ -25,7 +30,13 @@ def persist_result(
     execution_time: float,
     is_multi_turn: bool,
 ) -> None:
-    """Open session, write deferred traces, write test result, link traces."""
+    """Open session, write deferred traces, write test result, tick progress.
+
+    The progress tick rides in the result's transaction on purpose: it used to
+    be a separate ``set_progress`` call per test, each on its own session, and
+    it is only true once the row is there. A failed persist means no tick,
+    and the batch's final ``on_progress(total, total)`` settles the count.
+    """
     from rhesis.backend.app.database import get_db_with_tenant_variables
     from rhesis.backend.app.services.invokers.tracing import persist_deferred_trace
     from rhesis.backend.jobs.execution.executors.results import create_test_result_record
@@ -57,6 +68,7 @@ def persist_result(
                 processed_result=output,
                 metadata=metadata,
             )
+            _tick_job_progress(db, ctx.celery_task_id)
 
             db.commit()
 
@@ -65,6 +77,21 @@ def persist_result(
         except Exception:
             db.rollback()
             raise
+
+
+def _tick_job_progress(db: Session, celery_task_id: str | None) -> None:
+    """One ``UPDATE job SET progress_current = progress_current + 1``, no SELECT.
+
+    Keyed on the indexed celery_task_id, which is what the batch already
+    carries for cancellation checks. COALESCE guards a row whose counter was
+    never initialised, where NULL + 1 would stay NULL forever.
+    """
+    if not celery_task_id:
+        return
+    db.query(Job).filter(Job.celery_task_id == celery_task_id).update(
+        {Job.progress_current: func.coalesce(Job.progress_current, 0) + 1},
+        synchronize_session=False,
+    )
 
 
 def _signal_conversation_complete(ctx: ExecutionContext, deferred_traces: list) -> None:
