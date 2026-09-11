@@ -18,4 +18,5 @@ export interface Scatter2DGraph {
 }
 
 export type EmbeddingGraphGetResponse =
-  { status: 'pending' } | { status: 'ready'; graph: Scatter2DGraph };
+  | { status: 'pending' }
+  | { status: 'ready'; graph: Scatter2DGraph };

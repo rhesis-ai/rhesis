@@ -96,7 +96,9 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
     lines.push('');
   }
   const mappings = data.requirement_metric_mappings as
-    PlanSpec[] | Record<string, string[]> | undefined;
+    | PlanSpec[]
+    | Record<string, string[]>
+    | undefined;
   if (mappings) {
     lines.push('## Requirement-Metric Mappings', '');
     if (Array.isArray(mappings)) {

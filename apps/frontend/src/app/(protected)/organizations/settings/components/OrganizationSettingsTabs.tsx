@@ -68,13 +68,15 @@ export default function OrganizationSettingsTabs({
   const allTabs: MergedTab[] = useMemo(() => {
     const merged: MergedTab[] = [
       ...BUILT_IN_TABS,
-      ...dynamicTabs.map((t): DynamicTab => ({
-        id: t.id,
-        label: t.title,
-        order: t.order,
-        dynamic: true,
-        component: t.component,
-      })),
+      ...dynamicTabs.map(
+        (t): DynamicTab => ({
+          id: t.id,
+          label: t.title,
+          order: t.order,
+          dynamic: true,
+          component: t.component,
+        })
+      ),
     ];
     return merged.sort((a, b) => a.order - b.order);
   }, [dynamicTabs]);

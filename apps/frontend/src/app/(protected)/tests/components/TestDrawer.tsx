@@ -29,7 +29,8 @@ export default function TestDrawer({
   const { data: session } = useSession();
   const getCurrentUserId = () =>
     session?.user?.id as
-      `${string}-${string}-${string}-${string}-${string}` | undefined;
+      | `${string}-${string}-${string}-${string}-${string}`
+      | undefined;
 
   const handleSave = async () => {
     try {
