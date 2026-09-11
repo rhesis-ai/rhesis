@@ -37,9 +37,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
-from rhesis.backend.app.dependencies import get_db_session
+from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_db_session
 from rhesis.backend.app.utils.rate_limit import (
     get_real_ip,
     hit_post_parse_limit,
@@ -326,7 +325,7 @@ async def _parse_form_payload(request: Request) -> TokenExchangeRequest:
 @limiter.limit(TOKEN_EXCHANGE_PER_IP_RATE_LIMIT)
 async def token_exchange(
     request: Request,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """Exchange a Keycloak (or other OIDC) access token for a Rhesis JWT.
 
@@ -338,6 +337,12 @@ async def token_exchange(
     orchestrator (after the client has been identified); the
     decorator above adds the per-IP layer that runs *before* anything
     else and does not need to wait for client identification.
+
+    The handler is ``async`` because the exchange awaits the subject
+    IdP's JWKS endpoint and Redis. The session is therefore an
+    :data:`~rhesis.backend.app.dependencies.OffLoopSession`:
+    ``run_token_exchange`` does every query inside
+    ``anyio.to_thread.run_sync``, never on the event loop.
     """
 
     # ---- Parse + structural-validate ------------------------------------

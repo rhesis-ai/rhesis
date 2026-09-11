@@ -53,6 +53,15 @@ surface area or skips a security check entirely. The order is:
     ``project_id`` so the refresh path can preserve them on rotation.
 12. Emit success audit event and return the RFC 8693 payload.
 
+Where the work runs
+-------------------
+``run_token_exchange`` is a coroutine because steps 5 and 7 await the
+subject IdP and Redis. Every other step is blocking database or crypto
+work, so it runs in a worker thread: steps 2-5a in
+:func:`_resolve_client_context`, steps 8-11 in :func:`_complete_exchange`.
+Nothing reads the session -- or an ORM row loaded from it -- on the event
+loop, which is what keeps one slow query from stalling the whole worker.
+
 Error contract
 --------------
 Every rejection raises :class:`TokenExchangeError` with one of the
@@ -71,8 +80,9 @@ import re
 import time
 import uuid
 from dataclasses import dataclass
-from typing import List, Mapping, Optional
+from typing import Any, List, Mapping, Optional
 
+import anyio
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.constants import REFRESH_TOKEN_EXPIRE_DAYS
@@ -81,11 +91,11 @@ from rhesis.backend.app.auth.token_utils import (
     RHESIS_TOKEN_AUDIENCE,
     create_session_token,
 )
-from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
 )
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
@@ -200,6 +210,55 @@ class TokenExchangeError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Off-loop phase results
+#
+# ``run_token_exchange`` is a coroutine that awaits Redis and the subject
+# IdP, so its database work runs in worker threads: steps 2-5a in
+# :func:`_resolve_client_context`, steps 8-11 in :func:`_complete_exchange`.
+# The session is shared with the event loop between those threads, so what
+# crosses back has to be either a plain value or an ORM row the loop never
+# touches. These two structs draw that line explicitly.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _ResolvedClient:
+    """What steps 2-5a resolved.
+
+    ``org`` and ``auth_client`` are live ORM rows: they are handed straight
+    back into :func:`_complete_exchange`'s thread and must not be read on the
+    event loop, where a lazy load or a post-commit refresh would block it.
+    Every field the loop phase needs is copied out as a plain value below,
+    while still inside the thread that loaded the row.
+    """
+
+    org: Organization
+    auth_client: Any
+    sso_config: SSOConfig
+    org_id: str
+    expected_subject_azp: Optional[str]
+    expected_subject_audience: Optional[str]
+
+
+@dataclass(frozen=True)
+class _MintOutcome:
+    """What steps 8-11 produced, as plain values only.
+
+    ``client_id`` and ``email`` are in here because the success audit event
+    in step 12 runs on the loop, and the ``db.commit()`` in step 11 expired
+    the rows they came from.
+    """
+
+    access_token: str
+    scope: str
+    project_id: Optional[str]
+    refresh_token: Optional[str]
+    refresh_expires_in: Optional[int]
+    client_id: str
+    email: str
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -223,6 +282,9 @@ async def run_token_exchange(
     exactly one audit event (success or denied) at the end of every
     code path so the audit log has 1:1 correspondence with handled
     requests.
+
+    *db* is only ever touched inside the two ``run_sync`` phases; see
+    "Where the work runs" in the module docstring.
     """
 
     # Default to the SSO router's loader. Imported lazily so unit
@@ -262,67 +324,17 @@ async def run_token_exchange(
         )
         raise TokenExchangeError(error, reason_code, http_status=http)
 
-    # ---- Step 2: org resolution ------------------------------------------
-    # Resolve the org BEFORE authenticating the client so the
-    # ``(organization_id, client_id)`` lookup in step 3 hits the right
-    # row even when two tenants share a client_id. Doing client auth
-    # first would scope the lookup to ``client_id`` alone, return
-    # whichever row sorts first, and lock the other tenant out.
-    slug = _audience_to_slug(payload.audience)
-    if slug is None:
-        _deny("invalid_target", "audience_malformed")
+    # ---- Steps 2-5a: org, feature gate, client auth, SSO config ----------
+    # All four are blocking (queries plus a bcrypt compare) and strictly
+    # ordered, so they go into one worker thread together. The event loop
+    # never touches the session.
+    resolved = await anyio.to_thread.run_sync(
+        _resolve_client_context, db, payload, sso_config_loader, _deny
+    )
+    sso_config = resolved.sso_config
+    org_id = resolved.org_id
 
-    org = db.query(Organization).filter(Organization.slug == slug).first() if slug else None
-    if org is None:
-        _deny("invalid_target", "org_not_found")
-    assert org is not None
-    if not org.is_active:
-        _deny("invalid_target", "org_inactive", org_id=str(org.id))
-    if org.sso_config is None:
-        _deny("invalid_target", "org_no_sso_config", org_id=str(org.id))
-
-    # ---- Step 3: feature availability ------------------------------------
-    # ``FeatureRegistry.is_available`` is the single primitive that
-    # combines license enforcement + runtime preconditions for the
-    # resolved org. Without this check the endpoint's "feature-gated
-    # by ``API_CLIENTS``" claim was documentation-only: an org with
-    # stale ``auth_client`` rows could exchange tokens after the
-    # feature was disabled in the license, and the runtime check
-    # (encryption-configured) would never be consulted on the request
-    # path. We run the check before client authentication so a
-    # feature-disabled org cannot be used as an oracle for client
-    # existence -- the rejection is uniform ``invalid_target``
-    # regardless of whether a matching auth_client row exists.
-    if not FeatureRegistry.is_available(FeatureName.API_CLIENTS, org):
-        _deny(
-            "invalid_target",
-            "feature_unavailable",
-            org_id=str(org.id),
-        )
-
-    # ---- Step 4: client authentication (org-scoped) ----------------------
-    auth_client = authenticate_client(db, org.id, payload.client_id, payload.client_secret)
-    if auth_client is None:
-        # invalid_client per RFC 6749 §5.2; HTTP 401 because the
-        # request lacked valid client credentials. Note that the
-        # uniform invalid_client response covers both "no such client
-        # in this org" and "wrong secret" -- the org binding does NOT
-        # turn into a tenant-existence oracle because the per-IP rate
-        # limit applies before this code path runs.
-        _deny(
-            "invalid_client",
-            "client_auth_failed",
-            http=401,
-            org_id=str(org.id),
-        )
-    assert auth_client is not None  # narrow for the type checker
-
-    # ---- Step 5: subject token validation --------------------------------
-    sso_config: Optional[SSOConfig] = sso_config_loader(org)
-    if sso_config is None:
-        _deny("invalid_target", "sso_config_unparseable", org_id=str(org.id))
-    assert sso_config is not None
-
+    # ---- Step 5b: subject token validation --------------------------------
     from rhesis.backend.ee.sso.http_client import SSRFError
     from rhesis.backend.ee.sso.oidc import OIDCProvider
 
@@ -334,7 +346,7 @@ async def run_token_exchange(
             "temporarily_unavailable",
             "jwks_ssrf_blocked",
             http=503,
-            org_id=str(org.id),
+            org_id=org_id,
         )
     except Exception as exc:
         logger.warning(
@@ -346,7 +358,7 @@ async def run_token_exchange(
             "temporarily_unavailable",
             "jwks_fetch_failed",
             http=503,
-            org_id=str(org.id),
+            org_id=org_id,
         )
 
     # ``expected_subject_audience`` is REQUIRED at create time, but a
@@ -356,12 +368,12 @@ async def run_token_exchange(
     # is the difference between A3 being "exploitable" and "impossible
     # in practice" for IdPs that share azp across siblings (Keycloak
     # service-account flows being the canonical example).
-    audience_claim = auth_client.expected_subject_audience
+    audience_claim = resolved.expected_subject_audience
     if not audience_claim:
         _deny(
             "invalid_target",
             "client_missing_audience_binding",
-            org_id=str(org.id),
+            org_id=org_id,
             iss=sso_config.issuer_url,
         )
         # _deny raises; this assert just narrows for the type checker.
@@ -387,7 +399,7 @@ async def run_token_exchange(
                     "temporarily_unavailable",
                     "jwks_refresh_failed",
                     http=503,
-                    org_id=str(org.id),
+                    org_id=org_id,
                     iss=sso_config.issuer_url,
                 )
             try:
@@ -401,14 +413,14 @@ async def run_token_exchange(
                 _deny(
                     "invalid_grant",
                     f"subject_{exc2.reason_code}",
-                    org_id=str(org.id),
+                    org_id=org_id,
                     iss=sso_config.issuer_url,
                 )
         else:
             _deny(
                 "invalid_grant",
                 f"subject_{exc.reason_code}",
-                org_id=str(org.id),
+                org_id=org_id,
                 iss=sso_config.issuer_url,
             )
 
@@ -422,15 +434,15 @@ async def run_token_exchange(
         _deny(
             "invalid_grant",
             "subject_missing_azp",
-            org_id=str(org.id),
+            org_id=org_id,
             iss=sso_config.issuer_url,
             jti=claims.get("jti"),
         )
-    if azp != auth_client.expected_subject_azp:
+    if azp != resolved.expected_subject_azp:
         _deny(
             "invalid_grant",
             "subject_azp_mismatch",
-            org_id=str(org.id),
+            org_id=org_id,
             iss=sso_config.issuer_url,
             jti=claims.get("jti"),
         )
@@ -462,18 +474,172 @@ async def run_token_exchange(
             _deny(
                 "invalid_grant",
                 "subject_token_replay",
-                org_id=str(org.id),
+                org_id=org_id,
                 iss=sso_config.issuer_url,
                 jti=subject_jti,
             )
 
+    # ---- Steps 8-11: user, project binding, scope, mint -------------------
+    # Second and last worker thread. Everything from here is blocking DB
+    # work or CPU -- the user upsert, the project/membership reads, the JWT
+    # signature, the refresh-token insert and its commit -- and the commit
+    # expires the ORM rows, so the audit fields step 12 needs are read
+    # inside the thread too.
+    minted = await anyio.to_thread.run_sync(
+        _complete_exchange,
+        db,
+        payload,
+        resolved,
+        claims,
+        subject_jti,
+        requested_scopes,
+        _deny,
+    )
+
+    # ---- Step 12: success audit + return ---------------------------------
+    token_exchange_audit_log(
+        TokenExchangeEvent.SUCCESS,
+        org_id=org_id,
+        client_id=minted.client_id,
+        iss=sso_config.issuer_url,
+        subject_token_jti=subject_jti,
+        email=minted.email,
+        scope=minted.scope,
+        project_id=minted.project_id,
+        ip=audit_ip,
+        user_agent=audit_ua,
+    )
+
+    return TokenExchangeSuccess(
+        access_token=minted.access_token,
+        expires_in=get_auth_settings().jwt_access_token_expire_minutes * 60,
+        scope=minted.scope,
+        refresh_token=minted.refresh_token,
+        refresh_expires_in=minted.refresh_expires_in,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Off-loop phases
+# ---------------------------------------------------------------------------
+
+
+def _resolve_client_context(
+    db: Session,
+    payload: TokenExchangeRequest,
+    sso_config_loader,
+    deny,
+) -> _ResolvedClient:
+    """Steps 2-5a: org resolution, feature gate, client auth, SSO config.
+
+    Runs in a worker thread (see :func:`run_token_exchange`). All four steps
+    block -- two queries, a bcrypt compare and a decrypt -- and the order
+    between them is load-bearing, so they stay together in one thread rather
+    than being interleaved with anything on the loop.
+    """
+    # ---- Step 2: org resolution ------------------------------------------
+    # Resolve the org BEFORE authenticating the client so the
+    # ``(organization_id, client_id)`` lookup in step 3 hits the right
+    # row even when two tenants share a client_id. Doing client auth
+    # first would scope the lookup to ``client_id`` alone, return
+    # whichever row sorts first, and lock the other tenant out.
+    slug = _audience_to_slug(payload.audience)
+    if slug is None:
+        deny("invalid_target", "audience_malformed")
+
+    org = db.query(Organization).filter(Organization.slug == slug).first() if slug else None
+    if org is None:
+        deny("invalid_target", "org_not_found")
+    assert org is not None
+    if not org.is_active:
+        deny("invalid_target", "org_inactive", org_id=str(org.id))
+    if org.sso_config is None:
+        deny("invalid_target", "org_no_sso_config", org_id=str(org.id))
+
+    # ---- Step 3: feature availability ------------------------------------
+    # ``FeatureRegistry.is_available`` is the single primitive that
+    # combines license enforcement + runtime preconditions for the
+    # resolved org. Without this check the endpoint's "feature-gated
+    # by ``API_CLIENTS``" claim was documentation-only: an org with
+    # stale ``auth_client`` rows could exchange tokens after the
+    # feature was disabled in the license, and the runtime check
+    # (encryption-configured) would never be consulted on the request
+    # path. We run the check before client authentication so a
+    # feature-disabled org cannot be used as an oracle for client
+    # existence -- the rejection is uniform ``invalid_target``
+    # regardless of whether a matching auth_client row exists.
+    if not FeatureRegistry.is_available(FeatureName.API_CLIENTS, org):
+        deny(
+            "invalid_target",
+            "feature_unavailable",
+            org_id=str(org.id),
+        )
+
+    # ---- Step 4: client authentication (org-scoped) ----------------------
+    auth_client = authenticate_client(db, org.id, payload.client_id, payload.client_secret)
+    if auth_client is None:
+        # invalid_client per RFC 6749 §5.2; HTTP 401 because the
+        # request lacked valid client credentials. Note that the
+        # uniform invalid_client response covers both "no such client
+        # in this org" and "wrong secret" -- the org binding does NOT
+        # turn into a tenant-existence oracle because the per-IP rate
+        # limit applies before this code path runs.
+        deny(
+            "invalid_client",
+            "client_auth_failed",
+            http=401,
+            org_id=str(org.id),
+        )
+    assert auth_client is not None  # narrow for the type checker
+
+    # ---- Step 5a: SSO config ---------------------------------------------
+    sso_config: Optional[SSOConfig] = sso_config_loader(org)
+    if sso_config is None:
+        deny("invalid_target", "sso_config_unparseable", org_id=str(org.id))
+    assert sso_config is not None
+
+    return _ResolvedClient(
+        org=org,
+        auth_client=auth_client,
+        sso_config=sso_config,
+        org_id=str(org.id),
+        expected_subject_azp=auth_client.expected_subject_azp,
+        expected_subject_audience=auth_client.expected_subject_audience,
+    )
+
+
+def _complete_exchange(
+    db: Session,
+    payload: TokenExchangeRequest,
+    resolved: _ResolvedClient,
+    claims: Mapping[str, object],
+    subject_jti,
+    requested_scopes: Optional[List[str]],
+    deny,
+) -> _MintOutcome:
+    """Steps 8-11: user resolution, project binding, scope, mint, refresh.
+
+    Runs in a worker thread (see :func:`run_token_exchange`). Nothing here
+    awaits, so the whole tail is one blocking block: the user upsert, the
+    project and membership reads, the JWT signature, and the refresh-token
+    insert plus its commit.
+
+    The audit fields the caller needs after the commit (``client_id``,
+    ``email``) are read here rather than returned as ORM rows -- the commit
+    expires both, and reading them on the loop would issue a SELECT there.
+    """
+    org = resolved.org
+    auth_client = resolved.auth_client
+    sso_config = resolved.sso_config
+    org_id = resolved.org_id
+
     # ---- Step 8: user resolution -----------------------------------------
-    user = _resolve_user(db, claims, org, sso_config, deny=_deny)
+    user = _resolve_user(db, claims, org, sso_config, deny=deny)
     if not user.is_active:
-        _deny(
+        deny(
             "invalid_grant",
             "user_inactive",
-            org_id=str(org.id),
+            org_id=org_id,
             iss=sso_config.issuer_url,
             jti=subject_jti,
             email=user.email,
@@ -486,67 +652,27 @@ async def run_token_exchange(
     # only.
     resolved_project_id: Optional[str] = None
     if payload.resource is not None:
-        project_id = _resource_to_project_id(payload.resource)
-        # _check_request_shape already validated the shape; this is
-        # only reachable with a well-formed resource.
-        assert project_id is not None
-
-        project, is_member = _resolve_resource_project(db, org, user, project_id)
-
-        if project is None:
-            _deny(
-                "invalid_target",
-                "resource_project_not_found",
-                org_id=str(org.id),
-                iss=sso_config.issuer_url,
-                jti=subject_jti,
-                email=user.email,
-                project_id=project_id,
-            )
-        assert project is not None
-        if not project.is_active or project.deleted_at is not None:
-            _deny(
-                "invalid_target",
-                "resource_project_inactive",
-                org_id=str(org.id),
-                iss=sso_config.issuer_url,
-                jti=subject_jti,
-                email=user.email,
-                project_id=project_id,
-            )
-        if not is_member:
-            _deny(
-                "invalid_target",
-                "resource_project_not_member",
-                org_id=str(org.id),
-                iss=sso_config.issuer_url,
-                jti=subject_jti,
-                email=user.email,
-                project_id=project_id,
-            )
-
-        resolved_project_id = str(project.id)
+        resolved_project_id = _bind_resource_project(
+            db,
+            payload.resource,
+            org,
+            user,
+            deny=deny,
+            org_id=org_id,
+            iss=sso_config.issuer_url,
+            jti=subject_jti,
+        )
 
     # ---- Validate scope against client's allowed_scopes (S7) -------------
-    allowed = set(auth_client.allowed_scopes or [])
-    if requested_scopes is None:
-        # Caller omitted scope -> default. ``default_scope`` is
-        # validated against allowed_scopes at create time so this is
-        # safe to use without re-checking.
-        resolved_scopes: List[str] = [auth_client.default_scope]
-    else:
-        for s in requested_scopes:
-            if s not in allowed:
-                _deny(
-                    "invalid_scope",
-                    "scope_not_allowed",
-                    org_id=str(org.id),
-                    iss=sso_config.issuer_url,
-                    jti=subject_jti,
-                    email=user.email,
-                    scope=" ".join(requested_scopes),
-                )
-        resolved_scopes = requested_scopes
+    resolved_scopes = _resolve_scopes(
+        requested_scopes,
+        auth_client,
+        deny=deny,
+        org_id=org_id,
+        iss=sso_config.issuer_url,
+        jti=subject_jti,
+        email=user.email,
+    )
     resolved_scope_str = " ".join(resolved_scopes)
 
     # ---- Step 10: mint Rhesis JWT -----------------------------------------
@@ -585,27 +711,89 @@ async def run_token_exchange(
         db.commit()
         refresh_expires_in = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
 
-    # ---- Step 12: success audit + return ---------------------------------
-    token_exchange_audit_log(
-        TokenExchangeEvent.SUCCESS,
-        org_id=str(org.id),
-        client_id=auth_client.client_id,
-        iss=sso_config.issuer_url,
-        subject_token_jti=subject_jti,
-        email=user.email,
+    return _MintOutcome(
+        access_token=access_token,
         scope=resolved_scope_str,
         project_id=resolved_project_id,
-        ip=audit_ip,
-        user_agent=audit_ua,
-    )
-
-    return TokenExchangeSuccess(
-        access_token=access_token,
-        expires_in=get_auth_settings().jwt_access_token_expire_minutes * 60,
-        scope=resolved_scope_str,
         refresh_token=refresh_token,
         refresh_expires_in=refresh_expires_in,
+        client_id=auth_client.client_id,
+        email=user.email,
     )
+
+
+def _bind_resource_project(
+    db: Session,
+    resource: str,
+    org,
+    user,
+    *,
+    deny,
+    org_id: str,
+    iss: str,
+    jti,
+) -> str:
+    """Step 9: resolve the RFC 8693 ``resource`` to a project the user is in.
+
+    Split out of :func:`_complete_exchange` only to keep it under the branch
+    ceiling; the three rejections and their order are unchanged.
+    """
+    project_id = _resource_to_project_id(resource)
+    # _check_request_shape already validated the shape; this is
+    # only reachable with a well-formed resource.
+    assert project_id is not None
+
+    project, is_member = _resolve_resource_project(db, org, user, project_id)
+
+    audit = dict(
+        org_id=org_id,
+        iss=iss,
+        jti=jti,
+        email=user.email,
+        project_id=project_id,
+    )
+
+    if project is None:
+        deny("invalid_target", "resource_project_not_found", **audit)
+    assert project is not None
+    if not project.is_active or project.deleted_at is not None:
+        deny("invalid_target", "resource_project_inactive", **audit)
+    if not is_member:
+        deny("invalid_target", "resource_project_not_member", **audit)
+
+    return str(project.id)
+
+
+def _resolve_scopes(
+    requested_scopes: Optional[List[str]],
+    auth_client,
+    *,
+    deny,
+    org_id: str,
+    iss: str,
+    jti,
+    email: str,
+) -> List[str]:
+    """Settle the exchanged token's scope against the client's allowlist (S7)."""
+    allowed = set(auth_client.allowed_scopes or [])
+    if requested_scopes is None:
+        # Caller omitted scope -> default. ``default_scope`` is
+        # validated against allowed_scopes at create time so this is
+        # safe to use without re-checking.
+        return [auth_client.default_scope]
+
+    for s in requested_scopes:
+        if s not in allowed:
+            deny(
+                "invalid_scope",
+                "scope_not_allowed",
+                org_id=org_id,
+                iss=iss,
+                jti=jti,
+                email=email,
+                scope=" ".join(requested_scopes),
+            )
+    return requested_scopes
 
 
 # ---------------------------------------------------------------------------
