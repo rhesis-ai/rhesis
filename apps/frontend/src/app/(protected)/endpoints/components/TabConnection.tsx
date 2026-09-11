@@ -87,7 +87,6 @@ export default function TabConnection({
             isEditing
           />
         </Box>
-
       </SectionCard>
     </Box>
   );

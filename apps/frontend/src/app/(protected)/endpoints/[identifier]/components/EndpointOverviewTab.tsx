@@ -82,9 +82,7 @@ export default function EndpointOverviewTab() {
             description: draft.description,
             environment: draft.environment as Endpoint['environment'],
             timeout_seconds:
-              !isNaN(parsedTimeout) && parsedTimeout > 0
-                ? parsedTimeout
-                : null,
+              !isNaN(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : null,
             disable_tracing: draft.disable_tracing,
           });
         }}
