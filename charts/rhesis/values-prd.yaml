@@ -96,6 +96,11 @@ backend:
     # the 3Gi request (~78-93%), permanently above target regardless of traffic, so
     # memory pins backend at maxReplicas even at 3% CPU. CPU alone reflects load here.
     targetMemoryUtilizationPercentage: null
+  env:
+    # 2 CPU limit, and each gunicorn worker carries a full DB pool (10 + 20 overflow),
+    # so 4 workers meant 120 possible connections per pod for 2 cores of work.
+    - name: WORKERS
+      value: "2"
   ingress:
     enabled: true
     host: "api.rhesis.ai"
@@ -167,7 +172,8 @@ workers:
       minReplicas: 2
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 80
+      # No memory target (same reasoning as backend above): Python RSS does not
+      # come back down after a run, so memory pins the workers at maxReplicas.
     env:
       - name: CELERY_WORKER_CONCURRENCY
         value: "16"

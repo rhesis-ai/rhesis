@@ -121,7 +121,8 @@ config:
   # Celery
   celeryWorkerConcurrency: "8"
   celeryArchitectConcurrency: "2"
-  celeryWorkerPrefetchMultiplier: "4"
+  # 1 matches celery/config.py; with acks_late a higher value parks long runs behind each other.
+  celeryWorkerPrefetchMultiplier: "1"
   celeryWorkerMaxTasksPerChild: "1000"
   celeryWorkerLogLevel: "INFO"
 
