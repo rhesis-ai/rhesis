@@ -135,6 +135,51 @@ export function spanUsage(span: SpanNode): SpanUsage | null {
 }
 
 /**
+ * Usage for a span and everything beneath it.
+ *
+ * Only `ai.llm.invoke` leaves carry token attributes, so a container span on its own
+ * reports nothing. Rolling the subtree up is what makes the panel useful: clicking an
+ * agent span answers "what did this agent cost", which is the question people are
+ * actually asking when they click it.
+ *
+ * `llmSpanCount` is how many spans in the subtree contributed, so the caller can say
+ * where the number came from. It is 0 on a leaf, which is how callers tell a rollup
+ * from a span's own usage.
+ */
+export function subtreeUsage(
+  span: SpanNode
+): (SpanUsage & { llmSpanCount: number }) | null {
+  const own = spanUsage(span);
+  let input = own?.input ?? 0;
+  let output = own?.output ?? 0;
+  let total = own?.total ?? 0;
+  let costUsd = own?.costUsd ?? null;
+  let llmSpanCount = 0;
+
+  for (const child of span.children ?? []) {
+    const below = subtreeUsage(child);
+    if (!below) {
+      continue;
+    }
+    input += below.input;
+    output += below.output;
+    // Summed from each node's own reported total rather than recomputed, so ADK's
+    // cache-read tokens survive the rollup.
+    total += below.total;
+    if (below.costUsd !== null) {
+      costUsd = (costUsd ?? 0) + below.costUsd;
+    }
+    llmSpanCount += below.llmSpanCount + (spanUsage(child) ? 1 : 0);
+  }
+
+  if (total === 0 && costUsd === null) {
+    return null;
+  }
+
+  return { input, output, total, costUsd, llmSpanCount };
+}
+
+/**
  * Input/output tokens as two separate figures, deliberately not presented as a
  * breakdown of the total: Google ADK folds cache-read tokens into the total it
  * reports, so input + output legitimately falls short of it.

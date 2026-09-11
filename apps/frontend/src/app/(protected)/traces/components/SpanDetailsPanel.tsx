@@ -31,7 +31,11 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
-import { formatCost, formatTokenCount, spanUsage } from '@/utils/trace-utils';
+import {
+  formatCost,
+  formatTokenCount,
+  subtreeUsage,
+} from '@/utils/trace-utils';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
@@ -327,7 +331,7 @@ export default function SpanDetailsPanel({
     ...otherLlmAttributes
   } = llmAttributes;
 
-  const usage = spanUsage(span);
+  const usage = subtreeUsage(span);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -444,46 +448,39 @@ export default function SpanDetailsPanel({
                     </Box>
                   </Box>
 
-                  {/* Usage - omitted entirely for the tool and function spans
-                      that have neither tokens nor a cost. */}
+                  {/* Usage. Rolled up over the subtree, because only the
+                      ai.llm.invoke leaves carry token attributes and a container
+                      span would otherwise show nothing. */}
                   {usage && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         Usage
                       </Typography>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 1 }}
+                      <Typography
+                        variant="caption"
+                        display="block"
+                        sx={{ mt: 0.5 }}
                       >
-                        {usage.total > 0 && (
-                          <GridBadge
-                            size="detail"
-                            label={`${formatTokenCount(usage.total)} tokens`}
-                          />
-                        )}
-                        {usage.input > 0 && (
-                          <GridBadge
-                            size="detail"
-                            label={`${formatTokenCount(usage.input)} input`}
-                          />
-                        )}
-                        {usage.output > 0 && (
-                          <GridBadge
-                            size="detail"
-                            label={`${formatTokenCount(usage.output)} output`}
-                          />
-                        )}
-                        {usage.costUsd !== null && (
-                          <GridBadge
-                            size="detail"
-                            label={formatCost(usage.costUsd)}
-                          />
-                        )}
-                        {span.model_name && (
-                          <GridBadge size="detail" label={span.model_name} />
-                        )}
-                      </Stack>
+                        Tokens: {formatTokenCount(usage.total)}
+                        {(usage.input > 0 || usage.output > 0) &&
+                          ` (${formatTokenCount(usage.input)} input \u00b7 ${formatTokenCount(usage.output)} output)`}
+                      </Typography>
+                      {usage.costUsd !== null && (
+                        <Typography variant="caption" display="block">
+                          Cost: {formatCost(usage.costUsd)}
+                        </Typography>
+                      )}
+                      {usage.llmSpanCount > 0 && (
+                        <Typography variant="caption" display="block">
+                          Rolled up from {usage.llmSpanCount} LLM{' '}
+                          {usage.llmSpanCount === 1 ? 'span' : 'spans'}
+                        </Typography>
+                      )}
+                      {span.model_name && (
+                        <Typography variant="caption" display="block">
+                          Model: {span.model_name}
+                        </Typography>
+                      )}
                     </Box>
                   )}
                 </Stack>
