@@ -83,9 +83,7 @@ def create_endpoint(
     db: Session, endpoint: schemas.EndpointCreate, organization_id: str, user_id: str
 ) -> models.Endpoint:
     """Create endpoint."""
-    timeout_seconds = (
-        endpoint.timeout_seconds if hasattr(endpoint, "timeout_seconds") else None
-    )
+    timeout_seconds = endpoint.timeout_seconds if hasattr(endpoint, "timeout_seconds") else None
     db_endpoint = create_item(db, models.Endpoint, endpoint, organization_id, user_id)
     if timeout_seconds is not None:
         _set_metadata_timeout(db_endpoint, timeout_seconds)
