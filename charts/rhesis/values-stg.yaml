@@ -65,6 +65,9 @@ config:
 # Ingress — stg (internal; VPN / same pattern as dev)
 # ---------------------------------------------------------------------------
 backend:
+  # Two pods so a node drain (autoscaler scale-down, GKE upgrade) never leaves
+  # the Service without an endpoint; the PDB template keys off this.
+  replicas: 2
   resources:
     requests:
       memory: "1Gi"
@@ -96,13 +99,16 @@ backend:
     failureThreshold: 6
 
 frontend:
+  replicas: 2
   resources:
     requests:
       memory: "256Mi"
       cpu: "100m"
     limits:
       memory: "512Mi"
-      cpu: "250m"
+      # 250m throttled the Next.js cold start enough for the static /api/health
+      # readiness probe to time out; matches prd.
+      cpu: "500m"
   ingress:
     enabled: true
     host: "stg-app.rhesis.ai"
