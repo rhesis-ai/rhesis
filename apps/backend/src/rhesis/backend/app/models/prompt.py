@@ -1,9 +1,4 @@
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    String,
-    Text,
-)
+from sqlalchemy import Column, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -29,6 +24,7 @@ class Prompt(
     CountsMixin,
 ):
     __tablename__ = "prompt"
+    __table_args__ = (Index("ix_prompt_org_created", "organization_id", "created_at"),)
     content = Column(Text, nullable=False)
     category_id = Column(GUID(), ForeignKey("category.id"))
     attack_category_id = Column(GUID(), ForeignKey("category.id"))

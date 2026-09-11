@@ -1,4 +1,14 @@
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Session, relationship
@@ -85,6 +95,7 @@ class TestSet(
 
     __table_args__ = (
         CheckConstraint("visibility IN ('organization', 'user')", name="test_set_visibility_check"),
+        Index("ix_test_set_org_created", "organization_id", "created_at"),
     )
 
     # Relationship to subscriptions
