@@ -47,14 +47,18 @@ class EmbeddingService(AsyncService):
         user_id = str(kwargs["user_id"])
         organization_id = str(kwargs["organization_id"])
 
+        # entity_id/entity_type go to the task positionally: launch_job has keyword
+        # parameters of the same names (the job-row link) and would swallow them.
         launch_job(
             generate_embedding_task,
-            entity_id=entity_id,
-            entity_type=entity_type,
+            entity_id,
+            entity_type,
             model_id=str(model_id),
             searchable_text=searchable_text,
             current_user=SimpleNamespace(id=user_id, organization_id=organization_id),
             db=self.db,
+            entity_type=entity_type,
+            entity_id=entity_id,
         )
 
     def resolve_model_id(self, user_id: str, model_id: str | None = None) -> str:
