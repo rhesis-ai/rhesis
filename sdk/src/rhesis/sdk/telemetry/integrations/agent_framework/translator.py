@@ -488,6 +488,11 @@ class _ConversationContentRegistry:
 
         Caller holds the lock.
         """
+        if not self._has_entries(trace_id):
+            # Nothing to release, so it must not take a slot: a run of traces
+            # with no conversation content on them would otherwise push out the
+            # entries of the ones that have it.
+            return
         self._served.pop(trace_id, None)
         self._served[trace_id] = None
         while len(self._served) > self._max_served:
@@ -496,6 +501,17 @@ class _ConversationContentRegistry:
             self._session_by_trace.pop(stale, None)
             self._input_by_trace.pop(stale, None)
             self._output_by_trace.pop(stale, None)
+
+    def _has_entries(self, trace_id: int) -> bool:
+        """Whether any of the three stores holds something for this trace."""
+        return any(
+            trace_id in store
+            for store in (
+                self._session_by_trace,
+                self._input_by_trace,
+                self._output_by_trace,
+            )
+        )
 
 
 # Shared singleton: the dedup processor records chat I/O at span end, the

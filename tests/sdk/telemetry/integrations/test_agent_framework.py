@@ -1481,6 +1481,52 @@ def test_conversation_content_registry_release_without_reading():
     assert reg.get_session(2) == "sess-2"
 
 
+def test_conversation_content_registry_ignores_a_trace_with_nothing_recorded():
+    """Otherwise a run of content-free traces evicts the ones with content.
+
+    A single-turn run sets no conversation id, and content capture can be off
+    entirely, so reads that find nothing are the common case in some processes.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry(max_served=1)
+    reg.record_session(1, "sess-1")
+    reg.read_for_root(1)
+
+    for empty in range(2, 10):
+        assert reg.read_for_root(empty) == (None, None, None)
+
+    assert reg.read_for_root(1) == ("sess-1", None, None)
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        pytest.param(lambda reg, tid: reg.record_session(tid, f"sess-{tid}"), id="session-only"),
+        pytest.param(lambda reg, tid: reg.record_chat(tid, input_text="query"), id="input-only"),
+        pytest.param(lambda reg, tid: reg.record_chat(tid, output_text="answer"), id="output-only"),
+    ],
+)
+def test_conversation_content_registry_releases_whichever_store_holds_the_content(record):
+    """Content in any one store has to count as content.
+
+    A store left out of the "is there anything here" check makes its entries
+    invisible to the release queue, so they are never freed and the store grows
+    until the entry cap evicts it -- which is the leak the queue exists to stop.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry(max_served=1)
+    record(reg, 1)
+    reg.read_for_root(1)
+    assert reg.read_for_root(1) != (None, None, None), "precondition: trace 1 has content"
+
+    record(reg, 2)
+    reg.read_for_root(2)
+
+    assert reg.read_for_root(1) == (None, None, None), "trace 1 should have been released"
+
+
 def test_two_wrapped_exporters_both_stamp_the_conversation():
     """``enable()`` wraps every exporter on the provider, so a process with its
     own OTLP collector beside Rhesis has two translating exporters exporting the
