@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 from urllib.parse import urlparse
 
+import anyio
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -62,7 +63,9 @@ from rhesis.backend.app.config.settings import (
     get_telemetry_settings,
 )
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
     get_db_session,
+    get_off_loop_db_session,
 )
 from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
 from rhesis.backend.app.models.user import User
@@ -262,6 +265,229 @@ def _get_email_service():
 
 
 # =============================================================================
+# Off-loop database helpers
+#
+# The handlers below stay ``async def`` because they await Redis or the OAuth
+# provider, so every statement they run against the session goes through
+# ``anyio.to_thread.run_sync`` and lives in one of these helpers. Each returns
+# plain values read while still in the worker thread, so no attribute access
+# after the call can fall back to the event loop.
+# =============================================================================
+
+
+def _user_summary(user: User) -> dict:
+    """The user block returned by the login endpoints."""
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "name": user.name,
+        "organization_id": (str(user.organization_id) if user.organization_id else None),
+    }
+
+
+def _issue_login_tokens(db: Session, user: User) -> tuple[str, str, dict]:
+    """Clear the logout marker and mint the session and refresh tokens.
+
+    The commit lands before the caller mints the auth code, so the code is
+    only ever handed out once the refresh token row is durable.
+    """
+    clear_user_logout(str(user.id))
+    access_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, str(user.id))
+    db.commit()
+    return access_token, refresh_tok, _user_summary(user)
+
+
+def _authenticate_email_user(db: Session, provider, email: str, password: str) -> tuple[User, str]:
+    """Verify email/password credentials and resolve the user row.
+
+    Both halves block -- bcrypt on a core, psycopg2 on a socket -- so this is
+    called through ``run_sync``. The provider's own checks run in their
+    original order, so a bad password still costs a full bcrypt compare and a
+    missing account still costs none.
+    """
+    auth_user = provider.authenticate_sync(email, password, db)
+    user = find_or_create_user_from_auth(db, auth_user)
+    return user, str(user.id)
+
+
+def _load_registered_user(db: Session, email: str) -> tuple[User, str]:
+    """Re-read the row ``EmailProvider.register`` just created."""
+    from rhesis.backend.app.crud import user as user_crud
+
+    user = user_crud.get_user_by_email(db, email)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User creation failed",
+        )
+
+    return user, str(user.id)
+
+
+def _send_registration_emails(user: User) -> None:
+    """Welcome and verification mail for a fresh registration, both best-effort.
+
+    Runs in a worker thread for two reasons: SMTP blocks, and ``user`` was
+    expired by the commit in :func:`_issue_login_tokens`, so every attribute
+    read here is a fresh SELECT.
+    """
+    _send_welcome_email(user)
+
+    try:
+        token = create_email_verification_token(str(user.id), user.email)
+        frontend_url = _get_frontend_url()
+        verification_url = f"{frontend_url}/auth/verify-email?token={token}"
+        email_service = _get_email_service()
+        email_service.send_verification_email(
+            recipient_email=user.email,
+            recipient_name=user.name,
+            verification_url=verification_url,
+        )
+    except Exception as email_err:
+        logger.warning(f"Failed to send verification email: {email_err}")
+
+
+def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
+    """Find or create the OAuth user and mint their tokens."""
+    user = find_or_create_user_from_auth(db, auth_user)
+    user_id = str(user.id)
+    clear_user_logout(user_id)
+    session_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, user_id)
+    db.commit()
+    return user_id, session_token, refresh_tok, _user_summary(user)
+
+
+def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
+    """Flag the address as verified and mint tokens; ``None`` if no such user."""
+    from rhesis.backend.app.crud import user as user_crud
+
+    user = user_crud.get_user_by_email(db, email)
+
+    # Enumeration-safe: the caller reports success even if the user is gone.
+    if not user:
+        return None
+
+    if not user.is_email_verified:
+        user.is_email_verified = True
+        logger.info("Email verified for user: %s", redact_email(user.email))
+
+    access_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, str(user.id))
+    db.commit()
+    return access_token, refresh_tok
+
+
+def _load_user_for_reset(db: Session, email: str) -> tuple[User, str, str]:
+    """Load the user named by a password-reset token, with the policy context."""
+    from rhesis.backend.app.crud import user as user_crud
+
+    user = user_crud.get_user_by_email(db, email)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token",
+        )
+
+    return user, user.email, user.name or ""
+
+
+def _store_new_password(db: Session, user: User, new_password: str) -> str:
+    """Hash and persist a new password, returning the user's email for logging."""
+    from rhesis.backend.app.utils.encryption import hash_password
+
+    user.password_hash = hash_password(new_password)
+    # Preserve original provider_type — setting a password is additive,
+    # not a provider migration. Users can log in via either method.
+    if not user.provider_type:
+        user.provider_type = AuthProviderType.EMAIL
+    db.commit()
+    return user.email
+
+
+def _load_user_for_password_change(
+    db: Session, user_id, current_password: Optional[str]
+) -> tuple[User, str, str]:
+    """Load the authenticated user and check their current password, if they have one."""
+    from rhesis.backend.app.utils.encryption import verify_password
+
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if db_user.password_hash is not None:
+        if not current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required.",
+            )
+        if not verify_password(current_password, db_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect.",
+            )
+
+    return db_user, db_user.email, db_user.name or ""
+
+
+def _apply_password_change(db: Session, db_user: User, new_password: str) -> str:
+    """Store the new password, drop every other session, and mint a fresh token."""
+    email = _store_new_password(db, db_user, new_password)
+    invalidate_user_sessions(str(db_user.id))
+    logger.info("Password changed for user: %s", redact_email(email))
+    return create_session_token(db_user)
+
+
+def _consume_magic_link(db: Session, email: str) -> tuple[User, str]:
+    """Mark the magic-link user verified and stamp their login."""
+    from datetime import datetime, timezone
+
+    from rhesis.backend.app.crud import user as user_crud
+
+    user = user_crud.get_user_by_email(db, email)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid magic link",
+        )
+
+    # Mark email as verified (user clicked a link in their email)
+    if not user.is_email_verified:
+        user.is_email_verified = True
+
+    # Update last login and stamp first org join when applicable
+    current_time = datetime.now(timezone.utc)
+    user.last_login_at = current_time
+    mark_user_joined_if_needed(user, when=current_time)
+    db.commit()
+    return user, str(user.id)
+
+
+def _load_quick_start_user(db: Session) -> tuple[User, str]:
+    """Load the Quick Start admin user."""
+    from rhesis.backend.app.crud import user as user_crud
+
+    user = user_crud.get_user_by_email(db, "admin@local.dev")
+
+    if not user:
+        # Public: the whole value of this 500 is the fix it names, and the global
+        # handler logs it once as a warning.
+        raise PublicHTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "QUICK START MODE user not found. "
+                "Please ensure the database was initialized with init_local_user.sql"
+            ),
+        )
+
+    return user, str(user.id)
+
+
+# =============================================================================
 # Provider Discovery Endpoint
 # =============================================================================
 
@@ -446,7 +672,7 @@ async def login_with_provider(
 
 
 @router.get("/callback")
-async def auth_callback(request: Request, db: Session = Depends(get_db_session)):
+async def auth_callback(request: Request, db: OffLoopSession = Depends(get_off_loop_db_session)):
     """
     Handle OAuth callback from any provider.
 
@@ -476,21 +702,17 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Authenticate with the provider
         auth_user = await auth_provider.authenticate(request)
 
-        # Find or create user
-        user = find_or_create_user_from_auth(db, auth_user)
-
         # Capture values from pre-auth session before regeneration
         original_frontend = request.session.get("original_frontend")
         return_to = request.session.get("return_to", "/architect")
 
-        # Set up session and create tokens
-        clear_user_logout(str(user.id))
-        session_token = create_session_token(user)
-        refresh_tok = create_refresh_token(db, str(user.id))
-        db.commit()
+        # Find or create the user and set up tokens, off the event loop
+        user_id, session_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+            _complete_oauth_login, db, auth_user
+        )
 
         # Regenerate session to prevent session fixation
-        regenerate_session(request, {"user_id": str(user.id)})
+        regenerate_session(request, {"user_id": user_id})
         # Restore redirect context for build_redirect_url
         if original_frontend:
             request.session["original_frontend"] = original_frontend
@@ -500,8 +722,8 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
-                user_id=str(user.id),
-                org_id=(str(user.organization_id) if user.organization_id else None),
+                user_id=user_info["id"],
+                org_id=user_info["organization_id"],
             )
             track_user_activity(
                 event_type="login",
@@ -549,7 +771,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 async def login_with_email(
     request: Request,
     body: EmailLoginRequest,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """
     Authenticate with email and password.
@@ -566,33 +788,27 @@ async def login_with_email(
         )
 
     try:
-        # Authenticate with email provider
-        auth_user = await email_provider.authenticate(
-            request,
-            email=body.email,
-            password=body.password,
-            db=db,
+        # Verify the credentials and find/create the user (updates
+        # last_login_at). bcrypt and every query run in a worker thread.
+        user, user_id = await anyio.to_thread.run_sync(
+            _authenticate_email_user, db, email_provider, body.email, body.password
         )
-
-        # Find or create user (will update last_login_at)
-        user = find_or_create_user_from_auth(db, auth_user)
 
         # Set up session and create tokens. The refresh token is wrapped
         # in a short-lived, single-use auth code so it never reaches the
         # browser: the client exchanges the code via NextAuth server-side.
-        request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))
-        access_token = create_session_token(user)
-        refresh_tok = create_refresh_token(db, str(user.id))
-        db.commit()
+        request.session["user_id"] = user_id
+        access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+            _issue_login_tokens, db, user
+        )
         auth_code = await create_auth_code(access_token, refresh_tok)
 
         # Track login activity
         if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
-                user_id=str(user.id),
-                org_id=(str(user.organization_id) if user.organization_id else None),
+                user_id=user_id,
+                org_id=user_info["organization_id"],
             )
             track_user_activity(
                 event_type="login",
@@ -604,12 +820,7 @@ async def login_with_email(
         return {
             "success": True,
             "auth_code": auth_code,
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
-                "organization_id": (str(user.organization_id) if user.organization_id else None),
-            },
+            "user": user_info,
         }
 
     except HTTPException:
@@ -627,7 +838,7 @@ async def login_with_email(
 async def register_with_email(
     request: Request,
     body: EmailRegisterRequest,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """
     Register a new user with email and password.
@@ -663,49 +874,26 @@ async def register_with_email(
         )
 
         # The user was already created in register(), so look them up
-        from rhesis.backend.app.crud import user as user_crud
-
-        user = user_crud.get_user_by_email(db, body.email)
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User creation failed",
-            )
+        user, user_id = await anyio.to_thread.run_sync(_load_registered_user, db, body.email)
 
         # Set up session and create tokens. Refresh token wrapped in a
         # single-use auth code (see /auth/login/email) so it stays out of
         # the browser.
-        request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))
-        access_token = create_session_token(user)
-        refresh_tok = create_refresh_token(db, str(user.id))
-        db.commit()
+        request.session["user_id"] = user_id
+        access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+            _issue_login_tokens, db, user
+        )
         auth_code = await create_auth_code(access_token, refresh_tok)
 
-        # Send welcome email (best-effort)
-        _send_welcome_email(user)
-
-        # Send verification email (best-effort)
-        try:
-            token = create_email_verification_token(str(user.id), user.email)
-            frontend_url = _get_frontend_url()
-            verification_url = f"{frontend_url}/auth/verify-email?token={token}"
-            email_service = _get_email_service()
-            email_service.send_verification_email(
-                recipient_email=user.email,
-                recipient_name=user.name,
-                verification_url=verification_url,
-            )
-        except Exception as email_err:
-            logger.warning(f"Failed to send verification email: {email_err}")
+        # Welcome + verification email, both best-effort and both blocking SMTP
+        await anyio.to_thread.run_sync(_send_registration_emails, user)
 
         # Track registration activity
         if get_telemetry_settings().is_telemetry_enabled:
             set_telemetry_enabled(
                 enabled=True,
-                user_id=str(user.id),
-                org_id=(str(user.organization_id) if user.organization_id else None),
+                user_id=user_id,
+                org_id=user_info["organization_id"],
             )
             track_user_activity(
                 event_type="registration",
@@ -717,12 +905,7 @@ async def register_with_email(
         return {
             "success": True,
             "auth_code": auth_code,
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
-                "organization_id": (str(user.organization_id) if user.organization_id else None),
-            },
+            "user": user_info,
         }
 
     except HTTPException:
@@ -743,33 +926,25 @@ async def register_with_email(
 @router.post("/verify-email")
 async def verify_email(
     body: VerifyEmailRequest,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """
     Verify a user's email address using the token from the verification
     email.
     """
-    from rhesis.backend.app.crud import user as user_crud
-
     payload = verify_email_flow_token(body.token, "email_verification")
-    user = user_crud.get_user_by_email(db, payload["email"])
+    tokens = await anyio.to_thread.run_sync(_mark_email_verified, db, payload["email"])
 
     # Enumeration-safe: return success even if user no longer exists
-    if not user:
+    if tokens is None:
         return {
             "success": True,
             "message": "Email verified successfully",
         }
 
-    if not user.is_email_verified:
-        user.is_email_verified = True
-        logger.info("Email verified for user: %s", redact_email(user.email))
-
     # Return a single-use auth code so the frontend can establish a
     # session without the refresh token ever touching the browser.
-    access_token = create_session_token(user)
-    refresh_tok = create_refresh_token(db, str(user.id))
-    db.commit()
+    access_token, refresh_tok = tokens
     auth_code = await create_auth_code(access_token, refresh_tok)
 
     return {
@@ -863,15 +1038,12 @@ def forgot_password(
 @router.post("/reset-password")
 async def reset_password(
     body: ResetPasswordRequest,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """
     Reset a user's password using the token from the reset email.
     Token is single-use: once used, it cannot be used again.
     """
-    from rhesis.backend.app.crud import user as user_crud
-    from rhesis.backend.app.utils.encryption import hash_password
-
     payload = verify_email_flow_token(body.token, "password_reset")
     jti = payload.get("jti")
     if not jti:
@@ -894,26 +1066,15 @@ async def reset_password(
             detail="Token already used or expired",
         )
 
-    user = user_crud.get_user_by_email(db, payload["email"])
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid reset token",
-        )
+    user, email, name = await anyio.to_thread.run_sync(_load_user_for_reset, db, payload["email"])
 
     await validate_password(
         body.new_password,
-        context={"email": user.email, "name": user.name or ""},
+        context={"email": email, "name": name},
     )
-    user.password_hash = hash_password(body.new_password)
-    # Preserve original provider_type — setting a password is additive,
-    # not a provider migration. Users can log in via either method.
-    if not user.provider_type:
-        user.provider_type = AuthProviderType.EMAIL
-    db.commit()
+    await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password)
 
-    logger.info("Password reset for user: %s", redact_email(user.email))
+    logger.info("Password reset for user: %s", redact_email(email))
 
     return {
         "success": True,
@@ -931,7 +1092,7 @@ async def reset_password(
 async def change_password(
     request: Request,
     body: ChangePasswordRequest,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """
@@ -945,46 +1106,23 @@ async def change_password(
     On success, all other sessions are invalidated and a fresh session
     token is returned so the current session survives.
     """
-    from rhesis.backend.app.auth.session_invalidation import (
-        invalidate_user_sessions,
+    db_user, email, name = await anyio.to_thread.run_sync(
+        _load_user_for_password_change, db, current_user.id, body.current_password
     )
-    from rhesis.backend.app.utils.encryption import hash_password, verify_password
-
-    db_user = db.query(User).filter(User.id == current_user.id).first()
-    if db_user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    if db_user.password_hash is not None:
-        if not body.current_password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Current password is required.",
-            )
-        if not verify_password(body.current_password, db_user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Current password is incorrect.",
-            )
 
     await validate_password(
         body.new_password,
-        context={"email": db_user.email, "name": db_user.name or ""},
+        context={"email": email, "name": name},
     )
 
-    db_user.password_hash = hash_password(body.new_password)
-    if not db_user.provider_type:
-        db_user.provider_type = AuthProviderType.EMAIL
-
-    db.commit()
-
-    invalidate_user_sessions(str(db_user.id))
-
-    logger.info("Password changed for user: %s", redact_email(db_user.email))
+    session_token = await anyio.to_thread.run_sync(
+        _apply_password_change, db, db_user, body.new_password
+    )
 
     return {
         "success": True,
         "message": "Password updated successfully.",
-        "session_token": create_session_token(db_user),
+        "session_token": session_token,
     }
 
 
@@ -1081,14 +1219,12 @@ def request_magic_link(
 async def verify_magic_link(
     request: Request,
     body: MagicLinkVerifyRequest,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """
     Verify a magic link token and return a session token.
     Token is single-use: once used, it cannot be used again.
     """
-    from rhesis.backend.app.crud import user as user_crud
-
     payload = verify_email_flow_token(body.token, "magic_link")
     jti = payload.get("jti")
     if not jti:
@@ -1121,43 +1257,26 @@ async def verify_magic_link(
             detail="Link already used or expired",
         )
 
-    user = user_crud.get_user_by_email(db, payload["email"])
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid magic link",
-        )
-
-    # Mark email as verified (user clicked a link in their email)
-    if not user.is_email_verified:
-        user.is_email_verified = True
-
-    # Update last login and stamp first org join when applicable
-    current_time = datetime.now(timezone.utc)
-    user.last_login_at = current_time
-    mark_user_joined_if_needed(user, when=current_time)
-    db.commit()
+    user, user_id = await anyio.to_thread.run_sync(_consume_magic_link, db, payload["email"])
 
     # Set up session and create tokens. Refresh token wrapped in a
     # single-use auth code so it stays out of the browser.
-    request.session["user_id"] = str(user.id)
-    clear_user_logout(str(user.id))
-    access_token = create_session_token(user)
-    refresh_tok = create_refresh_token(db, str(user.id))
-    db.commit()
+    request.session["user_id"] = user_id
+    access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+        _issue_login_tokens, db, user
+    )
     auth_code = await create_auth_code(access_token, refresh_tok)
 
     # Nudge the user to set a password if they have none and no external
     # auth provider (e.g. they clicked an invitation magic link).
-    _maybe_notify_password_not_set(db, user)
+    await anyio.to_thread.run_sync(_maybe_notify_password_not_set, db, user)
 
     # Track login activity
     if get_telemetry_settings().is_telemetry_enabled:
         set_telemetry_enabled(
             enabled=True,
-            user_id=str(user.id),
-            org_id=(str(user.organization_id) if user.organization_id else None),
+            user_id=user_info["id"],
+            org_id=user_info["organization_id"],
         )
         track_user_activity(
             event_type="login",
@@ -1169,12 +1288,7 @@ async def verify_magic_link(
     return {
         "success": True,
         "auth_code": auth_code,
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "name": user.name,
-            "organization_id": (str(user.organization_id) if user.organization_id else None),
-        },
+        "user": user_info,
     }
 
 
@@ -1563,14 +1677,13 @@ def verify_auth(
 
 
 @router.post("/local-login")
-async def local_login(request: Request, db: Session = Depends(get_db_session)):
+async def local_login(request: Request, db: OffLoopSession = Depends(get_off_loop_db_session)):
     """
     Quick Start mode authentication endpoint.
 
     ⚠️ WARNING: This endpoint is for QUICK START ONLY!
     It bypasses normal authentication and logs in as the default admin@local.dev user.
     """
-    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 
     hostname = request.url.hostname if request.url.hostname is not None else None
@@ -1587,36 +1700,24 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     logger.warning("⚠️  QUICK START MODE LOGIN - Bypassing authentication!")
     logger.warning("⚠️  This should NEVER be used in production!")
 
-    user = user_crud.get_user_by_email(db, "admin@local.dev")
+    user, user_id = await anyio.to_thread.run_sync(_load_quick_start_user, db)
 
-    if not user:
-        # Public: the whole value of this 500 is the fix it names, and the global
-        # handler logs it once as a warning.
-        raise PublicHTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "QUICK START MODE user not found. "
-                "Please ensure the database was initialized with init_local_user.sql"
-            ),
-        )
-
-    request.session["user_id"] = str(user.id)
-    clear_user_logout(str(user.id))
-    access_token = create_session_token(user)
-    refresh_tok = create_refresh_token(db, str(user.id))
-    db.commit()
+    request.session["user_id"] = user_id
+    access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+        _issue_login_tokens, db, user
+    )
     auth_code = await create_auth_code(access_token, refresh_tok)
 
     logger.info(
         "QUICK START MODE login successful for user: %s",
-        redact_email(user.email),
+        redact_email(user_info["email"]),
     )
 
     if get_telemetry_settings().is_telemetry_enabled:
         set_telemetry_enabled(
             enabled=True,
-            user_id=str(user.id),
-            org_id=(str(user.organization_id) if user.organization_id else None),
+            user_id=user_info["id"],
+            org_id=user_info["organization_id"],
         )
         track_user_activity(
             event_type="login",
@@ -1628,11 +1729,6 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     return {
         "success": True,
         "auth_code": auth_code,
-        "user": {
-            "id": str(user.id),
-            "email": user.email,
-            "name": user.name,
-            "organization_id": (str(user.organization_id) if user.organization_id else None),
-        },
+        "user": user_info,
         "message": ("QUICK START MODE login - Not for production use!"),
     }

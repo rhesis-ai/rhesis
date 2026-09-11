@@ -1,7 +1,9 @@
 import logging
 import uuid
+from functools import partial
 from typing import Any, Dict
 
+import anyio
 from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -14,7 +16,9 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.database import no_project_scope_hint
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
     get_endpoint_service,
+    get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -31,6 +35,7 @@ from rhesis.backend.app.schemas.endpoint import (
 from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreEndpointResponse
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
+from rhesis.backend.app.services.endpoint.testing import build_mapping_test_endpoint
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -140,10 +145,12 @@ def read_endpoints(
     return results
 
 
-@router.post("/test")
+# The session is never used below -- a transient REST + BEARER_TOKEN config runs no
+# queries -- but the dependency stays: it is what binds usage attribution and validates
+# X-Project-Id against a project-scoped token for this request.
+@router.post("/test", dependencies=[Depends(get_off_loop_tenant_session)])
 async def test_endpoint(
     test_config: schemas.EndpointTestRequest,
-    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     endpoint_service: EndpointService = Depends(get_endpoint_service),
 ):
@@ -159,7 +166,6 @@ async def test_endpoint(
         test_config: Endpoint test configuration including connection_type, url, method,
                     request_headers, request_mapping, response_mapping, auth_type,
                     auth_token, and input_data
-        db: Database session
         tenant_context: Tenant context for organization and user IDs
         endpoint_service: The endpoint service instance
 
@@ -181,7 +187,6 @@ async def test_endpoint(
 
     organization_id, user_id = tenant_context
     result = await endpoint_service.test_endpoint(
-        db,
         test_config,
         organization_id=str(organization_id),
         user_id=str(user_id),
@@ -193,7 +198,7 @@ async def test_endpoint(
 @router.post("/auto-configure", response_model=AutoConfigureResult)
 async def auto_configure_endpoint(
     request: AutoConfigureRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -211,7 +216,10 @@ async def auto_configure_endpoint(
         AutoConfigureResult with generated mappings and diagnostics
     """
     try:
-        service = AutoConfigureService(db, current_user)
+        # Construction is the only DB work here (it resolves the generation model),
+        # so it goes to a worker thread; auto_configure() itself only awaits the LLM
+        # and the probe request and never touches the session.
+        service = await anyio.to_thread.run_sync(AutoConfigureService, db, current_user)
         result = await service.auto_configure(request)
         return result
     except ValueError as e:
@@ -261,11 +269,39 @@ def bulk_delete_endpoints(
 # --- Routes with path parameters must come AFTER static routes ---
 
 
+def _load_draft_endpoint(
+    db: Session,
+    endpoint_id: uuid.UUID,
+    organization_id: str,
+    user_id: str,
+    test_request: EndpointMappingTestRequest,
+) -> models.Endpoint:
+    """Fetch the stored endpoint and copy it with the draft mappings applied.
+
+    Runs in a worker thread: both the fetch and the column reads inside
+    ``build_mapping_test_endpoint`` go to the database.
+    """
+    endpoint = endpoint_crud.get_endpoint(
+        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    )
+    if not endpoint:
+        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
+
+    return build_mapping_test_endpoint(
+        endpoint,
+        request_mapping=test_request.request_mapping,
+        response_mapping=test_request.response_mapping,
+        response_format=(
+            test_request.response_format.value if test_request.response_format else None
+        ),
+    )
+
+
 @router.post("/{endpoint_id}/test")
 async def test_endpoint_mapping(
     endpoint_id: uuid.UUID,
     test_request: EndpointMappingTestRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     endpoint_service: EndpointService = Depends(get_endpoint_service),
 ):
@@ -274,25 +310,21 @@ async def test_endpoint_mapping(
     Fetches the endpoint from the database (including its auth token) and invokes it
     with the provided request/response mapping overrides and input data. This lets the
     frontend test unsaved mapping edits without the auth token ever reaching the browser.
+
+    The fetch is the only database work, and it happens in a worker thread before the
+    invocation starts -- the draft copy handed to the service is detached from any
+    session, so nothing below can query from the event loop.
     """
     organization_id, user_id = tenant_context
-    endpoint = endpoint_crud.get_endpoint(
-        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    draft_endpoint = await anyio.to_thread.run_sync(
+        partial(_load_draft_endpoint, db, endpoint_id, organization_id, user_id, test_request)
     )
-    if not endpoint:
-        raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
-
-    response_format = test_request.response_format.value if test_request.response_format else None
 
     return await endpoint_service.test_endpoint_mapping(
-        db=db,
-        endpoint=endpoint,
-        request_mapping=test_request.request_mapping,
-        response_mapping=test_request.response_mapping,
+        draft_endpoint=draft_endpoint,
         input_data=test_request.input_data,
         organization_id=str(organization_id),
         user_id=str(user_id),
-        response_format=response_format,
     )
 
 
@@ -353,7 +385,7 @@ def update_endpoint(
 async def invoke_endpoint(
     endpoint_id: uuid.UUID,
     input_data: Dict[str, Any],
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     endpoint_service: EndpointService = Depends(get_endpoint_service),
 ):
@@ -395,7 +427,10 @@ async def invoke_endpoint(
             )
 
         organization_id, user_id = tenant_context
-        result = await endpoint_service.invoke_endpoint(
+        # ``invoke_endpoint_off_loop``, not ``invoke_endpoint``: the endpoint lookup,
+        # the conversation trace lookup and the span write all happen in a worker
+        # thread, so this coroutine never runs a query on the event loop.
+        result = await endpoint_service.invoke_endpoint_off_loop(
             db, str(endpoint_id), input_data, organization_id=organization_id, user_id=str(user_id)
         )
         logger.info(f"API invoke successful for endpoint {endpoint_id}")

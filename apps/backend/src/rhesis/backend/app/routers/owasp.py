@@ -6,7 +6,6 @@ and launching an async LLM-driven generation task that produces a Rhesis test
 set of adversarial prompts for a described system under test.
 """
 
-import asyncio
 import logging
 
 from fastapi import Depends, HTTPException
@@ -42,7 +41,7 @@ router = RhesisRouter(
 
 
 @router.get("/categories", response_model=OwaspCategoriesResponse)
-async def get_categories(
+def get_categories(
     framework: OwaspFramework = OwaspFramework.LLM,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -54,10 +53,10 @@ async def get_categories(
     framework, then serves from cache.
     """
     try:
-        # On a cold cache this downloads/parses a PDF and hits storage/Redis —
-        # run off the event loop thread (mirrors the startup pre-warm in
-        # main.py's lifespan) so it doesn't block other requests.
-        summaries = await asyncio.to_thread(list_category_summaries, framework.value)
+        # On a cold cache this downloads/parses a PDF and hits storage/Redis. The
+        # handler is `def` so FastAPI already runs it in the threadpool, off the
+        # event loop.
+        summaries = list_category_summaries(framework.value)
 
         return OwaspCategoriesResponse(
             framework=framework,
@@ -80,7 +79,7 @@ async def get_categories(
 
 
 @router.post("/generate", response_model=OwaspGenerateResponse, status_code=202)
-async def generate_test_set(
+def generate_test_set(
     request: OwaspGenerateRequest,
     current_user: User = Depends(require_current_user_or_token),
     db: Session = Depends(get_tenant_db_session),

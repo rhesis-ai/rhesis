@@ -15,6 +15,7 @@ import secrets
 from base64 import urlsafe_b64encode
 from typing import List, Optional
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, SecretStr
@@ -31,7 +32,7 @@ from rhesis.backend.app.config.settings import (
     get_frontend_settings,
 )
 from rhesis.backend.app.database import set_session_variables
-from rhesis.backend.app.dependencies import get_db_session
+from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
@@ -173,6 +174,53 @@ def _get_sso_callback_url() -> str:
 
 
 # =============================================================================
+# Off-loop database work
+# =============================================================================
+#
+# Every handler in this module stays ``async def`` -- it awaits the IdP, the
+# authentication half of ``_require_org_admin``, or both. The session it holds
+# is therefore only touched inside these helpers, which run through
+# ``anyio.to_thread.run_sync``. Each one reads what it needs from the ORM and
+# hands back plain values, so nothing after the call can trigger a lazy load
+# back on the event loop.
+
+
+def _resolve_org_and_config_sync(db: Session, org_identifier: str):
+    """Look up the org (404 if absent) and decrypt its SSO config."""
+    org = _get_org_or_404(db, org_identifier)
+    return org, _get_sso_config(org)
+
+
+def _complete_sso_login_sync(db: Session, auth_user, org, sso_config):
+    """Resolve the user and mint the tokens; returns (user_id, session, refresh).
+
+    This route runs on ``get_db_session``, which sets no tenant GUCs: the user's
+    identity is unknown until the IdP responds, so ``get_tenant_db_session``
+    cannot be used. Auto-provisioning below writes RLS-protected tenant tables
+    (organization_member, project_membership) via the org-membership hook, and
+    those policies read ``app.current_organization``. Set the GUCs now that org
+    is resolved -- same contract the other hook callers follow
+    (routers/organization.py, local_init.py). Without this, provisioning a new
+    user fails with 'unrecognized configuration parameter
+    "app.current_organization"'.
+
+    The user id is stringified here because ``db.commit()`` expires the ORM
+    object; reading ``user.id`` after the helper returns would re-SELECT on the
+    event loop.
+    """
+    set_session_variables(db, str(org.id), "")
+
+    user = find_or_create_sso_user(db, auth_user, org, sso_config)
+
+    clear_user_logout(str(user.id))
+    session_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, str(user.id))
+    db.commit()
+
+    return str(user.id), session_token, refresh_tok
+
+
+# =============================================================================
 # SSO Auth Endpoints
 # =============================================================================
 
@@ -184,7 +232,7 @@ async def sso_callback(
     code: str = "",
     state: str = "",
     error: Optional[str] = None,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """Handle OIDC callback after IdP authentication."""
     error_redirect = f"{get_frontend_settings().url}/auth/sso-error?error=login_failed"
@@ -217,11 +265,10 @@ async def sso_callback(
         return RedirectResponse(url=error_redirect, status_code=302)
 
     try:
-        org = _get_org_or_404(db, org_id)
+        org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config_sync, db, org_id)
     except HTTPException:
         return RedirectResponse(url=error_redirect, status_code=302)
 
-    sso_config = _get_sso_config(org)
     if not sso_config or not sso_config.enabled:
         return RedirectResponse(url=error_redirect, status_code=302)
 
@@ -259,19 +306,10 @@ async def sso_callback(
     # violations, missing migrations, etc.) surface as a redirect to
     # the SSO error page with a logged traceback, not a raw 500.
     try:
-        # This route runs on get_db_session, which sets no tenant GUCs: the
-        # user's identity is unknown until the IdP responds, so
-        # get_tenant_db_session cannot be used. Auto-provisioning below writes
-        # RLS-protected tenant tables (organization_member, project_membership)
-        # via the org-membership hook, and those policies read
-        # app.current_organization. Set the GUCs now that org is resolved --
-        # same contract the other hook callers follow (routers/organization.py,
-        # local_init.py). Without this, provisioning a new user fails with
-        # 'unrecognized configuration parameter "app.current_organization"'.
-        set_session_variables(db, str(org.id), "")
-
         try:
-            user = find_or_create_sso_user(db, auth_user, org, sso_config)
+            user_id, session_token, refresh_tok = await anyio.to_thread.run_sync(
+                _complete_sso_login_sync, db, auth_user, org, sso_config
+            )
         except SSOLoginError as e:
             audit_log(
                 SSOAuditEvent.LOGIN_FAILED,
@@ -281,17 +319,11 @@ async def sso_callback(
             )
             return RedirectResponse(url=error_redirect, status_code=302)
 
-        # Create tokens
-        clear_user_logout(str(user.id))
-        session_token = create_session_token(user)
-        refresh_tok = create_refresh_token(db, str(user.id))
-        db.commit()
-
         # Capture redirect context before session rotation discards it
         original_frontend = request.session.get("original_frontend", "")
 
         # Regenerate session (prevents session fixation)
-        regenerate_session(request, {"user_id": str(user.id)})
+        regenerate_session(request, {"user_id": user_id})
         # Restore redirect context for build_redirect_url
         request.session["return_to"] = state_return_to
         if original_frontend:
@@ -327,7 +359,7 @@ async def sso_login(
     request: Request,
     org_id: str,
     return_to: Optional[str] = None,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """Initiate SSO login for an organization."""
     if not check_sso_available():
@@ -336,8 +368,7 @@ async def sso_login(
             detail="SSO is not available",
         )
 
-    org = _get_org_or_404(db, org_id)
-    sso_config = _get_sso_config(org)
+    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config_sync, db, org_id)
 
     if not sso_config or not sso_config.enabled:
         raise HTTPException(
@@ -414,6 +445,30 @@ class SSOTestResponse(BaseModel):
     message: str
 
 
+def _check_org_admin_sync(user, request: Request, org_id: str, db: Session) -> None:
+    """The two authorization checks, in order. Runs in a worker thread.
+
+    Split out of :func:`_require_org_admin` because ``authorize`` hits the
+    database and Redis; on the event loop that would block every other request
+    in the worker process.
+    """
+    from rhesis.backend.app.auth.principal import resolve_principal_from_request
+    from rhesis.backend.app.auth.rbac import authorize
+
+    if str(user.organization_id) != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to manage this organization's SSO",
+        )
+
+    principal = resolve_principal_from_request(user, request)
+    if not authorize(principal, Permission.SSO.MANAGE, project_id=None, db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to manage this organization's SSO",
+        )
+
+
 async def _require_org_admin(request: Request, org_id: str, db: Session):
     """Verify the current user may manage SSO for the specified org.
 
@@ -430,9 +485,12 @@ async def _require_org_admin(request: Request, org_id: str, db: Session):
        even in EE): defense-in-depth alongside the ``@capability(...)``-driven
        authz backstop (``apply_authz_backstop`` in ``main.py``) already wired
        on these routes, kept here so this function is correct standalone.
+
+    Authentication is genuinely async (it awaits the bearer scheme and the
+    session/token resolver, both of which keep their own database work in a
+    worker thread). Both checks above are synchronous database work, so they
+    run in :func:`_check_org_admin_sync` off the loop.
     """
-    from rhesis.backend.app.auth.principal import resolve_principal_from_request
-    from rhesis.backend.app.auth.rbac import authorize
     from rhesis.backend.app.auth.user_utils import (
         bearer_scheme,
         get_authenticated_user_with_context,
@@ -448,39 +506,13 @@ async def _require_org_admin(request: Request, org_id: str, db: Session):
             detail="Authentication required",
         )
 
-    if str(user.organization_id) != org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to manage this organization's SSO",
-        )
-
-    principal = resolve_principal_from_request(user, request)
-    if not authorize(principal, Permission.SSO.MANAGE, project_id=None, db=db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to manage this organization's SSO",
-        )
+    await anyio.to_thread.run_sync(_check_org_admin_sync, user, request, org_id, db)
 
     return user
 
 
-@router.get("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def get_sso_config(
-    request: Request,
-    org_id: str,
-    db: Session = Depends(get_db_session),
-):
-    """Get SSO configuration for an organization (client_secret masked)."""
-    # Authorization side-effect; the returned user isn't used in the response body.
-    await _require_org_admin(request, org_id, db)
-
-    if not check_sso_available():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
-
+def _read_sso_config_sync(db: Session, org_id: str) -> Optional[dict]:
+    """Masked SSO config for the admin UI, or None when the org has none."""
     org = _get_org_or_404(db, org_id)
     sso_config = _get_sso_config(org)
 
@@ -496,55 +528,34 @@ async def get_sso_config(
     return result
 
 
-@router.put("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def update_sso_config(
-    request: Request,
-    org_id: str,
-    body: SSOConfigRequest,
-    db: Session = Depends(get_db_session),
-):
-    """Set or update SSO configuration for an organization."""
-    user = await _require_org_admin(request, org_id, db)
+def _resolve_plaintext_secret(org: Organization, body: SSOConfigRequest) -> str:
+    """The client_secret to validate and store.
 
-    if not check_sso_available():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
+    If the caller omitted or sent an empty client_secret, preserve the
+    existing encrypted secret from the database.
+    """
+    if body.client_secret:
+        return body.client_secret
 
-    # SELECT FOR UPDATE to prevent concurrent writes
-    org = db.query(Organization).filter(Organization.id == org_id).with_for_update().first()
-    if not org:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
-
-    # Determine the client_secret to use for validation and storage.
-    # If the caller omitted or sent empty client_secret, preserve
-    # the existing encrypted secret from the database.
-    new_secret_provided = bool(body.client_secret)
-    if new_secret_provided:
-        plaintext_secret = body.client_secret
-    else:
-        if org.sso_config and org.sso_config.get("client_secret"):
-            existing_config = _get_sso_config(org)
-            if not existing_config:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Existing SSO config is corrupted; please provide client_secret again",
-                )
-            plaintext_secret = existing_config.get_secret_value()
-        else:
+    if org.sso_config and org.sso_config.get("client_secret"):
+        existing_config = _get_sso_config(org)
+        if not existing_config:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="client_secret is required for initial SSO configuration",
+                detail="Existing SSO config is corrupted; please provide client_secret again",
             )
+        return existing_config.get_secret_value()
 
-    # Validate via SSOConfig (triggers all field validators)
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="client_secret is required for initial SSO configuration",
+    )
+
+
+def _validate_sso_config(body: SSOConfigRequest, plaintext_secret: str) -> SSOConfig:
+    """Run every SSOConfig field validator over the submitted values."""
     try:
-        validated = SSOConfig(
+        return SSOConfig(
             enabled=body.enabled,
             provider_type=body.provider_type,
             issuer_url=body.issuer_url,
@@ -562,6 +573,45 @@ async def update_sso_config(
             detail=str(e),
         )
 
+
+def _resolve_slug_update(db: Session, org: Organization, raw_slug: str) -> Optional[str]:
+    """Normalise a requested slug and check it is free. None clears the slug."""
+    slug_val = raw_slug.strip().lower() if raw_slug else None
+    if slug_val == "":
+        slug_val = None
+    if slug_val:
+        if not _SLUG_RE.match(slug_val) or "--" in slug_val:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Slug must be 3-50 characters, lowercase "
+                "alphanumeric and hyphens, no consecutive hyphens",
+            )
+        existing = (
+            db.query(Organization)
+            .filter(Organization.slug == slug_val, Organization.id != org.id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This slug is already taken",
+            )
+    return slug_val
+
+
+def _write_sso_config_sync(db: Session, org_id: str, body: SSOConfigRequest, actor_id: str) -> dict:
+    """The whole locked read-modify-write, in one transaction and one thread."""
+    # SELECT FOR UPDATE to prevent concurrent writes
+    org = db.query(Organization).filter(Organization.id == org_id).with_for_update().first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SSO is not available",
+        )
+
+    plaintext_secret = _resolve_plaintext_secret(org, body)
+    validated = _validate_sso_config(body, plaintext_secret)
+
     # Encrypt client_secret before storage
     encrypted_secret = sso_encrypt(plaintext_secret)
 
@@ -569,27 +619,7 @@ async def update_sso_config(
     config_dict["client_secret"] = encrypted_secret
 
     # Handle slug update
-    if body.slug is not None:
-        slug_val = body.slug.strip().lower() if body.slug else None
-        if slug_val == "":
-            slug_val = None
-        if slug_val:
-            if not _SLUG_RE.match(slug_val) or "--" in slug_val:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Slug must be 3-50 characters, lowercase "
-                    "alphanumeric and hyphens, no consecutive hyphens",
-                )
-            existing = (
-                db.query(Organization)
-                .filter(Organization.slug == slug_val, Organization.id != org.id)
-                .first()
-            )
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="This slug is already taken",
-                )
+    slug_val = _resolve_slug_update(db, org, body.slug) if body.slug is not None else None
 
     is_new = org.sso_config is None
     org.sso_config = config_dict
@@ -602,7 +632,7 @@ async def update_sso_config(
     audit_log(
         event,
         org_id,
-        actor_id=str(user.id),
+        actor_id=actor_id,
         details={"fields_changed": [k for k in config_dict if k != "client_secret"]},
     )
 
@@ -615,20 +645,7 @@ async def update_sso_config(
     return result
 
 
-@router.delete("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def delete_sso_config(
-    request: Request,
-    org_id: str,
-    db: Session = Depends(get_db_session),
-):
-    """Remove SSO configuration for an organization.
-
-    Unlike get/update, delete intentionally works even when SSO encryption
-    is unavailable so that admins can always clean up broken configurations.
-    """
-    user = await _require_org_admin(request, org_id, db)
-
+def _delete_sso_config_sync(db: Session, org_id: str, actor_id: str) -> None:
     org = _get_org_or_404(db, org_id)
     org.sso_config = None
     org.slug = None
@@ -637,8 +654,65 @@ async def delete_sso_config(
     audit_log(
         SSOAuditEvent.CONFIG_DELETED,
         org_id,
-        actor_id=str(user.id),
+        actor_id=actor_id,
     )
+
+
+@router.get("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def get_sso_config(
+    request: Request,
+    org_id: str,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Get SSO configuration for an organization (client_secret masked)."""
+    # Authorization side-effect; the returned user isn't used in the response body.
+    await _require_org_admin(request, org_id, db)
+
+    if not check_sso_available():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SSO is not available",
+        )
+
+    return await anyio.to_thread.run_sync(_read_sso_config_sync, db, org_id)
+
+
+@router.put("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def update_sso_config(
+    request: Request,
+    org_id: str,
+    body: SSOConfigRequest,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Set or update SSO configuration for an organization."""
+    user = await _require_org_admin(request, org_id, db)
+
+    if not check_sso_available():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SSO is not available",
+        )
+
+    return await anyio.to_thread.run_sync(_write_sso_config_sync, db, org_id, body, str(user.id))
+
+
+@router.delete("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def delete_sso_config(
+    request: Request,
+    org_id: str,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Remove SSO configuration for an organization.
+
+    Unlike get/update, delete intentionally works even when SSO encryption
+    is unavailable so that admins can always clean up broken configurations.
+    """
+    user = await _require_org_admin(request, org_id, db)
+
+    await anyio.to_thread.run_sync(_delete_sso_config_sync, db, org_id, str(user.id))
 
     return {"status": "deleted"}
 
@@ -648,7 +722,7 @@ async def delete_sso_config(
 async def test_sso_connection(
     request: Request,
     org_id: str,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """Test OIDC discovery for an org's SSO configuration."""
     # Authorization side-effect; the returned user isn't used in the response body.
@@ -657,8 +731,7 @@ async def test_sso_connection(
     if not check_sso_available():
         return SSOTestResponse(success=False, message="SSO is not available")
 
-    org = _get_org_or_404(db, org_id)
-    sso_config = _get_sso_config(org)
+    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config_sync, db, org_id)
 
     if not sso_config:
         return SSOTestResponse(success=False, message="SSO is not configured")

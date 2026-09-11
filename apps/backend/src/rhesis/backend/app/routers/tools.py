@@ -1,7 +1,9 @@
+import functools
 import logging
 import uuid
-from typing import List, Optional
+from typing import List, NamedTuple, Optional
 
+import anyio
 import httpx
 from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -11,6 +13,8 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import tool as tool_crud
 from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
     get_project_context,
     get_tenant_context,
     get_tenant_db_session,
@@ -447,7 +451,7 @@ def update_tool(
 async def extract_tool_item(
     tool_id: uuid.UUID,
     request: ExtractToolRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -463,16 +467,26 @@ async def extract_tool_item(
     """
     try:
         organization_id, user_id = tenant_context
-        provider = resolve_provider(db, organization_id, tool_id=str(tool_id), user_id=user_id)
+        provider = await anyio.to_thread.run_sync(
+            functools.partial(
+                resolve_provider, db, organization_id, tool_id=str(tool_id), user_id=user_id
+            )
+        )
         identifier = request.url or request.id
         transport = route(provider, ToolAction.EXTRACT)
         if transport is Transport.REST:
-            docs = await get_rest_client(
-                db=db,
-                tool_id=str(tool_id),
-                organization_id=organization_id,
-                user_id=user_id,
-            ).fetch_all(identifier, include_children=request.include_children)
+            rest_client = await anyio.to_thread.run_sync(
+                functools.partial(
+                    get_rest_client,
+                    db=db,
+                    tool_id=str(tool_id),
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+            )
+            docs = await rest_client.fetch_all(
+                identifier, include_children=request.include_children
+            )
         elif transport is Transport.MCP:
             docs = await mcp_extract(
                 tool_id=str(tool_id),
@@ -507,10 +521,88 @@ def _ensure_mcp_saved_credential_override(provider: str) -> None:
         )
 
 
+class _ConnectionTarget(NamedTuple):
+    """What a connection test needs, resolved off the event loop."""
+
+    provider: str
+    tool_id: Optional[str]
+    provider_type_id: Optional[uuid.UUID]
+    credentials: Optional[dict]
+    tool_metadata: Optional[dict]
+
+
+def _apply_saved_tool_override(
+    db: Session,
+    request: TestToolConnectionRequest,
+    organization_id: str,
+    user_id: Optional[str],
+) -> tuple[Optional[uuid.UUID], dict, Optional[dict]]:
+    """Fill a partial credential override from the saved tool.
+
+    Returns ``(provider_type_id, credentials, tool_metadata)``.
+    """
+    existing_tool = tool_crud.get_tool(
+        db=db,
+        tool_id=uuid.UUID(request.tool_id),
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    if not existing_tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+
+    provider = existing_tool.tool_provider_type.type_value
+    _ensure_mcp_saved_credential_override(provider)
+    credentials = resolve_mcp_test_connection_credentials(
+        provider,
+        existing_tool.credentials,
+        request.credentials,
+    )
+    metadata = request.tool_metadata
+    if metadata is None:
+        metadata = existing_tool.tool_metadata
+    return existing_tool.tool_provider_type_id, credentials, metadata
+
+
+def _resolve_connection_target(
+    db: Session,
+    request: TestToolConnectionRequest,
+    organization_id: str,
+    user_id: Optional[str],
+) -> _ConnectionTarget:
+    """Resolve the provider and effective credentials. Runs in a worker thread."""
+    effective_tool_id = request.tool_id
+    effective_provider_type_id = request.provider_type_id
+    effective_credentials = request.credentials
+    effective_metadata = request.tool_metadata
+
+    if request.tool_id and request.credentials is not None:
+        (
+            effective_provider_type_id,
+            effective_credentials,
+            effective_metadata,
+        ) = _apply_saved_tool_override(db, request, organization_id, user_id)
+        effective_tool_id = None
+
+    provider = resolve_provider(
+        db,
+        organization_id,
+        tool_id=effective_tool_id,
+        provider_type_id=effective_provider_type_id,
+        user_id=user_id,
+    )
+    return _ConnectionTarget(
+        provider=provider,
+        tool_id=effective_tool_id,
+        provider_type_id=effective_provider_type_id,
+        credentials=effective_credentials,
+        tool_metadata=effective_metadata,
+    )
+
+
 @router.post("/test-connection", response_model=TestToolConnectionResponse)
 async def test_tool_connection(
     request: TestToolConnectionRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -518,64 +610,34 @@ async def test_tool_connection(
     """Test a tool's credentials via a lightweight connection check."""
     try:
         organization_id, user_id = tenant_context
-        effective_tool_id = request.tool_id
-        effective_provider_type_id = request.provider_type_id
-        effective_credentials = request.credentials
-        effective_metadata = request.tool_metadata
-
-        if request.tool_id and request.credentials is not None:
-            existing_tool = tool_crud.get_tool(
-                db=db,
-                tool_id=uuid.UUID(request.tool_id),
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-            if not existing_tool:
-                raise HTTPException(status_code=404, detail="Tool not found")
-
-            provider = existing_tool.tool_provider_type.type_value
-            _ensure_mcp_saved_credential_override(provider)
-            effective_credentials = resolve_mcp_test_connection_credentials(
-                provider,
-                existing_tool.credentials,
-                request.credentials,
-            )
-            if effective_metadata is None:
-                effective_metadata = existing_tool.tool_metadata
-            effective_provider_type_id = existing_tool.tool_provider_type_id
-            effective_tool_id = None
-
-        provider = resolve_provider(
-            db,
-            organization_id,
-            tool_id=effective_tool_id,
-            provider_type_id=effective_provider_type_id,
-            user_id=user_id,
+        target = await anyio.to_thread.run_sync(
+            functools.partial(_resolve_connection_target, db, request, organization_id, user_id)
         )
-        transport = route(provider, ToolAction.TEST_CONNECTION)
+        transport = route(target.provider, ToolAction.TEST_CONNECTION)
         if transport is Transport.REST:
             return await run_rest_health_check(
                 db=db,
                 organization_id=organization_id,
-                tool_id=effective_tool_id,
-                provider_type_id=effective_provider_type_id,
-                credentials=effective_credentials,
+                tool_id=target.tool_id,
+                provider_type_id=target.provider_type_id,
+                credentials=target.credentials,
                 user_id=user_id,
-                tool_metadata=effective_metadata,
+                tool_metadata=target.tool_metadata,
             )
         elif transport is Transport.MCP:
-            if provider == "azure_devops" and effective_credentials is not None:
-                effective_credentials = prepare_azure_devops_credentials(effective_credentials)
+            credentials = target.credentials
+            if target.provider == "azure_devops" and credentials is not None:
+                credentials = prepare_azure_devops_credentials(credentials)
             _validate_mcp_test_connection_request(
-                provider, effective_credentials, effective_metadata
+                target.provider, credentials, target.tool_metadata
             )
             return await mcp_health_check(
                 organization_id=organization_id,
                 user_id=user_id,
-                tool_id=effective_tool_id,
-                provider_type_id=effective_provider_type_id,
-                credentials=effective_credentials,
-                tool_metadata=effective_metadata,
+                tool_id=target.tool_id,
+                provider_type_id=target.provider_type_id,
+                credentials=credentials,
+                tool_metadata=target.tool_metadata,
                 project_id=project_id,
             )
     except (ToolConfigurationError, ValueError) as e:
@@ -600,7 +662,7 @@ async def test_tool_connection(
 @router.post("/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
 async def create_jira_ticket_from_task_endpoint(
     request: CreateJiraTicketFromTaskRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -615,7 +677,11 @@ async def create_jira_ticket_from_task_endpoint(
     """
     try:
         organization_id, user_id = tenant_context
-        provider = resolve_provider(db, organization_id, tool_id=request.tool_id, user_id=user_id)
+        provider = await anyio.to_thread.run_sync(
+            functools.partial(
+                resolve_provider, db, organization_id, tool_id=request.tool_id, user_id=user_id
+            )
+        )
         # Validate the provider supports ticket creation (raises if not).
         route(provider, ToolAction.CREATE_TICKET)
         return await create_jira_ticket_from_task(
