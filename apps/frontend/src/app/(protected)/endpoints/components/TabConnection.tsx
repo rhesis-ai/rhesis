@@ -88,25 +88,6 @@ export default function TabConnection({
           />
         </Box>
 
-        <FormSectionDivider
-          headline="Timeout"
-          descriptiveText="How long to wait for a response before timing out."
-        />
-
-        <Box sx={{ mt: 2 }}>
-          <TextField
-            fullWidth
-            label="Timeout (seconds)"
-            type="number"
-            value={formData.timeout_seconds}
-            onChange={e => onChange('timeout_seconds', e.target.value)}
-            placeholder="30"
-            helperText="Leave empty for the system default (30s for REST, 120s for SDK endpoints)"
-            slotProps={{
-              input: { inputProps: { min: 1 } },
-            }}
-          />
-        </Box>
       </SectionCard>
     </Box>
   );
