@@ -11,7 +11,6 @@ from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.dependencies import (
@@ -22,6 +21,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource, TraceSummary
 from rhesis.backend.app.services import test_run as services_test_run
+from rhesis.backend.app.services.telemetry.token_totals import trace_summary_totals
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
     rescore_test_run,
@@ -550,13 +550,13 @@ def get_test_run_traces(
     for row in rows:
         trace = row.trace
         has_errors = trace.status_code == "ERROR"
-        total_tokens = trace.total_tokens or 0
-        total_cost_usd = 0.0
-        total_cost_eur = 0.0
-        costs = (trace.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-        if costs:
-            total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
-            total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
+        (
+            total_input_tokens,
+            total_output_tokens,
+            total_tokens,
+            total_cost_usd,
+            total_cost_eur,
+        ) = trace_summary_totals(trace.enriched_data, row.llm_tokens)
 
         conversation_input = None
         if isinstance(trace.attributes, dict):
@@ -576,6 +576,8 @@ def get_test_run_traces(
             status_code=trace.status_code,
             has_errors=has_errors,
             total_tokens=total_tokens if total_tokens > 0 else None,
+            total_input_tokens=total_input_tokens if total_input_tokens > 0 else None,
+            total_output_tokens=total_output_tokens if total_output_tokens > 0 else None,
             total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
             total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
             test_run_id=str(trace.test_run_id) if trace.test_run_id else None,

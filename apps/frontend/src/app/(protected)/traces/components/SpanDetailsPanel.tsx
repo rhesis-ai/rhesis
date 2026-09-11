@@ -31,6 +31,11 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
+import {
+  formatCost,
+  formatTokenCount,
+  subtreeUsage,
+} from '@/utils/trace-utils';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
@@ -316,12 +321,17 @@ export default function SpanDetailsPanel({
     ? parseIfJSON(String(agentOutput))
     : null;
 
-  // Filter out agent I/O from LLM attributes (displayed separately)
+  // Filter out agent I/O and token counts from LLM attributes (displayed separately)
   const {
     'ai.agent.input': _____,
     'ai.agent.output': ______,
+    'ai.llm.tokens.input': _______,
+    'ai.llm.tokens.output': ________,
+    'ai.llm.tokens.total': _________,
     ...otherLlmAttributes
   } = llmAttributes;
+
+  const usage = subtreeUsage(span);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -437,6 +447,42 @@ export default function SpanDetailsPanel({
                       )}
                     </Box>
                   </Box>
+
+                  {/* Usage. Rolled up over the subtree, because only the
+                      ai.llm.invoke leaves carry token attributes and a container
+                      span would otherwise show nothing. */}
+                  {usage && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Usage
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        display="block"
+                        sx={{ mt: 0.5 }}
+                      >
+                        Tokens: {formatTokenCount(usage.total)}
+                        {(usage.input > 0 || usage.output > 0) &&
+                          ` (${formatTokenCount(usage.input)} input \u00b7 ${formatTokenCount(usage.output)} output)`}
+                      </Typography>
+                      {usage.costUsd !== null && (
+                        <Typography variant="caption" display="block">
+                          Cost: {formatCost(usage.costUsd)}
+                        </Typography>
+                      )}
+                      {usage.llmSpanCount > 0 && (
+                        <Typography variant="caption" display="block">
+                          Rolled up from {usage.llmSpanCount} LLM{' '}
+                          {usage.llmSpanCount === 1 ? 'span' : 'spans'}
+                        </Typography>
+                      )}
+                      {span.model_name && (
+                        <Typography variant="caption" display="block">
+                          Model: {span.model_name}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
                 </Stack>
               </CardContent>
             </Card>
