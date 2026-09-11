@@ -51,8 +51,12 @@ from rhesis.telemetry.attributes import AIAttributes, validate_span_name  # noqa
 from rhesis.telemetry.constants import ConversationContext  # noqa: E402
 from rhesis.telemetry.context import (  # noqa: E402
     is_llm_observation_active,
+    set_conversation_id,
+    set_conversation_trace_id,
     set_llm_observation_active,
+    set_root_trace_id,
 )
+from rhesis.telemetry.conversation import conversation_turn  # noqa: E402
 
 from rhesis.sdk.telemetry.integrations.agent_framework import (  # noqa: E402
     MAFIntegration,
@@ -287,6 +291,15 @@ def reset_llm_observation_flag():
     """Always exit a test with the LLM-observation flag cleared."""
     yield
     set_llm_observation_active(False)
+
+
+@pytest.fixture(autouse=True)
+def reset_conversation_context():
+    """Keep the conversation contextvars from leaking between tests."""
+    yield
+    set_conversation_id(None)
+    set_conversation_trace_id(None)
+    set_root_trace_id(None)
 
 
 def _drain_spans(provider: TracerProvider, exporter: InMemorySpanExporter):
@@ -1614,6 +1627,297 @@ def test_conversation_content_registry_truncates_io_at_record_time():
     conv_input, conv_output = reg.get(42)
     assert conv_input is not None and len(conv_input) == ConversationContext.MAX_IO_LENGTH
     assert conv_output is not None and len(conv_output) == ConversationContext.MAX_IO_LENGTH
+
+
+# ---------------------------------------------------------------------------
+# Conversation trace join: every turn of a conversation in one trace
+# ---------------------------------------------------------------------------
+
+
+async def _run_turns(count: int, *, conversation_id: str | None) -> None:
+    """Run ``count`` independent agent turns, optionally under one conversation."""
+    if conversation_id is not None:
+        set_conversation_id(conversation_id)
+    for index in range(count):
+        client = DeterministicChatClient([_text_response(f"Answer {index}.")])
+        agent = Agent(client=client, instructions="Answer.", name="joiner")
+        await agent.run(f"Question {index}?")
+
+
+def _trace_ids(spans) -> set[int]:
+    return {s.context.trace_id for s in spans}
+
+
+@pytest.fixture
+def drained_exporter(session_provider, captured_spans) -> InMemorySpanExporter:
+    """The in-memory exporter, guaranteed empty before the test runs.
+
+    ``captured_spans`` clears on teardown, but a test that never drains leaves
+    its spans buffered in the ``BatchSpanProcessor``, and they arrive in the next
+    test's flush. These tests count trace ids, so a stray turn from an earlier
+    test reads as a turn that failed to join.
+    """
+    provider, _captured, _bsp = session_provider
+    provider.force_flush()
+    captured_spans.clear()
+    return captured_spans
+
+
+@pytest.mark.asyncio
+async def test_turns_of_one_conversation_share_one_trace(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """MAF opens its own root span per turn, so OTEL mints a fresh trace id each
+    time. Left alone, a ten-turn chat arrives as ten unrelated traces even though
+    every turn carries the same conversation id."""
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    await _run_turns(3, conversation_id="conv-join")
+
+    spans = _drain_spans(provider, drained_exporter)
+    assert len(_trace_ids(spans)) == 1
+    # One turn root per turn, all on that single trace, each carrying the id the
+    # exporter propagates to every other span sharing the trace.
+    sa = ConversationContext.SpanAttributes
+    stamped = [s for s in spans if (s.attributes or {}).get(sa.IS_TURN_ROOT)]
+    assert len(stamped) == 3
+    assert all(s.parent is None for s in stamped)
+    assert {s.attributes[sa.CONVERSATION_ID] for s in stamped} == {"conv-join"}
+
+
+@pytest.mark.asyncio
+async def test_the_first_turn_keeps_its_own_trace_id(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """The anchor is turn 1's real id, so turn 1 is never moved.
+
+    Anything that observed a trace id for the first turn -- an endpoint result, a
+    backend turn record, a link in the viewer -- still resolves.
+    """
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    await _run_turns(1, conversation_id="conv-anchor")
+    first = _trace_ids(_drain_spans(provider, drained_exporter))
+    assert len(first) == 1
+    drained_exporter.clear()
+
+    await _run_turns(2, conversation_id="conv-anchor")
+    assert _trace_ids(_drain_spans(provider, drained_exporter)) == first
+
+
+@pytest.mark.asyncio
+async def test_two_conversations_do_not_collide(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    await _run_turns(1, conversation_id="conv-a")
+    first = _trace_ids(_drain_spans(provider, drained_exporter))
+    drained_exporter.clear()
+    await _run_turns(1, conversation_id="conv-b")
+    second = _trace_ids(_drain_spans(provider, drained_exporter))
+
+    assert len(first) == len(second) == 1
+    assert first != second
+
+
+@pytest.mark.asyncio
+async def test_without_a_conversation_id_each_turn_keeps_its_own_trace(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """The documented limit of the join: the target trace has to be known when
+    the run root is created, and only the Rhesis contextvar is readable then."""
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    await _run_turns(2, conversation_id=None)
+
+    assert len(_trace_ids(_drain_spans(provider, drained_exporter))) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_platform_owned_conversation_is_left_alone(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """``conversation_trace_id`` means the platform minted the trace itself.
+
+    It is writing its own turn records -- the mapped input and the reply -- to
+    that trace and joining the turns by its id. Moving spans anywhere would
+    separate the agent's spans from the reply.
+    """
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    set_conversation_trace_id("ab" * 16)
+    await _run_turns(2, conversation_id="conv-platform")
+
+    spans = _drain_spans(provider, drained_exporter)
+    # Untouched: whatever OTEL assigned each turn, not an id of our choosing.
+    assert int("ab" * 16, 16) not in _trace_ids(spans)
+    assert len(_trace_ids(spans)) == 2
+
+
+@pytest.mark.asyncio
+async def test_an_enclosing_rhesis_span_keeps_ownership_of_the_trace_id(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """The served path: never move spans off the trace id the platform published.
+
+    With an ``@endpoint``/``@observe`` span above the run, ``root_trace_id`` is
+    the id the platform hands onwards -- the endpoint result, the next turn's
+    conversation trace, the link the viewer opens. Rewriting under it strands all
+    of those on a trace id with no spans.
+    """
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    set_conversation_id("conv-served")
+    tracer = provider.get_tracer("rhesis.sdk")
+    with tracer.start_as_current_span("function.chat_endpoint") as endpoint_span:
+        published = endpoint_span.get_span_context().trace_id
+        set_root_trace_id(format(published, "032x"))
+        await _run_turns(2, conversation_id=None)
+
+    assert _trace_ids(_drain_spans(provider, drained_exporter)) == {published}
+
+
+@pytest.mark.asyncio
+async def test_a_conversation_turn_above_the_run_owns_the_turn(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """An app that owns its turn boundary must own it alone.
+
+    ``conversation_turn`` exists for apps whose reply is not the model's last
+    message. When one is open the MAF root must not claim turn-root too, and the
+    rewrite must move nothing: that span already published the trace id.
+    """
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    with conversation_turn("conv-owned", input="Question?") as turn:
+        await _run_turns(1, conversation_id=None)
+        published = turn.trace_id
+        turn.output = "a reply the model never produced"
+
+    spans = _drain_spans(provider, drained_exporter)
+    stamped = [
+        s
+        for s in spans
+        if (s.attributes or {}).get(ConversationContext.SpanAttributes.IS_TURN_ROOT)
+    ]
+    assert [s.name for s in stamped] == ["function.conversation_turn"]
+    assert {format(t, "032x") for t in _trace_ids(spans)} == {published}
+
+
+@pytest.mark.asyncio
+async def test_child_parents_are_rebound_to_the_new_trace(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """A parent link still pointing at the abandoned trace is an inconsistency
+    the next reader has to work out."""
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    await _run_turns(2, conversation_id="conv-parents")
+
+    for span in _drain_spans(provider, drained_exporter):
+        if span.parent is not None:
+            assert span.parent.trace_id == span.context.trace_id
+
+
+@pytest.mark.asyncio
+async def test_translation_survives_the_join(
+    drained_exporter, integration, reset_observability_settings, session_provider
+):
+    """Regression guard: the retrace wrapper must not shadow the translation.
+
+    ``ReadableSpan`` serves ``name`` / ``attributes`` from private slots, so a
+    wrapper forwarding by ``__getattr__`` alone resolves them on the innermost
+    span and silently ships the raw MAF values.
+    """
+    enable_instrumentation()
+    provider, _captured, _bsp = session_provider
+
+    await _run_turns(2, conversation_id="conv-intact")
+
+    spans = _drain_spans(provider, drained_exporter)
+    names = [s.name for s in spans]
+    assert "ai.llm.invoke" in names
+    # ``AIOperationType`` subclasses ``str``, so this reads the value, not the repr.
+    assert not any(name.startswith(("chat ", "invoke_agent ")) for name in names)
+    llm = next(s for s in spans if s.name == "ai.llm.invoke")
+    assert llm.attributes[AIAttributes.LLM_TOKENS_TOTAL] == 18
+
+
+def test_exporter_stamps_turn_root_on_root_agent_span():
+    """A plain ``agent.run()`` emits no ``workflow.run``, so its ``invoke_agent``
+    span is the trace root and the only span that can carry the turn."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xA6E27
+    tr_mod._conversation_content.record_chat(
+        trace_id, input_text="Question?", output_text="Answer."
+    )
+    tr_mod._conversation_content.record_session(trace_id, "sess-agent")
+    root = _FakeChatSpan(
+        span_id=810, trace_id=trace_id, parent_id=None, name="invoke_agent researcher"
+    )
+
+    captured_inner = InMemorySpanExporter()
+    tr_mod.MAFTranslatingExporter(captured_inner).export([root])
+
+    out = captured_inner.get_finished_spans()
+    attrs = dict(out[0].attributes or {})
+    sa = ConversationContext.SpanAttributes
+    assert out[0].name == "ai.agent.invoke"
+    assert attrs.get(sa.IS_TURN_ROOT) is True
+    assert attrs.get(sa.CONVERSATION_ID) == "sess-agent"
+    assert attrs.get(sa.CONVERSATION_INPUT) == "Question?"
+    assert attrs.get(sa.CONVERSATION_OUTPUT) == "Answer."
+
+
+def test_exporter_skips_turn_root_on_nested_agent_span():
+    """Inside a workflow, or under an ``@endpoint`` span, an agent span is not
+    the trace root and that enclosing span owns turn-root semantics."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xA6E28
+    tr_mod._conversation_content.record_session(trace_id, "sess-nested-agent")
+    nested = _FakeChatSpan(
+        span_id=811, trace_id=trace_id, parent_id=800, name="invoke_agent researcher"
+    )
+
+    captured_inner = InMemorySpanExporter()
+    tr_mod.MAFTranslatingExporter(captured_inner).export([nested])
+
+    attrs = dict(captured_inner.get_finished_spans()[0].attributes or {})
+    assert ConversationContext.SpanAttributes.IS_TURN_ROOT not in attrs
+
+
+def test_a_nested_agent_span_leaves_the_content_for_the_root():
+    """Every agent in a workflow is a nested agent span. If one consumed the
+    per-trace content, the ``workflow.run`` root would export with none of it."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xA6E29
+    tr_mod._conversation_content.record_session(trace_id, "sess-order")
+    nested = _FakeChatSpan(
+        span_id=812, trace_id=trace_id, parent_id=801, name="invoke_agent researcher"
+    )
+    root = _FakeChatSpan(span_id=801, trace_id=trace_id, parent_id=None, name="workflow.run")
+
+    captured_inner = InMemorySpanExporter()
+    # Nested first, which is the order they end in.
+    tr_mod.MAFTranslatingExporter(captured_inner).export([nested, root])
+
+    workflow = next(
+        s for s in captured_inner.get_finished_spans() if s.name == "function.workflow.run"
+    )
+    sa = ConversationContext.SpanAttributes
+    assert workflow.attributes.get(sa.CONVERSATION_ID) == "sess-order"
 
 
 # ---------------------------------------------------------------------------
