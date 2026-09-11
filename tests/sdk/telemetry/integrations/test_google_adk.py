@@ -1196,8 +1196,7 @@ class TestConversationContentRegistry:
         that reaches the trace root first.
 
         The raw processor is attached *after* ``enable()`` so it stays unwrapped
-        and hands back ADK's own spans to replay. OTEL cannot remove a span
-        processor, so it stays for the session; nothing else reads its exporter.
+        and hands back ADK's own spans to replay.
         """
         raw = InMemorySpanExporter()
         otel_trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(raw))
@@ -1207,6 +1206,12 @@ class TestConversationContentRegistry:
         await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
 
         adk_spans = raw.get_finished_spans()
+        # OTEL cannot remove a span processor, so this one keeps receiving every
+        # span for the rest of the session. Shutting the exporter down makes its
+        # export a no-op, so it stops accumulating spans nothing will read. The
+        # processor itself stays, and later ``enable()`` calls still wrap it --
+        # which is exactly the multiple-exporter setup this test is about.
+        raw.shutdown()
         assert adk_spans, "expected the raw processor to capture ADK's own spans"
 
         sa = ConversationContext.SpanAttributes
