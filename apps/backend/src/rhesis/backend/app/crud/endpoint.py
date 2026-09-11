@@ -66,15 +66,16 @@ def get_endpoints(
     )
 
 
-def _merge_timeout_into_metadata(
+def _set_metadata_timeout(
     db_endpoint: models.Endpoint,
     timeout_seconds: Optional[int],
 ) -> None:
-    """Merge timeout_seconds into endpoint_metadata without overwriting other keys."""
-    if timeout_seconds is None:
-        return
+    """Set or clear timeout_seconds in endpoint_metadata."""
     meta = dict(db_endpoint.endpoint_metadata or {})
-    meta["timeout_seconds"] = timeout_seconds
+    if timeout_seconds is not None:
+        meta["timeout_seconds"] = timeout_seconds
+    else:
+        meta.pop("timeout_seconds", None)
     db_endpoint.endpoint_metadata = meta
 
 
@@ -85,7 +86,7 @@ def create_endpoint(
     timeout_seconds = endpoint.timeout_seconds
     db_endpoint = create_item(db, models.Endpoint, endpoint, organization_id, user_id)
     if timeout_seconds is not None:
-        _merge_timeout_into_metadata(db_endpoint, timeout_seconds)
+        _set_metadata_timeout(db_endpoint, timeout_seconds)
         db.flush()
         db.refresh(db_endpoint)
     return db_endpoint
@@ -99,10 +100,10 @@ def update_endpoint(
     user_id: str,
 ) -> Optional[models.Endpoint]:
     """Update endpoint."""
-    timeout_seconds = endpoint.timeout_seconds
+    timeout_was_set = "timeout_seconds" in endpoint.model_fields_set
     db_endpoint = update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
-    if db_endpoint is not None and timeout_seconds is not None:
-        _merge_timeout_into_metadata(db_endpoint, timeout_seconds)
+    if db_endpoint is not None and timeout_was_set:
+        _set_metadata_timeout(db_endpoint, endpoint.timeout_seconds)
         db.flush()
         db.refresh(db_endpoint)
     return db_endpoint

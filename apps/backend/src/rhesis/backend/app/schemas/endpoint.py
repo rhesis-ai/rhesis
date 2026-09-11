@@ -281,21 +281,21 @@ class Endpoint(Base, ServerIdentity):
     @model_validator(mode="before")
     @classmethod
     def _extract_timeout_from_metadata(cls, data):
-        """Pull timeout_seconds out of endpoint_metadata when the ORM model is serialised."""
-        if isinstance(data, dict):
-            meta = data.get("endpoint_metadata")
-        else:
-            meta = getattr(data, "endpoint_metadata", None)
+        """Pull timeout_seconds out of endpoint_metadata for dict inputs.
+
+        ORM objects expose timeout_seconds via a @property, so Pydantic's
+        from_attributes picks it up during field validation — no mutation needed.
+        """
+        if not isinstance(data, dict):
+            return data
+        meta = data.get("endpoint_metadata")
         timeout = None
         if isinstance(meta, dict) and "timeout_seconds" in meta:
             timeout = meta["timeout_seconds"]
         elif isinstance(meta, EndpointMetadata) and meta.timeout_seconds is not None:
             timeout = meta.timeout_seconds
         if timeout is not None:
-            if isinstance(data, dict):
-                data.setdefault("timeout_seconds", timeout)
-            elif not getattr(data, "timeout_seconds", None):
-                data.timeout_seconds = timeout
+            data.setdefault("timeout_seconds", timeout)
         return data
 
 
