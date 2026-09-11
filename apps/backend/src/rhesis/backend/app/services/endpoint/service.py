@@ -28,6 +28,7 @@ from .files import (
     enrich_files_with_extraction,
     inject_file_content_into_input,
 )
+from .off_loop import invoke_endpoint_off_loop as _invoke_endpoint_off_loop
 from .testing import test_endpoint as _test_endpoint
 from .testing import test_endpoint_mapping as _test_endpoint_mapping
 
@@ -431,17 +432,16 @@ class EndpointService:
 
     async def test_endpoint(
         self,
-        db: Session,
         test_config: EndpointTestRequest,
         organization_id: str | None = None,
         user_id: str | None = None,
     ) -> Dict[str, Any]:
         """Test a transient endpoint configuration without persisting it.
 
+        Takes no session: see the module docstring of ``testing.py``.
         Delegates to ``testing.test_endpoint``.
         """
         return await _test_endpoint(
-            db=db,
             test_config=test_config,
             organization_id=organization_id,
             user_id=user_id,
@@ -449,25 +449,46 @@ class EndpointService:
 
     async def test_endpoint_mapping(
         self,
-        db: Session,
-        endpoint: Endpoint,
-        request_mapping: Dict[str, Any],
-        response_mapping: Dict[str, Any],
+        draft_endpoint: Endpoint,
         input_data: Dict[str, Any],
         organization_id: str | None = None,
         user_id: str | None = None,
-        response_format: str | None = None,
     ) -> Dict[str, Any]:
-        """Test draft mappings against a stored endpoint using its stored credentials."""
+        """Test draft mappings against a stored endpoint using its stored credentials.
+
+        ``draft_endpoint`` is built by ``testing.build_mapping_test_endpoint``,
+        which the caller runs off the event loop because it reads the stored
+        endpoint's columns.
+        """
         return await _test_endpoint_mapping(
-            db=db,
-            endpoint=endpoint,
-            request_mapping=request_mapping,
-            response_mapping=response_mapping,
+            draft_endpoint=draft_endpoint,
             input_data=input_data,
             organization_id=organization_id,
             user_id=user_id,
-            response_format=response_format,
+        )
+
+    async def invoke_endpoint_off_loop(
+        self,
+        db: Session,
+        endpoint_id: str,
+        input_data: Dict[str, Any],
+        organization_id: str | None = None,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> Any:
+        """``invoke_endpoint`` for an ``async def`` caller holding a live session.
+
+        Same result, with every database segment in a worker thread.
+        Delegates to ``off_loop.invoke_endpoint_off_loop``.
+        """
+        return await _invoke_endpoint_off_loop(
+            self,
+            db,
+            endpoint_id,
+            input_data,
+            organization_id=organization_id,
+            user_id=user_id,
+            project_id=project_id,
         )
 
     async def sync_sdk_endpoints(
