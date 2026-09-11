@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Alert, Box, Typography } from '@mui/material';
+import { Alert, Box, Paper, Typography } from '@mui/material';
+import { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import TracesTable from './TracesTable';
 import TraceDrawer from './TraceDrawer';
 import TraceMetricsSummary from './TraceMetricsSummary';
@@ -206,8 +207,7 @@ export default function TracesClient({
     drawerFilters.traceMetricsStatus ||
     drawerFilters.testRunId ||
     drawerFilters.testResultId ||
-    drawerFilters.testId ||
-    fixedTestRunId
+    drawerFilters.testId
   );
   const rollupTimeParams = useMemo(
     () => buildTraceQueryParams(drawerFilters, '', 'all'),
@@ -216,53 +216,60 @@ export default function TracesClient({
 
   return (
     <>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
+      {/* Project totals sit above the grid card, not inside it. Skipped on a test
+          run's Traces tab: the metrics endpoint cannot filter by test run, so the
+          tiles there would count the whole project next to a dozen listed rows. */}
+      {!fixedTestRunId && (
+        <TraceMetricsSummary
+          projectId={rollupProjectId}
+          environment={drawerFilters.environment ?? undefined}
+          startTimeAfter={rollupTimeParams.start_time_after}
+          startTimeBefore={rollupTimeParams.start_time_before}
+          hasUnsupportedFilters={hasUnsupportedRollupFilters}
+          refreshTrigger={refreshTrigger}
+        />
       )}
 
-      <TraceMetricsSummary
-        projectId={rollupProjectId}
-        environment={drawerFilters.environment ?? undefined}
-        startTimeAfter={rollupTimeParams.start_time_after}
-        startTimeBefore={rollupTimeParams.start_time_before}
-        hasUnsupportedFilters={hasUnsupportedRollupFilters}
-        refreshTrigger={refreshTrigger}
-      />
+      <Paper sx={GRID_PAPER_SX}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+            {error}
+          </Alert>
+        )}
 
-      <TracesTable
-        traces={traces}
-        loading={listLoading}
-        onRowClick={handleRowClick}
-        totalCount={totalCount}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={onPageChange}
-        onPageSizeChange={onRowsPerPageChange}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
-        drawerFilters={drawerFilters}
-        onApplyDrawerFilters={handleApplyDrawerFilters}
-        filterDrawerOpen={filterDrawerOpen}
-        onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
-        onFilterDrawerClose={() => setFilterDrawerOpen(false)}
-        fixedTestRunId={fixedTestRunId}
-      />
+        <TracesTable
+          traces={traces}
+          loading={listLoading}
+          onRowClick={handleRowClick}
+          totalCount={totalCount}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onRowsPerPageChange}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          drawerFilters={drawerFilters}
+          onApplyDrawerFilters={handleApplyDrawerFilters}
+          filterDrawerOpen={filterDrawerOpen}
+          onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
+          onFilterDrawerClose={() => setFilterDrawerOpen(false)}
+          fixedTestRunId={fixedTestRunId}
+        />
 
-      {showFilteredEmpty && (
-        <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom>
-            No traces found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Try adjusting your filters or check back after running tests or
-            invoking endpoints.
-          </Typography>
-        </Box>
-      )}
+        {showFilteredEmpty && (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <Typography variant="h6" gutterBottom>
+              No traces found
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Try adjusting your filters or check back after running tests or
+              invoking endpoints.
+            </Typography>
+          </Box>
+        )}
+      </Paper>
 
       <TraceDrawer
         open={drawerOpen}
