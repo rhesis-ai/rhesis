@@ -102,9 +102,19 @@ def update_endpoint(
     """Update endpoint."""
     fields_set = getattr(endpoint, "model_fields_set", set())
     timeout_was_set = "timeout_seconds" in fields_set
-    db_endpoint = update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
+    timeout_seconds = getattr(endpoint, "timeout_seconds", None)
+
+    # Strip timeout_seconds before update_item: the ORM exposes it as a
+    # read-only @property, so setattr would raise AttributeError.
+    if hasattr(endpoint, "model_dump"):
+        endpoint_data = endpoint.model_dump(exclude={"timeout_seconds"}, exclude_unset=True)
+    else:
+        endpoint_data = {k: v for k, v in endpoint.items() if k != "timeout_seconds"}
+
+    db_endpoint = update_item(
+        db, models.Endpoint, endpoint_id, endpoint_data, organization_id, user_id
+    )
     if db_endpoint is not None and timeout_was_set:
-        timeout_seconds = getattr(endpoint, "timeout_seconds", None)
         _set_metadata_timeout(db_endpoint, timeout_seconds)
         db.flush()
         db.refresh(db_endpoint)

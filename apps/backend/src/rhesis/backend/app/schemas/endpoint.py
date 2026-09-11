@@ -21,6 +21,13 @@ from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
 from rhesis.backend.app.schemas.user import UserReference
 
+
+def _check_timeout_seconds(v: int | None) -> int | None:
+    if v is not None and (v < 1 or v > 3600):
+        raise ValueError("timeout_seconds must be between 1 and 3600")
+    return v
+
+
 # --- Endpoint metadata sub-models ---
 # Each allows extra keys for forward-compatibility and strips None on serialization
 # so the JSON column stays clean.
@@ -80,9 +87,7 @@ class EndpointMetadata(_MetadataBase):
     @field_validator("timeout_seconds")
     @classmethod
     def _validate_timeout_seconds(cls, v: int | None) -> int | None:
-        if v is not None and (v < 1 or v > 3600):
-            raise ValueError("timeout_seconds must be between 1 and 3600")
-        return v
+        return _check_timeout_seconds(v)
 
 
 # --- Endpoint schemas ---
@@ -124,15 +129,12 @@ class EndpointBase(Base):
     # Tracing control
     disable_tracing: bool = False
 
-    # Convenience alias — also validated inside EndpointMetadata.
     timeout_seconds: Optional[int] = None
 
     @field_validator("timeout_seconds")
     @classmethod
     def _validate_timeout_seconds(cls, v: int | None) -> int | None:
-        if v is not None and (v < 1 or v > 3600):
-            raise ValueError("timeout_seconds must be between 1 and 3600")
-        return v
+        return _check_timeout_seconds(v)
 
     auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
