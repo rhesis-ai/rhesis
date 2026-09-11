@@ -1,9 +1,12 @@
 import logging
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional, Tuple
+from uuid import UUID
 
 from celery import Task
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import (
@@ -14,6 +17,14 @@ from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.jobs.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
 logger = logging.getLogger(__name__)
+
+# Minimum gap between two progress writes for one task run. A batch of 4,000
+# tests would otherwise produce 4,000 job-row updates, each on its own session.
+PROGRESS_WRITE_INTERVAL_S = 1.0
+
+# Marks "not looked up yet" on the request, as distinct from a lookup that
+# found no row (None), so a miss is not retried on every emit.
+_UNRESOLVED = object()
 
 # Task database sessions automatically set PostgreSQL session variables for RLS
 # Use self.get_db_session() for tenant-aware database operations
@@ -369,9 +380,51 @@ class BaseJob(Task):
         # Do a soft validation (warning only)
         self.validate_params(args, kwargs)
 
+        # Once per run, so every event below carries it and no sink has to
+        # look the row up from celery_task_id (see events/types.py).
+        self._resolve_job_id()
         self._advance_job_row("running")
 
         return super().before_start(task_id, args, kwargs)
+
+    def _resolve_job_id(self) -> Optional[UUID]:
+        """This run's ``job`` row id, cached on the request after the first call.
+
+        From the ``job_id`` header ``launch_job`` sets; failing that, one
+        indexed lookup by celery_task_id (a message queued before the header
+        existed, or dispatched around ``launch_job``). Never raises.
+        """
+        request = getattr(self, "request", None)
+        if request is None:
+            return None
+        cached = getattr(request, "job_id", _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached
+
+        job_id: Optional[UUID] = None
+        try:
+            headers = getattr(request, "headers", None) or {}
+            raw = headers.get("job_id") if hasattr(headers, "get") else None
+            if raw:
+                job_id = UUID(str(raw))
+            else:
+                job_id = self._lookup_job_id()
+        except Exception as exc:
+            logger.warning(f"Could not resolve job id: {exc}", exc_info=True)
+        request.job_id = job_id
+        return job_id
+
+    def _lookup_job_id(self) -> Optional[UUID]:
+        from rhesis.backend.jobs import tracking
+
+        celery_task_id = getattr(self.request, "id", None)
+        org_id, user_id, project_id = self.get_tenant_context()
+        # An untracked type, or an unregistered task with no name, has no row
+        # to find; skip the round trip rather than pay for a guaranteed miss.
+        task_name = getattr(self, "name", None)
+        if not celery_task_id or not org_id or not task_name or not tracking.is_tracked(task_name):
+            return None
+        return tracking.get_job_id(celery_task_id, org_id, user_id or "", project_id or "")
 
     def _advance_job_row(self, transition: str, error: Optional[BaseException] = None) -> None:
         """Move this task's ``job`` row to its next state.
@@ -506,6 +559,7 @@ class BaseJob(Task):
             trace_id=trace_id,
             span_id=span_id,
             celery_task_id=celery_task_id,
+            job_id=self._resolve_job_id(),
             source=source,
         )
 
@@ -616,11 +670,13 @@ class BaseJob(Task):
                     trace_id=trace_id,
                     span_id=span_id,
                     celery_task_id=celery_task_id,
+                    job_id=self._resolve_job_id(),
                     source=job_type_for(getattr(self, "name", "") or ""),
                     level=level,
                     message=message,
                     context=context,
-                )
+                ),
+                db=db,
             )
         except Exception as exc:
             self.log_with_context("warning", f"emit() failed, message dropped: {exc}")

@@ -48,61 +48,67 @@ class ActivityLogSink:
         return isinstance(event, _HANDLED)
 
     def deliver(self, event: PlatformEvent, db: Optional[Session]) -> None:
-        """Ignores ``db``: this sink owns its durability, not the caller's
-        transaction. See the module docstring.
+        """Write one row, on ``db`` when given, else on a session of its own.
+        See the module docstring for what each choice promises.
         """
         if isinstance(event, ActivityLogged):
             level, message = event.level, event.message
         else:
             level, message = render(event)
 
+        if db is not None:
+            self._write(db, event, level, message)
+            db.flush()
+            return
+
         with get_db_with_tenant_variables(
             str(event.organization_id),
             str(event.user_id) if event.user_id else "",
             str(event.project_id) if event.project_id else "",
         ) as own_db:
-            # Every job-lifecycle event carries celery_task_id, not job_id
-            # directly (see types.py) -- resolved here via the same indexed
-            # lookup crud.job.get_job_by_celery_task_id uses. A miss (job row
-            # not found, e.g. an untracked job type) still writes the entry,
-            # just with no job to attach it to.
-            job_id = None
-            if event.celery_task_id:
-                job_id = (
-                    own_db.query(Job.id).filter(Job.celery_task_id == event.celery_task_id).scalar()
-                )
-
-            # Monotonic per job via MAX+1, not a DB sequence: Postgres has no
-            # native per-FK-value sequence, and at this platform's job volume
-            # a rare race producing a duplicate ordinal (two concurrent log
-            # lines for the same job landing in the same instant) costs a
-            # cosmetic ordering wobble, not correctness.
-            sequence = None
-            if job_id is not None:
-                max_sequence = (
-                    own_db.query(func.max(ActivityLog.sequence))
-                    .filter(ActivityLog.job_id == job_id)
-                    .scalar()
-                )
-                sequence = (max_sequence or 0) + 1
-
-            entry = ActivityLog(
-                job_id=job_id,
-                entity_type=event.entity_type,
-                entity_id=event.entity_id,
-                source=event.source,
-                sequence=sequence,
-                level=level,
-                message=message,
-                context=event.context,
-            )
-            # Set explicitly rather than relying on auto_stamp, matching
-            # tracking.create_job: the event has already resolved these, and
-            # relying on ambient scope would be one more thing that could
-            # silently disagree with what the event itself says.
-            entry.organization_id = event.organization_id
-            if event.project_id:
-                entry.project_id = event.project_id
-
-            own_db.add(entry)
+            self._write(own_db, event, level, message)
             own_db.commit()
+
+    @staticmethod
+    def _write(db: Session, event: PlatformEvent, level: str, message: str) -> None:
+        # Prefer the id the emitter stamped (see types.py); the indexed lookup
+        # by celery_task_id is the fallback for callers that never learned it.
+        # A miss either way (e.g. an untracked job type) still writes the
+        # entry, just with no job to attach it to.
+        job_id = event.job_id
+        if job_id is None and event.celery_task_id:
+            job_id = db.query(Job.id).filter(Job.celery_task_id == event.celery_task_id).scalar()
+
+        # Monotonic per job via MAX+1, not a DB sequence: Postgres has no
+        # native per-FK-value sequence, and at this platform's job volume
+        # a rare race producing a duplicate ordinal (two concurrent log
+        # lines for the same job landing in the same instant) costs a
+        # cosmetic ordering wobble, not correctness.
+        sequence = None
+        if job_id is not None:
+            max_sequence = (
+                db.query(func.max(ActivityLog.sequence))
+                .filter(ActivityLog.job_id == job_id)
+                .scalar()
+            )
+            sequence = (max_sequence or 0) + 1
+
+        entry = ActivityLog(
+            job_id=job_id,
+            entity_type=event.entity_type,
+            entity_id=event.entity_id,
+            source=event.source,
+            sequence=sequence,
+            level=level,
+            message=message,
+            context=event.context,
+        )
+        # Set explicitly rather than relying on auto_stamp, matching
+        # tracking.create_job: the event has already resolved these, and
+        # relying on ambient scope would be one more thing that could
+        # silently disagree with what the event itself says.
+        entry.organization_id = event.organization_id
+        if event.project_id:
+            entry.project_id = event.project_id
+
+        db.add(entry)

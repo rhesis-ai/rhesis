@@ -114,6 +114,28 @@ def create_job(
         return None
 
 
+def get_job_id(
+    celery_task_id: str, organization_id: str, user_id: str, project_id: str
+) -> Optional[UUID]:
+    """The ``job`` row id for a Celery task id, or None. Own session, best effort.
+
+    The fallback for a worker that received no ``job_id`` header (a message
+    queued before that header existed, or a task dispatched around
+    ``launch_job``). ``BaseJob`` calls it at most once per task run.
+    """
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.models.job import Job
+
+    try:
+        with get_db_with_tenant_variables(
+            organization_id or "", user_id or "", project_id or ""
+        ) as db:
+            return db.query(Job.id).filter(Job.celery_task_id == celery_task_id).scalar()
+    except Exception as exc:
+        logger.warning(f"Could not look up job row for {celery_task_id}: {exc}", exc_info=True)
+        return None
+
+
 def _update_by_celery_id(
     celery_task_id: str,
     organization_id: str,
