@@ -34,12 +34,14 @@ def _span_token_counts(span: Trace) -> tuple[int, int, int]:
 
     The reported total is trusted rather than derived: Google ADK folds cache-read
     tokens into ``ai.llm.tokens.total``, so for its spans the total legitimately
-    exceeds ``input + output``. Only fall back to the sum when no total was sent.
+    exceeds ``input + output``. Fall back to the sum when no total was sent, and also
+    when a zero total arrives alongside non-zero input or output, which is
+    contradictory and only reachable through hand-set attributes.
     """
     input_tokens = int(span.attributes.get(AIAttributes.LLM_TOKENS_INPUT, 0) or 0)
     output_tokens = int(span.attributes.get(AIAttributes.LLM_TOKENS_OUTPUT, 0) or 0)
     reported_total = span.attributes.get(AIAttributes.LLM_TOKENS_TOTAL)
-    if reported_total is None:
+    if reported_total is None or int(reported_total) == 0:
         return input_tokens, output_tokens, input_tokens + output_tokens
     return input_tokens, output_tokens, int(reported_total)
 
@@ -130,8 +132,8 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
         logger.warning("⚠️  No cost breakdown calculated - trace has no llm.invoke spans")
         return None
 
-    total_cost_usd = sum(span.total_cost_usd for span in cost_breakdown)
-    total_cost_eur = sum(span.total_cost_eur for span in cost_breakdown)
+    total_cost_usd = sum(entry.total_cost_usd for entry in cost_breakdown)
+    total_cost_eur = sum(entry.total_cost_eur for entry in cost_breakdown)
 
     logger.info(
         f"✅ Cost calculation complete: {len(cost_breakdown)} spans, "
@@ -141,9 +143,9 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     return TokenCosts(
         total_cost_usd=round(total_cost_usd, 6),
         total_cost_eur=round(total_cost_eur, 6),
-        total_input_tokens=sum(span.input_tokens for span in cost_breakdown),
-        total_output_tokens=sum(span.output_tokens for span in cost_breakdown),
-        total_tokens=sum(span.total_tokens for span in cost_breakdown),
+        total_input_tokens=sum(entry.input_tokens for entry in cost_breakdown),
+        total_output_tokens=sum(entry.output_tokens for entry in cost_breakdown),
+        total_tokens=sum(entry.total_tokens for entry in cost_breakdown),
         breakdown=cost_breakdown,
     )
 

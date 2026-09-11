@@ -32,6 +32,25 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_
 logger = logging.getLogger(__name__)
 
 
+def span_total_tokens_expr(attributes):
+    """Per-span token total in SQL, matching ``_span_token_counts`` in enrichment/core.py.
+
+    Falls back to ``input + output`` when no total was reported, and treats a reported
+    zero as missing when either side is non-zero. That combination is contradictory and
+    only reachable through hand-set OTLP attributes or ``create_llm_attributes`` with a
+    single side, never through a shipped integration; trusting the zero would undercount.
+
+    Each side is coalesced separately because ``NULL + 100`` is ``NULL`` in SQL, which
+    would otherwise drop a span that reported only one of the two.
+    """
+    return func.coalesce(
+        func.nullif(attributes[AISpanAttributes.TOKENS_TOTAL].as_float(), 0.0),
+        func.coalesce(attributes[AISpanAttributes.TOKENS_INPUT].as_float(), 0.0)
+        + func.coalesce(attributes[AISpanAttributes.TOKENS_OUTPUT].as_float(), 0.0),
+        0.0,
+    )
+
+
 class TraceRow(NamedTuple):
     """A single row returned by query_traces.
 
@@ -346,11 +365,7 @@ def query_traces(
     #    The llm.invoke filter is the same one enrichment applies, so the two
     #    numbers agree instead of double-counting aggregate-reporting frameworks.
     llm_tokens_col = (
-        select(
-            func.coalesce(
-                func.sum(InnerTrace.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()), 0
-            )
-        )
+        select(func.coalesce(func.sum(span_total_tokens_expr(InnerTrace.attributes)), 0))
         .where(
             and_(
                 InnerTrace.trace_id == models.Trace.trace_id,
@@ -940,7 +955,7 @@ def get_trace_metrics_aggregated(
                         (
                             base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
                             == AISpanAttributes.OPERATION_LLM_INVOKE,
-                            base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float(),
+                            span_total_tokens_expr(base.c.attributes),
                         ),
                         else_=0,
                     )

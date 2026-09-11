@@ -258,6 +258,10 @@ class AISpanAttributes:
     # Only spans with this operation type carry countable token usage. Agent-run
     # spans repeat their children's tokens as an aggregate, so counting them too
     # double-counts the trace.
+    #
+    # This also excludes embedding spans, which carry ai.llm.tokens.* but map to
+    # embedding.create. That is deliberate: enrichment never priced embeddings, so
+    # counting their tokens would put tokens and cost back out of step.
     OPERATION_LLM_INVOKE = "llm.invoke"
 
 

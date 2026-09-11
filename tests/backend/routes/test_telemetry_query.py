@@ -1601,3 +1601,100 @@ class TestTraceTokenAndCostVisibility:
         # The agent-run span is never priced, so it shows no Usage cost.
         assert by_span[agent_span]["cost_usd"] is None
         assert by_span[agent_span]["model_name"] is None
+
+
+@pytest.mark.integration
+class TestTokenTotalFallbackShapes:
+    """Span shapes where the reported total is missing or contradicts input/output."""
+
+    @staticmethod
+    def _span(trace_id, project_id, attributes):
+        now = datetime.now(timezone.utc)
+        return {
+            "trace_id": trace_id,
+            "span_id": uuid.uuid4().hex[:16],
+            "project_id": project_id,
+            "environment": "development",
+            "span_name": "ai.llm.invoke",
+            "span_kind": "CLIENT",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(milliseconds=100)).isoformat(),
+            "status_code": "OK",
+            "attributes": {
+                "ai.operation.type": "llm.invoke",
+                "ai.model.name": "gpt-4",
+                **attributes,
+            },
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    def _ingest_and_read(self, client, project_id, attributes):
+        trace_id = uuid.uuid4().hex
+        response = client.post(
+            "/telemetry/traces",
+            json={"spans": [self._span(trace_id, project_id, attributes)]},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        detail = client.get(f"/telemetry/traces/{trace_id}?project_id={project_id}").json()
+        listed = client.get(f"/telemetry/traces?project_id={project_id}&limit=100").json()
+        summary = next(t for t in listed["traces"] if t["trace_id"] == trace_id)
+        return detail, summary
+
+    def test_missing_total_falls_back_to_input_plus_output(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The SQL fallback used to sum only the total, so this listed as 0."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client,
+            str(db_project.id),
+            {"ai.llm.tokens.input": 100, "ai.llm.tokens.output": 50},
+        )
+
+        assert detail["total_tokens"] == 150
+        assert summary["total_tokens"] == 150
+
+    def test_only_one_side_reported(self, authenticated_client: TestClient, db_project):
+        """NULL + 100 is NULL in SQL, so each side has to be coalesced separately."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client, str(db_project.id), {"ai.llm.tokens.input": 100}
+        )
+
+        assert detail["total_tokens"] == 100
+        assert summary["total_tokens"] == 100
+
+    def test_zero_total_beside_real_usage_is_treated_as_missing(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """A zero total next to non-zero input/output contradicts itself."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client,
+            str(db_project.id),
+            {
+                "ai.llm.tokens.input": 100,
+                "ai.llm.tokens.output": 50,
+                "ai.llm.tokens.total": 0,
+            },
+        )
+
+        assert detail["total_tokens"] == 150
+        assert summary["total_tokens"] == 150
+
+    def test_reported_total_still_wins_when_larger(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """ADK folds cache-read tokens in, so the total legitimately exceeds the sum."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client,
+            str(db_project.id),
+            {
+                "ai.llm.tokens.input": 100,
+                "ai.llm.tokens.output": 50,
+                "ai.llm.tokens.total": 950,
+            },
+        )
+
+        assert detail["total_tokens"] == 950
+        assert summary["total_tokens"] == 950

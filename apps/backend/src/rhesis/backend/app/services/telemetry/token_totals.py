@@ -64,8 +64,13 @@ def token_totals_from_spans(spans: Sequence[Trace]) -> TokenTotals:
         totals[0] += input_tokens
         totals[1] += output_tokens
         # Trust the reported total; Google ADK folds cache-read tokens into it, so
-        # deriving it from input + output would quietly discard those.
-        totals[2] += input_tokens + output_tokens if reported_total is None else int(reported_total)
+        # deriving it from input + output would quietly discard those. A zero total
+        # next to non-zero input or output is contradictory, so treat it as missing.
+        totals[2] += (
+            input_tokens + output_tokens
+            if reported_total is None or int(reported_total) == 0
+            else int(reported_total)
+        )
 
     return (totals[0], totals[1], totals[2])
 
