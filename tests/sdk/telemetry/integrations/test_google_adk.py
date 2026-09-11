@@ -1079,6 +1079,102 @@ class TestConversationTurnRoot:
         assert stamped[0].parent is None
 
 
+class TestConversationContentRegistry:
+    """The per-trace store the root span's conversation attributes come from.
+
+    ADK's trace root carries almost nothing, so the query and the answer are
+    collected from the nested model spans and stamped onto the root when it is
+    exported. Reading that store must not be a one-shot.
+    """
+
+    def test_read_is_repeatable(self):
+        """Reading does not pop: every wrapped exporter has to see the same content."""
+        registry = translator._ConversationContentRegistry()
+        registry.record_model_span(
+            7, start_time=1, end_time=2, input_text="the query", output_text="the answer"
+        )
+        registry.record_rhesis_conversation_id(7, "conv-a")
+
+        assert registry.read_for_root(7) == ("conv-a", "the query", "the answer")
+        assert registry.read_for_root(7) == ("conv-a", "the query", "the answer")
+        # Unknown trace ids yield an all-None triple.
+        assert registry.read_for_root(999) == (None, None, None)
+
+    def test_a_read_queues_the_release(self):
+        """Holding 10 KB of conversation text per trace until the entry cap
+        evicts it would cost a long-running service far more than it needs to."""
+        registry = translator._ConversationContentRegistry(max_served=2)
+        registry.record_model_span(
+            1, start_time=1, end_time=2, input_text="query", output_text="answer"
+        )
+        registry.record_rhesis_conversation_id(1, "conv-1")
+
+        assert registry.read_for_root(1)[0] == "conv-1"
+        for later in (2, 3):
+            registry.record_rhesis_conversation_id(later, f"conv-{later}")
+            registry.read_for_root(later)
+
+        assert registry.read_for_root(1) == (None, None, None), "should have fallen off the queue"
+
+    def test_the_adk_session_id_is_released_too(self):
+        """It is a fourth store, and a missed one would keep growing on its own."""
+        registry = translator._ConversationContentRegistry(max_served=1)
+        registry.record_model_span(1, start_time=1, end_time=2, adk_session_id="adk-1")
+        registry.record_model_span(2, start_time=1, end_time=2, adk_session_id="adk-2")
+
+        registry.read_for_root(1)
+        registry.read_for_root(2)
+
+        assert registry._adk_session_by_trace.get(1) is None, "the older one is released"
+        assert registry._adk_session_by_trace.get(2) is not None, "the newer one is still live"
+
+    def test_a_trace_with_nothing_recorded_does_not_take_a_slot(self):
+        """Otherwise a run of content-free traces evicts the ones with content."""
+        registry = translator._ConversationContentRegistry(max_served=1)
+        registry.record_rhesis_conversation_id(1, "conv-1")
+        registry.read_for_root(1)
+
+        for empty in range(2, 10):
+            assert registry.read_for_root(empty) == (None, None, None)
+
+        assert registry.read_for_root(1) == ("conv-1", None, None)
+
+    @pytest.mark.asyncio
+    async def test_every_wrapped_exporter_stamps_the_conversation(
+        self, captured_spans, integration
+    ):
+        """``enable()`` wraps every exporter on the provider, so a process running
+        its own OTLP collector beside Rhesis has several translating exporters
+        over the same spans. Each has to stamp the conversation, not just the one
+        that reaches the trace root first.
+
+        The raw processor is attached *after* ``enable()`` so it stays unwrapped
+        and hands back ADK's own spans to replay. OTEL cannot remove a span
+        processor, so it stays for the session; nothing else reads its exporter.
+        """
+        raw = InMemorySpanExporter()
+        otel_trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(raw))
+
+        set_conversation_id("conv-every-exporter")
+        script(text("It is 20C in Berlin."))
+        await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+
+        adk_spans = raw.get_finished_spans()
+        assert adk_spans, "expected the raw processor to capture ADK's own spans"
+
+        sa = ConversationContext.SpanAttributes
+        for _ in range(2):
+            inner = InMemorySpanExporter()
+            GoogleADKTranslatingExporter(inner).export(adk_spans)
+            stamped = [
+                s for s in inner.get_finished_spans() if (s.attributes or {}).get(sa.IS_TURN_ROOT)
+            ]
+            assert len(stamped) == 1, "the run root should still carry the turn"
+            assert stamped[0].attributes[sa.CONVERSATION_ID] == "conv-every-exporter"
+            assert stamped[0].attributes[sa.CONVERSATION_INPUT] == "What is the weather in Berlin?"
+            assert stamped[0].attributes[sa.CONVERSATION_OUTPUT] == "It is 20C in Berlin."
+
+
 class TestConversationTraceJoin:
     """Every turn of a conversation has to land in one Rhesis trace.
 

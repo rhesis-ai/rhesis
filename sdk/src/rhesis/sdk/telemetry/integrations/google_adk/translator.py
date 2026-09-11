@@ -308,17 +308,25 @@ class _ConversationContentRegistry:
     A Rhesis conversation id (set by the app via
     ``rhesis.telemetry.context.set_conversation_id``) is recorded at span start
     while that contextvar is still live, and takes precedence over the ADK
-    session id. All stores are bounded and strings are truncated to
+    session id.
+
+    Entries are released a bounded number of reads after the first exporter
+    reads them, rather than on that read, so that several wrapped exporters all
+    stamp the same content; see :meth:`read_for_root`. Every store is bounded
+    independently of that, and strings are truncated to
     :data:`~rhesis.telemetry.constants.ConversationContext.MAX_IO_LENGTH` at
     record time.
     """
 
-    def __init__(self, max_entries: int = 4096) -> None:
+    def __init__(self, max_entries: int = 4096, max_served: int = 512) -> None:
         self._input_by_trace: dict[int, tuple[int, str]] = {}
         self._output_by_trace: dict[int, tuple[int, str]] = {}
         self._adk_session_by_trace: dict[int, tuple[int, str]] = {}
         self._rhesis_conversation_by_trace: dict[int, str] = {}
         self._max_entries = max_entries
+        # Traces whose content has been handed to an exporter, oldest first.
+        self._served: dict[int, None] = {}
+        self._max_served = max_served
         self._lock = threading.Lock()
 
     def _evict_if_needed(self, store: dict) -> None:
@@ -394,25 +402,67 @@ class _ConversationContentRegistry:
         except Exception:  # noqa: BLE001 - recording must never break tracing
             logger.debug("Failed to record ADK conversation id", exc_info=True)
 
-    def consume(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
-        """Pop and return ``(conversation_id, input, output)`` for ``trace_id``.
+    def read_for_root(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
+        """Return ``(conversation_id, input, output)`` for ``trace_id`` and queue its release.
 
-        Called exactly once per trace, when its root span is exported, so entries
-        do not linger for the process lifetime even when the run was nested under
-        a Rhesis ``@endpoint`` span and nothing gets stamped.
+        Read rather than popped. ``enable()`` wraps *every* exporter on the
+        provider, so a process running its own OTLP collector beside Rhesis has
+        two translating exporters, each exporting the same spans. Popping here
+        gave the content to whichever reached the trace root first and left the
+        other stamping a root span with no conversation on it.
         """
         if trace_id is None:
             return None, None, None
         with self._lock:
-            rhesis_id = self._rhesis_conversation_by_trace.pop(trace_id, None)
-            adk_session = self._adk_session_by_trace.pop(trace_id, None)
-            conv_input = self._input_by_trace.pop(trace_id, None)
-            conv_output = self._output_by_trace.pop(trace_id, None)
+            rhesis_id = self._rhesis_conversation_by_trace.get(trace_id)
+            adk_session = self._adk_session_by_trace.get(trace_id)
+            conv_input = self._input_by_trace.get(trace_id)
+            conv_output = self._output_by_trace.get(trace_id)
+            self._queue_release(trace_id)
         conversation_id = rhesis_id or (adk_session[1] if adk_session else None)
         return (
             conversation_id,
             conv_input[1] if conv_input else None,
             conv_output[1] if conv_output else None,
+        )
+
+    def _queue_release(self, trace_id: int) -> None:
+        """Drop the entries of whatever has fallen far enough behind.
+
+        Deferred rather than immediate so every exporter reading the same batch
+        sees the same content, and bounded so a long-running process does not
+        hold 10 KB of conversation text per trace until the entry cap evicts it.
+        The queue is deliberately larger than an OTEL export batch, since a busy
+        service can flush hundreds of run roots at once and the exporters do not
+        drain their queues in lockstep.
+
+        Caller holds the lock.
+        """
+        if not self._has_entries(trace_id):
+            # Nothing to release, so it must not take a slot: a run of traces
+            # with no conversation content on them would otherwise push out the
+            # entries of the ones that have it.
+            return
+        self._served.pop(trace_id, None)
+        self._served[trace_id] = None
+        while len(self._served) > self._max_served:
+            stale = next(iter(self._served))
+            del self._served[stale]
+            self._rhesis_conversation_by_trace.pop(stale, None)
+            self._adk_session_by_trace.pop(stale, None)
+            self._input_by_trace.pop(stale, None)
+            self._output_by_trace.pop(stale, None)
+
+    def _has_entries(self, trace_id: int) -> bool:
+        """Whether any of the four stores holds something for this trace."""
+        return any(
+            trace_id in store
+            for store in (
+                self._rhesis_conversation_by_trace,
+                self._adk_session_by_trace,
+                self._input_by_trace,
+                self._output_by_trace,
+            )
         )
 
 
@@ -427,9 +477,10 @@ _conversation_traces = ConversationTraceRegistry()
 def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
     """Build Rhesis conversation attributes for an ADK trace-root span.
 
-    Always consumes the per-trace entry so it does not linger when the ADK run is
-    nested under a Rhesis ``@endpoint`` / ``@observe`` parent (the long-running
-    service path). Stamping is limited to trace roots (``parent is None``):
+    Always queues the per-trace entry for release so it does not linger when the
+    ADK run is nested under a Rhesis ``@endpoint`` / ``@observe`` parent (the
+    long-running service path). Stamping is limited to trace roots (``parent is
+    None``):
     inside an enclosing Rhesis span, that span owns turn-root semantics and the
     ADK root must not claim them again.
 
@@ -447,10 +498,10 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
 
     ctx = getattr(span, "context", None)
     trace_id = getattr(ctx, "trace_id", None)
-    conversation_id, conv_input, conv_output = _conversation_content.consume(trace_id)
+    conversation_id, conv_input, conv_output = _conversation_content.read_for_root(trace_id)
 
-    # Released above but not stamped: an enclosing Rhesis span owns turn-root
-    # semantics for this trace.
+    # Queued for release above but not stamped: an enclosing Rhesis span owns
+    # turn-root semantics for this trace.
     if getattr(span, "parent", None) is not None:
         return None
 
