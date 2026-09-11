@@ -7,6 +7,7 @@ using the `Base` object from the `database` module.
 
 """
 
+import asyncio
 import logging
 import os
 import time
@@ -18,12 +19,14 @@ from rhesis.backend.telemetry import initialize_telemetry
 initialize_telemetry()
 
 # ruff: noqa: E402 - Imports must come after telemetry initialization
+import anyio
 from fastapi import Depends, FastAPI, Request
 from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -932,9 +935,46 @@ async def health_check():
     }
 
 
+#: How long /ready waits for the database before reporting the pod not ready.
+READINESS_TIMEOUT_SECONDS = 2.0
+
+
+def _ping_database() -> None:
+    """One round trip on a pooled connection. Runs in a worker thread."""
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness: 200 only while the database answers within the timeout.
+
+    Kubernetes routes traffic by this and restarts by /health. A pod whose
+    database is unreachable, or whose pool is exhausted, is taken out of the
+    Service so requests go to pods that can serve them; nothing restarts, and
+    the pod comes back on its own once the database does. /health stays free of
+    the database on purpose: a database outage must not look like a dead
+    process to the liveness probe.
+
+    ``abandon_on_cancel`` lets the timeout return at once instead of waiting
+    for the stuck connection attempt to give up (connect_timeout is 10s).
+    """
+    try:
+        await asyncio.wait_for(
+            anyio.to_thread.run_sync(_ping_database, abandon_on_cancel=True),
+            timeout=READINESS_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        logger.warning("Readiness check failed: %s: %s", type(exc).__name__, exc)
+        return JSONResponse(
+            status_code=503, content={"status": "unavailable", "database": "unreachable"}
+        )
+    return {"status": "ok", "database": "ok"}
+
+
 # Defense-in-depth: append the baseline auth dependency to every non-public
 # route. Runs last so it covers core routers, EE routers, and the app-level
-# routes (/, /health) defined above.
+# routes (/, /health, /ready) defined above.
 apply_auth_backstop(app)
 
 # Derive and cache the capability catalog from the now-complete route table.

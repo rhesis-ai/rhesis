@@ -185,7 +185,7 @@ backend:
     failureThreshold: 25
   readinessProbe:
     httpGet:
-      path: /health
+      path: /ready
     initialDelaySeconds: 240
     periodSeconds: 15
     timeoutSeconds: 15
