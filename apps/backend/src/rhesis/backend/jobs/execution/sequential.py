@@ -188,6 +188,15 @@ def execute_tests_sequentially(
             except Exception:
                 logger.debug("on_test_phase(generating) failed", exc_info=True)
 
+        # End the transaction the previous test (and the model resolution
+        # above) left open. Without this the connection sits "idle in
+        # transaction" across the whole LLM call and evaluation, blocking
+        # vacuum and holding a pool slot for minutes. Anything still pending
+        # (a model-resolution token refresh, say) lands rather than being
+        # dropped, and SessionLocal has expire_on_commit=False so test_config /
+        # test_run / the tests list stay usable without a reload.
+        session.commit()
+
         try:
             result = run_on_thread_loop(
                 execute_test(

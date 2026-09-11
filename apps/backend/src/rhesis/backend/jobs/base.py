@@ -585,14 +585,19 @@ class BaseJob(Task):
     def set_progress(self, current: int, total: int) -> None:
         """Update this job's progress counters on the ``job`` row.
 
-        The progress bar in the Jobs list/detail reads these columns.
-        Safe to call at high frequency; each call opens its own session.
+        The progress bar in the Jobs list/detail reads these columns. Safe
+        to call at high frequency: writes are coalesced to one per
+        ``PROGRESS_WRITE_INTERVAL_S`` per task run, except that the first
+        call and any call with ``current == total`` always land. Each write
+        opens its own session.
         """
         try:
             from rhesis.backend.jobs import tracking
 
             celery_task_id = getattr(self.request, "id", None)
             if not celery_task_id:
+                return
+            if not self._progress_write_due(current, total):
                 return
             org_id, user_id, project_id = self.get_tenant_context()
             tracking.set_progress(
@@ -605,6 +610,15 @@ class BaseJob(Task):
             )
         except Exception as exc:
             logger.warning(f"set_progress failed: {exc}")
+
+    def _progress_write_due(self, current: int, total: int) -> bool:
+        """Rate limit for set_progress; records the write time when it says yes."""
+        now = time.monotonic()
+        last = getattr(self.request, "progress_written_at", None)
+        if last is not None and current != total and now - last < PROGRESS_WRITE_INTERVAL_S:
+            return False
+        self.request.progress_written_at = now
+        return True
 
     def set_entity(self, entity_type: str, entity_id: str) -> None:
         """Link this job to the entity it produced (e.g. a TestSet created mid-task).
@@ -631,7 +645,14 @@ class BaseJob(Task):
         except Exception as exc:
             logger.warning(f"set_entity failed: {exc}")
 
-    def emit(self, message: str, level: str = "info", *, context: Optional[dict] = None) -> None:
+    def emit(
+        self,
+        message: str,
+        level: str = "info",
+        *,
+        context: Optional[dict] = None,
+        db: Optional[Session] = None,
+    ) -> None:
         """Write a user-facing line to this job's activity log.
 
         Deliberately not ``log_with_context``: that stays developer logging
