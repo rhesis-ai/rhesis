@@ -1417,39 +1417,78 @@ def test_conversation_content_registry_records_session_first_wins():
     assert reg.get_session(999) is None
 
 
-def test_conversation_content_registry_consume_pops_entries():
-    """``consume`` returns the recorded triple once and clears it afterwards."""
+def test_conversation_content_registry_read_is_repeatable():
+    """Reading does not pop: every wrapped exporter has to see the same content."""
     from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
 
     reg = tr_mod._ConversationContentRegistry()
     reg.record_chat(7, input_text="first query", output_text="final plan")
     reg.record_session(7, "session-a")
 
-    assert reg.consume(7) == ("session-a", "first query", "final plan")
-    # Entries are gone after the first consume: the root span is exported once.
-    assert reg.consume(7) == (None, None, None)
-    assert reg.get(7) == (None, None)
-    assert reg.get_session(7) is None
+    assert reg.read_for_root(7) == ("session-a", "first query", "final plan")
+    assert reg.read_for_root(7) == ("session-a", "first query", "final plan")
     # Unknown trace ids yield an all-None triple.
-    assert reg.consume(999) == (None, None, None)
+    assert reg.read_for_root(999) == (None, None, None)
 
 
-def test_exporter_consumes_conversation_content_after_stamping():
-    """After the root span is exported, its per-trace content is released."""
+def test_conversation_content_registry_releases_what_falls_behind():
+    """A read schedules the release; it happens once enough others have been read.
+
+    Holding 10 KB of conversation text per trace until the entry cap evicts it
+    would cost a long-running service far more memory than it needs to.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry(max_served=2)
+    reg.record_chat(1, input_text="first", output_text="reply")
+    reg.record_session(1, "sess-1")
+
+    assert reg.read_for_root(1)[0] == "sess-1"
+    for later in (2, 3):
+        reg.record_session(later, f"sess-{later}")
+        reg.read_for_root(later)
+
+    assert reg.read_for_root(1) == (None, None, None), "should have fallen off the queue"
+    assert reg.get(1) == (None, None)
+    assert reg.get_session(1) is None
+
+
+def test_conversation_content_registry_release_without_reading():
+    """``release`` is for a run whose content nothing will stamp."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry(max_served=1)
+    reg.record_session(1, "sess-1")
+    reg.record_session(2, "sess-2")
+
+    reg.release(1)
+    reg.release(2)
+
+    assert reg.get_session(1) is None
+    assert reg.get_session(2) == "sess-2"
+
+
+def test_two_wrapped_exporters_both_stamp_the_conversation():
+    """``enable()`` wraps every exporter on the provider, so a process with its
+    own OTLP collector beside Rhesis has two translating exporters exporting the
+    same spans. Both have to stamp the conversation, not just the faster one."""
     from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
 
     trace_id = 0xBEEF01
     tr_mod._conversation_content.record_chat(
         trace_id, input_text="Plan a day trip", output_text="Here is your plan"
     )
-    tr_mod._conversation_content.record_session(trace_id, "sess-consume")
+    tr_mod._conversation_content.record_session(trace_id, "sess-two-exporters")
     run = _FakeChatSpan(span_id=760, trace_id=trace_id, parent_id=None, name="workflow.run")
 
-    exporter = tr_mod.MAFTranslatingExporter(InMemorySpanExporter())
-    exporter.export([run])
-
-    # The registry no longer retains anything for this trace.
-    assert tr_mod._conversation_content.consume(trace_id) == (None, None, None)
+    sa = ConversationContext.SpanAttributes
+    for _ in range(2):
+        inner = InMemorySpanExporter()
+        tr_mod.MAFTranslatingExporter(inner).export([run])
+        attrs = dict(inner.get_finished_spans()[0].attributes or {})
+        assert attrs.get(sa.CONVERSATION_ID) == "sess-two-exporters"
+        assert attrs.get(sa.CONVERSATION_INPUT) == "Plan a day trip"
+        assert attrs.get(sa.CONVERSATION_OUTPUT) == "Here is your plan"
 
 
 def test_exporter_stamps_turn_root_on_root_workflow_run():
@@ -1540,7 +1579,9 @@ def test_exporter_skips_root_without_session_or_content():
 def test_exporter_skips_turn_root_on_nested_workflow_run():
     """A ``workflow.run`` nested under a parent (e.g. a Rhesis @endpoint span)
     must NOT be stamped as a turn root -- the enclosing span owns that role.
-    Per-trace registry entries must still be released on export.
+
+    The release of its per-trace entries is covered by the registry's own tests;
+    here the point is that nothing is stamped.
     """
     from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
 
@@ -1562,7 +1603,6 @@ def test_exporter_skips_turn_root_on_nested_workflow_run():
     assert sa.CONVERSATION_ID not in attrs
     assert sa.CONVERSATION_INPUT not in attrs
     assert sa.CONVERSATION_OUTPUT not in attrs
-    assert tr_mod._conversation_content.consume(trace_id) == (None, None, None)
 
 
 def test_conversation_content_registry_truncates_io_at_record_time():
