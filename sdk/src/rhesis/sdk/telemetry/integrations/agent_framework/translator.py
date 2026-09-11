@@ -533,13 +533,19 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
     That is ``workflow.run`` for a workflow, and ``invoke_agent <name>`` for a
     plain ``agent.run()``, which emits no workflow span at all.
 
-    Always :meth:`consumes <_ConversationContentRegistry.consume>` the per-trace
-    chat I/O recorded for this span's trace id so entries do not linger when the
-    ``workflow.run`` span is nested under a Rhesis ``@endpoint``/``@observe``
-    parent (the common long-running-service path). Stamping is limited to trace
-    roots only (``parent is None``): when the run happens inside an enclosing
-    Rhesis span, that span owns turn-root semantics and the MAF root must not be
-    stamped again.
+    Stamping is limited to trace roots only (``parent is None``): when the run
+    happens inside an enclosing Rhesis span, that span owns turn-root semantics
+    and the MAF root must not be stamped again.
+
+    Reads the per-trace chat I/O through
+    :meth:`~_ConversationContentRegistry.read_for_root`, which queues it for
+    release rather than taking it, so the other wrapped exporters still see it.
+    A ``workflow.run`` that is *not* the trace root queues the release without
+    reading, since an enclosing ``@endpoint``/``@observe`` span owns the turn and
+    nothing else in the trace will read that content. A nested ``invoke_agent``
+    does not, because inside a workflow that is every agent in the run and the
+    first would release what the root needs. So a plain ``agent.run()`` under an
+    enclosing Rhesis span leaves its entries to the store's own eviction cap.
 
     When stamped, the span always gets the conversation ``input``/``output``
     (from the nested chat spans via :data:`_conversation_content`) so the
