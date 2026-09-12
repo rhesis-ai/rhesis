@@ -11,6 +11,10 @@ dependencies = [
     "pydantic>=2.11.7",
     "python-dotenv>=1.2.2",
     "redis>=5.0.0",
+    # client.py imports TTLCache. It used to arrive transitively via google-auth,
+    # which the langchain upgrade in #2711 removed from this resolution, and the
+    # chatbot then crashed on boot with ModuleNotFoundError.
+    "cachetools>=6.2.1",
     "rhesis-sdk",
 ]
 

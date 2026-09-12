@@ -12,7 +12,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-01T14:43:14.421469Z"
+exclude-newer = "2026-09-05T10:58:49.287365Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -3489,6 +3489,7 @@ name = "rhesis-chatbot"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "cachetools" },
     { name = "fastapi" },
     { name = "gunicorn" },
     { name = "pydantic" },
@@ -3506,6 +3507,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cachetools", specifier = ">=6.2.1" },
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gunicorn", specifier = ">=21.2.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
