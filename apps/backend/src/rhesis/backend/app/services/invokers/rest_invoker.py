@@ -388,7 +388,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 if "{auth_token}" in value:
                     value = value.replace("{auth_token}", auth_token or "")
 
-                # Jinja rendering (handles {{ auth_token }} and {{ params.* }})
+                # Jinja rendering (handles {{ auth_token }}, {{ experiment_parameters.* }})
                 rendered_headers[key] = str(self.template_renderer.render(value, template_context))
             else:
                 rendered_headers[key] = value

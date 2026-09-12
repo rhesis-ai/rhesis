@@ -263,6 +263,7 @@ class BackendEndpointTarget(Target):
             if files:
                 input_data["files"] = files
             if self.params:
+                input_data["experiment_parameters"] = self.params
                 input_data["params"] = self.params
 
             logger.debug(
@@ -419,6 +420,7 @@ class BackendEndpointTarget(Target):
             if files:
                 input_data["files"] = files
             if self.params:
+                input_data["experiment_parameters"] = self.params
                 input_data["params"] = self.params
 
             logger.debug(

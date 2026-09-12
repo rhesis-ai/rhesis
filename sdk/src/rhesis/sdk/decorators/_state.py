@@ -1,6 +1,7 @@
 """Internal module for managing the default client state."""
 
 import contextvars
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -14,8 +15,22 @@ _parameters_context: contextvars.ContextVar[Optional["ResolvedParameters"]] = (
 )
 
 
+def get_experiment_parameters() -> Optional["ResolvedParameters"]:
+    """Get the currently resolved experiment parameters (populated during remote test execution)."""
+    return _parameters_context.get()
+
+
 def get_parameters() -> Optional["ResolvedParameters"]:
-    """Get the currently resolved parameters (populated during remote test execution)."""
+    """Get the currently resolved parameters (populated during remote test execution).
+
+    .. deprecated:: 0.16.0
+        Use :func:`get_experiment_parameters` instead.
+    """
+    warnings.warn(
+        "get_parameters() is deprecated, use get_experiment_parameters() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return _parameters_context.get()
 
 
