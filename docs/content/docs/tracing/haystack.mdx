@@ -146,7 +146,7 @@ tracing.flush()`}
 
 Assign `turn.output` yourself. Only your application knows which part of a pipeline result is the reply the user saw — it may be a tool result or a value held in agent state rather than the last assistant message.
 
-Every turn after the first joins the first turn's trace, so the conversation reads as one trace. Calling `start_conversation` again begins a new one. `RhesisTracing` never raises: if Rhesis is not configured it logs a warning and every method becomes a no-op, so tracing cannot take your application down. Check `tracing.enabled` to report it.
+Every turn after the first joins the first turn's trace, so the conversation reads as one trace. Calling `start_conversation` with a new id begins a new one; passing an id this process already recorded a turn for rejoins that conversation, whether the earlier turn came from here or from [`conversation_turn`](/docs/tracing/conversation-tracing#standalone-apps-owning-the-turn). `RhesisTracing` never raises: if Rhesis is not configured it logs a warning and every method becomes a no-op, so tracing cannot take your application down. Check `tracing.enabled` to report it.
 
 ## Trace Links
 
