@@ -12,8 +12,8 @@ _default_client: Optional["Client"] = None
 _parameters_context: contextvars.ContextVar[Optional["ResolvedParameters"]] = (
     contextvars.ContextVar("rhesis_parameters", default=None)
 )
-_test_parameters_context: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
-    "test_parameters", default={}
+_test_parameters_context: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+    "test_parameters", default=None
 )
 
 
@@ -24,7 +24,7 @@ def get_parameters() -> Optional["ResolvedParameters"]:
 
 def get_test_parameters() -> Dict[str, Any]:
     """Get the per-test parameters (populated during remote test execution)."""
-    return _test_parameters_context.get()
+    return _test_parameters_context.get() or {}
 
 
 def _register_default_client(client: "Client") -> None:  # pyright: ignore[reportUnusedFunction]

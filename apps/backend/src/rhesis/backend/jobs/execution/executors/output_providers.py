@@ -126,7 +126,10 @@ class SingleTurnOutput(OutputProvider):
         if test_parameters is None and test_id:
             from rhesis.backend.app.models.test import Test
 
-            test_obj = db.query(Test).filter(Test.id == test_id).first()
+            test_obj = db.query(Test).filter(
+                Test.id == test_id,
+                Test.organization_id == organization_id,
+            ).first()
             test_parameters = (test_obj.test_parameters if test_obj else None) or {}
         if test_parameters:
             input_data["test_parameters"] = test_parameters

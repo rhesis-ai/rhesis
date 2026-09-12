@@ -97,7 +97,7 @@ export default function TestParametersBlock({
       const apiFactory = new ApiClientFactory();
       const testsClient = apiFactory.getTestsClient();
       await testsClient.updateTest(test.id, {
-        test_parameters: null as unknown as Record<string, unknown>,
+        test_parameters: null,
       });
       notifications.show('Test parameters cleared', {
         severity: 'success',

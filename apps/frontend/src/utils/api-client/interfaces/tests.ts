@@ -58,7 +58,7 @@ export interface TestBase {
   organization_id?: UUID;
   tags?: Tag[];
   test_metadata?: Record<string, unknown>;
-  test_parameters?: Record<string, unknown>;
+  test_parameters?: Record<string, unknown> | null;
 }
 
 export interface TestCreate extends TestBase {
@@ -111,7 +111,7 @@ export interface TestBulkCreate {
   category: string;
   topic: string;
   test_configuration?: Record<string, unknown>; // Required for multi-turn tests (must contain 'goal')
-  test_parameters?: Record<string, unknown>;
+  test_parameters?: Record<string, unknown> | null;
   assignee_id?: UUID;
   owner_id?: UUID;
   status?: string;
