@@ -309,3 +309,83 @@ class TestEndpointWriteOnlyFields:
         push_call = mock_request.call_args_list[-1]
         request_data = push_call.kwargs.get("json", {})
         assert "auth_token" not in request_data or request_data["auth_token"] is not None
+
+
+class TestEndpointTimeoutSeconds:
+    """Tests for timeout_seconds field on the SDK Endpoint entity."""
+
+    def test_timeout_seconds_defaults_to_none(self):
+        endpoint = Endpoint()
+        assert endpoint.timeout_seconds is None
+
+    def test_timeout_seconds_can_be_set(self):
+        endpoint = Endpoint(name="ep", timeout_seconds=90)
+        assert endpoint.timeout_seconds == 90
+
+    def test_to_dict_includes_timeout_seconds(self):
+        endpoint = Endpoint(name="ep", timeout_seconds=60)
+        data = endpoint.to_dict()
+        assert data["timeout_seconds"] == 60
+
+    def test_to_dict_excludes_none_timeout_seconds(self):
+        endpoint = Endpoint(name="ep", timeout_seconds=None)
+        data = endpoint.to_dict()
+        assert data["timeout_seconds"] is None
+
+    @patch("requests.request")
+    def test_push_sends_timeout_seconds(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "ep-1"}
+        mock_request.return_value = mock_response
+
+        endpoint = Endpoint(
+            name="ep",
+            connection_type=ConnectionType.REST,
+            project_id="proj-1",
+            timeout_seconds=120,
+        )
+        endpoint.push()
+
+        call_args = mock_request.call_args
+        request_data = call_args.kwargs.get("json", {})
+        assert request_data.get("timeout_seconds") == 120
+
+    @patch("requests.request")
+    def test_push_omits_none_timeout(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "ep-1"}
+        mock_request.return_value = mock_response
+
+        endpoint = Endpoint(
+            name="ep",
+            connection_type=ConnectionType.REST,
+            project_id="proj-1",
+            timeout_seconds=None,
+        )
+        endpoint.push()
+
+        call_args = mock_request.call_args
+        request_data = call_args.kwargs.get("json", {})
+        assert "timeout_seconds" not in request_data
+
+    @patch("requests.request")
+    def test_pull_picks_up_timeout_seconds(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": "ep-1",
+            "name": "ep",
+            "connection_type": "REST",
+            "timeout_seconds": 45,
+        }
+        mock_request.return_value = mock_response
+
+        endpoint = Endpoint(id="ep-1")
+        endpoint.pull()
+
+        assert endpoint.timeout_seconds == 45
+
+    def test_from_dict_picks_up_timeout_seconds(self):
+        endpoint = Endpoint.from_dict(
+            {"name": "ep", "connection_type": "REST", "timeout_seconds": 300}
+        )
+        assert endpoint.timeout_seconds == 300

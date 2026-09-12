@@ -20,7 +20,7 @@ After a successful response, the JSON tree is clickable. Click any key to map it
 
 | Tab | Description |
 |---|---|
-| **Overview** | Name, URL, protocol, method, environment, and tracing toggle |
+| **Overview** | Name, URL, protocol, method, environment, timeout, and tracing toggle |
 | **Connection** | Authentication token, OAuth client credentials, and custom request headers |
 | **Mapping** | Request body template and response mapping |
 | **Test** | Interactive test-and-map workbench |
@@ -84,6 +84,12 @@ Select an endpoint, configure the execution mode (parallel or sequential), and c
 ### Multiple Endpoints
 
 Run identical tests against different endpoints to compare models, environments, or configurations. Each test run is independent, so differences in behavior and quality are easy to analyze side by side.
+
+## Timeout
+
+Each endpoint has a **Timeout (seconds)** field in the Overview tab. Set it to override the system default for invocations against this endpoint. Valid values are 1 to 3600. Leave it empty to use the default: 30 seconds for REST endpoints, 120 seconds for SDK endpoints.
+
+The timeout applies to both test executions and single invocations. It is stored in `endpoint_metadata` and exposed as `timeout_seconds` in the API and SDK.
 
 ## Disabling Tracing
 

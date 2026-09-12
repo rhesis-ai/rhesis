@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-10
+
+### Added
+- **Execution Trace Persistence**: The `POST /connector/trace` endpoint now persists execution traces to a dedicated `execution_trace` database table with Row-Level Security (RLS) policies, returning a `trace_id` instead of only writing to server logs.
+- **Multi-turn Conversation Grouping**: Added automatic grouping of LangGraph turns by `thread_id`, allowing multi-turn conversations to be natively grouped as a single trace.
+- **Retriever Tracing**: Added tracing for retriever calls as `ai.retrieval` spans, capturing the query, results, and `top_k` parameters.
+
+### Changed
+- **Ecosystem Upgrade**: Upgraded LangChain and LangGraph ecosystem dependencies to current stable floors (including `langchain >=1.4.0`, `langchain-core >=1.6.0`, and `langgraph >=1.2.0`).
+- **WebSocket Performance Optimization**: Optimized SDK WebSocket message handling by lazily opening database sessions only when required (e.g., during registration) rather than on every inbound frame, increasing throughput up to ~23,000 messages/second.
+- **WebSocket Rate Limits**: Raised the default WebSocket rate limit to 500 messages/second to prevent connection stalls on high-concurrency workloads.
+- **Reduced Log Noise**: Consolidated per-message WebSocket logging into a single record and moved verbose payloads to `DEBUG` level.
+
+### Fixed
+- **Missing Telemetry Spans**: Resolved an issue where LangChain/LangGraph spans went untraced by registering callbacks via `register_configure_hook` and tracing runs based on structure rather than naming heuristics.
+- **Orphaned Spans**: Untraced intermediate runs are now correctly recorded against their nearest traced ancestor, preventing graph runs from splitting into orphaned traces.
+- **Callback Thread-Safety**: Made the LangChain callback handler thread-safe under concurrent runs when LangGraph executes parallel nodes on separate threads.
+- **Graceful Degradation for No-Org Users**: Fixed the GET `/features` endpoint to degrade gracefully to the community/free tier instead of returning a `403 Forbidden` error for users without an organization.
+- **WebSocket Authorization**: Hardened WebSocket registration to fail closed if authorization cannot be completed.
+- **Prompt Event Loss**: Fixed a bug where only the first message in a prompt was recorded; the SDK now emits one prompt event per message.
+- **Integration Teardown**: Fixed a leak where disabling the SDK integration did not fully undo global patches applied to CompiledStateGraph and BaseTool.
+- **Object-shaped Tool Calls**: Handled tool call outputs returned as objects rather than dictionaries, preventing unended spans and missing trace data.
+- **Memory Leak Protection**: Capped in-flight run bookkeeping to prevent memory leaks from runs that never report completion.
+
+
 ## [0.15.1] - 2026-09-04
 
 ### Added
