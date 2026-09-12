@@ -274,7 +274,7 @@ describe('ToolConnectionDrawer', () => {
         })
       );
     });
-  }, 15000);
+  });
   it('submits Trello tool with both credentials and no workspace metadata on create', async () => {
     const user = userEvent.setup();
     const onConnect = jest.fn().mockResolvedValue({ id: 'tool-trello-1' });
@@ -288,7 +288,10 @@ describe('ToolConnectionDrawer', () => {
       />
     );
 
-    await user.type(screen.getByLabelText(/^Connection Name/i), 'My Trello Board');
+    await user.type(
+      screen.getByLabelText(/^Connection Name/i),
+      'My Trello Board'
+    );
     await user.type(screen.getByLabelText(/^API Key/i), 'trello-key-123');
     await user.type(screen.getByLabelText(/^API Token/i), 'trello-tok-456');
 
