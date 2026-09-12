@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import anyio
 from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -422,6 +423,32 @@ def delete_test(
     )
 
 
+def _check_execution_prerequisites(
+    db: Session,
+    current_user: User,
+    endpoint_id: UUID,
+    organization_id: str,
+    user_id: str,
+) -> None:
+    """Validate the caller's evaluation model and the target endpoint.
+
+    Both reads happen before any await in the handler, so they go to a worker
+    thread together.
+    """
+    from rhesis.backend.app.utils.user_model_utils import validate_model
+
+    validate_model(db, current_user, "evaluation")
+
+    db_endpoint = endpoint_crud.get_endpoint(
+        db,
+        endpoint_id=endpoint_id,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    if not db_endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
+
 @router.post(
     "/execute",
     response_model=schemas.TestExecuteResponse,
@@ -514,20 +541,15 @@ async def execute_test_endpoint(
     organization_id, user_id = tenant_context
 
     try:
-        # Validate user's evaluation model configuration before execution
-        from rhesis.backend.app.utils.user_model_utils import validate_model
-
-        validate_model(db, current_user, "evaluation")
-
-        # Validate endpoint exists
-        db_endpoint = endpoint_crud.get_endpoint(
+        # Model configuration and endpoint existence, both off the event loop.
+        await anyio.to_thread.run_sync(
+            _check_execution_prerequisites,
             db,
-            endpoint_id=request.endpoint_id,
-            organization_id=organization_id,
-            user_id=user_id,
+            current_user,
+            request.endpoint_id,
+            organization_id,
+            user_id,
         )
-        if not db_endpoint:
-            raise HTTPException(status_code=404, detail="Endpoint not found")
 
         # Validate request data based on Pydantic model (already validated)
         # The schema's model_post_init handles validation of required fields

@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     Float,
     ForeignKey,
+    Index,
     String,
     Table,
     Text,
@@ -58,6 +59,7 @@ class Metric(
             "jsonb_typeof(metric_scope) = 'array' AND jsonb_array_length(metric_scope) > 0",
             name="ck_metric_metric_scope_non_empty",
         ),
+        Index("ix_metric_org_created", "organization_id", "created_at"),
     )
 
     name = Column(String, nullable=False)

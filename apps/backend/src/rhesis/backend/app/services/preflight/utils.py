@@ -1,12 +1,78 @@
 """Preflight check utility functions."""
 
 import asyncio
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Callable, Optional
+
+import anyio
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSocketMessage
 
 from .constants import LABELS, PER_TEST_SET_CHECKS
+
+
+class PreflightDbGate:
+    """The database access for one preflight run, kept off the event loop.
+
+    Preflight fans its checks out with ``asyncio.gather``, and every check queries.
+    Two rules have to hold at once: a psycopg2 call must not run on the event loop
+    (it blocks every other request in the worker), and one ``Session`` must not be
+    used from two threads at once. So each segment runs in a worker thread, under a
+    lock that lets only one in at a time -- which serialises the queries exactly as
+    the old on-loop code did, while the awaits around them still overlap.
+
+    ``spawn_session`` exists for the endpoint invoker, which needs its own session.
+    """
+
+    def __init__(
+        self,
+        session: Session,
+        organization_id: str = "",
+        user_id: str = "",
+        project_id: str = "",
+    ):
+        self.session = session
+        self.organization_id = organization_id
+        self.user_id = user_id
+        self.project_id = project_id
+        self._lock = asyncio.Lock()
+
+    async def run(self, fn: Callable[..., Any], *args: Any) -> Any:
+        """Run ``fn(session, *args)`` in a worker thread, one caller at a time."""
+        async with self._lock:
+            return await anyio.to_thread.run_sync(fn, self.session, *args)
+
+    @asynccontextmanager
+    async def spawn_session(self) -> AsyncIterator[Session]:
+        """Open a second tenant-scoped session, entered and exited off the loop."""
+        async with open_tenant_session_off_loop(
+            self.organization_id, self.user_id, self.project_id
+        ) as session:
+            yield session
+
+
+@asynccontextmanager
+async def open_tenant_session_off_loop(
+    organization_id: str, user_id: str, project_id: str = ""
+) -> AsyncIterator[Session]:
+    """A tenant-scoped session whose open and close both happen in a worker thread.
+
+    Opening one runs ``set_config`` and closing it commits or rolls back, so both ends
+    are psycopg2 calls that would otherwise block the event loop.
+    """
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+
+    cm = get_db_with_tenant_variables(organization_id, user_id, project_id)
+    session = await anyio.to_thread.run_sync(cm.__enter__)
+    try:
+        yield session
+    except BaseException as exc:
+        if not await anyio.to_thread.run_sync(cm.__exit__, type(exc), exc, exc.__traceback__):
+            raise
+    else:
+        await anyio.to_thread.run_sync(cm.__exit__, None, None, None)
 
 
 def _make_composite_key(

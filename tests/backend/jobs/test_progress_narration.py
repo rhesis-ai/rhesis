@@ -466,7 +466,11 @@ class TestMetricLevelNarration:
 
 @pytest.mark.unit
 class TestBatchExecutionNarration:
-    """The batch runner calls on_emit after each test completes."""
+    """The batch runner calls on_emit after each test completes.
+
+    No on_progress here: batch progress is written inside persist_result's
+    transaction (see test_batch_progress_in_persist.py), not via a callback.
+    """
 
     def test_reports_per_test_narration(self):
         from rhesis.backend.jobs.execution.batch.runner import run_batch
@@ -491,7 +495,6 @@ class TestBatchExecutionNarration:
         }
 
         emit_calls = []
-        progress_calls = []
 
         async def _fake_single(
             ctx, test_id, semaphore, agent, evaluator, on_emit=None, on_test_phase=None
@@ -506,13 +509,11 @@ class TestBatchExecutionNarration:
                 run_batch(
                     ctx,
                     ["t1", "t2"],
-                    on_progress=lambda c, t: progress_calls.append((c, t)),
                     on_emit=lambda m: emit_calls.append(m),
                 )
             )
 
         assert len(results) == 2
-        assert progress_calls == [(1, 2), (2, 2)]
         assert emit_calls[0].startswith("Test 1/2 succeeded")
         assert emit_calls[1].startswith("Test 2/2 succeeded")
         assert any("Prompt Injection" in m or "Data Leakage" in m for m in emit_calls)

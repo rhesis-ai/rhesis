@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+import anyio
 import jinja2
 
 from rhesis.backend.app.config.settings import get_model_settings
@@ -135,6 +136,41 @@ class TestConfigGeneratorService:
         if self.db is None or organization_id is None:
             raise ValueError("Database session and organization_id are required")
 
+        # Requirements and project are read before the LLM call and never again,
+        # so the whole prefetch-and-render step goes to a worker thread in one hop.
+        rendered_prompt = await anyio.to_thread.run_sync(
+            self._render_prompt, prompt, organization_id, project_id, previous_messages
+        )
+
+        # LLM will select requirements from the list and generate topics and categories
+        llm_response = await self.llm.a_generate(rendered_prompt, schema=TestConfigResponse)
+
+        # SDK providers return {"error": "..."} on failure instead of raising
+        if isinstance(llm_response, dict) and "error" in llm_response:
+            raise RuntimeError(str(llm_response["error"]))
+
+        # Handle response whether it's a dict or TestConfigResponse object
+        if isinstance(llm_response, dict):
+            llm_response = TestConfigResponse(**llm_response)
+
+        return llm_response
+
+    def _render_prompt(
+        self,
+        prompt: str,
+        organization_id: str,
+        project_id: Optional[str],
+        previous_messages: Optional[list],
+    ) -> str:
+        """Read the requirements and project, render the LLM prompt. Runs in a worker thread.
+
+        Every column the template needs is read here, inside the thread, so the
+        rendered string that comes back carries no ORM objects.
+
+        Raises:
+            ValueError: If project_id is given but the project is not visible to
+                this organization.
+        """
         # Fetch requirements from database (limited to max 100 by validation)
         requirements = requirement_crud.get_requirements(
             db=self.db,
@@ -166,7 +202,7 @@ class TestConfigGeneratorService:
 
         # If there are previous messages, use the maximum sample size, otherwise let LLM decide.
 
-        rendered_prompt = template.render(
+        return template.render(
             {
                 "prompt": prompt,
                 "sample_size": MAX_SAMPLE_SIZE,
@@ -178,16 +214,3 @@ class TestConfigGeneratorService:
                 "previous_messages": previous_messages or [],
             }
         )
-
-        # LLM will select requirements from the list and generate topics and categories
-        llm_response = await self.llm.a_generate(rendered_prompt, schema=TestConfigResponse)
-
-        # SDK providers return {"error": "..."} on failure instead of raising
-        if isinstance(llm_response, dict) and "error" in llm_response:
-            raise RuntimeError(str(llm_response["error"]))
-
-        # Handle response whether it's a dict or TestConfigResponse object
-        if isinstance(llm_response, dict):
-            llm_response = TestConfigResponse(**llm_response)
-
-        return llm_response

@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+import anyio
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
@@ -68,6 +69,38 @@ def update_source(
     return updated
 
 
+def _load_source_type_id(db: Session, organization_id: str, source_type_value: str) -> uuid.UUID:
+    """Resolve a source type value to its id."""
+    source_type = get_source_type_by_value(db, organization_id, source_type_value)
+    if not source_type:
+        raise ValueError(
+            f"Source type '{source_type_value}' not found. Please ensure database is initialized."
+        )
+    return source_type.id
+
+
+def _warm_response_relationships(source: models.Source) -> None:
+    """Load what the Source response schema reads, while still off the loop.
+
+    The callers are ``async def`` routes, so a relationship left unloaded here
+    would emit its SELECT during response serialization -- on the event loop.
+    """
+    for attribute in ("tags", "source_type", "user", "counts"):
+        getattr(source, attribute, None)
+
+
+def _persist_uploaded_source(
+    db: Session, source_data: schemas.SourceCreate, organization_id: str, user_id: str
+) -> models.Source:
+    """Create the Source row and chunk it."""
+    created_source = source_crud.create_source(
+        db=db, source=source_data, organization_id=organization_id, user_id=user_id
+    )
+    auto_chunk_source(db, created_source.id, organization_id, user_id)
+    _warm_response_relationships(created_source)
+    return created_source
+
+
 async def refresh_source_content(
     db: Session,
     file: UploadFile,
@@ -102,22 +135,20 @@ async def refresh_source_content(
         ValueError: If file validation fails or source creation fails
     """
     # Get the specified source type
-    source_type = get_source_type_by_value(db, organization_id, source_type_value)
-    if not source_type:
-        raise ValueError(
-            f"Source type '{source_type_value}' not found. Please ensure database is initialized."
-        )
+    source_type_id = await anyio.to_thread.run_sync(
+        _load_source_type_id, db, organization_id, source_type_value
+    )
 
     # Initialize handler based on source type
     handler = get_source_handler(source_type_value)
 
-    # Save file and get metadata
+    # Save file and get metadata. No session is handed over: the handler awaits
+    # storage I/O, so any query it made would run on the event loop.
     file_metadata = await handler.save_source(
         file=file,
         organization_id=organization_id,
         source_id=str(uuid.uuid4()),  # Generate unique source ID
         user_id=user_id,  # Pass user_id for uploader name in metadata
-        db_session=db,  # Pass database session for user lookup
     )
 
     # Extract content separately
@@ -132,7 +163,7 @@ async def refresh_source_content(
     source_data = schemas.SourceCreate(
         title=title or file.filename,
         description=description,
-        source_type_id=source_type.id,  # Use the dynamic source type
+        source_type_id=source_type_id,  # Use the dynamic source type
         source_metadata=file_metadata,  # File metadata (size, hash, path, etc.)
         organization_id=organization_id,
         user_id=user_id,
@@ -140,13 +171,9 @@ async def refresh_source_content(
     )
 
     # Save to database
-    created_source = source_crud.create_source(
-        db=db, source=source_data, organization_id=organization_id, user_id=user_id
+    return await anyio.to_thread.run_sync(
+        _persist_uploaded_source, db, source_data, organization_id, user_id
     )
-
-    auto_chunk_source(db, created_source.id, organization_id, user_id)
-
-    return created_source
 
 
 def validate_source_for_extraction(
@@ -193,6 +220,45 @@ def validate_source_for_extraction(
     return db_source, file_path
 
 
+def _load_handler_target(
+    db: Session, source_id: uuid.UUID, organization_id: str, user_id: str
+) -> tuple[str, str]:
+    """Validate a source and return ``(file_path, source_type_value)``.
+
+    Runs in a worker thread: the callers await storage I/O afterwards and must
+    not touch the session from the event loop.
+    """
+    db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
+
+    source_type = type_lookup_crud.get_type_lookup(
+        db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+    )
+    if not source_type:
+        raise ValueError("Source type not found.")
+
+    return file_path, source_type.type_value
+
+
+def _store_extracted_content(
+    db: Session, source_id: uuid.UUID, content: str, organization_id: str, user_id: str
+):
+    """Save extracted content, re-chunk, and return the new ``updated_at``.
+
+    Runs in a worker thread.
+    """
+    updated_source = source_crud.update_source(
+        db,
+        source_id=source_id,
+        source=schemas.SourceUpdate(content=content),
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    auto_chunk_source(db, source_id, organization_id, user_id)
+
+    return updated_source.updated_at
+
+
 async def extract_source_content(
     db: Session, source_id: uuid.UUID, organization_id: str, user_id: str
 ) -> dict:
@@ -211,39 +277,27 @@ async def extract_source_content(
     Raises:
         ValueError: If source validation or extraction fails
     """
-    # Validate source
-    db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
-
-    # Get source type to determine handler
-    source_type = type_lookup_crud.get_type_lookup(
-        db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+    # Validate source and resolve its handler type
+    file_path, source_type_value = await anyio.to_thread.run_sync(
+        _load_handler_target, db, source_id, organization_id, user_id
     )
-    if not source_type:
-        raise ValueError("Source type not found.")
 
     # Initialize handler based on source type
-    handler = get_source_handler(source_type.type_value)
+    handler = get_source_handler(source_type_value)
 
     # Extract content using handler
     content = await handler.extract_source_content(file_path)
 
     # Update the source with extracted content
-    update_data = schemas.SourceUpdate(content=content)
-    updated_source = source_crud.update_source(
-        db,
-        source_id=source_id,
-        source=update_data,
-        organization_id=organization_id,
-        user_id=user_id,
+    extracted_at = await anyio.to_thread.run_sync(
+        _store_extracted_content, db, source_id, content, organization_id, user_id
     )
-
-    auto_chunk_source(db, source_id, organization_id, user_id)
 
     return {
         "source_id": str(source_id),
         "content": content,
         "format": Path(file_path).suffix.lstrip("."),
-        "extracted_at": updated_source.updated_at,
+        "extracted_at": extracted_at,
     }
 
 
@@ -265,18 +319,13 @@ async def get_source_file_content(
     Raises:
         ValueError: If source validation fails
     """
-    # Validate source
-    db_source, file_path = validate_source_for_extraction(db, source_id, organization_id, user_id)
-
-    # Get source type to determine handler
-    source_type = type_lookup_crud.get_type_lookup(
-        db, db_source.source_type_id, organization_id=organization_id, user_id=user_id
+    # Validate source and resolve its handler type
+    file_path, source_type_value = await anyio.to_thread.run_sync(
+        _load_handler_target, db, source_id, organization_id, user_id
     )
-    if not source_type:
-        raise ValueError("Source type not found.")
 
     # Initialize handler based on source type
-    handler = get_source_handler(source_type.type_value)
+    handler = get_source_handler(source_type_value)
 
     # Get file content
     content = await handler.get_source_content(file_path)

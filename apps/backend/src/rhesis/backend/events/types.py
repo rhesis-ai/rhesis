@@ -7,12 +7,12 @@ rather than by a runtime filter. That is also what stops this becoming a
 generic event bus -- adding an event type means adding a subclass here and
 nothing else; there is no ``**kwargs`` escape hatch for a call site to widen.
 
-``job_id`` is deliberately absent from every subclass below. Job-lifecycle
-events carry ``celery_task_id`` (already on the base, "set when emitted from
-a worker") and a sink resolves the ``job`` row from that when it needs the
-FK -- the same indexed lookup ``crud.job.get_job_by_celery_task_id`` uses.
-That keeps event construction cheap (no query needed to build one) and gives
-every sink one join key instead of two.
+``job_id`` lives on the base and is optional. A caller that already knows
+the ``job`` row (``launch_job`` just created it; ``BaseJob`` resolves it once
+per task run from the dispatch headers) stamps it so every sink can skip the
+``celery_task_id`` -> ``job`` lookup, which used to cost each sink a session
+per event. A caller that does not know it leaves it ``None`` and sinks fall
+back to that lookup -- so building an event never requires a query.
 
 ``JobProgressed`` is intentionally not defined yet: nothing consumes it until
 a WebSocket sink ships, and an event type with no sink is dead code with no
@@ -48,6 +48,9 @@ class PlatformEvent(BaseModel):
     trace_id: str = Field(pattern=_HEX32)
     span_id: str = Field(pattern=_HEX16)
     celery_task_id: Optional[str] = None
+    # The job row this event belongs to, when the emitter already knows it.
+    # See the module docstring; sinks resolve it from celery_task_id if None.
+    job_id: Optional[UUID] = None
 
     entity_type: Optional[str] = None
     entity_id: Optional[UUID] = None
@@ -93,9 +96,9 @@ class JobCancelled(PlatformEvent):
 class ActivityLogged(PlatformEvent):
     """A free-standing log line, from ``self.emit()`` or any service.
 
-    Not named ``JobLogged``: ``celery_task_id`` (and therefore the resolved
-    ``job_id``) is optional here specifically, unlike the job-lifecycle
-    events above, so a service with no job can still write one. See
+    Not named ``JobLogged``: a service with no job can still write one, so
+    neither ``celery_task_id`` nor ``job_id`` is required here -- unlike the
+    job-lifecycle events above, which always come from a worker. See
     ``README.md``'s "two layers, not one" section.
     """
 

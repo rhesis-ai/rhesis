@@ -190,7 +190,7 @@ class CountsMixin:
 class OrganizationMixin:
     """Mixin for organization-level multi-tenancy"""
 
-    organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
+    organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True, index=True)
 
     @declared_attr
     def organization(cls):

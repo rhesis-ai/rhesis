@@ -49,13 +49,14 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.feature_gates import require_feature
-from rhesis.backend.app.dependencies import get_db_session
+from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_db_session
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.utils.rate_limit import limiter
@@ -100,9 +101,7 @@ async def _require_org_admin_for(request: Request, org_id: str):
     )
 
     credentials = await bearer_scheme(request)
-    user = await get_authenticated_user_with_context(
-        request, credentials, get_secret_key()
-    )
+    user = await get_authenticated_user_with_context(request, credentials, get_secret_key())
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -180,31 +179,15 @@ def _request_ip(request: Request) -> Optional[str]:
         return None
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
+# --- Off-loop database work (see dependencies.get_off_loop_tenant_session) ---
+# These run in a worker thread and return plain values, so nothing after the
+# call can lazy-load back on the loop.
 
 
-@router.post(
-    "/organizations/{org_id}/auth-clients",
-    response_model=AuthClientCreatedResponse,
-    status_code=status.HTTP_201_CREATED,
-    **capability(Permission.ApiClients.MANAGE),
-)
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def create_auth_client(
-    request: Request,
-    org_id: str,
-    body: AuthClientCreate,
-    db: Session = Depends(get_db_session),
-    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
-):
-    """Create a new :class:`AuthClient`.
-
-    The plaintext ``client_secret`` is returned once in the response
-    body. There is no other code path that recovers it.
-    """
-    user = await _require_org_admin_for(request, org_id)
+def _create_client(
+    db: Session, org_id: str, body: AuthClientCreate
+) -> tuple[AuthClientResponse, str, str]:
+    """Create the row; return (response, plaintext secret, secret hash)."""
     org = _get_org_or_404(db, org_id)
 
     if not org.slug:
@@ -243,42 +226,16 @@ async def create_auth_client(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "An API client with that identifier or name already "
-                "exists in this organization."
+                "An API client with that identifier or name already exists in this organization."
             ),
         )
     db.refresh(row)
 
-    auth_client_audit_log(
-        AuthClientLifecycleEvent.CREATED,
-        org_id=str(org.id),
-        client_id=row.client_id,
-        actor_id=str(user.id),
-        ip=_request_ip(request),
-        user_agent=request.headers.get("user-agent"),
-        secret_hash_for_correlation=secret_hash,
-    )
-
-    response = AuthClientResponse.model_validate(row)
-    return AuthClientCreatedResponse(**response.model_dump(), client_secret=plaintext_secret)
+    return AuthClientResponse.model_validate(row), plaintext_secret, secret_hash
 
 
-@router.get(
-    "/organizations/{org_id}/auth-clients",
-    response_model=List[AuthClientResponse],
-    **capability(Permission.ApiClients.MANAGE),
-)
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def list_auth_clients(
-    request: Request,
-    org_id: str,
-    db: Session = Depends(get_db_session),
-    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
-):
-    """List :class:`AuthClient` rows for the org. No secret material."""
-    await _require_org_admin_for(request, org_id)
+def _list_clients(db: Session, org_id: str) -> List[AuthClientResponse]:
     _get_org_or_404(db, org_id)
-
     rows = (
         db.query(AuthClient)
         .filter(
@@ -291,48 +248,16 @@ async def list_auth_clients(
     return [AuthClientResponse.model_validate(r) for r in rows]
 
 
-@router.get(
-    "/organizations/{org_id}/auth-clients/{client_pk}",
-    response_model=AuthClientResponse,
-    **capability(Permission.ApiClients.MANAGE),
-)
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def get_auth_client(
-    request: Request,
-    org_id: str,
-    client_pk: str,
-    db: Session = Depends(get_db_session),
-    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
-):
-    await _require_org_admin_for(request, org_id)
+def _get_client(db: Session, org_id: str, client_pk: str) -> AuthClientResponse:
     _get_org_or_404(db, org_id)
     row = _get_client_or_404(db, org_id, client_pk)
     return AuthClientResponse.model_validate(row)
 
 
-@router.post(
-    "/organizations/{org_id}/auth-clients/{client_pk}/rotate",
-    response_model=AuthClientCreatedResponse,
-    **capability(Permission.ApiClients.MANAGE),
-)
-@limiter.limit(SSO_ADMIN_RATE_LIMIT)
-async def rotate_auth_client_secret(
-    request: Request,
-    org_id: str,
-    client_pk: str,
-    db: Session = Depends(get_db_session),
-    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
-):
-    """Rotate the secret. Old hash is overwritten immediately (no overlap).
-
-    Also bumps ``token_epoch`` (via the ``iat >= epoch`` check in
-    :func:`verify_jwt_token`) which invalidates every Rhesis JWT
-    issued before the rotation. That is the only coarse-revocation
-    lever in v1; per-token revocation lands later.
-    """
+def _rotate_client(db: Session, org_id: str, client_pk: str) -> tuple[AuthClientResponse, str, str]:
+    """Rotate the secret; return (response, plaintext secret, new hash)."""
     from datetime import datetime, timedelta, timezone
 
-    user = await _require_org_admin_for(request, org_id)
     _get_org_or_404(db, org_id)
     row = _get_client_or_404(db, org_id, client_pk)
 
@@ -357,17 +282,154 @@ async def rotate_auth_client_secret(
     db.commit()
     db.refresh(row)
 
+    return AuthClientResponse.model_validate(row), plaintext_secret, new_hash
+
+
+def _set_client_disabled(
+    db: Session, org_id: str, client_pk: str, disabled: bool
+) -> tuple[AuthClientResponse, bool]:
+    """Flip ``disabled``; return (response, whether the row actually changed)."""
+    _get_org_or_404(db, org_id)
+    row = _get_client_or_404(db, org_id, client_pk)
+
+    changed = bool(row.disabled) != disabled
+    if changed:
+        row.disabled = disabled
+        db.commit()
+        db.refresh(row)
+
+    return AuthClientResponse.model_validate(row), changed
+
+
+def _delete_client(db: Session, org_id: str, client_pk: str) -> tuple[str, str]:
+    """Soft-delete the row; return (org_id, client_id) for the audit entry."""
+    _get_org_or_404(db, org_id)
+    row = _get_client_or_404(db, org_id, client_pk)
+
+    if not row.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Disable the client before deleting it.",
+        )
+
+    client_id_for_audit = row.client_id
+    org_for_audit = str(row.organization_id)
+    row.soft_delete()
+    db.commit()
+    return org_for_audit, client_id_for_audit
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/organizations/{org_id}/auth-clients",
+    response_model=AuthClientCreatedResponse,
+    status_code=status.HTTP_201_CREATED,
+    **capability(Permission.ApiClients.MANAGE),
+)
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def create_auth_client(
+    request: Request,
+    org_id: str,
+    body: AuthClientCreate,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
+):
+    """Create a new :class:`AuthClient`.
+
+    The plaintext ``client_secret`` is returned once in the response
+    body. There is no other code path that recovers it.
+    """
+    user = await _require_org_admin_for(request, org_id)
+    response, plaintext_secret, secret_hash = await anyio.to_thread.run_sync(
+        _create_client, db, org_id, body
+    )
+
+    auth_client_audit_log(
+        AuthClientLifecycleEvent.CREATED,
+        org_id=str(response.organization_id),
+        client_id=response.client_id,
+        actor_id=str(user.id),
+        ip=_request_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        secret_hash_for_correlation=secret_hash,
+    )
+
+    return AuthClientCreatedResponse(**response.model_dump(), client_secret=plaintext_secret)
+
+
+@router.get(
+    "/organizations/{org_id}/auth-clients",
+    response_model=List[AuthClientResponse],
+    **capability(Permission.ApiClients.MANAGE),
+)
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def list_auth_clients(
+    request: Request,
+    org_id: str,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
+):
+    """List :class:`AuthClient` rows for the org. No secret material."""
+    await _require_org_admin_for(request, org_id)
+    return await anyio.to_thread.run_sync(_list_clients, db, org_id)
+
+
+@router.get(
+    "/organizations/{org_id}/auth-clients/{client_pk}",
+    response_model=AuthClientResponse,
+    **capability(Permission.ApiClients.MANAGE),
+)
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def get_auth_client(
+    request: Request,
+    org_id: str,
+    client_pk: str,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
+):
+    await _require_org_admin_for(request, org_id)
+    return await anyio.to_thread.run_sync(_get_client, db, org_id, client_pk)
+
+
+@router.post(
+    "/organizations/{org_id}/auth-clients/{client_pk}/rotate",
+    response_model=AuthClientCreatedResponse,
+    **capability(Permission.ApiClients.MANAGE),
+)
+@limiter.limit(SSO_ADMIN_RATE_LIMIT)
+async def rotate_auth_client_secret(
+    request: Request,
+    org_id: str,
+    client_pk: str,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+    _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
+):
+    """Rotate the secret. Old hash is overwritten immediately (no overlap).
+
+    Also bumps ``token_epoch`` (via the ``iat >= epoch`` check in
+    :func:`verify_jwt_token`) which invalidates every Rhesis JWT
+    issued before the rotation. That is the only coarse-revocation
+    lever in v1; per-token revocation lands later.
+    """
+    user = await _require_org_admin_for(request, org_id)
+    response, plaintext_secret, new_hash = await anyio.to_thread.run_sync(
+        _rotate_client, db, org_id, client_pk
+    )
+
     auth_client_audit_log(
         AuthClientLifecycleEvent.ROTATED,
-        org_id=str(row.organization_id),
-        client_id=row.client_id,
+        org_id=str(response.organization_id),
+        client_id=response.client_id,
         actor_id=str(user.id),
         ip=_request_ip(request),
         user_agent=request.headers.get("user-agent"),
         secret_hash_for_correlation=new_hash,
     )
 
-    response = AuthClientResponse.model_validate(row)
     return AuthClientCreatedResponse(
         **response.model_dump(),
         client_secret=plaintext_secret,
@@ -384,28 +446,26 @@ async def disable_auth_client(
     request: Request,
     org_id: str,
     client_pk: str,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
     _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
 ):
     """Soft-disable. Token exchange and refresh both reject ``invalid_client``."""
     user = await _require_org_admin_for(request, org_id)
-    _get_org_or_404(db, org_id)
-    row = _get_client_or_404(db, org_id, client_pk)
+    response, changed = await anyio.to_thread.run_sync(
+        _set_client_disabled, db, org_id, client_pk, True
+    )
 
-    if not row.disabled:
-        row.disabled = True
-        db.commit()
-        db.refresh(row)
+    if changed:
         auth_client_audit_log(
             AuthClientLifecycleEvent.DISABLED,
-            org_id=str(row.organization_id),
-            client_id=row.client_id,
+            org_id=str(response.organization_id),
+            client_id=response.client_id,
             actor_id=str(user.id),
             ip=_request_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
 
-    return AuthClientResponse.model_validate(row)
+    return response
 
 
 @router.post(
@@ -418,28 +478,26 @@ async def enable_auth_client(
     request: Request,
     org_id: str,
     client_pk: str,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
     _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
 ):
     """Re-enable a disabled client."""
     user = await _require_org_admin_for(request, org_id)
-    _get_org_or_404(db, org_id)
-    row = _get_client_or_404(db, org_id, client_pk)
+    response, changed = await anyio.to_thread.run_sync(
+        _set_client_disabled, db, org_id, client_pk, False
+    )
 
-    if row.disabled:
-        row.disabled = False
-        db.commit()
-        db.refresh(row)
+    if changed:
         auth_client_audit_log(
             AuthClientLifecycleEvent.ENABLED,
-            org_id=str(row.organization_id),
-            client_id=row.client_id,
+            org_id=str(response.organization_id),
+            client_id=response.client_id,
             actor_id=str(user.id),
             ip=_request_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
 
-    return AuthClientResponse.model_validate(row)
+    return response
 
 
 @router.delete(
@@ -452,7 +510,7 @@ async def delete_auth_client(
     request: Request,
     org_id: str,
     client_pk: str,
-    db: Session = Depends(get_db_session),
+    db: OffLoopSession = Depends(get_off_loop_db_session),
     _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
 ):
     """Hard-delete. Only allowed when ``disabled=true``.
@@ -464,19 +522,9 @@ async def delete_auth_client(
     request.
     """
     user = await _require_org_admin_for(request, org_id)
-    _get_org_or_404(db, org_id)
-    row = _get_client_or_404(db, org_id, client_pk)
-
-    if not row.disabled:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Disable the client before deleting it.",
-        )
-
-    client_id_for_audit = row.client_id
-    org_for_audit = str(row.organization_id)
-    row.soft_delete()
-    db.commit()
+    org_for_audit, client_id_for_audit = await anyio.to_thread.run_sync(
+        _delete_client, db, org_id, client_pk
+    )
 
     auth_client_audit_log(
         AuthClientLifecycleEvent.DELETED,

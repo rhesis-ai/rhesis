@@ -1710,3 +1710,90 @@ class TestDisposableEmailSignupBlocking:
 
         assert response.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
         mock_screen.assert_not_called()
+
+
+@pytest.mark.unit
+class TestEmailRegisterAndLoginHappyPath:
+    """End-to-end register-then-login over the real handlers.
+
+    Both handlers are ``async def`` and now do all of their database work,
+    bcrypt and SMTP inside ``anyio.to_thread.run_sync``. The response bodies
+    are built from values read after ``db.commit()``, which expires the ORM
+    row -- exactly the shape of bug that bit ``sso_callback`` -- so this walks
+    the whole path and checks the payload rather than only the status code.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _skip_mx_lookup(self):
+        """Registration verifies the domain can receive mail; test.rhesis.ai cannot."""
+        with patch(
+            "rhesis.backend.app.utils.validation.validate_and_normalize_email",
+            side_effect=lambda email, check_deliverability=False: email,
+        ):
+            yield
+
+    PASSWORD = "a-perfectly-fine-passphrase-42"
+
+    def test_register_then_login(self, client: TestClient, test_db):
+        email = _unique_email("register-login")
+
+        registered = client.post(
+            "/auth/register",
+            json={"email": email, "password": self.PASSWORD, "name": "Fresh Signup"},
+        )
+
+        assert registered.status_code == status.HTTP_200_OK, registered.text
+        body = registered.json()
+        assert body["success"] is True
+        assert body["auth_code"]
+        assert body["user"]["email"] == email
+        assert body["user"]["name"] == "Fresh Signup"
+        assert uuid.UUID(body["user"]["id"])
+
+        logged_in = client.post(
+            "/auth/login/email",
+            json={"email": email, "password": self.PASSWORD},
+        )
+
+        assert logged_in.status_code == status.HTTP_200_OK, logged_in.text
+        login_body = logged_in.json()
+        assert login_body["success"] is True
+        assert login_body["auth_code"]
+        assert login_body["user"]["id"] == body["user"]["id"]
+        assert login_body["user"]["email"] == email
+
+    def test_login_with_the_wrong_password_is_rejected(self, client: TestClient, test_db):
+        email = _unique_email("wrong-password")
+
+        registered = client.post(
+            "/auth/register",
+            json={"email": email, "password": self.PASSWORD},
+        )
+        assert registered.status_code == status.HTTP_200_OK, registered.text
+
+        response = client.post(
+            "/auth/login/email",
+            json={"email": email, "password": "not-the-right-passphrase-99"},
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid email or password"
+
+    def test_login_for_an_unknown_account_is_rejected(self, client: TestClient, test_db):
+        response = client.post(
+            "/auth/login/email",
+            json={"email": _unique_email("nobody"), "password": self.PASSWORD},
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid email or password"
+
+    def test_registering_the_same_email_twice_is_rejected(self, client: TestClient, test_db):
+        email = _unique_email("duplicate")
+        payload = {"email": email, "password": self.PASSWORD}
+
+        assert client.post("/auth/register", json=payload).status_code == status.HTTP_200_OK
+
+        second = client.post("/auth/register", json=payload)
+
+        assert second.status_code == status.HTTP_400_BAD_REQUEST

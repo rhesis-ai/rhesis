@@ -3,8 +3,9 @@
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, NamedTuple
 
+import anyio
 import httpx
 from sqlalchemy.orm import Session
 
@@ -139,28 +140,31 @@ class JiraRestClient:
         return {"issue_key": issue_key, "issue_url": issue_url}
 
 
-async def create_jira_ticket_from_task(
+class _JiraTicketInputs(NamedTuple):
+    """Everything the Jira call needs, read while off the event loop."""
+
+    task: Any
+    client: "JiraRestClient"
+    space_key: str
+    summary: str
+    description: str
+
+
+def _load_jira_ticket_inputs(
+    db: Session,
     task_id: uuid.UUID,
     tool_id: str,
-    db: Session,
     organization_id: str,
     user_id: str,
-) -> Dict[str, Any]:
-    """Create a Jira issue from a task via the Jira REST API.
-
-    Returns:
-        Dict with ``issue_key`` and ``issue_url``.
-
-    Raises:
-        ValueError: If task/tool not found, misconfigured, or the API call fails.
-    """
+) -> _JiraTicketInputs:
+    """Load the task and its Jira client. Runs in a worker thread."""
     task = task_crud.get_task(db, task_id, organization_id, user_id)
     if not task:
         raise ValueError(f"Task '{task_id}' not found")
 
     from rhesis.backend.app.services.tool.rest import config  # avoid circular import
 
-    # Raises ToolConfigurationError if tool xnot found, deleted, or misconfigured.
+    # Raises ToolConfigurationError if tool not found, deleted, or misconfigured.
     client = config.get_rest_client(db, tool_id, organization_id, user_id)
     if not isinstance(client, JiraRestClient):
         raise ValueError(f"Tool '{tool_id}' is not a Jira integration")
@@ -169,14 +173,25 @@ async def create_jira_ticket_from_task(
     if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
         raise ValueError("Jira tool is not configured with a space_key")
 
-    space_key = tool.tool_metadata["space_key"]
-
-    response_data = await client.create_issue(
-        project_key=space_key,
+    return _JiraTicketInputs(
+        task=task,
+        client=client,
+        space_key=tool.tool_metadata["space_key"],
         summary=task.title,
         description=task.description or "",
     )
 
+
+def _record_jira_issue_on_task(
+    db: Session,
+    task: Any,
+    task_id: uuid.UUID,
+    tool_id: str,
+    response_data: Dict[str, Any],
+    organization_id: str,
+    user_id: str,
+) -> None:
+    """Write the created issue back onto the task. Runs in a worker thread."""
     if not task.task_metadata:
         task.task_metadata = {}
 
@@ -193,6 +208,46 @@ async def create_jira_ticket_from_task(
         task=schemas.TaskUpdate(task_metadata=task.task_metadata),
         organization_id=organization_id,
         user_id=user_id,
+    )
+
+
+async def create_jira_ticket_from_task(
+    task_id: uuid.UUID,
+    tool_id: str,
+    db: Session,
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, Any]:
+    """Create a Jira issue from a task via the Jira REST API.
+
+    The two database segments run in a worker thread, so the awaited Jira call
+    in between is the only thing on the event loop.
+
+    Returns:
+        Dict with ``issue_key`` and ``issue_url``.
+
+    Raises:
+        ValueError: If task/tool not found, misconfigured, or the API call fails.
+    """
+    inputs = await anyio.to_thread.run_sync(
+        _load_jira_ticket_inputs, db, task_id, tool_id, organization_id, user_id
+    )
+
+    response_data = await inputs.client.create_issue(
+        project_key=inputs.space_key,
+        summary=inputs.summary,
+        description=inputs.description,
+    )
+
+    await anyio.to_thread.run_sync(
+        _record_jira_issue_on_task,
+        db,
+        inputs.task,
+        task_id,
+        tool_id,
+        response_data,
+        organization_id,
+        user_id,
     )
 
     return {

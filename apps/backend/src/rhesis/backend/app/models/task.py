@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 
@@ -9,6 +9,7 @@ from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMix
 
 class Task(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin, TagsMixin):
     __tablename__ = "task"
+    __table_args__ = (Index("ix_task_org_created", "organization_id", "created_at"),)
 
     # Core fields
     title = Column(String, nullable=False)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String
+from sqlalchemy import Column, ForeignKey, Index, String
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -29,6 +29,7 @@ class Tag(Base, ProjectMixin, OrganizationAndUserMixin):
     """
 
     __tablename__ = "tag"
+    __table_args__ = (Index("ix_tag_org_created", "organization_id", "created_at"),)
     name = Column(String)
     icon_unicode = Column(String)  # Unicode character for the icon, e.g. 🎈
     tagged_items = relationship("TaggedItem", back_populates="tag")

@@ -17,6 +17,7 @@ resources:
   - contact-point.yaml
   - notification-policy.yaml
   - basic-alerts.yaml
+  - postgres-alerts.yaml
 
 configMapGenerator:
   # Single source for the alert recipient/sender address, since it's the same in

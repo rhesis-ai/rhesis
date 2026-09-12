@@ -196,35 +196,13 @@ def launch_job(
             logger.warning(f"Could not commit job row before dispatch: {exc}", exc_info=True)
             job_id = None
 
+    if job_id is not None:
+        # The worker reads this in BaseJob.before_start so every event it
+        # emits can carry job_id and the sinks skip the celery_task_id lookup.
+        headers["job_id"] = str(job_id)
+
     if job_id is not None and trace_id is not None:
-        # Only for a tracked job (a real row exists to attach the entry to)
-        # -- an untracked type emitting here would recreate exactly the
-        # per-request noise UNTRACKED_JOB_TYPES exists to avoid.
-        try:
-            from datetime import datetime, timezone
-
-            from rhesis.backend.events import emit
-            from rhesis.backend.events.types import JobQueued
-            from rhesis.backend.jobs.tracking import job_type_for
-
-            task_name = getattr(task, "name", "") or ""
-            emit(
-                JobQueued(
-                    occurred_at=datetime.now(timezone.utc),
-                    organization_id=headers.get("organization_id"),
-                    project_id=headers.get("project_id"),
-                    user_id=headers.get("user_id"),
-                    trace_id=trace_id,
-                    span_id=span_id,
-                    celery_task_id=celery_task_id,
-                    source=job_type_for(task_name),
-                    job_type=job_type_for(task_name),
-                    name=getattr(task, "display_name", None),
-                ),
-                db=db,
-            )
-        except Exception as exc:
-            logger.warning(f"Could not emit JobQueued for {celery_task_id}: {exc}", exc_info=True)
+        _emit_job_queued(task, headers, celery_task_id, job_id, trace_id, span_id)
 
     apply_kwargs: Dict[str, Any] = dict(args=args, kwargs=kwargs)
     if headers:
@@ -237,3 +215,42 @@ def launch_job(
         return task.apply_async(**apply_kwargs)
     else:
         return task.delay(*args, **kwargs)
+
+
+def _emit_job_queued(task, headers, celery_task_id, job_id, trace_id, span_id) -> None:
+    """The first activity_log line of a tracked job, from the router side.
+
+    Only for a tracked job (a real row exists to attach the entry to) -- an
+    untracked type emitting here would recreate exactly the per-request noise
+    UNTRACKED_JOB_TYPES exists to avoid. Best effort, like the rest of dispatch.
+
+    Deliberately not ``emit(..., db=db)``: ActivityLogSink would then flush
+    the line onto the request session, uncommitted until the request ends,
+    and a fast worker's "Job started" line could take sequence 1 first.
+    Its own committed session keeps "Job queued" durable before dispatch.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        from rhesis.backend.events import emit
+        from rhesis.backend.events.types import JobQueued
+        from rhesis.backend.jobs.tracking import job_type_for
+
+        task_name = getattr(task, "name", "") or ""
+        emit(
+            JobQueued(
+                occurred_at=datetime.now(timezone.utc),
+                organization_id=headers.get("organization_id"),
+                project_id=headers.get("project_id"),
+                user_id=headers.get("user_id"),
+                trace_id=trace_id,
+                span_id=span_id,
+                celery_task_id=celery_task_id,
+                job_id=job_id,
+                source=job_type_for(task_name),
+                job_type=job_type_for(task_name),
+                name=getattr(task, "display_name", None),
+            ),
+        )
+    except Exception as exc:
+        logger.warning(f"Could not emit JobQueued for {celery_task_id}: {exc}", exc_info=True)

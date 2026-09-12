@@ -7,6 +7,7 @@ using the `Base` object from the `database` module.
 
 """
 
+import asyncio
 import logging
 import os
 import time
@@ -18,12 +19,14 @@ from rhesis.backend.telemetry import initialize_telemetry
 initialize_telemetry()
 
 # ruff: noqa: E402 - Imports must come after telemetry initialization
+import anyio
 from fastapi import Depends, FastAPI, Request
 from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -932,9 +935,82 @@ async def health_check():
     }
 
 
+#: How long /ready waits for the database before reporting the pod not ready.
+READINESS_TIMEOUT_SECONDS = 2.0
+
+# How long the database may stay unreachable before this pod reports itself
+# unready. Longer than a few probe periods on purpose: see readiness_check.
+READINESS_GRACE_SECONDS = 30.0
+
+# Last time this process reached the database. Seeded at import so a pod that
+# has never reached it still goes unready once the grace window passes.
+_last_db_contact = time.monotonic()
+
+
+def _ping_database() -> None:
+    """One round trip on a pooled connection. Runs in a worker thread."""
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness: 503 once the database has been out of reach for a while.
+
+    Kubernetes routes traffic by this and restarts by /health, which stays free
+    of the database on purpose: a database outage must not look like a dead
+    process to the liveness probe.
+
+    One slow probe is not enough to go unready, and that is the whole design.
+    Every replica shares one database, so a probe that fails on latency takes
+    the entire fleet out of the Service at the same moment and ingress answers
+    503 for everything, including the routes that need no database at all --
+    a worse outcome than serving slowly, and the failure this endpoint exists
+    to prevent. Under saturation the ping queues for a threadpool token and a
+    pool checkout, so a timeout here means "busy", not "gone".
+
+    A pod is therefore pulled only when it has had no contact at all for
+    ``READINESS_GRACE_SECONDS``, which is the case a restart or a reschedule
+    actually fixes: this pod's pool is wedged while its siblings are fine.
+
+    ``abandon_on_cancel`` lets the timeout return at once instead of waiting
+    for the stuck connection attempt to give up (connect_timeout is 10s).
+    """
+    global _last_db_contact
+
+    try:
+        await asyncio.wait_for(
+            anyio.to_thread.run_sync(_ping_database, abandon_on_cancel=True),
+            timeout=READINESS_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        unreachable_for = time.monotonic() - _last_db_contact
+        if unreachable_for < READINESS_GRACE_SECONDS:
+            logger.warning(
+                "Readiness ping failed (%s: %s); still ready, last contact %.1fs ago",
+                type(exc).__name__,
+                exc,
+                unreachable_for,
+            )
+            return {"status": "degraded", "database": "slow"}
+        logger.error(
+            "Readiness failing: no database contact for %.1fs (%s: %s)",
+            unreachable_for,
+            type(exc).__name__,
+            exc,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "database": "unreachable"},
+        )
+
+    _last_db_contact = time.monotonic()
+    return {"status": "ok", "database": "ok"}
+
+
 # Defense-in-depth: append the baseline auth dependency to every non-public
 # route. Runs last so it covers core routers, EE routers, and the app-level
-# routes (/, /health) defined above.
+# routes (/, /health, /ready) defined above.
 apply_auth_backstop(app)
 
 # Derive and cache the capability catalog from the now-complete route table.

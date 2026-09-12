@@ -93,20 +93,35 @@ backend:
   # Image pull adds ~90s before container start but doesn't count toward probe delay.
   # Helm replaces nested maps — keep full blocks.
   # Liveness worst-case ≈ 180 + 29*45 = 1485s (~25m) before restart if /health never returns.
+  # Covers boot only (imports, probe cache pre-warm): migrations run in the
+  # PreSync Job, so the pod no longer waits on `alembic upgrade head`. Budget =
+  # initialDelaySeconds + (failureThreshold - 1) * periodSeconds = 30 + 29*10 =
+  # ~5min, generous for dev's small nodes. Liveness below stays tight because it
+  # does not start until this succeeds.
+  startupProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
   livenessProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 180
+    initialDelaySeconds: 60
     periodSeconds: 45
     timeoutSeconds: 15
-    failureThreshold: 30
+    failureThreshold: 5
+  # No real initial delay: the startupProbe already holds this back until boot
+  # succeeds, and /ready is what pulls the pod out of the Service when the
+  # database goes away -- delaying it only delays that.
   readinessProbe:
     httpGet:
-      path: /health
-    initialDelaySeconds: 120
+      path: /ready
+    initialDelaySeconds: 5
     periodSeconds: 20
     timeoutSeconds: 15
-    failureThreshold: 90
+    failureThreshold: 5
 
 frontend:
   resources:

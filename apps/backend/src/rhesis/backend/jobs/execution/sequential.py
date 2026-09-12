@@ -56,6 +56,23 @@ def _narrate_completion(
             on_emit(f"Test {index}/{total} completed")
 
 
+def _rollback_after_failure(session: Session) -> None:
+    """Put the session back in a usable state after a test failed.
+
+    ``execute_test`` writes its results on this same session, so a database error
+    leaves the transaction needing a rollback. Without one, the next iteration's
+    commit raises ``PendingRollbackError`` from outside any handler and the whole
+    run dies with it -- remaining tests, terminal status and results collection
+    included. A rollback that itself fails (dead connection) is logged and left:
+    the next test will fail the same way, one row at a time, which is the
+    containment this loop is meant to have.
+    """
+    try:
+        session.rollback()
+    except Exception:
+        logger.warning("Rollback after a failed test did not succeed", exc_info=True)
+
+
 def execute_tests_sequentially(
     session: Session,
     test_config: TestConfiguration,
@@ -189,6 +206,13 @@ def execute_tests_sequentially(
                 logger.debug("on_test_phase(generating) failed", exc_info=True)
 
         try:
+            # End the transaction the previous test left open: otherwise the connection
+            # sits "idle in transaction" across the whole LLM call, blocking vacuum and
+            # holding a pool slot. expire_on_commit=False keeps test_config / test_run
+            # usable after. Inside the try: a commit that fails has to be contained to
+            # this test like any other failure.
+            session.commit()
+
             result = run_on_thread_loop(
                 execute_test(
                     db=session,
@@ -212,6 +236,7 @@ def execute_tests_sequentially(
             _narrate_completion(result, i, len(tests), on_progress, on_emit)
 
         except Exception as e:
+            _rollback_after_failure(session)
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
             # Create failure result using shared utility
             failure_result = create_failure_result(str(test.id), e)

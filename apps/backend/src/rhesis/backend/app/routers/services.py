@@ -1,6 +1,7 @@
 import json
 import logging
 
+import anyio
 from fastapi import Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -8,7 +9,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
@@ -32,6 +38,7 @@ from rhesis.backend.app.services.activities import RecentActivitiesService
 from rhesis.backend.app.services.generation import (
     generate_multiturn_tests,
     generate_tests,
+    validate_model_override,
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
@@ -134,11 +141,18 @@ def get_github_contents(repo_url: str):
         raise internal_error(e, context=f"reading GitHub contents for {repo_url}") from e
 
 
+def _resolve_content_generation_model(db: Session, current_user: User):
+    """Resolve the caller's generation model. Reads the database, so it runs off the loop."""
+    from rhesis.backend.app.utils.user_model_utils import resolve_model
+
+    return resolve_model(db, current_user, "generation")
+
+
 @router.post("/generate/content")
 async def generate_content_endpoint(
     request: GenerateContentRequest,
     http_response: Response,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -204,9 +218,7 @@ async def generate_content_endpoint(
     the header, which is fine -- their accrual already happened here.
     """
     try:
-        from rhesis.backend.app.utils.user_model_utils import resolve_model
-
-        model = resolve_model(db, current_user, "generation")
+        model = await anyio.to_thread.run_sync(_resolve_content_generation_model, db, current_user)
 
         captured_usage: dict = {}
         has_on_usage = hasattr(model, "on_usage")
@@ -304,7 +316,7 @@ def generate_embedding_endpoint(
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
@@ -329,19 +341,7 @@ async def generate_tests_endpoint(
 
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
-        if model_id_str:
-            from rhesis.backend.app.crud import model as model_crud
-
-            model_obj = model_crud.get_model(
-                db=db,
-                model_id=model_id_str,
-                organization_id=str(current_user.organization_id),
-            )
-            if not model_obj:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Model {model_id_str} not found or not accessible",
-                )
+        await anyio.to_thread.run_sync(validate_model_override, db, current_user, model_id_str)
 
         # Generate tests synchronously
         tests = await generate_tests(
@@ -364,7 +364,7 @@ async def generate_tests_endpoint(
 @router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
 async def generate_multiturn_tests_endpoint(
     request: GenerateMultiTurnTestsRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
@@ -393,19 +393,7 @@ async def generate_multiturn_tests_endpoint(
     try:
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
-        if model_id_str:
-            from rhesis.backend.app.crud import model as model_crud
-
-            model_obj = model_crud.get_model(
-                db=db,
-                model_id=model_id_str,
-                organization_id=str(current_user.organization_id),
-            )
-            if not model_obj:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Model {model_id_str} not found or not accessible",
-                )
+        await anyio.to_thread.run_sync(validate_model_override, db, current_user, model_id_str)
 
         config = {
             "generation_prompt": request.generation_prompt,
@@ -463,7 +451,7 @@ def test_pipeline_endpoint(
 @router.post("/generate/test_config", response_model=TestConfigResponse)
 async def generate_test_config(
     request: TestConfigRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
@@ -497,7 +485,9 @@ async def generate_test_config(
             f"for organization: {organization_id}"
         )
 
-        service = TestConfigGeneratorService(db=db, user=current_user)
+        # Constructing the service resolves the caller's generation model, which
+        # reads the database -- hence the thread hop.
+        service = await anyio.to_thread.run_sync(TestConfigGeneratorService, db, current_user)
         result = await service.generate_config(
             request.prompt,
             organization_id=organization_id,

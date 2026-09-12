@@ -7,9 +7,10 @@ Reuses existing executor logic but skips all database operations.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 from uuid import uuid4
 
+import anyio
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -57,48 +58,28 @@ async def execute_test_in_place(
     Raises:
         ValueError: If test or endpoint not found, or invalid configuration
         Exception: If execution fails
+
+    Note:
+        The prefetch below runs off the event loop, but the runners this hands
+        ``db`` to (``jobs/execution/executors/runners.py``) still query inside
+        their own awaits -- metric lookup, endpoint routing, metric evaluation.
+        Until those move off the loop too, ``POST /tests/execute`` stays in
+        ``tests/backend/test_no_sync_db_on_loop.py``'s allowlist.
     """
     start_time = datetime.now(timezone.utc)
 
-    evaluation_model = resolve_model(db, user_id, "evaluation")
-    execution_model = resolve_model(db, user_id, "execution")
-    eval_model_name = (
-        type(evaluation_model).__name__
-        if not isinstance(evaluation_model, str)
-        else evaluation_model
+    # Model resolution and the test lookup are the only database work that
+    # happens before the first await, so they go to a worker thread in one hop.
+    (
+        evaluation_model,
+        execution_model,
+        test,
+        test_id,
+        prompt_content,
+        expected_response,
+    ) = await anyio.to_thread.run_sync(
+        _prepare_execution, db, request_data, organization_id, user_id
     )
-    logger.info(f"[InPlaceExecution] Using evaluation model for user {user_id}: {eval_model_name}")
-    exec_model_name = (
-        type(execution_model).__name__ if not isinstance(execution_model, str) else execution_model
-    )
-    logger.info(f"[InPlaceExecution] Using execution model for user {user_id}: {exec_model_name}")
-
-    # Determine if using existing test or creating temporary one
-    test_id = request_data.get("test_id")
-
-    if test_id:
-        # Use existing test - fetch from database
-        logger.info(f"[InPlaceExecution] Using existing test: {test_id}")
-        test = test_crud.get_test(
-            db, test_id=test_id, organization_id=organization_id, user_id=user_id
-        )
-        if not test:
-            raise ValueError(f"Test not found: {test_id}")
-
-        # Validate test and get prompt data from database
-        test, prompt_content, expected_response = get_test_and_prompt(db, test_id, organization_id)
-    else:
-        # Create inline test object (looks up requirement for metrics)
-        logger.info("[InPlaceExecution] Creating inline test object")
-        test = _create_inplace_test(request_data, organization_id, user_id, db)
-        test_id = str(test.id)
-
-        # Extract prompt/config data directly from request
-        prompt_content = ""
-        expected_response = ""
-        if hasattr(test, "prompt") and test.prompt:
-            prompt_content = test.prompt.get("content", "")
-            expected_response = test.prompt.get("expected_response", "")
 
     # Determine test type
     from rhesis.backend.app.constants import TestType
@@ -140,6 +121,80 @@ async def execute_test_in_place(
         )
 
     return result
+
+
+def _log_resolved_models(user_id: str, evaluation_model: Any, execution_model: Any) -> None:
+    """Name the models a run picked, for support when a result looks wrong."""
+    eval_model_name = (
+        type(evaluation_model).__name__
+        if not isinstance(evaluation_model, str)
+        else evaluation_model
+    )
+    logger.info(f"[InPlaceExecution] Using evaluation model for user {user_id}: {eval_model_name}")
+    exec_model_name = (
+        type(execution_model).__name__ if not isinstance(execution_model, str) else execution_model
+    )
+    logger.info(f"[InPlaceExecution] Using execution model for user {user_id}: {exec_model_name}")
+
+
+def _load_test_for_execution(
+    db: Session, request_data: Dict[str, Any], organization_id: str, user_id: str
+) -> Tuple[Any, str, str, str]:
+    """Resolve the test to run, existing or inline. Returns (test, id, prompt, expected)."""
+    test_id: Optional[str] = request_data.get("test_id")
+
+    if test_id:
+        # Use existing test - fetch from database
+        logger.info(f"[InPlaceExecution] Using existing test: {test_id}")
+        test = test_crud.get_test(
+            db, test_id=test_id, organization_id=organization_id, user_id=user_id
+        )
+        if not test:
+            raise ValueError(f"Test not found: {test_id}")
+
+        # Validate test and get prompt data from database
+        test, prompt_content, expected_response = get_test_and_prompt(db, test_id, organization_id)
+        return test, test_id, prompt_content, expected_response
+
+    # Create inline test object (looks up requirement for metrics)
+    logger.info("[InPlaceExecution] Creating inline test object")
+    test = _create_inplace_test(request_data, organization_id, user_id, db)
+
+    # Extract prompt/config data directly from request
+    prompt_content = ""
+    expected_response = ""
+    if hasattr(test, "prompt") and test.prompt:
+        prompt_content = test.prompt.get("content", "")
+        expected_response = test.prompt.get("expected_response", "")
+    return test, str(test.id), prompt_content, expected_response
+
+
+def _prepare_execution(
+    db: Session, request_data: Dict[str, Any], organization_id: str, user_id: str
+) -> Tuple[Any, Any, Any, str, str, str]:
+    """Resolve both models and load the test. Runs in a worker thread.
+
+    Returns (evaluation_model, execution_model, test, test_id, prompt, expected).
+
+    Everything here is psycopg2 work reached from an ``async def`` handler, so
+    it must not run on the event loop. The runner called afterwards still takes
+    the same session -- see the note in ``execute_test_in_place``.
+    """
+    evaluation_model = resolve_model(db, user_id, "evaluation")
+    execution_model = resolve_model(db, user_id, "execution")
+    _log_resolved_models(user_id, evaluation_model, execution_model)
+
+    test, test_id, prompt_content, expected_response = _load_test_for_execution(
+        db, request_data, organization_id, user_id
+    )
+    return (
+        evaluation_model,
+        execution_model,
+        test,
+        test_id,
+        prompt_content,
+        expected_response,
+    )
 
 
 def _create_inplace_test(

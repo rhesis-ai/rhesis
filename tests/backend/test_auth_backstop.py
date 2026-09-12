@@ -108,3 +108,19 @@ class TestAuthBackstop:
 
         route = _find_route(app, public_path, "GET")
         assert require_current_user_or_token not in _collect_dependency_calls(route.dependant)
+
+    def test_readiness_probe_is_public_on_the_real_app(self):
+        """/ready must answer an unauthenticated kubelet, like /health does.
+
+        The probe runs before any credential exists, so a route the backstop
+        protected would report the pod as never ready.
+        """
+        from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
+        from rhesis.backend.app.main import app
+
+        assert "/ready" in PUBLIC_ROUTES
+
+        route = _find_route(app, "/ready", "GET")
+        calls = _collect_dependency_calls(route.dependant)
+        assert require_current_user_or_token not in calls
+        assert require_current_user not in calls

@@ -1,8 +1,9 @@
 import asyncio
 import logging
 from functools import partial
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
+import anyio
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -86,6 +87,53 @@ def get_source_specifications(
     return source_specifications
 
 
+def validate_model_override(db: Session, user: User, model_id: Optional[str]) -> None:
+    """Reject a per-request model override that is not in the caller's organization.
+
+    Only the two interactive generate endpoints call this. ``resolve_model``
+    itself falls back to the system default for an unknown id, which is what the
+    streaming pipeline wants; a caller that named a model explicitly gets told
+    the name was wrong instead. Reads the database, so it runs in a worker thread.
+    """
+    if not model_id:
+        return
+
+    from rhesis.backend.app.crud import model as model_crud
+
+    if not model_crud.get_model(
+        db=db, model_id=model_id, organization_id=str(user.organization_id)
+    ):
+        raise HTTPException(status_code=400, detail=f"Model {model_id} not found or not accessible")
+
+
+def _prepare_test_generation(
+    db: Session,
+    user: User,
+    sources: Optional[List[SourceData]],
+    model_id: Optional[str],
+) -> Tuple[Any, List[SourceSpecification]]:
+    """Every database read ``generate_tests`` needs, in one worker-thread call.
+
+    Source content is copied into plain ``SourceSpecification`` objects here, so
+    nothing downstream lazy-loads back on the event loop.
+    """
+    source_specifications: List[SourceSpecification] = []
+    if sources:
+        source_specifications = get_source_specifications(
+            sources=sources,
+            db=db,
+            organization_id=str(user.organization_id),
+            user_id=str(user.id),
+        )
+
+    return resolve_model(db, user, "generation", override=model_id), source_specifications
+
+
+def _prepare_multiturn_generation(db: Session, user: User, model_id: Optional[str]) -> Any:
+    """Resolve the caller's generation model."""
+    return resolve_model(db, user, "generation", override=model_id)
+
+
 async def generate_tests(
     db: Session,
     user: User,
@@ -113,18 +161,11 @@ async def generate_tests(
     Raises:
         HTTPException: If no valid tokens are found for the user
     """
-    # Get SDK source specifications (with embedded source IDs)
-    source_specifications = []
-
-    if sources:
-        source_specifications = get_source_specifications(
-            sources=sources,
-            db=db,
-            organization_id=str(user.organization_id),
-            user_id=str(user.id),
-        )
-
-    model = resolve_model(db, user, "generation", override=model_id)
+    # One hop off the loop for the model override check, the source content and
+    # the model resolution -- all of it is psycopg2 work behind an async handler.
+    model, source_specifications = await anyio.to_thread.run_sync(
+        _prepare_test_generation, db, user, sources, model_id
+    )
 
     # Create synthesizer
     synthesizer = ConfigSynthesizer(
@@ -210,7 +251,7 @@ async def generate_multiturn_tests(
     """
     from rhesis.sdk.synthesizers.multi_turn.base import GenerationConfig, MultiTurnSynthesizer
 
-    model = resolve_model(db, user, "generation", override=model_id)
+    model = await anyio.to_thread.run_sync(_prepare_multiturn_generation, db, user, model_id)
 
     # Create configuration for multi-turn synthesizer from dict
     generation_config = GenerationConfig(**config)

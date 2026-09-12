@@ -5,13 +5,20 @@ configuration so users can validate connectivity and request/response
 mappings without persisting anything to the database.
 
 Only REST endpoints with BEARER_TOKEN auth are supported for testing.
+
+Neither entry point takes a database session. Both invoke a transient
+``Endpoint`` that is never added to a session, and the invoker only reaches for
+one to refresh a client-credentials token (a write to the *stored* row) or to
+resume a conversation trace (needs ``project_id``, which a transient endpoint
+has not got). Both callers here are coroutines on the event loop, so a session
+they could reach for would be a psycopg2 call on it -- see
+``tests/backend/test_no_sync_db_on_loop.py``.
 """
 
 import logging
 from typing import Any, Dict
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.endpoint import Endpoint
@@ -31,7 +38,6 @@ logger = logging.getLogger(__name__)
 
 
 async def test_endpoint(
-    db: Session,
     test_config: EndpointTestRequest,
     organization_id: str | None = None,
     user_id: str | None = None,
@@ -44,7 +50,6 @@ async def test_endpoint(
     delegates to the standard invoker pipeline.
 
     Args:
-        db: Database session (required by the invoker; no writes occur).
         test_config: Endpoint test configuration supplied by the caller.
         organization_id: Organization ID injected into request context (CRITICAL).
         user_id: User ID injected into request context (CRITICAL).
@@ -118,8 +123,10 @@ async def test_endpoint(
             enriched_input_data["messages"] = messages
             enriched_input_data.pop("conversation_id", None)
 
+        # No session: a REST + BEARER_TOKEN config reads its token off the
+        # transient endpoint above, and nothing here is persisted.
         context = InvocationContext(
-            db=db,
+            db=None,
             endpoint=endpoint,
             input_data=enriched_input_data,
         )
@@ -140,24 +147,21 @@ async def test_endpoint(
         raise internal_error(exc, context="testing endpoint") from exc
 
 
-async def test_endpoint_mapping(
-    db: Session,
+def build_mapping_test_endpoint(
     endpoint: Endpoint,
     request_mapping: dict,
     response_mapping: dict,
-    input_data: dict,
-    organization_id: str | None = None,
-    user_id: str | None = None,
     response_format: str | None = None,
-) -> Dict[str, Any]:
-    """Invoke a stored endpoint with draft request/response mappings.
+) -> Endpoint:
+    """Copy a stored endpoint, swapping in the caller's draft mappings.
 
-    Uses the endpoint's stored URL, method, headers, and auth credentials, but
-    substitutes the caller-supplied draft mappings instead of the saved ones.
-    This lets the frontend test unsaved mapping changes without exposing the
-    stored auth token to the browser.
+    Synchronous and session-touching by nature: every attribute read below can
+    lazy-load off ``endpoint``'s session, so callers on the event loop must run
+    this in a worker thread (``anyio.to_thread.run_sync``). The copy is
+    transient -- never added to a session -- which is what keeps the draft out
+    of the stored row.
     """
-    temp_endpoint = Endpoint(
+    return Endpoint(
         name=endpoint.name,
         connection_type=endpoint.connection_type,
         url=endpoint.url,
@@ -183,6 +187,24 @@ async def test_endpoint_mapping(
         disable_tracing=True,
     )
 
+
+async def test_endpoint_mapping(
+    draft_endpoint: Endpoint,
+    input_data: dict,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+) -> Dict[str, Any]:
+    """Invoke a draft-mapping copy of a stored endpoint.
+
+    Uses the stored endpoint's URL, method, headers and auth credentials, but
+    the caller-supplied draft mappings instead of the saved ones. This lets the
+    frontend test unsaved mapping changes without exposing the stored auth
+    token to the browser.
+
+    ``draft_endpoint`` comes from :func:`build_mapping_test_endpoint`, built by
+    the caller in a worker thread so this coroutine never reads an attribute
+    that could lazy-load.
+    """
     try:
         enriched_input_data = input_data.copy()
         if organization_id:
@@ -191,11 +213,11 @@ async def test_endpoint_mapping(
             enriched_input_data["user_id"] = user_id
 
         if (
-            ConversationTracker.detect_stateless_mode(temp_endpoint)
+            ConversationTracker.detect_stateless_mode(draft_endpoint)
             and "messages" not in enriched_input_data
         ):
             messages: list = []
-            system_prompt = ConversationTracker.extract_system_prompt(temp_endpoint)
+            system_prompt = ConversationTracker.extract_system_prompt(draft_endpoint)
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             user_input = enriched_input_data.get("input", "")
@@ -204,7 +226,11 @@ async def test_endpoint_mapping(
             enriched_input_data["messages"] = messages
             enriched_input_data.pop("conversation_id", None)
 
-        context = InvocationContext(db=db, endpoint=temp_endpoint, input_data=enriched_input_data)
+        # No session, as in test_endpoint above: the draft copy is transient and
+        # carries no project_id, so nothing the invoker does with one applies.
+        context = InvocationContext(
+            db=None, endpoint=draft_endpoint, input_data=enriched_input_data
+        )
         result = await create_invoker(context).invoke()
         logger.debug("Endpoint mapping test completed")
         return result

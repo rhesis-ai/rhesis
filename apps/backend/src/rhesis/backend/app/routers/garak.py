@@ -8,12 +8,18 @@ test sets from Garak probes as Rhesis test sets.
 import logging
 import random
 
+import anyio
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
@@ -93,9 +99,15 @@ async def _enumerate_probes(probe_service: GarakProbeService):
         raise PublicHTTPException(status_code=503, detail=_GARAK_UNAVAILABLE) from e
 
 
-@router.get("/probes", response_model=GarakProbesListResponse)
+# The session is never used below -- probe enumeration is served from cache -- but the
+# dependency stays: it is what binds usage attribution and validates X-Project-Id for
+# this request.
+@router.get(
+    "/probes",
+    response_model=GarakProbesListResponse,
+    dependencies=[Depends(get_off_loop_tenant_session)],
+)
 async def list_probe_modules(
-    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
 ):
@@ -210,10 +222,22 @@ def get_probe_module_detail(
     )
 
 
+def _build_import_preview(
+    db: Session,
+    probes_by_module: dict,
+    probes: list,
+    name_prefix: str | None,
+) -> dict:
+    """Run the importer's preview against the database, off the event loop."""
+    importer = GarakImporter(db)
+    importer.preload_probes(probes_by_module)
+    return importer.get_import_preview(probes=probes, name_prefix=name_prefix)
+
+
 @router.post("/import/preview", response_model=GarakImportPreviewResponse)
 async def preview_import(
     request: GarakImportRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
@@ -228,11 +252,12 @@ async def preview_import(
     # lookups rather than re-running probe extraction.
     _, probes_by_module = await _enumerate_probes(probe_service)
 
-    importer = GarakImporter(db)
-    importer.preload_probes(probes_by_module)
-    preview = importer.get_import_preview(
-        probes=request.probes,
-        name_prefix=request.name_prefix,
+    preview = await anyio.to_thread.run_sync(
+        _build_import_preview,
+        db,
+        probes_by_module,
+        request.probes,
+        request.name_prefix,
     )
 
     probe_previews = [
@@ -299,10 +324,22 @@ def import_probes(
     )
 
 
+def _build_sync_preview(
+    db: Session,
+    probes_by_module: dict,
+    test_set_id: str,
+    organization_id: str,
+):
+    """Run the sync service's preview against the database, off the event loop."""
+    sync_service = GarakSyncService(db)
+    sync_service.preload_probes(probes_by_module)
+    return sync_service.get_sync_preview(test_set_id, organization_id)
+
+
 @router.get("/sync/{test_set_id}/preview", response_model=GarakSyncPreviewResponse)
 async def preview_sync(
     test_set_id: str,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
@@ -319,9 +356,13 @@ async def preview_sync(
         # probe(s) from scratch.
         _, probes_by_module = await _enumerate_probes(probe_service)
 
-        sync_service = GarakSyncService(db)
-        sync_service.preload_probes(probes_by_module)
-        preview = sync_service.get_sync_preview(test_set_id, organization_id)
+        preview = await anyio.to_thread.run_sync(
+            _build_sync_preview,
+            db,
+            probes_by_module,
+            test_set_id,
+            organization_id,
+        )
 
         if not preview:
             raise HTTPException(

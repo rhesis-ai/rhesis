@@ -25,7 +25,7 @@ class TestQuietProbeAccessFilter:
     def probe_filter(self) -> _QuietProbeAccessFilter:
         return _QuietProbeAccessFilter()
 
-    @pytest.mark.parametrize("path", ["/health", "/healthz"])
+    @pytest.mark.parametrize("path", ["/health", "/healthz", "/ready"])
     @pytest.mark.parametrize("status", [200, 204, 301])
     def test_drops_successful_probes(self, probe_filter, path, status):
         assert probe_filter.filter(_access_record(path, status)) is False

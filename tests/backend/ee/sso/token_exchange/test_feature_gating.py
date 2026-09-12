@@ -20,38 +20,9 @@ import pytest
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.ee.sso.token_exchange.exchange import (
     TokenExchangeError,
-    TokenExchangeRequest,
     run_token_exchange,
 )
-from rhesis.backend.ee.sso.token_exchange.schemas import (
-    GRANT_TYPE_TOKEN_EXCHANGE,
-    TOKEN_TYPE_ACCESS_TOKEN,
-)
-
-
-def _payload(**overrides) -> TokenExchangeRequest:
-    base = dict(
-        grant_type=GRANT_TYPE_TOKEN_EXCHANGE,
-        subject_token="header.body.sig",
-        subject_token_type=TOKEN_TYPE_ACCESS_TOKEN,
-        audience="rhesis:org:acme",
-        requested_token_type=None,
-        scope=None,
-        client_id="brain-prod",
-        client_secret="s3cret",
-    )
-    base.update(overrides)
-    return TokenExchangeRequest(**base)
-
-
-def _live_org_with_sso():
-    """Return a MagicMock that satisfies the org-resolution checks."""
-    org = MagicMock()
-    org.id = "00000000-0000-0000-0000-000000000001"
-    org.slug = "acme"
-    org.is_active = True
-    org.sso_config = {"issuer_url": "https://idp.example.com"}
-    return org
+from tests.backend.ee.sso.token_exchange._helpers import live_org_with_sso, payload
 
 
 def _db_returning(org):
@@ -77,13 +48,13 @@ async def test_denies_when_feature_unavailable(monkeypatch):
         classmethod(lambda cls, name, org: False),
     )
 
-    org = _live_org_with_sso()
+    org = live_org_with_sso()
     db = _db_returning(org)
 
     with pytest.raises(TokenExchangeError) as exc:
         await run_token_exchange(
             db,
-            _payload(),
+            payload(),
             sso_config_loader=lambda _org: object(),
         )
     assert exc.value.error == "invalid_target"
@@ -109,13 +80,13 @@ async def test_proceeds_past_feature_check_when_available(monkeypatch):
         lambda *a, **kw: None,
     )
 
-    org = _live_org_with_sso()
+    org = live_org_with_sso()
     db = _db_returning(org)
 
     with pytest.raises(TokenExchangeError) as exc:
         await run_token_exchange(
             db,
-            _payload(),
+            payload(),
             sso_config_loader=lambda _org: object(),
         )
     # Reaching ``invalid_client`` (step 3) means we successfully passed
