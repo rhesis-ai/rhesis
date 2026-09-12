@@ -130,7 +130,7 @@ def _prepare_test_generation(
 
 
 def _prepare_multiturn_generation(db: Session, user: User, model_id: Optional[str]) -> Any:
-    """``generate_multiturn_tests``'s database read, off the event loop."""
+    """Resolve the caller's generation model."""
     return resolve_model(db, user, "generation", override=model_id)
 
 

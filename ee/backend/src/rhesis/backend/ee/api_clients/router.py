@@ -179,19 +179,12 @@ def _request_ip(request: Request) -> Optional[str]:
         return None
 
 
-# ---------------------------------------------------------------------------
-# Off-loop database work
-# ---------------------------------------------------------------------------
-#
-# Every handler below stays ``async def`` because it awaits
-# ``_require_org_admin_for``. The session therefore reaches a coroutine, so all
-# of its work happens in these helpers, run through
-# ``anyio.to_thread.run_sync``. Each one reads the ORM attributes it needs and
-# returns plain values so no attribute access afterwards can trigger a lazy
-# load back on the event loop.
+# --- Off-loop database work (see dependencies.get_off_loop_tenant_session) ---
+# These run in a worker thread and return plain values, so nothing after the
+# call can lazy-load back on the loop.
 
 
-def _create_client_sync(
+def _create_client(
     db: Session, org_id: str, body: AuthClientCreate
 ) -> tuple[AuthClientResponse, str, str]:
     """Create the row; return (response, plaintext secret, secret hash)."""
@@ -241,7 +234,7 @@ def _create_client_sync(
     return AuthClientResponse.model_validate(row), plaintext_secret, secret_hash
 
 
-def _list_clients_sync(db: Session, org_id: str) -> List[AuthClientResponse]:
+def _list_clients(db: Session, org_id: str) -> List[AuthClientResponse]:
     _get_org_or_404(db, org_id)
     rows = (
         db.query(AuthClient)
@@ -255,15 +248,13 @@ def _list_clients_sync(db: Session, org_id: str) -> List[AuthClientResponse]:
     return [AuthClientResponse.model_validate(r) for r in rows]
 
 
-def _get_client_sync(db: Session, org_id: str, client_pk: str) -> AuthClientResponse:
+def _get_client(db: Session, org_id: str, client_pk: str) -> AuthClientResponse:
     _get_org_or_404(db, org_id)
     row = _get_client_or_404(db, org_id, client_pk)
     return AuthClientResponse.model_validate(row)
 
 
-def _rotate_client_sync(
-    db: Session, org_id: str, client_pk: str
-) -> tuple[AuthClientResponse, str, str]:
+def _rotate_client(db: Session, org_id: str, client_pk: str) -> tuple[AuthClientResponse, str, str]:
     """Rotate the secret; return (response, plaintext secret, new hash)."""
     from datetime import datetime, timedelta, timezone
 
@@ -294,7 +285,7 @@ def _rotate_client_sync(
     return AuthClientResponse.model_validate(row), plaintext_secret, new_hash
 
 
-def _set_client_disabled_sync(
+def _set_client_disabled(
     db: Session, org_id: str, client_pk: str, disabled: bool
 ) -> tuple[AuthClientResponse, bool]:
     """Flip ``disabled``; return (response, whether the row actually changed)."""
@@ -310,7 +301,7 @@ def _set_client_disabled_sync(
     return AuthClientResponse.model_validate(row), changed
 
 
-def _delete_client_sync(db: Session, org_id: str, client_pk: str) -> tuple[str, str]:
+def _delete_client(db: Session, org_id: str, client_pk: str) -> tuple[str, str]:
     """Soft-delete the row; return (org_id, client_id) for the audit entry."""
     _get_org_or_404(db, org_id)
     row = _get_client_or_404(db, org_id, client_pk)
@@ -354,7 +345,7 @@ async def create_auth_client(
     """
     user = await _require_org_admin_for(request, org_id)
     response, plaintext_secret, secret_hash = await anyio.to_thread.run_sync(
-        _create_client_sync, db, org_id, body
+        _create_client, db, org_id, body
     )
 
     auth_client_audit_log(
@@ -384,7 +375,7 @@ async def list_auth_clients(
 ):
     """List :class:`AuthClient` rows for the org. No secret material."""
     await _require_org_admin_for(request, org_id)
-    return await anyio.to_thread.run_sync(_list_clients_sync, db, org_id)
+    return await anyio.to_thread.run_sync(_list_clients, db, org_id)
 
 
 @router.get(
@@ -401,7 +392,7 @@ async def get_auth_client(
     _gate: object = Depends(require_feature(FeatureName.API_CLIENTS)),
 ):
     await _require_org_admin_for(request, org_id)
-    return await anyio.to_thread.run_sync(_get_client_sync, db, org_id, client_pk)
+    return await anyio.to_thread.run_sync(_get_client, db, org_id, client_pk)
 
 
 @router.post(
@@ -426,7 +417,7 @@ async def rotate_auth_client_secret(
     """
     user = await _require_org_admin_for(request, org_id)
     response, plaintext_secret, new_hash = await anyio.to_thread.run_sync(
-        _rotate_client_sync, db, org_id, client_pk
+        _rotate_client, db, org_id, client_pk
     )
 
     auth_client_audit_log(
@@ -461,7 +452,7 @@ async def disable_auth_client(
     """Soft-disable. Token exchange and refresh both reject ``invalid_client``."""
     user = await _require_org_admin_for(request, org_id)
     response, changed = await anyio.to_thread.run_sync(
-        _set_client_disabled_sync, db, org_id, client_pk, True
+        _set_client_disabled, db, org_id, client_pk, True
     )
 
     if changed:
@@ -493,7 +484,7 @@ async def enable_auth_client(
     """Re-enable a disabled client."""
     user = await _require_org_admin_for(request, org_id)
     response, changed = await anyio.to_thread.run_sync(
-        _set_client_disabled_sync, db, org_id, client_pk, False
+        _set_client_disabled, db, org_id, client_pk, False
     )
 
     if changed:
@@ -532,7 +523,7 @@ async def delete_auth_client(
     """
     user = await _require_org_admin_for(request, org_id)
     org_for_audit, client_id_for_audit = await anyio.to_thread.run_sync(
-        _delete_client_sync, db, org_id, client_pk
+        _delete_client, db, org_id, client_pk
     )
 
     auth_client_audit_log(

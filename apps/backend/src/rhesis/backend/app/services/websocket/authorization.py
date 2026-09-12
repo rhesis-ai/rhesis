@@ -88,21 +88,6 @@ class ChannelAuthorizer:
         re.IGNORECASE,
     )
 
-    async def authorize(
-        self,
-        user: User,
-        channel: str,
-        db: "Optional[Session]" = None,
-        principal: "Optional[Principal]" = None,
-    ) -> tuple[bool, Optional[str]]:
-        """Async entry point; see :meth:`authorize_sync` for the rules.
-
-        Every check is synchronous, so callers that hold a session should run
-        :meth:`authorize_sync` in a worker thread instead of awaiting this on
-        the event loop.
-        """
-        return self.authorize_sync(user, channel, db=db, principal=principal)
-
     def authorize_sync(
         self,
         user: User,

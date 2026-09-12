@@ -498,12 +498,9 @@ def get_db_with_tenant_variables(
             if db.in_transaction():
                 db.commit()
         finally:
-            # Remove scope so it cannot be observed after the session is returned to
-            # the pool / closed. The RLS GUCs need no reset: they are set with
-            # is_local=true, so the COMMIT above (or the rollback on error and on
-            # pool check-in) already dropped them, and a reset would open a fresh
-            # transaction only for close() to roll it back, two extra round trips
-            # on every session.
+            # Pop the scope so nothing can read it after check-in. The RLS GUCs are
+            # is_local=true, so the COMMIT above already dropped them -- resetting them
+            # would cost two round trips per session. See tests/backend/db/test_session_overhead.py.
             db.info.pop(_SCOPE_KEY, None)
 
 

@@ -1,6 +1,6 @@
-import functools
 import json
 import logging
+from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
 import anyio
@@ -97,8 +97,8 @@ def _resolve_tool_client(
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Build an MCP client, provider name, and optional scope context for a saved tool.
 
-    Opens its own session, so callers on the event loop must invoke it through
-    ``anyio.to_thread.run_sync``.
+    Opens its own session because the MCP callers reach here without one; callers on
+    the event loop must invoke it through ``anyio.to_thread.run_sync``.
     """
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         return _get_mcp_tool_config(
@@ -239,9 +239,7 @@ async def mcp_extract(
         raise ValueError("user_id is required")
 
     client, provider, scope_context = await anyio.to_thread.run_sync(
-        functools.partial(
-            _resolve_tool_client, organization_id, user_id, tool_id, project_id=project_id
-        )
+        partial(_resolve_tool_client, organization_id, user_id, tool_id, project_id=project_id)
     )
     query = f"Extract the full content of: {identifier}"
     template = jinja_env.get_template("mcp_extract_prompt.jinja2")
@@ -287,7 +285,7 @@ async def mcp_health_check(
 
     if tool_id:
         client, provider, scope_context = await anyio.to_thread.run_sync(
-            functools.partial(
+            partial(
                 _resolve_tool_client,
                 organization_id,
                 user_id,
@@ -298,7 +296,7 @@ async def mcp_health_check(
         )
     elif provider_type_id is not None and credentials is not None:
         client, provider, scope_context = await anyio.to_thread.run_sync(
-            functools.partial(
+            partial(
                 _resolve_params_client,
                 organization_id,
                 user_id,

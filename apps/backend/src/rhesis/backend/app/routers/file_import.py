@@ -49,7 +49,7 @@ router = RhesisRouter(
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
-def _analyze_in_thread(
+def _analyze_file(
     file_bytes: bytes,
     filename: str,
     db: Session,
@@ -122,7 +122,7 @@ async def analyze_file(
         )
 
     return await anyio.to_thread.run_sync(
-        _analyze_in_thread, file_bytes, file.filename, db, current_user
+        _analyze_file, file_bytes, file.filename, db, current_user
     )
 
 

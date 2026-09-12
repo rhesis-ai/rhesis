@@ -173,25 +173,18 @@ def _get_sso_callback_url() -> str:
     return f"{base_url}/auth/sso/callback"
 
 
-# =============================================================================
-# Off-loop database work
-# =============================================================================
-#
-# Every handler in this module stays ``async def`` -- it awaits the IdP, the
-# authentication half of ``_require_org_admin``, or both. The session it holds
-# is therefore only touched inside these helpers, which run through
-# ``anyio.to_thread.run_sync``. Each one reads what it needs from the ORM and
-# hands back plain values, so nothing after the call can trigger a lazy load
-# back on the event loop.
+# --- Off-loop database work (see dependencies.get_off_loop_tenant_session) ---
+# These run in a worker thread and return plain values, so nothing after the
+# call can lazy-load back on the loop.
 
 
-def _resolve_org_and_config_sync(db: Session, org_identifier: str):
+def _resolve_org_and_config(db: Session, org_identifier: str):
     """Look up the org (404 if absent) and decrypt its SSO config."""
     org = _get_org_or_404(db, org_identifier)
     return org, _get_sso_config(org)
 
 
-def _complete_sso_login_sync(db: Session, auth_user, org, sso_config):
+def _complete_sso_login(db: Session, auth_user, org, sso_config):
     """Resolve the user and mint the tokens; returns (user_id, session, refresh).
 
     This route runs on ``get_db_session``, which sets no tenant GUCs: the user's
@@ -265,7 +258,7 @@ async def sso_callback(
         return RedirectResponse(url=error_redirect, status_code=302)
 
     try:
-        org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config_sync, db, org_id)
+        org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config, db, org_id)
     except HTTPException:
         return RedirectResponse(url=error_redirect, status_code=302)
 
@@ -308,7 +301,7 @@ async def sso_callback(
     try:
         try:
             user_id, session_token, refresh_tok = await anyio.to_thread.run_sync(
-                _complete_sso_login_sync, db, auth_user, org, sso_config
+                _complete_sso_login, db, auth_user, org, sso_config
             )
         except SSOLoginError as e:
             audit_log(
@@ -368,7 +361,7 @@ async def sso_login(
             detail="SSO is not available",
         )
 
-    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config_sync, db, org_id)
+    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config, db, org_id)
 
     if not sso_config or not sso_config.enabled:
         raise HTTPException(
@@ -445,7 +438,7 @@ class SSOTestResponse(BaseModel):
     message: str
 
 
-def _check_org_admin_sync(user, request: Request, org_id: str, db: Session) -> None:
+def _check_org_admin(user, request: Request, org_id: str, db: Session) -> None:
     """The two authorization checks, in order. Runs in a worker thread.
 
     Split out of :func:`_require_org_admin` because ``authorize`` hits the
@@ -489,7 +482,7 @@ async def _require_org_admin(request: Request, org_id: str, db: Session):
     Authentication is genuinely async (it awaits the bearer scheme and the
     session/token resolver, both of which keep their own database work in a
     worker thread). Both checks above are synchronous database work, so they
-    run in :func:`_check_org_admin_sync` off the loop.
+    run in :func:`_check_org_admin` off the loop.
     """
     from rhesis.backend.app.auth.user_utils import (
         bearer_scheme,
@@ -506,12 +499,12 @@ async def _require_org_admin(request: Request, org_id: str, db: Session):
             detail="Authentication required",
         )
 
-    await anyio.to_thread.run_sync(_check_org_admin_sync, user, request, org_id, db)
+    await anyio.to_thread.run_sync(_check_org_admin, user, request, org_id, db)
 
     return user
 
 
-def _read_sso_config_sync(db: Session, org_id: str) -> Optional[dict]:
+def _read_sso_config(db: Session, org_id: str) -> Optional[dict]:
     """Masked SSO config for the admin UI, or None when the org has none."""
     org = _get_org_or_404(db, org_id)
     sso_config = _get_sso_config(org)
@@ -599,7 +592,7 @@ def _resolve_slug_update(db: Session, org: Organization, raw_slug: str) -> Optio
     return slug_val
 
 
-def _write_sso_config_sync(db: Session, org_id: str, body: SSOConfigRequest, actor_id: str) -> dict:
+def _write_sso_config(db: Session, org_id: str, body: SSOConfigRequest, actor_id: str) -> dict:
     """The whole locked read-modify-write, in one transaction and one thread."""
     # SELECT FOR UPDATE to prevent concurrent writes
     org = db.query(Organization).filter(Organization.id == org_id).with_for_update().first()
@@ -645,7 +638,7 @@ def _write_sso_config_sync(db: Session, org_id: str, body: SSOConfigRequest, act
     return result
 
 
-def _delete_sso_config_sync(db: Session, org_id: str, actor_id: str) -> None:
+def _delete_sso_config(db: Session, org_id: str, actor_id: str) -> None:
     org = _get_org_or_404(db, org_id)
     org.sso_config = None
     org.slug = None
@@ -675,7 +668,7 @@ async def get_sso_config(
             detail="SSO is not available",
         )
 
-    return await anyio.to_thread.run_sync(_read_sso_config_sync, db, org_id)
+    return await anyio.to_thread.run_sync(_read_sso_config, db, org_id)
 
 
 @router.put("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
@@ -695,7 +688,7 @@ async def update_sso_config(
             detail="SSO is not available",
         )
 
-    return await anyio.to_thread.run_sync(_write_sso_config_sync, db, org_id, body, str(user.id))
+    return await anyio.to_thread.run_sync(_write_sso_config, db, org_id, body, str(user.id))
 
 
 @router.delete("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
@@ -712,7 +705,7 @@ async def delete_sso_config(
     """
     user = await _require_org_admin(request, org_id, db)
 
-    await anyio.to_thread.run_sync(_delete_sso_config_sync, db, org_id, str(user.id))
+    await anyio.to_thread.run_sync(_delete_sso_config, db, org_id, str(user.id))
 
     return {"status": "deleted"}
 
@@ -731,7 +724,7 @@ async def test_sso_connection(
     if not check_sso_available():
         return SSOTestResponse(success=False, message="SSO is not available")
 
-    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config_sync, db, org_id)
+    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config, db, org_id)
 
     if not sso_config:
         return SSOTestResponse(success=False, message="SSO is not configured")

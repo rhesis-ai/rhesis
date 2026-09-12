@@ -15,9 +15,9 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.crud.job import get_job_by_celery_task_id
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.activity_log import ActivityLog
-from rhesis.backend.app.models.job import Job
 from rhesis.backend.events.rendering import render
 from rhesis.backend.events.types import (
     ActivityLogged,
@@ -80,7 +80,10 @@ class ActivityLogSink:
         # entry, just with no job to attach it to.
         job_id = event.job_id
         if job_id is None and event.celery_task_id:
-            job_id = db.query(Job.id).filter(Job.celery_task_id == event.celery_task_id).scalar()
+            job = get_job_by_celery_task_id(
+                db, event.celery_task_id, organization_id=str(event.organization_id)
+            )
+            job_id = job.id if job is not None else None
 
         # Monotonic per job via MAX+1, not a DB sequence: Postgres has no
         # native per-FK-value sequence, and at this platform's job volume

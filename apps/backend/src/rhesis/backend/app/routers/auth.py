@@ -264,15 +264,9 @@ def _get_email_service():
     return EmailService()
 
 
-# =============================================================================
-# Off-loop database helpers
-#
-# The handlers below stay ``async def`` because they await Redis or the OAuth
-# provider, so every statement they run against the session goes through
-# ``anyio.to_thread.run_sync`` and lives in one of these helpers. Each returns
-# plain values read while still in the worker thread, so no attribute access
-# after the call can fall back to the event loop.
-# =============================================================================
+# --- Off-loop database work (see dependencies.get_off_loop_tenant_session) ---
+# These run in a worker thread and return plain values, so nothing after the
+# call can lazy-load back on the loop.
 
 
 def _user_summary(user: User) -> dict:

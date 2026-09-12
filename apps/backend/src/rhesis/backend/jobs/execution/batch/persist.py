@@ -10,12 +10,9 @@ completion for multi-turn tests.
 import logging
 from typing import Any, Dict
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
-from rhesis.backend.app.models.job import Job
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
+from rhesis.backend.jobs.tracking import tick_progress
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +65,7 @@ def persist_result(
                 processed_result=output,
                 metadata=metadata,
             )
-            _tick_job_progress(db, ctx.celery_task_id)
+            tick_progress(db, ctx.celery_task_id)
 
             db.commit()
 
@@ -77,21 +74,6 @@ def persist_result(
         except Exception:
             db.rollback()
             raise
-
-
-def _tick_job_progress(db: Session, celery_task_id: str | None) -> None:
-    """One ``UPDATE job SET progress_current = progress_current + 1``, no SELECT.
-
-    Keyed on the indexed celery_task_id, which is what the batch already
-    carries for cancellation checks. COALESCE guards a row whose counter was
-    never initialised, where NULL + 1 would stay NULL forever.
-    """
-    if not celery_task_id:
-        return
-    db.query(Job).filter(Job.celery_task_id == celery_task_id).update(
-        {Job.progress_current: func.coalesce(Job.progress_current, 0) + 1},
-        synchronize_session=False,
-    )
 
 
 def _signal_conversation_complete(ctx: ExecutionContext, deferred_traces: list) -> None:

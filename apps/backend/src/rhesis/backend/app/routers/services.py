@@ -486,8 +486,7 @@ async def generate_test_config(
         )
 
         # Constructing the service resolves the caller's generation model, which
-        # reads the database -- hence the thread hop. Positional args: run_sync
-        # takes no keywords.
+        # reads the database -- hence the thread hop.
         service = await anyio.to_thread.run_sync(TestConfigGeneratorService, db, current_user)
         result = await service.generate_config(
             request.prompt,

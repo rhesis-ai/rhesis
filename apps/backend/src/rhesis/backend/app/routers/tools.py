@@ -611,7 +611,7 @@ async def test_tool_connection(
     try:
         organization_id, user_id = tenant_context
         target = await anyio.to_thread.run_sync(
-            functools.partial(_resolve_connection_target, db, request, organization_id, user_id)
+            _resolve_connection_target, db, request, organization_id, user_id
         )
         transport = route(target.provider, ToolAction.TEST_CONNECTION)
         if transport is Transport.REST:

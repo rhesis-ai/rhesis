@@ -99,9 +99,15 @@ async def _enumerate_probes(probe_service: GarakProbeService):
         raise PublicHTTPException(status_code=503, detail=_GARAK_UNAVAILABLE) from e
 
 
-@router.get("/probes", response_model=GarakProbesListResponse)
+# The session is never used below -- probe enumeration is served from cache -- but the
+# dependency stays: it is what binds usage attribution and validates X-Project-Id for
+# this request.
+@router.get(
+    "/probes",
+    response_model=GarakProbesListResponse,
+    dependencies=[Depends(get_off_loop_tenant_session)],
+)
 async def list_probe_modules(
-    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
 ):

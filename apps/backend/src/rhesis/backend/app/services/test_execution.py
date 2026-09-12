@@ -7,7 +7,7 @@ Reuses existing executor logic but skips all database operations.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, NamedTuple, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 from uuid import uuid4
 
 import anyio
@@ -70,15 +70,16 @@ async def execute_test_in_place(
 
     # Model resolution and the test lookup are the only database work that
     # happens before the first await, so they go to a worker thread in one hop.
-    prepared = await anyio.to_thread.run_sync(
+    (
+        evaluation_model,
+        execution_model,
+        test,
+        test_id,
+        prompt_content,
+        expected_response,
+    ) = await anyio.to_thread.run_sync(
         _prepare_execution, db, request_data, organization_id, user_id
     )
-    evaluation_model = prepared.evaluation_model
-    execution_model = prepared.execution_model
-    test = prepared.test
-    test_id = prepared.test_id
-    prompt_content = prepared.prompt_content
-    expected_response = prepared.expected_response
 
     # Determine test type
     from rhesis.backend.app.constants import TestType
@@ -120,17 +121,6 @@ async def execute_test_in_place(
         )
 
     return result
-
-
-class _PreparedExecution(NamedTuple):
-    """What an in-place run needs before its first await."""
-
-    evaluation_model: Any
-    execution_model: Any
-    test: Any
-    test_id: str
-    prompt_content: str
-    expected_response: str
 
 
 def _log_resolved_models(user_id: str, evaluation_model: Any, execution_model: Any) -> None:
@@ -181,8 +171,10 @@ def _load_test_for_execution(
 
 def _prepare_execution(
     db: Session, request_data: Dict[str, Any], organization_id: str, user_id: str
-) -> _PreparedExecution:
+) -> Tuple[Any, Any, Any, str, str, str]:
     """Resolve both models and load the test. Runs in a worker thread.
+
+    Returns (evaluation_model, execution_model, test, test_id, prompt, expected).
 
     Everything here is psycopg2 work reached from an ``async def`` handler, so
     it must not run on the event loop. The runner called afterwards still takes
@@ -195,13 +187,13 @@ def _prepare_execution(
     test, test_id, prompt_content, expected_response = _load_test_for_execution(
         db, request_data, organization_id, user_id
     )
-    return _PreparedExecution(
-        evaluation_model=evaluation_model,
-        execution_model=execution_model,
-        test=test,
-        test_id=test_id,
-        prompt_content=prompt_content,
-        expected_response=expected_response,
+    return (
+        evaluation_model,
+        execution_model,
+        test,
+        test_id,
+        prompt_content,
+        expected_response,
     )
 
 

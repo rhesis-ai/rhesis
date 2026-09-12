@@ -21,6 +21,7 @@ from rhesis.backend.app.auth.principal import (
     resolve_principal_from_request,
 )
 from rhesis.backend.app.auth.user_utils import (
+    _load_user_by_id,
     get_authenticated_user_with_context,
     get_secret_key,
     require_current_user_or_token,
@@ -85,11 +86,8 @@ def get_websocket_token(
 
 
 def _load_ws_token_user(user_id: str) -> Optional[User]:
-    """Load the user a WebSocket token was minted for. Runs in a worker thread."""
-    from rhesis.backend.app.database import get_db
-
-    with get_db() as db:
-        return db.query(User).filter(User.id == user_id).first()
+    """Load the user a WebSocket token was minted for."""
+    return _load_user_by_id(user_id)
 
 
 async def authenticate_websocket_token(

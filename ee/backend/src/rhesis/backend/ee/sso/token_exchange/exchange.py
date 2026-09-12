@@ -209,18 +209,6 @@ class TokenExchangeError(Exception):
         super().__init__(f"{error}: {reason_code}")
 
 
-# ---------------------------------------------------------------------------
-# Off-loop phase results
-#
-# ``run_token_exchange`` is a coroutine that awaits Redis and the subject
-# IdP, so its database work runs in worker threads: steps 2-5a in
-# :func:`_resolve_client_context`, steps 8-11 in :func:`_complete_exchange`.
-# The session is shared with the event loop between those threads, so what
-# crosses back has to be either a plain value or an ORM row the loop never
-# touches. These two structs draw that line explicitly.
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class _ResolvedClient:
     """What steps 2-5a resolved.
@@ -519,9 +507,9 @@ async def run_token_exchange(
     )
 
 
-# ---------------------------------------------------------------------------
-# Off-loop phases
-# ---------------------------------------------------------------------------
+# --- Off-loop database work (see dependencies.get_off_loop_tenant_session) ---
+# These run in a worker thread and return plain values, so nothing after the
+# call can lazy-load back on the loop.
 
 
 def _resolve_client_context(

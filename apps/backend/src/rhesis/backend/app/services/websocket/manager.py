@@ -301,20 +301,19 @@ class WebSocketManager:
         # SP11: open a short-lived tenant session so the PDP can evaluate
         # the caller's read capability for resource-type channels.
         # Pass the stored principal so SP9 token scope intersection applies.
-        # Session and PDP checks are sync, so the whole block runs in a worker
-        # thread; a subscribe must not stall every other connection's frames.
+        # Sync session + PDP: run the whole block in a worker thread.
         from rhesis.backend.app.database import get_db_with_tenant_variables
 
         authorizer = get_channel_authorizer()
         stored_principal = self._principals.get(conn_id)
 
-        def _authorize_in_session() -> tuple[bool, Optional[str]]:
+        def _authorize() -> tuple[bool, Optional[str]]:
             with get_db_with_tenant_variables(
                 str(user.organization_id), str(user.id), subscribe_project_id
             ) as db:
                 return authorizer.authorize_sync(user, channel, db=db, principal=stored_principal)
 
-        authorized, error_message = await anyio.to_thread.run_sync(_authorize_in_session)
+        authorized, error_message = await anyio.to_thread.run_sync(_authorize)
         if not authorized:
             logger.warning(
                 f"Unauthorized subscription attempt by user {user.id} to {channel}: {error_message}"

@@ -1,6 +1,5 @@
 """Jira REST API client for deterministic issue creation."""
 
-import functools
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -231,7 +230,7 @@ async def create_jira_ticket_from_task(
         ValueError: If task/tool not found, misconfigured, or the API call fails.
     """
     inputs = await anyio.to_thread.run_sync(
-        functools.partial(_load_jira_ticket_inputs, db, task_id, tool_id, organization_id, user_id)
+        _load_jira_ticket_inputs, db, task_id, tool_id, organization_id, user_id
     )
 
     response_data = await inputs.client.create_issue(
@@ -241,16 +240,14 @@ async def create_jira_ticket_from_task(
     )
 
     await anyio.to_thread.run_sync(
-        functools.partial(
-            _record_jira_issue_on_task,
-            db,
-            inputs.task,
-            task_id,
-            tool_id,
-            response_data,
-            organization_id,
-            user_id,
-        )
+        _record_jira_issue_on_task,
+        db,
+        inputs.task,
+        task_id,
+        tool_id,
+        response_data,
+        organization_id,
+        user_id,
     )
 
     return {

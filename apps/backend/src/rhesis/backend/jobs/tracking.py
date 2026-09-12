@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.enums import JobStatus
@@ -114,6 +115,24 @@ def create_job(
         return None
 
 
+def tick_progress(db: Session, celery_task_id: Optional[str]) -> None:
+    """One ``UPDATE job SET progress_current = progress_current + 1``, no SELECT.
+
+    Keyed on the indexed celery_task_id, which is what the batch already
+    carries for cancellation checks. COALESCE guards a row whose counter was
+    never initialised, where NULL + 1 would stay NULL forever. Rides the
+    caller's transaction: the tick is only true once the row it counts is there.
+    """
+    from rhesis.backend.app.models.job import Job
+
+    if not celery_task_id:
+        return
+    db.query(Job).filter(Job.celery_task_id == celery_task_id).update(
+        {Job.progress_current: func.coalesce(Job.progress_current, 0) + 1},
+        synchronize_session=False,
+    )
+
+
 def get_job_id(
     celery_task_id: str, organization_id: str, user_id: str, project_id: str
 ) -> Optional[UUID]:
@@ -123,14 +142,17 @@ def get_job_id(
     queued before that header existed, or a task dispatched around
     ``launch_job``). ``BaseJob`` calls it at most once per task run.
     """
+    from rhesis.backend.app.crud.job import get_job_by_celery_task_id
     from rhesis.backend.app.database import get_db_with_tenant_variables
-    from rhesis.backend.app.models.job import Job
 
     try:
         with get_db_with_tenant_variables(
             organization_id or "", user_id or "", project_id or ""
         ) as db:
-            return db.query(Job.id).filter(Job.celery_task_id == celery_task_id).scalar()
+            job = get_job_by_celery_task_id(db, celery_task_id, organization_id=organization_id)
+            # Read the id inside the block: the instance is detached once the
+            # session closes.
+            return job.id if job is not None else None
     except Exception as exc:
         logger.warning(f"Could not look up job row for {celery_task_id}: {exc}", exc_info=True)
         return None

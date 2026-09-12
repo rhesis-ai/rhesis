@@ -1,4 +1,3 @@
-import functools
 import logging
 import uuid
 from pathlib import Path
@@ -71,7 +70,7 @@ def update_source(
 
 
 def _load_source_type_id(db: Session, organization_id: str, source_type_value: str) -> uuid.UUID:
-    """Resolve a source type value to its id. Runs in a worker thread."""
+    """Resolve a source type value to its id."""
     source_type = get_source_type_by_value(db, organization_id, source_type_value)
     if not source_type:
         raise ValueError(
@@ -93,7 +92,7 @@ def _warm_response_relationships(source: models.Source) -> None:
 def _persist_uploaded_source(
     db: Session, source_data: schemas.SourceCreate, organization_id: str, user_id: str
 ) -> models.Source:
-    """Create the Source row and chunk it. Runs in a worker thread."""
+    """Create the Source row and chunk it."""
     created_source = source_crud.create_source(
         db=db, source=source_data, organization_id=organization_id, user_id=user_id
     )
@@ -137,7 +136,7 @@ async def refresh_source_content(
     """
     # Get the specified source type
     source_type_id = await anyio.to_thread.run_sync(
-        functools.partial(_load_source_type_id, db, organization_id, source_type_value)
+        _load_source_type_id, db, organization_id, source_type_value
     )
 
     # Initialize handler based on source type
@@ -173,7 +172,7 @@ async def refresh_source_content(
 
     # Save to database
     return await anyio.to_thread.run_sync(
-        functools.partial(_persist_uploaded_source, db, source_data, organization_id, user_id)
+        _persist_uploaded_source, db, source_data, organization_id, user_id
     )
 
 
@@ -280,7 +279,7 @@ async def extract_source_content(
     """
     # Validate source and resolve its handler type
     file_path, source_type_value = await anyio.to_thread.run_sync(
-        functools.partial(_load_handler_target, db, source_id, organization_id, user_id)
+        _load_handler_target, db, source_id, organization_id, user_id
     )
 
     # Initialize handler based on source type
@@ -291,9 +290,7 @@ async def extract_source_content(
 
     # Update the source with extracted content
     extracted_at = await anyio.to_thread.run_sync(
-        functools.partial(
-            _store_extracted_content, db, source_id, content, organization_id, user_id
-        )
+        _store_extracted_content, db, source_id, content, organization_id, user_id
     )
 
     return {
@@ -324,7 +321,7 @@ async def get_source_file_content(
     """
     # Validate source and resolve its handler type
     file_path, source_type_value = await anyio.to_thread.run_sync(
-        functools.partial(_load_handler_target, db, source_id, organization_id, user_id)
+        _load_handler_target, db, source_id, organization_id, user_id
     )
 
     # Initialize handler based on source type
