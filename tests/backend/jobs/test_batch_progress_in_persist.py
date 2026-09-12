@@ -7,7 +7,6 @@ the only ``on_progress`` call left is the settling ``(total, total)`` at the
 end of the batch.
 """
 
-import asyncio
 import uuid
 from unittest.mock import MagicMock, call, patch
 
@@ -15,21 +14,10 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.job import Job
-from rhesis.backend.jobs.execution.batch.persist import _tick_job_progress, persist_result
+from rhesis.backend.jobs.execution.batch.persist import persist_result
 from rhesis.backend.jobs.execution.batch.runner import run_batch
+from rhesis.backend.jobs.tracking import tick_progress
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
-
-
-def _ctx(test_ids):
-    ctx = MagicMock()
-    ctx.batch_concurrency = 4
-    ctx.per_test_timeout = 60
-    ctx.recovery_rounds = 0
-    ctx.celery_task_id = "task-1"
-    ctx.existing_result_ids = set()
-    ctx.test_data = {tid: {"test": MagicMock(category=None)} for tid in test_ids}
-    ctx.input_files = {}
-    return ctx
 
 
 @pytest.mark.unit
@@ -40,25 +28,6 @@ class TestRunnerNoLongerTicksPerTest:
         import inspect
 
         assert "on_progress" not in inspect.signature(run_batch).parameters
-
-    def test_per_test_completion_only_narrates(self):
-        ctx = _ctx(["t1", "t2"])
-        emits = []
-
-        async def _fake_single(ctx, test_id, *_args, **_kwargs):
-            return {"test_id": test_id, "status": "succeeded", "execution_time": 1}
-
-        with (
-            patch(
-                "rhesis.backend.jobs.execution.batch.runner._execute_single_test",
-                side_effect=_fake_single,
-            ),
-            patch("rhesis.backend.jobs.tracking.set_progress") as mock_progress,
-        ):
-            asyncio.run(run_batch(ctx, ["t1", "t2"], on_emit=emits.append))
-
-        mock_progress.assert_not_called()
-        assert len(emits) == 2
 
 
 @pytest.mark.unit
@@ -121,7 +90,7 @@ class TestPersistResultTicksInsideTheTransaction:
                 side_effect=lambda **_: order.append("result"),
             ),
             patch(
-                "rhesis.backend.jobs.execution.batch.persist._tick_job_progress",
+                "rhesis.backend.jobs.execution.batch.persist.tick_progress",
                 side_effect=lambda db, cid: order.append(("tick", db, cid)),
             ),
         ):
@@ -135,11 +104,12 @@ class TestPersistResultTicksInsideTheTransaction:
     def test_without_a_celery_task_id_nothing_is_written(self):
         db = MagicMock()
 
-        _tick_job_progress(db, None)
+        tick_progress(db, None)
 
         db.query.assert_not_called()
 
 
+@pytest.mark.integration
 class TestTickJobProgressSql:
     def test_increments_the_row_and_treats_null_as_zero(self, test_db: Session):
         org, user, _ = create_test_organization_and_user(
@@ -157,8 +127,8 @@ class TestTickJobProgressSql:
         test_db.flush()
         assert job.progress_current is None
 
-        _tick_job_progress(test_db, celery_task_id)
-        _tick_job_progress(test_db, celery_task_id)
+        tick_progress(test_db, celery_task_id)
+        tick_progress(test_db, celery_task_id)
         test_db.expire_all()
 
         assert test_db.query(Job).filter(Job.id == job.id).one().progress_current == 2

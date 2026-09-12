@@ -4,9 +4,9 @@ The three routes behind these functions (``POST /sources/upload``,
 ``POST /sources/{source_id}/extract`` and ``GET /sources/{source_id}/file``)
 are ``async def`` handlers holding an ``OffLoopSession``. That annotation is a
 promise that every use of the session happens inside
-``anyio.to_thread.run_sync``; these tests are what checks it --
-``tests/backend/test_no_sync_db_on_loop.py`` only sees the handler signature,
-not what the service does with the session.
+``anyio.to_thread.run_sync``.
+``tests/backend/test_no_sync_db_on_loop.py`` cannot see inside a handler; these
+tests are the check that the work actually left the loop.
 """
 
 import threading
@@ -16,19 +16,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from rhesis.backend.app.services import source as source_service
+from tests.backend._helpers import records_thread as _recorder
 
 ORG_ID = str(uuid.uuid4())
 USER_ID = str(uuid.uuid4())
-
-
-def _recorder(threads: list, result=None):
-    """A stand-in that records the thread it ran on and returns *result*."""
-
-    def _call(*_args, **_kwargs):
-        threads.append(threading.get_ident())
-        return result
-
-    return _call
 
 
 def _document_handler(**methods):

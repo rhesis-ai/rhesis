@@ -2,9 +2,9 @@
 
 ``POST /tools/test-connection`` and ``POST /tools/jira/create-ticket-from-task``
 are ``async def`` handlers holding an ``OffLoopSession``. The session work they
-delegate to these services has to run inside ``anyio.to_thread.run_sync`` --
-``tests/backend/test_no_sync_db_on_loop.py`` only sees the handler signature,
-not what the service does with the session.
+delegate to these services has to run inside ``anyio.to_thread.run_sync``.
+``tests/backend/test_no_sync_db_on_loop.py`` cannot see inside a handler; these
+tests are the check that the work actually left the loop.
 """
 
 import threading
@@ -18,16 +18,7 @@ from rhesis.backend.app.services.tool.mcp import operations as mcp_operations
 from rhesis.backend.app.services.tool.rest import health as rest_health
 from rhesis.backend.app.services.tool.rest import jira as rest_jira
 from rhesis.backend.app.services.tool.rest.jira import JiraRestClient
-
-
-def _recorder(threads: list, result=None):
-    """A stand-in that records the thread it ran on and returns *result*."""
-
-    def _call(*_args, **_kwargs):
-        threads.append(threading.get_ident())
-        return result
-
-    return _call
+from tests.backend._helpers import records_thread as _recorder
 
 
 @pytest.mark.unit

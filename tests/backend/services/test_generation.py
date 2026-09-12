@@ -3,9 +3,9 @@
 Both endpoints behind these functions (``POST /services/generate/tests`` and
 ``POST /services/generate/multiturn-tests``) are ``async def`` handlers holding
 an ``OffLoopSession``. That annotation is a promise that every use of the
-session happens inside ``anyio.to_thread.run_sync``; these tests are what
-checks it -- ``tests/backend/test_no_sync_db_on_loop.py`` only sees the handler
-signature, not what the service does with the session.
+session happens inside ``anyio.to_thread.run_sync``.
+``tests/backend/test_no_sync_db_on_loop.py`` cannot see inside a handler; these
+tests are the check that the work actually left the loop.
 """
 
 import threading
@@ -14,16 +14,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rhesis.backend.app.services import generation
+from tests.backend._helpers import records_thread
 
 
 def _recording_resolve_model(threads: list):
     """A ``resolve_model`` stand-in that records the thread it ran on."""
-
-    def _resolve(*_args, **_kwargs):
-        threads.append(threading.get_ident())
-        return MagicMock(name="model")
-
-    return _resolve
+    return records_thread(threads, MagicMock(name="model"))
 
 
 @pytest.mark.unit
@@ -103,9 +99,10 @@ class TestGenerateMultiturnTestsRunsDatabaseWorkOffTheLoop:
 @pytest.mark.unit
 class TestValidateModelOverride:
     def test_no_override_reads_nothing(self):
-        db = MagicMock()
-        generation.validate_model_override(db, MagicMock(), None)
-        db.query.assert_not_called()
+        with patch("rhesis.backend.app.crud.model.get_model") as mock_get_model:
+            generation.validate_model_override(MagicMock(), MagicMock(), None)
+
+        mock_get_model.assert_not_called()
 
     def test_unknown_override_is_a_400(self):
         from fastapi import HTTPException
@@ -118,5 +115,12 @@ class TestValidateModelOverride:
         assert "model-uuid" in exc_info.value.detail
 
     def test_known_override_passes(self):
-        with patch("rhesis.backend.app.crud.model.get_model", return_value=MagicMock()):
-            generation.validate_model_override(MagicMock(), MagicMock(), "model-uuid")
+        user = MagicMock()
+
+        with patch(
+            "rhesis.backend.app.crud.model.get_model", return_value=MagicMock()
+        ) as mock_get_model:
+            generation.validate_model_override(MagicMock(), user, "model-uuid")
+
+        # Looked up under the caller's tenant, not globally.
+        assert mock_get_model.call_args.kwargs["organization_id"] == str(user.organization_id)

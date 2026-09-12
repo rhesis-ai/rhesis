@@ -13,7 +13,7 @@ import os
 import statistics
 import time
 from contextlib import asynccontextmanager, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, AsyncIterator, Iterator
 
 import httpx
@@ -29,7 +29,7 @@ DB_LATENCY_MS = float(os.environ.get("BENCH_DB_LATENCY_MS", "0"))
 
 def percentiles(values: list[float]) -> dict[str, float]:
     if not values:
-        return {"p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0}
+        return {"p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0, "mean": 0.0}
     ordered = sorted(values)
 
     def pct(p: float) -> float:
@@ -51,40 +51,28 @@ class EngineCounter:
 
     statements: int = 0
     checkouts: int = 0
-    connects: int = 0
-    sql: list[str] = field(default_factory=list)
-    keep_sql: bool = False
 
     def reset(self) -> None:
         self.statements = 0
         self.checkouts = 0
-        self.connects = 0
-        self.sql.clear()
 
     def _on_execute(self, conn, cursor, statement, parameters, context, executemany):
         self.statements += 1
-        if self.keep_sql:
-            self.sql.append(statement)
         if DB_LATENCY_MS:
             time.sleep(DB_LATENCY_MS / 1000)
 
     def _on_checkout(self, dbapi_conn, record, proxy):
         self.checkouts += 1
 
-    def _on_connect(self, dbapi_conn, record):
-        self.connects += 1
-
     @contextmanager
     def active(self) -> Iterator["EngineCounter"]:
         event.listen(engine, "before_cursor_execute", self._on_execute)
         event.listen(engine, "checkout", self._on_checkout)
-        event.listen(engine, "connect", self._on_connect)
         try:
             yield self
         finally:
             event.remove(engine, "before_cursor_execute", self._on_execute)
             event.remove(engine, "checkout", self._on_checkout)
-            event.remove(engine, "connect", self._on_connect)
 
 
 class LoopMonitor:

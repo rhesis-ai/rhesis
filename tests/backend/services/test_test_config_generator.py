@@ -2,8 +2,9 @@
 
 ``POST /services/generate/test_config`` is an ``async def`` handler holding an
 ``OffLoopSession``: the requirements/project read and the template render all
-have to happen inside ``anyio.to_thread.run_sync``. The guard test in
-``tests/backend/test_no_sync_db_on_loop.py`` cannot see that far, so this does.
+have to happen inside ``anyio.to_thread.run_sync``.
+``tests/backend/test_no_sync_db_on_loop.py`` cannot see inside a handler; these
+tests are the check that the work actually left the loop.
 """
 
 import threading

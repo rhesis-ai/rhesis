@@ -12,9 +12,11 @@ coroutine dependencies are descended into: a Session yielded to a *sync*
 dependency runs in the threadpool and is fine.
 
 A handler that genuinely has to be ``async`` (streams a response, awaits
-external HTTP, ``asyncio.gather``) does not get a Session parameter at all; it
-takes what it needs from a ``def`` dependency, or wraps the DB work in
-``await anyio.to_thread.run_sync(...)`` on a session it opens itself.
+external HTTP, ``asyncio.gather``) declares ``db: OffLoopSession =
+Depends(get_off_loop_tenant_session)`` and does every session operation inside
+``await anyio.to_thread.run_sync(...)``. The ``NewType`` is what makes this test
+skip it; see ``dependencies.get_off_loop_tenant_session`` for what that
+annotation promises and why only review can check it.
 """
 
 import inspect

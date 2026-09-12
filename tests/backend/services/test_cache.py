@@ -463,13 +463,13 @@ class TestRedisBackedCachePoolSizing:
             assert default_max_connections() == 100
 
     def test_more_concurrent_callers_than_the_old_cap_do_not_raise(self):
-        """Twelve threads against a pool that used to hold three.
+        """Twelve threads against a pool of three -- the old hardcoded cap.
 
         Exercises the pool itself with a stand-in connection, so no server is
-        needed. Under the old ``max_connections=3`` plain ``ConnectionPool`` the
-        fourth concurrent checkout raised ``ConnectionError("Too many
-        connections")``; a BlockingConnectionPool sized for the threadpool has
-        room, and would queue rather than raise even if it did not.
+        needed. The size is deliberately the old ``max_connections=3``: a plain
+        ``ConnectionPool`` that small raised ``ConnectionError("Too many
+        connections")`` on the fourth concurrent checkout, so this test fails
+        unless the pool is the blocking kind that queues instead.
         """
 
         class _StubConnection(redis.Connection):
@@ -484,7 +484,7 @@ class TestRedisBackedCachePoolSizing:
             def can_read(self, timeout=0):
                 return False
 
-        client = _create_redis_client("redis://localhost:6379/0", max_connections=16)
+        client = _create_redis_client("redis://localhost:6379/0", max_connections=3)
         pool = client.connection_pool
         pool.connection_class = _StubConnection
 
