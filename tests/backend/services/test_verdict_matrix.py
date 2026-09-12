@@ -1018,13 +1018,13 @@ class TestPassRateIsOverTests:
         assert matrix.kpis.verdicts_resolved == 2
 
 
-class TestReviewsCount:
-    """kpis.reviews_count backs the Reviews KPI card -- a coarse "how many
-    tests have at least one review" count, cheap enough to compute on every
-    live poll (unlike BreakdownsDrawer's full test-result fetch).
+class TestAnnotationsCount:
+    """kpis.annotations_count backs the Annotations KPI card -- a coarse
+    "how many tests have at least one annotation" count, cheap enough to
+    compute on every live poll.
     """
 
-    def test_zero_when_no_result_has_a_review(self, test_db: Session, verdict_matrix_setup):
+    def test_zero_when_no_result_has_an_annotation(self, test_db: Session, verdict_matrix_setup):
         setup = verdict_matrix_setup
         plan = build_metric_plan(
             test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
@@ -1035,29 +1035,9 @@ class TestReviewsCount:
         test_db.refresh(test_run)
 
         matrix = get_verdict_matrix(test_db, test_run)
-        assert matrix.kpis.reviews_count == 0
+        assert matrix.kpis.annotations_count == 0
 
-    def test_counts_a_test_with_a_review(self, test_db: Session, verdict_matrix_setup):
-        setup = verdict_matrix_setup
-        plan = build_metric_plan(
-            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
-        )
-        test_run = setup["test_run"]
-        test_run.attributes = {"metric_plan": plan}
-
-        passed_result = (
-            test_db.query(models.TestResult)
-            .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
-            .one()
-        )
-        passed_result.test_reviews = {"reviews": [{"review_id": "r1", "status": {"name": "Pass"}}]}
-        test_db.commit()
-        test_db.refresh(test_run)
-
-        matrix = get_verdict_matrix(test_db, test_run)
-        assert matrix.kpis.reviews_count == 1
-
-    def test_an_empty_reviews_array_does_not_count(self, test_db: Session, verdict_matrix_setup):
+    def test_counts_a_test_with_an_annotation(self, test_db: Session, verdict_matrix_setup):
         setup = verdict_matrix_setup
         plan = build_metric_plan(
             test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
@@ -1070,12 +1050,33 @@ class TestReviewsCount:
             .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
             .one()
         )
-        passed_result.test_reviews = {"reviews": []}
+        annotation = models.Annotation(
+            entity_type="TestResult",
+            entity_id=passed_result.id,
+            target_type="test_result",
+            status_id=passed_result.status_id,
+            organization_id=passed_result.organization_id,
+            user_id=passed_result.user_id,
+        )
+        test_db.add(annotation)
         test_db.commit()
         test_db.refresh(test_run)
 
         matrix = get_verdict_matrix(test_db, test_run)
-        assert matrix.kpis.reviews_count == 0
+        assert matrix.kpis.annotations_count == 1
+
+    def test_no_annotations_gives_zero(self, test_db: Session, verdict_matrix_setup):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+        assert matrix.kpis.annotations_count == 0
 
 
 class TestIsNewer:
@@ -1176,7 +1177,7 @@ class TestVerdictMatrixCaching:
     """A terminal run's matrix is cached in VerdictMatrixCache; a live run's never is.
 
     See services/verdict_matrix_cache.py's module docstring for why only terminal
-    runs are cached, and routers/test_result.py's three review endpoints for the
+    runs are cached, and the annotation service's create/update/delete for the
     invalidation call sites this exercises.
     """
 
@@ -1214,7 +1215,7 @@ class TestVerdictMatrixCaching:
     ):
         """Demonstrates the cache actually short-circuits recomputation: a
         metrics change made without going through the invalidating write path
-        (add/update/delete review) is invisible until invalidate() runs."""
+        (add/update/delete annotation) is invisible until invalidate() runs."""
         setup = verdict_matrix_setup
         plan = build_metric_plan(
             test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
@@ -1224,27 +1225,33 @@ class TestVerdictMatrixCaching:
         self._mark_terminal(test_db, test_run, setup["org_id"], setup["test_a"].user_id)
 
         first = get_verdict_matrix(test_db, test_run)
-        assert first.kpis.reviews_count == 0
+        assert first.kpis.annotations_count == 0
 
-        # Simulate a review landing on test_a's result -- bypassing the real
-        # add_review endpoint (and its cache invalidation) on purpose.
+        # Simulate an annotation landing on test_a's result -- bypassing the
+        # real annotation service (and its cache invalidation) on purpose.
         passed_result = (
             test_db.query(models.TestResult)
             .filter_by(test_run_id=test_run.id, test_id=setup["test_a"].id)
             .one()
         )
-        passed_result.test_reviews = {
-            "reviews": [{"review_id": "r1", "status": {"name": "Passed"}}]
-        }
+        annotation = models.Annotation(
+            entity_type="TestResult",
+            entity_id=passed_result.id,
+            target_type="test_result",
+            status_id=passed_result.status_id,
+            organization_id=passed_result.organization_id,
+            user_id=passed_result.user_id,
+        )
+        test_db.add(annotation)
         test_db.commit()
 
         stale = get_verdict_matrix(test_db, test_run)
-        assert stale.kpis.reviews_count == 0  # still the cached value, not recomputed
+        assert stale.kpis.annotations_count == 0  # still the cached value, not recomputed
 
         get_verdict_matrix_cache().invalidate(str(test_run.id))
 
         fresh = get_verdict_matrix(test_db, test_run)
-        assert fresh.kpis.reviews_count == 1
+        assert fresh.kpis.annotations_count == 1
 
     def test_live_run_is_never_cached(self, test_db: Session, verdict_matrix_setup):
         """verdict_matrix_setup's db_status ("Active") is non-terminal by construction --
