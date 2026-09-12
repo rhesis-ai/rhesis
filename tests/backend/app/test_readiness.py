@@ -9,6 +9,7 @@ loop while it decides.
 """
 
 import asyncio
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -34,16 +35,58 @@ class TestReadinessProbe:
         assert response.status_code == 200
         assert response.json() == {"status": "ok", "database": "ok"}
 
-    def test_unavailable_when_the_database_raises(self, probe_client, monkeypatch):
+    def test_still_ready_while_the_outage_is_inside_the_grace_window(
+        self, probe_client, monkeypatch
+    ):
+        """One failed ping keeps the pod in the Service.
+
+        Every replica shares one database, so failing on the first error would
+        take the whole fleet out at once and ingress would answer 503 for
+        everything, including routes that touch no database.
+        """
+
         def boom():
             raise OperationalError("SELECT 1", {}, Exception("connection refused"))
 
         monkeypatch.setattr(main, "_ping_database", boom)
+        monkeypatch.setattr(main, "_last_db_contact", time.monotonic())
+
+        response = probe_client.get("/ready")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "degraded", "database": "slow"}
+
+    def test_unavailable_once_contact_is_older_than_the_grace_window(
+        self, probe_client, monkeypatch
+    ):
+        """A pod with no contact at all for the whole window leaves the Service.
+
+        That is the case rescheduling actually fixes: this pod's pool is wedged
+        while its siblings are serving.
+        """
+
+        def boom():
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        monkeypatch.setattr(main, "_ping_database", boom)
+        monkeypatch.setattr(
+            main, "_last_db_contact", time.monotonic() - main.READINESS_GRACE_SECONDS - 1
+        )
 
         response = probe_client.get("/ready")
 
         assert response.status_code == 503
         assert response.json() == {"status": "unavailable", "database": "unreachable"}
+
+    def test_a_success_refreshes_the_grace_window(self, probe_client, monkeypatch):
+        """A recovered database must clear the countdown, not merely pause it."""
+        monkeypatch.setattr(
+            main, "_last_db_contact", time.monotonic() - main.READINESS_GRACE_SECONDS - 1
+        )
+        monkeypatch.setattr(main, "_ping_database", lambda: None)
+
+        assert probe_client.get("/ready").status_code == 200
+        assert time.monotonic() - main._last_db_contact < 1
 
     def test_unavailable_when_the_database_hangs(self, probe_client, monkeypatch):
         """A hung connection must not hold the probe open past the timeout.
@@ -52,9 +95,10 @@ class TestReadinessProbe:
         the wait_for is what keeps a wedged database from turning every probe
         into a slow 200-or-nothing.
         """
-        import time
-
         monkeypatch.setattr(main, "_ping_database", lambda: time.sleep(30))
+        monkeypatch.setattr(
+            main, "_last_db_contact", time.monotonic() - main.READINESS_GRACE_SECONDS - 1
+        )
 
         started = time.monotonic()
         response = probe_client.get("/ready")
@@ -101,6 +145,9 @@ class TestReadinessProbe:
             await asyncio.sleep(60)
 
         monkeypatch.setattr(main.anyio.to_thread, "run_sync", never)
+        monkeypatch.setattr(
+            main, "_last_db_contact", time.monotonic() - main.READINESS_GRACE_SECONDS - 1
+        )
 
         response = asyncio.run(main.readiness_check())
 
