@@ -33,12 +33,6 @@ Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid 
 {% if provider == "trello" %}
 Use Trello tools to retrieve the full board, list, or card content, including description,
 checklists, comments, and attachments when available.
-{% if workspace_context and workspace_context.workspace_gid %}
-You are restricted to the following Trello workspace:
-- Workspace ID: {{ workspace_context.workspace_gid }}
-
-Scope all Trello tool calls to workspace ID "{{ workspace_context.workspace_gid }}".
-{% endif %}
 {% endif %}
 {% if provider == "linear" %}
 Use Linear tools to retrieve the full issue, project, or document content, including
