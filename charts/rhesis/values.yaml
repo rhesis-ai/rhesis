@@ -174,22 +174,36 @@ backend:
     maxReplicas: 4
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
-  # Backend may run heavy startup (e.g. probe caches). Worst-case time before
-  # liveness restart ≈ initialDelaySeconds + (failureThreshold - 1) * periodSeconds.
+  # Covers boot only (imports, probe cache pre-warm): migrations run in the
+  # PreSync Job, so the pod no longer waits on `alembic upgrade head`. Budget =
+  # initialDelaySeconds + (failureThreshold - 1) * periodSeconds = 30 + 29*10 =
+  # ~5min, several times a normal boot and room for `migrations.job.enabled:
+  # false`, where alembic runs at boot again. Liveness below stays tight because
+  # it does not start until this succeeds.
+  startupProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
   livenessProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 420
+    initialDelaySeconds: 60
     periodSeconds: 30
     timeoutSeconds: 15
-    failureThreshold: 25
+    failureThreshold: 5
+  # No initial delay: the startupProbe already holds this back until boot
+  # succeeds, and /ready is what pulls the pod out of the Service when the
+  # database goes away -- delaying it only delays that.
   readinessProbe:
     httpGet:
       path: /ready
-    initialDelaySeconds: 240
+    initialDelaySeconds: 5
     periodSeconds: 15
     timeoutSeconds: 15
-    failureThreshold: 60
+    failureThreshold: 5
   service:
     type: ClusterIP
     port: 8080

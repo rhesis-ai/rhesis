@@ -83,20 +83,34 @@ backend:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "25m"
-  livenessProbe:
+  # Covers boot only (imports, garak probe cache pre-warm): migrations run in
+  # the PreSync Job, so the pod no longer waits on `alembic upgrade head`.
+  # Budget = 30 + 17*10 = ~3.5min, same as prd. Liveness below stays tight
+  # because it does not start until this succeeds.
+  startupProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 90
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 6
-  readinessProbe:
-    httpGet:
-      path: /ready
     initialDelaySeconds: 30
     periodSeconds: 10
     timeoutSeconds: 10
-    failureThreshold: 6
+    failureThreshold: 18
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 5
+  # No real initial delay: the startupProbe already holds this back until boot
+  # succeeds, and /ready is what pulls the pod out of the Service when the
+  # database goes away -- delaying it only delays that.
+  readinessProbe:
+    httpGet:
+      path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
 
 frontend:
   replicas: 2
