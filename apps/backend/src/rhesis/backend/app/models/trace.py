@@ -179,11 +179,6 @@ class Trace(
         """Extract model name from attributes."""
         return self.attributes.get(AISpanAttributes.MODEL_NAME)
 
-    @property
-    def total_tokens(self) -> int | None:
-        """Extract total tokens from attributes."""
-        return self.attributes.get(AISpanAttributes.TOKENS_TOTAL)
-
     def to_searchable_text(self) -> str:
         """
         Generate searchable text from trace fields for embeddings and full-text search.

@@ -109,6 +109,7 @@ class SingleTurnOutput(OutputProvider):
         test_execution_context=None,
         test_id=None,
         params=None,
+        test_parameters=None,
         **kwargs,
     ) -> TestOutput:
         start_time = datetime.now(timezone.utc)
@@ -121,6 +122,21 @@ class SingleTurnOutput(OutputProvider):
             params = _load_run_params(db, test_execution_context)
         if params:
             input_data["params"] = params
+
+        if test_parameters is None and test_id:
+            from rhesis.backend.app.models.test import Test
+
+            test_obj = (
+                db.query(Test)
+                .filter(
+                    Test.id == test_id,
+                    Test.organization_id == organization_id,
+                )
+                .first()
+            )
+            test_parameters = (test_obj.test_parameters if test_obj else None) or {}
+        if test_parameters:
+            input_data["test_parameters"] = test_parameters
 
         # Inject file data if the test has attached files
         if test_id:
@@ -310,6 +326,8 @@ class MultiTurnOutput(OutputProvider):
         if params is None:
             params = _load_run_params(db, test_execution_context)
 
+        test_parameters = test.test_parameters or {}
+
         from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
         from rhesis.backend.app.utils.user_model_utils import ensure_language_model
         from rhesis.backend.jobs.execution.penelope_target import (
@@ -332,6 +350,7 @@ class MultiTurnOutput(OutputProvider):
             user_id=user_id,
             test_execution_context=test_execution_context,
             params=params,
+            test_parameters=test_parameters,
         )
 
         penelope_result = agent.execute_test(

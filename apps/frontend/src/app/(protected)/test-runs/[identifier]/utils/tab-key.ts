@@ -7,11 +7,14 @@
  * tab's data while the client opens a different one.
  */
 
+// Order defines the tab indices, so append rather than insert: anything else
+// shifts every TabPanel index and the legacy key aliases below.
 export const TAB_KEYS = [
   'summary',
   'linked_entities',
   'configuration',
   'traces',
+  'reviews',
 ] as const;
 
 export type TabKey = (typeof TAB_KEYS)[number];

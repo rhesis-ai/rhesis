@@ -35,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an `AttributeError` in `on_chain_end` when handling object-based tool calls from certain LLM providers.
 - Fixed prompt event logging to emit one event per message instead of only recording the first message.
 - Fixed false-positive handoff detection on sequential graph transitions.
-
+- **Test Parameters:** Added `test_parameters` field to the `Test` entity and `get_test_parameters()` accessor for reading per-test parameters during SDK endpoint execution.
+- Added `test_parameters` to the connector wire protocol (`ExecuteTestMessage`).
 
 ## [0.15.1] - 2026-09-04
 

@@ -27,6 +27,12 @@ interface KpiCardProps {
   visual?: React.ReactNode;
   /** Explains the metric in a hover tooltip via a small info icon next to the title. */
   infoTooltip?: string;
+  /** A second metric of equal standing, shown beside `value`. Both drop a size so
+   *  the pair still fits the card width. Used by the Usage card, where tokens and
+   *  cost answer the same question and neither is the subtitle of the other. */
+  secondary?: { value: string | number; label: string };
+  /** Labels the primary value when `secondary` is set, so the two read as a pair. */
+  valueLabel?: string;
   /** Makes the whole card a button, e.g. to drill into a filtered view. */
   onClick?: () => void;
 }
@@ -39,6 +45,8 @@ export default function KpiCard({
   subtitle,
   visual,
   infoTooltip,
+  secondary,
+  valueLabel,
   onClick,
 }: KpiCardProps) {
   const content = (
@@ -56,27 +64,58 @@ export default function KpiCard({
         )}
       </Box>
 
-      <Typography
-        variant="h4"
-        fontWeight={600}
-        sx={{
-          mb: 1,
-          fontVariantNumeric: 'tabular-nums',
-          color: valueColor,
-        }}
-      >
-        {value}
-        {valueSuffix && (
-          <Typography
-            component="span"
-            variant="body1"
-            color="text.secondary"
-            sx={{ ml: 0.5, fontVariantNumeric: 'tabular-nums' }}
-          >
-            {valueSuffix}
-          </Typography>
-        )}
-      </Typography>
+      {secondary ? (
+        <Box sx={{ display: 'flex', gap: 3, mb: 1 }}>
+          <Box>
+            <Typography
+              variant="h5"
+              fontWeight={600}
+              sx={{ fontVariantNumeric: 'tabular-nums', color: valueColor }}
+            >
+              {value}
+            </Typography>
+            {valueLabel && (
+              <Typography variant="caption" color="text.secondary">
+                {valueLabel}
+              </Typography>
+            )}
+          </Box>
+          <Box>
+            <Typography
+              variant="h5"
+              fontWeight={600}
+              sx={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {secondary.value}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {secondary.label}
+            </Typography>
+          </Box>
+        </Box>
+      ) : (
+        <Typography
+          variant="h4"
+          fontWeight={600}
+          sx={{
+            mb: 1,
+            fontVariantNumeric: 'tabular-nums',
+            color: valueColor,
+          }}
+        >
+          {value}
+          {valueSuffix && (
+            <Typography
+              component="span"
+              variant="body1"
+              color="text.secondary"
+              sx={{ ml: 0.5, fontVariantNumeric: 'tabular-nums' }}
+            >
+              {valueSuffix}
+            </Typography>
+          )}
+        </Typography>
+      )}
 
       {visual}
 

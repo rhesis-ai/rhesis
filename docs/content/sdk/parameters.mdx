@@ -367,6 +367,28 @@ if params is not None:
     print(params.source, params.version)`}
 </CodeBlock>
 
+## Test parameters (separate concept)
+
+Test parameters (`test_parameters`) are a freeform JSON field on each test object, distinct from experiment parameters (`params`). They are not schema-validated, not versioned, and not resolved from experiments. Use them for per-test data that varies across tests in the same run, such as a customer ID, a locale, or a scenario-specific flag.
+
+In request mappings, both namespaces are available side by side:
+
+<CodeBlock filename="both_params.py" language="python">
+{`@endpoint(
+    name="chat",
+    request_mapping={
+        "query": "{{ input }}",
+        "model": "{{ params.model | default('gpt-4o') }}",
+        "customer_id": "{{ test_parameters.customer_id }}",
+    },
+    response_mapping={"output": "{{ response }}"},
+)
+def chat(query: str, *, model: str, customer_id: str):
+    return {"response": invoke(query, model=model, customer_id=customer_id)}`}
+</CodeBlock>
+
+Set test parameters via the API, SDK, or the Test Parameters section in the test detail view. They are read directly from the test object at execution time.
+
 ---
 
 <Callout type="default">

@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Alert, Box, Typography } from '@mui/material';
+import { Alert, Box, Paper, Typography } from '@mui/material';
+import { GRID_PAPER_SX } from '@/components/common/BaseDataGrid';
 import TracesTable from './TracesTable';
 import TraceDrawer from './TraceDrawer';
+import TraceMetricsSummary from './TraceMetricsSummary';
 import { useList } from '@/hooks/useList';
 import { tracesList } from './list';
 import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import {
+  buildTraceQueryParams,
   EMPTY_TRACE_DRAWER_FILTERS,
   hasActiveTraceDrawerFilters,
   sanitizeTraceDrawerFiltersForTestRunScope,
@@ -111,6 +114,8 @@ export default function TracesClient({
     rowsPerPage: pageSize,
     onPageChange,
     onRowsPerPageChange,
+    sortModel,
+    onSortModelChange,
   } = useList(descriptor, {
     filters,
     enabled: !projectLoading && !!scopedProjectId,
@@ -192,46 +197,82 @@ export default function TracesClient({
   const showFilteredEmpty =
     !listLoading && traces.length === 0 && totalCount === 0;
 
+  // GET /telemetry/metrics narrows by project, environment, time and test run, so
+  // any other active filter makes the rollup broader than the listed rows. Tell
+  // it, rather than letting the two silently disagree.
+  const rollupProjectId = drawerFilters.projectId || scopedProjectId;
+  const rollupTestRunId =
+    fixedTestRunId ?? drawerFilters.testRunId ?? undefined;
+  const hasUnsupportedRollupFilters = Boolean(
+    searchQuery.trim() ||
+    (typeFilter && typeFilter !== 'all') ||
+    drawerFilters.endpointId ||
+    drawerFilters.traceSource ||
+    drawerFilters.traceMetricsStatus ||
+    drawerFilters.testResultId ||
+    drawerFilters.testId
+  );
+  const rollupTimeParams = useMemo(
+    () => buildTraceQueryParams(drawerFilters, '', 'all'),
+    [drawerFilters]
+  );
+
   return (
     <>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-          {error}
-        </Alert>
-      )}
-
-      <TracesTable
-        traces={traces}
-        loading={listLoading}
-        onRowClick={handleRowClick}
-        totalCount={totalCount}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={onPageChange}
-        onPageSizeChange={onRowsPerPageChange}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
-        drawerFilters={drawerFilters}
-        onApplyDrawerFilters={handleApplyDrawerFilters}
-        filterDrawerOpen={filterDrawerOpen}
-        onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
-        onFilterDrawerClose={() => setFilterDrawerOpen(false)}
-        fixedTestRunId={fixedTestRunId}
+      {/* Totals sit above the grid card, not inside it. The metrics endpoint scopes
+          by test run, so on a run's Traces tab these describe that run. */}
+      <TraceMetricsSummary
+        projectId={rollupProjectId}
+        testRunId={rollupTestRunId}
+        environment={drawerFilters.environment ?? undefined}
+        startTimeAfter={rollupTimeParams.start_time_after}
+        startTimeBefore={rollupTimeParams.start_time_before}
+        hasUnsupportedFilters={hasUnsupportedRollupFilters}
+        refreshTrigger={refreshTrigger}
       />
 
-      {showFilteredEmpty && (
-        <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom>
-            No traces found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Try adjusting your filters or check back after running tests or
-            invoking endpoints.
-          </Typography>
-        </Box>
-      )}
+      <Paper sx={GRID_PAPER_SX}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+            {error}
+          </Alert>
+        )}
+
+        <TracesTable
+          traces={traces}
+          loading={listLoading}
+          onRowClick={handleRowClick}
+          totalCount={totalCount}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onRowsPerPageChange}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          drawerFilters={drawerFilters}
+          onApplyDrawerFilters={handleApplyDrawerFilters}
+          filterDrawerOpen={filterDrawerOpen}
+          onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
+          onFilterDrawerClose={() => setFilterDrawerOpen(false)}
+          fixedTestRunId={fixedTestRunId}
+          sortModel={sortModel}
+          onSortModelChange={onSortModelChange}
+        />
+
+        {showFilteredEmpty && (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <Typography variant="h6" gutterBottom>
+              No traces found
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Try adjusting your filters or check back after running tests or
+              invoking endpoints.
+            </Typography>
+          </Box>
+        )}
+      </Paper>
 
       <TraceDrawer
         open={drawerOpen}

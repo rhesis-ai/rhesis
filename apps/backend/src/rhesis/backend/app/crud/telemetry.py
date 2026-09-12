@@ -12,11 +12,15 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, asc, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import (
+    AISpanAttributes,
+    EnrichedDataKeys,
+    TestExecutionContext,
+)
 from rhesis.backend.app.schemas.telemetry import (
     OTELSpanCreate,
     StatusCode,
@@ -26,6 +30,120 @@ from rhesis.backend.app.schemas.telemetry import (
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
+
+
+def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
+    """Validate and convert a UUID string, raising a 400 rather than a 500 on garbage."""
+    from fastapi import HTTPException
+
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
+        )
+
+
+def span_total_tokens_expr(attributes):
+    """Per-span token total in SQL, matching ``_span_token_counts`` in enrichment/core.py.
+
+    Falls back to ``input + output`` when no total was reported, and treats a reported
+    zero as missing when either side is non-zero. That combination is contradictory and
+    only reachable through hand-set OTLP attributes or ``create_llm_attributes`` with a
+    single side, never through a shipped integration; trusting the zero would undercount.
+
+    Each side is coalesced separately because ``NULL + 100`` is ``NULL`` in SQL, which
+    would otherwise drop a span that reported only one of the two.
+    """
+    return func.coalesce(
+        func.nullif(attributes[AISpanAttributes.TOKENS_TOTAL].as_float(), 0.0),
+        func.coalesce(attributes[AISpanAttributes.TOKENS_INPUT].as_float(), 0.0)
+        + func.coalesce(attributes[AISpanAttributes.TOKENS_OUTPUT].as_float(), 0.0),
+        0.0,
+    )
+
+
+# Grid fields the traces list can sort by, mapped to how each is ordered in SQL.
+#
+# Deliberately a whitelist: the columns left out (conversation_input, endpoint_name,
+# trace_metrics_status) have no SQL sort key -- they come from a JSONB attribute, a
+# three-hop join and a relationship -- so the grid marks them unsortable rather than
+# sorting one page of rows and calling it ordered.
+TRACE_SORT_FIELDS = frozenset(
+    {
+        "start_time",
+        "duration_ms",
+        "trace_id",
+        "environment",
+        "root_operation",
+        "span_count",
+        "total_tokens",
+        "total_cost_usd",
+    }
+)
+
+
+def _trace_sort_clauses(
+    sort_by: Optional[str], sort_order: str, span_count_col, llm_tokens_col
+) -> list:
+    """ORDER BY clauses for the traces list.
+
+    Sorting is server-side so a page of results is genuinely the top N of the whole
+    filtered set, not the newest N reshuffled in the browser.
+
+    Always ends with start_time then id. Without a tiebreaker the many rows tied at
+    zero cost have no defined order between pages, and pagination silently repeats
+    and skips rows.
+    """
+    from fastapi import HTTPException
+
+    if sort_by and sort_by not in TRACE_SORT_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot sort traces by '{sort_by}'. "
+                f"Sortable fields: {', '.join(sorted(TRACE_SORT_FIELDS))}"
+            ),
+        )
+
+    columns = {
+        "start_time": models.Trace.start_time,
+        "duration_ms": models.Trace.duration_ms,
+        "trace_id": models.Trace.trace_id,
+        "environment": models.Trace.environment,
+        "root_operation": models.Trace.span_name,
+        "span_count": span_count_col,
+        # Mirrors what the response actually shows: the enriched total when the trace
+        # has been priced, the llm.invoke sum until then.
+        "total_tokens": func.coalesce(
+            models.Trace.enriched_data[EnrichedDataKeys.COSTS][
+                EnrichedDataKeys.TOTAL_TOKENS
+            ].as_float(),
+            llm_tokens_col,
+            0,
+        ),
+        # Cost has no pre-enrichment fallback, so unpriced traces sort last rather
+        # than leading a "most expensive first" list on a NULLS FIRST default.
+        "total_cost_usd": models.Trace.enriched_data[EnrichedDataKeys.COSTS][
+            EnrichedDataKeys.TOTAL_COST_USD
+        ].as_float(),
+    }
+
+    descending = sort_order.lower() != "asc"
+    clauses = []
+
+    if sort_by:
+        expression = columns[sort_by]
+        ordered = desc(expression) if descending else asc(expression)
+        clauses.append(ordered.nullslast())
+
+    if sort_by != "start_time":
+        clauses.append(desc(models.Trace.start_time))
+    clauses.append(desc(models.Trace.id))
+
+    return clauses
 
 
 class TraceRow(NamedTuple):
@@ -40,6 +158,9 @@ class TraceRow(NamedTuple):
     total: int
     tags_count: int
     comments_count: int
+    # Summed over the trace's llm.invoke spans. Only used when the trace has not
+    # been enriched yet -- see services/telemetry/token_totals.py.
+    llm_tokens: int
 
 
 # ============================================================================
@@ -277,6 +398,8 @@ def query_traces(
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
     trace_metrics_status: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: str = "desc",
     limit: int = 100,
     offset: int = 0,
 ) -> List[TraceRow]:
@@ -300,19 +423,7 @@ def query_traces(
     """
     from uuid import UUID
 
-    from fastapi import HTTPException
     from sqlalchemy.orm import aliased, joinedload
-
-    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
-        """Validate and convert UUID string, raising HTTPException if invalid."""
-        if not value:
-            return None
-        try:
-            return UUID(value)
-        except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
-            )
 
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
@@ -332,7 +443,26 @@ def query_traces(
         .scalar_subquery()
     )
 
-    # -- Column 3: total — total matching rows *before* LIMIT/OFFSET
+    # -- Column 3: llm_tokens — tokens over this trace's llm.invoke spans.
+    #    The pre-enrichment fallback: enrichment is dispatched asynchronously after
+    #    ingest, so a freshly ingested trace has no enriched_data and would
+    #    otherwise list as 0 while the detail endpoint reported the real figure.
+    #    The llm.invoke filter is the same one enrichment applies, so the two
+    #    numbers agree instead of double-counting aggregate-reporting frameworks.
+    llm_tokens_col = (
+        select(func.coalesce(func.sum(span_total_tokens_expr(InnerTrace.attributes)), 0))
+        .where(
+            and_(
+                InnerTrace.trace_id == models.Trace.trace_id,
+                InnerTrace.organization_id == org_uuid,
+                InnerTrace.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
+                == AISpanAttributes.OPERATION_LLM_INVOKE,
+            )
+        )
+        .scalar_subquery()
+    )
+
+    # -- Column 4: total — total matching rows *before* LIMIT/OFFSET
     #    Uses a window function so pagination total comes from the same query.
     total_col = func.count().over().label("total_count")
 
@@ -360,7 +490,14 @@ def query_traces(
     )
 
     query = (
-        db.query(models.Trace, span_count_col, total_col, tags_count_col, comments_count_col)
+        db.query(
+            models.Trace,
+            span_count_col,
+            total_col,
+            tags_count_col,
+            comments_count_col,
+            llm_tokens_col,
+        )
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             # Scoped to what the loop below actually reads off this chain (existence
@@ -509,9 +646,20 @@ def query_traces(
         )
         query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
-    results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
+    query = query.order_by(
+        *_trace_sort_clauses(sort_by, sort_order, span_count_col, llm_tokens_col)
+    )
+
+    results = query.limit(limit).offset(offset).all()
     return [
-        TraceRow(trace=r[0], span_count=r[1], total=r[2], tags_count=r[3], comments_count=r[4])
+        TraceRow(
+            trace=r[0],
+            span_count=r[1],
+            total=r[2],
+            tags_count=r[3],
+            comments_count=r[4],
+            llm_tokens=int(r[5] or 0),
+        )
         for r in results
     ]
 
@@ -839,18 +987,23 @@ def get_trace_metrics_aggregated(
     environment: Optional[str] = None,
     start_time_after: Optional[datetime] = None,
     start_time_before: Optional[datetime] = None,
+    test_run_id: Optional[str] = None,
 ) -> dict:
     """Compute trace metrics using SQL-level aggregation.
 
     Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
     to avoid loading large result sets into Python memory.
+
+    ``test_run_id`` narrows every metric to one run. It is a column on every span
+    row, stamped at ingest, so the scoping is exact. Note that ``total_spans``
+    counts span rows while the traces list shows one deduped root span per trace;
+    ``total_traces`` is a distinct count of trace_id, so that one still lines up
+    with the rows on screen.
     """
     from uuid import UUID
 
     from sqlalchemy import case, literal_column
     from sqlalchemy.sql import functions as sqlfunc
-
-    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
 
     T = models.Trace
 
@@ -865,20 +1018,67 @@ def get_trace_metrics_aggregated(
         filters.append(T.start_time >= start_time_after)
     if start_time_before:
         filters.append(T.start_time <= start_time_before)
+    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
+    if test_run_uuid:
+        filters.append(T.test_run_id == test_run_uuid)
 
     base = db.query(T).filter(*filters).subquery()
 
-    # JSONB extraction expressions for tokens and costs
-    tokens_expr = base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()
-    cost_expr = base.c.enriched_data[EnrichedDataKeys.COSTS][
-        EnrichedDataKeys.TOTAL_COST_USD
-    ].as_float()
+    # Tokens and costs aggregate per *trace*, not per span row.
+    #
+    # enriched_data is a trace-level blob that mark_trace_processed writes onto every
+    # span of the trace, so summing it across span rows multiplies the real figure by
+    # the span count. Collapse to one row per trace first: MAX is exact for the
+    # enriched columns precisely because every row carries the same value.
+    #
+    # raw_tokens is the pre-enrichment fallback, summed over llm.invoke spans only --
+    # the same filter enrichment applies, so an unenriched trace reports the number it
+    # will keep once enrichment lands. Cost has no fallback; it cannot be derived from
+    # span attributes.
+    per_trace = (
+        db.query(
+            base.c.trace_id.label("trace_id"),
+            func.max(
+                base.c.enriched_data[EnrichedDataKeys.COSTS][
+                    EnrichedDataKeys.TOTAL_TOKENS
+                ].as_float()
+            ).label("enriched_tokens"),
+            func.max(
+                base.c.enriched_data[EnrichedDataKeys.COSTS][
+                    EnrichedDataKeys.TOTAL_COST_USD
+                ].as_float()
+            ).label("cost_usd"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
+                            == AISpanAttributes.OPERATION_LLM_INVOKE,
+                            span_total_tokens_expr(base.c.attributes),
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("raw_tokens"),
+        )
+        .group_by(base.c.trace_id)
+        .subquery()
+    )
+
+    token_cost_agg = db.query(
+        func.coalesce(
+            func.sum(
+                func.coalesce(per_trace.c.enriched_tokens, per_trace.c.raw_tokens, 0),
+            ),
+            0,
+        ).label("total_tokens"),
+        func.coalesce(func.sum(per_trace.c.cost_usd), 0).label("total_cost_usd"),
+    ).one()
 
     agg = db.query(
         func.count(func.distinct(base.c.trace_id)).label("total_traces"),
         func.count(base.c.id).label("total_spans"),
-        func.coalesce(func.sum(tokens_expr), 0).label("total_tokens"),
-        func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
         func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
         func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
         func.coalesce(sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0).label(
@@ -912,8 +1112,8 @@ def get_trace_metrics_aggregated(
     return {
         "total_traces": agg.total_traces or 0,
         "total_spans": total_spans,
-        "total_tokens": int(agg.total_tokens or 0),
-        "total_cost_usd": round(float(agg.total_cost_usd or 0), 6),
+        "total_tokens": int(token_cost_agg.total_tokens or 0),
+        "total_cost_usd": round(float(token_cost_agg.total_cost_usd or 0), 6),
         "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
         "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
         "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),

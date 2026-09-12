@@ -44,6 +44,26 @@ Use `tojson` for optional fields or when a value might be `null`:
 
 `tojson` ensures proper JSON serialization: `None` → `null`, strings are quoted, objects and arrays are serialized correctly.
 
+### Test Parameters
+
+Each test can carry a freeform JSON object in its `test_parameters` field. These values are available in request templates under the `test_parameters` namespace:
+
+<CodeBlock filename="test-parameters-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "customer_id": "{{ test_parameters.customer_id }}",
+  "region": "{{ test_parameters.region | default('us-east-1') }}"
+}`}
+</CodeBlock>
+
+Test parameters are per-test data stored directly on the test object. They differ from experiment parameters (`params`), which are typed, versioned configuration resolved from experiments. Both namespaces are available in the same template, and they do not collide.
+
 ## Raw Body Templates
 
 If your template renders to a JSON object with a `__body__` key, Rhesis unwraps it and sends the value as the raw request body. This is useful for APIs that expect a plain string or a non-JSON payload rather than a JSON object.
