@@ -775,6 +775,7 @@ def connector_execute_extras_from_run_attributes(
     if src_env is None:
         src_env = attributes.get("parameter_source_label")
     extras: dict[str, Any] = {
+        "experiment_parameters": params,
         "parameters": params,
         "parameter_version": attributes.get("parameter_version"),
         "parameter_experiment_id": attributes.get("parameter_experiment_id"),

@@ -34,7 +34,11 @@ class TemplateRenderer:
         """
         # Create a copy to avoid modifying the original input_data
         render_context = input_data.copy()
-        render_context.setdefault("params", {})
+
+        # Ensure both the new name and the deprecated alias are populated.
+        ep = render_context.get("experiment_parameters") or render_context.get("params") or {}
+        render_context.setdefault("experiment_parameters", ep)
+        render_context.setdefault("params", ep)
 
         # Conversation field aliases: ensure a value provided under any
         # recognised name is available under ALL recognised names so
@@ -55,10 +59,17 @@ class TemplateRenderer:
                 resolved_cid = val
                 break
 
-        # Check if template references any conversation fields
         template_str = (
             json.dumps(template_data) if isinstance(template_data, dict) else str(template_data)
         )
+
+        if "params." in template_str and "experiment_parameters." not in template_str:
+            logger.warning(
+                "Template uses deprecated '{{ params.<key> }}'. "
+                "Use '{{ experiment_parameters.<key> }}' instead."
+            )
+
+        # Check if template references any conversation fields
 
         for field in conversation_fields:
             if f"{field}" in template_str:

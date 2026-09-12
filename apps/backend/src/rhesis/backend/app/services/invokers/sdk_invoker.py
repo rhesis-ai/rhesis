@@ -102,10 +102,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
     # Platform-internal keys that must not leak as function kwargs in
     # passthrough mode (no request_mapping).  When a request_mapping IS
     # present these keys are still available in the Jinja template context
-    # (e.g. ``{{ params.model }}``, ``{{ test_id }}``).
+    # (e.g. ``{{ experiment_parameters.model }}``).
     _PLATFORM_CONTEXT_KEYS: ClassVar[set[str]] = {
         "organization_id",
         "user_id",
+        "experiment_parameters",
         "params",
         "files_metadata",
     }
@@ -119,9 +120,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         """Prepare function kwargs from input data using request mapping.
 
         Experiment parameters are available in the Jinja template context
-        as ``params``, so request mappings can reference individual values
-        with ``{{ params.model }}``, ``{{ params.temperature }}``, etc. --
-        the same syntax used for REST endpoints.
+        as ``experiment_parameters`` (preferred) or ``params`` (deprecated),
+        so request mappings can reference individual values with
+        ``{{ experiment_parameters.model }}``, ``{{ experiment_parameters.temperature }}``,
+        etc.
 
         Args:
             function_name: Name of the function (for logging)

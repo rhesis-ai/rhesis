@@ -106,8 +106,8 @@ When a test run is associated with an experiment, resolved values are available 
     name="chat",
     request_mapping={
         "user_message": "{{ input }}",
-        "model": "{{ params.model | default('gpt-4o') }}",
-        "temperature": "{{ params.temperature | default(0.7) }}",
+        "model": "{{ experiment_parameters.model | default('gpt-4o') }}",
+        "temperature": "{{ experiment_parameters.temperature | default(0.7) }}",
     },
     response_mapping={"output": "$.answer"},
 )
@@ -117,9 +117,10 @@ def chat(user_message: str, *, model: str, temperature: float) -> dict:
 </CodeBlock>
 
 <Callout type="info">
-  The legacy `@endpoint(parameters=["model", "temperature"])` path still works
-  for older applications, but it emits a deprecation warning. Use
-  `{{ params.* }}` in `request_mapping` for new endpoints.
+  The legacy `@endpoint(parameters=["model", "temperature"])` path and the
+  `\{\{ params.* \}\}` template alias still work for older applications, but
+  both emit deprecation warnings. Use `\{\{ experiment_parameters.* \}\}` in
+  `request_mapping` for new endpoints.
 </Callout>
 
 ### File attachments
