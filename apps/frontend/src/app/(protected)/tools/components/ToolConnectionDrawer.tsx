@@ -596,7 +596,6 @@ export function ToolConnectionDrawer({
       return buildAsanaMetadata(workspaceGid);
     }
 
-
     if (currentProviderType === 'azure_devops' && azureProject.trim()) {
       return { project: azureProject.trim() };
     }
@@ -1134,7 +1133,6 @@ export function ToolConnectionDrawer({
           }
         }
 
-
         if (providerType === 'azure_devops') {
           if (!azureProject.trim()) {
             setError('Project is required for Azure DevOps integrations');
@@ -1300,7 +1298,6 @@ export function ToolConnectionDrawer({
               ...(buildAsanaMetadata(workspaceGid) || {}),
             };
           }
-
 
           if (providerType === 'azure_devops') {
             if (!azureProject.trim()) {
@@ -1686,7 +1683,6 @@ export function ToolConnectionDrawer({
                     helperText="Optional Asana workspace scope for search and import"
                   />
                 )}
-
 
                 {providerType === 'azure_devops' && (
                   <TextField
