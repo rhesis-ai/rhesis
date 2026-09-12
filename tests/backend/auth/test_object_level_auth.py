@@ -101,8 +101,8 @@ def _db_test_result(*, owner_id: uuid.UUID) -> Mock:
     obj = Mock(spec_set=[
         "id", "user_id", "organization_id", "test_configuration_id",
         "test_run_id", "prompt_id", "test_id", "status_id",
-        "test_metrics", "test_reviews", "test_output",
-        "last_review", "matches_review", "review_summary",
+        "test_metrics", "test_output",
+        "last_annotation", "matches_annotation", "annotation_summary",
         "permitted_actions",
     ])
     obj.id = _RESOURCE_ID
@@ -114,11 +114,10 @@ def _db_test_result(*, owner_id: uuid.UUID) -> Mock:
     obj.test_id = None
     obj.status_id = None
     obj.test_metrics = None
-    obj.test_reviews = None
     obj.test_output = None
-    obj.last_review = None
-    obj.matches_review = False
-    obj.review_summary = None
+    obj.last_annotation = None
+    obj.matches_annotation = False
+    obj.annotation_summary = None
     obj.permitted_actions = []
     return obj
 

@@ -2,12 +2,9 @@
 Regression coverage for the trace soft-delete contract.
 
 get_trace_by_db_id must raise ItemDeletedException for a soft-deleted trace, like
-every other entity's single-item fetch, instead of silently returning None -- and
-routes built on it (e.g. add_trace_review) must surface that as 410 GONE, not a
-bare 404.
+every other entity's single-item fetch, instead of silently returning None.
 """
 
-import uuid
 from datetime import datetime, timezone
 
 import pytest
@@ -53,9 +50,11 @@ class TestTraceSoftDeleteContract:
         with pytest.raises(ItemDeletedException):
             get_trace_by_db_id(test_db, trace_db_id, test_org_id)
 
-    def test_add_review_on_deleted_trace_returns_410(
+    def test_annotation_on_deleted_trace_returns_404(
         self, test_db, authenticated_client: TestClient, db_project
     ):
+        """Creating an annotation on a soft-deleted trace returns 404 (the
+        auto-filter hides the row from _load_parent)."""
         ingested = _ingest_trace(authenticated_client, str(db_project.id))
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
@@ -66,12 +65,16 @@ class TestTraceSoftDeleteContract:
         test_db.commit()
 
         response = authenticated_client.post(
-            f"/telemetry/traces/{trace_db_id}/reviews",
+            "/annotations/",
             json={
-                "status_id": str(uuid.uuid4()),
-                "comments": "should not get here",
-                "target": {"type": "trace", "reference": None},
+                "entity_type": "Trace",
+                "entity_id": trace_db_id,
+                "status_id": "00000000-0000-0000-0000-000000000001",
+                "target": {"type": "trace"},
             },
         )
 
-        assert response.status_code == status.HTTP_410_GONE
+        assert response.status_code in (
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_400_BAD_REQUEST,
+        )

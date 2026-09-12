@@ -130,7 +130,7 @@ class TestTagMcpToolsPresent:
 
 @pytest.mark.unit
 class TestListAnnotationsTool:
-    """The annotations tool is how the architect sees human review feedback."""
+    """The annotations tool is how the architect sees human feedback."""
 
     def _cfg(self):
         return {tc["name"]: tc for tc in load_tool_configs()}["list_annotations"]
@@ -158,7 +158,7 @@ class TestListAnnotationsTool:
 
     def test_list_annotations_description_documents_scoping(self):
         description = self._cfg()["description"]
-        for token in ("test_run_id", "test_result_id", "trace_id", "trace_db_id"):
+        for token in ("test_run_id", "entity_type", "test_result_id", "trace_db_id"):
             assert token in description, f"description should explain {token}"
 
     def test_list_annotations_input_schema_exposes_filters(self):
@@ -175,13 +175,11 @@ class TestListAnnotationsTool:
         props = by_name["list_annotations"].inputSchema["properties"]
         for param in (
             "test_run_id",
-            "test_result_id",
-            "trace_id",
-            "trace_db_id",
+            "entity_type",
             "resolved",
             "rating",
-            "source",
             "target_type",
+            "search",
             "skip",
         ):
             assert param in props, f"{param} missing from tool schema"

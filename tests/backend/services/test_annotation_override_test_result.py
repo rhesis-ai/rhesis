@@ -1,17 +1,41 @@
-"""Unit tests for test-result review override metric key resolution."""
+"""Unit tests for test-result annotation override logic.
+
+Tests the annotation_override.test_result module: metric key resolution,
+evaluable-content detection, apply/revert/recalculate override semantics.
+"""
 
 from typing import ClassVar
 from unittest.mock import patch
 
-from rhesis.backend.app.constants import REVIEW_TARGET_TEST_RESULT
+from rhesis.backend.app.constants import AnnotationTarget
 from rhesis.backend.app.outcomes import Execution, Verdict
-from rhesis.backend.app.services.review_override import (
+from rhesis.backend.app.services.annotation_override.common import is_passed_status
+from rhesis.backend.app.services.annotation_override.test_result import (
     _apply_metric_override,
     _find_metric_key,
     _has_evaluable_content,
-    apply_review_override,
+    apply_override,
     recalculate_overall_status,
 )
+
+
+class _MockAnnotation:
+    def __init__(self, id="ann-1", user_id="user-1", target_type="test_result",
+                 target_reference=None, status_id=None, status_name="Pass"):
+        self.id = id
+        self.user_id = user_id
+        self.target_type = target_type
+        self.target_reference = target_reference
+        self.status_id = status_id
+        self.status = type("Status", (), {"id": status_id, "name": status_name})()
+
+
+class TestIsPassedStatus:
+    def test_pass_is_passed(self):
+        assert is_passed_status("Pass") is True
+
+    def test_fail_is_not_passed(self):
+        assert is_passed_status("Fail") is False
 
 
 class TestFindMetricKey:
@@ -29,7 +53,7 @@ class TestFindMetricKey:
 
 
 class TestApplyMetricOverride:
-    @patch("rhesis.backend.app.services.review_override.flag_modified")
+    @patch("rhesis.backend.app.services.annotation_override.test_result.flag_modified")
     def test_applies_override_with_slug_reference(self, _mock_flag_modified):
         class StubResult:
             test_metrics: ClassVar[dict] = {
@@ -39,16 +63,7 @@ class TestApplyMetricOverride:
             }
 
         result = StubResult()
-        user = type("User", (), {"id": "user-1"})()
-
-        _apply_metric_override(
-            result,
-            "bias-detection",
-            True,
-            "review-1",
-            user,
-            "2026-01-01T00:00:00Z",
-        )
+        _apply_metric_override(result, "bias-detection", True, "review-1", "user-1", "2026-01-01T00:00:00Z")
 
         metric = result.test_metrics["metrics"]["Bias Detection"]
         assert metric["is_successful"] is True
@@ -86,10 +101,6 @@ class TestHasEvaluableContent:
         assert _has_evaluable_content(StubResult()) is True
 
     def test_non_dict_test_output_is_not_evaluable(self):
-        """A stringified test_output (a legacy shape) must not be read as
-        having a goal_evaluation key.
-        """
-
         class StubResult:
             test_metrics = None
             test_output = "some raw string"
@@ -97,51 +108,35 @@ class TestHasEvaluableContent:
         assert _has_evaluable_content(StubResult()) is False
 
 
-class TestApplyReviewOverrideTestResultTarget:
-    """A review targeting the whole test result (REVIEW_TARGET_TEST_RESULT,
-    reference=None) can correct a verdict, but must not fabricate one on a
-    result that never produced evaluable output -- see _has_evaluable_content.
-    """
-
-    @patch("rhesis.backend.app.services.review_override._apply_outcome")
-    def test_review_on_evaluable_result_sets_pass_fail(self, mock_apply_outcome):
+class TestApplyOverrideTestResultTarget:
+    @patch("rhesis.backend.app.services.annotation_override.test_result._apply_outcome")
+    def test_override_on_evaluable_result_sets_pass_fail(self, mock_apply_outcome):
         class StubResult:
             test_metrics: ClassVar[dict] = {"metrics": {"Accuracy": {"is_successful": False}}}
             test_output = None
 
         result = StubResult()
-        user = type("User", (), {"id": "user-1"})()
-
-        apply_review_override(
-            result, REVIEW_TARGET_TEST_RESULT, None, {"name": "Pass"}, user, "review-1"
-        )
+        annotation = _MockAnnotation(target_type=AnnotationTarget.TEST_RESULT, status_name="Pass")
+        apply_override(result, annotation, {"name": "Pass"})
 
         mock_apply_outcome.assert_called_once_with(result, Execution.OK, Verdict.PASS)
 
-    @patch("rhesis.backend.app.services.review_override._apply_outcome")
-    def test_review_on_result_with_no_evaluable_content_forces_error(self, mock_apply_outcome):
+    @patch("rhesis.backend.app.services.annotation_override.test_result._apply_outcome")
+    def test_override_on_result_with_no_evaluable_content_forces_error(self, mock_apply_outcome):
         class StubResult:
             test_metrics = None
             test_output = None
 
         result = StubResult()
-        user = type("User", (), {"id": "user-1"})()
-
-        apply_review_override(
-            result, REVIEW_TARGET_TEST_RESULT, None, {"name": "Pass"}, user, "review-1"
-        )
+        annotation = _MockAnnotation(target_type=AnnotationTarget.TEST_RESULT, status_name="Pass")
+        apply_override(result, annotation, {"name": "Pass"})
 
         mock_apply_outcome.assert_called_once_with(result, Execution.ERROR, None)
 
 
 class TestRecalculateOverallStatusNoContent:
-    """revert_override's REVIEW_TARGET_TEST_RESULT branch calls this when no
-    replacement review remains -- it must reset the row, not leave it stuck
-    at whatever the just-deleted review set it to.
-    """
-
-    @patch("rhesis.backend.app.services.review_override._apply_outcome")
-    def test_metrics_less_turnless_result_resets_to_error(self, mock_apply_outcome):
+    @patch("rhesis.backend.app.services.annotation_override.test_result._apply_outcome")
+    def test_metrics_less_result_resets_to_error(self, mock_apply_outcome):
         class StubResult:
             test_metrics = None
             test_output = None
