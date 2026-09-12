@@ -14,7 +14,7 @@ def test_trello_provider_template_renders_valid_config():
     assert factory.config_dict is not None
     server = factory.config_dict["mcpServers"]["trello"]
     assert server["command"] == "npx"
-    assert server["args"][1] == "@delano/mcp-server-trello"
+    assert server["args"][1] == "@delorenj/mcp-server-trello"
     assert "@latest" not in " ".join(server["args"])
     assert server["env"]["TRELLO_API_KEY"] == "trello_test_key_123"
     assert server["env"]["TRELLO_TOKEN"] == "trello_test_token_456"
