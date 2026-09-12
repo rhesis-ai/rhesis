@@ -25,8 +25,7 @@ export default function TestParametersBlock({
   const theme = useTheme();
   const notifications = useNotifications();
   const canEdit = useCan(Capability.Test.UPDATE);
-  const monacoTheme =
-    theme.palette.mode === 'dark' ? 'vs-dark' : 'vs';
+  const monacoTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'vs';
 
   const currentParams = test.test_parameters ?? null;
   const hasParams =
@@ -37,9 +36,7 @@ export default function TestParametersBlock({
   const [isSaving, setIsSaving] = React.useState(false);
 
   const startEditing = React.useCallback(() => {
-    setDraft(
-      hasParams ? JSON.stringify(currentParams, null, 2) : '{\n  \n}'
-    );
+    setDraft(hasParams ? JSON.stringify(currentParams, null, 2) : '{\n  \n}');
     setIsEditing(true);
   }, [hasParams, currentParams]);
 
@@ -60,7 +57,11 @@ export default function TestParametersBlock({
       return;
     }
 
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       notifications.show('Test parameters must be a JSON object', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -150,11 +151,7 @@ export default function TestParametersBlock({
           </Typography>
         </Box>
         {canEdit && !isEditing && (
-          <Button
-            size="small"
-            startIcon={<EditIcon />}
-            onClick={startEditing}
-          >
+          <Button size="small" startIcon={<EditIcon />} onClick={startEditing}>
             Edit
           </Button>
         )}
