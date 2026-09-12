@@ -227,7 +227,7 @@ class TestSingleTurnOutputParamsInjection:
 
     @pytest.mark.asyncio
     async def test_injects_params_into_input_data(self):
-        """Explicit params kwarg is forwarded as input_data['params']."""
+        """Explicit params kwarg is forwarded as both input_data keys."""
         mock_endpoint_service = AsyncMock()
         mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={"output": "ok"})
 
@@ -251,11 +251,10 @@ class TestSingleTurnOutputParamsInjection:
                 params={"model": "gpt-4o", "temperature": 0.5},
             )
 
+        expected = {"model": "gpt-4o", "temperature": 0.5}
         call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
-        assert call_kwargs["input_data"]["params"] == {
-            "model": "gpt-4o",
-            "temperature": 0.5,
-        }
+        assert call_kwargs["input_data"]["experiment_parameters"] == expected
+        assert call_kwargs["input_data"]["params"] == expected
         assert call_kwargs["input_data"]["input"] == "hello"
 
     @pytest.mark.asyncio
@@ -293,6 +292,7 @@ class TestSingleTurnOutputParamsInjection:
 
         mock_load.assert_called_once()
         call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
+        assert call_kwargs["input_data"]["experiment_parameters"] == run_params
         assert call_kwargs["input_data"]["params"] == run_params
 
     @pytest.mark.asyncio
@@ -325,6 +325,7 @@ class TestSingleTurnOutputParamsInjection:
             )
 
         call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
+        assert "experiment_parameters" not in call_kwargs["input_data"]
         assert "params" not in call_kwargs["input_data"]
 
 

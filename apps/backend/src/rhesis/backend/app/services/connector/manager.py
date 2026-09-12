@@ -42,6 +42,7 @@ _HEARTBEAT_JITTER = 0.3
 _EXECUTE_TEST_EXTRA_KEYS = frozenset(
     {
         "parameters",
+        "experiment_parameters",
         "parameter_version",
         "parameter_experiment_id",
         "parameter_source",

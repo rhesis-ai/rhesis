@@ -329,8 +329,8 @@ When the platform runs tests against your `@endpoint`-decorated function, resolv
     name="chat",
     request_mapping={
         "query": "{{ input }}",
-        "model": "{{ params.model | default('gpt-4o') }}",
-        "temperature": "{{ params.temperature | default(0.7) }}",
+        "model": "{{ experiment_parameters.model | default('gpt-4o') }}",
+        "temperature": "{{ experiment_parameters.temperature | default(0.7) }}",
     },
     response_mapping={"output": "{{ response }}"},
 )
@@ -338,7 +338,7 @@ def chat(query: str, *, model: str = "gpt-4o", temperature: float = 0.7):
     return {"response": llm.invoke(model=model, temperature=temperature, prompt=query)}`}
 </CodeBlock>
 
-Parameters are rendered through the same Jinja2 template engine as `input`, `test_id`, and other platform variables. During a test run with an experiment, `params.model` resolves to the experiment's value. Without an experiment, the `default()` filter provides the fallback.
+Parameters are rendered through the same Jinja2 template engine as `input`, `test_id`, and other platform variables. During a test run with an experiment, `experiment_parameters.model` resolves to the experiment's value. Without an experiment, the `default()` filter provides the fallback. The deprecated alias `params` still works but logs a warning.
 
 ### Context-resolved fetch
 
@@ -357,12 +357,12 @@ def chat(query: str):
     )`}
 </CodeBlock>
 
-If you only need the current test-run snapshot and do not want fallback API resolution, use `get_parameters()`:
+If you only need the current test-run snapshot and do not want fallback API resolution, use `get_experiment_parameters()`:
 
 <CodeBlock filename="current_snapshot.py" language="python">
-{`from rhesis.sdk import get_parameters
+{`from rhesis.sdk import get_experiment_parameters
 
-params = get_parameters()
+params = get_experiment_parameters()
 if params is not None:
     print(params.source, params.version)`}
 </CodeBlock>
