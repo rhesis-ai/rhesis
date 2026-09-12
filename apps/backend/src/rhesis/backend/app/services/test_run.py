@@ -499,7 +499,9 @@ def get_verdict_matrix(
         verdict_index[cell] = (row.effective_success, bool(row.has_override))
 
     outcomes = test_run_crud.get_test_outcomes_for_run(db, test_run.id, organization_id=org_id)
-    reviews_count = test_run_crud.get_review_count_for_run(db, test_run.id, organization_id=org_id)
+    annotations_count = test_run_crud.get_annotation_count_for_run(
+        db, test_run.id, organization_id=org_id
+    )
 
     requirements_payload: List[schemas.VerdictRequirement] = []
     rows_payload: List[schemas.VerdictRow] = []
@@ -632,7 +634,7 @@ def get_verdict_matrix(
             verdicts_resolved=verdicts_resolved,
             verdicts_planned=verdicts_planned,
             failures=failing_tests,
-            reviews_count=reviews_count,
+            annotations_count=annotations_count,
         ),
     )
 

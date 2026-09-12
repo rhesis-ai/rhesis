@@ -1,5 +1,13 @@
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
+from .annotation import (
+    Annotation,
+    AnnotationContext,
+    AnnotationCreate,
+    AnnotationDetail,
+    AnnotationTargetSchema,
+    AnnotationUpdate,
+)
 from .architect import (
     ArchitectMessage,
     ArchitectMessageCreate,
@@ -155,10 +163,6 @@ from .test_configuration import (
     TestConfigurationUpdate,
 )
 from .test_result import (
-    ReviewCreate,
-    ReviewResponse,
-    ReviewTargetCreate,
-    ReviewUpdate,
     TestResult,
     TestResultBase,
     TestResultCreate,
@@ -210,6 +214,12 @@ from .user import User, UserBase, UserCreate, UserUpdate
 __all__ = [
     "Base",
     "ActivityLogEntry",
+    "Annotation",
+    "AnnotationContext",
+    "AnnotationCreate",
+    "AnnotationDetail",
+    "AnnotationTargetSchema",
+    "AnnotationUpdate",
     "Job",
     "JobActivity",
     "ServerIdentity",
@@ -282,10 +292,6 @@ __all__ = [
     "TestResultCreate",
     "TestResultDetail",
     "TestResultUpdate",
-    "ReviewCreate",
-    "ReviewUpdate",
-    "ReviewResponse",
-    "ReviewTargetCreate",
     "ExplorerTestSetCreate",
     "TestSet",
     "TestSetBase",

@@ -1,6 +1,7 @@
 # Import base classes first
 # Import remaining models
 from .activity_log import ActivityLog
+from .annotation import Annotation
 from .architect import ArchitectMessage, ArchitectSession
 from .base import Base
 from .category import Category
@@ -56,6 +57,7 @@ Behavior = Requirement
 __all__ = [
     "Base",
     "ActivityLog",
+    "Annotation",
     "ArchitectSession",
     "ArchitectMessage",
     "Behavior",

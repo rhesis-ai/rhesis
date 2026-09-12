@@ -1,5 +1,6 @@
 import functools
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import Column, ForeignKey, and_, event
@@ -242,124 +243,113 @@ class ProjectMixin:
         return relationship("Project", foreign_keys=[cls.project_id])
 
 
-class ReviewsMixin:
-    """Mixin providing human-review properties over a JSONB reviews column.
+def _annotation_entry(annotation) -> dict:
+    """The shape the frontend reads for one annotation embedded in a parent payload."""
+    status = annotation.status
+    user = annotation.user
+    return {
+        "annotation_id": str(annotation.id),
+        "target_type": annotation.target_type,
+        "reference": annotation.target_reference,
+        "status": {"status_id": str(status.id), "name": status.name} if status else None,
+        "user": {
+            "id": str(user.id),
+            "given_name": user.given_name,
+            "family_name": user.family_name,
+        }
+        if user
+        else None,
+        "comments": annotation.comments,
+        "updated_at": _annotation_timestamp(annotation).isoformat(),
+    }
 
-    Subclasses must define:
-        _reviews_column_name: str  — the JSONB column name (e.g. "test_reviews")
-        _reviews_entity_type: str  — the entity-level target type (e.g. "test_result")
-        _reviews_legacy_types: tuple[str, ...]  — legacy synonyms for the entity type
+
+def _annotation_timestamp(annotation) -> datetime:
+    return (
+        annotation.updated_at or annotation.created_at or datetime.min.replace(tzinfo=timezone.utc)
+    )
+
+
+class AnnotationsMixin:
+    """Human-annotation state of an entity, derived from its ``annotation`` rows.
+
+    Subclasses set ``_annotations_entity_type`` to their entity-level target type
+    (e.g. ``"test_result"``); the polymorphic relationship is matched on the class
+    name, which is also the ``entity_type`` value stored on the annotation.
     """
 
-    _reviews_column_name: str = ""
-    _reviews_entity_type: str = ""
-    _reviews_legacy_types: tuple = ()
+    _annotations_entity_type: str = ""
 
-    def _get_reviews_data(self):
-        data = getattr(self, self._reviews_column_name, None)
-        if not data or not isinstance(data, dict):
-            return {}
-        return data
+    @declared_attr
+    def annotations(cls):
+        return relationship(
+            "Annotation",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(Annotation.entity_id), "
+                f"Annotation.entity_type == '{cls.__name__}', "
+                f"Annotation.deleted_at.is_(None))"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
 
-    def _get_all_reviews(self):
-        data = self._get_reviews_data()
-        reviews = data.get("reviews", [])
-        if not reviews or not isinstance(reviews, list):
-            return []
-        return reviews
+    def _compute_annotation_state(self):
+        """Returns (last_annotation, matches_annotation, annotation_summary).
 
-    @staticmethod
-    def _get_target_type_from_review(review, default_type):
-        target = review.get("target") or {}
-        return target.get("type", default_type)
-
-    def _compute_review_state(self):
-        """Single-pass over all reviews. Returns (last_review, matches_review, review_summary).
-
-        Cached on the instance: ``last_review``/``matches_review``/``review_summary`` are three
-        separate properties that each call this, and response serialization reads all three
-        back-to-back for the same row -- without caching that's three identical passes over the
-        same review list per row, per request.
+        Cached on the instance: the three properties below each call this and
+        response serialization reads all three back-to-back for the same row.
         """
-        cached = self.__dict__.get("_review_state_cache")
-        if cached is not None:
-            return cached
-        result = self._compute_review_state_uncached()
-        self.__dict__["_review_state_cache"] = result
-        return result
+        cached = self.__dict__.get("_annotation_state_cache")
+        if cached is None:
+            cached = self._compute_annotation_state_uncached()
+            self.__dict__["_annotation_state_cache"] = cached
+        return cached
 
-    def _compute_review_state_uncached(self):
-        reviews = self._get_all_reviews()
-        if not reviews:
+    def _compute_annotation_state_uncached(self):
+        rows = self.annotations
+        if not rows:
             return None, False, None
 
-        entity_type = self._reviews_entity_type
-        all_entity_types = (entity_type,) + self._reviews_legacy_types
+        # Newest annotation per target, plus the newest entity-level one overall.
+        summary: dict = {}
+        latest = None
+        for annotation in sorted(rows, key=_annotation_timestamp):
+            reference = annotation.target_reference
+            key = f"{annotation.target_type}:{reference}" if reference else annotation.target_type
+            summary[key] = _annotation_entry(annotation)
+            if annotation.target_type == self._annotations_entity_type:
+                latest = annotation
 
-        summary = {}
-        entity_level = []
+        last = _annotation_entry(latest) if latest else None
+        return last, self._matches(latest), summary
 
-        for review in reviews:
-            raw_type = self._get_target_type_from_review(review, entity_type)
-            canonical_type = entity_type if raw_type in self._reviews_legacy_types else raw_type
+    def _matches(self, latest) -> bool:
+        """Whether the entity-level verdict agrees with the automated one.
 
-            target = review.get("target") or {}
-            reference = target.get("reference")
-            key = f"{canonical_type}:{reference}" if reference else canonical_type
-            ts = review.get("updated_at") or review.get("created_at") or ""
-            existing = summary.get(key)
-            _ex = existing or {}
-            existing_ts = _ex.get("updated_at") or _ex.get("created_at") or ""
-            if not existing or ts > existing_ts:
-                summary[key] = {
-                    "target_type": canonical_type,
-                    "reference": reference,
-                    "status": review.get("status"),
-                    "user": review.get("user"),
-                    "updated_at": ts,
-                    "review_id": review.get("review_id"),
-                }
-
-            if raw_type in all_entity_types:
-                entity_level.append(review)
-
-        last_review = None
-        if entity_level:
-            last_review = max(
-                entity_level,
-                key=lambda r: r.get("updated_at") or r.get("created_at") or "",
-            )
-
-        matches = False
-        if last_review:
-            review_status = last_review.get("status")
-            if review_status and isinstance(review_status, dict):
-                review_status_id = review_status.get("status_id")
-                # Prefer the pre-review snapshot: applying a review overwrites
-                # the live status to match the verdict, so comparing against
-                # it would always match and hide genuine disagreements.
-                metadata = self._get_reviews_data().get("metadata") or {}
-                status_id = metadata.get("original_status_id") or self._get_status_id_for_match()
-                if review_status_id and status_id:
-                    matches = str(status_id) == str(review_status_id)
-
-        return last_review, matches, summary if summary else None
+        Compared against ``original_status_id``, the snapshot taken before the
+        first annotation overwrote the live status -- comparing against the live
+        one would always agree and hide every genuine disagreement.
+        """
+        if latest is None or latest.status is None:
+            return False
+        automated = getattr(self, "original_status_id", None) or self._get_status_id_for_match()
+        return bool(automated) and str(automated) == str(latest.status_id)
 
     def _get_status_id_for_match(self):
-        """Return the status UUID to compare against the review verdict."""
+        """The automated status to fall back on when no snapshot was taken."""
         return getattr(self, "status_id", None)
 
     @property
-    def last_review(self):
-        return self._compute_review_state()[0]
+    def last_annotation(self):
+        return self._compute_annotation_state()[0]
 
     @property
-    def matches_review(self):
-        return self._compute_review_state()[1]
+    def matches_annotation(self):
+        return self._compute_annotation_state()[1]
 
     @property
-    def review_summary(self):
-        return self._compute_review_state()[2]
+    def annotation_summary(self):
+        return self._compute_annotation_state()[2]
 
 
 class EmbeddableMixin:

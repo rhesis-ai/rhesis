@@ -24,7 +24,9 @@ class Status(Base, ProjectMixin, OrganizationAndUserMixin):
     subscriptions = relationship("Subscription", back_populates="status")
     test_configurations = relationship("TestConfiguration", back_populates="status")
     test_runs = relationship("TestRun", back_populates="status")
-    test_results = relationship("TestResult", back_populates="status")
+    test_results = relationship(
+        "TestResult", foreign_keys="TestResult.status_id", back_populates="status"
+    )
     tests = relationship("Test", back_populates="status")
     projects = relationship("Project", foreign_keys="Project.status_id", back_populates="status")
     metrics = relationship("Metric", back_populates="status")

@@ -151,7 +151,7 @@ REGISTRY = {
             ),
             "automated_passed": _count_where(ME.automated_success.is_(True)),
             "automated_failed": _count_where(ME.automated_success.is_(False)),
-            "human_review_count": _count_where(ME.has_override.is_(True)),
+            "human_annotation_count": _count_where(ME.has_override.is_(True)),
         },
         "filters": {
             "test_run_ids": ME.test_run_id,

@@ -48,6 +48,7 @@ _TEST_RESULT_RELATED_FIELDS = (
     include(models.TestResult.test),
     include(models.TestResult.test, models.Test.prompt),
     include(models.TestResult.test, models.Test.requirement),
+    include(models.TestResult.annotations),
 )
 
 _TEST_RESULT_DERIVED_FIELDS = (
