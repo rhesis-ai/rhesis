@@ -86,6 +86,14 @@ const trelloProvider: TypeLookup = {
   type_value: 'trello',
 };
 
+const trelloTool: Tool = {
+  id: 'tool-trello-1' as Tool['id'],
+  name: 'My Trello Tool',
+  description: 'Trello integration',
+  tool_provider_type: trelloProvider,
+  tool_metadata: {},
+};
+
 function renderDrawer(props = {}) {
   const onClose = jest.fn();
   const onConnect = jest.fn().mockResolvedValue({ id: 'tool-1' });
@@ -246,7 +254,7 @@ describe('ToolConnectionDrawer', () => {
     expect(screen.getByText('Connect Trello')).toBeInTheDocument();
     expect(screen.getByLabelText(/^API Key/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^API Token/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/workspace id/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/workspace id/i)).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/^API Key/i), 'trello-key-123');
     await user.type(screen.getByLabelText(/^API Token/i), 'trello-tok-456');
@@ -262,6 +270,103 @@ describe('ToolConnectionDrawer', () => {
           credentials: {
             TRELLO_API_KEY: 'trello-key-123',
             TRELLO_TOKEN: 'trello-tok-456',
+          },
+        })
+      );
+    });
+  }, 15000);
+  it('submits Trello tool with both credentials and no workspace metadata on create', async () => {
+    const user = userEvent.setup();
+    const onConnect = jest.fn().mockResolvedValue({ id: 'tool-trello-1' });
+    render(
+      <ToolConnectionDrawer
+        open
+        provider={trelloProvider}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={onConnect}
+      />
+    );
+
+    await user.type(screen.getByLabelText(/^Connection Name/i), 'My Trello Board');
+    await user.type(screen.getByLabelText(/^API Key/i), 'trello-key-123');
+    await user.type(screen.getByLabelText(/^API Token/i), 'trello-tok-456');
+
+    const testButton = screen.getByRole('button', { name: /test connection/i });
+    await user.click(testButton);
+
+    await waitFor(() => {
+      expect(mockTestToolConnection).toHaveBeenCalled();
+    });
+
+    const saveButton = screen.getByRole('button', { name: /^connect$/i });
+    expect(saveButton).toBeEnabled();
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(onConnect).toHaveBeenCalledWith('trello', {
+        name: 'My Trello Board',
+        description: undefined,
+        tool_provider_type_id: 'pt-trello',
+        credentials: {
+          TRELLO_API_KEY: 'trello-key-123',
+          TRELLO_TOKEN: 'trello-tok-456',
+        },
+        tool_metadata: undefined,
+      });
+    });
+  }, 15000);
+
+  it('allows updating only one Trello credential without re-entering both in edit mode', async () => {
+    const user = userEvent.setup();
+    const onUpdate = jest.fn().mockResolvedValue({ id: 'tool-trello-1' });
+    render(
+      <ToolConnectionDrawer
+        open
+        tool={trelloTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={onUpdate}
+      />
+    );
+
+    expect(screen.getByText('Update Trello')).toBeInTheDocument();
+    const apiKeyInput = screen.getByLabelText(/^API Key/i);
+    const tokenInput = screen.getByLabelText(/^API Token/i);
+    expect(apiKeyInput).toHaveValue('************');
+    expect(tokenInput).toHaveValue('************');
+
+    // Change only the token, leaving API key as placeholder
+    await user.clear(tokenInput);
+    await user.type(tokenInput, 'new-trello-token');
+
+    // Test connection should succeed with partial credentials
+    const testButton = screen.getByRole('button', { name: /test connection/i });
+    expect(testButton).toBeEnabled();
+    await user.click(testButton);
+
+    await waitFor(() => {
+      expect(mockTestToolConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tool_id: 'tool-trello-1',
+          credentials: {
+            TRELLO_TOKEN: 'new-trello-token',
+          },
+        })
+      );
+    });
+
+    // Save should update with only the changed credential
+    const saveButton = screen.getByRole('button', { name: /update/i });
+    expect(saveButton).toBeEnabled();
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        'tool-trello-1',
+        expect.objectContaining({
+          credentials: {
+            TRELLO_TOKEN: 'new-trello-token',
           },
         })
       );
