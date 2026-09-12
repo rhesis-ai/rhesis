@@ -26,6 +26,10 @@ PROGRESS_WRITE_INTERVAL_S = 1.0
 # found no row (None), so a miss is not retried on every emit.
 _UNRESOLVED = object()
 
+# Where the resolved UUID is cached on the Celery request. Not "job_id": Celery
+# puts the dispatch header of that name on the request itself, as a string.
+_JOB_ID_CACHE_ATTR = "_rhesis_job_id"
+
 # Task database sessions automatically set PostgreSQL session variables for RLS
 # Use self.get_db_session() for tenant-aware database operations
 
@@ -393,11 +397,16 @@ class BaseJob(Task):
         From the ``job_id`` header ``launch_job`` sets; failing that, one
         indexed lookup by celery_task_id (a message queued before the header
         existed, or dispatched around ``launch_job``). Never raises.
+
+        The cache attribute is deliberately not ``request.job_id``: Celery
+        merges custom ``apply_async`` headers straight onto the request, so
+        that name already holds the header's raw string and reading it back
+        would return a ``str`` and skip the UUID conversion below.
         """
         request = getattr(self, "request", None)
         if request is None:
             return None
-        cached = getattr(request, "job_id", _UNRESOLVED)
+        cached = getattr(request, _JOB_ID_CACHE_ATTR, _UNRESOLVED)
         if cached is not _UNRESOLVED:
             return cached
 
@@ -411,7 +420,7 @@ class BaseJob(Task):
                 job_id = self._lookup_job_id()
         except Exception as exc:
             logger.warning(f"Could not resolve job id: {exc}", exc_info=True)
-        request.job_id = job_id
+        setattr(request, _JOB_ID_CACHE_ATTR, job_id)
         return job_id
 
     def _lookup_job_id(self) -> Optional[UUID]:
