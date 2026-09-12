@@ -395,15 +395,15 @@ def get_experiment_results(
     # stale/incomplete ``attributes.passed_tests`` / ``failed_tests``
     # counters that get written during execution and don't reflect later
     # metric- or turn-override recalculations.
+    from rhesis.backend.app.crud.annotation import get_annotation_statistics_for_runs
     from rhesis.backend.jobs.execution.result_processor import (
-        get_review_statistics_for_runs,
         get_test_statistics_for_runs,
-        inject_review_counts_into_serialized_runs,
+        inject_annotation_counts_into_serialized_runs,
     )
 
     run_ids = [run.id for run in runs]
     run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
-    review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    annotation_stats = get_annotation_statistics_for_runs(db, run_ids)
 
     def _with_stats(run) -> dict:
         encoded = jsonable_encoder(run)
@@ -411,7 +411,7 @@ def get_experiment_results(
             str(run.id),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
-        inject_review_counts_into_serialized_runs([encoded], review_stats)
+        inject_annotation_counts_into_serialized_runs([encoded], annotation_stats)
         return encoded
 
     if group_by == "run":

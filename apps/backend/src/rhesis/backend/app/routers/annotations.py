@@ -1,161 +1,180 @@
-"""Annotations list — flattened human reviews across test results and traces."""
+"""Annotation endpoints.
 
-from __future__ import annotations
+Full CRUD on the ``annotation`` table plus an entity-scoped listing. Writes go
+through the annotation service, which owns the status override an annotation
+puts on its parent.
+"""
 
-from typing import List, Literal, Optional
-from uuid import UUID
+import uuid
+from typing import List, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize, project_id_from_scope
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import annotation as annotation_crud
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.schemas.annotation import AnnotationListItem
-from rhesis.backend.app.services.annotations import list_annotations
+from rhesis.backend.app.services import annotation as annotation_service
+from rhesis.backend.app.services.annotation_context import attach_context
+from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = RhesisRouter(
     prefix="/annotations",
     tags=["annotations"],
     responses={404: {"description": "Not found"}},
+    dependencies=[Depends(require_current_user_or_token)],
+    resource="annotation",
 )
 
-TEST_RESULT_READ = Permission.TestResult.READ
-TELEMETRY_READ = Permission.Telemetry.READ
+
+def _load_or_404(db: Session, annotation_id: uuid.UUID, organization_id: str, user_id: str):
+    annotation = annotation_crud.get_annotation(
+        db, annotation_id, organization_id=organization_id, user_id=user_id
+    )
+    if annotation is None:
+        raise HTTPException(status_code=404, detail="Annotation not found")
+    return annotation
 
 
-@router.get(
-    "/",
-    response_model=List[AnnotationListItem],
+def _authorize_own(request: Request, db: Session, current_user: User, annotation, permission: str):
+    principal = resolve_principal_from_request(current_user, request)
+    if not authorize_object(
+        principal, permission, annotation, project_id=project_id_from_scope(db), db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized for this annotation")
+
+
+@router.post("/", response_model=schemas.Annotation)
+@handle_database_exceptions(
+    entity_name="annotation", custom_unique_message="Annotation already exists"
 )
+def create_annotation(
+    data: schemas.AnnotationCreate,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    return annotation_service.create_annotation(db, data, current_user)
+
+
+@router.get("/", response_model=List[schemas.AnnotationDetail])
 def read_annotations(
-    request: Request,
     response: Response,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    source: Optional[Literal["test_result", "trace"]] = Query(
-        None, description="Filter to one parent entity type"
-    ),
-    search: Optional[str] = Query(
-        None, description="Search comments, annotator, target, or rating"
-    ),
-    resolved: Optional[bool] = Query(None, description="Filter by open (false) or resolved (true)"),
-    rating: Optional[Literal["Pass", "Fail"]] = Query(
-        None, description="Filter by Pass/Fail rating"
-    ),
-    target_type: Optional[Literal["test_result", "trace", "metric", "turn"]] = Query(
-        None, description="Filter by review target type"
-    ),
-    test_run_id: Optional[UUID] = Query(
-        None,
-        description=(
-            "Scope to one test run (UUID). Returns reviews on that run's test "
-            "results and on the traces the run produced."
-        ),
-    ),
-    test_result_id: Optional[UUID] = Query(
-        None,
-        description=(
-            "Scope to one test result (UUID). Returns reviews on the result "
-            "itself and on traces linked to it."
-        ),
-    ),
-    trace_id: Optional[str] = Query(
-        None,
-        description=(
-            "Scope to one trace by its OpenTelemetry trace id (32-char hex "
-            "string). Returns trace reviews only."
-        ),
-    ),
-    trace_db_id: Optional[UUID] = Query(
-        None,
-        description=(
-            "Scope to one trace span by its internal database id (UUID). "
-            "Returns trace reviews only."
-        ),
-    ),
+    sort_by: str = "updated_at",
+    sort_order: str = "desc",
+    search: Optional[str] = Query(None, description="Search comments or target reference"),
+    rating: Optional[str] = Query(None, description="Filter by status name (Pass/Fail)"),
+    resolved: Optional[bool] = Query(None, description="Filter by resolved state"),
+    target_type: Optional[str] = Query(None, description="Filter by target type"),
+    entity_type: Optional[str] = Query(None, description="Filter by entity type"),
+    test_run_id: Optional[uuid.UUID] = Query(None, description="Scope to a test run"),
+    filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    organization_id, _ = tenant_context
+    filters = {
+        "search": search,
+        "rating": rating,
+        "resolved": resolved,
+        "target_type": target_type,
+        "entity_type": entity_type,
+        "test_run_id": test_run_id,
+        "filter": filter,
+    }
+    annotations = annotation_crud.get_annotations(
+        db,
+        organization_id,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        **filters,
+    )
+    response.headers["X-Total-Count"] = str(
+        annotation_crud.count_annotations(db, organization_id, **filters)
+    )
+    response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+    return attach_context(db, annotations)
+
+
+@router.get(
+    "/entity/{entity_type}/{entity_id}",
+    response_model=List[schemas.AnnotationDetail],
+)
+def read_annotations_by_entity(
+    entity_type: str,
+    entity_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "updated_at",
+    sort_order: str = "desc",
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    organization_id, _ = tenant_context
+    try:
+        EntityType(entity_type)
+    except ValueError:
+        valid = ", ".join(e.value for e in EntityType)
+        raise HTTPException(status_code=400, detail=f"Invalid entity_type. Must be one of: {valid}")
+
+    annotations = annotation_crud.get_annotations_by_entity(
+        db,
+        entity_id=entity_id,
+        entity_type=entity_type,
+        organization_id=organization_id,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    return attach_context(db, annotations)
+
+
+@router.get("/{annotation_id}", response_model=schemas.AnnotationDetail)
+def read_annotation(
+    annotation_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    organization_id, user_id = tenant_context
+    annotation = _load_or_404(db, annotation_id, organization_id, user_id)
+    return attach_context(db, [annotation])[0]
+
+
+@router.put("/{annotation_id}", response_model=schemas.Annotation)
+def update_annotation(
+    annotation_id: uuid.UUID,
+    data: schemas.AnnotationUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-) -> List[AnnotationListItem]:
-    """List human annotations (reviews) across test results and traces.
+):
+    organization_id, user_id = tenant_context
+    annotation = _load_or_404(db, annotation_id, organization_id, user_id)
+    _authorize_own(request, db, current_user, annotation, Permission.Annotation.UPDATE_OWN)
+    return annotation_service.update_annotation(db, annotation_id, data, current_user)
 
-    Scope with ``test_run_id``/``test_result_id`` to cover both sources at
-    once, or with ``trace_id``/``trace_db_id`` for traces alone.
 
-    Dual-gated: callers need ``test_result:read`` and/or ``telemetry:read``.
-    Each source branch is included only when the matching permission is present.
-
-    Project-scoped: requires an ambient project (``X-Project-Id`` / token
-    project). Missing project scope fails closed so we never list across
-    all projects in the organization.
-    """
-    organization_id, _user_id = tenant_context
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if project_id is None:
-        raise HTTPException(
-            status_code=400,
-            detail="project_id is required (set X-Project-Id or use a project-scoped token)",
-        )
-    project_id_str = str(project_id)
-
-    can_read_test_results = authorize(principal, TEST_RESULT_READ, project_id=project_id, db=db)
-    can_read_traces = authorize(principal, TELEMETRY_READ, project_id=project_id, db=db)
-
-    if not can_read_test_results and not can_read_traces:
-        raise HTTPException(
-            status_code=403,
-            detail=(f"Permission denied: requires {TEST_RESULT_READ} or {TELEMETRY_READ}"),
-            headers={"X-Accepted-Permissions": f"{TEST_RESULT_READ}, {TELEMETRY_READ}"},
-        )
-
-    if source == "test_result" and not can_read_test_results:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Permission denied: {TEST_RESULT_READ}",
-            headers={"X-Accepted-Permissions": str(TEST_RESULT_READ)},
-        )
-    if source == "trace" and not can_read_traces:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Permission denied: {TELEMETRY_READ}",
-            headers={"X-Accepted-Permissions": str(TELEMETRY_READ)},
-        )
-    # trace_id/trace_db_id can only ever match traces. Deny explicitly rather
-    # than letting the empty-branch guard return a misleading empty list.
-    if (trace_id is not None or trace_db_id is not None) and not can_read_traces:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Permission denied: {TELEMETRY_READ}",
-            headers={"X-Accepted-Permissions": str(TELEMETRY_READ)},
-        )
-
-    include_test_results = can_read_test_results and source in (None, "test_result")
-    include_traces = can_read_traces and source in (None, "trace")
-
-    items, total_count = list_annotations(
-        db,
-        organization_id=organization_id,
-        project_id=project_id_str,
-        include_test_results=include_test_results,
-        include_traces=include_traces,
-        source=source,
-        search=search,
-        resolved=resolved,
-        rating=rating,
-        target_type=target_type,
-        test_run_id=str(test_run_id) if test_run_id else None,
-        test_result_id=str(test_result_id) if test_result_id else None,
-        trace_id=trace_id,
-        trace_db_id=str(trace_db_id) if trace_db_id else None,
-        skip=skip,
-        limit=limit,
-    )
-    response.headers["X-Total-Count"] = str(total_count)
-    response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
-    return items
+@router.delete("/{annotation_id}", response_model=schemas.Annotation)
+def delete_annotation(
+    annotation_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    organization_id, user_id = tenant_context
+    annotation = _load_or_404(db, annotation_id, organization_id, user_id)
+    _authorize_own(request, db, current_user, annotation, Permission.Annotation.DELETE_OWN)
+    return annotation_service.delete_annotation(db, annotation_id, current_user)

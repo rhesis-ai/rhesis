@@ -459,7 +459,7 @@ def query_traces(
     """
     from uuid import UUID
 
-    from sqlalchemy.orm import aliased, joinedload
+    from sqlalchemy.orm import aliased, joinedload, selectinload
 
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
@@ -538,7 +538,7 @@ def query_traces(
         .options(
             # Scoped to what the loop below actually reads off this chain (existence
             # down to endpoint.id/name) -- the full row would carry each trace's
-            # TestResult.test_output/test_metrics/test_reviews (the whole multi-turn
+            # TestResult.test_output/test_metrics (the whole multi-turn
             # conversation, for every row of every list request) just to report an
             # endpoint name.
             joinedload(models.Trace.test_result)
@@ -548,6 +548,7 @@ def query_traces(
             .joinedload(models.TestConfiguration.endpoint)
             .load_only(models.Endpoint.id, models.Endpoint.name),
             joinedload(models.Trace.trace_metrics_status),
+            selectinload(models.Trace.annotations),
         )
     )
 

@@ -21,6 +21,7 @@ class EntityType(Enum):
     CHUNK = "Chunk"
     TRACE = "Trace"
     ARCHITECT_SESSION = "ArchitectSession"
+    ANNOTATION = "Annotation"
 
     @classmethod
     def get_value(cls, entity_type):
@@ -186,26 +187,28 @@ class TestResultStatus(str, Enum):
     INCONCLUSIVE = "Inconclusive"
 
 
-class ReviewTarget(str, Enum):
-    """Review target types shared by TestResult and Trace review systems.
+class AnnotationTarget(str, Enum):
+    """What an annotation is about, within its parent entity.
 
-    Using str mixin so values work directly in string comparisons and JSON.
+    ``test_result``, ``trace`` and ``test`` are the entity-level targets (one per
+    parent type); ``turn`` and ``metric`` address a part of the parent and carry a
+    ``target_reference``. Using str mixin so values work directly in string
+    comparisons and JSON.
     """
 
     TEST_RESULT = "test_result"
     TRACE = "trace"
+    TEST = "test"
     TURN = "turn"
     METRIC = "metric"
 
 
-LEGACY_TARGET_TEST = "test"
-
-# Backward-compatible aliases used across the codebase
-REVIEW_TARGET_TEST_RESULT = ReviewTarget.TEST_RESULT
-REVIEW_TARGET_TRACE = ReviewTarget.TRACE
-REVIEW_TARGET_TURN = ReviewTarget.TURN
-REVIEW_TARGET_METRIC = ReviewTarget.METRIC
-VALID_TARGET_TYPES = tuple(ReviewTarget)
+# The entity-level target for each annotatable EntityType.
+ENTITY_LEVEL_TARGETS: dict[str, str] = {
+    EntityType.TEST_RESULT.value: AnnotationTarget.TEST_RESULT.value,
+    EntityType.TRACE.value: AnnotationTarget.TRACE.value,
+    EntityType.TEST.value: AnnotationTarget.TEST.value,
+}
 
 
 class OverallTestResult(str, Enum):
