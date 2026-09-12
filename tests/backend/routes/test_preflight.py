@@ -1,10 +1,10 @@
 """Integration tests for POST /preflight-checks.
 
-The handler is ``async def`` and holds an ``OffLoopSession``: it resolves the
-requested test sets in a worker thread and then hands the session to the
-orchestrator, which only touches it off the loop too. These tests pin the
-behaviour that has to survive that -- the 404 for an unknown test set, the sync
-200, and the async 202 with its applicable-check list.
+These assert HTTP behaviour only: the 404 for an unknown test set, the sync
+200, and the async 202 with its applicable-check list. That is the behaviour
+which had to survive the handler becoming ``async def`` with an
+``OffLoopSession``; the proof that the session work itself runs off the loop is
+in ``tests/backend/services/test_preflight.py``.
 """
 
 import uuid

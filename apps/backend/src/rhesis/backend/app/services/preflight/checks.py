@@ -28,7 +28,7 @@ from .constants import (
     CHECK_TEST_SET_NOT_EMPTY,
 )
 from .utils import (
-    OffLoopDb,
+    PreflightDbGate,
     _apply_test_set_fields,
     _make_composite_key,
     _make_result,
@@ -115,8 +115,8 @@ def _extract_response_preview(response: dict, max_length: int = 500) -> str:
 # --- Off-loop segments -------------------------------------------------------------
 #
 # Every function below takes the Session first and does the psycopg2 work for one
-# check. They run through ``OffLoopDb.run``, which puts them in a worker thread and
-# lets only one in at a time -- see :class:`OffLoopDb`.
+# check. They run through ``PreflightDbGate.run``, which puts them in a worker thread and
+# lets only one in at a time -- see :class:`PreflightDbGate`.
 
 
 def _count_test_set_tests(db: Session, test_set_id: UUID) -> int:
@@ -135,7 +135,7 @@ def _resolve_purpose_model(db: Session, user: User, purpose: str, override: Opti
 
 
 def _model_detail(db: Session, model, model_id: Optional[str], user: User, purpose: str) -> str:
-    """:func:`_build_model_detail` with the session first, for ``OffLoopDb.run``."""
+    """:func:`_build_model_detail` with the session first, for ``PreflightDbGate.run``."""
     return _build_model_detail(model, model_id, db, user, purpose)
 
 
@@ -214,7 +214,7 @@ def _scope_compatible_metrics(metrics: List[Metric], is_multi_turn: bool) -> Lis
 
 
 async def check_test_set_not_empty(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     test_set_id: UUID,
     correlation_id: Optional[str] = None,
     publish: bool = True,
@@ -264,17 +264,17 @@ async def check_test_set_not_empty(
 
 
 async def check_endpoint_connectivity(
-    db: Session,
     endpoint: Endpoint,
     correlation_id: Optional[str] = None,
     publish: bool = True,
 ) -> PreflightCheckResult:
-    """Probe the endpoint once.
+    """Probe the endpoint once, without a session.
 
-    ``db`` must be a session of this check's own, and ``endpoint`` must be loaded
-    from it -- the invoker keeps both for the whole probe and writes a trace with
-    them, so the preflight run's shared session cannot be used here. The
-    orchestrator opens one via :meth:`OffLoopDb.spawn_session`.
+    The probe is awaited on the event loop, so the invoker gets ``db=None``: every
+    psycopg2 call it would otherwise make there -- the auth-token refresh, a trace
+    lookup -- would block the whole worker for as long as the probe runs, up to the
+    30-second timeout below. The orchestrator does that work first, in a worker
+    thread, on a session of its own (:func:`_load_endpoint_for_probe`).
     """
     check_id = CHECK_ENDPOINT_CONNECTIVITY
 
@@ -302,7 +302,7 @@ async def check_endpoint_connectivity(
             messages.append({"role": "user", "content": input_data["input"]})
             input_data["messages"] = messages
 
-        context = InvocationContext(db=db, endpoint=endpoint, input_data=input_data)
+        context = InvocationContext(db=None, endpoint=endpoint, input_data=input_data)
         response = await asyncio.wait_for(create_invoker(context).invoke(), timeout=30.0)
 
         from rhesis.backend.app.services.invokers.common.schemas import (
@@ -357,7 +357,7 @@ async def check_endpoint_connectivity(
 
 
 async def check_evaluation_model(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     user: User,
     evaluation_model_id: Optional[str] = None,
     correlation_id: Optional[str] = None,
@@ -403,7 +403,7 @@ async def check_evaluation_model(
 
 
 async def check_execution_model(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     user: User,
     execution_model_id: Optional[str] = None,
     correlation_id: Optional[str] = None,
@@ -449,7 +449,7 @@ async def check_execution_model(
 
 
 async def _validate_metrics_loadable(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     user: User,
     metrics: List[Metric],
     evaluation_model_id: Optional[str] = None,
@@ -615,7 +615,7 @@ def _metric_compatibility_result(
 
 
 async def check_metric_compatibility(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     endpoint: Endpoint,
     test_set_id: UUID,
     metric_mode: str,
@@ -704,7 +704,7 @@ def _metric_functionality_metrics(
 
 
 async def check_metric_functionality(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     user: User,
     test_set_id: UUID,
     metric_mode: str,
@@ -880,7 +880,7 @@ def _metric_coverage_result(
 
 
 async def check_requirement_metric_coverage(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     test_set_id: UUID,
     metric_mode: str,
     organization_id: str,

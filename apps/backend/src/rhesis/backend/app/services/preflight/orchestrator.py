@@ -14,6 +14,7 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSocketMessage
+from rhesis.backend.app.services.invokers.auth import AuthenticationManager
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
@@ -37,7 +38,7 @@ from .constants import (
     LABELS,
 )
 from .utils import (
-    OffLoopDb,
+    PreflightDbGate,
     _apply_test_set_fields,
     _make_composite_key,
     _make_result,
@@ -96,8 +97,24 @@ def _load_endpoint(db: Session, endpoint_id: UUID, organization_id: str) -> Opti
         return None
 
 
+def _load_endpoint_for_probe(
+    db: Session, endpoint_id: UUID, organization_id: str
+) -> Optional[Endpoint]:
+    """Everything the connectivity probe needs from the database, in one thread hop.
+
+    The load, and the auth token: a client-credentials endpoint with an expired token
+    refreshes it with a blocking ``requests.post`` and writes the new one back to the
+    row. Done here, both stay in the worker thread; done inside the awaited probe, both
+    would run on the event loop.
+    """
+    endpoint = _load_endpoint(db, endpoint_id, organization_id)
+    if endpoint is not None:
+        AuthenticationManager.prefetch_token(db, endpoint)
+    return endpoint
+
+
 async def _connectivity_branch(
-    db: OffLoopDb,
+    db: PreflightDbGate,
     endpoint_id: UUID,
     organization_id: str,
     correlation_id: Optional[str],
@@ -105,15 +122,17 @@ async def _connectivity_branch(
 ) -> PreflightCheckResult:
     """Run the connectivity check on a session of its own.
 
-    The invoker holds the session for the whole probe and writes a trace with it, so
-    it cannot have the run's shared session -- that one is only safe one caller at a
-    time. The endpoint is reloaded inside the new session for the same reason: an ORM
-    object stays bound to the session that loaded it.
+    The run's shared session is only safe one caller at a time and this branch runs
+    concurrently with the others, so the endpoint is loaded -- and its token refreshed
+    -- in a second session, in a worker thread. The probe itself then runs with no
+    session at all; see :func:`check_endpoint_connectivity`. The session stays open
+    around it so the ORM object keeps its loaded state, and its close commits the
+    refreshed token off the loop.
     """
     try:
         async with db.spawn_session() as check_db:
             endpoint = await anyio.to_thread.run_sync(
-                _load_endpoint, check_db, endpoint_id, organization_id
+                _load_endpoint_for_probe, check_db, endpoint_id, organization_id
             )
             if endpoint is None:
                 result = _make_result(
@@ -122,9 +141,7 @@ async def _connectivity_branch(
                     "Endpoint not found",
                 )
             else:
-                return await check_endpoint_connectivity(
-                    check_db, endpoint, correlation_id, publish
-                )
+                return await check_endpoint_connectivity(endpoint, correlation_id, publish)
     except Exception as e:
         # Matches what check_endpoint_connectivity reports for its own failures, so
         # opening the session cannot turn into a differently-worded result.
@@ -159,7 +176,7 @@ async def run_preflight_checks_multi(
     Per-test-set checks run for each test set.
 
     ``db`` is only ever touched inside ``anyio.to_thread.run_sync`` (see
-    :class:`~rhesis.backend.app.services.preflight.utils.OffLoopDb`), so an
+    :class:`~rhesis.backend.app.services.preflight.utils.PreflightDbGate`), so an
     ``async def`` caller can hand over its request session.
     """
     results: List[PreflightCheckResult] = []
@@ -171,7 +188,7 @@ async def run_preflight_checks_multi(
 
     organization_id = str(user.organization_id)
     # Every query below runs through this: in a worker thread, one at a time.
-    off_loop = OffLoopDb(db, organization_id, str(user.id), scope_project_id(db))
+    off_loop = PreflightDbGate(db, organization_id, str(user.id), scope_project_id(db))
 
     try:
         endpoint = await off_loop.run(_load_endpoint_or_raise, endpoint_id, organization_id)

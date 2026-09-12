@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import TestSetType
+from rhesis.backend.app.crud import user as user_crud
+from rhesis.backend.app.database import _SCOPE_KEY
 from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_tenant_session
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
@@ -34,7 +36,7 @@ from rhesis.backend.app.services.preflight import (
     compute_summary,
     run_preflight_checks_multi,
 )
-from rhesis.backend.app.services.preflight.utils import off_loop_tenant_session
+from rhesis.backend.app.services.preflight.utils import open_tenant_session_off_loop
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 logger = logging.getLogger(__name__)
@@ -120,16 +122,19 @@ def _determine_applicable_checks(
 
 
 def _load_user(db: Session, user_id: str):
-    return db.query(User).filter(User.id == user_id).first()
+    """Load the user the background task runs as."""
+    return user_crud.get_user_by_id(db, user_id)
 
 
-def _resolve_requested_test_sets(
+def _resolve_requested_test_sets_and_scope(
     db: Session, test_set_ids: list
-) -> list[tuple[uuid.UUID, str, bool]]:
-    """Load the requested test sets and reduce them to plain (id, name, multi-turn) tuples.
+) -> tuple[list[tuple[uuid.UUID, str, bool]], str]:
+    """Load the requested test sets as plain (id, name, multi-turn) tuples, plus the scope.
 
     Runs in a worker thread, so the ORM rows never reach the event loop: everything
     downstream -- including the background task's own session -- works from the tuples.
+    The active project id comes back with them so the background session can find
+    endpoints (auto_filter adds WHERE project_id IS NULL when unset).
     """
     # Eager-load test_set_type so _is_multi_turn() doesn't lazy-load it once per test set.
     db_test_sets = (
@@ -149,9 +154,15 @@ def _resolve_requested_test_sets(
 
     # Preserve request order
     ts_by_id = {ts.id: ts for ts in db_test_sets}
-    return [
+    test_sets = [
         (tid, ts_by_id[tid].name or str(tid), _is_multi_turn(ts_by_id[tid])) for tid in test_set_ids
     ]
+
+    active_scope = db.info.get(_SCOPE_KEY)
+    active_project_id = (
+        str(active_scope.project_id) if active_scope and active_scope.project_id else ""
+    )
+    return test_sets, active_project_id
 
 
 async def _publish_failure_complete(correlation_id: str, message: str) -> None:
@@ -202,7 +213,7 @@ async def _run_preflight_background(
 ) -> None:
     """Run preflight checks in a background task with its own DB session."""
     try:
-        async with off_loop_tenant_session(organization_id, user_id, project_id) as db:
+        async with open_tenant_session_off_loop(organization_id, user_id, project_id) as db:
             user = await anyio.to_thread.run_sync(_load_user, db, user_id)
             if not user:
                 logger.error(f"Preflight background task: user {user_id} not found")
@@ -240,8 +251,8 @@ async def run_preflight(
     db: OffLoopSession = Depends(get_off_loop_tenant_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    test_sets: list[tuple[uuid.UUID, str, bool]] = await anyio.to_thread.run_sync(
-        _resolve_requested_test_sets, db, request.test_set_ids
+    test_sets, active_project_id = await anyio.to_thread.run_sync(
+        _resolve_requested_test_sets_and_scope, db, request.test_set_ids
     )
 
     if request.mode == PreflightMode.SYNC:
@@ -273,15 +284,6 @@ async def run_preflight(
 
     ts_strs = [(str(tid), name, mt) for tid, name, mt in test_sets]
     checks = _determine_applicable_checks(request.scoring_target, ts_strs)
-
-    # Propagate the active project scope so the background session can find
-    # endpoints (auto_filter adds WHERE project_id IS NULL when unset).
-    from rhesis.backend.app.database import _SCOPE_KEY
-
-    active_scope = db.info.get(_SCOPE_KEY)
-    active_project_id = (
-        str(active_scope.project_id) if active_scope and active_scope.project_id else ""
-    )
 
     task = asyncio.create_task(
         _run_preflight_background(

@@ -3,6 +3,8 @@
 import asyncio
 import threading
 import time
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -21,21 +23,22 @@ from rhesis.backend.app.services.preflight import (
     compute_summary,
 )
 from rhesis.backend.app.services.preflight.utils import (
-    OffLoopDb,
+    PreflightDbGate,
     _apply_test_set_fields,
     _make_composite_key,
     _make_result,
 )
+from tests.backend._helpers import records_thread as _records_thread
 
 
-def _off_loop(session) -> OffLoopDb:
+def _off_loop(session) -> PreflightDbGate:
     """Wrap a mock session the way the orchestrator does.
 
-    The checks take an :class:`OffLoopDb`, not a Session: every query they run goes
+    The checks take a :class:`PreflightDbGate`, not a Session: every query they run goes
     through it into a worker thread. The mock session underneath is unchanged, so
     ``db.query...`` setups and assertions still work.
     """
-    return OffLoopDb(session)
+    return PreflightDbGate(session)
 
 
 class TestConstants:
@@ -163,26 +166,26 @@ class TestComputeSummary:
         assert passed == 1
 
 
-class TestOffLoopDb:
+class TestPreflightDbGate:
     """The promise the preflight checks make: no query on the event loop, one at a time."""
 
     @pytest.mark.asyncio
     async def test_run_executes_in_a_worker_thread(self):
         session = MagicMock()
-        db = OffLoopDb(session)
+        db = PreflightDbGate(session)
 
         def _work(passed_session, value):
-            return passed_session, value, threading.current_thread().name
+            return passed_session, value, threading.get_ident()
 
-        got_session, value, thread_name = await db.run(_work, 7)
+        got_session, value, thread_id = await db.run(_work, 7)
 
         assert got_session is session
         assert value == 7
-        assert thread_name != threading.current_thread().name
+        assert thread_id != threading.get_ident()
 
     @pytest.mark.asyncio
     async def test_concurrent_runs_never_overlap(self):
-        db = OffLoopDb(MagicMock())
+        db = PreflightDbGate(MagicMock())
         in_flight = 0
         max_in_flight = 0
 
@@ -199,7 +202,7 @@ class TestOffLoopDb:
 
     @pytest.mark.asyncio
     async def test_run_propagates_the_exception(self):
-        db = OffLoopDb(MagicMock())
+        db = PreflightDbGate(MagicMock())
 
         def _boom(_session):
             raise RuntimeError("connection lost")
@@ -320,7 +323,6 @@ class TestCheckEndpointConnectivity:
             check_endpoint_connectivity,
         )
 
-        db = MagicMock()
         endpoint = MagicMock()
 
         mock_invoker = MagicMock()
@@ -328,9 +330,12 @@ class TestCheckEndpointConnectivity:
 
         with (
             patch(self.CONV_TRACKER, return_value=False),
-            patch(self.CREATE_INVOKER, return_value=mock_invoker),
+            patch(self.CREATE_INVOKER, return_value=mock_invoker) as create_invoker,
         ):
-            result = await check_endpoint_connectivity(db, endpoint, publish=False)
+            result = await check_endpoint_connectivity(endpoint, publish=False)
+
+        # No session reaches the invoker: the probe is awaited on the event loop.
+        assert create_invoker.call_args[0][0].db is None
 
         assert result.status == PreflightCheckStatus.PASSED
         assert "Hello!" in result.detail
@@ -341,7 +346,6 @@ class TestCheckEndpointConnectivity:
             check_endpoint_connectivity,
         )
 
-        db = MagicMock()
         endpoint = MagicMock()
 
         mock_invoker = MagicMock()
@@ -351,7 +355,7 @@ class TestCheckEndpointConnectivity:
             patch(self.CONV_TRACKER, return_value=False),
             patch(self.CREATE_INVOKER, return_value=mock_invoker),
         ):
-            result = await check_endpoint_connectivity(db, endpoint, publish=False)
+            result = await check_endpoint_connectivity(endpoint, publish=False)
 
         assert result.status == PreflightCheckStatus.FAILED
         assert "timed out" in result.message.lower()
@@ -880,3 +884,103 @@ class TestRunPreflightChecksMulti:
         details = {r.check_id: (r.message or "") for r in results}
         assert statuses[CHECK_ENDPOINT_CONNECTIVITY] == PreflightCheckStatus.FAILED
         assert "deleted" in details[CHECK_ENDPOINT_CONNECTIVITY].lower()
+
+
+@pytest.mark.asyncio
+class TestConnectivityBranchStaysOffTheLoop:
+    """The connectivity probe is awaited on the event loop, so nothing it awaits
+    may touch a Session or fetch a token.
+
+    Both belong to the branch's own session (the run's shared one is safe for one
+    caller at a time and the branches run concurrently), and both have to happen
+    in a worker thread before the probe starts.
+    """
+
+    TOKEN_POST = "rhesis.backend.app.services.invokers.auth.manager._token_session.post"
+
+    class _Gate:
+        """Stands in for PreflightDbGate: the branch only asks it for a session."""
+
+        def __init__(self, session):
+            self.session = session
+
+        @asynccontextmanager
+        async def spawn_session(self):
+            yield self.session
+
+    @staticmethod
+    def _expired_oauth_endpoint():
+        from rhesis.backend.app.models.endpoint import Endpoint
+        from rhesis.backend.app.models.enums import EndpointAuthType, EndpointConnectionType
+
+        endpoint = Endpoint(
+            id=uuid4(),
+            name="OAuth endpoint",
+            connection_type=EndpointConnectionType.REST.value,
+            url="https://api.example.com/chat",
+            auth_type=EndpointAuthType.CLIENT_CREDENTIALS.value,
+            token_url="https://auth.example.com/oauth/token",
+            client_id="client",
+            client_secret="secret",
+        )
+        endpoint.last_token = "stale-token"
+        endpoint.last_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        return endpoint
+
+    async def test_load_and_token_refresh_happen_in_a_worker_thread(self):
+        from rhesis.backend.app.services.preflight import orchestrator
+
+        threads: list = []
+        endpoint = self._expired_oauth_endpoint()
+        token_response = MagicMock()
+        token_response.json.return_value = {"access_token": "fresh-token", "expires_in": 3600}
+
+        invoker = MagicMock()
+        invoker.invoke = AsyncMock(return_value={"output": "Hello!"})
+
+        with (
+            patch.object(orchestrator, "_load_endpoint", _records_thread(threads, endpoint)),
+            patch(self.TOKEN_POST, _records_thread(threads, token_response)),
+            patch(
+                "rhesis.backend.app.services.invokers.create_invoker", return_value=invoker
+            ) as create_invoker,
+        ):
+            result = await orchestrator._connectivity_branch(
+                self._Gate(MagicMock()), uuid4(), str(uuid4()), None, False
+            )
+
+        assert result.status == PreflightCheckStatus.PASSED
+        # Endpoint load and token fetch, both off the loop.
+        assert len(threads) == 2
+        assert threading.get_ident() not in threads
+        # And the probe itself gets no session to run a query with.
+        assert create_invoker.call_args[0][0].db is None
+        assert endpoint.last_token == "fresh-token"
+
+    async def test_a_missing_endpoint_still_reports_not_found(self):
+        from rhesis.backend.app.services.preflight import orchestrator
+
+        with patch.object(orchestrator, "_load_endpoint", return_value=None):
+            result = await orchestrator._connectivity_branch(
+                self._Gate(MagicMock()), uuid4(), str(uuid4()), None, False
+            )
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert result.message == "Endpoint not found"
+
+    async def test_a_failing_token_url_reports_a_failed_check(self):
+        """The fetch moved, so its failure has to surface as the same result."""
+        from rhesis.backend.app.services.preflight import orchestrator
+
+        endpoint = self._expired_oauth_endpoint()
+
+        with (
+            patch.object(orchestrator, "_load_endpoint", return_value=endpoint),
+            patch(self.TOKEN_POST, side_effect=Exception("connection refused")),
+        ):
+            result = await orchestrator._connectivity_branch(
+                self._Gate(MagicMock()), uuid4(), str(uuid4()), None, False
+            )
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert result.message == "Unexpected error during connectivity check"

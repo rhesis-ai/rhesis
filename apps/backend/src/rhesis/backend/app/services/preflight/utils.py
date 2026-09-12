@@ -13,7 +13,7 @@ from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSo
 from .constants import LABELS, PER_TEST_SET_CHECKS
 
 
-class OffLoopDb:
+class PreflightDbGate:
     """The database access for one preflight run, kept off the event loop.
 
     Preflight fans its checks out with ``asyncio.gather``, and every check queries.
@@ -23,9 +23,7 @@ class OffLoopDb:
     lock that lets only one in at a time -- which serialises the queries exactly as
     the old on-loop code did, while the awaits around them still overlap.
 
-    ``spawn_session`` is for the one branch that needs a session to stay open across
-    an await: the endpoint invoker. Sharing the run's session there would either hold
-    the lock for the whole probe or hand the same session to two tasks.
+    ``spawn_session`` exists for the endpoint invoker, which needs its own session.
     """
 
     def __init__(
@@ -49,14 +47,14 @@ class OffLoopDb:
     @asynccontextmanager
     async def spawn_session(self) -> AsyncIterator[Session]:
         """Open a second tenant-scoped session, entered and exited off the loop."""
-        async with off_loop_tenant_session(
+        async with open_tenant_session_off_loop(
             self.organization_id, self.user_id, self.project_id
         ) as session:
             yield session
 
 
 @asynccontextmanager
-async def off_loop_tenant_session(
+async def open_tenant_session_off_loop(
     organization_id: str, user_id: str, project_id: str = ""
 ) -> AsyncIterator[Session]:
     """A tenant-scoped session whose open and close both happen in a worker thread.
