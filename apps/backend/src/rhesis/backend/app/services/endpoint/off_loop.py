@@ -7,15 +7,15 @@ it a live ``Session`` would run every one of those queries on the event loop,
 blocking every other request in the worker for their duration.
 
 So this module does what the batch runner already does: pre-fetch what the
-invocation needs, run ``invoke_endpoint`` in its DB-free mode (``db=None``,
-``deferred_trace=True``, endpoint passed in), then write the collected trace
-afterwards. Each database segment runs in ``anyio.to_thread.run_sync``, one at
+invocation needs -- the endpoint, the trace to continue, extracted file text and
+the endpoint's auth token -- run ``invoke_endpoint`` in its DB-free mode
+(``db=None``, ``deferred_trace=True``, endpoint passed in), then write the
+collected trace afterwards. Each database segment runs in ``anyio.to_thread.run_sync``, one at
 a time -- a Session is not thread-safe, and nothing here holds it across
 concurrent tasks.
 """
 
 import logging
-from functools import partial
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import anyio
@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.endpoint.files import enrich_files_with_extraction
+from rhesis.backend.app.services.invokers.auth import AuthenticationManager
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
@@ -119,6 +120,10 @@ def _prefetch(
     session while this is in flight.
     """
     endpoint = service._get_endpoint(db, endpoint_id, organization_id, project_id)
+    # A client-credentials endpoint whose cached token expired would otherwise fetch a
+    # new one from inside the awaited invocation -- a blocking ``requests.post`` on the
+    # event loop, for as long as the token URL takes to answer.
+    AuthenticationManager.prefetch_token(db, endpoint)
     trace_id = _existing_trace_id(db, endpoint, input_data, organization_id)
     files = _enriched_files(db, input_data, user_id)
     return endpoint, trace_id, files
@@ -167,16 +172,14 @@ async def invoke_endpoint_off_loop(
     """
     try:
         endpoint, trace_id, files = await anyio.to_thread.run_sync(
-            partial(
-                _prefetch,
-                service,
-                db,
-                endpoint_id,
-                input_data,
-                organization_id,
-                user_id,
-                project_id,
-            )
+            _prefetch,
+            service,
+            db,
+            endpoint_id,
+            input_data,
+            organization_id,
+            user_id,
+            project_id,
         )
     except (HTTPException, EndpointInvocationError):
         raise
@@ -201,7 +204,7 @@ async def invoke_endpoint_off_loop(
     deferred = _pop_deferred_trace(result)
     if deferred is not None:
         try:
-            await anyio.to_thread.run_sync(partial(persist_deferred_trace, db, deferred))
+            await anyio.to_thread.run_sync(persist_deferred_trace, db, deferred)
         except Exception as exc:
             raise _as_invocation_error(exc) from exc
 

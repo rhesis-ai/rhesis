@@ -1,6 +1,5 @@
 import logging
 import uuid
-from functools import partial
 from typing import Any, Dict
 
 import anyio
@@ -36,6 +35,7 @@ from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreE
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.services.endpoint.testing import build_mapping_test_endpoint
+from rhesis.backend.app.services.invokers.auth import AuthenticationManager
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -287,7 +287,7 @@ def _load_draft_endpoint(
     if not endpoint:
         raise HTTPException(status_code=404, detail=_endpoint_not_found_detail(db))
 
-    return build_mapping_test_endpoint(
+    draft = build_mapping_test_endpoint(
         endpoint,
         request_mapping=test_request.request_mapping,
         response_mapping=test_request.response_mapping,
@@ -295,6 +295,12 @@ def _load_draft_endpoint(
             test_request.response_format.value if test_request.response_format else None
         ),
     )
+    # Refresh an expired client-credentials token here rather than inside the awaited
+    # invocation, where the OAuth round trip would block the event loop. The copy is
+    # transient, so the new token is cached on it and nowhere else -- the same place
+    # the invoker would have put it.
+    AuthenticationManager.prefetch_token(None, draft)
+    return draft
 
 
 @router.post("/{endpoint_id}/test")
@@ -311,13 +317,14 @@ async def test_endpoint_mapping(
     with the provided request/response mapping overrides and input data. This lets the
     frontend test unsaved mapping edits without the auth token ever reaching the browser.
 
-    The fetch is the only database work, and it happens in a worker thread before the
-    invocation starts -- the draft copy handed to the service is detached from any
-    session, so nothing below can query from the event loop.
+    The fetch and the token refresh are the only blocking work, and both happen in a
+    worker thread before the invocation starts -- the draft copy handed to the service
+    is detached from any session and already carries a valid token, so nothing below
+    queries or fetches from the event loop.
     """
     organization_id, user_id = tenant_context
     draft_endpoint = await anyio.to_thread.run_sync(
-        partial(_load_draft_endpoint, db, endpoint_id, organization_id, user_id, test_request)
+        _load_draft_endpoint, db, endpoint_id, organization_id, user_id, test_request
     )
 
     return await endpoint_service.test_endpoint_mapping(

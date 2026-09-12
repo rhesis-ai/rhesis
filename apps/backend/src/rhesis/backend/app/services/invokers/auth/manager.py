@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 # token refreshes rather than re-established on every expiry.
 _token_session = requests.Session()
 
+# (connect, read) for the OAuth token request. ``requests`` waits forever without
+# one, and this call happens while a worker thread -- or, in the worst case, the
+# event loop -- is held: an unresponsive token URL would never give it back.
+# Ruff's S113 does not see it: the call goes through a Session, not ``requests.post``.
+TOKEN_REQUEST_TIMEOUT = (5.0, 20.0)
+
 
 class AuthenticationManager:
     """Handles authentication token management for endpoints."""
@@ -51,6 +57,23 @@ class AuthenticationManager:
             return endpoint.auth_token
 
         return None
+
+    @staticmethod
+    def prefetch_token(db: Optional[Session], endpoint: Endpoint) -> None:
+        """Resolve the endpoint's token now, so the invocation does not have to.
+
+        Only client credentials matter here. Every other auth type reads a column
+        that is already loaded, while this one may make an outbound OAuth call --
+        and the invokers reach for it from inside ``invoke()``, which an ``async``
+        caller awaits on the event loop. Callers run this in a worker thread during
+        the prefetch they already do, leaving ``get_valid_token`` a cache hit.
+
+        Same caching and the same errors as the fetch it replaces: a token that is
+        still valid is left alone, and a failing token URL raises here instead of
+        three frames deeper.
+        """
+        if endpoint.auth_type == EndpointAuthType.CLIENT_CREDENTIALS.value:
+            AuthenticationManager.get_valid_token(db, endpoint)
 
     @staticmethod
     def get_client_credentials_token(db: Session, endpoint: Endpoint) -> str:
@@ -89,7 +112,9 @@ class AuthenticationManager:
             payload.update(endpoint.extra_payload)
 
         try:
-            response = _token_session.post(endpoint.token_url, json=payload)
+            response = _token_session.post(
+                endpoint.token_url, json=payload, timeout=TOKEN_REQUEST_TIMEOUT
+            )
             response.raise_for_status()
             token_data = response.json()
 
