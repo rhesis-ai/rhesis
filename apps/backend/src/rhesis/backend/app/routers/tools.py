@@ -158,17 +158,6 @@ def _validate_trello_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
-def _validate_trello_workspace_gid(tool_metadata: dict | None) -> None:
-    if not tool_metadata or "workspace_gid" not in tool_metadata:
-        return
-    workspace_gid = tool_metadata["workspace_gid"]
-    if not isinstance(workspace_gid, str) or not workspace_gid.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Trello 'workspace_gid' must be a non-empty string",
-        )
-
-
 def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
     if not tool_metadata or "project" not in tool_metadata:
         raise HTTPException(
@@ -229,7 +218,6 @@ def _validate_mcp_test_connection_request(
         _validate_asana_workspace_gid(tool_metadata)
     elif provider == "trello":
         _validate_trello_credentials(credentials)
-        _validate_trello_workspace_gid(tool_metadata)
     elif provider == "linear":
         _validate_linear_credentials(credentials)
     elif provider == "azure_devops":
@@ -277,7 +265,6 @@ def _validate_provider_type_switch(
         _validate_asana_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "trello":
         _validate_trello_credentials(tool.credentials)
-        _validate_trello_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "linear":
         _validate_linear_credentials(tool.credentials)
     elif provider_type.type_value == "azure_devops":
@@ -327,7 +314,6 @@ def create_tool(
             _validate_asana_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "trello":
             _validate_trello_credentials(tool.credentials)
-            _validate_trello_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
@@ -409,8 +395,6 @@ def _validate_tool_metadata_on_update(
         _validate_gitlab_project(tool_metadata)
     elif provider_type.type_value == "asana":
         _validate_asana_workspace_gid(tool_metadata)
-    elif provider_type.type_value == "trello":
-        _validate_trello_workspace_gid(tool_metadata)
     elif provider_type.type_value == "azure_devops":
         _validate_azure_devops_project(tool_metadata)
 
