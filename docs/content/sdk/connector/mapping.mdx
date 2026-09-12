@@ -29,6 +29,7 @@ def chat(input: str, conversation_id: str = None) -> dict:
 | Request | `tool_calls` | Tool call data passed to the endpoint |
 | Request | `files` | File attachments passed as `FileReference` objects |
 | Request | `params` | Resolved experiment parameters available in request mappings |
+| Request | `test_parameters` | Freeform per-test JSON data available in request mappings |
 | Response | `output` | The main response text |
 | Response | `context` | Retrieval context (e.g., RAG sources) |
 | Response | `metadata` | Structured response metadata (e.g., confidence scores) |
@@ -121,6 +122,27 @@ def chat(user_message: str, *, model: str, temperature: float) -> dict:
   for older applications, but it emits a deprecation warning. Use
   `{{ params.* }}` in `request_mapping` for new endpoints.
 </Callout>
+
+### Test parameters
+
+Each test can carry a freeform JSON object in its `test_parameters` field. These values are available in request mappings under the `test_parameters` namespace, separate from experiment `params`:
+
+<CodeBlock filename="test_params_mapping.py" language="python">
+{`@endpoint(
+    name="chat",
+    request_mapping={
+        "user_message": "{{ input }}",
+        "model": "{{ params.model | default('gpt-4o') }}",
+        "customer_id": "{{ test_parameters.customer_id }}",
+        "region": "{{ test_parameters.region | default('us-east-1') }}",
+    },
+    response_mapping={"output": "$.answer"},
+)
+def chat(user_message: str, *, model: str, customer_id: str, region: str) -> dict:
+    return {"answer": invoke(user_message, model=model, customer_id=customer_id, region=region)}`}
+</CodeBlock>
+
+Use `test_parameters` for per-test data that varies across tests in the same run (a customer ID, a locale, a scenario-specific flag). Use `params` for configuration that applies uniformly to every test (model name, temperature).
 
 ### File attachments
 

@@ -107,6 +107,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         "organization_id",
         "user_id",
         "params",
+        "test_parameters",
         "files_metadata",
     }
 
@@ -609,6 +610,9 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Execute via RPC or direct WebSocket
             invocation_id = f"invoke_{uuid.uuid4().hex[:12]}"
             execute_extras = self._connector_parameter_extras()
+            tp = self.context.input_data.get("test_parameters")
+            if tp:
+                execute_extras["test_parameters"] = tp
             ep_ts = endpoint.timeout_seconds
             timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
 

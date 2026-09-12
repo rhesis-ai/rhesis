@@ -1,7 +1,7 @@
 """Internal module for managing the default client state."""
 
 import contextvars
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from rhesis.sdk.clients import Client
@@ -12,11 +12,19 @@ _default_client: Optional["Client"] = None
 _parameters_context: contextvars.ContextVar[Optional["ResolvedParameters"]] = (
     contextvars.ContextVar("rhesis_parameters", default=None)
 )
+_test_parameters_context: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
+    "test_parameters", default={}
+)
 
 
 def get_parameters() -> Optional["ResolvedParameters"]:
     """Get the currently resolved parameters (populated during remote test execution)."""
     return _parameters_context.get()
+
+
+def get_test_parameters() -> Dict[str, Any]:
+    """Get the per-test parameters (populated during remote test execution)."""
+    return _test_parameters_context.get()
 
 
 def _register_default_client(client: "Client") -> None:  # pyright: ignore[reportUnusedFunction]
