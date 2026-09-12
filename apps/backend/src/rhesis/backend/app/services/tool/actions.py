@@ -60,6 +60,8 @@ _ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
     ("linear", ToolAction.TEST_CONNECTION): Transport.MCP,
     ("azure_devops", ToolAction.EXTRACT): Transport.MCP,
     ("azure_devops", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("trello", ToolAction.EXTRACT): Transport.MCP,
+    ("trello", ToolAction.TEST_CONNECTION): Transport.MCP,
 }
 
 

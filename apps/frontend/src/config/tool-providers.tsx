@@ -7,6 +7,7 @@ import {
   SiShortcut,
   SiLinear,
   SiAsana,
+  SiTrello,
 } from '@icons-pack/react-simple-icons';
 
 /**
@@ -27,6 +28,7 @@ export const EXTRACT_PROVIDERS = [
   'asana',
   'azure_devops',
   'linear',
+  'trello',
 ];
 
 const TOOL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
@@ -55,6 +57,8 @@ export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
     'Import issues and project context from Linear into your knowledge base',
   azure_devops:
     'Import work items, epics, and user stories from Azure DevOps boards',
+  trello:
+    'Import boards, lists, and cards from Trello into your knowledge base',
 };
 
 function AzureDevOpsIcon({ className }: { className?: string }) {
@@ -84,4 +88,5 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   asana: <SiAsana className="h-8 w-8" />,
   linear: <SiLinear className="h-8 w-8" />,
   azure_devops: <AzureDevOpsIcon className="h-8 w-8" />,
+  trello: <SiTrello className="h-8 w-8" />,
 };
