@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for tracing retriever calls as `ai.retrieval` spans, capturing the query, results, and `top_k` parameters.
 - Automatic grouping of multi-turn LangGraph conversations by mapping the graph's `thread_id` to the conversation ID.
 - Process-wide tracing support for LLM calls executed within background threads (e.g., `ThreadPoolExecutor` or `run_in_executor`).
+- **Test Parameters:** Added `test_parameters` field to the `Test` entity and `get_test_parameters()` accessor for reading per-test parameters during SDK endpoint execution.
+- Added `test_parameters` to the connector wire protocol (`ExecuteTestMessage`).
 
 ### Changed
 - Raised minimum dependency floors for the LangChain ecosystem: `langchain >=1.4.0`, `langchain-core >=1.6.0`, `langgraph >=1.2.0`, `langgraph-checkpoint >=4.1.0`, `langgraph-sdk >=0.4.0`, `langchain-google-genai >=4.3.0`, `langchain-openai >=1.4.0`, and `langsmith >=0.11.0`.

@@ -176,6 +176,8 @@ async def _run_multi_turn(
     if ctx.test_run and ctx.test_run.attributes:
         params = ctx.test_run.attributes.get("parameters", {})
 
+    test_parameters = test.test_parameters or {}
+
     target = BackendEndpointTarget(
         endpoint_id=str(ctx.endpoint.id),
         organization_id=ctx.organization_id,
@@ -187,6 +189,7 @@ async def _run_multi_turn(
         invoke_retry_min_wait=ctx.invoke_retry_min_wait,
         invoke_retry_max_wait=ctx.invoke_retry_max_wait,
         params=params,
+        test_parameters=test_parameters,
     )
 
     penelope_result = await penelope_agent.a_execute_test(
@@ -232,6 +235,11 @@ async def _run_single_turn(
         params = ctx.test_run.attributes.get("parameters", {})
         if params:
             input_data["params"] = params
+
+    test_obj = ctx.test_data.get(test_id, {}).get("test")
+    test_parameters = (test_obj.test_parameters if test_obj else None) or {}
+    if test_parameters:
+        input_data["test_parameters"] = test_parameters
 
     input_files = await load_input_files_lazy(ctx, test_id)
     if input_files:

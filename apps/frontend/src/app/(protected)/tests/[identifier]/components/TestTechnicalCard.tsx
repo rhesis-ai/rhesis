@@ -23,6 +23,7 @@ import MultiTurnConfigFields, {
   createMultiTurnDraft,
 } from './MultiTurnConfigFields';
 import FilePreview from '@/components/common/FilePreview';
+import TestParametersBlock from './TestParametersBlock';
 import { useRouter } from 'next/navigation';
 
 interface PromptDraft {
@@ -210,6 +211,7 @@ export default function TestTechnicalCard({
               setDraft={setDraft}
               isEditing={isEditing}
             />
+            <TestParametersBlock test={test} onUpdate={onUpdate} />
             <AttachmentsBlock test={test} />
           </Box>
         )}
@@ -324,6 +326,10 @@ export default function TestTechnicalCard({
               </Grid>
             </Grid>
           )}
+
+          <Grid size={12}>
+            <TestParametersBlock test={test} onUpdate={onUpdate} />
+          </Grid>
 
           <Grid size={12}>
             <AttachmentsBlock test={test} />

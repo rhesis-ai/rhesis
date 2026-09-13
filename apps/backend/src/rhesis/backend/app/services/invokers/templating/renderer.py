@@ -35,6 +35,7 @@ class TemplateRenderer:
         # Create a copy to avoid modifying the original input_data
         render_context = input_data.copy()
         render_context.setdefault("params", {})
+        render_context.setdefault("test_parameters", {})
 
         # Conversation field aliases: ensure a value provided under any
         # recognised name is available under ALL recognised names so

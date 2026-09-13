@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Execution Trace Persistence**: The `POST /connector/trace` endpoint now persists execution traces to a dedicated `execution_trace` database table with Row-Level Security (RLS) policies, returning a `trace_id` instead of only writing to server logs.
 - **Multi-turn Conversation Grouping**: Added automatic grouping of LangGraph turns by `thread_id`, allowing multi-turn conversations to be natively grouped as a single trace.
 - **Retriever Tracing**: Added tracing for retriever calls as `ai.retrieval` spans, capturing the query, results, and `top_k` parameters.
+- **Test Parameters:** Added `test_parameters`, a freeform JSONB column on the `test` table. Values are injected into the Jinja2 template context as `test_parameters` during execution, available in request mappings as `{{ test_parameters.<key> }}`. Separate from experiment `params` to avoid namespace collisions.
 
 ### Changed
 - **Ecosystem Upgrade**: Upgraded LangChain and LangGraph ecosystem dependencies to current stable floors (including `langchain >=1.4.0`, `langchain-core >=1.6.0`, and `langgraph >=1.2.0`).
