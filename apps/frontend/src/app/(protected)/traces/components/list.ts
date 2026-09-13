@@ -46,6 +46,8 @@ export function tracesList(
     resource: 'traces',
     capability: Capability.Telemetry.READ,
     defaultPageSize: 50,
+    // The shared default is created_at, which this endpoint does not sort by.
+    defaultSort: { by: 'start_time', order: 'desc' },
     filters: TRACES_FILTERS,
     extraParams: f => {
       const { search, typeFilter, ...drawer } = f;
@@ -60,18 +62,18 @@ export function tracesList(
       return params;
     },
     list: async (_factory, params) => {
-      const {
-        skip,
-        limit,
-        sort_by: _sortBy,
-        sort_order: _sortOrder,
-        ...rest
-      } = params;
+      const { skip, limit, sort_by, sort_order, ...rest } = params;
       const response = await (
         factory ?? new ApiClientFactory(undefined, scopedProjectId ?? undefined)
       )
         .getTelemetryClient()
-        .listTraces({ ...rest, limit, offset: skip });
+        .listTraces({
+          ...rest,
+          limit,
+          offset: skip,
+          sort_by,
+          sort_order: sort_order as 'asc' | 'desc' | undefined,
+        });
       return {
         data: response.traces,
         pagination: {

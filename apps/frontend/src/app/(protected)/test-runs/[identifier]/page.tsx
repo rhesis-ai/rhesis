@@ -65,8 +65,11 @@ export default async function TestRunPage({
     tabParam,
     hasSelectedResult && !tabParam
   );
+  // Reviews is built from the same test results the Tests tab uses, so a deep
+  // link to ?tab=reviews needs the same prefetch or it lands on an empty list.
   const wantsLinkedEntities =
-    initialTabIndex === TAB_KEYS.indexOf('linked_entities');
+    initialTabIndex === TAB_KEYS.indexOf('linked_entities') ||
+    initialTabIndex === TAB_KEYS.indexOf('reviews');
   const wantsTraces = initialTabIndex === TAB_KEYS.indexOf('traces');
 
   const scopedProjectId = (await getServerActiveProjectId()) ?? null;

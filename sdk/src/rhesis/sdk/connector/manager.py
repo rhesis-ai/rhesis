@@ -355,9 +355,10 @@ class ConnectorManager:
                 )
                 return
 
-            from rhesis.sdk.decorators._state import _parameters_context
+            from rhesis.sdk.decorators._state import _parameters_context, _test_parameters_context
 
             token = _parameters_context.set(resolved_params)
+            tp_token = _test_parameters_context.set(test_msg.test_parameters or {})
             try:
                 # Legacy path: merge resolved parameter values into inputs
                 # when the endpoint declares parameters=True or a list.
@@ -396,6 +397,7 @@ class ConnectorManager:
                 )
             finally:
                 _parameters_context.reset(token)
+                _test_parameters_context.reset(tp_token)
 
             # Send result
             await self._send_test_result(

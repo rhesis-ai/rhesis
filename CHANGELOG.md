@@ -29,23 +29,24 @@ This release includes the following component versions:
 - Significantly improved SDK WebSocket performance and throughput by lazy-loading database sessions and raising the default rate limit to 500 messages per second.
 - Enabled database persistence for connector execution traces, returning a `trace_id` to prevent trace data loss on server restarts.
 - Fixed a 403 authorization issue during onboarding by allowing users without an organization to gracefully access free-tier features.
+- Added `test_parameters`, a freeform JSONB field on tests. Available in endpoint request mappings as `{{ test_parameters.<key> }}`, separate from experiment `params`.
 
 **Frontend v0.15.2:**
 - Updated platform and SDK dependencies to version 0.15.2
 - Applied Prettier formatting fixes across 32 frontend files to improve codebase consistency
+- Added a Test Parameters section to the test detail view, with a JSON editor for viewing and editing per-test parameters.
 
 **SDK v0.15.2:**
 - Upgraded LangChain and LangGraph ecosystem dependencies to current stable releases.
 - Overhauled telemetry tracing to reliably capture all LangGraph nodes, multi-message prompts, tool calls, and RAG retrieval operations.
 - Added automatic conversation grouping for LangGraph turns using `thread_id`.
 - Improved concurrency safety, resolved memory leaks from in-flight runs, and ensured the integration cleanly unpatches when disabled.
+- Added `test_parameters` field to the `Test` entity and the `ExecuteTestMessage` wire protocol.
 
 See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
 - [Frontend Changelog](apps/frontend/CHANGELOG.md)
 - [SDK Changelog](sdk/CHANGELOG.md)
-
-
 
 ## [0.15.1] - 2026-09-04
 

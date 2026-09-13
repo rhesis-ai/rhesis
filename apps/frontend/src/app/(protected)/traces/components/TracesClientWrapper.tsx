@@ -3,14 +3,13 @@
 import React, { useCallback, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Alert, Box, Paper } from '@mui/material';
+import { Alert, Box } from '@mui/material';
 import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TracesClient from './TracesClient';
 import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -118,27 +117,19 @@ export default function TracesClientWrapper({
               : {}
           }
         >
-          <Paper
-            sx={{
-              width: '100%',
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: theme => `1px solid ${theme.palette.greyscale.border}`,
-              overflow: 'hidden',
-            }}
-          >
-            <TracesClient
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              currentUserPicture={currentUserPicture}
-              initialTraceId={initialTraceId}
-              initialProjectId={initialProjectId}
-              onUnfilteredEmpty={handleUnfilteredEmpty}
-              refreshTrigger={refreshTrigger}
-              initialData={initialData}
-              initialTotalCount={initialTotalCount}
-            />
-          </Paper>
+          {/* The grid card lives inside TracesClient, so the rollup tiles can sit
+              above it rather than inside it. */}
+          <TracesClient
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserPicture={currentUserPicture}
+            initialTraceId={initialTraceId}
+            initialProjectId={initialProjectId}
+            onUnfilteredEmpty={handleUnfilteredEmpty}
+            refreshTrigger={refreshTrigger}
+            initialData={initialData}
+            initialTotalCount={initialTotalCount}
+          />
         </Box>
         {showEmptyHint && (
           <EntityEmptyState

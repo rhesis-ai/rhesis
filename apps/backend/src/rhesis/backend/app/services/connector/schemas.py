@@ -74,6 +74,7 @@ class ExecuteTestMessage(BaseModel):
     parameter_source: Optional[Literal["environment", "experiment_id", "version"]] = None
     parameter_source_environment: Optional[str] = None
     parameter_schema: Optional[Dict[str, Any]] = None
+    test_parameters: Dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod

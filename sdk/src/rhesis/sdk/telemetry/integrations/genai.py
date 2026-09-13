@@ -724,6 +724,74 @@ class ConversationTraceRegistry:
             self._targets.clear()
 
 
+class DeferredReleaseQueue:
+    """Frees per-trace entries a bounded number of reads after the first read.
+
+    A natively instrumented framework carries a turn's text on its nested model
+    spans, not on the run root that has to be stamped with it, so an integration
+    collects that text per trace id and reads it back when the root is exported.
+    Popping it on that read looks right and is not: ``enable()`` wraps *every*
+    exporter on the provider, so a process running its own OTLP collector beside
+    Rhesis exports the same spans through several translating exporters, and
+    whichever reached the root first took the content and left the others
+    stamping a root span with nothing on it.
+
+    Keeping every entry instead trades that for a leak: at
+    :data:`~rhesis.telemetry.constants.ConversationContext.MAX_IO_LENGTH` per
+    field, a long-running process would sit on megabytes of conversation text
+    waiting for the store's own entry cap. So entries are freed once enough
+    other traces have been read past them - long enough for the other exporters
+    to see the same trace, short enough to stay small. The queue is deliberately
+    larger than an OTEL export batch, since a busy service can flush hundreds of
+    run roots at once and the exporters do not drain their queues in lockstep.
+
+    Holds the stores by reference and mutates them in place, so an owner must
+    not rebind them after construction. Takes no lock of its own: every method
+    expects the owner's lock to be held, which is what keeps a read of the
+    stores and the release that follows it atomic together.
+    """
+
+    def __init__(self, *stores: dict, max_served: int = 512) -> None:
+        """Queue releases across ``stores``, all keyed by trace id."""
+        self._stores = stores
+        self._served: dict[int, None] = {}
+        self._max_served = max_served
+
+    def queue_release(self, trace_id: int) -> None:
+        """Mark ``trace_id`` read, freeing whatever has fallen far enough behind.
+
+        A trace with nothing recorded takes no slot: it has nothing to free, and
+        a run of content-free traces would otherwise push out the entries of the
+        traces that do have some. Caller holds the lock.
+        """
+        if not self.has_entries(trace_id):
+            return
+        # Re-reading moves a trace back to the newest, so the entries stay while
+        # anything is still asking for them.
+        self._served.pop(trace_id, None)
+        self._served[trace_id] = None
+        while len(self._served) > self._max_served:
+            stale = next(iter(self._served))
+            del self._served[stale]
+            for store in self._stores:
+                store.pop(stale, None)
+
+    def has_entries(self, trace_id: int) -> bool:
+        """Whether any store holds something for this trace. Caller holds the lock.
+
+        Every store an owner keeps has to be passed in. One left out is invisible
+        here, so its entries never reach the queue and never get freed - which is
+        the leak this class exists to prevent.
+        """
+        return any(trace_id in store for store in self._stores)
+
+    def clear(self) -> None:
+        """Forget the queue and empty every store. Caller holds the lock."""
+        self._served.clear()
+        for store in self._stores:
+            store.clear()
+
+
 def translate_events(
     original_events: Iterable[Event],
     span_attributes: Mapping[str, Any],

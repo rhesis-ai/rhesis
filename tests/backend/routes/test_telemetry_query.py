@@ -9,6 +9,7 @@ This module tests the telemetry query endpoints including:
 - Error handling and edge cases
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -1206,6 +1207,7 @@ class TestCrossOrganizationSecurity:
         import uuid
 
         from rhesis.telemetry.schemas import OTELSpan
+
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
         org, user, _ = create_test_organization_and_user(
@@ -1349,3 +1351,482 @@ class TestCrossOrganizationSecurity:
         response = client_b.get(f"/telemetry/metrics?project_id={project_b.id}")
         assert response.status_code == 200, response.text
         assert response.json()["total_traces"] == 2
+
+
+@pytest.mark.integration
+class TestTraceTokenAndCostVisibility:
+    """Tokens and cost as the trace UI reads them, over the real endpoints.
+
+    The list column, the drawer chips and the project rollup must all report the
+    same figure for the same trace -- they used to report three different ones.
+    """
+
+    @staticmethod
+    def _span(trace_id, span_id, project_id, *, parent=None, operation, tokens=None):
+        now = datetime.now(timezone.utc)
+        attributes = {"ai.operation.type": operation}
+        if tokens is not None:
+            attributes["ai.model.name"] = "gpt-4"
+            attributes["ai.llm.tokens.input"] = tokens[0]
+            attributes["ai.llm.tokens.output"] = tokens[1]
+            attributes["ai.llm.tokens.total"] = tokens[2]
+        return {
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "parent_span_id": parent,
+            "project_id": project_id,
+            "environment": "development",
+            "span_name": "ai.llm.invoke" if operation == "llm.invoke" else "ai.agent.invoke",
+            "span_kind": "CLIENT",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(milliseconds=250)).isoformat(),
+            "status_code": "OK",
+            "attributes": attributes,
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    @staticmethod
+    def _summary(client, project_id, trace_id):
+        response = client.get(f"/telemetry/traces?project_id={project_id}&limit=100")
+        assert response.status_code == status.HTTP_200_OK
+        for trace in response.json()["traces"]:
+            if trace["trace_id"] == trace_id:
+                return trace
+        raise AssertionError(f"trace {trace_id} missing from the list response")
+
+    def _ingest(self, client, spans):
+        response = client.post("/telemetry/traces", json={"spans": spans})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_pydantic_ai_run_is_not_double_counted(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The agent-run span repeats its children's aggregate under the same keys.
+
+        Summing every span would report 840; only the llm.invoke spans count.
+        """
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        agent_span = uuid.uuid4().hex[:16]
+        spans = [
+            self._span(
+                trace_id, agent_span, project_id, operation="agent.invoke", tokens=(300, 120, 420)
+            ),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(100, 50, 150),
+            ),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(200, 70, 270),
+            ),
+        ]
+        self._ingest(authenticated_client, spans)
+
+        response = authenticated_client.get(f"/telemetry/traces/{trace_id}?project_id={project_id}")
+        assert response.status_code == status.HTTP_200_OK
+        detail = response.json()
+
+        assert detail["total_tokens"] == 420
+        assert detail["total_input_tokens"] == 300
+        assert detail["total_output_tokens"] == 120
+
+    def test_list_and_detail_report_the_same_tokens(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The core bug: the list read the root span alone and so showed 0."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        agent_span = uuid.uuid4().hex[:16]
+        spans = [
+            # A root span with no token attributes at all -- the usual shape, and
+            # what the list used to read its figure from.
+            self._span(trace_id, agent_span, project_id, operation="agent.invoke"),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(100, 50, 150),
+            ),
+            self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=agent_span,
+                operation="llm.invoke",
+                tokens=(200, 70, 270),
+            ),
+        ]
+        self._ingest(authenticated_client, spans)
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+        summary = self._summary(authenticated_client, project_id, trace_id)
+
+        assert detail["total_tokens"] == 420
+        assert summary["total_tokens"] == detail["total_tokens"]
+
+    def test_reported_total_survives_the_round_trip(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Google ADK folds cache-read tokens into its total, so it exceeds in + out."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        self._ingest(
+            authenticated_client,
+            [
+                self._span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(100, 50, 950),
+                )
+            ],
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+
+        assert detail["total_tokens"] == 950
+        assert self._summary(authenticated_client, project_id, trace_id)["total_tokens"] == 950
+
+    def test_trace_with_no_llm_spans_omits_tokens(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The list sends null so the column shows an em dash rather than a 0."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        self._ingest(
+            authenticated_client,
+            [self._span(trace_id, uuid.uuid4().hex[:16], project_id, operation="tool.invoke")],
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+
+        assert detail["total_tokens"] == 0
+        assert self._summary(authenticated_client, project_id, trace_id)["total_tokens"] is None
+
+    def test_span_nodes_expose_cost_once_enriched(
+        self, authenticated_client: TestClient, db_project, test_db, test_org_id
+    ):
+        """Per-span cost reaches the Span Details panel, and only for priced spans."""
+        from rhesis.backend.app.crud.telemetry import mark_trace_processed
+
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        agent_span = uuid.uuid4().hex[:16]
+        llm_span = uuid.uuid4().hex[:16]
+        self._ingest(
+            authenticated_client,
+            [
+                self._span(
+                    trace_id,
+                    agent_span,
+                    project_id,
+                    operation="agent.invoke",
+                    tokens=(100, 50, 150),
+                ),
+                self._span(
+                    trace_id,
+                    llm_span,
+                    project_id,
+                    parent=agent_span,
+                    operation="llm.invoke",
+                    tokens=(100, 50, 150),
+                ),
+            ],
+        )
+
+        # Stand in for the async enrichment job, which does not run in tests.
+        mark_trace_processed(
+            test_db,
+            trace_id,
+            {
+                "costs": {
+                    "total_cost_usd": 0.006,
+                    "total_cost_eur": 0.0054,
+                    "total_input_tokens": 100,
+                    "total_output_tokens": 50,
+                    "total_tokens": 150,
+                    "breakdown": [
+                        {
+                            "span_id": llm_span,
+                            "model_name": "gpt-4",
+                            "input_tokens": 100,
+                            "output_tokens": 50,
+                            "total_tokens": 150,
+                            "input_cost_usd": 0.003,
+                            "output_cost_usd": 0.003,
+                            "total_cost_usd": 0.006,
+                            "input_cost_eur": 0.0027,
+                            "output_cost_eur": 0.0027,
+                            "total_cost_eur": 0.0054,
+                        }
+                    ],
+                }
+            },
+        )
+
+        detail = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={project_id}"
+        ).json()
+
+        def walk(nodes):
+            for node in nodes:
+                yield node
+                yield from walk(node["children"])
+
+        by_span = {node["span_id"]: node for node in walk(detail["root_spans"])}
+
+        assert detail["total_cost_usd"] == pytest.approx(0.006)
+        assert by_span[llm_span]["cost_usd"] == pytest.approx(0.006)
+        assert by_span[llm_span]["model_name"] == "gpt-4"
+        # The agent-run span is never priced, so it shows no Usage cost.
+        assert by_span[agent_span]["cost_usd"] is None
+        assert by_span[agent_span]["model_name"] is None
+
+
+@pytest.mark.integration
+class TestTraceListSorting:
+    """Server-side sorting on the traces list.
+
+    Sorting has to happen in SQL: sorting in the browser only reorders the rows on
+    the current page, so "most expensive first" would really mean "most expensive of
+    the newest 50".
+    """
+
+    @staticmethod
+    def _span(trace_id, span_id, project_id, *, tokens, started):
+        return {
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "project_id": project_id,
+            "environment": "development",
+            "span_name": "ai.llm.invoke",
+            "span_kind": "CLIENT",
+            "start_time": started.isoformat(),
+            "end_time": (started + timedelta(milliseconds=250)).isoformat(),
+            "status_code": "OK",
+            "attributes": {
+                "ai.operation.type": "llm.invoke",
+                "ai.model.name": "gpt-4",
+                "ai.llm.tokens.input": tokens[0],
+                "ai.llm.tokens.output": tokens[1],
+                "ai.llm.tokens.total": tokens[2],
+            },
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    @pytest.fixture
+    def three_traces(self, authenticated_client: TestClient, db_project):
+        """Three single-span traces with deliberately different token counts."""
+        project_id = str(db_project.id)
+        now = datetime.now(timezone.utc)
+        made = []
+        for index, tokens in enumerate([(10, 5, 15), (400, 100, 500), (60, 20, 80)]):
+            trace_id = uuid.uuid4().hex
+            span = self._span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                tokens=tokens,
+                started=now - timedelta(minutes=index),
+            )
+            response = authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+            assert response.status_code == status.HTTP_200_OK
+            made.append((trace_id, tokens[2]))
+        return project_id, made
+
+    def _tokens_in_order(self, client, project_id, order):
+        response = client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_tokens&sort_order={order}&limit=100"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        return [t["total_tokens"] for t in response.json()["traces"] if t["total_tokens"]]
+
+    def test_sorts_by_tokens_descending(self, authenticated_client: TestClient, three_traces):
+        project_id, _ = three_traces
+
+        tokens = self._tokens_in_order(authenticated_client, project_id, "desc")
+
+        assert tokens == sorted(tokens, reverse=True)
+        assert tokens[0] == 500
+
+    def test_sorts_by_tokens_ascending(self, authenticated_client: TestClient, three_traces):
+        project_id, _ = three_traces
+
+        tokens = self._tokens_in_order(authenticated_client, project_id, "asc")
+
+        assert tokens == sorted(tokens)
+
+    def test_unpriced_traces_sort_last_on_cost(
+        self, authenticated_client: TestClient, three_traces
+    ):
+        """Cost has no pre-enrichment fallback, so every one of these is unpriced.
+
+        Postgres puts NULLs first on DESC, so without NULLS LAST a "most expensive"
+        sort would lead with traces whose cost is simply unknown.
+        """
+        project_id, _ = three_traces
+
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_cost_usd&sort_order=desc&limit=100"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        costs = [t["total_cost_usd"] for t in response.json()["traces"]]
+        priced = [c for c in costs if c is not None]
+        assert costs[: len(priced)] == priced
+
+    def test_sorting_is_stable_across_pages(self, authenticated_client: TestClient, three_traces):
+        """Rows tied on the sort key need a tiebreaker or paging repeats them."""
+        project_id, _ = three_traces
+
+        first = authenticated_client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_cost_usd&sort_order=desc&limit=2&offset=0"
+        ).json()["traces"]
+        second = authenticated_client.get(
+            f"/telemetry/traces?project_id={project_id}"
+            f"&sort_by=total_cost_usd&sort_order=desc&limit=2&offset=2"
+        ).json()["traces"]
+
+        ids = [t["trace_id"] for t in first] + [t["trace_id"] for t in second]
+        assert len(ids) == len(set(ids))
+
+    def test_unknown_sort_field_is_rejected(self, authenticated_client: TestClient, db_project):
+        """The three columns with no SQL sort key must not silently do nothing."""
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&sort_by=endpoint_name"
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "endpoint_name" in response.json()["detail"]
+
+    def test_default_ordering_is_unchanged(self, authenticated_client: TestClient, three_traces):
+        """No sort_by keeps the newest-first order the list has always had."""
+        project_id, _ = three_traces
+
+        response = authenticated_client.get(f"/telemetry/traces?project_id={project_id}&limit=100")
+
+        assert response.status_code == status.HTTP_200_OK
+        starts = [t["start_time"] for t in response.json()["traces"]]
+        assert starts == sorted(starts, reverse=True)
+
+
+@pytest.mark.integration
+class TestTokenTotalFallbackShapes:
+    """Span shapes where the reported total is missing or contradicts input/output."""
+
+    @staticmethod
+    def _span(trace_id, project_id, attributes):
+        now = datetime.now(timezone.utc)
+        return {
+            "trace_id": trace_id,
+            "span_id": uuid.uuid4().hex[:16],
+            "project_id": project_id,
+            "environment": "development",
+            "span_name": "ai.llm.invoke",
+            "span_kind": "CLIENT",
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(milliseconds=100)).isoformat(),
+            "status_code": "OK",
+            "attributes": {
+                "ai.operation.type": "llm.invoke",
+                "ai.model.name": "gpt-4",
+                **attributes,
+            },
+            "events": [],
+            "links": [],
+            "resource": {},
+        }
+
+    def _ingest_and_read(self, client, project_id, attributes):
+        trace_id = uuid.uuid4().hex
+        response = client.post(
+            "/telemetry/traces",
+            json={"spans": [self._span(trace_id, project_id, attributes)]},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        detail = client.get(f"/telemetry/traces/{trace_id}?project_id={project_id}").json()
+        listed = client.get(f"/telemetry/traces?project_id={project_id}&limit=100").json()
+        summary = next(t for t in listed["traces"] if t["trace_id"] == trace_id)
+        return detail, summary
+
+    def test_missing_total_falls_back_to_input_plus_output(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """The SQL fallback used to sum only the total, so this listed as 0."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client,
+            str(db_project.id),
+            {"ai.llm.tokens.input": 100, "ai.llm.tokens.output": 50},
+        )
+
+        assert detail["total_tokens"] == 150
+        assert summary["total_tokens"] == 150
+
+    def test_only_one_side_reported(self, authenticated_client: TestClient, db_project):
+        """NULL + 100 is NULL in SQL, so each side has to be coalesced separately."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client, str(db_project.id), {"ai.llm.tokens.input": 100}
+        )
+
+        assert detail["total_tokens"] == 100
+        assert summary["total_tokens"] == 100
+
+    def test_zero_total_beside_real_usage_is_treated_as_missing(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """A zero total next to non-zero input/output contradicts itself."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client,
+            str(db_project.id),
+            {
+                "ai.llm.tokens.input": 100,
+                "ai.llm.tokens.output": 50,
+                "ai.llm.tokens.total": 0,
+            },
+        )
+
+        assert detail["total_tokens"] == 150
+        assert summary["total_tokens"] == 150
+
+    def test_reported_total_still_wins_when_larger(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """ADK folds cache-read tokens in, so the total legitimately exceeds the sum."""
+        detail, summary = self._ingest_and_read(
+            authenticated_client,
+            str(db_project.id),
+            {
+                "ai.llm.tokens.input": 100,
+                "ai.llm.tokens.output": 50,
+                "ai.llm.tokens.total": 950,
+            },
+        )
+
+        assert detail["total_tokens"] == 950
+        assert summary["total_tokens"] == 950

@@ -3,6 +3,7 @@
 import React, { useContext, useMemo } from 'react';
 import {
   GridColDef,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -21,6 +22,11 @@ import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
+import {
+  formatCost,
+  formatTokenCount,
+  tokenSplitLabel,
+} from '@/utils/trace-utils';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import TraceFilterDrawer, {
@@ -115,6 +121,8 @@ interface TracesTableProps {
   onFilterDrawerOpen: () => void;
   onFilterDrawerClose: () => void;
   fixedTestRunId?: string;
+  sortModel?: GridSortModel;
+  onSortModelChange?: (model: GridSortModel) => void;
 }
 
 export default function TracesTable({
@@ -136,6 +144,8 @@ export default function TracesTable({
   onFilterDrawerOpen,
   onFilterDrawerClose,
   fixedTestRunId,
+  sortModel,
+  onSortModelChange,
 }: TracesTableProps) {
   const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
     testRunScope: Boolean(fixedTestRunId),
@@ -199,6 +209,8 @@ export default function TracesTable({
       },
       {
         field: 'conversation_input',
+        // a JSONB span attribute, so the backend cannot order by it.
+        sortable: false,
         headerName: 'Input',
         flex: 3.2,
         minWidth: 160,
@@ -233,6 +245,8 @@ export default function TracesTable({
       },
       {
         field: 'endpoint_name',
+        // three joins away, so the backend cannot order by it.
+        sortable: false,
         headerName: 'Endpoint',
         flex: 1.8,
         minWidth: 100,
@@ -293,7 +307,41 @@ export default function TracesTable({
         align: 'center',
       },
       {
+        field: 'total_tokens',
+        headerName: 'Tokens',
+        flex: 1,
+        minWidth: 70,
+        align: 'right',
+        renderCell: params => (
+          <Typography
+            variant="body2"
+            // Native title: the split is already on the row, and the drawer shows
+            // the same breakdown on its token chip.
+            title={tokenSplitLabel(
+              params.row.total_input_tokens,
+              params.row.total_output_tokens
+            )}
+          >
+            {params.value ? formatTokenCount(params.value as number) : '\u2014'}
+          </Typography>
+        ),
+      },
+      {
+        field: 'total_cost_usd',
+        headerName: 'Cost',
+        flex: 1,
+        minWidth: 70,
+        align: 'right',
+        renderCell: params => (
+          <Typography variant="body2">
+            {params.value ? formatCost(params.value as number) : '\u2014'}
+          </Typography>
+        ),
+      },
+      {
         field: 'trace_metrics_status',
+        // a relationship, not a column, so the backend cannot order by it.
+        sortable: false,
         headerName: 'Evaluation',
         flex: 1.4,
         minWidth: 100,
@@ -410,11 +458,14 @@ export default function TracesTable({
         }}
         pageSizeOptions={[25, 50, 100]}
         disablePaperWrapper
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={onSortModelChange}
         toolbarSlot={() => (
           <TracesUnifiedToolbar hideTypeFilter={Boolean(fixedTestRunId)} />
         )}
         persistState
-        storageKey="traces-grid"
+        storageKey="traces-grid-v2"
         sx={{
           '& .MuiDataGrid-row': {
             cursor: 'pointer',

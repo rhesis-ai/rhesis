@@ -61,6 +61,8 @@ export class TelemetryClient extends BaseApiClient {
     environment?: string;
     start_time_after?: string;
     start_time_before?: string;
+    /** Narrows every metric to one test run. */
+    test_run_id?: string;
   }): Promise<TraceMetricsResponse> {
     const queryParams = new URLSearchParams();
 

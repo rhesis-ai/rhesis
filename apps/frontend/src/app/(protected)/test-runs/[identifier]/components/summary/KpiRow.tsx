@@ -14,6 +14,8 @@ import {
 } from './verdict-timeline';
 import { describeStrip } from './verdict-strip-render';
 import { STRIP_HEIGHTS } from './summary-tokens';
+import { formatCost, formatTokenCount } from '@/utils/trace-utils';
+import { useTestRunUsage } from '../../hooks/useTestRunUsage';
 import type {
   VerdictMatrix,
   TestRunDetail,
@@ -37,6 +39,7 @@ export default function KpiRow({
   onViewFailures,
 }: KpiRowProps) {
   const { kpis } = matrix;
+  const usage = useTestRunUsage(testRun.id);
 
   const durationDisplay = useMemo(() => {
     if (isRunning) return undefined;
@@ -163,18 +166,25 @@ export default function KpiRow({
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <KpiCard
-            title="Reviews"
-            value={kpis.reviews_count}
-            subtitle={
-              kpis.reviews_count > 0
-                ? `of ${kpis.tests_executed} tests`
-                : 'No reviews yet'
-            }
-            infoTooltip="Tests with at least one human review recorded."
-          />
-        </Grid>
+        {/* Held back until the numbers arrive rather than shown as zeros, the
+            same way the rollup tiles on the Traces page behave. */}
+        {usage && (
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <KpiCard
+              title="Usage"
+              value={formatTokenCount(usage.total_tokens)}
+              valueLabel="tokens"
+              secondary={{
+                value: formatCost(usage.total_cost_usd),
+                label: 'cost',
+              }}
+              subtitle={`across ${usage.total_traces} ${
+                usage.total_traces === 1 ? 'trace' : 'traces'
+              }`}
+              infoTooltip="Tokens and cost across this run's traced LLM calls. Cost appears once enrichment has priced the run."
+            />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

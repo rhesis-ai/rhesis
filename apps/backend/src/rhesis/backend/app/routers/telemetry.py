@@ -54,6 +54,11 @@ from rhesis.backend.app.services.review import (
     get_review_status_details,
     update_review_metadata,
 )
+from rhesis.backend.app.services.telemetry.token_totals import (
+    trace_cost_usd,
+    trace_summary_totals,
+    trace_token_totals,
+)
 from rhesis.backend.app.services.trace_review_override import (
     apply_review_override as trace_apply_review_override,
 )
@@ -304,6 +309,15 @@ def list_traces(
         True,
         description=("Return only root spans (one per trace). Set to false to return all spans."),
     ),
+    sort_by: Optional[str] = Query(
+        None,
+        description=(
+            "Field to sort by. One of: "
+            "start_time, duration_ms, trace_id, environment, root_operation, "
+            "span_count, total_tokens, total_cost_usd."
+        ),
+    ),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     limit: int = Query(100, ge=1, le=1000, description="Results per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_tenant_db_session),
@@ -376,6 +390,8 @@ def list_traces(
             test_id=test_id,
             conversation_id=conversation_id,
             trace_metrics_status=(trace_metrics_status.value if trace_metrics_status else None),
+            sort_by=sort_by,
+            sort_order=sort_order,
             limit=limit,
             offset=offset,
         )
@@ -394,13 +410,13 @@ def list_traces(
         for row in rows:
             trace = row.trace
             has_errors = trace.status_code == StatusCode.ERROR.value
-            total_tokens = trace.total_tokens or 0
-            total_cost_usd = 0.0
-            total_cost_eur = 0.0
-            costs = (trace.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-            if costs:
-                total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
-                total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
+            (
+                total_input_tokens,
+                total_output_tokens,
+                total_tokens,
+                total_cost_usd,
+                total_cost_eur,
+            ) = trace_summary_totals(trace.enriched_data, row.llm_tokens)
 
             # Get endpoint information from eagerly loaded relationships
             trace_endpoint_id = None
@@ -449,6 +465,8 @@ def list_traces(
                 endpoint_id=trace_endpoint_id,
                 endpoint_name=trace_endpoint_name,
                 total_tokens=total_tokens if total_tokens > 0 else None,
+                total_input_tokens=total_input_tokens if total_input_tokens > 0 else None,
+                total_output_tokens=total_output_tokens if total_output_tokens > 0 else None,
                 total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
                 total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
                 has_errors=has_errors,
@@ -474,6 +492,9 @@ def list_traces(
             offset=offset,
         )
 
+    except HTTPException:
+        # A deliberate 4xx, such as an unsortable sort_by, must not become a 500.
+        raise
     except Exception as e:
         # Check if it's a database permission error
         error_msg = str(e).lower()
@@ -594,20 +615,25 @@ def get_trace(
         # Build proper span tree
         from rhesis.backend.app.services.telemetry.tree_builder import build_span_tree
 
-        root_spans = build_span_tree(spans)
+        # enriched_data is trace-level and written onto every span, so any span
+        # carries the whole breakdown. Index it once for the tree builder.
+        costs = (spans[0].enriched_data or {}).get(EnrichedDataKeys.COSTS) or {}
+        cost_by_span_id = {
+            entry[EnrichedDataKeys.SPAN_ID]: entry
+            for entry in costs.get(EnrichedDataKeys.BREAKDOWN) or []
+            if entry.get(EnrichedDataKeys.SPAN_ID)
+        }
+
+        root_spans = build_span_tree(spans, cost_by_span_id)
 
         # Calculate trace-level metrics
         total_duration = max(span.end_time for span in spans) - min(
             span.start_time for span in spans
         )
-        total_tokens = sum(span.total_tokens or 0 for span in spans)
+        total_input_tokens, total_output_tokens, total_tokens = trace_token_totals(spans)
         error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
 
-        # Extract costs from enriched data
-        total_cost = 0.0
-        costs = (spans[0].enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-        if costs:
-            total_cost = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
+        total_cost = trace_cost_usd(spans[0].enriched_data)
 
         # Build relationship objects from first span
         from rhesis.backend.app.schemas.endpoint import Endpoint
@@ -678,6 +704,8 @@ def get_trace(
             span_count=len(spans),
             error_count=error_count,
             total_tokens=total_tokens,
+            total_input_tokens=total_input_tokens,
+            total_output_tokens=total_output_tokens,
             total_cost_usd=total_cost,
             root_spans=root_spans,
             trace_metrics_status=trace_metrics_status_name,
@@ -745,6 +773,7 @@ def get_metrics(
     environment: Optional[str] = Query(None, description="Environment filter"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
     start_time_before: Optional[datetime] = Query(None, description="Start time <= (ISO 8601)"),
+    test_run_id: Optional[str] = Query(None, description="Scope metrics to a single test run"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ) -> TraceMetricsResponse:
@@ -767,6 +796,7 @@ def get_metrics(
         environment: Environment filter (optional)
         start_time_after: Start of time range
         start_time_before: End of time range
+        test_run_id: Narrow every metric to one test run (optional)
 
     Returns:
         Aggregated metrics
@@ -781,11 +811,15 @@ def get_metrics(
             environment=environment,
             start_time_after=start_time_after,
             start_time_before=start_time_before,
+            test_run_id=test_run_id,
         )
 
         logger.info(f"Calculated metrics for project {project_id}")
         return TraceMetricsResponse(**result)
 
+    except HTTPException:
+        # A deliberate 4xx, such as a malformed test_run_id, must not become a 500.
+        raise
     except Exception as e:
         # Check if it's a database permission error
         error_msg = str(e).lower()

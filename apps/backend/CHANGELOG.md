@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Object-shaped Tool Calls**: Handled tool call outputs returned as objects rather than dictionaries, preventing unended spans and missing trace data.
 - **Memory Leak Protection**: Capped in-flight run bookkeeping to prevent memory leaks from runs that never report completion.
 
+- **Test Parameters:** Added `test_parameters`, a freeform JSONB column on the `test` table. Values are injected into the Jinja2 template context as `test_parameters` during execution, available in request mappings as `{{ test_parameters.<key> }}`. Separate from experiment `params` to avoid namespace collisions.
 
 ## [0.15.1] - 2026-09-04
 

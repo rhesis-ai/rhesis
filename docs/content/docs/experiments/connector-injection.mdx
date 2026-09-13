@@ -78,7 +78,8 @@ See [SDK Usage](/docs/experiments/sdk-usage) for the full `Parameters.get()` API
 
 For those debugging at the protocol level, the `ExecuteTestMessage` payload sent by the Rhesis platform over the connector includes the full parameter snapshot:
 
-- `parameters`: The resolved `Dict[str, Any]` of values.
+- `parameters`: The resolved `Dict[str, Any]` of experiment parameter values.
+- `test_parameters`: The test's freeform `Dict[str, Any]` of per-test data (see [Test Parameters](#test-parameters-vs-experiment-parameters)).
 - `parameter_version`: The sequential version identifier (e.g. `v3`) of the version being executed.
 - `parameter_experiment_id`: The UUID of the experiment.
 - `parameter_source`: The resolution method used (`"environment"`, `"experiment_id"`, or `"version"`). Older snapshots may still show `"label"`; treat it as `"environment"`.
@@ -144,6 +145,27 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest):
         temperature=params.get("temperature"),
     )
     return result`}
+</CodeBlock>
+
+## Test Parameters vs Experiment Parameters
+
+The template context exposes two separate namespaces for injected data:
+
+| Namespace | Source | Lifecycle |
+|---|---|---|
+| `params` | Experiment parameter values, resolved and snapshotted at queue time | Typed, versioned, schema-validated |
+| `test_parameters` | Freeform JSON stored on the test object | Per-test, unversioned |
+
+Use `test_parameters` for per-test data that varies across tests in the same run (e.g. a customer ID, a locale, or a scenario-specific flag). Use `params` for configuration that applies uniformly to every test in a run (e.g. model name, temperature, system prompt).
+
+Both namespaces are available in the same request mapping and do not collide:
+
+<CodeBlock filename="both_namespaces.json" language="json">
+{`{
+  "model": "{{ params.model }}",
+  "messages": [{"role": "user", "content": "{{ input }}"}],
+  "customer_id": "{{ test_parameters.customer_id }}"
+}`}
 </CodeBlock>
 
 <Callout type="warning">
