@@ -45,3 +45,16 @@ class TestExecuteTestMessageExperimentParameters:
         )
         assert msg.parameters == {}
         assert msg.experiment_parameters == {}
+
+    def test_model_dump_includes_experiment_parameters(self):
+        """computed_field ensures both keys appear on the wire."""
+        msg = ExecuteTestMessage(
+            test_run_id="run-1",
+            function_name="fn",
+            inputs={},
+            parameters={"model": "gpt-4o"},
+        )
+        dumped = msg.model_dump()
+        assert "experiment_parameters" in dumped
+        assert dumped["experiment_parameters"] == {"model": "gpt-4o"}
+        assert dumped["parameters"] == {"model": "gpt-4o"}

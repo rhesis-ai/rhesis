@@ -6,7 +6,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 class TestStatus(str, Enum):
@@ -82,6 +82,7 @@ class ExecuteTestMessage(BaseModel):
             data = {**data, "parameter_source": "environment"}
         return data
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def experiment_parameters(self) -> Dict[str, Any]:
         """Alias for ``parameters`` (the preferred name since 0.16)."""
