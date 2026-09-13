@@ -44,8 +44,12 @@ alembic_show() {
 alembic_parents() {
   local rev="$1"
   local line
-  line=$(alembic_show "$rev" | grep -i '^Parent:' | head -1 || true)
+  # A plain revision prints "Parent:"; a merge revision prints "Merges:" with
+  # its parents comma-separated. Reading only the first would make every merge
+  # migration look parentless.
+  line=$(alembic_show "$rev" | grep -iE '^(Parent|Merges):' | head -1 || true)
   line="${line#Parent: }"
+  line="${line#Merges: }"
   line="$(echo "$line" | tr -d ' ')"
   if [[ -z "$line" || "$line" == "<base>" ]]; then
     return
@@ -82,6 +86,10 @@ fail_wrong_down_revision() {
   if [[ ${#BASE_HEADS[@]} -eq 1 ]]; then
     echo "Migration $label has down_revision $got, expected $expected (current base head on $BASE_REF)." >&2
     echo "Rebase onto $BASE_REF and set down_revision to $expected." >&2
+    echo "If this migration has already shipped from a release branch, do NOT re-point it:" >&2
+    echo "changing the parent of an applied revision makes Alembic treat $expected as applied" >&2
+    echo "on databases that never ran it. Add a merge migration instead, with" >&2
+    echo "down_revision = ($rev, $expected)." >&2
   else
     echo "Base branch has multiple heads: ${BASE_HEADS[*]}" >&2
     echo "Migration $label has down_revision $got, expected $expected." >&2
@@ -198,33 +206,70 @@ fi
 PR_HEAD="${PR_HEADS[0]}"
 echo "PR head: $PR_HEAD"
 
-current="$PR_HEAD"
-chain_len=1
-
-while ! parents_match_base "$current"; do
-  parents=()
-  while IFS= read -r line; do parents+=("$line"); done < <(alembic_parents "$current")
-  if [[ ${#parents[@]} -ne 1 ]]; then
-    if [[ ${#BASE_HEADS[@]} -gt 1 ]]; then
-      echo "Migration $(migration_label "$current") must be a merge before other migrations when base has multiple heads." >&2
-      echo "Expected down_revision = (${BASE_HEADS[*]})." >&2
-    else
-      echo "Migration $(migration_label "$current") must have a single parent before reaching the base." >&2
-    fi
+# Revision ids this PR introduces, read straight from the added files.
+NEW_REVS=""
+for file in $NEW_MIGRATIONS; do
+  rev=$(sed -n 's/^revision[^=]*=[[:space:]]*["'"'"']\([A-Za-z0-9_]*\)["'"'"'].*/\1/p' "$REPO_ROOT/$file" | head -1)
+  if [[ -z "$rev" ]]; then
+    echo "Could not read a revision id from $file." >&2
     exit 1
   fi
-  current="${parents[0]}"
-  chain_len=$((chain_len + 1))
+  NEW_REVS="$NEW_REVS $rev"
 done
 
-if [[ "$chain_len" -ne "$NEW_COUNT" ]]; then
-  echo "Expected $NEW_COUNT new migration(s) in the chain from base, got $chain_len." >&2
-  if [[ ${#BASE_HEADS[@]} -gt 1 ]]; then
-    echo "Base has multiple heads (${BASE_HEADS[*]}) — you may need a merge migration with down_revision = (${BASE_HEADS[*]})." >&2
-  else
-    echo "Ensure all new migration files form a single chain onto base head ${BASE_HEADS[0]}." >&2
-  fi
+in_set() {
+  local needle="$1" item
+  for item in $2; do
+    if [[ "$item" == "$needle" ]]; then return 0; fi
+  done
+  return 1
+}
+
+if ! in_set "$PR_HEAD" "$NEW_REVS"; then
+  echo "PR head $PR_HEAD is not one of the migrations this PR adds." >&2
   exit 1
 fi
 
-echo "OK: migration chain is valid (base head(s): ${BASE_HEADS[*]}, PR head: $PR_HEAD)"
+# Walk down from the single head through this PR's own migrations. Any parent
+# that is not itself new is a boundary: where this PR attaches to history that
+# already exists on the base branch. A linear chain has one boundary; a merge
+# migration (release branch coming back) has two.
+VISITED=""
+BOUNDARY=""
+QUEUE="$PR_HEAD"
+while [[ -n "$QUEUE" ]]; do
+  current="${QUEUE%% *}"
+  if [[ "$QUEUE" == "$current" ]]; then QUEUE=""; else QUEUE="${QUEUE#* }"; fi
+  if in_set "$current" "$VISITED"; then continue; fi
+  VISITED="$VISITED $current"
+  for parent in $(alembic_parents "$current"); do
+    if in_set "$parent" "$NEW_REVS"; then
+      QUEUE="$QUEUE $parent"
+    elif ! in_set "$parent" "$BOUNDARY"; then
+      BOUNDARY="$BOUNDARY $parent"
+    fi
+  done
+done
+
+VISITED_COUNT=$(echo $VISITED | wc -w | tr -d ' ')
+if [[ "$VISITED_COUNT" -ne "$NEW_COUNT" ]]; then
+  echo "This PR adds $NEW_COUNT migration(s), but $VISITED_COUNT are reachable from head $PR_HEAD." >&2
+  echo "Every new migration must sit on the chain that ends at the head." >&2
+  exit 1
+fi
+
+# The new work must attach to the base's current head, not to a stale parent.
+for base_head in "${BASE_HEADS[@]}"; do
+  if ! in_set "$base_head" "$BOUNDARY"; then
+    BOUNDARY_COUNT=$(echo $BOUNDARY | wc -w | tr -d ' ')
+    if [[ "$BOUNDARY_COUNT" -eq 1 && ${#BASE_HEADS[@]} -eq 1 ]]; then
+      fail_wrong_down_revision "$PR_HEAD" "$(echo $BOUNDARY)"
+    fi
+    echo "New migrations attach to:$BOUNDARY" >&2
+    echo "but not to base head $base_head." >&2
+    echo "Rebase onto $BASE_REF, or add a merge migration with down_revision = (<branch head>, $base_head)." >&2
+    exit 1
+  fi
+done
+
+echo "OK: migration chain is valid (base head(s): ${BASE_HEADS[*]}, PR head: $PR_HEAD, attaches to:$BOUNDARY)"
