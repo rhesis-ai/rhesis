@@ -25,6 +25,7 @@ A single prompt sent to your LLM application, evaluated against expected outputs
 |-------|-------------|
 | **Test Prompt** | The input text sent to your LLM application |
 | **Files** | (Optional) File attachments (images, PDFs, or audio) sent alongside the prompt. See [Multi-modal Testing](/docs/tests/multimodal-testing) for supported types and size limits, and [file format filters](/docs/endpoints/request-mapping#file-format-filters) for how files are mapped to provider formats. |
+| **Test Parameters** | (Optional) Freeform JSON object with per-test data. Available in request templates as `test_parameters`, e.g. `\{\{ test_parameters.customer_id \}\}`. See [Request Mapping](/docs/endpoints/request-mapping#test-parameters). |
 | **Category** | High-level classification (e.g., Harmful, Harmless) |
 | **Topic** | Specific subject matter (e.g., healthcare, financial advice) |
 | **Requirement** | Type of requirement to validate (e.g., Compliance, Reliability, Robustness) |
@@ -43,6 +44,7 @@ Goal-based conversations that test your LLM application across multiple turns. P
 | **Restrictions** | (Optional) What the target must not do - forbidden behaviors or boundaries |
 | **Scenario** | (Optional) Context and persona for the test - narrative setup or user role |
 | **Files** | (Optional) File attachments (images, PDFs, or audio) included with the test. Files are available on each conversation turn via the `files` variable in the endpoint request template. See [Multi-modal Testing](/docs/tests/multimodal-testing) for supported types and size limits. |
+| **Test Parameters** | (Optional) Freeform JSON object with per-test data. Available in request templates as `test_parameters`, e.g. `\{\{ test_parameters.customer_id \}\}`. See [Request Mapping](/docs/endpoints/request-mapping#test-parameters). |
 | **Min. Turns** | Minimum turns before early stopping is allowed. If omitted, defaults to 80% of max turns. |
 | **Max. Turns** | Maximum number of conversation turns allowed (`max_turns`) |
 | **Category** | High-level classification (e.g., Harmful, Harmless) |

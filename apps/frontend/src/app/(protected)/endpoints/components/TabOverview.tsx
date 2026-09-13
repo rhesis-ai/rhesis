@@ -192,6 +192,19 @@ export default function TabOverview({
         />
 
         <Stack spacing={3} sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            label="Timeout (seconds)"
+            type="number"
+            value={formData.timeout_seconds}
+            onChange={e => onChange('timeout_seconds', e.target.value)}
+            placeholder="30"
+            helperText="Leave empty for the system default (30s for REST, 120s for SDK endpoints)"
+            slotProps={{
+              input: { inputProps: { min: 1 } },
+            }}
+          />
+
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Environment

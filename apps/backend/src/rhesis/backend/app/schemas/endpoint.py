@@ -1,7 +1,14 @@
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, field_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    ConfigDict,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -15,7 +22,77 @@ from rhesis.backend.app.schemas.references import ProjectReference, StatusRefere
 from rhesis.backend.app.schemas.user import UserReference
 
 
-# Endpoint schemas
+def _check_timeout_seconds(v: int | None) -> int | None:
+    if v is not None and (v < 1 or v > 3600):
+        raise ValueError("timeout_seconds must be between 1 and 3600")
+    return v
+
+
+# --- Endpoint metadata sub-models ---
+# Each allows extra keys for forward-compatibility and strips None on serialization
+# so the JSON column stays clean.
+
+
+class _MetadataBase(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    @model_serializer(mode="wrap")
+    def _exclude_none(self, handler):
+        return {k: v for k, v in handler(self).items() if v is not None}
+
+
+class SdkConnectionMetadata(_MetadataBase):
+    project_id: Optional[str] = None
+    environment: Optional[str] = None
+    function_name: Optional[str] = None
+
+
+class FunctionSchemaMetadata(_MetadataBase):
+    description: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = None
+    return_type: Optional[str] = None
+
+
+class MappingInfoMetadata(_MetadataBase):
+    source: Optional[str] = None
+    confidence: Optional[float] = None
+    reasoning: Optional[str] = None
+    generated_at: Optional[str] = None
+
+    @field_validator("confidence")
+    @classmethod
+    def _validate_confidence(cls, v: float | None) -> float | None:
+        if v is not None and (v < 0.0 or v > 1.0):
+            raise ValueError("confidence must be between 0.0 and 1.0")
+        return v
+
+
+class ValidationErrorMetadata(_MetadataBase):
+    error: Optional[str] = None
+    timestamp: Optional[str] = None
+    exception_type: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class EndpointMetadata(_MetadataBase):
+    sdk_connection: Optional[SdkConnectionMetadata] = None
+    function_schema: Optional[FunctionSchemaMetadata] = None
+    mapping_info: Optional[MappingInfoMetadata] = None
+    validation_error: Optional[ValidationErrorMetadata] = None
+    last_error: Optional[str] = None
+    created_at: Optional[str] = None
+    last_registered: Optional[str] = None
+    timeout_seconds: Optional[int] = None
+
+    @field_validator("timeout_seconds")
+    @classmethod
+    def _validate_timeout_seconds(cls, v: int | None) -> int | None:
+        return _check_timeout_seconds(v)
+
+
+# --- Endpoint schemas ---
+
+
 class EndpointBase(Base):
     name: str
     description: Optional[str] = None
@@ -29,7 +106,7 @@ class EndpointBase(Base):
     openapi_spec_url: Optional[str] = None
     openapi_spec: Optional[Dict[str, Any]] = None
     llm_suggestions: Optional[Dict[str, Any]] = None
-    endpoint_metadata: Optional[Dict[str, Any]] = None
+    endpoint_metadata: Optional[EndpointMetadata] = None
 
     # Request Structure
     method: Optional[str] = None
@@ -51,6 +128,13 @@ class EndpointBase(Base):
 
     # Tracing control
     disable_tracing: bool = False
+
+    timeout_seconds: Optional[int] = None
+
+    @field_validator("timeout_seconds")
+    @classmethod
+    def _validate_timeout_seconds(cls, v: int | None) -> int | None:
+        return _check_timeout_seconds(v)
 
     auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
@@ -157,7 +241,7 @@ class Endpoint(Base, ServerIdentity):
     openapi_spec_url: Optional[str] = None
     openapi_spec: Optional[Dict[str, Any]] = None
     llm_suggestions: Optional[Dict[str, Any]] = None
-    endpoint_metadata: Optional[Dict[str, Any]] = None
+    endpoint_metadata: Optional[EndpointMetadata] = None
 
     # Request Structure
     method: Optional[str] = None
@@ -183,6 +267,8 @@ class Endpoint(Base, ServerIdentity):
     # Tracing control
     disable_tracing: bool = False
 
+    timeout_seconds: Optional[int] = None
+
     auth_type: Optional[EndpointAuthType] = None
     has_auth_token: bool = False
     # Sensitive fields excluded from response:
@@ -193,6 +279,26 @@ class Endpoint(Base, ServerIdentity):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_timeout_from_metadata(cls, data):
+        """Pull timeout_seconds out of endpoint_metadata for dict inputs.
+
+        ORM objects expose timeout_seconds via a @property, so Pydantic's
+        from_attributes picks it up during field validation — no mutation needed.
+        """
+        if not isinstance(data, dict):
+            return data
+        meta = data.get("endpoint_metadata")
+        timeout = None
+        if isinstance(meta, dict) and "timeout_seconds" in meta:
+            timeout = meta["timeout_seconds"]
+        elif isinstance(meta, EndpointMetadata) and meta.timeout_seconds is not None:
+            timeout = meta.timeout_seconds
+        if timeout is not None:
+            data.setdefault("timeout_seconds", timeout)
+        return data
 
 
 # The detailed model with expanded relations

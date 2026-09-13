@@ -11,6 +11,7 @@ import {
   MenuItem,
   Select,
   Switch,
+  TextField,
   FormControl,
   InputLabel,
 } from '@mui/material';
@@ -31,6 +32,7 @@ interface EndpointDetailsDraft {
   name: string;
   description: string;
   environment: string;
+  timeout_seconds: string;
   disable_tracing: boolean;
 }
 
@@ -38,12 +40,16 @@ function detailsFromEndpoint(endpoint: {
   name: string;
   description?: string;
   environment: string;
+  timeout_seconds?: number | null;
   disable_tracing?: boolean;
 }): EndpointDetailsDraft {
   return {
     name: endpoint.name,
     description: endpoint.description || '',
     environment: endpoint.environment,
+    timeout_seconds: endpoint.timeout_seconds
+      ? String(endpoint.timeout_seconds)
+      : '',
     disable_tracing: endpoint.disable_tracing ?? false,
   };
 }
@@ -70,10 +76,13 @@ export default function EndpointOverviewTab() {
         title="Endpoint details"
         initialValue={detailsInitial}
         onSave={async draft => {
+          const parsedTimeout = parseInt(draft.timeout_seconds, 10);
           await saveFields({
             name: draft.name,
             description: draft.description,
             environment: draft.environment as Endpoint['environment'],
+            timeout_seconds:
+              !isNaN(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : null,
             disable_tracing: draft.disable_tracing,
           });
         }}
@@ -153,6 +162,36 @@ export default function EndpointOverviewTab() {
                     label={formatEnvironment(endpoint.environment)}
                   />
                 </ViewField>
+              )}
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              {isEditing ? (
+                <TextField
+                  fullWidth
+                  label="Timeout (seconds)"
+                  type="number"
+                  value={draft.timeout_seconds}
+                  onChange={e =>
+                    setDraft(prev => ({
+                      ...prev,
+                      timeout_seconds: e.target.value,
+                    }))
+                  }
+                  placeholder="30"
+                  helperText="Leave empty for the system default (30s for REST, 120s for SDK endpoints)"
+                  slotProps={{
+                    input: { inputProps: { min: 1 } },
+                  }}
+                />
+              ) : (
+                <ViewField
+                  label="Timeout"
+                  value={
+                    endpoint.timeout_seconds
+                      ? `${endpoint.timeout_seconds}s`
+                      : 'System default'
+                  }
+                />
               )}
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>

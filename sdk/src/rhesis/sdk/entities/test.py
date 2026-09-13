@@ -40,6 +40,7 @@ class Test(BaseEntity):
     test_configuration: Optional[TestConfiguration] = None
     test_type: Optional[TestType] = None
     files: Optional[list] = None
+    test_parameters: Optional[Dict[str, Any]] = None
     # Convenience fields that build test_configuration if not provided
     goal: Optional[str] = None
     instructions: Optional[str] = None

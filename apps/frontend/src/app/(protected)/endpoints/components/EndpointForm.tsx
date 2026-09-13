@@ -52,6 +52,7 @@ export interface FormData {
   auth_token: string;
   request_headers: string;
   disable_tracing: boolean;
+  timeout_seconds: string;
 }
 
 const DEFAULT_REQ_BODY =
@@ -154,6 +155,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       auth_token: '',
       request_headers: '{}',
       disable_tracing: false,
+      timeout_seconds: '',
     });
 
     // Set project_id from URL parameter, then fall back to active project cookie
@@ -368,6 +370,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         if (formData.auth_token) {
           (endpointData as Record<string, unknown>).auth_token =
             formData.auth_token;
+        }
+        const parsedTimeout = parseInt(formData.timeout_seconds, 10);
+        if (!isNaN(parsedTimeout) && parsedTimeout > 0) {
+          endpointData.timeout_seconds = parsedTimeout;
         }
 
         const result = await createEndpoint(

@@ -25,6 +25,7 @@ export interface EndpointMetadata {
   last_error?: string;
   created_at?: string;
   last_registered?: string;
+  timeout_seconds?: number | null;
   [key: string]: unknown;
 }
 
@@ -52,6 +53,9 @@ export interface Endpoint {
 
   // Tracing control
   disable_tracing?: boolean;
+
+  // Invocation timeout in seconds (null/undefined = system default per connection type)
+  timeout_seconds?: number | null;
 
   project_id?: string;
   organization_id?: string;

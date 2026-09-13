@@ -20,6 +20,7 @@ Endpoints use the shared [entity interface](/sdk/entities) for fetching, filteri
 | `connection_type` | `ConnectionType` | How Rhesis connects: `REST`, `WebSocket`, `GRPC`, or `SDK` |
 | `url` | `str` | Endpoint URL (for REST/WebSocket/GRPC) |
 | `project_id` | `str` | Associated project ID |
+| `timeout_seconds` | `int \| None` | Per-endpoint invocation timeout (1 -- 3600). When unset, REST endpoints default to 30s and SDK endpoints to 120s. |
 
 `name`, `connection_type`, and `project_id` are required to save an endpoint. REST endpoints also carry request/response mapping, headers, and an `auth_token` for the target API — see the [Connector](/sdk/connector) for those.
 
@@ -98,6 +99,7 @@ endpoint = Endpoint(
     connection_type=ConnectionType.REST,
     url="https://staging-api.example.com/chat",
     project_id="project-123",
+    timeout_seconds=60,  # optional, overrides the default
 )
 endpoint.push()`}
 </CodeBlock>
