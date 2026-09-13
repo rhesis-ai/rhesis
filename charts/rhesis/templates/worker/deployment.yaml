@@ -23,6 +23,10 @@ spec:
       labels:
         app: worker-{{ .name }}
         tier: worker
+      {{- with .podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       {{- if $.Values.podSecurityContext.enabled }}
       securityContext:

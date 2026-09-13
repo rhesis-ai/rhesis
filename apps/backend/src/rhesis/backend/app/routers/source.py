@@ -11,6 +11,8 @@ from rhesis.backend.app.auth.capabilities import capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -187,7 +189,7 @@ async def upload_source(
     file: UploadFile = File(...),
     title: str = Form(None),
     description: str = Form(None),
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -207,7 +209,7 @@ async def upload_source(
         file: The uploaded file
         title: Optional title for the source (defaults to filename)
         description: Optional description for the source
-        db: Database session
+        db: Database session, used only inside ``anyio.to_thread.run_sync``
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
@@ -236,7 +238,7 @@ async def upload_source(
 @router.post("/{source_id}/extract")
 async def extract_source_content_endpoint(
     source_id: uuid.UUID,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -251,7 +253,7 @@ async def extract_source_content_endpoint(
 
     Args:
         source_id: UUID of the source to extract content from
-        db: Database session
+        db: Database session, used only inside ``anyio.to_thread.run_sync``
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 
@@ -352,7 +354,7 @@ def get_source_embedding_graph(
 @router.get("/{source_id}/file")
 async def get_source_file(
     source_id: uuid.UUID,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -367,7 +369,7 @@ async def get_source_file(
 
     Args:
         source_id: UUID of the source to get content from
-        db: Database session
+        db: Database session, used only inside ``anyio.to_thread.run_sync``
         tenant_context: Tenant context containing organization_id and user_id
         current_user: Current authenticated user
 

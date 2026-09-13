@@ -139,13 +139,18 @@ async def _run_gather(
     semaphore: asyncio.Semaphore,
     penelope_agent: Any,
     evaluator: Any,
-    on_progress: Any = None,
     progress_base: int = 0,
     progress_total: int = 0,
     on_emit: Any = None,
     on_test_phase: Any = None,
 ) -> List[Dict[str, Any]]:
-    """Fan out test_ids as asyncio Tasks and gather results."""
+    """Fan out test_ids as asyncio Tasks and gather results.
+
+    No per-test progress callback here: the job's counter is ticked inside
+    ``persist_result``'s transaction (see batch/persist.py), so a test costs
+    one bookkeeping session, not two. ``current`` below is only for the
+    narration text.
+    """
     completed_count = 0
     last_emit_time = time.monotonic()
     narrated_failures = 0
@@ -178,11 +183,6 @@ async def _run_gather(
         finally:
             completed_count += 1
             current = progress_base + completed_count
-            if on_progress and progress_total:
-                try:
-                    on_progress(current, progress_total)
-                except Exception:
-                    pass
             if on_emit and progress_total:
                 now = time.monotonic()
                 # Failures skip the throttle -- they carry the error text, which is the
@@ -257,7 +257,6 @@ async def _run_gather(
 async def run_batch(
     ctx: ExecutionContext,
     test_ids: List[str],
-    on_progress: Any = None,
     on_emit: Any = None,
     on_test_phase: Any = None,
 ) -> List[Dict[str, Any]]:
@@ -266,6 +265,10 @@ async def run_batch(
     After the main pass, up to ``ctx.recovery_rounds`` additional passes are run
     for tests whose failure looks transient (network errors, unexpected
     exceptions, persist failures).  Timeouts and cancellations are not retried.
+
+    No progress callback: progress is written with each result (see
+    ``_run_gather``), and the caller reports the final count once the batch
+    is done.
     """
     semaphore = asyncio.Semaphore(ctx.batch_concurrency)
 
@@ -329,7 +332,6 @@ async def run_batch(
         semaphore,
         penelope_agent,
         evaluator,
-        on_progress=on_progress,
         progress_base=0,
         progress_total=total,
         on_emit=on_emit,
@@ -358,10 +360,10 @@ async def run_batch(
                     logger.warning(f"[BATCH] Recovery pass: no snapshot data for {tid}, skipping")
                     retry_ids = [t for t in retry_ids if t != tid]
 
-            # on_test_phase is threaded through here (unlike on_progress /
-            # on_emit, which would double-count against progress_total) so
-            # the live grid keeps ticking through recovery instead of
-            # freezing on the last main-pass state.
+            # on_test_phase is threaded through here (unlike on_emit, which
+            # would double-count against progress_total) so the live grid
+            # keeps ticking through recovery instead of freezing on the last
+            # main-pass state.
             recovery_results = await _run_gather(
                 ctx,
                 retry_ids,

@@ -146,6 +146,9 @@ def _prepare_suggestion_context(
 ) -> Optional[Dict[str, Any]]:
     """Shared setup for both streaming and non-streaming suggestion generation.
 
+    Runs in a worker thread: every ORM object it reads stays inside, and only
+    plain data (prompt text, counts) and the resolved model come back out.
+
     Returns a context dict with resolved model, prompt, topic_value, and
     sample_size, or ``None`` when there are no eligible tests.
     """
@@ -253,7 +256,8 @@ async def generate_suggestions(
     Parameters
     ----------
     db : Session
-        Database session
+        Database session. Only ever touched inside ``anyio.to_thread.run_sync``,
+        so an ``async def`` caller can hand over its request session.
     test_set_identifier : str
         Test set identifier (UUID, nano_id, or slug)
     organization_id : str
@@ -285,7 +289,8 @@ async def generate_suggestions(
     AsyncGenerator (stream=True)
         Yields typed dicts as described above.
     """
-    ctx = _prepare_suggestion_context(
+    ctx = await anyio.to_thread.run_sync(
+        _prepare_suggestion_context,
         db,
         test_set_identifier,
         organization_id,
@@ -341,7 +346,7 @@ async def generate_suggestions(
         # without vectors. Before, this resolve raised straight out of the
         # function and took the whole suggestion request with it.
         try:
-            embedder = resolve_embedder(db, user_id)
+            embedder = await anyio.to_thread.run_sync(resolve_embedder, db, user_id)
         except EmbeddingProviderNotConfigured as e:
             logger.warning("Suggestions generated without embeddings: %s", e)
             embedder = None

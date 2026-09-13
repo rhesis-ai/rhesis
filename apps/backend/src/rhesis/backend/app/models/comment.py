@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, String, Text
+from sqlalchemy import JSON, Column, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -8,6 +8,7 @@ from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMix
 
 class Comment(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "comment"
+    __table_args__ = (Index("ix_comment_org_created", "organization_id", "created_at"),)
 
     # Comment content
     content = Column(Text, nullable=False)

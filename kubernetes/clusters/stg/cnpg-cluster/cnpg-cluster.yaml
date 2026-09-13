@@ -37,6 +37,14 @@ spec:
   postgresql:
     parameters:
       max_connections: "200"
+      # pg_stat_statements is a CNPG "managed extension": any pg_stat_statements.*
+      # parameter makes the operator add it to shared_preload_libraries and run
+      # CREATE EXTENSION in every database. Do not set shared_preload_libraries
+      # here; the operator owns it. Adding a preload library restarts every
+      # instance (a switchover on the primary), so sync this at a quiet hour.
+      pg_stat_statements.track: "all"
+  # Metrics scrape: cnpg-podmonitor.yaml in this directory (spec.monitoring.
+  # enablePodMonitor is deprecated upstream, so the PodMonitor is explicit).
   managed:
     roles:
       - name: rhesis-admin
@@ -91,6 +99,7 @@ spec:
         - GRANT ALL ON SCHEMA public TO "rhesis-admin";
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS vector;
+        - CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
         - GRANT CONNECT ON DATABASE "rhesis-stg-db" TO "rhesis-user";
         - GRANT USAGE ON SCHEMA public TO "rhesis-user";
         - GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";

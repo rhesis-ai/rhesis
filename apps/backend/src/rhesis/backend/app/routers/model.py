@@ -1,7 +1,8 @@
 import logging
 import uuid
-from typing import List
+from typing import List, NamedTuple, Optional
 
+import anyio
 from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,8 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -56,10 +59,22 @@ def create_model(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+def _read_stored_model_credentials(
+    db: Session, model_id: str, organization_id: str, user_id: str
+) -> tuple[str, Optional[str]]:
+    """Read a stored model's API key and endpoint. Runs in a worker thread."""
+    db_model = model_crud.get_model(
+        db, model_id=model_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return db_model.key or "", db_model.endpoint
+
+
 @router.post("/test-connection", response_model=TestModelConnectionResponse)
 async def test_model_connection_endpoint(
     request: TestModelConnectionRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -88,14 +103,12 @@ async def test_model_connection_endpoint(
     # When model_id is set, the API key is taken from the backend-stored model credentials.
     if request.model_id:
         organization_id, user_id = tenant_context
-        db_model = model_crud.get_model(
-            db, model_id=request.model_id, organization_id=organization_id, user_id=user_id
+        stored_key, stored_endpoint = await anyio.to_thread.run_sync(
+            _read_stored_model_credentials, db, request.model_id, organization_id, user_id
         )
-        if db_model is None:
-            raise HTTPException(status_code=404, detail="Model not found")
-        api_key = db_model.key or ""
+        api_key = stored_key
         if endpoint is None or (isinstance(endpoint, str) and not endpoint.strip()):
-            endpoint = db_model.endpoint
+            endpoint = stored_endpoint
 
     result = await ModelConnectionService.test_connection(
         provider=request.provider,
@@ -211,10 +224,42 @@ def delete_model(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class _ModelTestConfig(NamedTuple):
+    """What a connection test needs off a stored model row."""
+
+    name: str
+    provider: Optional[str]
+    model_name: str
+    api_key: Optional[str]
+    endpoint: Optional[str]
+    model_type: str
+
+
+def _load_model_test_config(
+    db: Session, model_id: uuid.UUID, organization_id: str
+) -> _ModelTestConfig:
+    """Read the model row and its provider type. Runs in a worker thread.
+
+    Every attribute is read here so nothing lazy-loads back on the event loop.
+    """
+    db_model = model_crud.get_model(db, model_id=model_id, organization_id=organization_id)
+    if db_model is None:
+        logger.warning(f"[MODEL_TEST] Model not found: model_id={model_id}")
+        raise HTTPException(status_code=404, detail="Model not found")
+    return _ModelTestConfig(
+        name=db_model.name,
+        provider=db_model.provider_type.type_value if db_model.provider_type else None,
+        model_name=db_model.model_name,
+        api_key=db_model.key,
+        endpoint=db_model.endpoint,
+        model_type=db_model.model_type or "language",
+    )
+
+
 @router.post("/{model_id}/test", response_model=dict)
 async def test_model_connection(
     model_id: uuid.UUID,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -230,30 +275,22 @@ async def test_model_connection(
     logger.info(f"[MODEL_TEST] Testing connection for model_id={model_id}")
 
     organization_id, user_id = tenant_context
-    db_model = model_crud.get_model(db, model_id=model_id, organization_id=organization_id)
-    if db_model is None:
-        logger.warning(f"[MODEL_TEST] Model not found: model_id={model_id}")
-        raise HTTPException(status_code=404, detail="Model not found")
-
-    provider = db_model.provider_type.type_value if db_model.provider_type else None
-    model_name = db_model.model_name
-    api_key = db_model.key
-    model_type = db_model.model_type or "language"
+    config = await anyio.to_thread.run_sync(_load_model_test_config, db, model_id, organization_id)
 
     logger.info(
-        f"[MODEL_TEST] Testing model: name={db_model.name}, "
-        f"provider={provider}, model_name={model_name}, type={model_type}"
+        f"[MODEL_TEST] Testing model: name={config.name}, "
+        f"provider={config.provider}, model_name={config.model_name}, type={config.model_type}"
     )
 
     # No try/except: test_connection reports every failure through its own
     # result object, so the handler here only ever caught its own bugs -- and
     # answered them with a 200 whose message was our exception text.
     result = await ModelConnectionService.test_connection(
-        provider=provider,
-        model_name=model_name,
-        api_key=api_key,
-        endpoint=db_model.endpoint,
-        model_type=model_type,
+        provider=config.provider,
+        model_name=config.model_name,
+        api_key=config.api_key,
+        endpoint=config.endpoint,
+        model_type=config.model_type,
     )
 
     status = "success" if result.success else "error"

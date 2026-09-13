@@ -475,6 +475,7 @@ _DERIVER_SKIP_PATHS: frozenset[str] = frozenset(
     [
         "/",
         "/health",
+        "/ready",
         "/docs",
         "/openapi.json",
         "/redoc",

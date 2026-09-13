@@ -5,13 +5,16 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
+import anyio
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.database import scope_project_id
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSocketMessage
+from rhesis.backend.app.services.invokers.auth import AuthenticationManager
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
@@ -34,7 +37,13 @@ from .constants import (
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
 )
-from .utils import _apply_test_set_fields, _make_composite_key, _make_result, _publish_result
+from .utils import (
+    PreflightDbGate,
+    _apply_test_set_fields,
+    _make_composite_key,
+    _make_result,
+    _publish_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +79,84 @@ def _result_to_payload(r: PreflightCheckResult) -> dict:
     }
 
 
+def _load_endpoint_or_raise(db: Session, endpoint_id: UUID, organization_id: str):
+    """Look the endpoint up, letting ItemDeletedException through to the caller."""
+    return get_item_detail(db, Endpoint, endpoint_id, organization_id=organization_id)
+
+
+def _test_set_name(db: Session, test_set_id: UUID) -> str:
+    test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+    return test_set.name if test_set else str(test_set_id)
+
+
+def _load_endpoint(db: Session, endpoint_id: UUID, organization_id: str) -> Optional[Endpoint]:
+    """Look the endpoint up, reporting a soft-deleted one the same as a missing one."""
+    try:
+        return _load_endpoint_or_raise(db, endpoint_id, organization_id)
+    except ItemDeletedException:
+        return None
+
+
+def _load_endpoint_for_probe(
+    db: Session, endpoint_id: UUID, organization_id: str
+) -> Optional[Endpoint]:
+    """Everything the connectivity probe needs from the database, in one thread hop.
+
+    The load, and the auth token: a client-credentials endpoint with an expired token
+    refreshes it with a blocking ``requests.post`` and writes the new one back to the
+    row. Done here, both stay in the worker thread; done inside the awaited probe, both
+    would run on the event loop.
+    """
+    endpoint = _load_endpoint(db, endpoint_id, organization_id)
+    if endpoint is not None:
+        AuthenticationManager.prefetch_token(db, endpoint)
+    return endpoint
+
+
+async def _connectivity_branch(
+    db: PreflightDbGate,
+    endpoint_id: UUID,
+    organization_id: str,
+    correlation_id: Optional[str],
+    publish: bool,
+) -> PreflightCheckResult:
+    """Run the connectivity check on a session of its own.
+
+    The run's shared session is only safe one caller at a time and this branch runs
+    concurrently with the others, so the endpoint is loaded -- and its token refreshed
+    -- in a second session, in a worker thread. The probe itself then runs with no
+    session at all; see :func:`check_endpoint_connectivity`. The session stays open
+    around it so the ORM object keeps its loaded state, and its close commits the
+    refreshed token off the loop.
+    """
+    try:
+        async with db.spawn_session() as check_db:
+            endpoint = await anyio.to_thread.run_sync(
+                _load_endpoint_for_probe, check_db, endpoint_id, organization_id
+            )
+            if endpoint is None:
+                result = _make_result(
+                    CHECK_ENDPOINT_CONNECTIVITY,
+                    PreflightCheckStatus.FAILED,
+                    "Endpoint not found",
+                )
+            else:
+                return await check_endpoint_connectivity(endpoint, correlation_id, publish)
+    except Exception as e:
+        # Matches what check_endpoint_connectivity reports for its own failures, so
+        # opening the session cannot turn into a differently-worded result.
+        result = _make_result(
+            CHECK_ENDPOINT_CONNECTIVITY,
+            PreflightCheckStatus.FAILED,
+            "Unexpected error during connectivity check",
+            str(e),
+        )
+
+    _apply_test_set_fields(result)
+    await _publish_result(result, correlation_id, publish)
+    return result
+
+
 async def run_preflight_checks_multi(
     db: Session,
     user: User,
@@ -87,6 +174,10 @@ async def run_preflight_checks_multi(
 
     Shared checks (endpoint, models) run once.
     Per-test-set checks run for each test set.
+
+    ``db`` is only ever touched inside ``anyio.to_thread.run_sync`` (see
+    :class:`~rhesis.backend.app.services.preflight.utils.PreflightDbGate`), so an
+    ``async def`` caller can hand over its request session.
     """
     results: List[PreflightCheckResult] = []
     tasks: list[tuple[str, asyncio.Task]] = []
@@ -95,10 +186,12 @@ async def run_preflight_checks_multi(
         {str(ts_id): ts_name for ts_id, ts_name, _ in test_sets} if multi else {}
     )
 
+    organization_id = str(user.organization_id)
+    # Every query below runs through this: in a worker thread, one at a time.
+    off_loop = PreflightDbGate(db, organization_id, str(user.id), scope_project_id(db))
+
     try:
-        endpoint = get_item_detail(
-            db, Endpoint, endpoint_id, organization_id=str(user.organization_id)
-        )
+        endpoint = await off_loop.run(_load_endpoint_or_raise, endpoint_id, organization_id)
         endpoint_status = "not found"
     except ItemDeletedException:
         endpoint = None
@@ -113,7 +206,9 @@ async def run_preflight_checks_multi(
             tasks.append(
                 (
                     CHECK_ENDPOINT_CONNECTIVITY,
-                    check_endpoint_connectivity(db, endpoint, correlation_id, publish),
+                    _connectivity_branch(
+                        off_loop, endpoint_id, organization_id, correlation_id, publish
+                    ),
                 )
             )
         else:
@@ -147,7 +242,7 @@ async def run_preflight_checks_multi(
     tasks.append(
         (
             CHECK_EVALUATION_MODEL,
-            check_evaluation_model(db, user, evaluation_model_id, correlation_id, publish),
+            check_evaluation_model(off_loop, user, evaluation_model_id, correlation_id, publish),
         )
     )
 
@@ -156,7 +251,7 @@ async def run_preflight_checks_multi(
         tasks.append(
             (
                 CHECK_EXECUTION_MODEL,
-                check_execution_model(db, user, execution_model_id, correlation_id, publish),
+                check_execution_model(off_loop, user, execution_model_id, correlation_id, publish),
             )
         )
 
@@ -169,7 +264,7 @@ async def run_preflight_checks_multi(
             (
                 _make_composite_key(CHECK_TEST_SET_NOT_EMPTY, ts_id_str),
                 check_test_set_not_empty(
-                    db,
+                    off_loop,
                     ts_id,
                     correlation_id,
                     publish,
@@ -182,10 +277,10 @@ async def run_preflight_checks_multi(
             (
                 _make_composite_key(CHECK_REQUIREMENT_METRIC_COVERAGE, ts_id_str),
                 check_requirement_metric_coverage(
-                    db,
+                    off_loop,
                     ts_id,
                     metric_mode,
-                    str(user.organization_id),
+                    organization_id,
                     selected_metrics,
                     correlation_id,
                     publish,
@@ -199,7 +294,7 @@ async def run_preflight_checks_multi(
                 (
                     _make_composite_key(CHECK_METRIC_COMPATIBILITY, ts_id_str),
                     check_metric_compatibility(
-                        db,
+                        off_loop,
                         endpoint,
                         ts_id,
                         metric_mode,
@@ -225,7 +320,7 @@ async def run_preflight_checks_multi(
             (
                 _make_composite_key(CHECK_METRIC_FUNCTIONALITY, ts_id_str),
                 check_metric_functionality(
-                    db,
+                    off_loop,
                     user,
                     ts_id,
                     metric_mode,
@@ -310,8 +405,7 @@ async def run_preflight_checks(
     publish: bool = True,
 ) -> List[PreflightCheckResult]:
     """Run preflight checks for a single test set (backward compat)."""
-    test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
-    ts_name = test_set.name if test_set else str(test_set_id)
+    ts_name = await anyio.to_thread.run_sync(_test_set_name, db, test_set_id)
     return await run_preflight_checks_multi(
         db=db,
         user=user,

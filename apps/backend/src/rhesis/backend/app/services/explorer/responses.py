@@ -1,8 +1,9 @@
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
+import anyio
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import test_set as test_set_crud
@@ -19,6 +20,43 @@ from rhesis.backend.app.services.explorer.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _collect_output_work_items(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    test_ids: Optional[List[UUID]],
+    topic: Optional[str],
+    include_subtopics: bool,
+    overwrite: bool,
+) -> Tuple[List[Tuple[str, str]], int]:
+    """Resolve the test set and reduce its eligible tests to ``(test_id, prompt)`` pairs.
+
+    Runs in a worker thread. The ORM objects stay inside it -- only plain strings
+    cross back, so nothing lazy-loads once the caller is back on the event loop.
+
+    Returns the work items plus how many tests were skipped for already having an output.
+    """
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
+    if db_test_set is None:
+        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
+
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+
+    work_items: List[Tuple[str, str]] = []
+    skipped = 0
+    for t in _build_eligible_tests(tests, test_ids, topic, include_subtopics):
+        # Skip tests that already have an output unless overwriting
+        if not overwrite and (t.test_metadata or {}).get("output", "").strip():
+            skipped += 1
+            continue
+        work_items.append((str(t.id), (t.prompt.content or "").strip()))
+
+    return work_items, skipped
 
 
 async def generate_outputs_for_tests(
@@ -41,7 +79,8 @@ async def generate_outputs_for_tests(
     Parameters
     ----------
     db : Session
-        Database session
+        Database session. Only ever touched inside ``anyio.to_thread.run_sync``,
+        so an ``async def`` caller can hand over its request session.
     test_set_identifier : str
         Test set identifier (UUID, nano_id, or slug)
     endpoint_id : str
@@ -67,28 +106,21 @@ async def generate_outputs_for_tests(
     GenerateOutputsResponse
         Counts plus the per-test ``updated`` and ``failed`` items.
     """
-    db_test_set = test_set_crud.resolve_test_set(
-        test_set_identifier, db, organization_id=organization_id
+    # --- Phase A: resolve the test set and extract plain data, off the event loop ---
+    work_items, skipped = await anyio.to_thread.run_sync(
+        _collect_output_work_items,
+        db,
+        test_set_identifier,
+        organization_id,
+        user_id,
+        test_ids,
+        topic,
+        include_subtopics,
+        overwrite,
     )
-    if db_test_set is None:
-        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
-
-    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
-
-    # Skip tests that already have an output unless overwriting
-    eligible = []
-    skipped = 0
-    for t in _build_eligible_tests(tests, test_ids, topic, include_subtopics):
-        if not overwrite and (t.test_metadata or {}).get("output", "").strip():
-            skipped += 1
-            continue
-        eligible.append(t)
 
     updated: List[GenerateOutputsUpdatedItem] = []
     failed: List[GenerateOutputsFailedItem] = []
-
-    # --- Phase A: extract plain data from ORM objects ---
-    work_items = [(str(t.id), (t.prompt.content or "").strip()) for t in eligible]
 
     # --- Phase B: concurrent invocations, each with its own DB session ---
     # Keep concurrency within connection pool limits (pool_size=10, max_overflow=20).
@@ -109,9 +141,9 @@ async def generate_outputs_for_tests(
 
     results = await asyncio.gather(*[_invoke_one(tid, pc) for tid, pc in work_items])
 
-    # --- Phase C: writes on the main request session ---
+    # --- Phase C: writes on the main request session, off the event loop ---
     outputs = {tid: output for tid, output, error in results if not error}
-    written = set(set_explorer_test_outputs(db, outputs))
+    written = set(await anyio.to_thread.run_sync(set_explorer_test_outputs, db, outputs))
 
     # Reported in invocation order; tests whose row no longer exists are silently dropped.
     for test_id_str, output, error in results:

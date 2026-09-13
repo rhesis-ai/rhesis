@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String
+from sqlalchemy import Column, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -27,6 +27,7 @@ class TestRun(
     CountsMixin,
 ):
     __tablename__ = "test_run"
+    __table_args__ = (Index("ix_test_run_org_created", "organization_id", "created_at"),)
 
     user_id = Column(GUID(), ForeignKey("user.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"), index=True)

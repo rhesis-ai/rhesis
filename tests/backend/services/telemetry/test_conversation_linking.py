@@ -465,7 +465,10 @@ class TestConversationLinkingCacheInMemory:
         cache = ConversationLinkingCache()
         with (
             patch.dict("os.environ", {"BROKER_URL": "redis://invalid:9999/0"}),
-            patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=ConnectionError("unavailable"),
+            ),
         ):
             cache.initialize()
 

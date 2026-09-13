@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -8,11 +8,23 @@ from rhesis.backend.app.crud.token import get_token_by_value
 
 logger = logging.getLogger(__name__)
 
+#: Minimum gap between two ``last_used_at`` writes for one token. Without it every
+#: API-token request is an UPDATE inside the auth transaction; "last used within
+#: the last five minutes" is all the field is read for.
+TOKEN_USAGE_WRITE_INTERVAL = timedelta(minutes=5)
+
 
 def update_token_usage(db: Session, token) -> None:
-    """Update the last_used_at timestamp for a token."""
+    """Stamp ``last_used_at``, at most once per :data:`TOKEN_USAGE_WRITE_INTERVAL`."""
     try:
-        token.last_used_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        last_used = token.last_used_at
+        if last_used is not None:
+            if last_used.tzinfo is None:
+                last_used = last_used.replace(tzinfo=timezone.utc)
+            if now - last_used < TOKEN_USAGE_WRITE_INTERVAL:
+                return
+        token.last_used_at = now
         db.add(token)
         # Transaction commit/rollback is handled by the session context manager
     except Exception as e:

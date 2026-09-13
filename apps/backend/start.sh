@@ -112,6 +112,9 @@ start_server() {
     local workers="${WORKERS:-4}"
     local timeout="${TIMEOUT:-60}"
 
+    # Postgres application_name (database.py); the worker sets its own roles.
+    export RHESIS_PROCESS_ROLE="${RHESIS_PROCESS_ROLE:-rhesis-backend-api}"
+
     log "${BLUE}📋 Server Configuration:${NC}"
     log "  Host: $host"
     log "  Port: $port"

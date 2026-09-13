@@ -22,7 +22,7 @@ Run it with an env file (see [Environment configuration](/contribute/backend/env
 
 ## Migrations
 
-The API applies migrations on boot: `start.sh` calls `migrate.sh`, which runs `alembic upgrade head`. Setting `SKIP_MIGRATIONS=true` on the service suppresses that, for deployments that apply schema changes as a separate step.
+By default the API applies migrations on boot: `start.sh` calls `migrate.sh`, which runs `alembic upgrade head`. Setting `SKIP_MIGRATIONS=true` on the service suppresses that, for deployments that apply schema changes as a separate step. The Helm chart does this: `templates/backend/migrate-job.yaml` runs `migrate.sh` as a pre-sync Job and sets `SKIP_MIGRATIONS=true` on the backend pods (`backend.migrations.job.enabled`).
 
 Make migrations backward compatible so a new revision can run before the new code is fully rolled out. To roll a schema change back:
 

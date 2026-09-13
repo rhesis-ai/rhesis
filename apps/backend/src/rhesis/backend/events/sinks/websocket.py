@@ -5,10 +5,11 @@ push must never fail the work it describes -- the row in ``activity_log``
 (and the next poll, if a client falls back to one) is still the record of
 truth. This sink only shortens the time until a connected client sees it.
 
-Opens its own read-only session to resolve ``job_id`` from
-``celery_task_id``, for the same cross-connection-visibility reason
-``ActivityLogSink`` does: the caller's row may only be flushed, not
-committed, on the caller's own session.
+Opens no session when the event carries ``job_id`` (see types.py) -- the
+channel name is the only thing it needs. Otherwise it opens its own
+read-only session to resolve it from ``celery_task_id``, for the same
+cross-connection-visibility reason ``ActivityLogSink`` does: the caller's
+row may only be flushed, not committed, on the caller's own session.
 """
 
 import logging
@@ -73,8 +74,8 @@ class WebSocketSink:
         return isinstance(event, _HANDLED)
 
     def deliver(self, event: PlatformEvent, db: Optional[Session]) -> None:
-        """Ignores ``db``: this sink's channel resolution needs its own
-        session for the same reason ``ActivityLogSink`` does. See the module
+        """Ignores ``db``: when a lookup is needed at all it uses its own
+        session, for the same reason ``ActivityLogSink`` does. See the module
         docstring.
         """
         if isinstance(event, ActivityLogged):
@@ -82,21 +83,9 @@ class WebSocketSink:
         else:
             level, message = render(event)
 
-        if not event.celery_task_id:
-            return
-
-        with get_db_with_tenant_variables(
-            str(event.organization_id),
-            str(event.user_id) if event.user_id else "",
-            str(event.project_id) if event.project_id else "",
-        ) as own_db:
-            job = get_job_by_celery_task_id(
-                own_db, event.celery_task_id, organization_id=str(event.organization_id)
-            )
-            # Read the id inside the block: the instance is detached once the
-            # session closes, and this must not depend on expire_on_commit
-            # staying False.
-            job_id = str(job.id) if job is not None else None
+        job_id = str(event.job_id) if event.job_id is not None else None
+        if job_id is None and event.celery_task_id:
+            job_id = self._lookup_job_id(event)
 
         if job_id is None:
             # No job row to key a channel on -- nobody can be subscribed to
@@ -124,3 +113,18 @@ class WebSocketSink:
                 ),
                 channel,
             )
+
+    @staticmethod
+    def _lookup_job_id(event: PlatformEvent) -> Optional[str]:
+        with get_db_with_tenant_variables(
+            str(event.organization_id),
+            str(event.user_id) if event.user_id else "",
+            str(event.project_id) if event.project_id else "",
+        ) as own_db:
+            job = get_job_by_celery_task_id(
+                own_db, event.celery_task_id, organization_id=str(event.organization_id)
+            )
+            # Read the id inside the block: the instance is detached once the
+            # session closes, and this must not depend on expire_on_commit
+            # staying False.
+            return str(job.id) if job is not None else None

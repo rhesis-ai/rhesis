@@ -5,8 +5,9 @@ Dependency injection functions for FastAPI.
 import logging
 import uuid
 from functools import lru_cache
-from typing import Optional
+from typing import NewType, Optional
 
+import anyio
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -384,12 +385,13 @@ async def bind_affordance_context(
 
     token = set_affordance_context(current_user, request, db)
     try:
-        # Eagerly resolve effective caps here (inside the async dependency) so the
-        # synchronous DB/Redis I/O for effective_permissions() does not happen lazily
-        # during response serialization, where it would block the event loop.
+        # Resolve effective caps now, in the threadpool: this dependency is async so
+        # the ContextVar is visible to serialization, but effective_permissions() is
+        # sync DB/Redis I/O that must not run on the event loop, and running it lazily
+        # during serialization would put it there.
         ctx = current_affordance_context()
         if ctx is not None:
-            ctx.precompute()
+            await anyio.to_thread.run_sync(ctx.precompute)
         yield
     finally:
         reset_affordance_context(token)
@@ -412,6 +414,38 @@ def get_db_with_tenant_context(
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         yield db, organization_id, user_id
+
+
+#: A ``Session`` an ``async def`` handler has promised to touch only inside
+#: ``anyio.to_thread.run_sync``. See :func:`get_off_loop_tenant_session`.
+OffLoopSession = NewType("OffLoopSession", Session)
+
+
+def get_off_loop_tenant_session(
+    db: Session = Depends(get_tenant_db_session),
+) -> OffLoopSession:
+    """Tenant session for an ``async def`` handler that only uses it in a worker thread.
+
+    An ``async def`` handler runs on the event loop, where one psycopg2 call blocks
+    every other request in the worker process. A handler that has to stay async (it
+    awaits an LLM, an outbound HTTP call or a stream) and still needs the database
+    declares this instead of ``get_tenant_db_session`` and does every session
+    operation through ``await anyio.to_thread.run_sync(...)``. The ``OffLoopSession``
+    annotation is that promise made visible: ``tests/backend/test_no_sync_db_on_loop.py``
+    fails on a plain ``Session`` in a coroutine handler and cannot check the promise
+    itself, so code review does.
+
+    The object is the very session ``get_tenant_db_session`` yields, so FastAPI's
+    per-request dedup and the test suite's dependency overrides still apply.
+    Deliberately ``def``: FastAPI then resolves it in the threadpool, which is also
+    what tells the guard test the Session below it never reaches the loop.
+    """
+    return OffLoopSession(db)
+
+
+def get_off_loop_db_session(db: Session = Depends(get_db_session)) -> OffLoopSession:
+    """``get_db_session`` counterpart of :func:`get_off_loop_tenant_session`."""
+    return OffLoopSession(db)
 
 
 # Backward compatibility alias for requirement endpoints

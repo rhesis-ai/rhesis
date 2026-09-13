@@ -308,7 +308,7 @@ class _WorkerContextFilter(logging.Filter):
 #: only access traffic an idle pod produces. Failures still log -- a 503 from a
 #: probe is the signal worth having. Same idea as EXCLUDED_PREFIXES in
 #: telemetry/middleware.py, applied to access logs instead of spans.
-_QUIET_ACCESS_PATHS = frozenset({"/health", "/healthz"})
+_QUIET_ACCESS_PATHS = frozenset({"/health", "/healthz", "/ready"})
 
 
 class _QuietProbeAccessFilter(logging.Filter):

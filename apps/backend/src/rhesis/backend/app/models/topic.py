@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -8,6 +8,7 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class Topic(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "topic"
+    __table_args__ = (Index("ix_topic_org_created", "organization_id", "created_at"),)
     name = Column(String)
     description = Column(Text)
     parent_id = Column(GUID(), ForeignKey("topic.id"))

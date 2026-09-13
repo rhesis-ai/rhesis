@@ -7,6 +7,7 @@ still reference RedisDatabase for DB number allocation.
 """
 
 import logging
+import os
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -16,6 +17,67 @@ from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
+#: Fallback ceiling when ANYIO_THREADPOOL_SIZE is unset or unreadable. Mirrors the
+#: default in main.py's lifespan, which is what actually bounds concurrent callers.
+_DEFAULT_THREADPOOL_SIZE = 100
+
+#: How long a caller waits for a free pooled connection before giving up. A cache
+#: read is sub-millisecond, so this only trips if Redis itself has stopped
+#: answering -- in which case falling through to the in-memory path is right.
+_POOL_TIMEOUT_SECONDS = 5
+
+_SOCKET_TIMEOUT_SECONDS = 5
+
+
+def default_max_connections() -> int:
+    """Pool ceiling for a sync Redis cache: one connection per possible caller.
+
+    These caches are consulted from the anyio threadpool -- PermissionCache on
+    every authenticated request -- so the honest ceiling is the threadpool's own
+    limiter, which main.py's lifespan sets from ANYIO_THREADPOOL_SIZE. redis-py
+    opens pooled connections lazily, so a high ceiling costs nothing until the
+    concurrency is real.
+
+    The old hardcoded 3 was below any realistic concurrency: at 50 parallel list
+    requests the pool was exhausted and every read raised "Too many connections",
+    which ``_get`` swallowed into a silent fall-through to a database query on the
+    authorization hot path.
+    """
+    raw = os.getenv("ANYIO_THREADPOOL_SIZE")
+    if raw is None:
+        return _DEFAULT_THREADPOOL_SIZE
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            f"ANYIO_THREADPOOL_SIZE={raw!r} is not an integer; "
+            f"sizing Redis cache pools for {_DEFAULT_THREADPOOL_SIZE}"
+        )
+        return _DEFAULT_THREADPOOL_SIZE
+    return max(value, 1)
+
+
+def _create_redis_client(url: str, *, max_connections: int) -> Any:
+    """Build a pooled sync Redis client.
+
+    BlockingConnectionPool, matching services/connector/redis_client.py: the
+    default pool RAISES ``ConnectionError("Too many connections")`` the moment it
+    is full, and every caller here catches that and degrades silently. Blocking
+    makes an over-capacity burst queue for microseconds instead of vanishing.
+    """
+    import redis as redis_pkg
+
+    pool = redis_pkg.BlockingConnectionPool.from_url(
+        url,
+        max_connections=max_connections,
+        timeout=_POOL_TIMEOUT_SECONDS,
+        decode_responses=True,
+        encoding="utf-8",
+        socket_connect_timeout=_SOCKET_TIMEOUT_SECONDS,
+        socket_timeout=_SOCKET_TIMEOUT_SECONDS,
+    )
+    return redis_pkg.Redis(connection_pool=pool)
+
 
 class RedisBackedCache:
     """Sync Redis cache with automatic in-memory fallback.
@@ -24,10 +86,21 @@ class RedisBackedCache:
     This base handles connection lifecycle and primitive operations.
     """
 
-    def __init__(self, redis_db: int, cache_name: str, ttl: int = 120) -> None:
+    def __init__(
+        self,
+        redis_db: int,
+        cache_name: str,
+        ttl: int = 120,
+        max_connections: Optional[int] = None,
+    ) -> None:
         self._redis_db = redis_db
         self._cache_name = cache_name
         self._ttl = ttl
+        # Both clients get the same ceiling; the read replica used to get none at
+        # all, so the two halves of one cache disagreed about their own limits.
+        self._max_connections = (
+            default_max_connections() if max_connections is None else max_connections
+        )
         self._redis: Optional[Any] = None
         self._redis_read: Optional[Any] = None
         self._has_separate_read: bool = False
@@ -56,17 +129,8 @@ class RedisBackedCache:
             return
 
         try:
-            import redis as redis_pkg
-
             cache_url = self._build_redis_url()
-            self._redis = redis_pkg.Redis.from_url(
-                cache_url,
-                decode_responses=True,
-                encoding="utf-8",
-                max_connections=3,
-                socket_connect_timeout=5,
-                socket_timeout=5,
-            )
+            self._redis = _create_redis_client(cache_url, max_connections=self._max_connections)
             self._redis.ping()
             logger.info(
                 f"{self._cache_name} cache: Redis connection established (db {self._redis_db})"
@@ -77,12 +141,8 @@ class RedisBackedCache:
                 read_client = None
                 try:
                     read_url = self._build_redis_url(read=True)
-                    read_client = redis_pkg.Redis.from_url(
-                        read_url,
-                        decode_responses=True,
-                        encoding="utf-8",
-                        socket_connect_timeout=5,
-                        socket_timeout=5,
+                    read_client = _create_redis_client(
+                        read_url, max_connections=self._max_connections
                     )
                     read_client.ping()
                     self._redis_read = read_client

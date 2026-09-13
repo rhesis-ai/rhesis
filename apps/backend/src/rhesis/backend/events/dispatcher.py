@@ -51,10 +51,10 @@ def _redact(event: PlatformEvent) -> PlatformEvent:
 def emit(event: PlatformEvent, *, db: Optional[Session] = None) -> None:
     """Dispatch ``event`` to every registered sink that handles it.
 
-    ``db``, when given, is for a sink that needs to join the caller's
-    transaction (a future critical audit sink -- see ``sinks/base.py``). No
-    sink shipped today reads it; the parameter exists now because adding
-    that sink later must not mean changing every call site's signature.
+    ``db``, when given, is for a sink that joins the caller's transaction
+    rather than opening its own: ``ActivityLogSink`` flushes onto it (and a
+    future critical audit sink would too -- see ``sinks/base.py``). The
+    caller keeps ownership of the commit. Sinks that only publish ignore it.
 
     Sinks are isolated from each other: one raising does not stop later
     sinks from receiving the event. ``critical`` decides what a failure

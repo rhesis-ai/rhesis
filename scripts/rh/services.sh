@@ -2,7 +2,7 @@
 # Service launchers for ./rh dev <service>, plus ./rh test.
 
 CELERY_WORKER_CONCURRENCY="${CELERY_WORKER_CONCURRENCY:-4}"
-CELERY_WORKER_PREFETCH_MULTIPLIER="${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
+CELERY_WORKER_PREFETCH_MULTIPLIER="${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}"
 
 # Ports come from ports.sh, which ./rh sources ahead of this file.
 
@@ -235,8 +235,7 @@ start_worker() {
         --queues=celery,execution,telemetry,architect \
         --concurrency="${CELERY_WORKER_CONCURRENCY}" \
         --prefetch-multiplier="${CELERY_WORKER_PREFETCH_MULTIPLIER}" \
-        --optimization=fair \
-        -E &
+        --optimization=fair &
     WORKER_PID=$!
 
     wait "$WORKER_PID"

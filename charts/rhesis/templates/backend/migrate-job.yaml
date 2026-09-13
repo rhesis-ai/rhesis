@@ -1,0 +1,75 @@
+{{- if and .Values.backend.enabled .Values.backend.migrations.job.enabled }}
+---
+# Runs `alembic upgrade head` (via migrate.sh) before the backend Deployment
+# rolls. ArgoCD runs it as a PreSync hook; plain Helm runs it as a
+# pre-install/pre-upgrade hook. BeforeHookCreation keeps the last Job (and its
+# logs) around until the next sync replaces it, so a failure is inspectable.
+#
+# Database settings are inlined from values instead of envFrom the chart's
+# ConfigMap: hooks run before the sync creates chart resources, so on a fresh
+# install the ConfigMap does not exist yet. The secret is ESO-managed and does.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backend-migrate
+    tier: backend
+    {{- include "rhesis.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.backend.migrations.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.backend.migrations.job.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app: backend-migrate
+        tier: backend
+    spec:
+      restartPolicy: Never
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.backend) | nindent 6 }}
+      containers:
+        - name: migrate
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.backend "global" .Values.global) | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.backend) | nindent 10 }}
+          command: ["./migrate.sh"]
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+            - name: DB_HOST
+              value: {{ include "rhesis.postgresql.host" . | quote }}
+            - name: DB_DRIVER
+              value: {{ .Values.config.dbDriver | quote }}
+            - name: DB_PORT
+              value: {{ .Values.config.dbPort | quote }}
+            - name: DB_NAME
+              value: {{ .Values.config.dbName | quote }}
+            {{- if not .Values.database.existingSecret }}
+            # With database.existingSecret the helper below sets this from the
+            # secret; env is a map keyed by name, so never emit it twice.
+            - name: APP_DB_USER
+              value: {{ .Values.config.dbUser | quote }}
+            {{- end }}
+            - name: BACKEND_ENV
+              value: {{ .Values.config.environment | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            - name: JSON_LOGGER_ENABLED
+              value: {{ .Values.config.jsonLoggerEnabled | quote }}
+{{- include "rhesis.database.cnpgUserPassEnv" . | nindent 12 }}
+            {{- with .Values.backend.env }}
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.backend.migrations.job.resources | nindent 12 }}
+{{- end }}

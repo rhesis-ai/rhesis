@@ -25,7 +25,7 @@ Order of operations during startup:
 1. Core imports and includes its routers.
 2. Core calls ``bootstrap_ee(app)``; EE extends ``PUBLIC_ROUTES`` with its
    own public paths and includes its routers.
-3. Core defines app-level routes (``/``, ``/health``).
+3. Core defines app-level routes (``/``, ``/health``, ``/ready``).
 4. Core calls ``apply_auth_backstop(app)`` last, which evaluates every
    registered route against the now-complete ``PUBLIC_ROUTES``.
 
@@ -58,6 +58,7 @@ PUBLIC_ROUTES: list[str] = [
     "/home/",
     "/feedback/",
     "/health",
+    "/ready",
     "/docs",
     "/redoc",
     "/openapi.json",

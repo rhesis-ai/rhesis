@@ -1,4 +1,15 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Table, and_, case, inspect, select
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    Table,
+    and_,
+    case,
+    inspect,
+    select,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_session, relationship
@@ -41,6 +52,7 @@ class Test(
     FilesMixin,
 ):
     __tablename__ = "test"
+    __table_args__ = (Index("ix_test_org_created", "organization_id", "created_at"),)
 
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
     test_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

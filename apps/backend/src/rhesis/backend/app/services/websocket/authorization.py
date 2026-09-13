@@ -88,7 +88,7 @@ class ChannelAuthorizer:
         re.IGNORECASE,
     )
 
-    async def authorize(
+    def authorize_sync(
         self,
         user: User,
         channel: str,
@@ -135,7 +135,7 @@ class ChannelAuthorizer:
 
         # Protected resources: verify ownership via organization
         if prefix in self.PROTECTED_RESOURCE_PREFIXES:
-            return await self._authorize_resource_channel(
+            return self._authorize_resource_channel(
                 user, prefix, resource_id, db=db, principal=principal
             )
 
@@ -172,7 +172,7 @@ class ChannelAuthorizer:
             return False, "Cannot subscribe to other organization's channel"
         return True, None
 
-    async def _authorize_resource_channel(
+    def _authorize_resource_channel(
         self,
         user: User,
         prefix: str,

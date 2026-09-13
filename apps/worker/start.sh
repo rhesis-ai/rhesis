@@ -10,8 +10,8 @@ set -e
 # ---------------------------------------------------------------------------
 : "${CELERY_WORKER_CONCURRENCY:=2}"            # threads for the main worker
 : "${CELERY_ARCHITECT_CONCURRENCY:=2}"         # threads for the architect worker
-: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=4}"    # prefetch multiplier for the main worker
-: "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=4}" # prefetch multiplier for the architect worker
+: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=1}"    # prefetch multiplier for the main worker (matches celery/config.py)
+: "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=1}" # prefetch multiplier for the architect worker
 : "${LOG_LEVEL:=INFO}"                         # application logs (set_logger() root logger)
 : "${CELERY_WORKER_LOGLEVEL:=$LOG_LEVEL}"      # celery's own task-lifecycle logger; defaults to LOG_LEVEL
 : "${CELERY_WORKER_OPTS:=}"                   # extra flags passed to both workers
@@ -238,10 +238,11 @@ echo "Starting Celery worker with full output..."
 #
 # Uses the threads pool: no fork(), so no fork-safety issues with native
 # libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
-# work (LLM API calls, DB queries). -E enables events for Flower/monitoring.
+# work (LLM API calls, DB queries). No -E: celery/config.py turns task events
+# off; add it via CELERY_WORKER_OPTS when Flower needs a live task view.
 
-MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
-ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
+MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
+ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
 
 echo "--- Main worker ---"
 echo "Command:     $MAIN_CMD"
@@ -259,13 +260,15 @@ echo "Pool:        threads"
 echo "Log level:   $CELERY_WORKER_LOGLEVEL"
 echo "Extra opts:  ${CELERY_WORKER_OPTS:-none}"
 
-# Start main worker in background
-$MAIN_CMD &
+# Start main worker in background. RHESIS_PROCESS_ROLE becomes the Postgres
+# application_name (database.py), so pg_stat_activity can tell the two workers
+# and the API apart.
+RHESIS_PROCESS_ROLE=rhesis-celery-main $MAIN_CMD &
 MAIN_PID=$!
 echo "Main Celery worker started with PID: $MAIN_PID"
 
 # Start architect worker in background
-$ARCHITECT_CMD &
+RHESIS_PROCESS_ROLE=rhesis-celery-architect $ARCHITECT_CMD &
 ARCHITECT_PID=$!
 echo "Architect Celery worker started with PID: $ARCHITECT_PID"
 

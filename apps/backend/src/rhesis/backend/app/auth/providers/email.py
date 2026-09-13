@@ -97,6 +97,26 @@ class EmailProvider(AuthProvider):
         Raises:
             HTTPException: If credentials are invalid or missing
         """
+        return await anyio.to_thread.run_sync(self.authenticate_sync, email, password, db)
+
+    def authenticate_sync(
+        self,
+        email: Optional[str],
+        password: Optional[str],
+        db: Optional[Session],
+    ) -> AuthUser:
+        """Blocking body of :meth:`authenticate`; must run in a worker thread.
+
+        Both the user lookup (psycopg2) and the bcrypt compare block, so this
+        never runs on the event loop. Callers that are already in a thread --
+        ``/auth/login/email`` -- call this directly rather than paying a second
+        thread hop.
+
+        The checks stay in their original order: a missing credential is
+        rejected before any lookup, and a user with no password_hash is
+        rejected before the bcrypt compare, so the cost profile of every
+        failure mode is unchanged.
+        """
         if not email or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -209,6 +229,23 @@ class EmailProvider(AuthProvider):
                 detail="Database session required for registration",
             )
 
+        return await anyio.to_thread.run_sync(self.register_sync, email, password, name, db)
+
+    def register_sync(
+        self,
+        email: str,
+        password: str,
+        name: Optional[str],
+        db: Session,
+    ) -> AuthUser:
+        """Blocking tail of :meth:`register`; must run in a worker thread.
+
+        Everything here blocks: the MX lookup is DNS I/O, the uniqueness check
+        is a query, bcrypt burns a core, and the insert is another query. The
+        password policy check is *not* here -- it stays awaited in
+        :meth:`register` so a weak password is still rejected before we spend a
+        DNS round trip or a bcrypt hash on it.
+        """
         # Import here to avoid circular imports
         from rhesis.backend.app.auth.disposable_email import screen_signup_email
         from rhesis.backend.app.crud import user as user_crud
@@ -216,11 +253,8 @@ class EmailProvider(AuthProvider):
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
         # Validate, normalize, and verify the email domain can receive mail.
-        # Runs in a thread since it does blocking DNS I/O and this is an async endpoint.
         try:
-            normalized_email = await anyio.to_thread.run_sync(
-                validate_and_normalize_email, email, True
-            )
+            normalized_email = validate_and_normalize_email(email, True)
             screen_signup_email(normalized_email, source="password_register")
         except ValueError as e:
             raise HTTPException(

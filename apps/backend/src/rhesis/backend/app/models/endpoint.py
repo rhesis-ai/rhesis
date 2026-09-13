@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.orm import relationship
 
@@ -16,6 +16,7 @@ from .mixins import ActivityTrackableMixin, TagsMixin
 
 class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
     __tablename__ = "endpoint"
+    __table_args__ = (Index("ix_endpoint_org_created", "organization_id", "created_at"),)
     # Core Fields
     name = Column(String, nullable=False)
     description = Column(String)

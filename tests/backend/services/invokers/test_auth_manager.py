@@ -217,3 +217,78 @@ class TestAuthenticationManager:
             sample_endpoint_oauth.last_token_expires_at - datetime.now(timezone.utc)
         ).total_seconds()
         assert 1790 < time_until_expiry < 1810
+
+
+class TestTokenRequestTimeout:
+    """The OAuth token request must never wait forever.
+
+    ``requests`` has no default timeout, and this call is made while a worker
+    thread -- or, on the rare mid-await refresh, the event loop -- is held.
+    """
+
+    def test_post_carries_a_connect_and_read_timeout(self, mock_db, sample_endpoint_oauth):
+        from rhesis.backend.app.services.invokers.auth.manager import TOKEN_REQUEST_TIMEOUT
+
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "t", "expires_in": 3600}
+        mock_response.raise_for_status = Mock()
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
+            AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        assert mock_post.call_args[1]["timeout"] == TOKEN_REQUEST_TIMEOUT
+        connect, read = TOKEN_REQUEST_TIMEOUT
+        assert 0 < connect <= 10
+        assert 0 < read <= 30
+
+
+class TestPrefetchToken:
+    """``prefetch_token`` is what keeps the OAuth round trip off the event loop."""
+
+    def test_fetches_when_the_client_credentials_cache_expired(
+        self, mock_db, sample_endpoint_oauth
+    ):
+        sample_endpoint_oauth.last_token_expires_at = datetime.now(timezone.utc) - timedelta(
+            hours=1
+        )
+
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "prefetched", "expires_in": 3600}
+        mock_response.raise_for_status = Mock()
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
+            AuthenticationManager.prefetch_token(mock_db, sample_endpoint_oauth)
+
+        # The invocation that follows now finds a cached token and makes no request.
+        assert sample_endpoint_oauth.last_token == "prefetched"
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post"
+        ) as mock_post:
+            assert AuthenticationManager.get_valid_token(None, sample_endpoint_oauth) == (
+                "prefetched"
+            )
+        mock_post.assert_not_called()
+
+    def test_leaves_a_valid_cached_token_alone(self, mock_db, sample_endpoint_oauth):
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post"
+        ) as mock_post:
+            AuthenticationManager.prefetch_token(mock_db, sample_endpoint_oauth)
+
+        mock_post.assert_not_called()
+        assert sample_endpoint_oauth.last_token == "cached-access-token"
+
+    def test_does_nothing_for_other_auth_types(self, mock_db, sample_endpoint_rest):
+        """A bearer endpoint reads a stored column -- there is nothing to fetch."""
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post"
+        ) as mock_post:
+            AuthenticationManager.prefetch_token(mock_db, sample_endpoint_rest)
+
+        mock_post.assert_not_called()

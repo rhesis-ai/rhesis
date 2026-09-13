@@ -209,7 +209,6 @@ def execute_tests_as_batch(
         run_batch(
             ctx,
             test_ids,
-            on_progress=on_progress,
             on_emit=on_emit,
             on_test_phase=on_test_phase,
         )
@@ -224,6 +223,9 @@ def execute_tests_as_batch(
     failed = sum(1 for r in results if r.get("status") == "failed")
     cancelled = sum(1 for r in results if r.get("status") == "cancelled")
     endpoint_errors = sum(1 for r in results if r.get("status") == "endpoint_error")
+    # The only progress write from this side: per-test ticks happen inside
+    # persist_result's transaction, and tests that never persisted (skipped,
+    # cancelled) never ticked, so this settles the counter at the total.
     if on_progress:
         on_progress(total_tests, total_tests)
     if on_emit:

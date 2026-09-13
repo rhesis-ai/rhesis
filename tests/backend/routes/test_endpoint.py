@@ -8,6 +8,7 @@ management system including CRUD operations and business logic.
 Run with: python -m pytest tests/backend/routes/test_endpoint.py -v
 """
 
+import json
 import uuid
 from typing import Any, Dict
 from unittest.mock import AsyncMock, Mock, patch
@@ -16,6 +17,8 @@ import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
+
+from rhesis.backend.app import models
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
@@ -602,3 +605,116 @@ class TestEndpointHealthChecks(EndpointTestMixin, BaseEntityTests):
                 json={"input": "health check"},
             )
             assert response.status_code == status.HTTP_200_OK
+
+
+def _mock_http_client(payload: Dict[str, Any]) -> AsyncMock:
+    """An httpx AsyncClient stand-in that answers every POST with ``payload``."""
+    http_response = Mock()
+    http_response.status_code = 200
+    http_response.json.return_value = payload
+    http_response.raise_for_status = Mock()
+    http_response.text = json.dumps(payload)
+    http_response.headers = {}
+    http_response.reason_phrase = "OK"
+
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=http_response)
+    client.is_closed = False
+    return client
+
+
+@pytest.mark.integration
+class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
+    """The three routes that invoke a target while holding a request session.
+
+    All three keep their database work in a worker thread now
+    (``tests/backend/test_no_sync_db_on_loop.py``), which for /invoke means the
+    trace is collected in memory and written after the call rather than during
+    it. These lock in what that restructuring must not change.
+    """
+
+    def test_invoke_endpoint_persists_invocation_trace(
+        self, authenticated_client: TestClient, working_endpoint, test_db
+    ):
+        """The invocation span is written, and its carrier never reaches the response."""
+        http_client = _mock_http_client({"data": {"response": "hello", "confidence": 0.9}})
+
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=http_client,
+        ):
+            response = authenticated_client.post(
+                self.endpoints.invoke(working_endpoint["id"]), json={"input": "Test query"}
+            )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        data = response.json()
+        # The deferred trace is an in-memory dataclass: it must be taken off the
+        # result before it becomes the HTTP response.
+        assert "_deferred_trace" not in data
+        assert "deferred_trace" not in data
+
+        trace_id = data["trace_id"]
+        stored = test_db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
+        assert stored, "the invocation span should be stored before the response returns"
+
+    def test_test_endpoint_configuration(self, authenticated_client: TestClient):
+        """POST /endpoints/test invokes a transient config with its bearer token."""
+        http_client = _mock_http_client({"answer": "pong"})
+        test_config = {
+            "connection_type": "REST",
+            "url": "https://api.example.com/v1/echo",
+            "method": "POST",
+            "request_headers": {"Content-Type": "application/json"},
+            "request_mapping": {"query": "{{input}}"},
+            "response_mapping": {"output": "$.answer"},
+            "auth_type": "bearer_token",
+            "auth_token": "test-secret-token",
+            "input_data": {"input": "ping"},
+        }
+
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=http_client,
+        ):
+            response = authenticated_client.post("/endpoints/test", json=test_config)
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["output"] == "pong"
+
+        call_kwargs = http_client.post.call_args.kwargs
+        assert call_kwargs["json"] == {"query": "ping"}
+        assert call_kwargs["headers"]["Authorization"] == "Bearer test-secret-token"
+
+    def test_test_endpoint_mapping_uses_draft_mapping(
+        self, authenticated_client: TestClient, working_endpoint
+    ):
+        """POST /endpoints/{id}/test sends the draft mapping, not the stored one."""
+        http_client = _mock_http_client({"data": {"response": "drafted"}})
+        mapping_request = {
+            "request_mapping": {"draft_query": "{{input}}"},
+            "response_mapping": {"output": "$.data.response"},
+            "input_data": {"input": "hello"},
+        }
+
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=http_client,
+        ):
+            response = authenticated_client.post(
+                f"/endpoints/{working_endpoint['id']}/test", json=mapping_request
+            )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["output"] == "drafted"
+        assert http_client.post.call_args.kwargs["json"] == {"draft_query": "hello"}
+
+    def test_test_endpoint_mapping_nonexistent_endpoint(self, authenticated_client: TestClient):
+        """A mapping test against an unknown endpoint is a 404, raised off the loop."""
+        response = authenticated_client.post(
+            f"/endpoints/{uuid.uuid4()}/test",
+            json={"request_mapping": {}, "response_mapping": {}, "input_data": {"input": "x"}},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in response.json()["detail"].lower()

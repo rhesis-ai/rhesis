@@ -9,7 +9,8 @@ Every registered ``APIRoute`` must satisfy one of the following conditions:
    (authenticated but deliberately exempt from the permission check — e.g.
    onboarding, bootstrap endpoints).
 3. Its path is in the capability deriver's skip list (``/``, ``/health``,
-   ``/docs``, ``/openapi.json``, ``/redoc`` — system / infrastructure routes).
+   ``/ready``, ``/docs``, ``/openapi.json``, ``/redoc`` — system /
+   infrastructure routes).
 4. :func:`~rhesis.backend.app.auth.capabilities.get_capability_for_route`
    returns a non-``None`` capability string (so ``apply_authz_backstop`` will
    inject ``require_permission``).

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -25,6 +25,7 @@ class Requirement(
     CountsMixin,
 ):
     __tablename__ = "requirement"
+    __table_args__ = (Index("ix_requirement_org_created", "organization_id", "created_at"),)
     name = Column(String, nullable=False)
     description = Column(Text)
     status_id = Column(GUID(), ForeignKey("status.id"))

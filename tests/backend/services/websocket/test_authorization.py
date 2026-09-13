@@ -48,10 +48,7 @@ class TestChannelAuthorizationSecurity:
     These tests verify the security boundary between users and organizations.
     """
 
-    @pytest.mark.asyncio
-    async def test_user_cannot_subscribe_to_other_users_channel(
-        self, authorizer, mock_user, other_user
-    ):
+    def test_user_cannot_subscribe_to_other_users_channel(self, authorizer, mock_user, other_user):
         """SECURITY: User A cannot subscribe to user:{user_B_id}.
 
         This prevents unauthorized access to user-specific notifications.
@@ -59,16 +56,13 @@ class TestChannelAuthorizationSecurity:
         # Attempt to subscribe to another user's channel
         other_user_channel = f"user:{other_user.id}"
 
-        authorized, error = await authorizer.authorize(mock_user, other_user_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, other_user_channel)
 
         assert authorized is False
         assert error is not None
         assert "other user" in error.lower()
 
-    @pytest.mark.asyncio
-    async def test_user_cannot_subscribe_to_other_orgs_channel(
-        self, authorizer, mock_user, other_user
-    ):
+    def test_user_cannot_subscribe_to_other_orgs_channel(self, authorizer, mock_user, other_user):
         """SECURITY: User A cannot subscribe to org:{other_org_id}.
 
         This prevents cross-organization data leakage.
@@ -76,47 +70,43 @@ class TestChannelAuthorizationSecurity:
         # Attempt to subscribe to another org's channel
         other_org_channel = f"org:{other_user.organization_id}"
 
-        authorized, error = await authorizer.authorize(mock_user, other_org_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, other_org_channel)
 
         assert authorized is False
         assert error is not None
         assert "other organization" in error.lower()
 
-    @pytest.mark.asyncio
-    async def test_user_can_subscribe_to_own_user_channel(self, authorizer, mock_user):
+    def test_user_can_subscribe_to_own_user_channel(self, authorizer, mock_user):
         """User CAN subscribe to their own user channel."""
         own_channel = f"user:{mock_user.id}"
 
-        authorized, error = await authorizer.authorize(mock_user, own_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, own_channel)
 
         assert authorized is True
         assert error is None
 
-    @pytest.mark.asyncio
-    async def test_user_can_subscribe_to_own_org_channel(self, authorizer, mock_user):
+    def test_user_can_subscribe_to_own_org_channel(self, authorizer, mock_user):
         """User CAN subscribe to their own organization's channel."""
         own_org_channel = f"org:{mock_user.organization_id}"
 
-        authorized, error = await authorizer.authorize(mock_user, own_org_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, own_org_channel)
 
         assert authorized is True
         assert error is None
 
-    @pytest.mark.asyncio
-    async def test_unknown_channel_format_is_rejected(self, authorizer, mock_user):
+    def test_unknown_channel_format_is_rejected(self, authorizer, mock_user):
         """SECURITY: Unknown channel formats are rejected (fail-closed).
 
         This prevents potential bypasses using new/unknown channel types.
         """
         unknown_channel = f"unknown_type:{uuid4()}"
 
-        authorized, error = await authorizer.authorize(mock_user, unknown_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, unknown_channel)
 
         assert authorized is False
         assert error is not None
 
-    @pytest.mark.asyncio
-    async def test_malformed_channel_id_is_rejected(self, authorizer, mock_user):
+    def test_malformed_channel_id_is_rejected(self, authorizer, mock_user):
         """SECURITY: Malformed resource IDs are rejected.
 
         This prevents injection attacks and malformed requests.
@@ -124,7 +114,7 @@ class TestChannelAuthorizationSecurity:
         # Non-UUID resource ID
         malformed_channel = "test_run:not-a-valid-uuid"
 
-        authorized, error = await authorizer.authorize(mock_user, malformed_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, malformed_channel)
 
         assert authorized is False
         assert error is not None
@@ -134,40 +124,35 @@ class TestChannelAuthorizationSecurity:
 class TestChannelAuthorizationEdgeCases:
     """Edge case tests for channel authorization."""
 
-    @pytest.mark.asyncio
-    async def test_empty_channel_is_rejected(self, authorizer, mock_user):
+    def test_empty_channel_is_rejected(self, authorizer, mock_user):
         """Empty channel name is rejected."""
-        authorized, error = await authorizer.authorize(mock_user, "")
+        authorized, error = authorizer.authorize_sync(mock_user, "")
 
         assert authorized is False
         assert error is not None
 
-    @pytest.mark.asyncio
-    async def test_none_channel_is_rejected(self, authorizer, mock_user):
+    def test_none_channel_is_rejected(self, authorizer, mock_user):
         """None channel is rejected."""
-        authorized, error = await authorizer.authorize(mock_user, None)
+        authorized, error = authorizer.authorize_sync(mock_user, None)
 
         assert authorized is False
         assert error is not None
 
-    @pytest.mark.asyncio
-    async def test_channel_without_colon_is_rejected(self, authorizer, mock_user):
+    def test_channel_without_colon_is_rejected(self, authorizer, mock_user):
         """Channel without colon separator is rejected."""
-        authorized, error = await authorizer.authorize(mock_user, "nocolon")
+        authorized, error = authorizer.authorize_sync(mock_user, "nocolon")
 
         assert authorized is False
         assert error is not None
 
-    @pytest.mark.asyncio
-    async def test_channel_with_multiple_colons_is_rejected(self, authorizer, mock_user):
+    def test_channel_with_multiple_colons_is_rejected(self, authorizer, mock_user):
         """Channel with multiple colons is rejected."""
-        authorized, error = await authorizer.authorize(mock_user, f"test:run:{uuid4()}")
+        authorized, error = authorizer.authorize_sync(mock_user, f"test:run:{uuid4()}")
 
         assert authorized is False
         assert error is not None
 
-    @pytest.mark.asyncio
-    async def test_protected_resource_channels_allowed_for_authenticated_users(
+    def test_protected_resource_channels_allowed_for_authenticated_users(
         self, authorizer, mock_user
     ):
         """Protected resource channels are allowed for authenticated users.
@@ -176,27 +161,25 @@ class TestChannelAuthorizationEdgeCases:
         """
         test_run_channel = f"test_run:{uuid4()}"
 
-        authorized, error = await authorizer.authorize(mock_user, test_run_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, test_run_channel)
 
         assert authorized is True
         assert error is None
 
-    @pytest.mark.asyncio
-    async def test_test_set_channel_allowed(self, authorizer, mock_user):
+    def test_test_set_channel_allowed(self, authorizer, mock_user):
         """Test set channels are allowed for authenticated users."""
         test_set_channel = f"test_set:{uuid4()}"
 
-        authorized, error = await authorizer.authorize(mock_user, test_set_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, test_set_channel)
 
         assert authorized is True
         assert error is None
 
-    @pytest.mark.asyncio
-    async def test_project_channel_allowed(self, authorizer, mock_user):
+    def test_project_channel_allowed(self, authorizer, mock_user):
         """Project channels are allowed for authenticated users."""
         project_channel = f"project:{uuid4()}"
 
-        authorized, error = await authorizer.authorize(mock_user, project_channel)
+        authorized, error = authorizer.authorize_sync(mock_user, project_channel)
 
         assert authorized is True
         assert error is None

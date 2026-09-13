@@ -1,6 +1,6 @@
 """
 Unit tests for the async-dispatch wiring of the OWASP generation router
-endpoint — calls the route handler coroutine directly (bypassing FastAPI's
+endpoint — calls the route handler directly (bypassing FastAPI's
 dependency injection) with mocked dependencies, mirroring
 test_garak_async_dispatch.py's approach for the sibling Garak router:
 - generate launches generate_and_save_owasp_test_set via launch_job and
@@ -18,8 +18,7 @@ from rhesis.backend.app.schemas.owasp import OwaspFramework, OwaspGenerateReques
 
 @pytest.mark.unit
 class TestGenerateTestSetDispatch:
-    @pytest.mark.asyncio
-    async def test_dispatches_generation_task_and_returns_202_shape(self):
+    def test_dispatches_generation_task_and_returns_202_shape(self):
         request = OwaspGenerateRequest(
             framework=OwaspFramework.LLM,
             purpose="Customer service chatbot for a bank",
@@ -31,7 +30,7 @@ class TestGenerateTestSetDispatch:
         with patch("rhesis.backend.app.routers.owasp.launch_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-owasp-123")
 
-            response = await generate_test_set(
+            response = generate_test_set(
                 request=request,
                 current_user=current_user,
                 db=MagicMock(),
@@ -49,8 +48,7 @@ class TestGenerateTestSetDispatch:
         assert response.framework == OwaspFramework.LLM
         assert response.num_tests == 10
 
-    @pytest.mark.asyncio
-    async def test_defaults_categories_to_none_for_whole_report(self):
+    def test_defaults_categories_to_none_for_whole_report(self):
         """Omitting `categories` must reach the task as None, not an empty
         list -- the task/synthesizer treats None as "every section"."""
         request = OwaspGenerateRequest(purpose="Autonomous coding agent")
@@ -59,7 +57,7 @@ class TestGenerateTestSetDispatch:
         with patch("rhesis.backend.app.routers.owasp.launch_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-owasp-456")
 
-            await generate_test_set(
+            generate_test_set(
                 request=request,
                 current_user=current_user,
                 db=MagicMock(),

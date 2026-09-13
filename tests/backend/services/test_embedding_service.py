@@ -1,5 +1,6 @@
 """Tests for EmbeddingService with async/sync orchestration."""
 
+import inspect
 from unittest.mock import Mock, patch
 
 import pytest
@@ -7,9 +8,10 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestType
-from rhesis.backend.app.models import Requirement, Category, Prompt, Test, Topic, TypeLookup
+from rhesis.backend.app.models import Category, Prompt, Requirement, Test, Topic, TypeLookup
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.services.embedding.services import EmbeddingService
+from rhesis.backend.jobs.embedding import generate_embedding_task
 
 
 @pytest.fixture
@@ -217,6 +219,8 @@ class TestEmbeddingService:
         )
 
         mock_launcher.assert_called_once()
+        # Task args go positionally; the same-named kwargs are launch_job's job-row link.
+        assert mock_launcher.call_args.args == (mock_task, str(test_entity.id), "Test")
         call_kw = mock_launcher.call_args.kwargs
         assert call_kw["entity_id"] == str(test_entity.id)
         assert call_kw["entity_type"] == "Test"
@@ -224,6 +228,43 @@ class TestEmbeddingService:
         assert call_kw["searchable_text"] == test_entity.to_searchable_text()
         assert str(call_kw["current_user"].id) == str(db_user.id)
         assert str(call_kw["current_user"].organization_id) == str(db_user.organization_id)
+
+    @patch.object(generate_embedding_task, "apply_async")
+    def test_enqueue_async_dispatches_arguments_the_task_accepts(
+        self,
+        mock_apply_async,
+        test_db,
+        test_entity,
+        embedding_model,
+        db_user,
+    ):
+        """Through the real launch_job: the Celery task must receive entity_id and entity_type.
+
+        Regression: they used to be passed as task kwargs, launch_job swallowed them as its
+        own tracking parameters, and every embedding fell back to synchronous generation with
+        "missing 2 required positional arguments".
+        """
+        service = EmbeddingService(test_db)
+        service._enqueue_async(
+            str(embedding_model.id),
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(db_user.id),
+            organization_id=str(db_user.organization_id),
+        )
+
+        mock_apply_async.assert_called_once()
+        dispatch = mock_apply_async.call_args.kwargs
+        assert dispatch["args"] == (str(test_entity.id), "Test")
+        assert dispatch["kwargs"] == {
+            "model_id": str(embedding_model.id),
+            "searchable_text": test_entity.to_searchable_text(),
+        }
+        assert dispatch["headers"]["user_id"] == str(db_user.id)
+        assert dispatch["headers"]["organization_id"] == str(db_user.organization_id)
+        # Raises TypeError if what was dispatched does not fit the task's signature.
+        inspect.signature(generate_embedding_task.run).bind(*dispatch["args"], **dispatch["kwargs"])
 
     def test_resolve_model_id_explicit(self, test_db, embedding_model, authenticated_user_id):
         """Test resolving model ID when explicitly provided."""

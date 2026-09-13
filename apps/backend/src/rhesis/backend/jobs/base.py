@@ -1,9 +1,12 @@
 import logging
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional, Tuple
+from uuid import UUID
 
 from celery import Task
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import (
@@ -14,6 +17,18 @@ from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.jobs.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 
 logger = logging.getLogger(__name__)
+
+# Minimum gap between two progress writes for one task run. A batch of 4,000
+# tests would otherwise produce 4,000 job-row updates, each on its own session.
+PROGRESS_WRITE_INTERVAL_S = 1.0
+
+# Marks "not looked up yet" on the request, as distinct from a lookup that
+# found no row (None), so a miss is not retried on every emit.
+_UNRESOLVED = object()
+
+# Where the resolved UUID is cached on the Celery request. Not "job_id": Celery
+# puts the dispatch header of that name on the request itself, as a string.
+_JOB_ID_CACHE_ATTR = "_rhesis_job_id"
 
 # Task database sessions automatically set PostgreSQL session variables for RLS
 # Use self.get_db_session() for tenant-aware database operations
@@ -369,9 +384,56 @@ class BaseJob(Task):
         # Do a soft validation (warning only)
         self.validate_params(args, kwargs)
 
+        # Once per run, so every event below carries it and no sink has to
+        # look the row up from celery_task_id (see events/types.py).
+        self._resolve_job_id()
         self._advance_job_row("running")
 
         return super().before_start(task_id, args, kwargs)
+
+    def _resolve_job_id(self) -> Optional[UUID]:
+        """This run's ``job`` row id, cached on the request after the first call.
+
+        From the ``job_id`` header ``launch_job`` sets; failing that, one
+        indexed lookup by celery_task_id (a message queued before the header
+        existed, or dispatched around ``launch_job``). Never raises.
+
+        The cache attribute is deliberately not ``request.job_id``: Celery
+        merges custom ``apply_async`` headers straight onto the request, so
+        that name already holds the header's raw string and reading it back
+        would return a ``str`` and skip the UUID conversion below.
+        """
+        request = getattr(self, "request", None)
+        if request is None:
+            return None
+        cached = getattr(request, _JOB_ID_CACHE_ATTR, _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached
+
+        job_id: Optional[UUID] = None
+        try:
+            headers = getattr(request, "headers", None) or {}
+            raw = headers.get("job_id") if hasattr(headers, "get") else None
+            if raw:
+                job_id = UUID(str(raw))
+            else:
+                job_id = self._lookup_job_id()
+        except Exception as exc:
+            logger.warning(f"Could not resolve job id: {exc}", exc_info=True)
+        setattr(request, _JOB_ID_CACHE_ATTR, job_id)
+        return job_id
+
+    def _lookup_job_id(self) -> Optional[UUID]:
+        from rhesis.backend.jobs import tracking
+
+        celery_task_id = getattr(self.request, "id", None)
+        org_id, user_id, project_id = self.get_tenant_context()
+        # An untracked type, or an unregistered task with no name, has no row
+        # to find; skip the round trip rather than pay for a guaranteed miss.
+        task_name = getattr(self, "name", None)
+        if not celery_task_id or not org_id or not task_name or not tracking.is_tracked(task_name):
+            return None
+        return tracking.get_job_id(celery_task_id, org_id, user_id or "", project_id or "")
 
     def _advance_job_row(self, transition: str, error: Optional[BaseException] = None) -> None:
         """Move this task's ``job`` row to its next state.
@@ -506,6 +568,7 @@ class BaseJob(Task):
             trace_id=trace_id,
             span_id=span_id,
             celery_task_id=celery_task_id,
+            job_id=self._resolve_job_id(),
             source=source,
         )
 
@@ -531,14 +594,19 @@ class BaseJob(Task):
     def set_progress(self, current: int, total: int) -> None:
         """Update this job's progress counters on the ``job`` row.
 
-        The progress bar in the Jobs list/detail reads these columns.
-        Safe to call at high frequency; each call opens its own session.
+        The progress bar in the Jobs list/detail reads these columns. Safe
+        to call at high frequency: writes are coalesced to one per
+        ``PROGRESS_WRITE_INTERVAL_S`` per task run, except that the first
+        call and any call with ``current == total`` always land. Each write
+        opens its own session.
         """
         try:
             from rhesis.backend.jobs import tracking
 
             celery_task_id = getattr(self.request, "id", None)
             if not celery_task_id:
+                return
+            if not self._progress_write_due(current, total):
                 return
             org_id, user_id, project_id = self.get_tenant_context()
             tracking.set_progress(
@@ -551,6 +619,15 @@ class BaseJob(Task):
             )
         except Exception as exc:
             logger.warning(f"set_progress failed: {exc}")
+
+    def _progress_write_due(self, current: int, total: int) -> bool:
+        """Rate limit for set_progress; records the write time when it says yes."""
+        now = time.monotonic()
+        last = getattr(self.request, "progress_written_at", None)
+        if last is not None and current != total and now - last < PROGRESS_WRITE_INTERVAL_S:
+            return False
+        self.request.progress_written_at = now
+        return True
 
     def set_entity(self, entity_type: str, entity_id: str) -> None:
         """Link this job to the entity it produced (e.g. a TestSet created mid-task).
@@ -577,7 +654,14 @@ class BaseJob(Task):
         except Exception as exc:
             logger.warning(f"set_entity failed: {exc}")
 
-    def emit(self, message: str, level: str = "info", *, context: Optional[dict] = None) -> None:
+    def emit(
+        self,
+        message: str,
+        level: str = "info",
+        *,
+        context: Optional[dict] = None,
+        db: Optional[Session] = None,
+    ) -> None:
         """Write a user-facing line to this job's activity log.
 
         Deliberately not ``log_with_context``: that stays developer logging
@@ -585,6 +669,10 @@ class BaseJob(Task):
         "I recorded this for the user", not "I logged this for me". Also
         writes a DEBUG line via the dispatcher, so stdout keeps the full
         narrative regardless.
+
+        ``db``: a session the line should join instead of the sink opening
+        its own -- see ``events.emit``. Pass it from a task body that is
+        already inside a transaction for the work the line describes.
 
         A narration call is not allowed to fail the job it is narrating, so
         the whole body is wrapped -- unlike ``_emit_lifecycle_event``, which
@@ -616,11 +704,13 @@ class BaseJob(Task):
                     trace_id=trace_id,
                     span_id=span_id,
                     celery_task_id=celery_task_id,
+                    job_id=self._resolve_job_id(),
                     source=job_type_for(getattr(self, "name", "") or ""),
                     level=level,
                     message=message,
                     context=context,
-                )
+                ),
+                db=db,
             )
         except Exception as exc:
             self.log_with_context("warning", f"emit() failed, message dropped: {exc}")

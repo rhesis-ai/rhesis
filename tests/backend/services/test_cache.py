@@ -1,11 +1,19 @@
 """Unit tests for RedisBackedCache."""
 
+import threading
+import time
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
+import redis
 
 from rhesis.backend.app.config.settings import get_redis_settings
-from rhesis.backend.app.services.cache import RedisBackedCache
+from rhesis.backend.app.services.cache import (
+    RedisBackedCache,
+    _create_redis_client,
+    default_max_connections,
+)
 
 
 class _ConcreteCache(RedisBackedCache):
@@ -17,7 +25,10 @@ class TestRedisBackedCacheInMemory:
     """Tests for in-memory fallback behavior."""
 
     def test_initialize_without_redis(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
             cache.initialize()
 
@@ -25,7 +36,10 @@ class TestRedisBackedCacheInMemory:
         assert cache._initialized is True
 
     def test_set_and_get(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=0, cache_name="test", ttl=120)
             cache.initialize()
 
@@ -33,14 +47,20 @@ class TestRedisBackedCacheInMemory:
         assert cache._get("k1") == "v1"
 
     def test_get_missing_key(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=0, cache_name="test", ttl=120)
             cache.initialize()
 
         assert cache._get("missing") is None
 
     def test_delete(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=0, cache_name="test", ttl=120)
             cache.initialize()
 
@@ -49,7 +69,10 @@ class TestRedisBackedCacheInMemory:
         assert cache._get("k") is None
 
     def test_mget(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=0, cache_name="test", ttl=120)
             cache.initialize()
 
@@ -58,7 +81,10 @@ class TestRedisBackedCacheInMemory:
         assert cache._mget(["a", "b", "c"]) == ["1", "2", None]
 
     def test_pipeline_set(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=0, cache_name="test", ttl=120)
             cache.initialize()
 
@@ -67,7 +93,10 @@ class TestRedisBackedCacheInMemory:
         assert cache._get("y") == "20"
 
     def test_getdel(self):
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             cache = _ConcreteCache(redis_db=0, cache_name="test", ttl=120)
             cache.initialize()
 
@@ -82,7 +111,10 @@ class TestRedisBackedCacheInMemory:
         def fake_monotonic():
             return t["v"]
 
-        with patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
             with patch(
                 "rhesis.backend.app.services.cache.time.monotonic",
                 side_effect=fake_monotonic,
@@ -103,20 +135,24 @@ class TestRedisBackedCacheWithMockRedis:
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
-        with patch("redis.Redis.from_url", return_value=mock_client) as from_url:
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ) as create_client:
             cache = _ConcreteCache(redis_db=3, cache_name="redis-test", ttl=90)
             cache.initialize()
 
         assert cache._using_redis is True
         assert cache._initialized is True
-        from_url.assert_called_once()
+        create_client.assert_called_once()
         mock_client.ping.assert_called_once()
 
     def test_set_calls_redis(self):
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
-        with patch("redis.Redis.from_url", return_value=mock_client):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ):
             cache = _ConcreteCache(redis_db=1, cache_name="c", ttl=120)
             cache.initialize()
 
@@ -131,7 +167,9 @@ class TestRedisBackedCacheWithMockRedis:
         mock_client.ping.return_value = True
         mock_client.get.return_value = "from-redis"
 
-        with patch("redis.Redis.from_url", return_value=mock_client):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ):
             cache = _ConcreteCache(redis_db=1, cache_name="c", ttl=120)
             cache.initialize()
 
@@ -142,7 +180,9 @@ class TestRedisBackedCacheWithMockRedis:
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
-        with patch("redis.Redis.from_url", return_value=mock_client):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ):
             cache = _ConcreteCache(redis_db=1, cache_name="c", ttl=120)
             cache.initialize()
 
@@ -154,7 +194,9 @@ class TestRedisBackedCacheWithMockRedis:
         mock_client.ping.return_value = True
         mock_client.mget.return_value = ["a", None, "c"]
 
-        with patch("redis.Redis.from_url", return_value=mock_client):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ):
             cache = _ConcreteCache(redis_db=1, cache_name="c", ttl=120)
             cache.initialize()
 
@@ -168,7 +210,9 @@ class TestRedisBackedCacheWithMockRedis:
         pipe = MagicMock()
         mock_client.pipeline.return_value = pipe
 
-        with patch("redis.Redis.from_url", return_value=mock_client):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ):
             cache = _ConcreteCache(redis_db=1, cache_name="c", ttl=55)
             cache.initialize()
 
@@ -183,7 +227,9 @@ class TestRedisBackedCacheWithMockRedis:
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
-        with patch("redis.Redis.from_url", return_value=mock_client):
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_client
+        ):
             cache = _ConcreteCache(redis_db=1, cache_name="c", ttl=120)
             cache.initialize()
 
@@ -216,7 +262,10 @@ class TestRedisBackedCacheReadReplica:
         clients = iter([write_client, read_client])
 
         with (
-            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=lambda *a, **kw: next(clients),
+            ),
             patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
         ):
             cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
@@ -237,7 +286,10 @@ class TestRedisBackedCacheReadReplica:
         clients = iter([write_client, read_client])
 
         with (
-            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=lambda *a, **kw: next(clients),
+            ),
             patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
         ):
             cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
@@ -273,7 +325,10 @@ class TestRedisBackedCacheReadReplica:
             raise ConnectionError("replica unreachable")
 
         with (
-            patch("redis.Redis.from_url", side_effect=from_url_side_effect),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=from_url_side_effect,
+            ),
             patch.dict("os.environ", {"BROKER_READ_URL": "redis://bad-replica:6379/0"}),
         ):
             cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
@@ -295,7 +350,10 @@ class TestRedisBackedCacheReadReplica:
         clients = iter([write_client, read_client])
 
         with (
-            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=lambda *a, **kw: next(clients),
+            ),
             patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
         ):
             cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
@@ -319,7 +377,10 @@ class TestRedisBackedCacheReadReplica:
         clients = iter([write_client, read_client])
 
         with (
-            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=lambda *a, **kw: next(clients),
+            ),
             patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
         ):
             cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
@@ -340,7 +401,10 @@ class TestRedisBackedCacheReadReplica:
         clients = iter([write_client, read_client])
 
         with (
-            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=lambda *a, **kw: next(clients),
+            ),
             patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
         ):
             cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
@@ -353,3 +417,95 @@ class TestRedisBackedCacheReadReplica:
         assert cache._redis is None
         assert cache._redis_read is None
         assert cache._has_separate_read is False
+
+
+@pytest.mark.unit
+class TestRedisBackedCachePoolSizing:
+    """The pool ceiling the cache asks for is the one the client ends up with.
+
+    The base class used to hardcode ``max_connections=3`` on the primary client
+    and pass nothing at all on the read replica. Three is below any realistic
+    concurrency: PermissionCache is read on every authenticated request from the
+    anyio threadpool (100 threads), so the pool was exhausted under load and
+    every read raised "Too many connections", which ``_get`` swallowed into a
+    silent database query on the authorization hot path.
+    """
+
+    def test_client_gets_the_configured_pool_size(self):
+        client = _create_redis_client("redis://localhost:6379/0", max_connections=42)
+
+        assert isinstance(client.connection_pool, redis.BlockingConnectionPool)
+        assert client.connection_pool.max_connections == 42
+
+    def test_cache_passes_its_pool_size_to_both_clients(self):
+        mock_client = MagicMock()
+        mock_client.ping.return_value = True
+
+        with (
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                return_value=mock_client,
+            ) as create_client,
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=5, cache_name="sized", ttl=60, max_connections=17)
+            cache.initialize()
+
+        # Primary and read replica, both with the same ceiling.
+        assert create_client.call_count == 2
+        assert [c.kwargs["max_connections"] for c in create_client.call_args_list] == [17, 17]
+
+    def test_default_pool_size_follows_the_threadpool_limiter(self):
+        with patch.dict("os.environ", {"ANYIO_THREADPOOL_SIZE": "64"}):
+            assert default_max_connections() == 64
+
+        with patch.dict("os.environ", {}, clear=True):
+            assert default_max_connections() == 100
+
+    def test_more_concurrent_callers_than_the_old_cap_do_not_raise(self):
+        """Twelve threads against a pool of three -- the old hardcoded cap.
+
+        Exercises the pool itself with a stand-in connection, so no server is
+        needed. The size is deliberately the old ``max_connections=3``: a plain
+        ``ConnectionPool`` that small raised ``ConnectionError("Too many
+        connections")`` on the fourth concurrent checkout, so this test fails
+        unless the pool is the blocking kind that queues instead.
+        """
+
+        class _StubConnection(redis.Connection):
+            """A real Connection minus the socket, so the pool needs no server."""
+
+            def connect(self):
+                pass
+
+            def disconnect(self, *args, **kwargs):
+                pass
+
+            def can_read(self, timeout=0):
+                return False
+
+        client = _create_redis_client("redis://localhost:6379/0", max_connections=3)
+        pool = client.connection_pool
+        pool.connection_class = _StubConnection
+
+        errors: List[BaseException] = []
+        completed = threading.Semaphore(0)
+
+        def borrow():
+            try:
+                connection = pool.get_connection("GET")
+                time.sleep(0.02)
+                pool.release(connection)
+            except BaseException as exc:  # noqa: BLE001 - the assertion is "nothing raised"
+                errors.append(exc)
+            finally:
+                completed.release()
+
+        threads = [threading.Thread(target=borrow) for _ in range(12)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        assert not any(t.is_alive() for t in threads)
+        assert errors == []

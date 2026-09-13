@@ -1,5 +1,7 @@
 import json
+import threading
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException, Response
@@ -11,6 +13,7 @@ from rhesis.backend.app.routers.services import (
 )
 from rhesis.backend.app.schemas.services import GenerateContentRequest, GenerateEmbeddingRequest
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from tests.backend._helpers import records_thread
 
 
 class ProviderError(Exception):
@@ -369,3 +372,68 @@ class TestGenerateContentEndpointUsageForwarding:
                 )
 
             assert mock_model.on_usage is original_callback
+
+
+class TestGenerateHandlersKeepTheSessionOffTheLoop:
+    """The generate handlers hold an ``OffLoopSession``.
+
+    That annotation promises every use of the session goes through
+    ``anyio.to_thread.run_sync``.
+    ``tests/backend/test_no_sync_db_on_loop.py`` cannot see inside a handler;
+    these tests are the check that the work actually left the loop.
+    """
+
+    @staticmethod
+    def _user():
+        user = MagicMock()
+        user.organization_id = uuid4()
+        return user
+
+    @pytest.mark.asyncio
+    async def test_unknown_model_override_is_still_a_400(self):
+        from rhesis.backend.app.routers.services import generate_tests_endpoint
+        from rhesis.backend.app.schemas.services import GenerateTestsRequest
+
+        model_id = uuid4()
+        request = GenerateTestsRequest(
+            config={"requirements": ["Accuracy"]}, num_tests=1, model_id=model_id
+        )
+        threads: list = []
+
+        with patch("rhesis.backend.app.crud.model.get_model", records_thread(threads)):
+            with pytest.raises(HTTPException) as exc_info:
+                await generate_tests_endpoint(
+                    request,
+                    db=MagicMock(),
+                    tenant_context=(str(uuid4()), str(uuid4())),
+                    current_user=self._user(),
+                )
+
+        assert exc_info.value.status_code == 400
+        assert str(model_id) in exc_info.value.detail
+        # The lookup ran in a worker thread, not on the event loop.
+        assert threads and threading.get_ident() not in threads
+
+    @pytest.mark.asyncio
+    async def test_test_config_service_is_built_in_a_worker_thread(self):
+        """Constructing the service resolves the caller's model, which reads the DB."""
+        from rhesis.backend.app.routers import services as services_router
+        from rhesis.backend.app.schemas.services import TestConfigRequest, TestConfigResponse
+
+        expected = TestConfigResponse(requirements=[], topics=[], categories=[])
+        threads: list = []
+        service = MagicMock()
+        service.generate_config = AsyncMock(return_value=expected)
+
+        with patch.object(
+            services_router, "TestConfigGeneratorService", records_thread(threads, service)
+        ):
+            result = await services_router.generate_test_config(
+                TestConfigRequest(prompt="test the login flow"),
+                db=MagicMock(),
+                tenant_context=(str(uuid4()), str(uuid4())),
+                current_user=self._user(),
+            )
+
+        assert result is expected
+        assert threads and threading.get_ident() not in threads

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -10,6 +10,7 @@ class Category(
     Base, ProjectMixin, OrganizationAndUserMixin, CommentsMixin, TasksMixin, CountsMixin
 ):
     __tablename__ = "category"
+    __table_args__ = (Index("ix_category_org_created", "organization_id", "created_at"),)
     name = Column(String)
     description = Column(Text)
     parent_id = Column(GUID(), ForeignKey("category.id"))

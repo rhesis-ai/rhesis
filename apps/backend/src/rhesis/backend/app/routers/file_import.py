@@ -6,13 +6,17 @@ files (JSON, JSONL, CSV, Excel).
 """
 
 import logging
+from typing import Any, Dict
 
+import anyio
 from fastapi import Depends, File, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -45,10 +49,47 @@ router = RhesisRouter(
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
+def _analyze_file(
+    file_bytes: bytes,
+    filename: str,
+    db: Session,
+    current_user: User,
+) -> Dict[str, Any]:
+    """All of ``analyze_file``'s database work, run off the event loop."""
+    try:
+        return ImportService.analyze(
+            file_bytes=file_bytes,
+            filename=filename,
+            db=db,
+            user=current_user,
+            user_id=str(current_user.id),
+            organization_id=str(current_user.organization_id or ""),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="File encoding could not be read. Try saving as UTF-8.",
+        )
+    except ImportError as e:
+        if "openpyxl" in str(e):
+            raise HTTPException(
+                status_code=400,
+                detail="Excel support is not available. Please use CSV or JSON.",
+            )
+        raise HTTPException(status_code=500, detail=IMPORT_ERROR_GENERIC)
+    except FileImportError as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        logger.error(f"File analyze failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=IMPORT_ERROR_GENERIC)
+
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_file(
     file: UploadFile = File(...),
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Upload a file and analyze its structure.
@@ -80,35 +121,9 @@ async def analyze_file(
             detail="Uploaded file is empty",
         )
 
-    try:
-        result = ImportService.analyze(
-            file_bytes=file_bytes,
-            filename=file.filename,
-            db=db,
-            user=current_user,
-            user_id=str(current_user.id),
-            organization_id=str(current_user.organization_id or ""),
-        )
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=400,
-            detail="File encoding could not be read. Try saving as UTF-8.",
-        )
-    except ImportError as e:
-        if "openpyxl" in str(e):
-            raise HTTPException(
-                status_code=400,
-                detail="Excel support is not available. Please use CSV or JSON.",
-            )
-        raise HTTPException(status_code=500, detail=IMPORT_ERROR_GENERIC)
-    except FileImportError as e:
-        raise HTTPException(status_code=400, detail=e.message)
-    except Exception as e:
-        logger.error(f"File analyze failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=IMPORT_ERROR_GENERIC)
+    return await anyio.to_thread.run_sync(
+        _analyze_file, file_bytes, file.filename, db, current_user
+    )
 
 
 @router.post(

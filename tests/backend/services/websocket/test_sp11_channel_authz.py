@@ -48,51 +48,45 @@ class TestChannelAuthorizerUnit:
 
     # --- user-scoped channels ---
 
-    @pytest.mark.asyncio
-    async def test_user_channel_own_allowed(self, authorizer):
+    def test_user_channel_own_allowed(self, authorizer):
         user_id = uuid.uuid4()
         user = _fake_user(user_id=user_id)
-        ok, err = await authorizer.authorize(user, f"user:{user_id}")
+        ok, err = authorizer.authorize_sync(user, f"user:{user_id}")
         assert ok is True
         assert err is None
 
-    @pytest.mark.asyncio
-    async def test_user_channel_other_denied(self, authorizer):
+    def test_user_channel_other_denied(self, authorizer):
         user = _fake_user()
         other_id = uuid.uuid4()
-        ok, err = await authorizer.authorize(user, f"user:{other_id}")
+        ok, err = authorizer.authorize_sync(user, f"user:{other_id}")
         assert ok is False
 
     # --- org-scoped channels ---
 
-    @pytest.mark.asyncio
-    async def test_org_channel_own_allowed(self, authorizer):
+    def test_org_channel_own_allowed(self, authorizer):
         org_id = uuid.uuid4()
         user = _fake_user(org_id=org_id)
-        ok, err = await authorizer.authorize(user, f"org:{org_id}")
+        ok, err = authorizer.authorize_sync(user, f"org:{org_id}")
         assert ok is True
 
-    @pytest.mark.asyncio
-    async def test_org_channel_other_denied(self, authorizer):
+    def test_org_channel_other_denied(self, authorizer):
         user = _fake_user()
         other_org = uuid.uuid4()
-        ok, err = await authorizer.authorize(user, f"org:{other_org}")
+        ok, err = authorizer.authorize_sync(user, f"org:{other_org}")
         assert ok is False
 
     # --- resource channels: legacy path (db=None) ---
 
-    @pytest.mark.asyncio
-    async def test_resource_channel_no_db_allowed(self, authorizer):
+    def test_resource_channel_no_db_allowed(self, authorizer):
         """Without DB, any authenticated user is allowed (legacy behavior)."""
         user = _fake_user()
         run_id = uuid.uuid4()
-        ok, err = await authorizer.authorize(user, f"test_run:{run_id}")
+        ok, err = authorizer.authorize_sync(user, f"test_run:{run_id}")
         assert ok is True
 
     # --- resource channels: PDP path (db provided) ---
 
-    @pytest.mark.asyncio
-    async def test_resource_channel_with_db_calls_authorize_for_project(self, authorizer):
+    def test_resource_channel_with_db_calls_authorize_for_project(self, authorizer):
         """With DB, authorize() is called against the resource's resolved project."""
         user = _fake_user()
         run_id = uuid.uuid4()
@@ -113,7 +107,7 @@ class TestChannelAuthorizerUnit:
                 return_value=True,
             ) as mock_authz,
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"test_run:{run_id}", db=fake_db, principal=principal
             )
 
@@ -125,8 +119,7 @@ class TestChannelAuthorizerUnit:
         assert call.kwargs["project_id"] == project_id
         assert call.kwargs["db"] is fake_db
 
-    @pytest.mark.asyncio
-    async def test_resource_channel_with_db_deny_when_no_permission(self, authorizer):
+    def test_resource_channel_with_db_deny_when_no_permission(self, authorizer):
         """PDP denial for resource channel results in subscription rejected (deny-first)."""
         user = _fake_user()
         run_id = uuid.uuid4()
@@ -143,15 +136,14 @@ class TestChannelAuthorizerUnit:
                 return_value=False,
             ),
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"test_run:{run_id}", db=fake_db, principal=principal
             )
 
         assert ok is False
         assert err is not None
 
-    @pytest.mark.asyncio
-    async def test_resource_channel_not_found_denied(self, authorizer):
+    def test_resource_channel_not_found_denied(self, authorizer):
         """A persisted resource not visible in the caller's org is denied (fail-closed).
 
         authorize() must NOT be called — the resource never resolved.
@@ -165,7 +157,7 @@ class TestChannelAuthorizerUnit:
             patch.object(authorizer, "_resolve_channel_project_id", return_value=(None, False)),
             patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"test_run:{run_id}", db=fake_db, principal=principal
             )
 
@@ -173,8 +165,7 @@ class TestChannelAuthorizerUnit:
         assert err is not None
         mock_authz.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_preflight_channel_ephemeral_no_project_lookup(self, authorizer):
+    def test_preflight_channel_ephemeral_no_project_lookup(self, authorizer):
         """preflight: channels are ephemeral — authorized org-scoped, no resource lookup."""
         user = _fake_user()
         corr_id = uuid.uuid4()
@@ -184,7 +175,7 @@ class TestChannelAuthorizerUnit:
         with (
             patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"preflight:{corr_id}", db=fake_db, principal=principal
             )
 
@@ -194,8 +185,7 @@ class TestChannelAuthorizerUnit:
         assert call.kwargs["project_id"] is None
         assert "preflight:create" in str(call)
 
-    @pytest.mark.asyncio
-    async def test_resource_channel_missing_principal_denied(self, authorizer):
+    def test_resource_channel_missing_principal_denied(self, authorizer):
         """Fail closed: on the PDP path, a missing Principal is denied rather than
         synthesised from `user` (which would drop the token's SP9 scopes)."""
         user = _fake_user()
@@ -208,7 +198,7 @@ class TestChannelAuthorizerUnit:
             ),
             patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"test_run:{run_id}", db=fake_db, principal=None
             )
 
@@ -218,23 +208,20 @@ class TestChannelAuthorizerUnit:
 
     # --- invalid channel formats ---
 
-    @pytest.mark.asyncio
-    async def test_empty_channel_denied(self, authorizer):
+    def test_empty_channel_denied(self, authorizer):
         user = _fake_user()
-        ok, err = await authorizer.authorize(user, "")
+        ok, err = authorizer.authorize_sync(user, "")
         assert ok is False
 
-    @pytest.mark.asyncio
-    async def test_unknown_prefix_denied(self, authorizer):
+    def test_unknown_prefix_denied(self, authorizer):
         user = _fake_user()
         unknown_id = uuid.uuid4()
-        ok, err = await authorizer.authorize(user, f"unknown_resource:{unknown_id}")
+        ok, err = authorizer.authorize_sync(user, f"unknown_resource:{unknown_id}")
         assert ok is False
 
-    @pytest.mark.asyncio
-    async def test_invalid_uuid_denied(self, authorizer):
+    def test_invalid_uuid_denied(self, authorizer):
         user = _fake_user()
-        ok, err = await authorizer.authorize(user, "test_run:not-a-uuid")
+        ok, err = authorizer.authorize_sync(user, "test_run:not-a-uuid")
         assert ok is False
 
 
@@ -340,8 +327,7 @@ class TestChannelAuthorizerIntegration:
         db.flush()
         return project_id
 
-    @pytest.mark.asyncio
-    async def test_org_owner_allowed_for_project_channel(self, test_db):
+    def test_org_owner_allowed_for_project_channel(self, test_db):
         """Org owner is authorized to subscribe to a project channel (community tier)."""
         db = test_db
         org_id = self._create_org(db)
@@ -354,14 +340,13 @@ class TestChannelAuthorizerIntegration:
         user = _fake_user(user_id=user_id, org_id=org_id)
 
         authorizer = ChannelAuthorizer()
-        ok, err = await authorizer.authorize(
+        ok, err = authorizer.authorize_sync(
             user, f"project:{project_id}", db=db, principal=resolve_principal(user)
         )
 
         assert ok is True, f"Org owner should be allowed; err={err}"
 
-    @pytest.mark.asyncio
-    async def test_nonexistent_project_channel_denied(self, test_db):
+    def test_nonexistent_project_channel_denied(self, test_db):
         """A project channel for a project that doesn't exist in the org is denied."""
         db = test_db
         org_id = self._create_org(db)
@@ -373,14 +358,13 @@ class TestChannelAuthorizerIntegration:
         ghost_project = uuid.uuid4()  # never created
 
         authorizer = ChannelAuthorizer()
-        ok, err = await authorizer.authorize(
+        ok, err = authorizer.authorize_sync(
             user, f"project:{ghost_project}", db=db, principal=resolve_principal(user)
         )
 
         assert ok is False, "Subscription to a nonexistent project channel must be denied"
 
-    @pytest.mark.asyncio
-    async def test_cross_org_project_channel_denied(self, test_db):
+    def test_cross_org_project_channel_denied(self, test_db):
         """A user cannot subscribe to another org's project channel (fail-closed)."""
         db = test_db
         # Org A owns the project.
@@ -400,7 +384,7 @@ class TestChannelAuthorizerIntegration:
         user = _fake_user(user_id=user_b, org_id=org_b)
 
         authorizer = ChannelAuthorizer()
-        ok, err = await authorizer.authorize(
+        ok, err = authorizer.authorize_sync(
             user, f"project:{project_a}", db=db, principal=resolve_principal(user)
         )
 
@@ -422,15 +406,13 @@ class TestJobChannelRule:
     def test_job_prefix_is_protected(self, authorizer):
         assert "job:" in authorizer.PROTECTED_RESOURCE_PREFIXES
 
-    @pytest.mark.asyncio
-    async def test_legacy_no_db_allows_any_authenticated_user(self, authorizer):
+    def test_legacy_no_db_allows_any_authenticated_user(self, authorizer):
         user = _fake_user()
         job_id = uuid.uuid4()
-        ok, err = await authorizer.authorize(user, f"job:{job_id}")
+        ok, err = authorizer.authorize_sync(user, f"job:{job_id}")
         assert ok is True
 
-    @pytest.mark.asyncio
-    async def test_with_db_calls_authorize_with_job_read_capability(self, authorizer):
+    def test_with_db_calls_authorize_with_job_read_capability(self, authorizer):
         user = _fake_user()
         job_id = uuid.uuid4()
         project_id = uuid.uuid4()
@@ -446,7 +428,7 @@ class TestJobChannelRule:
                 return_value=True,
             ) as mock_authz,
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"job:{job_id}", db=fake_db, principal=principal
             )
 
@@ -455,8 +437,7 @@ class TestJobChannelRule:
         assert "job:read" in str(call)
         assert call.kwargs["project_id"] == project_id
 
-    @pytest.mark.asyncio
-    async def test_job_not_found_in_org_denied(self, authorizer):
+    def test_job_not_found_in_org_denied(self, authorizer):
         """A job id from another org (or that doesn't exist) is denied,
         fail-closed, same as test_run:/test_set:."""
         user = _fake_user()
@@ -468,7 +449,7 @@ class TestJobChannelRule:
             patch.object(authorizer, "_resolve_channel_project_id", return_value=(None, False)),
             patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
         ):
-            ok, err = await authorizer.authorize(
+            ok, err = authorizer.authorize_sync(
                 user, f"job:{job_id}", db=fake_db, principal=principal
             )
 
