@@ -67,12 +67,14 @@ _BACKFILL = """
         COALESCE(CAST(r->>'created_at' AS timestamp with time zone), now()),
         COALESCE(CAST(r->>'updated_at' AS timestamp with time zone), now())
     FROM {table} p
-    CROSS JOIN LATERAL jsonb_array_elements(p.{column}->'reviews') AS r
+    CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(p.{column}->'reviews') = 'array'
+             THEN p.{column}->'reviews' ELSE '[]'::jsonb END
+    ) AS r
     JOIN status s ON s.id = CAST(r->'status'->>'status_id' AS uuid)
     JOIN "user" u ON u.id = CAST(r->'user'->>'user_id' AS uuid)
     LEFT JOIN "user" rb ON rb.id = CAST(r->'resolved_by'->>'user_id' AS uuid)
     WHERE p.organization_id = CAST(:org_id AS uuid)
-      AND jsonb_typeof(p.{column}->'reviews') = 'array'
       AND r->>'review_id' IS NOT NULL
     ON CONFLICT (id) DO NOTHING
 """
@@ -168,9 +170,11 @@ def downgrade() -> None:
                       AND id IN (
                           SELECT CAST(r->>'review_id' AS uuid)
                           FROM {table} p
-                          CROSS JOIN LATERAL jsonb_array_elements(p.{column}->'reviews') AS r
+                          CROSS JOIN LATERAL jsonb_array_elements(
+                              CASE WHEN jsonb_typeof(p.{column}->'reviews') = 'array'
+                                   THEN p.{column}->'reviews' ELSE '[]'::jsonb END
+                          ) AS r
                           WHERE p.organization_id = CAST(:org_id AS uuid)
-                            AND jsonb_typeof(p.{column}->'reviews') = 'array'
                             AND r->>'review_id' IS NOT NULL
                       )
                 """.format(**source)

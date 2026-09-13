@@ -51,10 +51,15 @@ class TestTraceSoftDeleteContract:
             get_trace_by_db_id(test_db, trace_db_id, test_org_id)
 
     def test_annotation_on_deleted_trace_returns_404(
-        self, test_db, authenticated_client: TestClient, db_project
+        self, test_db, authenticated_client: TestClient, db_project, db_status
     ):
-        """Creating an annotation on a soft-deleted trace returns 404 (the
-        auto-filter hides the row from _load_parent)."""
+        """A soft-deleted trace cannot be annotated.
+
+        The global soft-delete listener hides the row from _load_parent. The
+        status has to be a real one and the message has to be checked: status
+        validation also raises 404, so a bogus status_id would pass this test
+        without the soft-delete path ever running.
+        """
         ingested = _ingest_trace(authenticated_client, str(db_project.id))
         trace_db_id = _get_trace_db_id(
             authenticated_client, str(db_project.id), ingested["trace_id"]
@@ -69,12 +74,10 @@ class TestTraceSoftDeleteContract:
             json={
                 "entity_type": "Trace",
                 "entity_id": trace_db_id,
-                "status_id": "00000000-0000-0000-0000-000000000001",
+                "status_id": str(db_status.id),
                 "target": {"type": "trace"},
             },
         )
 
-        assert response.status_code in (
-            status.HTTP_404_NOT_FOUND,
-            status.HTTP_400_BAD_REQUEST,
-        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "Trace" in response.json()["detail"]
