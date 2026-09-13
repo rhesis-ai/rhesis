@@ -270,6 +270,12 @@ def _annotation_timestamp(annotation) -> datetime:
     )
 
 
+def _annotation_sort_key(annotation) -> tuple:
+    # Id breaks ties so rows written in the same transaction, which share a
+    # timestamp, still resolve to one stable "latest".
+    return _annotation_timestamp(annotation), str(annotation.id)
+
+
 class AnnotationsMixin:
     """Human-annotation state of an entity, derived from its ``annotation`` rows.
 
@@ -313,7 +319,7 @@ class AnnotationsMixin:
         # Newest annotation per target, plus the newest entity-level one overall.
         summary: dict = {}
         latest = None
-        for annotation in sorted(rows, key=_annotation_timestamp):
+        for annotation in sorted(rows, key=_annotation_sort_key):
             reference = annotation.target_reference
             key = f"{annotation.target_type}:{reference}" if reference else annotation.target_type
             summary[key] = _annotation_entry(annotation)
