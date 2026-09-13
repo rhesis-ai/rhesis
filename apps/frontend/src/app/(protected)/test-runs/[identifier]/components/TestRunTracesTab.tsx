@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { Box } from '@mui/material';
+import { Box, Paper } from '@mui/material';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TracesClient from '@/app/(protected)/traces/components/TracesClient';
 import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 
@@ -59,17 +60,25 @@ export default function TestRunTracesTab({
             : {}
         }
       >
-        {/* No card here: TracesClient wraps the grid in its own, so the rollup
-            tiles sit above it exactly as they do on the Traces page. */}
-        <TracesClient
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          currentUserPicture={currentUserPicture}
-          fixedTestRunId={testRunId}
-          onUnfilteredEmpty={handleUnfilteredEmpty}
-          initialData={initialTraces}
-          initialTotalCount={initialTracesTotalCount}
-        />
+        <Paper
+          sx={{
+            width: '100%',
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: ELEVATION.xs,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TracesClient
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserPicture={currentUserPicture}
+            fixedTestRunId={testRunId}
+            onUnfilteredEmpty={handleUnfilteredEmpty}
+            initialData={initialTraces}
+            initialTotalCount={initialTracesTotalCount}
+          />
+        </Paper>
       </Box>
 
       {showEmptyHint && (

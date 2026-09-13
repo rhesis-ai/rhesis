@@ -38,7 +38,6 @@ class TestBase(Base):
     status_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     test_metadata: Optional[Dict[str, Any]] = None
-    test_parameters: Optional[Dict[str, Any]] = None
 
 
 class TestPromptCreate(BaseModel):
@@ -126,7 +125,6 @@ class TestBulkCreate(BaseModel):
     category: str
     topic: str
     test_configuration: Optional[Dict[str, Any]] = None
-    test_parameters: Optional[Dict[str, Any]] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None

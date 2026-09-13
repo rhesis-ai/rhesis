@@ -59,7 +59,6 @@ class Test(
     # Test source info (origin, inputs, context)
     # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
     test_metadata = Column(JSONB)
-    test_parameters = Column(JSONB)
     # Set only by services/explorer/{tests,topics}.py — not client-settable.
     explorer_row = Column(
         Boolean, nullable=False, server_default="false", default=False, index=True

@@ -2,16 +2,13 @@
 Utility for building hierarchical span trees from flat span lists.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.telemetry import SpanNode
 
 
-def build_span_tree(
-    spans: List[Trace], cost_by_span_id: Optional[Dict[str, dict]] = None
-) -> List[SpanNode]:
+def build_span_tree(spans: List[Trace]) -> List[SpanNode]:
     """
     Build hierarchical span tree from flat span list.
 
@@ -21,8 +18,6 @@ def build_span_tree(
 
     Args:
         spans: List of Trace models from database
-        cost_by_span_id: Per-span cost breakdown from enrichment, keyed by span_id.
-            Absent for a trace that has not been enriched yet.
 
     Returns:
         List of root SpanNode objects with children populated recursively
@@ -52,11 +47,9 @@ def build_span_tree(
 
     # Create span map for O(1) lookup
     span_map: Dict[str, SpanNode] = {}
-    costs = cost_by_span_id or {}
 
     # Convert all spans to SpanNode objects
     for span in spans:
-        span_cost = costs.get(span.span_id) or {}
         node = SpanNode(
             id=str(span.id),
             span_id=span.span_id,
@@ -68,8 +61,6 @@ def build_span_tree(
             status_code=span.status_code,
             status_message=span.status_message,
             attributes=span.attributes or {},
-            cost_usd=span_cost.get(EnrichedDataKeys.TOTAL_COST_USD),
-            model_name=span_cost.get(EnrichedDataKeys.MODEL_NAME),
             events=span.events or [],
             trace_metrics=span.trace_metrics,
             # server_default only lands at INSERT, so a span that has not
