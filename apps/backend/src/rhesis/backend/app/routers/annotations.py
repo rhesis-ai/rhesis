@@ -44,6 +44,15 @@ def _load_or_404(db: Session, annotation_id: uuid.UUID, organization_id: str, us
 
 
 def _authorize_own(request: Request, db: Session, current_user: User, annotation, permission: str):
+    """Narrow a write to the annotation's author.
+
+    The full contract is the project-scoped ``annotation:update`` / ``:delete``
+    that the router's ``resource`` stamp makes the authz backstop demand, *plus*
+    ownership. Built-in roles grant the base and ``:own`` capabilities together,
+    so the practical rule is "a member edits their own annotations"; not even an
+    admin edits someone else's, since ``authorize_object`` has no bypass. Same
+    contract as comments and tasks.
+    """
     principal = resolve_principal_from_request(current_user, request)
     if not authorize_object(
         principal, permission, annotation, project_id=project_id_from_scope(db), db=db
