@@ -167,6 +167,7 @@ class TestFileExecutionIntegration:
                         organization_id=str(uuid4()),
                         user_id=str(uuid4()),
                         test_id=uuid4(),
+                        test_parameters={},
                     )
 
                 # Verify input_data has NO files key

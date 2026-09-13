@@ -423,6 +423,7 @@ def _make_backend_endpoint_target() -> BackendEndpointTarget:
     target.project_id = None
     target.test_execution_context = {"test_id": "test-1"}
     target.params = None
+    target.test_parameters = None
     target._endpoint = MagicMock()
     target._current_trace_id = None
     target._deferred_traces = []
