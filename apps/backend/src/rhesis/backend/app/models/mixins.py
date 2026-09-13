@@ -254,6 +254,9 @@ def _annotation_entry(annotation) -> dict:
         "status": {"status_id": str(status.id), "name": status.name} if status else None,
         "user": {
             "id": str(user.id),
+            # Display name with the same email fallback the JSONB reviews carried,
+            # so a parent payload alone is enough to render "annotated by".
+            "name": user.name or user.email,
             "given_name": user.given_name,
             "family_name": user.family_name,
         }

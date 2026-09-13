@@ -20,10 +20,12 @@ class _Status:
 
 
 class _User:
-    def __init__(self, id="u1", given_name="Alice", family_name="Smith"):
+    def __init__(self, id="u1", given_name="Alice", family_name="Smith", name=None, email="a@b.c"):
         self.id = id
         self.given_name = given_name
         self.family_name = family_name
+        self.name = name
+        self.email = email
 
 
 class _Annotation:
@@ -205,3 +207,15 @@ class TestCaching:
         _ = model.matches_annotation
         _ = model.annotation_summary
         assert "_annotation_state_cache" in model.__dict__
+
+
+class TestUserDisplayName:
+    def test_name_is_carried_through(self):
+        ann = _Annotation(target_type="test_result", user=_User(name="Alice Smith"))
+        model = StubModel(annotations=[ann])
+        assert model.last_annotation["user"]["name"] == "Alice Smith"
+
+    def test_email_stands_in_for_a_missing_name(self):
+        ann = _Annotation(target_type="test_result", user=_User(name=None, email="a@b.c"))
+        model = StubModel(annotations=[ann])
+        assert model.last_annotation["user"]["name"] == "a@b.c"
