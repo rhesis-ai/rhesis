@@ -95,11 +95,12 @@ class TestSdkEndpointInvoker:
         assert kwargs["model"] == "gpt-4"
 
     def test_prepare_function_kwargs_strips_params_in_passthrough(self, sample_endpoint_sdk):
-        """Without request_mapping, params dict is stripped from passthrough kwargs."""
+        """Without request_mapping, both parameter keys are stripped from passthrough kwargs."""
         sample_endpoint_sdk.request_mapping = None
 
         input_data = {
             "input": "hello",
+            "experiment_parameters": {"model": "gpt-4o"},
             "params": {"model": "gpt-4o"},
         }
 
@@ -107,5 +108,27 @@ class TestSdkEndpointInvoker:
         invoker = SdkEndpointInvoker(context)
         kwargs = invoker._prepare_function_kwargs("test_func")
 
+        assert "experiment_parameters" not in kwargs
         assert "params" not in kwargs
         assert kwargs["input"] == "hello"
+
+    def test_prepare_function_kwargs_renders_experiment_parameters_in_mapping(
+        self, sample_endpoint_sdk
+    ):
+        """{{ experiment_parameters.model }} resolves from input_data."""
+        sample_endpoint_sdk.request_mapping = {
+            "query": "{{ input }}",
+            "model": "{{ experiment_parameters.model }}",
+        }
+
+        input_data = {
+            "input": "hello",
+            "experiment_parameters": {"model": "gpt-4o"},
+        }
+
+        context = InvocationContext(db=None, endpoint=sample_endpoint_sdk, input_data=input_data)
+        invoker = SdkEndpointInvoker(context)
+        kwargs = invoker._prepare_function_kwargs("test_func")
+
+        assert kwargs["query"] == "hello"
+        assert kwargs["model"] == "gpt-4o"

@@ -361,15 +361,15 @@ class ConnectorManager:
             try:
                 # Legacy path: merge resolved parameter values into inputs
                 # when the endpoint declares parameters=True or a list.
-                # Deprecated: use {{ params.* }} in request_mapping instead.
+                # Deprecated: use {{ experiment_parameters.* }} in request_mapping.
                 expects_params = metadata.get("parameters", False)
                 if expects_params and resolved_params:
                     import warnings
 
                     warnings.warn(
                         f"@endpoint(parameters=...) on '{function_name}' is "
-                        f"deprecated. Use '{{{{ params.<name> }}}}' in "
-                        f"request_mapping instead.",
+                        f"deprecated. Use '{{{{ experiment_parameters.<name> }}}}' "
+                        f"in request_mapping instead.",
                         DeprecationWarning,
                         stacklevel=2,
                     )

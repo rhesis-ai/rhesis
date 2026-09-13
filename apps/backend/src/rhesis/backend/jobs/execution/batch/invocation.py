@@ -231,6 +231,7 @@ async def _run_single_turn(
     if ctx.test_run and ctx.test_run.attributes:
         params = ctx.test_run.attributes.get("parameters", {})
         if params:
+            input_data["experiment_parameters"] = params
             input_data["params"] = params
 
     input_files = await load_input_files_lazy(ctx, test_id)

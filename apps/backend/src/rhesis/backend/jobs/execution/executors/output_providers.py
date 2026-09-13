@@ -115,11 +115,10 @@ class SingleTurnOutput(OutputProvider):
 
         input_data = {"input": prompt_content}
 
-        # Inject resolved experiment parameters so REST request mappings
-        # can reference {{ params.model }}, {{ params.temperature }}, etc.
         if params is None:
             params = _load_run_params(db, test_execution_context)
         if params:
+            input_data["experiment_parameters"] = params
             input_data["params"] = params
 
         # Inject file data if the test has attached files

@@ -13,7 +13,7 @@ from rhesis.sdk.decorators import (
     metric,
     observe,
 )
-from rhesis.sdk.decorators._state import get_parameters
+from rhesis.sdk.decorators._state import get_experiment_parameters, get_parameters
 from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.parameters import Parameters
@@ -41,6 +41,7 @@ __all__ = [
     "create_observer",
     "ObserverBuilder",
     "bind_context",
+    "get_experiment_parameters",
     "get_parameters",
     "Parameters",
     "EndpointContext",

@@ -1,5 +1,7 @@
 """Tests for template rendering functionality."""
 
+import logging
+
 from rhesis.backend.app.services.invokers.templating.renderer import TemplateRenderer
 
 
@@ -477,3 +479,67 @@ class TestTemplateRendererParams:
         assert isinstance(result, dict)
         assert result["model"] == "gpt-4o"
         assert result["query"] == "hello"
+
+
+class TestTemplateRendererExperimentParameters:
+    """Test {{ experiment_parameters.* }} templates and backward compat."""
+
+    def test_experiment_parameters_dot_access(self):
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ experiment_parameters.model }}",
+            "temperature": "{{ experiment_parameters.temperature }}",
+        }
+        input_data = {
+            "experiment_parameters": {"model": "gpt-4o", "temperature": 0.9},
+        }
+        result = renderer.render(template, input_data)
+        assert result["model"] == "gpt-4o"
+        assert result["temperature"] == 0.9
+
+    def test_experiment_parameters_defaults_when_absent(self):
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ experiment_parameters.model | default('gpt-4') }}",
+        }
+        result = renderer.render(template, {})
+        assert result["model"] == "gpt-4"
+
+    def test_params_still_works_as_alias(self):
+        renderer = TemplateRenderer()
+        template = {"model": "{{ params.model }}"}
+        input_data = {"params": {"model": "gpt-4o"}}
+        result = renderer.render(template, input_data)
+        assert result["model"] == "gpt-4o"
+
+    def test_experiment_parameters_synced_to_params(self):
+        """When only experiment_parameters is provided, params is populated too."""
+        renderer = TemplateRenderer()
+        template = {"model": "{{ params.model }}"}
+        input_data = {"experiment_parameters": {"model": "claude-3"}}
+        result = renderer.render(template, input_data)
+        assert result["model"] == "claude-3"
+
+    def test_params_synced_to_experiment_parameters(self):
+        """When only params is provided, experiment_parameters is populated too."""
+        renderer = TemplateRenderer()
+        template = {"model": "{{ experiment_parameters.model }}"}
+        input_data = {"params": {"model": "claude-3"}}
+        result = renderer.render(template, input_data)
+        assert result["model"] == "claude-3"
+
+    def test_deprecation_warning_logged_for_params(self, caplog):
+        renderer = TemplateRenderer()
+        template = {"model": "{{ params.model }}"}
+        input_data = {"params": {"model": "gpt-4o"}}
+        with caplog.at_level(logging.WARNING):
+            renderer.render(template, input_data)
+        assert "deprecated" in caplog.text.lower()
+
+    def test_no_deprecation_warning_for_experiment_parameters(self, caplog):
+        renderer = TemplateRenderer()
+        template = {"model": "{{ experiment_parameters.model }}"}
+        input_data = {"experiment_parameters": {"model": "gpt-4o"}}
+        with caplog.at_level(logging.WARNING):
+            renderer.render(template, input_data)
+        assert "deprecated" not in caplog.text.lower()

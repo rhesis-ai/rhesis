@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 @dataclass(frozen=True)
@@ -77,9 +77,13 @@ class ExecuteTestMessage(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _legacy_parameter_provenance(cls, data: Any) -> Any:
+    def _normalize_wire_fields(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
+        # Accept ``experiment_parameters`` as the preferred wire name,
+        # falling back to ``parameters`` for backward compatibility.
+        if "experiment_parameters" in data and "parameters" not in data:
+            data = {**data, "parameters": data["experiment_parameters"]}
         if "parameter_source_environment" not in data and "parameter_source_label" in data:
             data = {
                 **data,
@@ -88,6 +92,12 @@ class ExecuteTestMessage(BaseModel):
         if data.get("parameter_source") == "label":
             data = {**data, "parameter_source": "environment"}
         return data
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def experiment_parameters(self) -> Dict[str, Any]:
+        """Alias for ``parameters`` (the preferred name since 0.16)."""
+        return self.parameters
 
 
 class ExecuteMetricMessage(BaseModel):

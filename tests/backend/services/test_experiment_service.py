@@ -177,3 +177,31 @@ class TestExperimentSummaryFromAttributes:
     def test_summary_is_none_for_empty_attributes(self):
         assert experiment_summary_dict_from_run_attributes(None) is None
         assert experiment_summary_dict_from_run_attributes({}) is None
+
+
+class TestConnectorExecuteExtrasFromRunAttributes:
+    """connector_execute_extras_from_run_attributes emits both wire names."""
+
+    def test_emits_both_parameters_and_experiment_parameters(self):
+        from rhesis.backend.app.services.experiment import (
+            connector_execute_extras_from_run_attributes,
+        )
+
+        attrs = {
+            "parameters": {"model": "gpt-4o"},
+            "parameter_experiment_id": str(uuid.uuid4()),
+            "parameter_version": "v1",
+            "parameter_source": "environment",
+            "parameter_source_environment": "production",
+        }
+        extras = connector_execute_extras_from_run_attributes(attrs)
+        assert extras["experiment_parameters"] == {"model": "gpt-4o"}
+        assert extras["parameters"] == {"model": "gpt-4o"}
+
+    def test_returns_empty_when_no_experiment(self):
+        from rhesis.backend.app.services.experiment import (
+            connector_execute_extras_from_run_attributes,
+        )
+
+        assert connector_execute_extras_from_run_attributes({}) == {}
+        assert connector_execute_extras_from_run_attributes(None) == {}
