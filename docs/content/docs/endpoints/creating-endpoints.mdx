@@ -18,6 +18,8 @@ Enter the endpoint **Name**, **URL**, **HTTP method**, **protocol** (REST or Web
 
 **Environment** tags the endpoint as Development, Staging, or Production — useful for keeping configurations separate and quickly identifying production-critical endpoints on the grid.
 
+**Timeout (seconds)** — overrides the default invocation timeout for this endpoint (1 -- 3600). Leave empty to use the system default: 30s for REST, 120s for SDK endpoints.
+
 **Disable tracing** — when on, invocations skip [trace](/docs/tracing) and telemetry collection. Useful when the endpoint already emits its own telemetry. Tracing is enabled by default.
 
 ### Set up authentication

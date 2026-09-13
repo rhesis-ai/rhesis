@@ -39,6 +39,7 @@ class TemplateRenderer:
         ep = render_context.get("experiment_parameters") or render_context.get("params") or {}
         render_context.setdefault("experiment_parameters", ep)
         render_context.setdefault("params", ep)
+        render_context.setdefault("test_parameters", {})
 
         # Conversation field aliases: ensure a value provided under any
         # recognised name is available under ALL recognised names so

@@ -49,6 +49,7 @@ _EXECUTE_TEST_EXTRA_KEYS = frozenset(
         "parameter_source_environment",
         "parameter_source_label",
         "parameter_schema",
+        "test_parameters",
     }
 )
 

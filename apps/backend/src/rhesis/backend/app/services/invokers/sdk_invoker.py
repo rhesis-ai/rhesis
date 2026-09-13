@@ -108,6 +108,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         "user_id",
         "experiment_parameters",
         "params",
+        "test_parameters",
         "files_metadata",
     }
 
@@ -181,6 +182,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         function_name: str,
         function_kwargs: Dict[str, Any],
         execute_extras: Dict[str, Any] | None = None,
+        timeout: float = SDK_FUNCTION_TIMEOUT,
     ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Execute SDK function via RPC (Redis pub/sub).
@@ -191,6 +193,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             test_run_id: Unique test run ID
             function_name: Function to invoke
             function_kwargs: Function arguments
+            timeout: Execution timeout in seconds
 
         Returns:
             Result dictionary from SDK, or ErrorResponse if RPC unavailable or not connected
@@ -229,7 +232,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             test_run_id=test_run_id,
             function_name=function_name,
             inputs=function_kwargs,
-            timeout=SDK_FUNCTION_TIMEOUT,
+            timeout=timeout,
             execute_extras=execute_extras,
         )
 
@@ -241,6 +244,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         function_name: str,
         function_kwargs: Dict[str, Any],
         execute_extras: Dict[str, Any] | None = None,
+        timeout: float = SDK_FUNCTION_TIMEOUT,
     ) -> Dict[str, Any]:
         """
         Execute SDK function via direct WebSocket connection.
@@ -251,6 +255,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             test_run_id: Unique test run ID
             function_name: Function to invoke
             function_kwargs: Function arguments
+            timeout: Execution timeout in seconds
 
         Returns:
             Result dictionary from SDK
@@ -263,7 +268,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             test_run_id=test_run_id,
             function_name=function_name,
             inputs=function_kwargs,
-            timeout=SDK_FUNCTION_TIMEOUT,
+            timeout=timeout,
             execute_extras=execute_extras,
         )
 
@@ -303,7 +308,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             return self._create_error_response(
                 error_type="sdk_timeout",
                 output_message="SDK function execution timed out",
-                message=f"Function did not respond within {SDK_FUNCTION_TIMEOUT} seconds",
+                message="Function did not respond within the configured timeout",
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
 
@@ -607,6 +612,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Execute via RPC or direct WebSocket
             invocation_id = f"invoke_{uuid.uuid4().hex[:12]}"
             execute_extras = self._connector_parameter_extras()
+            tp = self.context.input_data.get("test_parameters")
+            if tp:
+                execute_extras["test_parameters"] = tp
+            ep_ts = endpoint.timeout_seconds
+            timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
 
             if use_rpc:
                 result = await self._execute_via_rpc(
@@ -616,6 +626,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     function_name,
                     function_kwargs,
                     execute_extras=execute_extras,
+                    timeout=timeout,
                 )
             else:
                 result = await self._execute_via_websocket(
@@ -625,6 +636,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                     function_name,
                     function_kwargs,
                     execute_extras=execute_extras,
+                    timeout=timeout,
                 )
 
             # Check for execution errors
@@ -664,11 +676,13 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Re-raise HTTPExceptions (configuration errors)
             raise
         except asyncio.TimeoutError:
-            logger.error(f"Timeout waiting for SDK function after {SDK_FUNCTION_TIMEOUT}s")
+            ep_ts = endpoint.timeout_seconds
+            effective_timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
+            logger.error(f"Timeout waiting for SDK function after {effective_timeout}s")
             return self._create_error_response(
                 error_type="sdk_timeout",
                 output_message="SDK function execution timed out",
-                message=f"Function did not respond within {SDK_FUNCTION_TIMEOUT} seconds",
+                message=f"Function did not respond within {effective_timeout} seconds",
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
         except Exception as e:

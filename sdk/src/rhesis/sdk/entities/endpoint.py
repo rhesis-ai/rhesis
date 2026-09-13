@@ -80,6 +80,9 @@ class Endpoint(BaseEntity):
     # Authentication - for the target API (not Rhesis API)
     auth_token: Optional[str] = None
 
+    # Invocation timeout in seconds. None means use the system default.
+    timeout_seconds: Optional[int] = None
+
     @handle_http_errors
     def invoke(
         self,
