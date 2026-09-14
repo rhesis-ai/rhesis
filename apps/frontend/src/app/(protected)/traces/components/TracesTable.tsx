@@ -409,8 +409,8 @@ export default function TracesTable({
         renderCell: params => {
           const evalStatus = params.value as string | undefined;
           const row = params.row as TraceSummary;
-          const hasReview = row.has_reviews;
-          const lastReview = row.last_review;
+          const hasReview = row.has_annotations;
+          const lastReview = row.last_annotation;
 
           if (!evalStatus) {
             return (

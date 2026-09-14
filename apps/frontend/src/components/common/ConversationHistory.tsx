@@ -21,7 +21,6 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   ConversationTurn,
   GoalEvaluation,
-  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
@@ -70,13 +69,13 @@ interface ConversationHistoryProps {
   project?: Project | { icon?: string; useCase?: string; name?: string };
   projectName?: string;
   onResponseClick?: (turnNumber: number) => void;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
-  onConfirmAutomatedReview?: () => void;
-  hasExistingReview?: boolean;
-  reviewMatchesAutomated?: boolean;
-  isConfirmingReview?: boolean;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onConfirmAutomatedAnnotation?: () => void;
+  hasExistingAnnotation?: boolean;
+  annotationMatchesAutomated?: boolean;
+  isConfirmingAnnotation?: boolean;
   maxHeight?: number | string;
-  turnReviewMap?: Map<number, Review>;
+  turnAnnotationMap?: Map<number, AnnotationSummaryEntry>;
   /** Required when turns carry penelope_files for authenticated downloads. */
 }
 
@@ -91,13 +90,13 @@ export default function ConversationHistory({
   project,
   projectName,
   onResponseClick,
-  onReviewTurn,
-  onConfirmAutomatedReview,
-  hasExistingReview = false,
-  reviewMatchesAutomated = true,
-  isConfirmingReview = false,
+  onAnnotateTurn,
+  onConfirmAutomatedAnnotation,
+  hasExistingAnnotation = false,
+  annotationMatchesAutomated = true,
+  isConfirmingAnnotation = false,
   maxHeight = 600,
-  turnReviewMap = new Map<number, Review>(),
+  turnAnnotationMap = new Map<number, AnnotationSummaryEntry>(),
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -259,9 +258,9 @@ export default function ConversationHistory({
             : turn.success;
         const showTurnStatus = true;
 
-        const turnReview = turnReviewMap.get(turn.turn);
+        const turnAnnotation = turnAnnotationMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;
-        const turnIsConfirmed = !!turnReview && !turnIsOverruled;
+        const turnIsConfirmed = !!turnAnnotation && !turnIsOverruled;
 
         return (
           <Box key={turn.turn} sx={{ mb: 4 }}>
@@ -277,12 +276,12 @@ export default function ConversationHistory({
               <Tooltip
                 title={
                   turnIsOverruled
-                    ? `Reviewed by ${turnReview?.user?.name}: status changed to ${turnReview?.status?.name}`
+                    ? `Annotated by ${turnAnnotation?.user?.name}: status changed to ${turnAnnotation?.status?.name}`
                     : turnIsConfirmed
-                      ? `Confirmed by ${turnReview?.user?.name}`
+                      ? `Confirmed by ${turnAnnotation?.user?.name}`
                       : ''
                 }
-                disableHoverListener={!turnReview}
+                disableHoverListener={!turnAnnotation}
                 arrow
               >
                 <Chip
@@ -347,12 +346,12 @@ export default function ConversationHistory({
                 </Box>
               )}
 
-              {/* Review Turn Button */}
-              {onReviewTurn && (
-                <Tooltip title="Review this turn">
+              {/* Annotate Turn Button */}
+              {onAnnotateTurn && (
+                <Tooltip title="Annotate this turn">
                   <IconButton
                     size="small"
-                    onClick={() => onReviewTurn(turn.turn, turn.success)}
+                    onClick={() => onAnnotateTurn(turn.turn, turn.success)}
                     sx={{
                       padding: 0.5,
                       color: theme.palette.text.secondary,
@@ -908,7 +907,7 @@ export default function ConversationHistory({
         />
 
         {/* Show Confirmed Indicator only if review exists AND matches automated result, otherwise show Confirm button */}
-        {hasExistingReview && reviewMatchesAutomated ? (
+        {hasExistingAnnotation && annotationMatchesAutomated ? (
           <Chip
             icon={<CheckIcon sx={{ fontSize: theme.spacing(2) }} />}
             label="Confirmed"
@@ -919,13 +918,13 @@ export default function ConversationHistory({
               fontWeight: 600,
             }}
           />
-        ) : !hasExistingReview && onConfirmAutomatedReview ? (
-          <Tooltip title="Confirm automated review">
+        ) : !hasExistingAnnotation && onConfirmAutomatedAnnotation ? (
+          <Tooltip title="Confirm automated result">
             <span>
               <IconButton
                 size="small"
-                onClick={onConfirmAutomatedReview}
-                disabled={isConfirmingReview}
+                onClick={onConfirmAutomatedAnnotation}
+                disabled={isConfirmingAnnotation}
                 sx={{
                   color: theme.palette.success.main,
                   border: `1px solid ${theme.palette.success.main}`,

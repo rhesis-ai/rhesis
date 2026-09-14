@@ -63,7 +63,7 @@ interface TraceMetricsTabProps {
   isConversationTrace: boolean;
   onReviewMetric?: (metricName: string) => void;
   onReviewTrace?: () => void;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   traceMetricsStatus?: TraceMetricsStatus | null;
   selectedTurnNumber?: number | null;
 }
@@ -282,7 +282,7 @@ export default function TraceMetricsTab({
   isConversationTrace,
   onReviewMetric,
   onReviewTrace,
-  onReviewTurn,
+  onAnnotateTurn,
   traceMetricsStatus,
   selectedTurnNumber = null,
 }: TraceMetricsTabProps) {
@@ -374,7 +374,7 @@ export default function TraceMetricsTab({
     return result;
   }, [traceMetrics]);
 
-  const turnReviewMap = useMemo(() => {
+  const turnAnnotationMap = useMemo(() => {
     const map = new Map<number, Annotation>();
     const reviews = selectedSpan?.trace_reviews?.reviews;
     if (!reviews) return map;
@@ -605,7 +605,7 @@ export default function TraceMetricsTab({
                     const turnSuccess = override
                       ? override.success
                       : (automatedTurnSuccess ?? false);
-                    const review = turnReviewMap.get(selectedTurnNumber);
+                    const review = turnAnnotationMap.get(selectedTurnNumber);
                     const isOverruled = !!override;
                     const isConfirmed = !!review && !isOverruled;
 
@@ -657,12 +657,12 @@ export default function TraceMetricsTab({
                           size="small"
                           variant="filled"
                         />
-                        {onReviewTurn && (
+                        {onAnnotateTurn && (
                           <Tooltip title={`Review Turn ${selectedTurnNumber}`}>
                             <IconButton
                               size="small"
                               onClick={() =>
-                                onReviewTurn(selectedTurnNumber, turnSuccess)
+                                onAnnotateTurn(selectedTurnNumber, turnSuccess)
                               }
                               sx={{
                                 padding: theme.spacing(0.25),

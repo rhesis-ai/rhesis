@@ -267,8 +267,8 @@ export default function TestRunMainView({
 
     if (filter.overruleFilter !== 'all') {
       filtered = filtered.filter(test => {
-        const hasReview = !!test.last_review;
-        const hasConflict = !test.matches_review;
+        const hasReview = !!test.last_annotation;
+        const hasConflict = !test.matches_annotation;
         if (filter.overruleFilter === 'overruled') return hasReview;
         if (filter.overruleFilter === 'original') return !hasReview;
         if (filter.overruleFilter === 'conflicting')

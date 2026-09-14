@@ -9,7 +9,7 @@ import {
   isPassedStatusName,
 } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
-import { getLatestMetricReviewForResult } from './test-run-summary-utils';
+import { getLatestMetricAnnotationForResult } from './test-run-summary-utils';
 
 export type TestResultDisplayStatus = {
   passed: boolean;
@@ -81,7 +81,7 @@ export function getTestResultDisplayStatus(
         )?.length || 0;
 
     const originalPassed = allCriteriaMet === true;
-    const lastReview = test.last_review;
+    const lastReview = test.last_annotation;
 
     if (lastReview && lastReview.status?.name) {
       const reviewPassed = isPassedStatusName(lastReview.status.name);
@@ -124,7 +124,7 @@ export function getTestResultDisplayStatus(
     }
 
     // No entity-level review, but a metric-targeted review may still exist.
-    const latestMetricReview = getLatestMetricReviewForResult(test);
+    const latestMetricReview = getLatestMetricAnnotationForResult(test);
     if (latestMetricReview?.status?.name) {
       const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
 
@@ -181,7 +181,7 @@ export function getTestResultDisplayStatus(
   }
 
   const originalPassed = passedMetrics === totalMetrics;
-  const lastReview = test.last_review;
+  const lastReview = test.last_annotation;
 
   if (lastReview && lastReview.status?.name) {
     const reviewPassed = isPassedStatusName(lastReview.status.name);
@@ -205,10 +205,10 @@ export function getTestResultDisplayStatus(
   }
 
   // No entity-level review, but a metric-targeted review may still exist
-  // (e.g. an @mention review left on a specific metric). last_review only
+  // (e.g. an @mention review left on a specific metric). last_annotation only
   // tracks entity-level reviews, so without this the "Review" column would
   // show "No manual review yet" even though the test has been reviewed.
-  const latestMetricReview = getLatestMetricReviewForResult(test);
+  const latestMetricReview = getLatestMetricAnnotationForResult(test);
   if (latestMetricReview?.status?.name) {
     const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
 

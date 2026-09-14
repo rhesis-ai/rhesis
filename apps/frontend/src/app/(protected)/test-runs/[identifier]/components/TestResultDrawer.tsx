@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import {
+  ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/annotation';
 import {
@@ -158,7 +159,7 @@ export default function TestResultDrawer({
   const [reviewInitialStatus, setReviewInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
-  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const [isConfirmingAnnotation, setIsConfirmingReview] = useState(false);
   const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
@@ -295,19 +296,20 @@ export default function TestResultDrawer({
         return;
       }
 
-      // Create a review that matches the automated result
-      await testResultsClient.createReview(
-        test.id,
-        targetStatus.id,
-        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-        { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null }
-      );
+      // An annotation agreeing with the automated result
+      await new ApiClientFactory().getAnnotationsClient().createAnnotation({
+        entity_type: ANNOTATION_ENTITY_TYPES.TEST_RESULT,
+        entity_id: test.id,
+        status_id: targetStatus.id,
+        comments: `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+        target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
+      });
 
       // Refresh the test result
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      console.error('Failed to confirm automated review:', error);
+      console.error('Failed to confirm the automated result:', error);
     } finally {
       setIsConfirmingReview(false);
       isConfirmingRef.current = false;
@@ -467,9 +469,9 @@ export default function TestResultDrawer({
               testSetType={testSetType}
               project={project}
               projectName={projectName}
-              onReviewTurn={isMultiTurn ? handleReviewTurn : undefined}
-              onConfirmAutomatedReview={handleConfirmAutomatedReview}
-              isConfirmingReview={isConfirmingReview}
+              onAnnotateTurn={isMultiTurn ? handleReviewTurn : undefined}
+              onConfirmAutomatedAnnotation={handleConfirmAutomatedReview}
+              isConfirmingAnnotation={isConfirmingAnnotation}
             />
           </TabPanel>
 

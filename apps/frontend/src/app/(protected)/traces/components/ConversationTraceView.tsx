@@ -33,7 +33,7 @@ interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
   onSpanSelect?: (span: SpanNode) => void;
   rootSpans?: SpanNode[];
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
 }
 
 interface TurnOverrideEntry {
@@ -90,7 +90,7 @@ export default function ConversationTraceView({
   trace,
   onSpanSelect,
   rootSpans,
-  onReviewTurn,
+  onAnnotateTurn,
 }: ConversationTraceViewProps) {
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,7 +161,7 @@ export default function ConversationTraceView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trace.trace_id, trace.test_result?.id]);
 
-  const turnReviewMap = useMemo(() => {
+  const turnAnnotationMap = useMemo(() => {
     const map = new Map<number, Review>();
     const reviews = rootSpans?.find(s => s.trace_reviews)?.trace_reviews
       ?.reviews;
@@ -298,9 +298,9 @@ export default function ConversationTraceView({
           onResponseClick={
             onSpanSelect && rootSpans ? handleResponseClick : undefined
           }
-          onReviewTurn={onReviewTurn}
+          onAnnotateTurn={onAnnotateTurn}
           maxHeight="100%"
-          turnReviewMap={turnReviewMap}
+          turnAnnotationMap={turnAnnotationMap}
         />
       </Box>
     </Box>

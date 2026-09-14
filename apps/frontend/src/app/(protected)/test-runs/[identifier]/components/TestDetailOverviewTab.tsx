@@ -230,7 +230,7 @@ export default function TestDetailOverviewTab({
         size="small"
         variant="outlined"
       />
-      {test.last_review && (
+      {test.last_annotation && (
         <Chip
           icon={<CheckIcon sx={{ fontSize: 16 }} />}
           label="Confirmed"
