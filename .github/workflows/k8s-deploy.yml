@@ -135,9 +135,15 @@ jobs:
           ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
           ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
         run: |
-          # Retry up to 5 times with 30s back-off to handle residual
-          # "another operation is already in progress" races not caught by
-          # the concurrency group (e.g. a manual sync in the ArgoCD UI).
+          # Retry to handle residual "another operation is already in progress"
+          # races not caught by the concurrency group (e.g. a manual sync in the
+          # ArgoCD UI, or sibling per-service deploy jobs hitting the same app).
+          #
+          # Between attempts we wait on the in-flight operation itself rather
+          # than sleeping a fixed amount. A fixed back-off is a guess about how
+          # long someone else's sync takes, and it loses: run 34803006754 gave
+          # up after 5x30s while the operation holding the lock finished 7
+          # seconds later, reporting a failed deploy that had in fact succeeded.
           # Use EXIT_CODE=0; cmd || EXIT_CODE=$? so bash -e does not abort
           # on a non-zero argocd exit before we can inspect the output.
           for attempt in $(seq 1 5); do
@@ -155,8 +161,13 @@ jobs:
               exit 1
             fi
             if [ "$attempt" -lt 5 ]; then
-              echo "Attempt $attempt failed (concurrent operation) — waiting 30s before retry..."
-              sleep 30
+              echo "Attempt $attempt failed (concurrent operation) — waiting for it to finish..."
+              argocd app wait "${{ inputs.app_name }}" \
+                --server "$ARGOCD_SERVER" \
+                --auth-token "$ARGOCD_AUTH_TOKEN" \
+                --grpc-web \
+                --operation \
+                --timeout 600 || true
             else
               echo "All 5 sync attempts failed."
               exit 1
