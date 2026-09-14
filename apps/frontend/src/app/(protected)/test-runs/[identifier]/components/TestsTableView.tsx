@@ -268,7 +268,10 @@ export default function TestsTableView({
           entity_id: test.id,
           status_id: targetStatus.id,
           comments: `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-          target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
+          target: {
+            type: ANNOTATION_TARGET_TYPES.TEST_RESULT,
+            reference: null,
+          },
         });
 
         let updatedTest: TestResultDetail | null = null;

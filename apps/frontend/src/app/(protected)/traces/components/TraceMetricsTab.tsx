@@ -7,10 +7,6 @@ import {
 import type { AnnotationSummaryEntry } from '@/utils/api-client/interfaces/annotation';
 import { useMemo, useState } from 'react';
 import {
-  ANNOTATION_TARGET_TYPES,
-  Annotation,
-} from '@/utils/api-client/interfaces/annotation';
-import {
   Box,
   Typography,
   Card,

@@ -93,8 +93,7 @@ export default function AnnotationFilterDrawer({
               onClick={() =>
                 setDraft(prev => ({
                   ...prev,
-                  entity_type:
-                    prev.entity_type === opt.value ? '' : opt.value,
+                  entity_type: prev.entity_type === opt.value ? '' : opt.value,
                 }))
               }
               sx={filterChipSx(draft.entity_type === opt.value)}

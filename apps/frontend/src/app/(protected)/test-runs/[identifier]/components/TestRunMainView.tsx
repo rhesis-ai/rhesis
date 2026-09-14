@@ -20,16 +20,12 @@ import TestRunTracesTab from './TestRunTracesTab';
 import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { FilterState } from './TestRunFilterBar';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import {
   TestRunDetail,
   VerdictMatrix,
 } from '@/utils/api-client/interfaces/test-run';
-import {
-  TraceSummary,
-} from '@/utils/api-client/interfaces/telemetry';
+import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useViewingEntity } from '@/contexts/NotificationsContext';
 import { NotificationSection } from '@/constants/notifications';

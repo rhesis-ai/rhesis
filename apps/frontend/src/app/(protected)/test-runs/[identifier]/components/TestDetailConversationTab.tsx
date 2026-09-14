@@ -3,12 +3,7 @@
 import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import {
-  ANNOTATION_TARGET_TYPES,
-} from '@/utils/api-client/interfaces/annotation';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import {
   SpanNode,

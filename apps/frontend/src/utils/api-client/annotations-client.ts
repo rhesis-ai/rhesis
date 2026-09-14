@@ -16,13 +16,7 @@ export class AnnotationsClient extends BaseApiClient {
   async getAnnotations(
     params: AnnotationsQueryParams = {}
   ): Promise<PaginatedResponse<Annotation>> {
-    const {
-      skip = 0,
-      limit = 50,
-      sort_by,
-      sort_order,
-      ...filters
-    } = params;
+    const { skip = 0, limit = 50, sort_by, sort_order, ...filters } = params;
     return this.fetchPaginated<Annotation>(API_ENDPOINTS.annotations, {
       skip,
       limit,

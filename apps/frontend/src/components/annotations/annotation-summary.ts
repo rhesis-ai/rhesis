@@ -32,7 +32,10 @@ export function annotationsByTurn(
 ): Map<number, AnnotationSummaryEntry> {
   const map = new Map<number, AnnotationSummaryEntry>();
   for (const entry of Object.values(summary ?? {})) {
-    if (entry.target_type !== ANNOTATION_TARGET_TYPES.TURN || !entry.reference) {
+    if (
+      entry.target_type !== ANNOTATION_TARGET_TYPES.TURN ||
+      !entry.reference
+    ) {
       continue;
     }
     const turn = parseInt(entry.reference.replace(/\D/g, ''), 10);

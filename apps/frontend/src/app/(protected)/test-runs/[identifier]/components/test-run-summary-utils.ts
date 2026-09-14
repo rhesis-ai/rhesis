@@ -1,6 +1,4 @@
-import {
-  ANNOTATION_TARGET_TYPES,
-} from '@/utils/api-client/interfaces/annotation';
+import { ANNOTATION_TARGET_TYPES } from '@/utils/api-client/interfaces/annotation';
 import {
   TestResultDetail,
   MetricResult,
@@ -171,7 +169,10 @@ export function getLatestMetricAnnotationForResult(
 
   for (const annotation of getResultAnnotations(result)) {
     const onMetric = annotation.target_type === ANNOTATION_TARGET_TYPES.METRIC;
-    if (!onMetric && !commentMentionsAnyMetric(result, annotation.comments ?? '')) {
+    if (
+      !onMetric &&
+      !commentMentionsAnyMetric(result, annotation.comments ?? '')
+    ) {
       continue;
     }
     const time = annotation.updated_at
@@ -186,9 +187,7 @@ export function getLatestMetricAnnotationForResult(
   return latest;
 }
 
-export function resultHasAnyHumanAnnotation(
-  result: TestResultDetail
-): boolean {
+export function resultHasAnyHumanAnnotation(result: TestResultDetail): boolean {
   return (
     resultHasTestLevelAnnotation(result) ||
     getLatestMetricAnnotationForResult(result) !== undefined

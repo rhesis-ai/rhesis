@@ -138,9 +138,7 @@ export default function AnnotationsGrid({
     [editTarget, editComments, editResolved, notifications]
   );
 
-  const [deleteTarget, setDeleteTarget] = useState<Annotation | null>(
-    null
-  );
+  const [deleteTarget, setDeleteTarget] = useState<Annotation | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteClick = useCallback((row: Annotation) => {
@@ -155,9 +153,7 @@ export default function AnnotationsGrid({
       try {
         setDeleting(true);
         const factory = new ApiClientFactory();
-        await factory
-          .getAnnotationsClient()
-          .deleteAnnotation(deleteTarget.id);
+        await factory.getAnnotationsClient().deleteAnnotation(deleteTarget.id);
         notifications.show('Annotation deleted.', { severity: 'success' });
         setDeleteTarget(null);
         refresh();
@@ -193,11 +189,7 @@ export default function AnnotationsGrid({
   const onTotalCountChangeRef = useRef(onTotalCountChange);
   onTotalCountChangeRef.current = onTotalCountChange;
   const handleDataChange = useCallback(
-    (
-      _data: Annotation[],
-      totalCount: number,
-      filtersActive: boolean
-    ) => {
+    (_data: Annotation[], totalCount: number, filtersActive: boolean) => {
       // Report the unfiltered total only — the page header shows the overall count.
       if (!filtersActive) {
         onTotalCountChangeRef.current?.(totalCount);
@@ -348,7 +340,11 @@ export default function AnnotationsGrid({
         `/test-runs/${encodeURIComponent(ctx.test_run_id)}` +
         `?selectedresult=${encodeURIComponent(ctx.test_result_id ?? row.entity_id)}` +
         `&detailTab=annotations`;
-    } else if (row.entity_type === 'Trace' && ctx?.trace_id && ctx?.project_id) {
+    } else if (
+      row.entity_type === 'Trace' &&
+      ctx?.trace_id &&
+      ctx?.project_id
+    ) {
       url =
         `/traces?open_trace=${encodeURIComponent(ctx.trace_id)}` +
         `&project_id=${encodeURIComponent(ctx.project_id)}`;
@@ -359,11 +355,7 @@ export default function AnnotationsGrid({
   }, []);
 
   return (
-    <EntityGrid<
-      Annotation,
-      typeof annotationsList.filters,
-      AnnotationFilters
-    >
+    <EntityGrid<Annotation, typeof annotationsList.filters, AnnotationFilters>
       descriptor={annotationsList}
       columns={columns}
       toFilters={toFilters}

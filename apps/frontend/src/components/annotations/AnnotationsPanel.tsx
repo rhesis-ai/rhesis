@@ -73,7 +73,9 @@ function verdictDisplay(statusName: string): {
 
 function relativeTime(value: string): string {
   try {
-    return formatDistanceToNow(new Date(value), { addSuffix: true }).toUpperCase();
+    return formatDistanceToNow(new Date(value), {
+      addSuffix: true,
+    }).toUpperCase();
   } catch {
     return 'N/A';
   }
@@ -318,7 +320,9 @@ export default function AnnotationsPanel({
             )}
           </Box>
 
-          <Stack divider={<Box sx={{ borderTop: 1, borderColor: 'divider' }} />}>
+          <Stack
+            divider={<Box sx={{ borderTop: 1, borderColor: 'divider' }} />}
+          >
             {visible.map(annotation => {
               const display = verdictDisplay(annotation.status?.name ?? '');
               const canUpdate = can(annotation, Capability.Annotation.UPDATE);
