@@ -32,7 +32,12 @@ from rhesis.sdk.telemetry.integrations.agent_framework import mapping
 
 # Shared with other native-GenAI integrations (see genai.py); imported under
 # the historical private names so existing references keep working.
-from rhesis.sdk.telemetry.integrations.genai import AncestryRegistry
+from rhesis.sdk.telemetry.integrations.genai import (
+    AncestryRegistry,
+    ConversationTraceRegistry,
+    DeferredReleaseQueue,
+    RetracedSpan,
+)
 from rhesis.sdk.telemetry.integrations.genai import (
     TranslatedSpan as _TranslatedSpan,
 )
@@ -43,6 +48,8 @@ from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.context import (
     get_conversation_id,
+    get_conversation_trace_id,
+    get_root_trace_id,
     is_llm_observation_active,
     set_llm_observation_active,
 )
@@ -356,20 +363,33 @@ class _ConversationContentRegistry:
     A per-trace conversation/session id is also recorded here at chat-span
     *start* (while the caller's ``set_conversation_id`` contextvar is active).
     It is the gate for turn-root stamping: only when the agent has set a real
-    conversation id for the run does the root ``workflow.run`` span become a
-    Rhesis conversation turn root. Pure single-turn runs (e.g. the ``run_traces``
-    smoke test) set no id and stay plain traces. All stores are bounded; the
-    oldest entries are evicted once the cap is hit. Input/output strings are
+    conversation id for the run does the run's root span become a Rhesis
+    conversation turn root. Pure single-turn runs (e.g. the ``run_traces``
+    smoke test) set no id and stay plain traces.
+
+    Entries are released a bounded number of reads after the first exporter
+    reads them, rather than on that read, so that several wrapped exporters all
+    stamp the same content; see :meth:`read_for_root`. Every store is bounded
+    independently of that, the oldest entries being evicted once the cap is hit.
+    Input/output strings are
     truncated to :data:`~rhesis.telemetry.constants.ConversationContext.MAX_IO_LENGTH`
     at record time.
     """
 
-    def __init__(self, max_entries: int = 4096) -> None:
+    def __init__(self, max_entries: int = 4096, max_served: int = 512) -> None:
         self._input_by_trace: dict[int, str] = {}
         self._output_by_trace: dict[int, str] = {}
         self._session_by_trace: dict[int, str] = {}
         self._max_entries = max_entries
         self._lock = threading.Lock()
+        # Every store goes in: one left out never gets freed. Guarded by the
+        # lock above, which the queue expects the caller to hold.
+        self._release = DeferredReleaseQueue(
+            self._session_by_trace,
+            self._input_by_trace,
+            self._output_by_trace,
+            max_served=max_served,
+        )
 
     def _evict_if_needed(self, store: dict[int, str]) -> None:
         if len(store) < self._max_entries:
@@ -431,22 +451,36 @@ class _ConversationContentRegistry:
         with self._lock:
             return self._session_by_trace.get(trace_id)
 
-    def consume(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
-        """Pop and return ``(session_id, input, output)`` for ``trace_id``.
+    def read_for_root(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
+        """Return ``(session_id, input, output)`` for ``trace_id`` and queue its release.
 
-        Called exactly once per trace when its root ``workflow.run`` span is
-        exported, so per-trace entries do not linger for the process lifetime
-        (bounding memory beyond the eviction cap and removing any risk of stale
-        content resurfacing if a trace id were ever reused). Returns all-``None``
-        when nothing was recorded for the trace.
+        Read rather than popped. ``enable()`` wraps *every* exporter on the
+        provider, so a process running its own OTLP collector beside Rhesis has
+        two translating exporters, each exporting the same spans. Popping here
+        gave the content to whichever reached the trace root first and left the
+        other stamping a root span with no conversation on it.
+
+        Returns all-``None`` when nothing was recorded for the trace.
         """
         if trace_id is None:
             return None, None, None
         with self._lock:
-            session = self._session_by_trace.pop(trace_id, None)
-            conv_input = self._input_by_trace.pop(trace_id, None)
-            conv_output = self._output_by_trace.pop(trace_id, None)
+            session = self._session_by_trace.get(trace_id)
+            conv_input = self._input_by_trace.get(trace_id)
+            conv_output = self._output_by_trace.get(trace_id)
+            self._release.queue_release(trace_id)
         return session, conv_input, conv_output
+
+    def release(self, trace_id: int | None) -> None:
+        """Queue ``trace_id``'s entries for release without reading them.
+
+        For a run whose content nothing will stamp: a ``workflow.run`` nested
+        under an ``@endpoint``/``@observe`` span, where that span owns the turn.
+        """
+        if trace_id is None:
+            return
+        with self._lock:
+            self._release.queue_release(trace_id)
 
 
 # Shared singleton: the dedup processor records chat I/O at span end, the
@@ -454,16 +488,84 @@ class _ConversationContentRegistry:
 _conversation_content = _ConversationContentRegistry()
 
 
-def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
-    """Build conversation attributes for a ``workflow.run`` span.
+class _MafRootedTraces:
+    """Trace ids whose trace root is a MAF span.
 
-    Always :meth:`consumes <_ConversationContentRegistry.consume>` the per-trace
-    chat I/O recorded for this span's trace id so entries do not linger when the
-    ``workflow.run`` span is nested under a Rhesis ``@endpoint``/``@observe``
-    parent (the common long-running-service path). Stamping is limited to trace
-    roots only (``parent is None``): when the workflow runs inside an enclosing
-    Rhesis span, that span owns turn-root semantics and ``workflow.run`` must
-    not be stamped again.
+    Answers the one question a *nested* run root needs: will anything in this
+    trace read the conversation content? Only a MAF span at the trace root ever
+    stamps a turn, so when one exists it is the reader and a nested span must
+    leave the content alone. When none exists - the run sits under a Rhesis
+    ``@endpoint``/``@observe`` span, which owns the turn itself - nobody reads,
+    so the nested span can release instead of leaving the entries to the store's
+    eviction cap.
+
+    Marked at span *start*, where a trace root always precedes the nested spans
+    that ask about it, and read at export. One entry per trace rather than per
+    span, and bounded, so a long-running process cannot grow it without limit.
+    """
+
+    def __init__(self, max_entries: int = 4096) -> None:
+        self._traces: dict[int, None] = {}
+        self._max_entries = max_entries
+        self._lock = threading.Lock()
+
+    def mark(self, trace_id: int | None) -> None:
+        """Record that this trace is rooted by a MAF span. Never raises."""
+        if trace_id is None:
+            return
+        try:
+            with self._lock:
+                while len(self._traces) >= self._max_entries:
+                    try:
+                        del self._traces[next(iter(self._traces))]
+                    except StopIteration:  # pragma: no cover - racy but harmless
+                        break
+                self._traces[trace_id] = None
+        except Exception:  # noqa: BLE001 - marking must never break tracing
+            logger.debug("Failed to mark a MAF-rooted trace", exc_info=True)
+
+    def contains(self, trace_id: int | None) -> bool:
+        if trace_id is None:
+            return False
+        with self._lock:
+            return trace_id in self._traces
+
+    def clear(self) -> None:
+        with self._lock:
+            self._traces.clear()
+
+
+_maf_rooted_traces = _MafRootedTraces()
+
+# MAF opens its own root span per turn, so OTEL mints a fresh trace id each time
+# and a conversation arrives as one unrelated trace per turn -- every turn
+# correctly labelled with the same conversation id, and none of them together.
+# The dedup processor claims each turn's trace at span start, where the
+# conversation ContextVars are still readable; the exporter rewrites the later
+# turns onto the first turn's id. Same registry the Google ADK integration uses.
+_conversation_traces = ConversationTraceRegistry()
+
+
+def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
+    """Build conversation attributes for the span that roots a MAF run.
+
+    That is ``workflow.run`` for a workflow, and ``invoke_agent <name>`` for a
+    plain ``agent.run()``, which emits no workflow span at all.
+
+    Stamping is limited to trace roots only (``parent is None``): when the run
+    happens inside an enclosing Rhesis span, that span owns turn-root semantics
+    and the MAF root must not be stamped again.
+
+    Reads the per-trace chat I/O through
+    :meth:`~_ConversationContentRegistry.read_for_root`, which queues it for
+    release rather than taking it, so the other wrapped exporters still see it.
+
+    A run root that is *not* the trace root stamps nothing, and whether it may
+    release turns on what roots the trace. A MAF span there is the reader and
+    exports after its children, so releasing would take what it needs; anything
+    else - a Rhesis ``@endpoint``/``@observe`` span owning the turn - means
+    nothing reads, so the entries are released instead of being left to the
+    store's eviction cap. See :class:`_MafRootedTraces`.
 
     When stamped, the span always gets the conversation ``input``/``output``
     (from the nested chat spans via :data:`_conversation_content`) so the
@@ -480,23 +582,30 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
       test): stamp only input/output. The run stays a plain single-turn trace
       (``conversation.id`` remains null) but its conversation is still visible.
 
-    Returns ``None`` when this is not a ``workflow.run`` span, or when it is a
-    trace root with neither a session id nor any captured input/output (e.g.
-    content capture disabled), leaving the span untouched.
+    Returns ``None`` when this is not a run root, or when it is a trace root
+    with neither a session id nor any captured input/output (e.g. content
+    capture disabled), leaving the span untouched.
     """
-    if not mapping.is_workflow_run_span(getattr(span, "name", None)):
+    name = getattr(span, "name", None)
+    is_workflow_run = mapping.is_workflow_run_span(name)
+    if not (is_workflow_run or mapping.is_agent_invocation_span(name)):
         return None
     ctx = getattr(span, "context", None)
     trace_id = getattr(ctx, "trace_id", None)
     if trace_id is None:
         return None
 
-    # Release per-trace entries on every workflow.run export, even when nested
-    # under @endpoint/@observe (no stamping in that case).
-    session_id, conv_input, conv_output = _conversation_content.consume(trace_id)
-
     if getattr(span, "parent", None) is not None:
+        # A MAF span at the trace root is the one that reads this content, and
+        # it exports after its children, so releasing here would take what it
+        # needs. With no MAF root the turn belongs to an enclosing
+        # @endpoint/@observe span, nothing reads, and leaving the entries to the
+        # store's eviction cap is the leak the release queue exists to prevent.
+        if not _maf_rooted_traces.contains(trace_id):
+            _conversation_content.release(trace_id)
         return None
+
+    session_id, conv_input, conv_output = _conversation_content.read_for_root(trace_id)
 
     attrs: dict[str, Any] = {}
     if session_id:
@@ -625,7 +734,24 @@ class MAFTranslatingExporter(SpanExporter):
                     translated.append(_safe_fallback_span(span))
             else:
                 translated.append(span)
-        return self._wrapped.export(translated)
+        return self._wrapped.export(self._join_conversation_traces(translated))
+
+    @staticmethod
+    def _join_conversation_traces(spans: list[ReadableSpan]) -> list[ReadableSpan]:
+        """Rewrite every span of a claimed trace onto its conversation's trace id.
+
+        Applies to non-MAF spans as well. They share the trace with the MAF run --
+        an enclosing ``@endpoint`` span, an HTTP client span from an unrelated
+        instrumentation -- and leaving them behind on the original trace id would
+        tear the turn in half.
+        """
+        joined: list[ReadableSpan] = []
+        for span in spans:
+            target = _conversation_traces.target(
+                getattr(getattr(span, "context", None), "trace_id", None)
+            )
+            joined.append(RetracedSpan(span, target) if target is not None else span)
+        return joined
 
     def shutdown(self) -> None:
         try:
@@ -717,6 +843,11 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
                 return None
         return getattr(ctx, "span_id", None)
 
+    @staticmethod
+    def _trace_id(span) -> int | None:
+        """Return ``span_context.trace_id`` if present, else ``None``."""
+        return getattr(getattr(span, "context", None), "trace_id", None)
+
     def _store_prev_flag(self, span, prev: bool) -> None:
         """Stash the outer flag value where ``on_end`` can find it.
 
@@ -752,6 +883,25 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
             # parent chain tool -> chat -> invoke_agent is fully indexed before
             # any of them export.
             _handoff_ancestry.record(span)
+            # A MAF span with no parent roots the trace, which tells the nested
+            # run roots that something here will read the conversation content.
+            if getattr(span, "parent", None) is None:
+                _maf_rooted_traces.mark(self._trace_id(span))
+            # Claim this turn's trace for the conversation on every MAF span, not
+            # just the chat spans below: the claim has to be recorded before any
+            # span of the trace is exported, and the workflow/agent root starts
+            # first. Claiming only from a chat span would let a sibling that ends
+            # earlier ship on the original trace id in an earlier batch.
+            #
+            # Both ContextVars mean something outside this process already owns
+            # the trace identity -- ``root_trace_id`` is what an enclosing
+            # ``@endpoint``/``@observe`` publishes as its result and as the next
+            # turn's conversation trace, ``conversation_trace_id`` is a trace the
+            # platform minted and is writing its own turn records to. Either way
+            # it joins the turns itself, and moving spans off that id would
+            # strand the link and the reply on a trace with no spans.
+            if get_root_trace_id() is None and get_conversation_trace_id() is None:
+                _conversation_traces.claim(self._trace_id(span), get_conversation_id())
             # NOTE: at ``on_start`` time MAF has not yet called
             # ``span.set_attributes(...)``. ``ChatTelemetryLayer`` constructs
             # the span via ``start_span(f"{operation} {span_name}")`` and only
@@ -770,9 +920,7 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
             # contextvar set by the caller (e.g. ``run_chat_turn``) is still
             # active. Recording here avoids relying on ``on_end`` context, which
             # could differ if a future processor ever deferred span completion.
-            ctx = getattr(span, "context", None)
-            trace_id = getattr(ctx, "trace_id", None)
-            _conversation_content.record_session(trace_id, get_conversation_id())
+            _conversation_content.record_session(self._trace_id(span), get_conversation_id())
             prev = is_llm_observation_active()
             self._store_prev_flag(span, prev)
             if not prev:
