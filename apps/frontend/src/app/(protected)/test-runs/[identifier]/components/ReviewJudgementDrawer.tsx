@@ -19,7 +19,7 @@ import { findStatusByCategory } from '@/utils/test-result-status';
 import { EntityType } from '@/types/entity-type';
 import MentionTextInput, {
   MentionOption,
-  inferReviewTarget,
+  inferAnnotationTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -55,7 +55,7 @@ export default function ReviewJudgementDrawer({
 
   // Infer review target from mention syntax in comment text
   const inferredTarget: InferredTarget = useMemo(
-    () => inferReviewTarget(reason),
+    () => inferAnnotationTarget(reason),
     [reason]
   );
 

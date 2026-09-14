@@ -80,8 +80,8 @@ export function countActiveTestRunDetailDrawerFilters(
 
 const REVIEW_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
-  { value: 'overruled', label: 'Reviewed' },
-  { value: 'original', label: 'Not Reviewed' },
+  { value: 'overruled', label: 'Annotated' },
+  { value: 'original', label: 'Not Annotated' },
   { value: 'conflicting', label: 'Conflicting' },
 ] as const;
 
@@ -390,7 +390,7 @@ export default function TestRunDetailFilterDrawer({
       onReset={handleReset}
       onApply={handleApply}
     >
-      <FilterSection title="Review Status">
+      <FilterSection title="Annotation Status">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {REVIEW_STATUS_OPTIONS.map(option => (
             <Box

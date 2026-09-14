@@ -1,7 +1,7 @@
 import {
   aggregateMetricStats,
   requirementHasHumanCorrection,
-  computeReviewSummary,
+  computeAnnotationSummary,
   findMetricKey,
   getEffectiveMetricSuccess,
   getLatestMetricAnnotationForResult,
@@ -164,15 +164,15 @@ describe('aggregateMetricStats', () => {
   });
 });
 
-describe('computeReviewSummary', () => {
+describe('computeAnnotationSummary', () => {
   it('returns empty state when no reviews exist', () => {
-    const summary = computeReviewSummary([
+    const summary = computeAnnotationSummary([
       makeResult({ annotation_summary: {}, metrics: {} }),
     ]);
     expect(summary).toEqual(
       expect.objectContaining({
         headline: '0',
-        subtitle: 'No reviews yet',
+        subtitle: 'No annotations yet',
       })
     );
   });
@@ -193,7 +193,7 @@ describe('computeReviewSummary', () => {
       }),
     ];
 
-    const summary = computeReviewSummary(results);
+    const summary = computeAnnotationSummary(results);
     expect(summary.headline).toBe('1 test');
     expect(summary.subtitle).toContain('1 corrected (test)');
     expect(summary.subtitle).toContain('1 corrected (metric)');
@@ -344,7 +344,7 @@ describe('metricHasHumanCorrection', () => {
     ];
 
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
-    const summary = computeReviewSummary(results);
+    const summary = computeAnnotationSummary(results);
     expect(summary.metricReviewCount).toBe(1);
     expect(summary.correctionCount).toBeGreaterThanOrEqual(1);
   });
@@ -367,7 +367,9 @@ describe('metricHasHumanCorrection', () => {
     ];
 
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
-    expect(computeReviewSummary(results).subtitle).toBe('1 corrected (metric)');
+    expect(computeAnnotationSummary(results).subtitle).toBe(
+      '1 corrected (metric)'
+    );
   });
 
   it('detects metric correction alongside a separate test-level review', () => {
@@ -414,7 +416,7 @@ describe('metricHasHumanCorrection', () => {
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
     expect(requirementHasHumanCorrection('Compliance', results)).toBe(true);
 
-    const summary = computeReviewSummary(results);
+    const summary = computeAnnotationSummary(results);
     expect(summary.headline).toBe('2 tests');
     expect(summary.subtitle).toContain('1 corrected (metric)');
     expect(summary.subtitle).toContain('1 corrected (test)');
@@ -499,8 +501,8 @@ describe('requirementHasHumanCorrection', () => {
   });
 });
 
-describe('confirmed metric reviews', () => {
-  it('counts confirmed metric review in summary subtitle', () => {
+describe('confirmed metric annotations', () => {
+  it('counts a confirmed metric annotation in the subtitle', () => {
     const results = [
       makeResult({
         metrics: {
@@ -517,9 +519,9 @@ describe('confirmed metric reviews', () => {
       }),
     ];
 
-    const summary = computeReviewSummary(results);
+    const summary = computeAnnotationSummary(results);
     expect(summary.headline).toBe('1 test');
-    expect(summary.subtitle).toBe('1 reviewed (metric)');
+    expect(summary.subtitle).toBe('1 annotated (metric)');
     expect(summary.metricReviewCount).toBe(1);
     expect(summary.metricCorrectionCount).toBe(0);
   });

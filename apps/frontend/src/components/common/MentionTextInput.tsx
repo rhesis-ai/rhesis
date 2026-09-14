@@ -493,7 +493,7 @@ export interface InferredTarget {
  * Infer the review target from mention markup in comment text.
  * Returns the first metric or turn mention found; defaults to test_result.
  */
-export function inferReviewTarget(text: string): InferredTarget {
+export function inferAnnotationTarget(text: string): InferredTarget {
   const mentionRegex =
     /@\[([^\]]+)\]\(((?:metric|turn):[^)]*(?:\([^)]*\))*[^)]*)\)/g;
   let match;

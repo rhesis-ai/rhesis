@@ -45,12 +45,9 @@ interface TestRunsGridProps {
   initialTotalCount?: number;
 }
 
-function formatReviewTooltip(reviewed: number, corrected: number): string {
-  const reviewedLabel = `${reviewed} test${reviewed === 1 ? '' : 's'} reviewed`;
-  if (corrected > 0) {
-    return `${reviewedLabel} · ${corrected} corrected`;
-  }
-  return reviewedLabel;
+function formatAnnotationTooltip(annotated: number, corrected: number): string {
+  const label = `${annotated} test${annotated === 1 ? '' : 's'} annotated`;
+  return corrected > 0 ? `${label} · ${corrected} corrected` : label;
 }
 
 /** Inline chip sized to sit inside a grid row without changing its height. */
@@ -78,7 +75,7 @@ function toFilters(state: EntityGridFilterState<TestRunFilters>) {
     commentsPresence: state.drawer.comments,
     tasksPresence: state.drawer.tasks,
     runKind: state.drawer.runKind,
-    reviews: state.drawer.reviews ?? 'all',
+    annotations: state.drawer.annotations ?? 'all',
   };
 }
 
@@ -402,22 +399,22 @@ export default function TestRunsGrid({
       },
       ...usageColumns(),
       {
-        field: 'counts.reviewed_tests',
-        headerName: 'Reviews',
+        field: 'counts.annotated_tests',
+        headerName: 'Annotations',
         flex: 1,
         minWidth: 80,
         sortable: false,
         filterable: false,
-        valueGetter: (_, row) => row.counts?.reviewed_tests ?? 0,
+        valueGetter: (_, row) => row.counts?.annotated_tests ?? 0,
         renderCell: params => {
-          const reviewed = params.row.counts?.reviewed_tests || 0;
-          if (reviewed === 0) return null;
+          const annotated = params.row.counts?.annotated_tests || 0;
+          if (annotated === 0) return null;
 
           const corrected = params.row.counts?.corrected_tests || 0;
           const iconColor = corrected > 0 ? 'primary.dark' : 'text.secondary';
 
           return (
-            <Tooltip title={formatReviewTooltip(reviewed, corrected)}>
+            <Tooltip title={formatAnnotationTooltip(annotated, corrected)}>
               <Box
                 sx={{
                   display: 'flex',
@@ -427,9 +424,10 @@ export default function TestRunsGrid({
                 }}
               >
                 <RateReviewOutlinedIcon
-                  sx={{ fontSize: 16, color: iconColor }}
+                  fontSize="small"
+                  sx={{ color: iconColor }}
                 />
-                <Typography variant="body2">{reviewed}</Typography>
+                <Typography variant="body2">{annotated}</Typography>
               </Box>
             </Tooltip>
           );

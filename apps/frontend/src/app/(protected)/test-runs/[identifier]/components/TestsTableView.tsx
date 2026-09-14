@@ -1,5 +1,6 @@
 'use client';
 
+import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
 import {
   ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
@@ -32,7 +33,6 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckIcon from '@mui/icons-material/Check';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
@@ -74,7 +74,7 @@ interface TestsTableViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
-  /** Drawer tab key when opening via deep-link (e.g. "reviews"). */
+  /** Drawer tab key when opening via deep-link (e.g. "annotations"). */
   initialDetailTab?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
@@ -443,8 +443,8 @@ export default function TestsTableView({
         },
       },
       {
-        field: 'review',
-        headerName: 'Review',
+        field: 'annotation',
+        headerName: 'Annotation',
         width: 120,
         flex: 0,
         sortable: false,
@@ -461,7 +461,7 @@ export default function TestsTableView({
               width: '100%',
             }}
           >
-            Review
+            Annotation
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
               <SmartToyOutlinedIcon sx={{ fontSize: 16 }} />
               <Typography variant="caption" color="text.secondary">
@@ -526,53 +526,17 @@ export default function TestsTableView({
                 </Box>
               </Tooltip>
 
-              {status.isOverruled ? (
-                <Tooltip
-                  title={
-                    status.reviewData
-                      ? `Human review by ${status.reviewData.reviewer}: ${
-                          status.reviewData.newStatus === 'passed'
-                            ? 'Passed'
-                            : 'Failed'
-                        } - ${status.reviewData.comments}`
-                      : 'Manually reviewed'
-                  }
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {status.reviewData?.newStatus === 'passed' ? (
-                      <CheckIcon
-                        sx={{
-                          fontSize: 20,
-                          color: status.hasConflict
-                            ? 'warning.main'
-                            : 'success.main',
-                        }}
-                      />
-                    ) : (
-                      <CloseIcon
-                        sx={{
-                          fontSize: 20,
-                          color: status.hasConflict
-                            ? 'warning.main'
-                            : 'error.main',
-                        }}
-                      />
-                    )}
-                  </Box>
-                </Tooltip>
-              ) : (
-                <Tooltip title="No manual review yet">
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CircleOutlinedIcon
-                      sx={{
-                        fontSize: 20,
-                        color: 'action.disabled',
-                        opacity: 0.3,
-                      }}
-                    />
-                  </Box>
-                </Tooltip>
-              )}
+              <AnnotationIndicator
+                verdict={
+                  status.isOverruled
+                    ? (status.reviewData?.newStatus ?? 'failed')
+                    : null
+                }
+                hasConflict={status.hasConflict}
+                annotator={status.reviewData?.reviewer}
+                comment={status.reviewData?.comments}
+                emptyOpacity={0.3}
+              />
             </Box>
           );
         },

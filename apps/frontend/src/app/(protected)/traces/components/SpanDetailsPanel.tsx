@@ -156,10 +156,10 @@ export default function SpanDetailsPanel({
           'aria-controls': 'span-detail-tabpanel-metrics',
         },
         {
-          key: 'reviews',
-          label: 'Reviews',
-          id: 'span-detail-tab-reviews',
-          'aria-controls': 'span-detail-tabpanel-reviews',
+          key: 'annotations',
+          label: 'Annotations',
+          id: 'span-detail-tab-annotations',
+          'aria-controls': 'span-detail-tabpanel-annotations',
         }
       );
     }
@@ -1185,7 +1185,7 @@ export default function SpanDetailsPanel({
         )}
 
         {hasTraceMetrics && trace && (
-          <TabPanel value={activeTabKey} index="reviews">
+          <TabPanel value={activeTabKey} index="annotations">
             <TraceAnnotationsTab
               selectedSpan={span}
               trace={trace}

@@ -243,7 +243,7 @@ async function getNavigationItems(
       segment: 'annotations',
       title: 'Annotations',
       icon: <RateReviewIcon key="annotations-icon" />,
-      requiredAnyOf: [Capability.TestResult.READ, Capability.Telemetry.READ],
+      requiredPermission: Capability.Annotation.READ,
     },
     {
       kind: 'page',
