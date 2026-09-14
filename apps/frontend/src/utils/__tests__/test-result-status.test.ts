@@ -4,7 +4,7 @@ import {
 import {
   getEffectiveTestResultStatus,
   getTestResultLabel,
-  hasConflictingReview,
+  hasConflictingAnnotation,
   isPassedStatusName,
   findStatusByCategory,
   getTestEvaluationSummary,
@@ -152,13 +152,13 @@ describe('testResultStatus', () => {
     });
   });
 
-  describe('hasConflictingReview', () => {
+  describe('hasConflictingAnnotation', () => {
     it('should return true when review exists and matches_review is false', () => {
       const test: Partial<TestResultDetail> = {
         last_review: createReview('Passed', 'Override'),
         matches_review: false,
       };
-      expect(hasConflictingReview(test as TestResultDetail)).toBe(true);
+      expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(true);
     });
 
     it('should return false when review exists and matches_review is true', () => {
@@ -166,7 +166,7 @@ describe('testResultStatus', () => {
         last_review: createReview('Passed', 'Agrees'),
         matches_review: true,
       };
-      expect(hasConflictingReview(test as TestResultDetail)).toBe(false);
+      expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(false);
     });
 
     it('should return false when no review exists', () => {
@@ -174,7 +174,7 @@ describe('testResultStatus', () => {
         execution: 'ok',
         verdict: 'pass',
       };
-      expect(hasConflictingReview(test as TestResultDetail)).toBe(false);
+      expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(false);
     });
 
     it('should return false when matches_review is undefined', () => {
@@ -182,7 +182,7 @@ describe('testResultStatus', () => {
         last_review: createReview('Passed', 'Test'),
         matches_review: undefined,
       };
-      expect(hasConflictingReview(test as TestResultDetail)).toBe(false);
+      expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(false);
     });
   });
 

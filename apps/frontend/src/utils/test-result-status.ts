@@ -169,7 +169,7 @@ export function isPassedStatusName(statusName: string): boolean {
  * @param test - The test result detail object
  * @returns True if there's a conflicting review, false otherwise
  */
-export function hasConflictingReview(test: TestResultDetail): boolean {
+export function hasConflictingAnnotation(test: TestResultDetail): boolean {
   return !!test.last_annotation && test.matches_annotation === false;
 }
 

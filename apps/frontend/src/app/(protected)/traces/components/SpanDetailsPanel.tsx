@@ -38,7 +38,7 @@ import {
 } from '@/utils/trace-utils';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
-import TraceReviewsTab from './TraceReviewsTab';
+import TraceAnnotationsTab from './TraceAnnotationsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -1134,7 +1134,7 @@ export default function SpanDetailsPanel({
 
         {hasTraceMetrics && trace && (
           <TabPanel value={activeTabKey} index="reviews">
-            <TraceReviewsTab
+            <TraceAnnotationsTab
               selectedSpan={span}
               trace={trace}
               onTraceUpdated={onTraceUpdated ?? (() => {})}

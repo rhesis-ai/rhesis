@@ -25,7 +25,7 @@ import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailConversationTab from './TestDetailConversationTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
-import TestDetailReviewsTab from './TestDetailReviewsTab';
+import TestDetailAnnotationsTab from './TestDetailAnnotationsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -182,7 +182,7 @@ export default function TestResultDrawer({
   const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
     setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
     setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    // Opens the review drawer as an overlay via TestDetailReviewsTab's own
+    // Opens the annotation drawer as an overlay via TestDetailAnnotationsTab's own
     // effect — the Conversation tab stays active so context isn't lost.
   };
 
@@ -484,7 +484,7 @@ export default function TestResultDrawer({
           </TabPanel>
 
           <TabPanel value={activeTab} index={TAB.reviews}>
-            <TestDetailReviewsTab
+            <TestDetailAnnotationsTab
               test={test}
               onTestResultUpdate={onTestResultUpdate}
               currentUserId={currentUserId}
