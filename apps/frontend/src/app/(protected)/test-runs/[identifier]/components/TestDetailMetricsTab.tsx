@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ANNOTATION_TARGET_TYPES,
+  type AnnotationSummaryEntry,
 } from '@/utils/api-client/interfaces/annotation';
 import {
   Box,
@@ -41,7 +42,6 @@ import {
   MetricResult,
   CriterionEvaluation,
   BehaviorVerdict,
-  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import {
@@ -343,24 +343,20 @@ export default function TestDetailMetricsTab({
     });
   }, [filteredMetrics, isMultiTurn]);
 
-  // Build a map of metric name -> latest review targeting that metric
-  const metricReviewMap = useMemo(() => {
-    const map = new Map<string, Review>();
-    const reviews = test.test_reviews?.reviews || [];
-    for (const review of reviews) {
-      const target = review.target;
-      if (target?.type === ANNOTATION_TARGET_TYPES.METRIC && target.reference) {
-        const existing = map.get(target.reference);
-        if (
-          !existing ||
-          (review.updated_at || '') > (existing.updated_at || '')
-        ) {
-          map.set(target.reference, review);
-        }
+  // metric name -> the annotation on that metric. The summary is already
+  // reduced to the newest per target, so there is no comparison to make.
+  const metricAnnotationMap = useMemo(() => {
+    const map = new Map<string, AnnotationSummaryEntry>();
+    for (const entry of Object.values(test.annotation_summary ?? {})) {
+      if (
+        entry.target_type === ANNOTATION_TARGET_TYPES.METRIC &&
+        entry.reference
+      ) {
+        map.set(entry.reference, entry);
       }
     }
     return map;
-  }, [test.test_reviews]);
+  }, [test.annotation_summary]);
 
   const endpointFailure = useMemo(
     () => getEndpointFailure(test.test_output),
@@ -610,7 +606,7 @@ export default function TestDetailMetricsTab({
       {goalAchievementData &&
         goalMetricName &&
         (() => {
-          const goalReview = metricReviewMap.get(goalMetricName);
+          const goalReview = metricAnnotationMap.get(goalMetricName);
           const goalIsOverruled = !!goalAchievementData.override;
           const goalIsConfirmed = !!goalReview && !goalIsOverruled;
 
@@ -1007,7 +1003,7 @@ export default function TestDetailMetricsTab({
                   </TableRow>
                 ) : (
                   filteredMetricsForTable.map(metric => {
-                    const metricReview = metricReviewMap.get(metric.name);
+                    const metricReview = metricAnnotationMap.get(metric.name);
                     const isOverruled = !!metric.fullMetricData.override;
                     const isConfirmed = !!metricReview && !isOverruled;
 

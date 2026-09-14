@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/annotation';
 import React, {
@@ -52,7 +53,7 @@ import {
   getTestResultDisplayStatus,
   truncateText,
 } from './test-run-results-grid-utils';
-import { resultHasAnyHumanReview } from './test-run-summary-utils';
+import { resultHasAnyHumanAnnotation } from './test-run-summary-utils';
 import { EntityType } from '@/types/entity-type';
 
 interface TestsTableViewProps {
@@ -142,7 +143,8 @@ export default function TestsTableView({
       const propTest = tests.find(t => t.id === testId);
       const localTest = localTestUpdates[testId];
       return (
-        propTest?.last_review?.review_id === localTest?.last_review?.review_id
+        propTest?.last_annotation?.annotation_id ===
+        localTest?.last_annotation?.annotation_id
       );
     });
 
@@ -259,12 +261,13 @@ export default function TestsTableView({
         );
         if (!targetStatus) return;
 
-        await testResultsClient.createReview(
-          test.id,
-          targetStatus.id,
-          `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-          { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null }
-        );
+        await new ApiClientFactory().getAnnotationsClient().createAnnotation({
+          entity_type: ANNOTATION_ENTITY_TYPES.TEST_RESULT,
+          entity_id: test.id,
+          status_id: targetStatus.id,
+          comments: `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+          target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
+        });
 
         let updatedTest: TestResultDetail | null = null;
         const delays = [100, 200, 400, 800];
@@ -272,7 +275,7 @@ export default function TestsTableView({
         for (const delay of delays) {
           await new Promise(resolve => setTimeout(resolve, delay));
           const fetchedTest = await testResultsClient.getTestResult(test.id);
-          if (fetchedTest.last_review) {
+          if (fetchedTest.last_annotation) {
             updatedTest = fetchedTest;
             break;
           }
@@ -644,7 +647,7 @@ export default function TestsTableView({
                 width: '100%',
               }}
             >
-              {!resultHasAnyHumanReview(test) && (
+              {!resultHasAnyHumanAnnotation(test) && (
                 <Tooltip title="Confirm Review">
                   <span>
                     <IconButton

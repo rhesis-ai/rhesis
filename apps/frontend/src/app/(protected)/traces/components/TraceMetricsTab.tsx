@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  annotationsByMetric,
+  annotationsByTurn,
+} from '@/components/annotations/annotation-summary';
+import type { AnnotationSummaryEntry } from '@/utils/api-client/interfaces/annotation';
 import { useMemo, useState } from 'react';
 import {
   ANNOTATION_TARGET_TYPES,
@@ -73,13 +78,13 @@ function MetricsTable({
   executionTime,
   filterStatus,
   onReviewMetric,
-  metricReviewMap = new Map(),
+  metricAnnotationMap = new Map(),
 }: {
   metrics: Record<string, MetricEntry>;
   executionTime?: number;
   filterStatus: FilterStatus;
   onReviewMetric?: (metricName: string) => void;
-  metricReviewMap?: Map<string, Annotation>;
+  metricAnnotationMap?: Map<string, AnnotationSummaryEntry>;
 }) {
   const theme = useTheme();
   const allEntries = Object.entries(metrics);
@@ -144,7 +149,7 @@ function MetricsTable({
               </TableRow>
             ) : (
               entries.map(([name, metric]) => {
-                const metricReview = metricReviewMap.get(name);
+                const metricReview = metricAnnotationMap.get(name);
                 const isOverruled = !!metric.override;
                 const isConfirmed = !!metricReview && !isOverruled;
 
@@ -323,26 +328,10 @@ export default function TraceMetricsTab({
     return { total, passed, failed, passRate: passRate(passed, failed) };
   }, [turnMetrics, conversationMetrics]);
 
-  const metricReviewMap = useMemo(() => {
-    const map = new Map<string, Annotation>();
-    const reviews = selectedSpan?.trace_reviews?.reviews;
-    if (!reviews) return map;
-    for (const review of reviews) {
-      if (
-        review.target?.type === ANNOTATION_TARGET_TYPES.METRIC &&
-        review.target.reference
-      ) {
-        const existing = map.get(review.target.reference);
-        if (
-          !existing ||
-          (review.updated_at || '') > (existing.updated_at || '')
-        ) {
-          map.set(review.target.reference, review);
-        }
-      }
-    }
-    return map;
-  }, [selectedSpan?.trace_reviews]);
+  const metricAnnotationMap = useMemo(
+    () => annotationsByMetric(selectedSpan?.annotation_summary),
+    [selectedSpan?.annotation_summary]
+  );
 
   // Per-TURN, which is finer than anything the backend stores an outcome
   // for -- see allMetricsPassed. Not the trace's execution/verdict.
@@ -374,32 +363,10 @@ export default function TraceMetricsTab({
     return result;
   }, [traceMetrics]);
 
-  const turnAnnotationMap = useMemo(() => {
-    const map = new Map<number, Annotation>();
-    const reviews = selectedSpan?.trace_reviews?.reviews;
-    if (!reviews) return map;
-    for (const review of reviews) {
-      if (
-        review.target?.type === ANNOTATION_TARGET_TYPES.TURN &&
-        review.target.reference
-      ) {
-        const turnNum = parseInt(
-          review.target.reference.replace(/\D/g, ''),
-          10
-        );
-        if (!isNaN(turnNum)) {
-          const existing = map.get(turnNum);
-          if (
-            !existing ||
-            (review.updated_at || '') > (existing.updated_at || '')
-          ) {
-            map.set(turnNum, review);
-          }
-        }
-      }
-    }
-    return map;
-  }, [selectedSpan?.trace_reviews]);
+  const turnAnnotationMap = useMemo(
+    () => annotationsByTurn(selectedSpan?.annotation_summary),
+    [selectedSpan?.annotation_summary]
+  );
 
   if (!traceMetrics || (!turnMetrics && !conversationMetrics)) {
     return (
@@ -693,7 +660,7 @@ export default function TraceMetricsTab({
                 executionTime={turnMetrics.execution_time}
                 filterStatus={filterStatus}
                 onReviewMetric={onReviewMetric}
-                metricReviewMap={metricReviewMap}
+                metricAnnotationMap={metricAnnotationMap}
               />
             </CardContent>
           </Card>
@@ -721,7 +688,7 @@ export default function TraceMetricsTab({
                   executionTime={conversationMetrics.execution_time}
                   filterStatus={filterStatus}
                   onReviewMetric={onReviewMetric}
-                  metricReviewMap={metricReviewMap}
+                  metricAnnotationMap={metricAnnotationMap}
                 />
               </CardContent>
             </Card>

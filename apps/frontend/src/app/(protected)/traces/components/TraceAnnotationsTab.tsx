@@ -73,7 +73,7 @@ function automatedVerdictFor(span: SpanNode) {
  */
 export default function TraceAnnotationsTab({
   selectedSpan,
-  trace,
+  trace: _trace,
   onTraceUpdated,
   mentionableMetrics = [],
   mentionableTurns = [],
@@ -129,8 +129,7 @@ export default function TraceAnnotationsTab({
           setCreateOpen(false);
         }}
         selectedSpan={selectedSpan}
-        trace={trace}
-        onSaved={onTraceUpdated}
+        onSave={async () => onTraceUpdated()}
         initialComment={pendingCommentRef.current?.comment}
         initialStatus={pendingCommentRef.current?.status}
         mentionableMetrics={mentionableMetrics}

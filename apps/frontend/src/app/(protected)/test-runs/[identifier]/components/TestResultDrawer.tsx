@@ -39,9 +39,11 @@ export const TEST_RESULT_DRAWER_TAB = {
   overview: 0,
   conversation: 1,
   metrics: 2,
-  reviews: 3,
+  annotations: 3,
   history: 4,
   tasks: 5,
+  /** Kept for one release so shared ?detailTab=reviews links still open here. */
+  reviews: 3,
 } as const;
 
 interface TestResultDrawerProps {
@@ -415,7 +417,7 @@ export default function TestResultDrawer({
               aria-controls="test-detail-tabpanel-2"
             />
             <Tab
-              label="Reviews"
+              label="Annotations"
               id="test-detail-tab-3"
               aria-controls="test-detail-tabpanel-3"
             />

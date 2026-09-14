@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import type { AnnotationSummaryEntry } from '@/utils/api-client/interfaces/annotation';
 import {
   Box,
   Paper,
