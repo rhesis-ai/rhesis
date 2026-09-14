@@ -18,6 +18,18 @@ export const ANNOTATION_COPY = {
   createButton: 'Add annotation',
   showOthers: (count: number) => `Show annotations from other users (${count})`,
 
+  drawerTitle: 'Add Annotation',
+  verdictLabel: 'Verdict',
+  verdictRequired: 'Please choose a verdict for this annotation.',
+  commentPlaceholder:
+    'Explain your verdict... Type @ to mention a metric or turn',
+  commentHelp: 'Add a comment to support your verdict',
+  commentTooShort: (min: number) =>
+    `Comment must be at least ${min} characters long.`,
+  commentCounter: (length: number, min: number) =>
+    `Minimum ${min} characters required (${length}/${min})`,
+  saveFailed: 'Failed to save the annotation. Please try again.',
+
   indicatorNone: 'Not yet annotated',
   indicatorAnnotated: 'Annotated',
   indicatorBy: (name: string) => `Annotated by ${name}`,

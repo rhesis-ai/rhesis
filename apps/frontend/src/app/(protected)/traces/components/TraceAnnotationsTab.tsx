@@ -12,7 +12,7 @@ import type {
   TraceDetailResponse,
 } from '@/utils/api-client/interfaces/telemetry';
 import type { MentionOption } from '@/components/common/MentionTextInput';
-import TraceReviewDrawer from './TraceReviewDrawer';
+import TraceAnnotationDrawer from './TraceAnnotationDrawer';
 
 interface TraceAnnotationsTabProps {
   selectedSpan: SpanNode;
@@ -125,7 +125,7 @@ export default function TraceAnnotationsTab({
         onCreate={canCreate ? () => setCreateOpen(true) : undefined}
         onChanged={onTraceUpdated}
       />
-      <TraceReviewDrawer
+      <TraceAnnotationDrawer
         open={createOpen}
         onClose={() => {
           pendingCommentRef.current = null;

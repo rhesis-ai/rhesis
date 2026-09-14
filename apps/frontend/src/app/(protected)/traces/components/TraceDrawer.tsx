@@ -9,7 +9,7 @@ import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
-import TraceReviewDrawer from './TraceReviewDrawer';
+import TraceAnnotationDrawer from './TraceAnnotationDrawer';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -834,7 +834,7 @@ export default function TraceDrawer({
         {drawerContent()}
       </Box>
       {hasTraceMetrics && (
-        <TraceReviewDrawer
+        <TraceAnnotationDrawer
           open={reviewDrawerOpen}
           onClose={() => {
             setReviewDrawerOpen(false);
