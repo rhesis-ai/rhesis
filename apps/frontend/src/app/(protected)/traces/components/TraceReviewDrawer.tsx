@@ -221,8 +221,8 @@ export default function TraceReviewDrawer({
     if (!selectedSpan?.id || !isAuthenticated(status)) return;
 
     if (traceTarget.type === 'trace' || traceTarget.type === 'turn') {
-      const hasExistingReview = !!selectedSpan.last_review;
-      if (newStatus === originalStatus && !hasExistingReview) {
+      const hasExistingAnnotation = !!selectedSpan.last_review;
+      if (newStatus === originalStatus && !hasExistingAnnotation) {
         setError(
           'New status must be different from the automated result. ' +
             'Use the Reviews tab to confirm the automated result.'

@@ -170,7 +170,7 @@ export function isPassedStatusName(statusName: string): boolean {
  * @returns True if there's a conflicting review, false otherwise
  */
 export function hasConflictingReview(test: TestResultDetail): boolean {
-  return !!test.last_review && test.matches_review === false;
+  return !!test.last_annotation && test.matches_annotation === false;
 }
 
 function isGoalMetricName(name: string): boolean {

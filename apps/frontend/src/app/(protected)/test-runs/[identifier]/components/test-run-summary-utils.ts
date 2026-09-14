@@ -121,22 +121,19 @@ export function findMetricKey(
   return Object.keys(metrics).find(key => metricNameMatches(key, metricName));
 }
 
-export interface ResultReview {
-  status?: { name?: string };
-  target?: { type?: string; reference?: string | null };
-  comments?: string;
-  user?: { name?: string };
+export interface ResultAnnotation {
+  status?: { name?: string } | null;
+  target_type?: string;
+  reference?: string | null;
+  comments?: string | null;
+  user?: { name?: string } | null;
   updated_at?: string;
   resolved?: boolean;
 }
 
-function isTestResultReviewTarget(review: ResultReview): boolean {
-  const targetType = review.target?.type;
-  return (
-    !targetType ||
-    targetType === ANNOTATION_TARGET_TYPES.TEST_RESULT ||
-    targetType === 'test'
-  );
+function isTestResultAnnotationTarget(annotation: ResultAnnotation): boolean {
+  const targetType = annotation.target_type;
+  return !targetType || targetType === ANNOTATION_TARGET_TYPES.TEST_RESULT;
 }
 
 function commentMentionsAnyMetric(
@@ -149,121 +146,89 @@ function commentMentionsAnyMetric(
   );
 }
 
-/** Test-level review, excluding metric @mentions stored under test_result target. */
-export function isExplicitTestLevelReview(
+/** Test-level annotation, excluding metric @mentions left on the result target. */
+export function isExplicitTestLevelAnnotation(
   result: TestResultDetail,
-  review: ResultReview
+  annotation: ResultAnnotation
 ): boolean {
-  if (review.target?.type === ANNOTATION_TARGET_TYPES.METRIC) return false;
-  if (!isTestResultReviewTarget(review)) return false;
-  return !commentMentionsAnyMetric(result, review.comments ?? '');
+  if (annotation.target_type === ANNOTATION_TARGET_TYPES.METRIC) return false;
+  if (!isTestResultAnnotationTarget(annotation)) return false;
+  return !commentMentionsAnyMetric(result, annotation.comments ?? '');
 }
 
-function resultHasTestLevelReview(result: TestResultDetail): boolean {
-  if (
-    getResultReviews(result).some(review =>
-      isExplicitTestLevelReview(result, review)
-    )
-  ) {
-    return true;
-  }
-
-  return (
-    !!result.last_review &&
-    isExplicitTestLevelReview(result, result.last_review)
+function resultHasTestLevelAnnotation(result: TestResultDetail): boolean {
+  return getResultAnnotations(result).some(annotation =>
+    isExplicitTestLevelAnnotation(result, annotation)
   );
 }
 
-/** Latest metric-targeted review on a test result, if any. */
-export function getLatestMetricReviewForResult(
+/** Latest metric-targeted annotation on a test result, if any. */
+export function getLatestMetricAnnotationForResult(
   result: TestResultDetail
-): ResultReview | undefined {
-  let latest: (ResultReview & { updated_at?: string }) | undefined;
+): ResultAnnotation | undefined {
+  let latest: ResultAnnotation | undefined;
   let latestTime = -1;
 
-  const consider = (review: ResultReview & { updated_at?: string }) => {
-    const time = review.updated_at ? new Date(review.updated_at).getTime() : 0;
+  for (const annotation of getResultAnnotations(result)) {
+    const onMetric = annotation.target_type === ANNOTATION_TARGET_TYPES.METRIC;
+    if (!onMetric && !commentMentionsAnyMetric(result, annotation.comments ?? '')) {
+      continue;
+    }
+    const time = annotation.updated_at
+      ? new Date(annotation.updated_at).getTime()
+      : 0;
     if (!latest || time >= latestTime) {
-      latest = review;
+      latest = annotation;
       latestTime = time;
-    }
-  };
-
-  for (const review of result.test_reviews?.reviews ?? []) {
-    const isMetricTarget = review.target?.type === ANNOTATION_TARGET_TYPES.METRIC;
-    const mentionsMetric = commentMentionsAnyMetric(
-      result,
-      review.comments ?? ''
-    );
-    if (isMetricTarget || mentionsMetric) {
-      consider(review);
-    }
-  }
-
-  if (latest) return latest;
-
-  for (const metricKey of Object.keys(result.test_metrics?.metrics ?? {})) {
-    for (const review of iterMetricTargetReviews(result, metricKey)) {
-      consider(review as ResultReview & { updated_at?: string });
     }
   }
 
   return latest;
 }
 
-export function resultHasAnyHumanReview(result: TestResultDetail): boolean {
+export function resultHasAnyHumanAnnotation(
+  result: TestResultDetail
+): boolean {
   return (
-    resultHasTestLevelReview(result) ||
-    getLatestMetricReviewForResult(result) !== undefined
+    resultHasTestLevelAnnotation(result) ||
+    getLatestMetricAnnotationForResult(result) !== undefined
   );
 }
 
-function isMetricReviewTarget(
-  review: ResultReview,
+function isMetricAnnotationTarget(
+  annotation: ResultAnnotation,
   metricName: string
 ): boolean {
   return (
-    review.target?.type === ANNOTATION_TARGET_TYPES.METRIC &&
-    metricNameMatches(review.target.reference, metricName)
+    annotation.target_type === ANNOTATION_TARGET_TYPES.METRIC &&
+    metricNameMatches(annotation.reference, metricName)
   );
 }
 
-/** Collect reviews from test_reviews JSON, merged with review_summary. */
-export function getResultReviews(result: TestResultDetail): ResultReview[] {
-  const merged: ResultReview[] = [];
-  const seenIds = new Set<string>();
-
-  const addReview = (review: ResultReview, reviewId?: string) => {
-    const key =
-      reviewId ??
-      `${review.target?.type ?? 'unknown'}:${review.target?.reference ?? ''}:${review.status?.name ?? ''}`;
-    if (seenIds.has(key)) return;
-    seenIds.add(key);
-    merged.push(review);
-  };
-
-  for (const review of result.test_reviews?.reviews ?? []) {
-    const reviewId = (review as { review_id?: string }).review_id;
-    addReview(review, reviewId);
-  }
-
-  for (const [key, entry] of Object.entries(result.review_summary ?? {})) {
-    addReview(
-      {
-        status: entry.status,
-        target: {
-          type: entry.target_type,
-          reference:
-            entry.reference ??
-            (key.includes(':') ? key.slice(key.indexOf(':') + 1) : null),
-        },
-        comments: '',
-      },
-      entry.review_id ?? key
-    );
-  }
-
-  return merged;
+/**
+ * The annotations embedded on a result, one per target.
+ *
+ * `annotation_summary` is keyed `target_type` or `target_type:reference`, and
+ * the backend has already reduced each target to its newest annotation, so
+ * there is nothing to merge or de-duplicate here. Unlike the JSONB summary it
+ * replaces, each entry carries its comment, so metric @mentions resolve off
+ * the parent payload alone.
+ */
+export function getResultAnnotations(
+  result: TestResultDetail
+): ResultAnnotation[] {
+  return Object.entries(result.annotation_summary ?? {}).map(
+    ([key, entry]) => ({
+      status: entry.status,
+      target_type: entry.target_type,
+      reference:
+        entry.reference ??
+        (key.includes(':') ? key.slice(key.indexOf(':') + 1) : null),
+      comments: entry.comments,
+      user: entry.user,
+      updated_at: entry.updated_at,
+    })
+  );
 }
 
 const METRIC_MARKUP_MENTION_REGEX = /@\[([^\]]+)\]\(metric:([^)]+)\)/gi;
@@ -302,63 +267,37 @@ function metricMentionMatchesReview(
 function collectMetricMentionsFromComments(
   result: TestResultDetail,
   metricName: string
-): ResultReview[] {
-  const reviews: ResultReview[] = [];
-
-  for (const review of getResultReviews(result)) {
-    if (commentMentionsMetric(review.comments ?? '', metricName)) {
-      reviews.push(review);
-    }
-  }
-
-  return reviews;
+): ResultAnnotation[] {
+  return getResultAnnotations(result).filter(annotation =>
+    commentMentionsMetric(annotation.comments ?? '', metricName)
+  );
 }
 
-function iterMetricTargetReviews(
+/** Annotations bearing on one metric: targeted at it, or @mentioning it. */
+function iterMetricTargetAnnotations(
   result: TestResultDetail,
   metricName: string
-): ResultReview[] {
-  const reviews: ResultReview[] = [];
-  const seen = new Set<ResultReview>();
+): ResultAnnotation[] {
+  const annotations: ResultAnnotation[] = [];
+  const seen = new Set<ResultAnnotation>();
 
-  const addReview = (review: ResultReview | undefined) => {
-    if (!review || seen.has(review)) return;
-    seen.add(review);
-    reviews.push(review);
+  const add = (annotation: ResultAnnotation | undefined) => {
+    if (!annotation || seen.has(annotation)) return;
+    seen.add(annotation);
+    annotations.push(annotation);
   };
 
-  for (const review of getResultReviews(result)) {
-    if (isMetricReviewTarget(review, metricName)) {
-      addReview(review);
-    }
+  for (const annotation of getResultAnnotations(result)) {
+    if (isMetricAnnotationTarget(annotation, metricName)) add(annotation);
+  }
+  for (const annotation of collectMetricMentionsFromComments(
+    result,
+    metricName
+  )) {
+    add(annotation);
   }
 
-  for (const [key, entry] of Object.entries(result.review_summary ?? {})) {
-    const summaryMetricRef = key.startsWith('metric:')
-      ? key.slice('metric:'.length)
-      : null;
-    const matchesSummary =
-      (entry.target_type === ANNOTATION_TARGET_TYPES.METRIC &&
-        metricNameMatches(entry.reference, metricName)) ||
-      (summaryMetricRef !== null &&
-        metricNameMatches(summaryMetricRef, metricName));
-
-    if (matchesSummary) {
-      addReview({
-        status: entry.status,
-        target: {
-          type: entry.target_type,
-          reference: entry.reference ?? summaryMetricRef,
-        },
-      });
-    }
-  }
-
-  for (const review of collectMetricMentionsFromComments(result, metricName)) {
-    addReview(review);
-  }
-
-  return reviews;
+  return annotations;
 }
 
 /** True when a metric-level @mention review changed this metric's outcome. */
@@ -378,7 +317,7 @@ export function isMetricCorrected(
 
   const automatedPass = metricAutomatedPass(metric);
 
-  for (const review of iterMetricTargetReviews(result, metricKey)) {
+  for (const review of iterMetricTargetAnnotations(result, metricKey)) {
     const reviewedPass = isPassedStatusName(review.status?.name ?? '');
     if (reviewedPass !== automatedPass) {
       return true;
@@ -393,7 +332,7 @@ export function hasMetricTargetedReview(
   result: TestResultDetail,
   metricName: string
 ): boolean {
-  return iterMetricTargetReviews(result, metricName).length > 0;
+  return iterMetricTargetAnnotations(result, metricName).length > 0;
 }
 
 export function getResultRequirementName(
@@ -406,22 +345,17 @@ export function getResultRequirementName(
   );
 }
 
-/** True when a human test-level review changed the pass/fail outcome. */
+/** True when a human test-level annotation changed the pass/fail outcome. */
 export function testHasHumanCorrection(result: TestResultDetail): boolean {
-  const testReviews = getResultReviews(result).filter(isTestResultReviewTarget);
-  const reviewsToCheck =
-    testReviews.length > 0
-      ? testReviews
-      : result.last_review
-        ? [result.last_review]
-        : [];
-
+  // No last_annotation fallback: the summary already holds the entity-level
+  // annotation under its own key, so it is the same row.
   const automatedPass = metricsOnlyAutomatedPass(result);
-
-  return reviewsToCheck.some(review => {
-    const reviewedPass = isPassedStatusName(review.status?.name ?? '');
-    return reviewedPass !== automatedPass;
-  });
+  return getResultAnnotations(result)
+    .filter(isTestResultAnnotationTarget)
+    .some(
+      annotation =>
+        isPassedStatusName(annotation.status?.name ?? '') !== automatedPass
+    );
 }
 
 export function countRequirementHumanCorrections(
@@ -505,26 +439,17 @@ export function computeReviewSummary(
   let testCorrectionCount = 0;
 
   for (const result of testResults) {
-    if (!resultHasTestLevelReview(result)) continue;
+    if (!resultHasTestLevelAnnotation(result)) continue;
 
     testReviewCount++;
 
-    const testReviews = getResultReviews(result).filter(review =>
-      isExplicitTestLevelReview(result, review)
-    );
-    const reviewsToCheck =
-      testReviews.length > 0
-        ? testReviews
-        : result.last_review &&
-            isExplicitTestLevelReview(result, result.last_review)
-          ? [result.last_review]
-          : [];
     const automatedPass = metricsOnlyAutomatedPass(result);
-
-    const hasTestCorrection = reviewsToCheck.some(review => {
-      const reviewedPass = isPassedStatusName(review.status?.name ?? '');
-      return reviewedPass !== automatedPass;
-    });
+    const hasTestCorrection = getResultAnnotations(result)
+      .filter(annotation => isExplicitTestLevelAnnotation(result, annotation))
+      .some(
+        annotation =>
+          isPassedStatusName(annotation.status?.name ?? '') !== automatedPass
+      );
     if (hasTestCorrection) {
       testCorrectionCount++;
     }
@@ -562,8 +487,8 @@ export function computeReviewSummary(
   );
   const reviewedTestCount = testResults.filter(
     result =>
-      resultHasTestLevelReview(result) ||
-      getLatestMetricReviewForResult(result) !== undefined
+      resultHasTestLevelAnnotation(result) ||
+      getLatestMetricAnnotationForResult(result) !== undefined
   ).length;
 
   let headline: string;

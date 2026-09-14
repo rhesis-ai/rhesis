@@ -54,7 +54,7 @@ interface SpanDetailsPanelProps {
   onTraceUpdated?: () => void;
   onReviewMetric?: (metricName: string) => void;
   onReviewTrace?: () => void;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
   traceMetricsStatus?: TraceMetricsStatus | null;
@@ -92,7 +92,7 @@ export default function SpanDetailsPanel({
   onTraceUpdated,
   onReviewMetric,
   onReviewTrace,
-  onReviewTurn,
+  onAnnotateTurn,
   mentionableMetrics = [],
   mentionableTurns = [],
   traceMetricsStatus = null,
@@ -1125,7 +1125,7 @@ export default function SpanDetailsPanel({
               isConversationTrace={isConversationTrace}
               onReviewMetric={onReviewMetric}
               onReviewTrace={onReviewTrace}
-              onReviewTurn={onReviewTurn}
+              onAnnotateTurn={onAnnotateTurn}
               traceMetricsStatus={traceMetricsStatus}
               selectedTurnNumber={selectedTurnNumber}
             />

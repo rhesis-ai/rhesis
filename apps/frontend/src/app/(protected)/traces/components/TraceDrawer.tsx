@@ -689,7 +689,7 @@ export default function TraceDrawer({
                     trace={trace}
                     onSpanSelect={handleSpanSelect}
                     rootSpans={trace.root_spans}
-                    onReviewTurn={
+                    onAnnotateTurn={
                       hasTraceMetrics ? handleReviewTurn : undefined
                     }
                   />
@@ -771,7 +771,7 @@ export default function TraceDrawer({
               onTraceUpdated={refreshTrace}
               onReviewMetric={handleReviewMetric}
               onReviewTrace={handleReviewTrace}
-              onReviewTurn={hasTraceMetrics ? handleReviewTurn : undefined}
+              onAnnotateTurn={hasTraceMetrics ? handleReviewTurn : undefined}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
               traceMetricsStatus={traceMetricsStatus}

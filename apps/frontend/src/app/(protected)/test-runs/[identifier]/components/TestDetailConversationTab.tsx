@@ -31,9 +31,9 @@ interface TestDetailConversationTabProps {
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
-  onConfirmAutomatedReview?: () => void;
-  isConfirmingReview?: boolean;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onConfirmAutomatedAnnotation?: () => void;
+  isConfirmingAnnotation?: boolean;
 }
 
 export default function TestDetailConversationTab({
@@ -41,9 +41,9 @@ export default function TestDetailConversationTab({
   testSetType,
   project,
   projectName,
-  onReviewTurn,
-  onConfirmAutomatedReview,
-  isConfirmingReview = false,
+  onAnnotateTurn,
+  onConfirmAutomatedAnnotation,
+  isConfirmingAnnotation = false,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -149,7 +149,7 @@ export default function TestDetailConversationTab({
     [turnTraceMap]
   );
 
-  const turnReviewMap = useMemo(() => {
+  const turnAnnotationMap = useMemo(() => {
     const map = new Map<number, Review>();
     const reviews = test.test_reviews?.reviews || [];
     for (const review of reviews) {
@@ -209,10 +209,10 @@ export default function TestDetailConversationTab({
           goalEvaluation={test.test_output?.goal_evaluation}
           project={project}
           projectName={projectName}
-          onConfirmAutomatedReview={onConfirmAutomatedReview}
-          hasExistingReview={!!test.last_review}
-          reviewMatchesAutomated={test.matches_review === true}
-          isConfirmingReview={isConfirmingReview}
+          onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
+          hasExistingAnnotation={!!test.last_review}
+          annotationMatchesAutomated={test.matches_review === true}
+          isConfirmingAnnotation={isConfirmingAnnotation}
           maxHeight="100%"
         />
       </Box>
@@ -263,13 +263,13 @@ export default function TestDetailConversationTab({
         project={project}
         projectName={projectName}
         onResponseClick={traces.length > 0 ? handleResponseClick : undefined}
-        onReviewTurn={onReviewTurn}
-        onConfirmAutomatedReview={onConfirmAutomatedReview}
-        hasExistingReview={!!test.last_review}
-        reviewMatchesAutomated={test.matches_review === true}
-        isConfirmingReview={isConfirmingReview}
+        onAnnotateTurn={onAnnotateTurn}
+        onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
+        hasExistingAnnotation={!!test.last_review}
+        annotationMatchesAutomated={test.matches_review === true}
+        isConfirmingAnnotation={isConfirmingAnnotation}
         maxHeight="100%"
-        turnReviewMap={turnReviewMap}
+        turnAnnotationMap={turnAnnotationMap}
       />
       <TraceDrawer
         open={traceDrawerOpen}

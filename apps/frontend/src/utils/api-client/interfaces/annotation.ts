@@ -127,17 +127,19 @@ export interface AnnotationSummaryEntry {
   updated_at: string;
 }
 
+// Request shapes take plain strings: ids reach them from component state and
+// route params, not from a typed response.
 export interface AnnotationCreate {
   entity_type: AnnotationEntityType;
-  entity_id: UUID;
-  status_id: UUID;
+  entity_id: string;
+  status_id: string;
   comments?: string | null;
   target?: AnnotationTargetInput;
   attributes?: Record<string, unknown> | null;
 }
 
 export interface AnnotationUpdate {
-  status_id?: UUID;
+  status_id?: string;
   comments?: string | null;
   target?: AnnotationTargetInput;
   resolved?: boolean;
@@ -154,6 +156,6 @@ export interface AnnotationsQueryParams {
   resolved?: boolean;
   target_type?: AnnotationTargetType;
   entity_type?: AnnotationEntityType;
-  test_run_id?: UUID;
+  test_run_id?: string;
   $filter?: string;
 }

@@ -14,6 +14,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import {
   TestResultDetail,
 } from '@/utils/api-client/interfaces/test-results';
+import { ANNOTATION_ENTITY_TYPES } from '@/utils/api-client/interfaces/annotation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { findStatusByCategory } from '@/utils/test-result-status';
@@ -130,20 +131,18 @@ export default function ReviewJudgementDrawer({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory();
-      const testResultsClient = clientFactory.getTestResultsClient();
-
-      await testResultsClient.createReview(
-        test.id,
-        selectedStatusId,
-        reason.trim(),
-        inferredTarget
-      );
+      await new ApiClientFactory().getAnnotationsClient().createAnnotation({
+        entity_type: ANNOTATION_ENTITY_TYPES.TEST_RESULT,
+        entity_id: test.id,
+        status_id: selectedStatusId,
+        comments: reason.trim(),
+        target: inferredTarget,
+      });
 
       await onSave(test.id);
       onClose();
     } catch (_err) {
-      setError('Failed to save review. Please try again.');
+      setError('Failed to save the annotation. Please try again.');
     } finally {
       setSubmitting(false);
     }
