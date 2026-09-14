@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box,
+  Collapse,
   Paper,
   TextField,
   IconButton,
@@ -13,15 +14,18 @@ import {
   Chip,
   InputAdornment,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import SendIcon from '@mui/icons-material/Send';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
+import DataObjectIcon from '@mui/icons-material/DataObject';
 import Tooltip from '@mui/material/Tooltip';
 import { useSession } from 'next-auth/react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import JsonMonacoField from '@/app/(protected)/endpoints/[identifier]/components/JsonMonacoField';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {
@@ -73,9 +77,18 @@ export default function PlaygroundChat({
   onSplit,
 }: PlaygroundChatProps) {
   const { status } = useSession();
+  const theme = useTheme();
+  const monacoTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'vs';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [testParamsOpen, setTestParamsOpen] = useState(false);
+  const [testParamsJson, setTestParamsJson] = useState('');
+  const [testParamsParsed, setTestParamsParsed] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const {
     messages,
@@ -84,7 +97,7 @@ export default function PlaygroundChat({
     isConnected,
     sendMessage,
     clearMessages,
-  } = usePlaygroundChat({ endpointId });
+  } = usePlaygroundChat({ endpointId, testParameters: testParamsParsed });
 
   const [inputValue, setInputValue] = useState('');
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
@@ -104,6 +117,26 @@ export default function PlaygroundChat({
   const [testDrawerMessages, setTestDrawerMessages] = useState<
     ConversationMessage[]
   >([]);
+
+  const handleTestParamsChange = useCallback((value: string) => {
+    setTestParamsJson(value);
+    if (!value.trim()) {
+      setTestParamsParsed(null);
+      return;
+    }
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
+        setTestParamsParsed(parsed as Record<string, unknown>);
+      }
+    } catch {
+      // Keep the previous parsed value until the JSON becomes valid
+    }
+  }, []);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -330,6 +363,22 @@ export default function PlaygroundChat({
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {/* Test Parameters Toggle */}
+            <Tooltip title="Test parameters">
+              <IconButton
+                size="small"
+                onClick={() => setTestParamsOpen(prev => !prev)}
+                sx={{
+                  color: theme =>
+                    testParamsParsed
+                      ? theme.palette.primary.main
+                      : theme.palette.greyscale.label,
+                  p: 0.25,
+                }}
+              >
+                <DataObjectIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             {/* Create Multi-Turn Test Button */}
             <Tooltip
               title={
@@ -377,6 +426,38 @@ export default function PlaygroundChat({
             )}
           </Box>
         </Box>
+
+        {/* Test Parameters Panel */}
+        <Collapse in={testParamsOpen}>
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: 1,
+              borderColor: theme => theme.palette.greyscale.border,
+              bgcolor: theme => theme.palette.greyscale.surface1,
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                mb: 0.5,
+                color: 'text.secondary',
+              }}
+            >
+              Test parameters (JSON object, available as{' '}
+              {'{{ test_parameters.<key> }}'})
+            </Typography>
+            <JsonMonacoField
+              editorKey={`playground-test-params-${endpointId}`}
+              height="120px"
+              theme={monacoTheme}
+              value={testParamsJson}
+              onChange={handleTestParamsChange}
+            />
+          </Box>
+        </Collapse>
 
         {/* Messages Area */}
         <Box

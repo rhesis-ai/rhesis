@@ -135,6 +135,11 @@ async def handle_chat_message(
             if files:
                 input_data["files"] = files
 
+            # Pass test parameters to input_data if present
+            test_parameters = payload.get("test_parameters")
+            if test_parameters and isinstance(test_parameters, dict):
+                input_data["test_parameters"] = test_parameters
+
             # Extract conversation ID from any recognized field name
             # (conversation_id, session_id, thread_id, chat_id, etc.)
             # This makes the API flexible for different client conventions.

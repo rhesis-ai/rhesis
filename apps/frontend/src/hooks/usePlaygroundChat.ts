@@ -43,6 +43,8 @@ export type ChatMessage = UserChatMessage | AssistantChatMessage;
 interface UsePlaygroundChatOptions {
   /** The endpoint ID to chat with */
   endpointId: string | null;
+  /** Optional test parameters included in every message */
+  testParameters?: Record<string, unknown> | null;
 }
 
 /**
@@ -107,7 +109,7 @@ function generateCorrelationId(): string {
 export function usePlaygroundChat(
   options: UsePlaygroundChatOptions
 ): UsePlaygroundChatResult {
-  const { endpointId } = options;
+  const { endpointId, testParameters } = options;
   const { isConnected, send, subscribe } = useWebSocket();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -242,6 +244,9 @@ export function usePlaygroundChat(
           message: trimmedMessage,
           ...(sessionId && { conversation_id: sessionId }),
           ...(files?.length && { files }),
+          ...(testParameters && Object.keys(testParameters).length > 0 && {
+            test_parameters: testParameters,
+          }),
           ...(activeProjectId && { project_id: activeProjectId }),
         },
       });
@@ -252,7 +257,7 @@ export function usePlaygroundChat(
         pendingCorrelationRef.current = null;
       }
     },
-    [endpointId, isConnected, isLoading, send, sessionId]
+    [endpointId, isConnected, isLoading, send, sessionId, testParameters]
   );
 
   /**

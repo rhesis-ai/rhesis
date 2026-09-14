@@ -239,6 +239,7 @@ def _create_inplace_test(
             self.requirement = requirement_obj
             self.topic = request_data.get("topic")
             self.category = request_data.get("category")
+            self.test_parameters = request_data.get("test_parameters") or {}
             # For compatibility, set IDs
             self.requirement_id = requirement_obj.id if requirement_obj else None
             self.topic_id = None
