@@ -31,7 +31,8 @@ Tradeoffs / scope limits
 - A handful of constructs are pre-approved (see ``ALLOWED_SITES``)
   for legitimate non-secret comparisons whose variable names happen
   to match. Each entry needs a code comment explaining why it is
-  safe.
+  safe, and is keyed by the comparison's source text so that it
+  survives the code moving and lapses when the code changes.
 """
 
 from __future__ import annotations
@@ -60,18 +61,34 @@ SENSITIVE_MARKERS = (
     "pwd",
 )
 
-# (file_relative_to_repo, lineno) sites that are allowed despite the
-# heuristic. Add an entry only with a one-line comment justifying why
-# the comparison is timing-safe (e.g. "compares to a public string
-# constant", "compares to None", "compares hash *prefix* by length").
-ALLOWED_SITES: frozenset[tuple[str, int]] = frozenset(
+# (file_relative_to_repo, comparison source) sites that are allowed despite
+# the heuristic. Add an entry only with a one-line comment justifying why the
+# comparison is timing-safe (e.g. "compares to a public string constant",
+# "compares to None", "compares hash *prefix* by length").
+#
+# Keyed by the comparison's own source text, not by line number. A line number
+# approves whatever happens to sit on that line, so unrelated edits above it
+# both un-approve the intended site and silently approve whichever comparison
+# moves onto the line -- including a genuinely unsafe one. The source text
+# moves with the code and stops matching when the comparison itself changes,
+# which is exactly when it should be re-reviewed.
+ALLOWED_SITES: frozenset[tuple[str, str]] = frozenset(
     {
         # content_hash is a SHA-based fingerprint for version dedup, not a secret
-        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 152),
-        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 208),
+        (
+            "apps/backend/src/rhesis/backend/app/services/experiment.py",
+            "candidate.content_hash == version",
+        ),
+        (
+            "apps/backend/src/rhesis/backend/app/services/experiment.py",
+            "versions[-1].content_hash == new_content_hash",
+        ),
         # auth_token_project_id is a UUID project reference, not a secret token;
         # comparing it to another project UUID is safe (no timing oracle risk)
-        ("apps/backend/src/rhesis/backend/app/services/connector/manager.py", 1081),
+        (
+            "apps/backend/src/rhesis/backend/app/services/connector/manager.py",
+            "auth_token_project_id == project_id",
+        ),
     }
 )
 
@@ -202,11 +219,12 @@ def test_no_naive_equality_on_secrets() -> None:
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Compare):
                     continue
-                if (str(rel), node.lineno) in ALLOWED_SITES:
+                if not _flag_compare(node):
                     continue
-                if _flag_compare(node):
-                    snippet = ast.unparse(node)
-                    violations.append(f"{rel}:{node.lineno}: {snippet}")
+                snippet = ast.unparse(node)
+                if (str(rel), snippet) in ALLOWED_SITES:
+                    continue
+                violations.append(f"{rel}:{node.lineno}: {snippet}")
 
     assert not violations, (
         "Secret-shaped variables compared with == or != -- use "
@@ -214,4 +232,41 @@ def test_no_naive_equality_on_secrets() -> None:
         "If a flagged site is genuinely safe (e.g. comparing a hash "
         "prefix to a constant), add it to ALLOWED_SITES with a "
         "one-line justification.\n\n" + "\n".join(violations)
+    )
+
+
+def _flagged_sites() -> set[tuple[str, str]]:
+    """Every (file, comparison source) the heuristic flags across the scan roots."""
+    found: set[tuple[str, str]] = set()
+    for root in SCAN_ROOTS:
+        if not root.exists():
+            continue
+        for py_file in sorted(root.rglob("*.py")):
+            if "/tests/" in str(py_file).replace("\\", "/"):
+                continue
+            try:
+                tree = ast.parse(py_file.read_text(encoding="utf-8"))
+            except SyntaxError:
+                continue
+            rel = str(py_file.relative_to(REPO_ROOT))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Compare) and _flag_compare(node):
+                    found.add((rel, ast.unparse(node)))
+    return found
+
+
+def test_no_stale_allowlist_entries() -> None:
+    """An allowlist entry that matches nothing is a review decision gone stale.
+
+    Without this, a waiver outlives the code it was granted for: the entry
+    stops matching, nobody notices, and the next comparison to take that
+    shape has to be approved again from scratch -- or worse, someone assumes
+    it is already covered.
+    """
+    stale = sorted(entry for entry in ALLOWED_SITES if entry not in _flagged_sites())
+
+    assert not stale, (
+        "ALLOWED_SITES entries that no longer match any flagged comparison.\n"
+        "The code moved on; drop the entry or re-point it at the current "
+        "comparison.\n\n" + "\n".join(f"{path}: {snippet}" for path, snippet in stale)
     )
