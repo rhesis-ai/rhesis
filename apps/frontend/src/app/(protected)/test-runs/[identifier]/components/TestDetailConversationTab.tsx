@@ -1,5 +1,6 @@
 'use client';
 
+import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import {
@@ -7,7 +8,6 @@ import {
 } from '@/utils/api-client/interfaces/annotation';
 import {
   TestResultDetail,
-  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import {
@@ -149,31 +149,10 @@ export default function TestDetailConversationTab({
     [turnTraceMap]
   );
 
-  const turnAnnotationMap = useMemo(() => {
-    const map = new Map<number, Review>();
-    const reviews = test.test_reviews?.reviews || [];
-    for (const review of reviews) {
-      if (
-        review.target?.type === ANNOTATION_TARGET_TYPES.TURN &&
-        review.target.reference
-      ) {
-        const turnNum = parseInt(
-          review.target.reference.replace(/\D/g, ''),
-          10
-        );
-        if (!isNaN(turnNum)) {
-          const existing = map.get(turnNum);
-          if (
-            !existing ||
-            (review.updated_at || '') > (existing.updated_at || '')
-          ) {
-            map.set(turnNum, review);
-          }
-        }
-      }
-    }
-    return map;
-  }, [test.test_reviews]);
+  const turnAnnotationMap = useMemo(
+    () => annotationsByTurn(test.annotation_summary),
+    [test.annotation_summary]
+  );
 
   if (!isMultiTurn) {
     // With no `output` (a rejected call), the turn used to render as an empty bubble and
@@ -210,8 +189,8 @@ export default function TestDetailConversationTab({
           project={project}
           projectName={projectName}
           onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
-          hasExistingAnnotation={!!test.last_review}
-          annotationMatchesAutomated={test.matches_review === true}
+          hasExistingAnnotation={!!test.last_annotation}
+          annotationMatchesAutomated={test.matches_annotation === true}
           isConfirmingAnnotation={isConfirmingAnnotation}
           maxHeight="100%"
         />
@@ -265,8 +244,8 @@ export default function TestDetailConversationTab({
         onResponseClick={traces.length > 0 ? handleResponseClick : undefined}
         onAnnotateTurn={onAnnotateTurn}
         onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
-        hasExistingAnnotation={!!test.last_review}
-        annotationMatchesAutomated={test.matches_review === true}
+        hasExistingAnnotation={!!test.last_annotation}
+        annotationMatchesAutomated={test.matches_annotation === true}
         isConfirmingAnnotation={isConfirmingAnnotation}
         maxHeight="100%"
         turnAnnotationMap={turnAnnotationMap}

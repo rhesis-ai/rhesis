@@ -1304,10 +1304,10 @@ export default function ComparisonView({
                             project={project}
                             projectName={projectName}
                             hasExistingAnnotation={
-                              !!selectedTest.baseline.last_review
+                              !!selectedTest.baseline.last_annotation
                             }
                             annotationMatchesAutomated={
-                              selectedTest.baseline.matches_review === true
+                              selectedTest.baseline.matches_annotation === true
                             }
                             maxHeight="100%"
                           />
@@ -1413,10 +1413,10 @@ export default function ComparisonView({
                             project={project}
                             projectName={projectName}
                             hasExistingAnnotation={
-                              !!selectedTest.current.last_review
+                              !!selectedTest.current.last_annotation
                             }
                             annotationMatchesAutomated={
-                              selectedTest.current.matches_review === true
+                              selectedTest.current.matches_annotation === true
                             }
                             maxHeight="100%"
                           />

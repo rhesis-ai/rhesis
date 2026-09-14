@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_LABELS,
   ANNOTATION_TARGET_TYPES,
   AnnotationTargetType,
@@ -221,7 +222,7 @@ export default function TraceReviewDrawer({
     if (!selectedSpan?.id || !isAuthenticated(status)) return;
 
     if (traceTarget.type === 'trace' || traceTarget.type === 'turn') {
-      const hasExistingAnnotation = !!selectedSpan.last_review;
+      const hasExistingAnnotation = !!selectedSpan.last_annotation;
       if (newStatus === originalStatus && !hasExistingAnnotation) {
         setError(
           'New status must be different from the automated result. ' +
@@ -245,15 +246,13 @@ export default function TraceReviewDrawer({
       setSubmitting(true);
       setError('');
 
-      const clientFactory = new ApiClientFactory();
-      const telemetryClient = clientFactory.getTelemetryClient();
-
-      await telemetryClient.createReview(
-        selectedSpan.id,
-        targetStatus.id,
-        reason.trim(),
-        traceTarget
-      );
+      await new ApiClientFactory().getAnnotationsClient().createAnnotation({
+        entity_type: ANNOTATION_ENTITY_TYPES.TRACE,
+        entity_id: selectedSpan.id,
+        status_id: targetStatus.id,
+        comments: reason.trim(),
+        target: traceTarget,
+      });
 
       await onSave();
       onClose();

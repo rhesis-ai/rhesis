@@ -97,7 +97,7 @@ export function getTestResultDisplayStatus(
         hasExecutionError: false,
         reviewData: {
           reviewer: lastReview.user?.name || 'Unknown',
-          comments: lastReview.comments,
+          comments: lastReview.comments ?? '',
           updated_at: lastReview.updated_at,
           newStatus: reviewPassed ? 'passed' : 'failed',
         },
@@ -197,7 +197,7 @@ export function getTestResultDisplayStatus(
       hasExecutionError: false,
       reviewData: {
         reviewer: lastReview.user?.name || 'Unknown',
-        comments: lastReview.comments,
+        comments: lastReview.comments ?? '',
         updated_at: lastReview.updated_at,
         newStatus: reviewPassed ? 'passed' : 'failed',
       },

@@ -46,7 +46,8 @@ export interface AutomatedVerdict {
 
 export interface AnnotationsPanelProps {
   entityType: AnnotationEntityType;
-  entityId: string;
+  /** Undefined while the parent is still loading; the panel just shows empty. */
+  entityId: string | undefined;
   automatedStatus: AutomatedVerdict;
   currentUserId: string;
   /** From the parent's `matches_annotation`: the human verdict disagrees. */

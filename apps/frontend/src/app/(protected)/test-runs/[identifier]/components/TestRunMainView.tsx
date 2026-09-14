@@ -48,7 +48,7 @@ import {
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
 import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
-import TestRunReviewsTab from './TestRunReviewsTab';
+import TestRunAnnotationsTab from './TestRunAnnotationsTab';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -56,7 +56,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   configuration: 'Configuration',
   linked_entities: 'Tests',
   traces: 'Traces',
-  reviews: 'Reviews',
+  annotations: 'Annotations',
 };
 
 interface TabPanelProps {
@@ -91,7 +91,7 @@ interface TestRunMainViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
-  /** Drawer tab to open when deep-linking via selectedresult (e.g. "reviews"). */
+  /** Drawer tab to open when deep-linking via selectedresult (e.g. "annotations"). */
   initialDetailTab?: string;
   /** Server-prefetched results (small runs only, only when the Tests tab is opening); see
    * `useTestRunDetailData`. */
@@ -147,12 +147,8 @@ export default function TestRunMainView({
     )
   );
 
-  // Fetch test results for the Tests tab, and for Reviews, which builds its list
-  // out of the reviews hanging off those same results.
-  const tabsNeedingResults = [
-    TAB_KEYS.indexOf('linked_entities'),
-    TAB_KEYS.indexOf('reviews'),
-  ];
+  // Only the Tests tab needs the results. Annotations queries by run id.
+  const tabsNeedingResults = [TAB_KEYS.indexOf('linked_entities')];
   const needsTestResults = React.useRef(tabsNeedingResults.includes(activeTab));
   if (tabsNeedingResults.includes(activeTab)) {
     needsTestResults.current = true;
@@ -648,9 +644,8 @@ export default function TestRunMainView({
       </TabPanel>
 
       <TabPanel value={activeTab} index={4}>
-        <TestRunReviewsTab
-          testResults={testResults}
-          loading={loading}
+        <TestRunAnnotationsTab
+          testRunId={testRun.id}
           onViewTestResult={setReviewedResultId}
         />
         <TestResultDrawer
@@ -664,7 +659,7 @@ export default function TestRunMainView({
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
-          initialTab={TEST_RESULT_DRAWER_TAB.reviews}
+          initialTab={TEST_RESULT_DRAWER_TAB.annotations}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value
           }

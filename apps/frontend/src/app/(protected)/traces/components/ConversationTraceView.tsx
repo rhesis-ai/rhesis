@@ -1,5 +1,6 @@
 'use client';
 
+import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import { useState, useEffect, useMemo } from 'react';
 import { Alert, Box, CircularProgress } from '@mui/material';
 import {
@@ -14,7 +15,6 @@ import {
   ConversationTurn,
   GoalEvaluation,
   OverrideMarker,
-  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import { reconstructConversationFromSpans } from '@/utils/conversation-from-spans';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
@@ -161,33 +161,13 @@ export default function ConversationTraceView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trace.trace_id, trace.test_result?.id]);
 
-  const turnAnnotationMap = useMemo(() => {
-    const map = new Map<number, Review>();
-    const reviews = rootSpans?.find(s => s.trace_reviews)?.trace_reviews
-      ?.reviews;
-    if (!reviews) return map;
-    for (const review of reviews) {
-      if (
-        review.target?.type === ANNOTATION_TARGET_TYPES.TURN &&
-        review.target.reference
-      ) {
-        const turnNum = parseInt(
-          review.target.reference.replace(/\D/g, ''),
-          10
-        );
-        if (!isNaN(turnNum)) {
-          const existing = map.get(turnNum);
-          if (
-            !existing ||
-            (review.updated_at || '') > (existing.updated_at || '')
-          ) {
-            map.set(turnNum, review as unknown as Annotation);
-          }
-        }
-      }
-    }
-    return map;
-  }, [rootSpans]);
+  const turnAnnotationMap = useMemo(
+    () =>
+      annotationsByTurn(
+        rootSpans?.find(s => s.annotation_summary)?.annotation_summary
+      ),
+    [rootSpans]
+  );
 
   if (loading) {
     return (
