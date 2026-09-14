@@ -147,7 +147,7 @@ function MetricRowInner({
         </Tooltip>
         {hasOverride && (
           <Tooltip
-            title="Contains human review corrections"
+            title="Contains human annotation corrections"
             placement="top"
             arrow
           >

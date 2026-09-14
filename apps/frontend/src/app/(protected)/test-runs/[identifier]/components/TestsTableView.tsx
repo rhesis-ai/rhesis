@@ -121,7 +121,7 @@ export default function TestsTableView({
     null
   );
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
-  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const [isConfirmingAnnotation, setIsConfirmingAnnotation] = useState(false);
   const isConfirmingRef = useRef(false);
   const [localTestUpdates, setLocalTestUpdates] = useState<
     Record<string, TestResultDetail>
@@ -231,14 +231,14 @@ export default function TestsTableView({
   // useCallback so the columns memo below can depend on this handler without
   // being rebuilt on every render. Everything it closes over is either a ref
   // or a setState (both stable), leaving onTestResultUpdate as the only dep.
-  const handleConfirmReview = useCallback(
+  const handleConfirmAnnotation = useCallback(
     async (event: React.MouseEvent, test: TestResultDetail) => {
       event.stopPropagation();
       if (isConfirmingRef.current) return;
       isConfirmingRef.current = true;
 
       try {
-        setIsConfirmingReview(true);
+        setIsConfirmingAnnotation(true);
 
         const clientFactory = new ApiClientFactory();
         const testResultsClient = clientFactory.getTestResultsClient();
@@ -247,9 +247,9 @@ export default function TestsTableView({
           entity_type: EntityType.TEST_RESULT,
         });
 
-        // Confirm the outcome the reviewer is actually looking at. Deriving it
+        // Confirm the outcome the annotator is actually looking at. Deriving it
         // from raw metrics here risked submitting a verdict that contradicted
-        // the chip on screen. The review flow only offers pass/fail, so any
+        // the chip on screen. The annotation flow only offers pass/fail, so any
         // non-Pass outcome is confirmed as a fail.
         const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
@@ -299,9 +299,9 @@ export default function TestsTableView({
 
         onTestResultUpdate(updatedTest);
       } catch (error) {
-        console.error('Failed to confirm review:', error);
+        console.error('Failed to confirm the automated result:', error);
       } finally {
-        setIsConfirmingReview(false);
+        setIsConfirmingAnnotation(false);
         isConfirmingRef.current = false;
       }
     },
@@ -613,12 +613,12 @@ export default function TestsTableView({
               }}
             >
               {!resultHasAnyHumanAnnotation(test) && (
-                <Tooltip title="Confirm Review">
+                <Tooltip title="Confirm Annotation">
                   <span>
                     <IconButton
                       size="small"
-                      onClick={e => handleConfirmReview(e, test)}
-                      disabled={isConfirmingReview}
+                      onClick={e => handleConfirmAnnotation(e, test)}
+                      disabled={isConfirmingAnnotation}
                       sx={{
                         p: 0.5,
                         color: 'primary.main',
@@ -633,7 +633,7 @@ export default function TestsTableView({
                 </Tooltip>
               )}
 
-              <Tooltip title="Provide Review">
+              <Tooltip title="Annotate">
                 <IconButton
                   size="small"
                   onClick={e => handleOverruleJudgement(e, test)}
@@ -657,10 +657,10 @@ export default function TestsTableView({
     isMultiTurn,
     prompts,
     theme,
-    isConfirmingReview,
+    isConfirmingAnnotation,
     openTestDrawer,
     requirements,
-    handleConfirmReview,
+    handleConfirmAnnotation,
   ]);
 
   return (

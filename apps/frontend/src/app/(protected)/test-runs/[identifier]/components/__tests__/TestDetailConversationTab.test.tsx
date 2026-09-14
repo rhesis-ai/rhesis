@@ -133,7 +133,7 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
         },
       },
       status: { id: u(10), name: 'Pass' },
-      last_review: { status: { id: u(10), name: 'Pass' } },
+      last_annotation: { status: { status_id: u(10), name: 'Pass' } },
     } as unknown as Partial<TestResultDetail>);
 
     render(<TestDetailConversationTab test={test} />);

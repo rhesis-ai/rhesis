@@ -85,7 +85,7 @@ const STATUS_KEYWORDS = {
  * const statuses = await statusClient.getStatuses({ entity_type: 'TestResult' });
  * const failedStatus = findStatusByCategory(statuses, 'failed');
  * if (failedStatus) {
- *   await testResultsClient.createReview(testId, failedStatus.id, reason);
+ *   await annotationsClient.createAnnotation({ ..., status_id: failedStatus.id });
  * }
  * ```
  */

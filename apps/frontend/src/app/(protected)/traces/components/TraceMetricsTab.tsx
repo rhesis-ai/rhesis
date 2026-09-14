@@ -244,7 +244,7 @@ function MetricsTable({
                     </TableCell>
                     {onReviewMetric && (
                       <TableCell align="right">
-                        <Tooltip title="Review this metric">
+                        <Tooltip title="Annotate this metric">
                           <IconButton
                             size="small"
                             onClick={() => onReviewMetric(name)}
@@ -450,7 +450,7 @@ export default function TraceMetricsTab({
                       {traceMetricsStatus}
                     </Typography>
                     {onReviewTrace && (
-                      <Tooltip title="Review overall trace">
+                      <Tooltip title="Annotate this trace">
                         <IconButton
                           size="small"
                           onClick={onReviewTrace}

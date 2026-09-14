@@ -606,9 +606,9 @@ export default function TestDetailMetricsTab({
       {goalAchievementData &&
         goalMetricName &&
         (() => {
-          const goalReview = metricAnnotationMap.get(goalMetricName);
+          const goalAnnotation = metricAnnotationMap.get(goalMetricName);
           const goalIsOverruled = !!goalAchievementData.override;
-          const goalIsConfirmed = !!goalReview && !goalIsOverruled;
+          const goalIsConfirmed = !!goalAnnotation && !goalIsOverruled;
 
           const progressLabel = goalAchievementData.usesBehaviors
             ? 'Behaviour Compliance'
@@ -1003,9 +1003,11 @@ export default function TestDetailMetricsTab({
                   </TableRow>
                 ) : (
                   filteredMetricsForTable.map(metric => {
-                    const metricReview = metricAnnotationMap.get(metric.name);
+                    const metricAnnotation = metricAnnotationMap.get(
+                      metric.name
+                    );
                     const isOverruled = !!metric.fullMetricData.override;
-                    const isConfirmed = !!metricReview && !isOverruled;
+                    const isConfirmed = !!metricAnnotation && !isOverruled;
 
                     return (
                       <TableRow
@@ -1026,12 +1028,12 @@ export default function TestDetailMetricsTab({
                           <Tooltip
                             title={
                               isOverruled
-                                ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
+                                ? `Annotated by ${metricAnnotation?.user?.name}: status changed to ${metricAnnotation?.status?.name}`
                                 : isConfirmed
-                                  ? `Confirmed by ${metricReview?.user?.name}`
+                                  ? `Confirmed by ${metricAnnotation?.user?.name}`
                                   : ''
                             }
-                            disableHoverListener={!metricReview}
+                            disableHoverListener={!metricAnnotation}
                             arrow
                           >
                             <Box>
@@ -1098,7 +1100,7 @@ export default function TestDetailMetricsTab({
                         </TableCell>
                         {onReviewMetric && (
                           <TableCell align="right">
-                            <Tooltip title="Review this metric">
+                            <Tooltip title="Annotate this metric">
                               <IconButton
                                 size="small"
                                 onClick={() => onReviewMetric(metric.name)}
