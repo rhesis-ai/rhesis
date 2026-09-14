@@ -8,17 +8,24 @@ import {
   filterChipSx,
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
-import type { AnnotationSource } from '@/utils/api-client/interfaces/annotation';
+import {
+  ANNOTATION_ENTITY_LABELS,
+  ANNOTATION_ENTITY_TYPES,
+  ANNOTATION_TARGET_LABELS,
+  ANNOTATION_TARGET_TYPES,
+  type AnnotationEntityType,
+  type AnnotationTargetType,
+} from '@/utils/api-client/interfaces/annotation';
 
 export interface AnnotationFilters {
   rating: '' | 'Pass' | 'Fail';
-  source: '' | AnnotationSource;
-  target_type: '' | 'test_result' | 'trace' | 'metric' | 'turn';
+  entity_type: '' | AnnotationEntityType;
+  target_type: '' | AnnotationTargetType;
 }
 
 export const EMPTY_ANNOTATION_FILTERS: AnnotationFilters = {
   rating: '',
-  source: '',
+  entity_type: '',
   target_type: '',
 };
 
@@ -35,20 +42,17 @@ const RATING_OPTIONS: { label: string; value: 'Pass' | 'Fail' }[] = [
   { label: 'Failed', value: 'Fail' },
 ];
 
-const SOURCE_OPTIONS: { label: string; value: AnnotationSource }[] = [
-  { label: 'Test Result', value: 'test_result' },
-  { label: 'Trace', value: 'trace' },
-];
+const ENTITY_OPTIONS: { label: string; value: AnnotationEntityType }[] = [
+  ANNOTATION_ENTITY_TYPES.TEST_RESULT,
+  ANNOTATION_ENTITY_TYPES.TRACE,
+].map(value => ({ label: ANNOTATION_ENTITY_LABELS[value], value }));
 
-const TARGET_OPTIONS: {
-  label: string;
-  value: 'test_result' | 'trace' | 'metric' | 'turn';
-}[] = [
-  { label: 'Output', value: 'test_result' },
-  { label: 'Trace', value: 'trace' },
-  { label: 'Metric', value: 'metric' },
-  { label: 'Turn', value: 'turn' },
-];
+const TARGET_OPTIONS: { label: string; value: AnnotationTargetType }[] = [
+  ANNOTATION_TARGET_TYPES.TEST_RESULT,
+  ANNOTATION_TARGET_TYPES.TRACE,
+  ANNOTATION_TARGET_TYPES.METRIC,
+  ANNOTATION_TARGET_TYPES.TURN,
+].map(value => ({ label: ANNOTATION_TARGET_LABELS[value], value }));
 
 interface AnnotationFilterDrawerProps {
   open: boolean;
@@ -81,7 +85,7 @@ export default function AnnotationFilterDrawer({
     >
       <FilterSection title="Type">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {SOURCE_OPTIONS.map(opt => (
+          {ENTITY_OPTIONS.map(opt => (
             <Box
               key={opt.value}
               component="button"
@@ -89,10 +93,11 @@ export default function AnnotationFilterDrawer({
               onClick={() =>
                 setDraft(prev => ({
                   ...prev,
-                  source: prev.source === opt.value ? '' : opt.value,
+                  entity_type:
+                    prev.entity_type === opt.value ? '' : opt.value,
                 }))
               }
-              sx={filterChipSx(draft.source === opt.value)}
+              sx={filterChipSx(draft.entity_type === opt.value)}
             >
               {opt.label}
             </Box>

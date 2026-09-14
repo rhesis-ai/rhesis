@@ -14,7 +14,7 @@ import { formatDistanceToNow } from 'date-fns';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-import type {
+import {
   Review,
   TestResultDetail,
 } from '@/utils/api-client/interfaces/test-results';
@@ -27,7 +27,7 @@ interface TestRunReviewsTabProps {
 }
 
 interface RunReview {
-  review: Review;
+  review: Annotation;
   testResultId: string;
   testLabel: string;
 }

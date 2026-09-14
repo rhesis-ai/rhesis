@@ -2,6 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  ANNOTATION_TARGET_LABELS,
+  ANNOTATION_TARGET_TYPES,
+  AnnotationTargetType,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   Box,
   Typography,
   ToggleButton,
@@ -18,9 +23,6 @@ import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import {
   SpanNode,
-  TRACE_REVIEW_TARGET_TYPES,
-  TRACE_REVIEW_TARGET_LABELS,
-  TraceReviewTargetType,
 } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -93,26 +95,26 @@ export default function TraceReviewDrawer({
   const traceTarget = useMemo(() => {
     if (rawTarget.type === 'metric') {
       return {
-        type: TRACE_REVIEW_TARGET_TYPES.METRIC as TraceReviewTargetType,
+        type: ANNOTATION_TARGET_TYPES.METRIC as AnnotationTargetType,
         reference: rawTarget.reference,
       };
     }
     if (rawTarget.type === 'turn') {
       return {
-        type: TRACE_REVIEW_TARGET_TYPES.TURN as TraceReviewTargetType,
+        type: ANNOTATION_TARGET_TYPES.TURN as AnnotationTargetType,
         reference: rawTarget.reference,
       };
     }
     return {
-      type: TRACE_REVIEW_TARGET_TYPES.TRACE as TraceReviewTargetType,
+      type: ANNOTATION_TARGET_TYPES.TRACE as AnnotationTargetType,
       reference: null as string | null,
     };
   }, [rawTarget]);
 
   const targetLabel = useMemo(
     () =>
-      TRACE_REVIEW_TARGET_LABELS[
-        rawTarget.type as keyof typeof TRACE_REVIEW_TARGET_LABELS
+      ANNOTATION_TARGET_LABELS[
+        rawTarget.type as keyof typeof ANNOTATION_TARGET_LABELS
       ] ?? 'Trace',
     [rawTarget]
   );

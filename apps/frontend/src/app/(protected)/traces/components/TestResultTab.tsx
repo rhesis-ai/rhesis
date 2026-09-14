@@ -22,8 +22,12 @@ import {
 import CheckIcon from '@mui/icons-material/Check';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import StatusChip from '@/components/common/StatusChip';
-import { TraceDetailResponse } from '@/utils/api-client/interfaces/telemetry';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TraceDetailResponse,
+} from '@/utils/api-client/interfaces/telemetry';
+import {
+  TestResultDetail,
+} from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   DeletedEntityAlert,

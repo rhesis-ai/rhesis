@@ -9,11 +9,11 @@ import AnnotationsGrid from './AnnotationsGrid';
 import { annotationsList } from './list';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import type { AnnotationListItem } from '@/utils/api-client/interfaces/annotation';
+import type { Annotation } from '@/utils/api-client/interfaces/annotation';
 
 interface AnnotationsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
-  initialData?: AnnotationListItem[];
+  initialData?: Annotation[];
   initialTotalCount?: number;
 }
 

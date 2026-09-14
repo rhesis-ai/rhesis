@@ -2,6 +2,9 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import {
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   Box,
   Tabs,
   Tab,
@@ -15,7 +18,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   TestResultDetail,
-  REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
@@ -298,7 +300,7 @@ export default function TestResultDrawer({
         test.id,
         targetStatus.id,
         `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-        { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
+        { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null }
       );
 
       // Refresh the test result

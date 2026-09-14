@@ -1,5 +1,9 @@
 'use client';
 
+import {
+  ANNOTATION_TARGET_TYPES,
+  AnnotationTargetType,
+} from '@/utils/api-client/interfaces/annotation';
 import React, {
   useCallback,
   useEffect,
@@ -10,10 +14,6 @@ import React, {
 import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import { Box, Typography, useTheme, FormHelperText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-  REVIEW_TARGET_TYPES,
-  type ReviewTargetType,
-} from '@/utils/api-client/interfaces/test-results';
 import { BORDER_RADIUS } from '@/styles/theme';
 export interface MentionOption {
   id: string;
@@ -485,7 +485,7 @@ export function MentionText({ text }: { text: string }) {
 }
 
 export interface InferredTarget {
-  type: ReviewTargetType;
+  type: AnnotationTargetType;
   reference: string | null;
 }
 
@@ -503,13 +503,13 @@ export function inferReviewTarget(text: string): InferredTarget {
     const fullId = match[2];
     const type = fullId.split(':')[0];
 
-    if (type === REVIEW_TARGET_TYPES.METRIC) {
-      return { type: REVIEW_TARGET_TYPES.METRIC, reference: display };
+    if (type === ANNOTATION_TARGET_TYPES.METRIC) {
+      return { type: ANNOTATION_TARGET_TYPES.METRIC, reference: display };
     }
-    if (type === REVIEW_TARGET_TYPES.TURN) {
-      return { type: REVIEW_TARGET_TYPES.TURN, reference: display };
+    if (type === ANNOTATION_TARGET_TYPES.TURN) {
+      return { type: ANNOTATION_TARGET_TYPES.TURN, reference: display };
     }
   }
 
-  return { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null };
+  return { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null };
 }

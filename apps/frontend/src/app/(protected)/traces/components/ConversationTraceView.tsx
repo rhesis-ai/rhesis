@@ -3,9 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Alert, Box, CircularProgress } from '@mui/material';
 import {
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   TraceDetailResponse,
   SpanNode,
-  TRACE_REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/telemetry';
 import {
   TestResultDetail,
@@ -166,7 +168,7 @@ export default function ConversationTraceView({
     if (!reviews) return map;
     for (const review of reviews) {
       if (
-        review.target?.type === TRACE_REVIEW_TARGET_TYPES.TURN &&
+        review.target?.type === ANNOTATION_TARGET_TYPES.TURN &&
         review.target.reference
       ) {
         const turnNum = parseInt(
@@ -179,7 +181,7 @@ export default function ConversationTraceView({
             !existing ||
             (review.updated_at || '') > (existing.updated_at || '')
           ) {
-            map.set(turnNum, review as unknown as Review);
+            map.set(turnNum, review as unknown as Annotation);
           }
         }
       }

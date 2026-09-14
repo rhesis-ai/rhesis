@@ -12,7 +12,7 @@ import {
   resultHasAnyHumanReview,
   testHasHumanCorrection,
 } from '../test-run-summary-utils';
-import type {
+import {
   Review,
   TestResultDetail,
 } from '@/utils/api-client/interfaces/test-results';
@@ -24,7 +24,7 @@ const u = (n: number): UUID =>
 let resultCounter = 0;
 let reviewCounter = 0;
 
-function makeReview(overrides: Partial<Review> = {}): Review {
+function makeReview(overrides: Partial<Annotation> = {}): Annotation {
   reviewCounter += 1;
   return {
     review_id: u(100 + reviewCounter),
