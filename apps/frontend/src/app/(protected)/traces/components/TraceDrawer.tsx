@@ -1,5 +1,6 @@
 'use client';
 
+import { useTraceAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
@@ -20,10 +21,7 @@ import {
   TraceMetricsStatus,
   SpanNode,
 } from '@/utils/api-client/interfaces/telemetry';
-import {
-  MentionOption,
-  toMentionId,
-} from '@/components/common/MentionTextInput';
+import { toMentionId } from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
 import {
   formatCost,
@@ -252,44 +250,8 @@ export default function TraceDrawer({
     'passed' | 'failed' | undefined
   >();
 
-  const mentionableMetrics: MentionOption[] = useMemo(() => {
-    const traceMetrics = selectedSpan?.trace_metrics as
-      | Record<string, unknown>
-      | undefined;
-    if (!traceMetrics) return [];
-    const names: string[] = [];
-    for (const section of ['turn_metrics', 'conversation_metrics']) {
-      const sectionData = traceMetrics[section] as
-        | Record<string, unknown>
-        | undefined;
-      const metrics = sectionData?.metrics as
-        | Record<string, unknown>
-        | undefined;
-      if (metrics) {
-        names.push(...Object.keys(metrics));
-      }
-    }
-    return names.map(name => ({
-      id: toMentionId(name),
-      display: name,
-      type: 'metric' as const,
-    }));
-  }, [selectedSpan]);
-
-  const mentionableTurns: MentionOption[] = useMemo(() => {
-    if (!trace?.root_spans || !trace.conversation_id) return [];
-    return trace.root_spans
-      .filter(
-        span =>
-          span.attributes['rhesis.conversation.input'] ||
-          span.attributes['rhesis.conversation.output']
-      )
-      .map((_, i) => ({
-        id: String(i + 1),
-        display: `Turn ${i + 1}`,
-        type: 'turn' as const,
-      }));
-  }, [trace]);
+  const { metrics: mentionableMetrics, turns: mentionableTurns } =
+    useTraceAnnotationTargets(selectedSpan, trace);
 
   const traceMetricsStatus = useMemo(() => {
     return (trace?.trace_metrics_status as TraceMetricsStatus) ?? null;

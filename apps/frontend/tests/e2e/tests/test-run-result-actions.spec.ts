@@ -121,12 +121,13 @@ test.describe('Test Runs — result actions @interaction', () => {
     );
   });
 
-  test('can open the annotation drawer from a result row', async ({
-    page,
-  }) => {
+  test('can open the annotation drawer from a result row', async ({ page }) => {
     const reached = await gotoFirstTestRun(page);
     if (!reached) {
-      test.skip(true, 'No test runs available — skipping annotation drawer test');
+      test.skip(
+        true,
+        'No test runs available — skipping annotation drawer test'
+      );
       return;
     }
 
@@ -138,9 +139,7 @@ test.describe('Test Runs — result actions @interaction', () => {
     }
 
     // Look for the annotate button in the Actions column
-    const annotateBtn = page
-      .getByRole('button', { name: /annotate/i })
-      .first();
+    const annotateBtn = page.getByRole('button', { name: /annotate/i }).first();
     const hasBtn = await annotateBtn
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
@@ -181,7 +180,10 @@ test.describe('Test Runs — result actions @interaction', () => {
   test('can submit a Pass annotation for a test result', async ({ page }) => {
     const reached = await gotoFirstTestRun(page);
     if (!reached) {
-      test.skip(true, 'No test runs available — skipping submit annotation test');
+      test.skip(
+        true,
+        'No test runs available — skipping submit annotation test'
+      );
       return;
     }
 
@@ -192,18 +194,11 @@ test.describe('Test Runs — result actions @interaction', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    const annotateBtn = page
-      .getByRole('button', { name: /annotate/i })
-      .first();
+    const annotateBtn = page.getByRole('button', { name: /annotate/i }).first();
     if (
-      !(await annotateBtn
-        .isVisible({ timeout: 10_000 })
-        .catch(() => false))
+      !(await annotateBtn.isVisible({ timeout: 10_000 }).catch(() => false))
     ) {
-      test.skip(
-        true,
-        'Annotate button not visible — skipping submit test'
-      );
+      test.skip(true, 'Annotate button not visible — skipping submit test');
       return;
     }
 

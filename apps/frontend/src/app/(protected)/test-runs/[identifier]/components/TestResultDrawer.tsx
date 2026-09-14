@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import { useTestResultAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
+import React, { useState, useRef } from 'react';
 import {
   ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
@@ -30,7 +31,6 @@ import {
   findStatusByCategory,
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
-import { MentionOption } from '@/components/common/MentionTextInput';
 import { EntityType } from '@/types/entity-type';
 
 export const TEST_RESULT_DRAWER_TAB = {
@@ -159,7 +159,7 @@ export default function TestResultDrawer({
   const [reviewInitialStatus, setReviewInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
-  const [isConfirmingAnnotation, setIsConfirmingReview] = useState(false);
+  const [isConfirmingAnnotation, setIsConfirmingAnnotation] = useState(false);
   const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
@@ -241,29 +241,10 @@ export default function TestResultDrawer({
   const conversationTest =
     fetchedTest?.id === test?.id ? (fetchedTest ?? test) : test;
 
-  const mentionableMetrics: MentionOption[] = useMemo(() => {
-    if (!test?.test_metrics?.metrics) return [];
-    return Object.keys(test.test_metrics.metrics).map(name => ({
-      id: name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, ''),
-      display: name,
-      type: 'metric' as const,
-    }));
-  }, [test]);
+  const { metrics: mentionableMetrics, turns: mentionableTurns } =
+    useTestResultAnnotationTargets(test, conversationTest);
 
-  const mentionableTurns: MentionOption[] = useMemo(() => {
-    const summary = conversationTest?.test_output?.conversation_summary;
-    if (!summary || !Array.isArray(summary)) return [];
-    return summary.map((turn: { turn: number }) => ({
-      id: String(turn.turn),
-      display: `Turn ${turn.turn}`,
-      type: 'turn' as const,
-    }));
-  }, [conversationTest]);
-
-  const handleConfirmAutomatedReview = async () => {
+  const handleConfirmAutomatedAnnotation = async () => {
     if (!test) return;
 
     // Atomic check-and-set to prevent duplicate submissions
@@ -271,7 +252,7 @@ export default function TestResultDrawer({
     isConfirmingRef.current = true;
 
     try {
-      setIsConfirmingReview(true);
+      setIsConfirmingAnnotation(true);
 
       const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
@@ -282,7 +263,7 @@ export default function TestResultDrawer({
         entity_type: EntityType.TEST_RESULT,
       });
 
-      // Confirm the outcome the reviewer is looking at, not a re-derivation
+      // Confirm the outcome the annotator is looking at, not a re-derivation
       // from goal_evaluation that could contradict it.
       const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
@@ -311,7 +292,7 @@ export default function TestResultDrawer({
     } catch (error) {
       console.error('Failed to confirm the automated result:', error);
     } finally {
-      setIsConfirmingReview(false);
+      setIsConfirmingAnnotation(false);
       isConfirmingRef.current = false;
     }
   };
@@ -470,7 +451,7 @@ export default function TestResultDrawer({
               project={project}
               projectName={projectName}
               onAnnotateTurn={isMultiTurn ? handleReviewTurn : undefined}
-              onConfirmAutomatedAnnotation={handleConfirmAutomatedReview}
+              onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
               isConfirmingAnnotation={isConfirmingAnnotation}
             />
           </TabPanel>
