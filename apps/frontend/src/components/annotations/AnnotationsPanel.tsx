@@ -19,7 +19,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { formatDistanceToNow } from 'date-fns';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION, GRID_CARD_INSET } from '@/styles/theme';
 import StatusChip from '@/components/common/StatusChip';
 import { MentionText } from '@/components/common/MentionTextInput';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -193,7 +193,11 @@ export default function AnnotationsPanel({
               {hasConflict && (
                 <Chip
                   icon={
-                    <WarningAmberIcon sx={{ fontSize: '14px !important' }} />
+                    <WarningAmberIcon
+                      sx={theme => ({
+                        fontSize: `${theme.typography.caption.fontSize} !important`,
+                      })}
+                    />
                   }
                   label="Conflict"
                   size="small"
@@ -230,43 +234,42 @@ export default function AnnotationsPanel({
             bgcolor: t =>
               alpha(
                 t.palette.warning.main,
-                t.palette.mode === 'light' ? 0.08 : 0.16
+                t.palette.mode === 'light'
+                  ? t.palette.action.selectedOpacity
+                  : t.palette.action.focusOpacity
               ),
             border: '1px solid',
             borderColor: 'warning.main',
             borderRadius: BORDER_RADIUS.xs,
-            px: '30px',
-            py: '12px',
+            px: GRID_CARD_INSET,
+            py: 1.5,
             display: 'flex',
             alignItems: 'flex-start',
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ pr: '12px', py: '4px', flexShrink: 0 }}>
-            <WarningAmberIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+          <Box sx={{ pr: 1.5, py: 0.5, flexShrink: 0 }}>
+            <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />
           </Box>
           <Box
             sx={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px',
-              py: '8px',
+              gap: 0.5,
+              py: 1,
               flex: '1 0 0',
             }}
           >
             <Typography
-              sx={{
+              variant="body2"
+              sx={theme => ({
                 color: 'text.primary',
-                fontWeight: 700,
-                fontSize: 14,
-                lineHeight: '20px',
-              }}
+                fontWeight: theme.typography.fontWeightBold,
+              })}
             >
               {ANNOTATION_COPY.conflictTitle}
             </Typography>
-            <Typography
-              sx={{ color: 'text.secondary', fontSize: 13, lineHeight: '18px' }}
-            >
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {ANNOTATION_COPY.conflictBody}
             </Typography>
           </Box>
@@ -304,7 +307,7 @@ export default function AnnotationsPanel({
               pb: 2,
             }}
           >
-            <Typography variant="h6" color="primary" fontWeight={600}>
+            <Typography variant="h6" color="primary">
               {ANNOTATION_COPY.sectionTitle}
             </Typography>
             {canCreate && (
@@ -345,16 +348,21 @@ export default function AnnotationsPanel({
                       sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
                     >
                       <Avatar
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          fontSize: 12,
+                        sx={theme => ({
+                          width: theme.spacing(4),
+                          height: theme.spacing(4),
+                          fontSize: theme.typography.caption.fontSize,
                           bgcolor: 'primary.main',
-                        }}
+                        })}
                       >
                         {name.charAt(0).toUpperCase()}
                       </Avatar>
-                      <Typography variant="body2" fontWeight={700}>
+                      <Typography
+                        variant="body2"
+                        sx={theme => ({
+                          fontWeight: theme.typography.fontWeightBold,
+                        })}
+                      >
                         {name}
                       </Typography>
                       <Typography
@@ -371,13 +379,13 @@ export default function AnnotationsPanel({
                           size="small"
                           label="Resolved"
                           variant="outlined"
-                          sx={{
-                            height: 24,
-                            fontSize: t => t.typography.caption.fontSize,
+                          sx={theme => ({
+                            height: theme.spacing(3),
+                            fontSize: theme.typography.caption.fontSize,
                             borderRadius: BORDER_RADIUS.pill,
                             borderColor: 'success.main',
                             color: 'success.main',
-                          }}
+                          })}
                         />
                       )}
                       <StatusChip
@@ -398,9 +406,6 @@ export default function AnnotationsPanel({
                           sx={{
                             minWidth: 0,
                             px: 1,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            fontSize: 13,
                             color: 'text.secondary',
                             '&:hover': {
                               color: 'text.primary',
@@ -431,7 +436,7 @@ export default function AnnotationsPanel({
                               },
                             }}
                           >
-                            <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                            <DeleteOutlineIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -510,8 +515,8 @@ function EmptyStateCard({
         textAlign: 'center',
       }}
     >
-      <InfoOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-      <Typography variant="h6" color="primary" fontWeight={600}>
+      <InfoOutlinedIcon fontSize="large" sx={{ color: 'primary.main' }} />
+      <Typography variant="h6" color="primary">
         {title}
       </Typography>
       <Typography variant="body2">{ANNOTATION_COPY.emptyBody}</Typography>
