@@ -72,6 +72,12 @@ const TOOL_ITEMS = [
     kind: 'simpleIcon',
   },
   {
+    name: 'Trello',
+    href: '/docs/tools#trello',
+    src: '/integrations/providers/trello.svg',
+    kind: 'simpleIcon',
+  },
+  {
     name: 'GitHub',
     href: '/docs/tools#github',
     src: '/integrations/providers/github.svg',
