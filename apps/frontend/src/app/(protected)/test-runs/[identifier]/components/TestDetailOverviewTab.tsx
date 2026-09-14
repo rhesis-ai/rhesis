@@ -16,9 +16,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
 import ViewField from '@/components/common/ViewField';

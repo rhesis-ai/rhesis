@@ -22,9 +22,7 @@ import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import { useSession } from 'next-auth/react';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import {
-  SpanNode,
-} from '@/utils/api-client/interfaces/telemetry';
+import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';

@@ -35,9 +35,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
@@ -266,7 +264,10 @@ export default function TestsTableView({
           entity_id: test.id,
           status_id: targetStatus.id,
           comments: `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-          target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
+          target: {
+            type: ANNOTATION_TARGET_TYPES.TEST_RESULT,
+            reference: null,
+          },
         });
 
         let updatedTest: TestResultDetail | null = null;

@@ -47,7 +47,10 @@ export default function TestDetailAnnotationsTab({
 
   useEffect(() => {
     if (!initialComment) return;
-    pendingCommentRef.current = { comment: initialComment, status: initialStatus };
+    pendingCommentRef.current = {
+      comment: initialComment,
+      status: initialStatus,
+    };
     setCreateOpen(true);
     onCommentUsed?.();
   }, [initialComment, initialStatus, onCommentUsed]);

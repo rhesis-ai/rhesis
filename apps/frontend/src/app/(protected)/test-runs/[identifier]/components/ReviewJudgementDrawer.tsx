@@ -11,9 +11,7 @@ import { useSession } from 'next-auth/react';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ANNOTATION_ENTITY_TYPES } from '@/utils/api-client/interfaces/annotation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';

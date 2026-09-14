@@ -1,6 +1,4 @@
-import {
-  ANNOTATION_TARGET_TYPES,
-} from '../api-client/interfaces/annotation';
+import { ANNOTATION_TARGET_TYPES } from '../api-client/interfaces/annotation';
 import {
   getEffectiveTestResultStatus,
   getTestResultLabel,
@@ -30,21 +28,18 @@ const createMetricResult = (
   description: 'Test description',
 });
 
-// Helper to create valid review
-const createReview = (statusName: string, comments: string = 'Test') => ({
-  review_id: '12345678-1234-1234-1234-123456789012' as const,
+/** One entity-level annotation as it arrives embedded on a result. */
+const createAnnotation = (statusName: string, comments: string = 'Test') => ({
+  annotation_id: '12345678-1234-1234-1234-123456789012',
+  target_type: ANNOTATION_TARGET_TYPES.TEST_RESULT,
+  reference: null,
   status: {
     status_id: '12345678-1234-1234-1234-123456789012' as const,
     name: statusName,
   },
-  user: {
-    user_id: '12345678-1234-1234-1234-123456789012' as const,
-    name: 'Test User',
-  },
+  user: { name: 'Test User' },
   comments,
   updated_at: '2025-01-01T00:00:00Z',
-  created_at: '2025-01-01T00:00:00Z',
-  target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
 });
 
 describe('testResultStatus', () => {
@@ -118,7 +113,7 @@ describe('testResultStatus', () => {
           metrics: { metric1: createMetricResult(false) },
           execution_time: 1.5,
         },
-        last_review: createReview('Pass', 'Looks good'),
+        last_annotation: createAnnotation('Pass', 'Looks good'),
       };
       expect(getEffectiveTestResultStatus(test as TestResultDetail)).toBe(
         'Pass'
@@ -153,18 +148,18 @@ describe('testResultStatus', () => {
   });
 
   describe('hasConflictingAnnotation', () => {
-    it('should return true when review exists and matches_review is false', () => {
+    it('should return true when an annotation exists and matches_annotation is false', () => {
       const test: Partial<TestResultDetail> = {
-        last_review: createReview('Passed', 'Override'),
-        matches_review: false,
+        last_annotation: createAnnotation('Passed', 'Override'),
+        matches_annotation: false,
       };
       expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(true);
     });
 
-    it('should return false when review exists and matches_review is true', () => {
+    it('should return false when an annotation exists and matches_annotation is true', () => {
       const test: Partial<TestResultDetail> = {
-        last_review: createReview('Passed', 'Agrees'),
-        matches_review: true,
+        last_annotation: createAnnotation('Passed', 'Agrees'),
+        matches_annotation: true,
       };
       expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(false);
     });
@@ -177,10 +172,10 @@ describe('testResultStatus', () => {
       expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(false);
     });
 
-    it('should return false when matches_review is undefined', () => {
+    it('should return false when matches_annotation is undefined', () => {
       const test: Partial<TestResultDetail> = {
-        last_review: createReview('Passed', 'Test'),
-        matches_review: undefined,
+        last_annotation: createAnnotation('Passed', 'Test'),
+        matches_annotation: undefined,
       };
       expect(hasConflictingAnnotation(test as TestResultDetail)).toBe(false);
     });

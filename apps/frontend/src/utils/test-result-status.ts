@@ -2,9 +2,7 @@
  * Utility functions for determining test result status
  */
 
-import {
-  TestResultDetail,
-} from './api-client/interfaces/test-results';
+import { TestResultDetail } from './api-client/interfaces/test-results';
 import { Status } from './api-client/interfaces/status';
 import {
   displayStatusOf,

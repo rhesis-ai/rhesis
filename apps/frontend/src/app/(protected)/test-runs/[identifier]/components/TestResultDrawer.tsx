@@ -17,9 +17,7 @@ import {
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailConversationTab from './TestDetailConversationTab';

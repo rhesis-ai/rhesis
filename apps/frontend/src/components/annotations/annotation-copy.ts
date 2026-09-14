@@ -16,8 +16,7 @@ export const ANNOTATION_COPY = {
   emptyBody:
     'Annotate this to record your assessment of the automated findings.',
   createButton: 'Add annotation',
-  showOthers: (count: number) =>
-    `Show annotations from other users (${count})`,
+  showOthers: (count: number) => `Show annotations from other users (${count})`,
 
   deleteTitle: 'Delete Annotation',
   deleteTooltip: 'Delete annotation',

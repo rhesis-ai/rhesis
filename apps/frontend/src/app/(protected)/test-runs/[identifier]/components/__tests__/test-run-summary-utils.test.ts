@@ -4,38 +4,53 @@ import {
   computeReviewSummary,
   findMetricKey,
   getEffectiveMetricSuccess,
-  getLatestMetricReviewForResult,
+  getLatestMetricAnnotationForResult,
   isMetricCorrected,
   metricHasHumanCorrection,
   metricNameMatches,
   metricShowsHumanCorrection,
-  resultHasAnyHumanReview,
+  resultHasAnyHumanAnnotation,
   testHasHumanCorrection,
 } from '../test-run-summary-utils';
-import {
-  Review,
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import type { AnnotationSummaryEntry } from '@/utils/api-client/interfaces/annotation';
 import type { UUID } from 'crypto';
 
 const u = (n: number): UUID =>
   `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
 
 let resultCounter = 0;
-let reviewCounter = 0;
+let annotationCounter = 0;
 
-function makeReview(overrides: Partial<Annotation> = {}): Annotation {
-  reviewCounter += 1;
+/** One entry as it arrives embedded on a result, entity-level unless told otherwise. */
+function makeAnnotation(
+  overrides: Partial<AnnotationSummaryEntry> = {}
+): AnnotationSummaryEntry {
+  annotationCounter += 1;
   return {
-    review_id: u(100 + reviewCounter),
+    annotation_id: u(100 + annotationCounter),
+    target_type: 'test_result',
+    reference: null,
     status: { name: 'Pass' },
-    user: { user_id: u(9), name: 'Reviewer' },
+    user: { name: 'Annotator' },
     comments: '',
-    created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
-    target: { type: 'test_result', reference: null },
     ...overrides,
   };
+}
+
+/** Key entries the way the backend does: target_type, or target_type:reference. */
+function summaryOf(
+  ...entries: AnnotationSummaryEntry[]
+): Record<string, AnnotationSummaryEntry> {
+  return Object.fromEntries(
+    entries.map(entry => [
+      entry.reference
+        ? `${entry.target_type}:${entry.reference}`
+        : entry.target_type,
+      entry,
+    ])
+  );
 }
 
 function makeResult(
@@ -55,7 +70,7 @@ function makeResult(
     updated_at: '2026-01-01T00:00:00Z',
     test_metrics: { metrics, execution_time: 1 },
     status: { id: u(2), name: 'Pass' },
-    last_review: makeReview(),
+    annotation_summary: summaryOf(makeAnnotation()),
     ...rest,
   } as unknown as TestResultDetail;
 }
@@ -89,7 +104,7 @@ describe('aggregateMetricStats', () => {
   it('attributes a failure to only the metric that failed, not every metric on the same test', () => {
     const results = [
       makeResult({
-        last_review: undefined,
+        annotation_summary: {},
         status: { id: u(40), name: 'Fail' },
         metrics: {
           'Answer Relevancy': { is_successful: true },
@@ -115,7 +130,7 @@ describe('aggregateMetricStats', () => {
 
   it('uses metric override for automated counts and human review', () => {
     const result = makeResult({
-      last_review: undefined,
+      annotation_summary: {},
       status: { id: u(12), name: 'Fail' },
       metrics: {
         'Goal Achievement': {
@@ -152,7 +167,7 @@ describe('aggregateMetricStats', () => {
 describe('computeReviewSummary', () => {
   it('returns empty state when no reviews exist', () => {
     const summary = computeReviewSummary([
-      makeResult({ last_review: undefined, metrics: {} }),
+      makeResult({ annotation_summary: {}, metrics: {} }),
     ]);
     expect(summary).toEqual(
       expect.objectContaining({
@@ -165,7 +180,9 @@ describe('computeReviewSummary', () => {
   it('counts test and metric corrections separately in subtitle', () => {
     const results = [
       makeResult({
-        last_review: makeReview({ status: { name: 'Pass' } }),
+        annotation_summary: summaryOf(
+          makeAnnotation({ status: { name: 'Pass' } })
+        ),
         metrics: {
           'Goal Achievement': { is_successful: false },
           Accuracy: {
@@ -188,7 +205,7 @@ describe('metricHasHumanCorrection', () => {
   it('returns false when overall status disagrees with metrics but no review exists', () => {
     const results = [
       makeResult({
-        last_review: undefined,
+        annotation_summary: {},
         status: { id: u(21), name: 'Fail' },
         metrics: { 'LMRC Risk': { is_successful: true } },
       }),
@@ -200,7 +217,7 @@ describe('metricHasHumanCorrection', () => {
   it('returns true when a metric override changed the outcome', () => {
     const results = [
       makeResult({
-        last_review: undefined,
+        annotation_summary: {},
         metrics: {
           'LMRC Risk': {
             is_successful: true,
@@ -217,9 +234,6 @@ describe('metricHasHumanCorrection', () => {
     const results = [
       makeResult({
         status: { id: u(22), name: 'Fail' },
-        last_review: makeReview({
-          status: { name: 'Pass' },
-        }),
         metrics: {
           'Goal Achievement': { is_successful: false },
           Accuracy: { is_successful: true },
@@ -251,20 +265,17 @@ describe('metricHasHumanCorrection', () => {
   it('returns true when a metric-targeted review changed the outcome', () => {
     const results = [
       makeResult({
-        last_review: undefined,
         metrics: {
           'Bias Detection': { is_successful: false },
         },
-        test_reviews: {
-          reviews: [
-            makeReview({
-              status: { name: 'Pass' },
-              comments:
-                '@[Bias Detection](metric:bias-detection) is incorrect.',
-              target: { type: 'metric', reference: 'Bias Detection' },
-            }),
-          ],
-        },
+        annotation_summary: summaryOf(
+          makeAnnotation({
+            status: { name: 'Pass' },
+            comments: '@[Bias Detection](metric:bias-detection) is incorrect.',
+            target_type: 'metric',
+            reference: 'Bias Detection',
+          })
+        ),
       }),
     ];
 
@@ -272,21 +283,19 @@ describe('metricHasHumanCorrection', () => {
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
   });
 
-  it('detects metric reviews from review_summary when test_reviews is omitted', () => {
+  it('detects a metric annotation from the embedded summary', () => {
     const results = [
       makeResult({
-        last_review: undefined,
         metrics: {
           'Bias Detection': { is_successful: false },
         },
-        review_summary: {
-          'metric:Bias Detection': {
+        annotation_summary: summaryOf(
+          makeAnnotation({
             target_type: 'metric',
             reference: 'Bias Detection',
             status: { name: 'Pass' },
-            review_id: u(101),
-          },
-        },
+          })
+        ),
       }),
     ];
 
@@ -296,21 +305,19 @@ describe('metricHasHumanCorrection', () => {
     ).toBe(true);
   });
 
-  it('detects metric reviews from review_summary keys with slug references', () => {
+  it('detects a metric annotation whose reference is a slug', () => {
     const results = [
       makeResult({
-        last_review: undefined,
         metrics: {
           'Bias Detection': { is_successful: false },
         },
-        review_summary: {
-          'metric:bias-detection': {
+        annotation_summary: summaryOf(
+          makeAnnotation({
             target_type: 'metric',
             reference: 'bias-detection',
             status: { name: 'Pass' },
-            review_id: u(102),
-          },
-        },
+          })
+        ),
       }),
     ];
 
@@ -320,23 +327,19 @@ describe('metricHasHumanCorrection', () => {
   it('detects @metric mentions in comments even when review target is test_result', () => {
     const results = [
       makeResult({
-        last_review: makeReview({
-          status: { name: 'Pass' },
-        }),
         status: { id: u(28), name: 'Fail' },
         metrics: {
           'Bias Detection': { is_successful: false },
         },
-        test_reviews: {
-          reviews: [
-            makeReview({
-              status: { name: 'Pass' },
-              comments:
-                '@[Bias Detection](metric:bias-detection) should pass after manual review.',
-              target: { type: 'test_result', reference: null },
-            }),
-          ],
-        },
+        annotation_summary: summaryOf(
+          makeAnnotation({
+            status: { name: 'Pass' },
+            comments:
+              '@[Bias Detection](metric:bias-detection) should pass after manual review.',
+            target_type: 'test_result',
+            reference: null,
+          })
+        ),
       }),
     ];
 
@@ -349,19 +352,17 @@ describe('metricHasHumanCorrection', () => {
   it('detects plain @Metric Name mentions without markup', () => {
     const results = [
       makeResult({
-        last_review: undefined,
         metrics: {
           'Bias Detection': { is_successful: false },
         },
-        test_reviews: {
-          reviews: [
-            makeReview({
-              status: { name: 'Pass' },
-              comments: '@Bias Detection is incorrect.',
-              target: { type: 'test_result', reference: null },
-            }),
-          ],
-        },
+        annotation_summary: summaryOf(
+          makeAnnotation({
+            status: { name: 'Pass' },
+            comments: '@Bias Detection is incorrect.',
+            target_type: 'test_result',
+            reference: null,
+          })
+        ),
       }),
     ];
 
@@ -376,35 +377,33 @@ describe('metricHasHumanCorrection', () => {
           requirement: { name: 'Compliance' },
         } as TestResultDetail['test'],
         status: { id: u(30), name: 'Fail' },
-        last_review: makeReview({
-          status: { name: 'Pass' },
-        }),
         metrics: {
           'Bias Detection': { is_successful: false },
           'LMRC Risk': { is_successful: true },
           'XSS Detection': { is_successful: true },
         },
-        test_reviews: {
-          reviews: [
-            makeReview({
-              status: { name: 'Pass' },
-              comments: '@Bias Detection is incorrect.',
-              updated_at: '2026-01-01T00:00:01Z',
-              target: { type: 'metric', reference: 'Bias Detection' },
-            }),
-            makeReview({
-              status: { name: 'Pass' },
-              comments: 'passed overall.',
-              updated_at: '2026-01-01T00:00:02Z',
-              target: { type: 'test_result', reference: null },
-            }),
-          ],
-        },
+        annotation_summary: summaryOf(
+          makeAnnotation({
+            status: { name: 'Pass' },
+            comments: '@Bias Detection is incorrect.',
+            updated_at: '2026-01-01T00:00:01Z',
+            target_type: 'metric',
+            reference: 'Bias Detection',
+          }),
+          makeAnnotation({
+            status: { name: 'Pass' },
+            comments: 'passed overall.',
+            updated_at: '2026-01-01T00:00:02Z',
+            target_type: 'test_result',
+            reference: null,
+          })
+        ),
       }),
       makeResult({
-        last_review: makeReview({
-          status: { name: 'Fail' },
-        }),
+        // Agrees with automation, so it must not count as a correction.
+        annotation_summary: summaryOf(
+          makeAnnotation({ status: { name: 'Fail' } })
+        ),
         status: { id: u(35), name: 'Fail' },
         metrics: {
           'Bias Detection': { is_successful: false },
@@ -433,9 +432,6 @@ describe('requirementHasHumanCorrection', () => {
       makeResult({
         test: { requirement: { name: 'Safety' } } as TestResultDetail['test'],
         status: { id: u(36), name: 'Fail' },
-        last_review: makeReview({
-          status: { name: 'Pass' },
-        }),
         metrics: {},
       }),
     ];
@@ -450,9 +446,6 @@ describe('requirementHasHumanCorrection', () => {
       makeResult({
         test: { requirement: { name: 'Safety' } } as TestResultDetail['test'],
         status: { id: u(38), name: 'Pass' },
-        last_review: makeReview({
-          status: { name: 'Pass' },
-        }),
         metrics: { Accuracy: { is_successful: true } },
       }),
     ];
@@ -469,7 +462,9 @@ describe('requirementHasHumanCorrection', () => {
     const results = [
       makeResult({
         test: { requirement: { name: 'Safety' } } as TestResultDetail['test'],
-        last_review: makeReview({ status: { name: 'Fail' } }),
+        annotation_summary: summaryOf(
+          makeAnnotation({ status: { name: 'Fail' } })
+        ),
         metrics: {
           Accuracy: {
             is_successful: true,
@@ -489,7 +484,7 @@ describe('requirementHasHumanCorrection', () => {
         test: {
           requirement: { name: 'Compliance' },
         } as TestResultDetail['test'],
-        last_review: undefined,
+        annotation_summary: {},
         metrics: {
           'Bias Detection': {
             is_successful: true,
@@ -508,19 +503,17 @@ describe('confirmed metric reviews', () => {
   it('counts confirmed metric review in summary subtitle', () => {
     const results = [
       makeResult({
-        last_review: undefined,
         metrics: {
           'API Key Detection': { is_successful: true },
         },
-        test_reviews: {
-          reviews: [
-            makeReview({
-              status: { name: 'Pass' },
-              comments: '@API Key Detection is correct',
-              target: { type: 'metric', reference: 'API Key Detection' },
-            }),
-          ],
-        },
+        annotation_summary: summaryOf(
+          makeAnnotation({
+            status: { name: 'Pass' },
+            comments: '@API Key Detection is correct',
+            target_type: 'metric',
+            reference: 'API Key Detection',
+          })
+        ),
       }),
     ];
 
@@ -531,24 +524,24 @@ describe('confirmed metric reviews', () => {
     expect(summary.metricCorrectionCount).toBe(0);
   });
 
-  it('exposes latest metric review for metric-only results', () => {
+  it('exposes the latest metric annotation for metric-only results', () => {
     const result = makeResult({
-      last_review: undefined,
       metrics: {
         'API Key Detection': { is_successful: true },
       },
-      test_reviews: {
-        reviews: [
-          makeReview({
-            status: { name: 'Pass' },
-            comments: '@API Key Detection is correct',
-            target: { type: 'metric', reference: 'API Key Detection' },
-          }),
-        ],
-      },
+      annotation_summary: summaryOf(
+        makeAnnotation({
+          status: { name: 'Pass' },
+          comments: '@API Key Detection is correct',
+          target_type: 'metric',
+          reference: 'API Key Detection',
+        })
+      ),
     });
 
-    expect(getLatestMetricReviewForResult(result)?.status?.name).toBe('Pass');
-    expect(resultHasAnyHumanReview(result)).toBe(true);
+    expect(getLatestMetricAnnotationForResult(result)?.status?.name).toBe(
+      'Pass'
+    );
+    expect(resultHasAnyHumanAnnotation(result)).toBe(true);
   });
 });

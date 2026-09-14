@@ -3,7 +3,6 @@
  * from apps/backend/src/rhesis/backend/app/schemas/telemetry.py
  */
 
-import type { WithPermittedActions } from '@/types/affordances';
 import type { Execution, Verdict } from '@/constants/outcomes';
 import type { AnnotationSummaryEntry } from './annotation';
 
