@@ -16,7 +16,7 @@ type TestRunsQueryParams = Partial<PaginationParams> & {
   test_configuration_id?: string;
   filter?: string;
   has_experiment?: boolean;
-  has_reviews?: boolean;
+  has_annotations?: boolean;
 };
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -34,7 +34,7 @@ export class TestRunsClient extends BaseApiClient {
       test_configuration_id,
       filter,
       has_experiment,
-      has_reviews,
+      has_annotations,
       ...paginationParams
     } = params;
 
@@ -49,7 +49,7 @@ export class TestRunsClient extends BaseApiClient {
     const fetchParams: PaginationParams & {
       $filter?: string;
       has_experiment?: boolean;
-      has_reviews?: boolean;
+      has_annotations?: boolean;
     } = {
       ...DEFAULT_PAGINATION,
       ...paginationParams,
@@ -63,8 +63,8 @@ export class TestRunsClient extends BaseApiClient {
       fetchParams.has_experiment = has_experiment;
     }
 
-    if (has_reviews !== undefined) {
-      fetchParams.has_reviews = has_reviews;
+    if (has_annotations !== undefined) {
+      fetchParams.has_annotations = has_annotations;
     }
 
     return this.fetchPaginated<TestRunDetail>(

@@ -84,6 +84,19 @@ export const Capability = {
   Playground: {
     USE: 'playground:use',
   },
+  Annotation: {
+    READ: 'annotation:read',
+    CREATE: 'annotation:create',
+    UPDATE: 'annotation:update',
+    DELETE: 'annotation:delete',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.Annotation.UPDATE` / `DELETE` for affordance checks.
+     */
+    UPDATE_OWN: 'annotation:update:own',
+    DELETE_OWN: 'annotation:delete:own',
+  },
   Comment: {
     READ: 'comment:read',
     CREATE: 'comment:create',
@@ -290,8 +303,15 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   // Test results
   'test_result:read': 'View test results',
   'test_result:update': 'Update test results',
-  'test_result:update:own': 'Edit own reviews',
-  'test_result:delete:own': 'Delete own reviews',
+  'test_result:update:own': 'Edit own test results',
+  'test_result:delete:own': 'Delete own test results',
+  // Annotations
+  'annotation:read': 'View annotations',
+  'annotation:create': 'Create annotations',
+  'annotation:update': 'Edit annotations',
+  'annotation:delete': 'Delete annotations',
+  'annotation:update:own': 'Edit own annotations',
+  'annotation:delete:own': 'Delete own annotations',
   // Experiments
   'experiment:read': 'View experiments',
   'experiment:create': 'Create experiments',

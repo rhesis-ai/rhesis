@@ -1,5 +1,8 @@
 'use client';
 
+import {
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
 import React, {
   useState,
   useMemo,
@@ -34,7 +37,6 @@ import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
 import {
   TestResultDetail,
-  REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import type { Tag } from '@/utils/api-client/interfaces/tag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -263,7 +265,7 @@ export default function TestsTableView({
           test.id,
           targetStatus.id,
           `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-          { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
+          { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null }
         );
 
         let updatedTest: TestResultDetail | null = null;

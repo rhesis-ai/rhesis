@@ -3,6 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { formatDate } from '@/utils/date';
 import {
+  ANNOTATION_TARGET_LABELS,
+  ANNOTATION_TARGET_TYPES,
+  Annotation,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   Box,
   Typography,
   Paper,
@@ -30,9 +35,6 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import {
   SpanNode,
   TraceDetailResponse,
-  TraceReview,
-  TRACE_REVIEW_TARGET_TYPES,
-  TRACE_REVIEW_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -85,7 +87,7 @@ export default function TraceReviewsTab({
   const [statuses, setStatuses] = useState<Status[]>([]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [reviewToDelete, setReviewToDelete] = useState<TraceReview | null>(
+  const [reviewToDelete, setReviewToDelete] = useState<Annotation | null>(
     null
   );
   const [deleting, setDeleting] = useState(false);
@@ -151,10 +153,10 @@ export default function TraceReviewsTab({
       const reviewTarget = inferReviewTarget(reason);
       const targetType =
         reviewTarget.type === 'metric'
-          ? TRACE_REVIEW_TARGET_TYPES.METRIC
+          ? ANNOTATION_TARGET_TYPES.METRIC
           : reviewTarget.type === 'turn'
-            ? TRACE_REVIEW_TARGET_TYPES.TURN
-            : TRACE_REVIEW_TARGET_TYPES.TRACE;
+            ? ANNOTATION_TARGET_TYPES.TURN
+            : ANNOTATION_TARGET_TYPES.TRACE;
       const target = {
         type: targetType,
         reference: reviewTarget.reference,
@@ -184,7 +186,7 @@ export default function TraceReviewsTab({
     setShowReviewForm(false);
   };
 
-  const handleDeleteReview = (review: TraceReview) => {
+  const handleDeleteReview = (review: Annotation) => {
     setReviewToDelete(review);
     setDeleteDialogOpen(true);
   };
@@ -193,7 +195,7 @@ export default function TraceReviewsTab({
     null
   );
 
-  const handleToggleResolved = async (review: TraceReview) => {
+  const handleToggleResolved = async (review: Annotation) => {
     if (!selectedSpan.id) return;
     try {
       setResolvingReviewId(review.review_id);
@@ -601,19 +603,19 @@ export default function TraceReviewsTab({
                         <Chip
                           icon={<TrackChangesIcon />}
                           label={
-                            TRACE_REVIEW_TARGET_LABELS[review.target?.type] ??
-                            TRACE_REVIEW_TARGET_LABELS[
-                              TRACE_REVIEW_TARGET_TYPES.TRACE
+                            ANNOTATION_TARGET_LABELS[review.target?.type] ??
+                            ANNOTATION_TARGET_LABELS[
+                              ANNOTATION_TARGET_TYPES.TRACE
                             ]
                           }
                           size="small"
                           variant="outlined"
                           color={
                             review.target?.type ===
-                            TRACE_REVIEW_TARGET_TYPES.METRIC
+                            ANNOTATION_TARGET_TYPES.METRIC
                               ? 'secondary'
                               : review.target?.type ===
-                                  TRACE_REVIEW_TARGET_TYPES.TURN
+                                  ANNOTATION_TARGET_TYPES.TURN
                                 ? 'info'
                                 : 'default'
                           }

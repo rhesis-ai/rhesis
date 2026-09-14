@@ -105,7 +105,7 @@ export default function TestDetailReviewsTab({
 
   // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
+  const [reviewToDelete, setReviewToDelete] = useState<Annotation | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Open the create drawer when a pre-filled comment arrives (e.g. from turn review)
@@ -133,7 +133,7 @@ export default function TestDetailReviewsTab({
   };
 
   // Delete handlers
-  const handleDeleteReview = (review: Review) => {
+  const handleDeleteReview = (review: Annotation) => {
     setReviewToDelete(review);
     setDeleteDialogOpen(true);
   };
@@ -197,14 +197,14 @@ export default function TestDetailReviewsTab({
     }
     const sorted = [...testLevelReviews].sort(
       (a, b) =>
-        new Date((b as Review).updated_at).getTime() -
-        new Date((a as Review).updated_at).getTime()
+        new Date((b as Annotation).updated_at).getTime() -
+        new Date((a as Annotation).updated_at).getTime()
     );
-    return (sorted[0] as Review | undefined) ?? null;
+    return (sorted[0] as Annotation | undefined) ?? null;
   }, [lastReview, test, testLevelReviews]);
 
   const latestMetricReview = useMemo(
-    () => getLatestMetricReviewForResult(test) as Review | undefined,
+    () => getLatestMetricReviewForResult(test) as Annotation | undefined,
     [test]
   );
 
@@ -225,7 +225,7 @@ export default function TestDetailReviewsTab({
     null
   );
 
-  const handleToggleResolved = async (review: Review) => {
+  const handleToggleResolved = async (review: Annotation) => {
     try {
       setResolvingReviewId(review.review_id);
       const clientFactory = new ApiClientFactory();

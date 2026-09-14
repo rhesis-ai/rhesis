@@ -1,55 +1,159 @@
-export type AnnotationSource = 'test_result' | 'trace';
+import type { WithPermittedActions } from '@/types/affordances';
+import { UUID } from 'crypto';
+
+/**
+ * A human judgement on a test result, a trace or a test.
+ *
+ * Annotations are their own entity, linked to a parent by
+ * `(entity_type, entity_id)`. On responses the target is flat
+ * (`target_type` / `target_reference`); on writes it is nested under `target`.
+ */
+
+export const ANNOTATION_ENTITY_TYPES = {
+  TEST_RESULT: 'TestResult',
+  TRACE: 'Trace',
+  TEST: 'Test',
+} as const;
+
+export type AnnotationEntityType =
+  (typeof ANNOTATION_ENTITY_TYPES)[keyof typeof ANNOTATION_ENTITY_TYPES];
+
+export const ANNOTATION_ENTITY_LABELS: Record<AnnotationEntityType, string> = {
+  [ANNOTATION_ENTITY_TYPES.TEST_RESULT]: 'Test Result',
+  [ANNOTATION_ENTITY_TYPES.TRACE]: 'Trace',
+  [ANNOTATION_ENTITY_TYPES.TEST]: 'Test',
+};
+
+export const ANNOTATION_TARGET_TYPES = {
+  TEST_RESULT: 'test_result',
+  TRACE: 'trace',
+  TEST: 'test',
+  TURN: 'turn',
+  METRIC: 'metric',
+} as const;
+
+export type AnnotationTargetType =
+  (typeof ANNOTATION_TARGET_TYPES)[keyof typeof ANNOTATION_TARGET_TYPES];
+
+export const ANNOTATION_TARGET_LABELS: Record<AnnotationTargetType, string> = {
+  [ANNOTATION_TARGET_TYPES.TEST_RESULT]: 'Output',
+  [ANNOTATION_TARGET_TYPES.TRACE]: 'Trace',
+  [ANNOTATION_TARGET_TYPES.TEST]: 'Test',
+  [ANNOTATION_TARGET_TYPES.TURN]: 'Turn',
+  [ANNOTATION_TARGET_TYPES.METRIC]: 'Metric',
+};
+
+/** The entity-level target for each annotatable parent type. */
+export const ENTITY_LEVEL_TARGETS: Record<
+  AnnotationEntityType,
+  AnnotationTargetType
+> = {
+  [ANNOTATION_ENTITY_TYPES.TEST_RESULT]: ANNOTATION_TARGET_TYPES.TEST_RESULT,
+  [ANNOTATION_ENTITY_TYPES.TRACE]: ANNOTATION_TARGET_TYPES.TRACE,
+  [ANNOTATION_ENTITY_TYPES.TEST]: ANNOTATION_TARGET_TYPES.TEST,
+};
 
 export interface AnnotationStatus {
+  id?: UUID;
+  status_id?: UUID;
   name?: string;
 }
 
 export interface AnnotationUser {
+  id?: UUID;
   name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
 }
 
-export interface AnnotationTarget {
-  type?: string;
+/** Target as the write endpoints accept it. */
+export interface AnnotationTargetInput {
+  type: AnnotationTargetType;
   reference?: string | null;
 }
 
-export interface AnnotationListItem {
-  review_id: string;
-  source: AnnotationSource;
-  comments: string;
-  status: AnnotationStatus;
-  user: AnnotationUser;
-  target: AnnotationTarget;
-  resolved?: boolean;
-  test_result_id?: string | null;
-  test_run_id?: string | null;
-  trace_id?: string | null;
-  /** Internal DB id of the trace span row -- required by the review edit/delete endpoints. */
-  trace_db_id?: string | null;
-  project_id?: string | null;
-  requirement_id?: string | null;
+/**
+ * Where an annotated entity sits, so a row can link back to it. Populated by
+ * the list and detail endpoints; absent on writes.
+ */
+export interface AnnotationContext {
+  project_id?: UUID | null;
+  test_run_id?: UUID | null;
+  test_run_name?: string | null;
+  test_set_id?: UUID | null;
+  test_result_id?: UUID | null;
+  requirement_id?: UUID | null;
   requirement_name?: string | null;
+  trace_id?: string | null;
+  /** Internal row id of the span. Trace deep links need this, not `trace_id`. */
+  trace_db_id?: UUID | null;
+  span_name?: string | null;
+}
+
+export interface Annotation extends WithPermittedActions {
+  id: UUID;
+  entity_type: AnnotationEntityType;
+  entity_id: UUID;
+  target_type: AnnotationTargetType;
+  target_reference?: string | null;
+  status_id: UUID;
+  status?: AnnotationStatus;
+  user_id: UUID;
+  user?: AnnotationUser;
+  comments?: string | null;
+  resolved: boolean;
+  resolved_at?: string | null;
+  resolved_by_id?: UUID | null;
+  resolved_by?: AnnotationUser;
+  attributes?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  context?: AnnotationContext | null;
+}
+
+/**
+ * One annotation as it arrives embedded on its parent, keyed by target in
+ * `annotation_summary`. Thinner than a full row: enough to render an indicator
+ * or an "annotated by" line without a second request.
+ */
+export interface AnnotationSummaryEntry {
+  annotation_id: string;
+  target_type: AnnotationTargetType;
+  reference: string | null;
+  status: AnnotationStatus | null;
+  user: AnnotationUser | null;
+  comments: string | null;
+  updated_at: string;
+}
+
+export interface AnnotationCreate {
+  entity_type: AnnotationEntityType;
+  entity_id: UUID;
+  status_id: UUID;
+  comments?: string | null;
+  target?: AnnotationTargetInput;
+  attributes?: Record<string, unknown> | null;
+}
+
+export interface AnnotationUpdate {
+  status_id?: UUID;
+  comments?: string | null;
+  target?: AnnotationTargetInput;
+  resolved?: boolean;
+  attributes?: Record<string, unknown> | null;
 }
 
 export interface AnnotationsQueryParams {
   skip?: number;
   limit?: number;
-  source?: AnnotationSource;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
   search?: string;
-  resolved?: boolean;
   rating?: 'Pass' | 'Fail';
-  target_type?: 'test_result' | 'trace' | 'metric' | 'turn';
+  resolved?: boolean;
+  target_type?: AnnotationTargetType;
+  entity_type?: AnnotationEntityType;
+  test_run_id?: UUID;
+  $filter?: string;
 }
-
-export const ANNOTATION_SOURCE_LABELS: Record<AnnotationSource, string> = {
-  test_result: 'Test Result',
-  trace: 'Trace',
-};
-
-export const ANNOTATION_TARGET_LABELS: Record<string, string> = {
-  test_result: 'Output',
-  test: 'Output',
-  trace: 'Trace',
-  turn: 'Turn',
-  metric: 'Metric',
-};

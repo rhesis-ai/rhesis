@@ -139,7 +139,7 @@ describe('TestResultsClient', () => {
     expect(body.comments).toBe('Looks good');
   });
 
-  it('uses provided ReviewTarget in createReview', async () => {
+  it('uses provided AnnotationTargetInput in createReview', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'rev1' }));
 
     const target = { type: 'metric' as const, reference: 'm1' };

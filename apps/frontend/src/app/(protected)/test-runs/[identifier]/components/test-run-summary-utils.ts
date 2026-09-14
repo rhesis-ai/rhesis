@@ -1,5 +1,7 @@
 import {
-  REVIEW_TARGET_TYPES,
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   TestResultDetail,
   MetricResult,
 } from '@/utils/api-client/interfaces/test-results';
@@ -132,7 +134,7 @@ function isTestResultReviewTarget(review: ResultReview): boolean {
   const targetType = review.target?.type;
   return (
     !targetType ||
-    targetType === REVIEW_TARGET_TYPES.TEST_RESULT ||
+    targetType === ANNOTATION_TARGET_TYPES.TEST_RESULT ||
     targetType === 'test'
   );
 }
@@ -152,7 +154,7 @@ export function isExplicitTestLevelReview(
   result: TestResultDetail,
   review: ResultReview
 ): boolean {
-  if (review.target?.type === REVIEW_TARGET_TYPES.METRIC) return false;
+  if (review.target?.type === ANNOTATION_TARGET_TYPES.METRIC) return false;
   if (!isTestResultReviewTarget(review)) return false;
   return !commentMentionsAnyMetric(result, review.comments ?? '');
 }
@@ -188,7 +190,7 @@ export function getLatestMetricReviewForResult(
   };
 
   for (const review of result.test_reviews?.reviews ?? []) {
-    const isMetricTarget = review.target?.type === REVIEW_TARGET_TYPES.METRIC;
+    const isMetricTarget = review.target?.type === ANNOTATION_TARGET_TYPES.METRIC;
     const mentionsMetric = commentMentionsAnyMetric(
       result,
       review.comments ?? ''
@@ -221,7 +223,7 @@ function isMetricReviewTarget(
   metricName: string
 ): boolean {
   return (
-    review.target?.type === REVIEW_TARGET_TYPES.METRIC &&
+    review.target?.type === ANNOTATION_TARGET_TYPES.METRIC &&
     metricNameMatches(review.target.reference, metricName)
   );
 }
@@ -336,7 +338,7 @@ function iterMetricTargetReviews(
       ? key.slice('metric:'.length)
       : null;
     const matchesSummary =
-      (entry.target_type === REVIEW_TARGET_TYPES.METRIC &&
+      (entry.target_type === ANNOTATION_TARGET_TYPES.METRIC &&
         metricNameMatches(entry.reference, metricName)) ||
       (summaryMetricRef !== null &&
         metricNameMatches(summaryMetricRef, metricName));

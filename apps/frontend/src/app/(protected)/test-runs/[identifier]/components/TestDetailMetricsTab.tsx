@@ -2,6 +2,9 @@
 
 import React, { useMemo, useState } from 'react';
 import {
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   Box,
   Typography,
   Grid,
@@ -39,7 +42,6 @@ import {
   CriterionEvaluation,
   BehaviorVerdict,
   Review,
-  REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import {
@@ -347,7 +349,7 @@ export default function TestDetailMetricsTab({
     const reviews = test.test_reviews?.reviews || [];
     for (const review of reviews) {
       const target = review.target;
-      if (target?.type === REVIEW_TARGET_TYPES.METRIC && target.reference) {
+      if (target?.type === ANNOTATION_TARGET_TYPES.METRIC && target.reference) {
         const existing = map.get(target.reference);
         if (
           !existing ||

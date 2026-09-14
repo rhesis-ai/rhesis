@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
+  ANNOTATION_TARGET_TYPES,
+  Annotation,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   Box,
   Typography,
   Card,
@@ -26,9 +30,7 @@ import { alpha } from '@mui/material/styles';
 import {
   SpanNode,
   TraceMetricsStatus,
-  TraceReview,
   TRACE_METRICS_STATUS,
-  TRACE_REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/telemetry';
 import StatusChip from '@/components/common/StatusChip';
 import { TEST_RESULT_STATUS_NAMES } from '@/utils/test-result-status';
@@ -77,7 +79,7 @@ function MetricsTable({
   executionTime?: number;
   filterStatus: FilterStatus;
   onReviewMetric?: (metricName: string) => void;
-  metricReviewMap?: Map<string, TraceReview>;
+  metricReviewMap?: Map<string, Annotation>;
 }) {
   const theme = useTheme();
   const allEntries = Object.entries(metrics);
@@ -322,12 +324,12 @@ export default function TraceMetricsTab({
   }, [turnMetrics, conversationMetrics]);
 
   const metricReviewMap = useMemo(() => {
-    const map = new Map<string, TraceReview>();
+    const map = new Map<string, Annotation>();
     const reviews = selectedSpan?.trace_reviews?.reviews;
     if (!reviews) return map;
     for (const review of reviews) {
       if (
-        review.target?.type === TRACE_REVIEW_TARGET_TYPES.METRIC &&
+        review.target?.type === ANNOTATION_TARGET_TYPES.METRIC &&
         review.target.reference
       ) {
         const existing = map.get(review.target.reference);
@@ -373,12 +375,12 @@ export default function TraceMetricsTab({
   }, [traceMetrics]);
 
   const turnReviewMap = useMemo(() => {
-    const map = new Map<number, TraceReview>();
+    const map = new Map<number, Annotation>();
     const reviews = selectedSpan?.trace_reviews?.reviews;
     if (!reviews) return map;
     for (const review of reviews) {
       if (
-        review.target?.type === TRACE_REVIEW_TARGET_TYPES.TURN &&
+        review.target?.type === ANNOTATION_TARGET_TYPES.TURN &&
         review.target.reference
       ) {
         const turnNum = parseInt(

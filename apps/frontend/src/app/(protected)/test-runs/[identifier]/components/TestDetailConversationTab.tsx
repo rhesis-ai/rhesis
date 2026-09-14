@@ -3,12 +3,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import {
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   TestResultDetail,
   Review,
-  REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
-import type {
+import {
   SpanNode,
   TraceSummary,
 } from '@/utils/api-client/interfaces/telemetry';
@@ -152,7 +154,7 @@ export default function TestDetailConversationTab({
     const reviews = test.test_reviews?.reviews || [];
     for (const review of reviews) {
       if (
-        review.target?.type === REVIEW_TARGET_TYPES.TURN &&
+        review.target?.type === ANNOTATION_TARGET_TYPES.TURN &&
         review.target.reference
       ) {
         const turnNum = parseInt(

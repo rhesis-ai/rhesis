@@ -1,11 +1,12 @@
 import { UUID } from 'crypto';
+import type { AnnotationSummaryEntry } from './annotation';
 import { Status } from './tests';
 import { Tag } from './tag';
 import { FileResponse } from './file';
 import type { WithPermittedActions } from '@/types/affordances';
 import type { Execution, Verdict } from '@/constants/outcomes';
 
-// Override marker added by backend when a human review changes a metric or turn value
+// Override marker added by backend when a human annotation changes a metric or turn value
 export interface OverrideMarker {
   original_value: boolean;
 }
@@ -170,53 +171,6 @@ export interface PenelopeTurn {
   };
 }
 
-// Test Reviews interfaces
-
-export const REVIEW_TARGET_TYPES = {
-  TEST_RESULT: 'test_result',
-  TURN: 'turn',
-  METRIC: 'metric',
-} as const;
-
-export type ReviewTargetType =
-  (typeof REVIEW_TARGET_TYPES)[keyof typeof REVIEW_TARGET_TYPES];
-
-export const REVIEW_TARGET_LABELS: Record<ReviewTargetType, string> = {
-  [REVIEW_TARGET_TYPES.TEST_RESULT]: 'Test Result',
-  [REVIEW_TARGET_TYPES.TURN]: 'Turn',
-  [REVIEW_TARGET_TYPES.METRIC]: 'Metric',
-};
-
-export interface ReviewUser {
-  user_id: UUID;
-  name: string;
-}
-
-export interface ReviewStatus {
-  name: string;
-}
-
-export interface ReviewTarget {
-  type: ReviewTargetType;
-  reference: string | null;
-}
-
-export interface Review {
-  review_id: UUID;
-  status: ReviewStatus;
-  user: ReviewUser;
-  comments: string;
-  created_at: string;
-  updated_at: string;
-  target: ReviewTarget;
-  resolved?: boolean;
-  permitted_actions?: string[];
-}
-
-export interface TestReviews {
-  reviews: Review[];
-}
-
 export interface TestRun {
   id: UUID;
   name?: string;
@@ -258,7 +212,6 @@ export interface TestResultBase {
   execution: Execution;
   verdict: Verdict | null;
   test_metrics?: TestMetrics;
-  test_reviews?: TestReviews;
   test_output?: TestOutput;
 }
 
@@ -266,20 +219,16 @@ export type TestResultCreate = TestResultBase;
 
 export type TestResultUpdate = Partial<TestResultBase>;
 
-export interface ReviewSummaryEntry {
-  target_type: string;
-  reference: string | null;
-  status: ReviewStatus;
-  review_id: string;
-}
-
 export interface TestResult extends TestResultBase, WithPermittedActions {
   id: UUID;
   created_at: string;
   updated_at: string;
-  last_review?: Review;
-  matches_review?: boolean;
-  review_summary?: Record<string, ReviewSummaryEntry>;
+  /** Newest entity-level annotation, embedded so grids stay synchronous. */
+  last_annotation?: AnnotationSummaryEntry;
+  /** False when the newest entity-level annotation disagrees with automation. */
+  matches_annotation?: boolean;
+  /** Newest annotation per target, keyed `target_type` or `target_type:reference`. */
+  annotation_summary?: Record<string, AnnotationSummaryEntry>;
 }
 
 export interface TestResultDetail extends TestResult {

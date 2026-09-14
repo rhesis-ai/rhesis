@@ -1,4 +1,7 @@
 import {
+  ANNOTATION_TARGET_TYPES,
+} from '../api-client/interfaces/annotation';
+import {
   getEffectiveTestResultStatus,
   getTestResultLabel,
   hasConflictingReview,
@@ -10,7 +13,6 @@ import {
 import {
   TestResultDetail,
   MetricResult,
-  REVIEW_TARGET_TYPES,
 } from '../api-client/interfaces/test-results';
 import { Status } from '../api-client/interfaces/status';
 
@@ -42,7 +44,7 @@ const createReview = (statusName: string, comments: string = 'Test') => ({
   comments,
   updated_at: '2025-01-01T00:00:00Z',
   created_at: '2025-01-01T00:00:00Z',
-  target: { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null },
+  target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
 });
 
 describe('testResultStatus', () => {
