@@ -130,16 +130,21 @@ export default function TestRunAnnotationsTab({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Avatar
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    fontSize: 12,
+                  sx={theme => ({
+                    width: theme.spacing(4),
+                    height: theme.spacing(4),
+                    fontSize: theme.typography.caption.fontSize,
                     bgcolor: 'primary.main',
-                  }}
+                  })}
                 >
                   {(annotation.user?.name ?? '').charAt(0).toUpperCase()}
                 </Avatar>
-                <Typography variant="body2" fontWeight={700}>
+                <Typography
+                  variant="body2"
+                  sx={theme => ({
+                    fontWeight: theme.typography.fontWeightBold,
+                  })}
+                >
                   {annotation.user?.name}
                 </Typography>
                 <Typography
