@@ -263,7 +263,10 @@ def test_no_stale_allowlist_entries() -> None:
     shape has to be approved again from scratch -- or worse, someone assumes
     it is already covered.
     """
-    stale = sorted(entry for entry in ALLOWED_SITES if entry not in _flagged_sites())
+    # One scan, not one per entry: _flagged_sites() re-parses every file under
+    # both source roots, so calling it inside the comprehension multiplied that
+    # by the number of waivers.
+    stale = sorted(ALLOWED_SITES - _flagged_sites())
 
     assert not stale, (
         "ALLOWED_SITES entries that no longer match any flagged comparison.\n"
