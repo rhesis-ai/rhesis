@@ -18,6 +18,10 @@ export const ANNOTATION_COPY = {
   createButton: 'Add annotation',
   showOthers: (count: number) => `Show annotations from other users (${count})`,
 
+  indicatorNone: 'Not yet annotated',
+  indicatorAnnotated: 'Annotated',
+  indicatorBy: (name: string) => `Annotated by ${name}`,
+
   deleteTitle: 'Delete Annotation',
   deleteTooltip: 'Delete annotation',
   deleteMessage:

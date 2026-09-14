@@ -50,7 +50,7 @@ export interface RequirementStat {
   passed: number;
   failed: number;
   passRate: number;
-  /** True when a human review changed a test outcome in this requirement */
+  /** True when a human annotation changed a test outcome in this requirement */
   hasHumanCorrection?: boolean;
   humanCorrectionCount?: number;
   humanCorrectionTooltip?: string;
@@ -62,12 +62,12 @@ export interface MetricStat {
   passed: number;
   failed: number;
   failRate: number;
-  /** Raw automated pass count before human reviews */
+  /** Raw automated pass count before human annotations */
   automatedPassed?: number;
   automatedFailed?: number;
   /** Tests where effective outcome differs from automated metric result */
   humanReviewCount?: number;
-  /** True when a human review changed this metric's outcome */
+  /** True when a human annotation changed this metric's outcome */
   hasHumanCorrection?: boolean;
   /** True when any human @metric review exists for this metric */
   hasMetricReview?: boolean;
@@ -377,7 +377,7 @@ export function buildRequirementCorrectionTooltip(
     testResults
   );
   if (testCount === 0) return '';
-  return `${testCount} test${testCount === 1 ? '' : 's'} corrected by human review`;
+  return `${testCount} test${testCount === 1 ? '' : 's'} corrected by human annotation`;
 }
 
 /** True when any test in this requirement had a test-level review correction. */
@@ -431,7 +431,7 @@ export function metricHasHumanCorrection(
   });
 }
 
-export function computeReviewSummary(
+export function computeAnnotationSummary(
   testResults: TestResultDetail[]
 ): ReviewSummary {
   let testReviewCount = 0;
@@ -501,7 +501,7 @@ export function computeReviewSummary(
 
   let subtitle: string;
   if (totalReviews === 0) {
-    subtitle = 'No reviews yet';
+    subtitle = 'No annotations yet';
   } else {
     const parts: string[] = [];
     if (testCorrectionCount > 0) {
@@ -511,7 +511,7 @@ export function computeReviewSummary(
       parts.push(`${metricCorrectionCount} corrected (metric)`);
     }
     if (metricReviewedCount > 0) {
-      parts.push(`${metricReviewedCount} reviewed (metric)`);
+      parts.push(`${metricReviewedCount} annotated (metric)`);
     }
     if (parts.length === 0) {
       subtitle = 'confirmed';

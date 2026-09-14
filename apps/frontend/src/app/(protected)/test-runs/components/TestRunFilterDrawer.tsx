@@ -28,7 +28,7 @@ export interface TestRunFilters {
   /** surfaced as `has_experiment` via `extraParams`, see list.ts */
   runKind: RunKindFilter;
   tags: ActivityPresenceFilters['tags'];
-  reviews: ActivityPresenceFilters['reviews'];
+  annotations: ActivityPresenceFilters['annotations'];
   comments: ActivityPresenceFilters['comments'];
   tasks: ActivityPresenceFilters['tasks'];
 }
@@ -39,7 +39,7 @@ export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
   tag: '',
   runKind: 'all',
   tags: 'all',
-  reviews: 'all',
+  annotations: 'all',
   comments: 'all',
   tasks: 'all',
 };
@@ -194,10 +194,10 @@ export default function TestRunFilterDrawer({
       {renderAutocomplete('Tags', 'tag', tagOptions, 'Select tag…')}
 
       <ActivityPresenceFiltersSection
-        showReviews
+        showAnnotations
         values={{
           tags: draft.tags,
-          reviews: draft.reviews,
+          annotations: draft.annotations,
           comments: draft.comments,
           tasks: draft.tasks,
         }}
@@ -205,7 +205,7 @@ export default function TestRunFilterDrawer({
           setDraft(prev => ({
             ...prev,
             tags: next.tags,
-            reviews: next.reviews ?? 'all',
+            annotations: next.annotations ?? 'all',
             comments: next.comments,
             tasks: next.tasks,
           }))

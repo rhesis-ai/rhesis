@@ -24,7 +24,7 @@ export type TestResultDisplayStatus = {
     reviewer: string;
     comments: string;
     updated_at?: string;
-    newStatus: string;
+    newStatus: 'passed' | 'failed';
   };
 };
 

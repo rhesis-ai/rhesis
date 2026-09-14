@@ -30,7 +30,7 @@ import { findStatusByCategory } from '@/utils/test-result-status';
 import { EntityType } from '@/types/entity-type';
 import MentionTextInput, {
   MentionOption,
-  inferReviewTarget,
+  inferAnnotationTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -87,7 +87,7 @@ export default function TraceReviewDrawer({
   const [submitting, setSubmitting] = useState(false);
 
   const rawTarget: InferredTarget = useMemo(
-    () => inferReviewTarget(reason),
+    () => inferAnnotationTarget(reason),
     [reason]
   );
 

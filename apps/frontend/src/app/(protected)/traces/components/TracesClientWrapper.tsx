@@ -66,7 +66,7 @@ export default function TracesClientWrapper({
     return (
       <PageLayout
         title="Traces"
-        description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and reviews."
+        description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and annotations."
         breadcrumbs={[]}
       >
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -84,7 +84,7 @@ export default function TracesClientWrapper({
   return (
     <PageLayout
       title="Traces"
-      description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and reviews."
+      description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and annotations."
       breadcrumbs={[]}
       actions={
         <FabGroup>

@@ -348,8 +348,8 @@ export default function TracesTable({
         renderCell: params => {
           const evalStatus = params.value as string | undefined;
           const row = params.row as TraceSummary;
-          const hasReview = row.has_annotations;
-          const lastReview = row.last_annotation;
+          const hasAnnotation = row.has_annotations;
+          const lastAnnotation = row.last_annotation;
 
           if (!evalStatus) {
             return (
@@ -361,30 +361,29 @@ export default function TracesTable({
               </Typography>
             );
           }
-          const reviewConflicts =
-            hasReview &&
-            lastReview?.status?.name &&
-            isPassedStatusName(lastReview.status.name) !==
+          const annotationConflicts =
+            hasAnnotation &&
+            lastAnnotation?.status?.name &&
+            isPassedStatusName(lastAnnotation.status.name) !==
               (evalStatus === TRACE_METRICS_STATUS.PASS);
 
           return (
             <Stack direction="row" spacing={0.5} alignItems="center">
               <GridBadge label={evalStatus} />
-              {hasReview && (
+              {hasAnnotation && (
                 <Tooltip
                   title={
-                    reviewConflicts
-                      ? 'Human review conflicts with automation'
-                      : 'Human reviewed'
+                    annotationConflicts
+                      ? 'Human annotation conflicts with automation'
+                      : 'Annotated'
                   }
                 >
                   <RateReviewOutlinedIcon
                     fontSize="small"
                     sx={{
-                      color: reviewConflicts
+                      color: annotationConflicts
                         ? 'warning.main'
                         : 'text.secondary',
-                      fontSize: 16,
                     }}
                   />
                 </Tooltip>
