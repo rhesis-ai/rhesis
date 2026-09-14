@@ -42,7 +42,7 @@ import {
 import type { Tag } from '@/utils/api-client/interfaces/tag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
-import ReviewJudgementDrawer from './ReviewJudgementDrawer';
+import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 import {
   findStatusByCategory,
   getEffectiveTestResultStatus,
@@ -748,11 +748,12 @@ export default function TestsTableView({
         metricsSource={metricsSource}
       />
 
-      <ReviewJudgementDrawer
+      <AnnotationDrawer
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}
-        test={testToOverrule}
-        onSave={handleOverruleSave}
+        entityType={ANNOTATION_ENTITY_TYPES.TEST_RESULT}
+        entityId={testToOverrule?.id}
+        onSaved={() => handleOverruleSave(testToOverrule?.id ?? '')}
       />
     </Box>
   );

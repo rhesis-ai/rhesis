@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   ToggleButton,
@@ -11,8 +11,6 @@ import { useSession } from 'next-auth/react';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { ANNOTATION_ENTITY_TYPES } from '@/utils/api-client/interfaces/annotation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { findStatusByCategory } from '@/utils/test-result-status';
@@ -23,40 +21,62 @@ import MentionTextInput, {
   InferredTarget,
 } from '@/components/common/MentionTextInput';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import type { AnnotationEntityType } from '@/utils/api-client/interfaces/annotation';
+import { ANNOTATION_COPY } from './annotation-copy';
 
-interface ReviewJudgementDrawerProps {
+/** Comments shorter than this are rejected: a bare verdict explains nothing. */
+const MIN_COMMENT_LENGTH = 10;
+
+export interface AnnotationDrawerProps {
   open: boolean;
   onClose: () => void;
-  test: TestResultDetail | null;
-  onSave: (testId: string) => Promise<void>;
+  entityType: AnnotationEntityType;
+  entityId: string | undefined;
+  /** Which status rows the verdict picker offers. */
+  statusEntityType?: EntityType;
+  onSaved: () => void | Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
+  /**
+   * Optional block above the picker, e.g. the automated verdict being judged.
+   * Takes the inferred target, since what is being judged depends on it.
+   */
+  renderContext?: (target: InferredTarget) => React.ReactNode;
 }
 
-export default function ReviewJudgementDrawer({
+/**
+ * Records one annotation on any entity.
+ *
+ * The target comes from the comment: an `@metric` or `@turn` mention makes this
+ * a metric or turn annotation, and its absence makes it entity-level. That is
+ * why the comment is required rather than optional.
+ */
+export default function AnnotationDrawer({
   open,
   onClose,
-  test,
-  onSave,
+  entityType,
+  entityId,
+  statusEntityType = EntityType.TEST_RESULT,
+  onSaved,
   initialComment,
   initialStatus,
   mentionableMetrics = [],
   mentionableTurns = [],
-}: ReviewJudgementDrawerProps) {
-  const { status } = useSession();
+  renderContext,
+}: AnnotationDrawerProps) {
+  const { status: sessionStatus } = useSession();
   const [selectedStatusId, setSelectedStatusId] = useState('');
-  const [reason, setReason] = useState('');
+  const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Infer review target from mention syntax in comment text
   const inferredTarget: InferredTarget = useMemo(
-    () => inferAnnotationTarget(reason),
-    [reason]
+    () => inferAnnotationTarget(comment),
+    [comment]
   );
 
   const passStatus = useMemo(
@@ -68,17 +88,16 @@ export default function ReviewJudgementDrawer({
     [statuses]
   );
 
-  // Fetch statuses for TestResult entity type when first opened
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!open || !isAuthenticated(status) || statuses.length > 0) return;
+      if (!open || !isAuthenticated(sessionStatus) || statuses.length > 0) {
+        return;
+      }
       try {
         setLoadingStatuses(true);
-        const clientFactory = new ApiClientFactory();
-        const statusClient = clientFactory.getStatusClient();
-        const fetched = await statusClient.getStatuses({
-          entity_type: EntityType.TEST_RESULT,
-        });
+        const fetched = await new ApiClientFactory()
+          .getStatusClient()
+          .getStatuses({ entity_type: statusEntityType });
         setStatuses(fetched);
       } catch (_err) {
         setError('Failed to load status options');
@@ -87,98 +106,105 @@ export default function ReviewJudgementDrawer({
       }
     };
     fetchStatuses();
-  }, [open, statuses.length, status]);
+  }, [open, statuses.length, sessionStatus, statusEntityType]);
 
-  // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
-  // from deps so parent state resets don't clear a form the user is actively filling)
+  // Reset on open only: a parent state reset must not clear a form the user is
+  // actively filling, which is why initialComment/initialStatus are excluded.
   useEffect(() => {
     if (!open) return;
-    setReason(initialComment ?? '');
+    setComment(initialComment ?? '');
     setError('');
     setSelectedStatusId('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open only
   }, [open]);
 
-  // Pre-select initial status once statuses are available and nothing is selected yet
   useEffect(() => {
-    if (!open || selectedStatusId || statuses.length === 0 || !initialStatus)
+    if (!open || selectedStatusId || statuses.length === 0 || !initialStatus) {
       return;
+    }
     const matching = findStatusByCategory(statuses, initialStatus);
     if (matching) setSelectedStatusId(String(matching.id));
   }, [open, statuses, initialStatus, selectedStatusId]);
 
   const handleSave = async () => {
-    if (!reason.trim()) {
-      setError('Please provide a comment for your review.');
+    const trimmed = comment.trim();
+    if (trimmed.length < MIN_COMMENT_LENGTH) {
+      setError(ANNOTATION_COPY.commentTooShort(MIN_COMMENT_LENGTH));
       return;
     }
-
-    if (reason.trim().length < 10) {
-      setError('Comment must be at least 10 characters long.');
-      return;
-    }
-
     if (!selectedStatusId) {
-      setError('Please select a status for this review.');
+      setError(ANNOTATION_COPY.verdictRequired);
       return;
     }
-
-    if (!test || !isAuthenticated(status)) return;
+    if (!entityId || !isAuthenticated(sessionStatus)) return;
 
     try {
       setSubmitting(true);
       setError('');
-
       await new ApiClientFactory().getAnnotationsClient().createAnnotation({
-        entity_type: ANNOTATION_ENTITY_TYPES.TEST_RESULT,
-        entity_id: test.id,
+        entity_type: entityType,
+        entity_id: entityId,
         status_id: selectedStatusId,
-        comments: reason.trim(),
+        comments: trimmed,
         target: inferredTarget,
       });
-
-      await onSave(test.id);
+      await onSaved();
       onClose();
     } catch (_err) {
-      setError('Failed to save the annotation. Please try again.');
+      setError(ANNOTATION_COPY.saveFailed);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCancel = () => {
-    setReason('');
+    setComment('');
     setError('');
     onClose();
   };
 
-  const isSaveDisabled =
-    !selectedStatusId ||
-    reason.trim().length < 10 ||
-    submitting ||
-    loadingStatuses;
+  if (!entityId) return null;
 
-  if (!test) return null;
+  const selectedSx = (color: 'success' | 'error') => ({
+    flex: 1,
+    gap: 1,
+    '&.Mui-selected': {
+      bgcolor: `${color}.main`,
+      color: 'common.white',
+      '&:hover': { bgcolor: `${color}.dark` },
+      '& .MuiSvgIcon-root': { color: 'common.white' },
+    },
+  });
 
   return (
     <BaseDrawer
       open={open}
       onClose={handleCancel}
-      title="Create Review"
+      title={ANNOTATION_COPY.drawerTitle}
       onSave={handleSave}
       anchor="right"
       saveButtonText="Save"
-      saveDisabled={isSaveDisabled}
+      saveDisabled={
+        !selectedStatusId ||
+        comment.trim().length < MIN_COMMENT_LENGTH ||
+        submitting ||
+        loadingStatuses
+      }
       error={error}
       loading={submitting || loadingStatuses}
     >
-      {/* Pass / Fail toggle */}
+      {renderContext?.(inferredTarget)}
+
       <Box>
         <Typography
           variant="body2"
-          sx={{ mb: 1, fontWeight: 500, color: 'text.secondary' }}
+          sx={theme => ({
+            mb: 1,
+            fontWeight: theme.typography.fontWeightMedium,
+            color: 'text.secondary',
+          })}
         >
-          New Status
+          {ANNOTATION_COPY.verdictLabel}
         </Typography>
         <ToggleButtonGroup
           value={selectedStatusId}
@@ -191,65 +217,46 @@ export default function ReviewJudgementDrawer({
           }}
           fullWidth
           disabled={loadingStatuses}
-          sx={{ height: 44 }}
         >
           {passStatus && (
             <ToggleButton
               value={String(passStatus.id)}
-              sx={{
-                flex: 1,
-                gap: 1,
-                fontWeight: 500,
-                '&.Mui-selected': {
-                  bgcolor: 'success.main',
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'success.dark' },
-                  '& .MuiSvgIcon-root': { color: '#fff' },
-                },
-              }}
+              sx={selectedSx('success')}
             >
-              <CheckCircleOutlineIcon sx={{ fontSize: 18 }} />
+              <CheckCircleOutlineIcon fontSize="small" />
               Pass
             </ToggleButton>
           )}
           {failStatus && (
             <ToggleButton
               value={String(failStatus.id)}
-              sx={{
-                flex: 1,
-                gap: 1,
-                fontWeight: 500,
-                '&.Mui-selected': {
-                  bgcolor: 'error.main',
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'error.dark' },
-                  '& .MuiSvgIcon-root': { color: '#fff' },
-                },
-              }}
+              sx={selectedSx('error')}
             >
-              <CancelOutlinedIcon sx={{ fontSize: 18 }} />
+              <CancelOutlinedIcon fontSize="small" />
               Fail
             </ToggleButton>
           )}
         </ToggleButtonGroup>
       </Box>
 
-      {/* Comment field */}
       <MentionTextInput
         label="Comment"
-        value={reason}
+        value={comment}
         onChange={val => {
-          setReason(val);
+          setComment(val);
           setError('');
         }}
-        placeholder="Explain your review decision... Type @ to mention"
+        placeholder={ANNOTATION_COPY.commentPlaceholder}
         mentionableMetrics={mentionableMetrics}
         mentionableTurns={mentionableTurns}
         error={!!error && !selectedStatusId}
         helperText={
-          reason.trim().length < 10
-            ? `Minimum 10 characters required (${reason.trim().length}/10)`
-            : 'Add a comment to support your review decision'
+          comment.trim().length < MIN_COMMENT_LENGTH
+            ? ANNOTATION_COPY.commentCounter(
+                comment.trim().length,
+                MIN_COMMENT_LENGTH
+              )
+            : ANNOTATION_COPY.commentHelp
         }
         minRows={4}
       />

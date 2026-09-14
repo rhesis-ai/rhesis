@@ -10,7 +10,7 @@ import { Capability } from '@/constants/capabilities';
 import { hasConflictingAnnotation } from '@/utils/test-result-status';
 import type { MentionOption } from '@/components/common/MentionTextInput';
 import { getLatestMetricAnnotationForResult } from './test-run-summary-utils';
-import ReviewJudgementDrawer from './ReviewJudgementDrawer';
+import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 
 interface TestDetailAnnotationsTabProps {
   test: TestResultDetail;
@@ -100,14 +100,15 @@ export default function TestDetailAnnotationsTab({
         }
         onChanged={() => void refreshParent()}
       />
-      <ReviewJudgementDrawer
+      <AnnotationDrawer
         open={createOpen}
         onClose={() => {
           pendingCommentRef.current = null;
           setCreateOpen(false);
         }}
-        test={test}
-        onSave={() => refreshParent()}
+        entityType={ANNOTATION_ENTITY_TYPES.TEST_RESULT}
+        entityId={test.id}
+        onSaved={refreshParent}
         initialComment={pendingCommentRef.current?.comment}
         initialStatus={pendingCommentRef.current?.status}
         mentionableMetrics={mentionableMetrics}

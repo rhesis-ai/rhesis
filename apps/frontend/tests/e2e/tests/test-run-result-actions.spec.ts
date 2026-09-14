@@ -5,7 +5,7 @@ import { TestRunsPage } from '../pages/TestRunsPage';
  * Test Run — individual result action tests.
  *
  * Covers: D1.6 (rename test run), D1.7 (switch to Table view),
- * D1.8 (Provide Review drawer opens), D1.9 (submit a Pass review),
+ * D1.8 (annotation drawer opens), D1.9 (submit a Pass annotation),
  * D1.10 (download CSV), D1.11 (filter results by status).
  *
  * All tests navigate to the first available test run in the list.
@@ -121,12 +121,12 @@ test.describe('Test Runs — result actions @interaction', () => {
     );
   });
 
-  test('can open the Provide Review drawer from a result row', async ({
+  test('can open the annotation drawer from a result row', async ({
     page,
   }) => {
     const reached = await gotoFirstTestRun(page);
     if (!reached) {
-      test.skip(true, 'No test runs available — skipping review drawer test');
+      test.skip(true, 'No test runs available — skipping annotation drawer test');
       return;
     }
 
@@ -137,25 +137,25 @@ test.describe('Test Runs — result actions @interaction', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    // Look for "Provide Review" button in the Actions column
-    const provideReviewBtn = page
-      .getByRole('button', { name: /provide review/i })
+    // Look for the annotate button in the Actions column
+    const annotateBtn = page
+      .getByRole('button', { name: /annotate/i })
       .first();
-    const hasBtn = await provideReviewBtn
+    const hasBtn = await annotateBtn
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!hasBtn) {
       test.skip(
         true,
-        '"Provide Review" button not visible — test run may have no results, skipping'
+        'Annotate button not visible — test run may have no results, skipping'
       );
       return;
     }
 
-    await provideReviewBtn.click();
+    await annotateBtn.click();
 
-    // The ReviewJudgementDrawer should open with the title "Provide Test Review"
-    const drawerTitle = page.getByText(/provide test review/i).first();
+    // The shared AnnotationDrawer should open with the title "Add Annotation"
+    const drawerTitle = page.getByText(/add annotation/i).first();
     await expect(drawerTitle).toBeVisible({ timeout: 10_000 });
 
     // Pass and Fail toggle buttons should be present
@@ -166,7 +166,7 @@ test.describe('Test Runs — result actions @interaction', () => {
       (await failToggle.isVisible({ timeout: 3_000 }).catch(() => false));
     expect(
       hasPassFail,
-      'Expected Pass/Fail toggle buttons in review drawer'
+      'Expected Pass/Fail toggle buttons in the annotation drawer'
     ).toBeTruthy();
 
     // Close without submitting
@@ -178,10 +178,10 @@ test.describe('Test Runs — result actions @interaction', () => {
     }
   });
 
-  test('can submit a Pass review for a test result', async ({ page }) => {
+  test('can submit a Pass annotation for a test result', async ({ page }) => {
     const reached = await gotoFirstTestRun(page);
     if (!reached) {
-      test.skip(true, 'No test runs available — skipping submit review test');
+      test.skip(true, 'No test runs available — skipping submit annotation test');
       return;
     }
 
@@ -192,28 +192,28 @@ test.describe('Test Runs — result actions @interaction', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    const provideReviewBtn = page
-      .getByRole('button', { name: /provide review/i })
+    const annotateBtn = page
+      .getByRole('button', { name: /annotate/i })
       .first();
     if (
-      !(await provideReviewBtn
+      !(await annotateBtn
         .isVisible({ timeout: 10_000 })
         .catch(() => false))
     ) {
       test.skip(
         true,
-        '"Provide Review" button not visible — skipping submit test'
+        'Annotate button not visible — skipping submit test'
       );
       return;
     }
 
-    await provideReviewBtn.click();
+    await annotateBtn.click();
 
-    const drawerTitle = page.getByText(/provide test review/i).first();
+    const drawerTitle = page.getByText(/add annotation/i).first();
     if (
       !(await drawerTitle.isVisible({ timeout: 10_000 }).catch(() => false))
     ) {
-      test.skip(true, 'Review drawer did not open — skipping');
+      test.skip(true, 'Annotation drawer did not open — skipping');
       return;
     }
 
@@ -226,28 +226,28 @@ test.describe('Test Runs — result actions @interaction', () => {
     }
     await passToggle.click();
 
-    // Fill in the required review comment (minimum 10 characters)
+    // Fill in the required comment (minimum 10 characters)
     const commentInput = page
-      .getByRole('textbox', { name: /review comments|explain/i })
+      .getByRole('textbox', { name: /comment|explain/i })
       .first();
     if (
       !(await commentInput.isVisible({ timeout: 5_000 }).catch(() => false))
     ) {
       await page.keyboard.press('Escape');
-      test.skip(true, 'Review comment field not found — skipping');
+      test.skip(true, 'Comment field not found — skipping');
       return;
     }
     await commentInput.fill(
-      'Playwright E2E review — result looks correct and passes criteria.'
+      'Playwright E2E annotation — result looks correct and passes criteria.'
     );
 
     // Submit
     const submitBtn = page
-      .getByRole('button', { name: /submit review/i })
+      .getByRole('button', { name: /save|submit/i })
       .first();
     if (!(await submitBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
       await page.keyboard.press('Escape');
-      test.skip(true, '"Submit Review" button not found — skipping');
+      test.skip(true, 'Save button not found — skipping');
       return;
     }
     await submitBtn.click();
@@ -361,9 +361,9 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     await filtersBtn.click();
 
-    // The popover should contain Review Status options
-    const reviewedChip = page.getByText(/^reviewed$/i).first();
-    const popoverVisible = await reviewedChip
+    // The popover should contain Annotation Status options
+    const annotatedChip = page.getByText(/^annotated$/i).first();
+    const popoverVisible = await annotatedChip
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     expect(
