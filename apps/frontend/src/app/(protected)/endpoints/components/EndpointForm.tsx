@@ -34,6 +34,7 @@ import {
   bodyToRequestMapping,
   parseBodyMapping,
   parseResMapping,
+  validateMappingJson,
 } from './mappingUtils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
@@ -324,6 +325,18 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         return;
       }
 
+      const reqError = validateMappingJson(reqBody);
+      if (reqError) {
+        setError(`Invalid JSON in request mapping: ${reqError}`);
+        return;
+      }
+
+      const resError = validateMappingJson(resBody);
+      if (resError) {
+        setError(`Invalid JSON in response mapping: ${resError}`);
+        return;
+      }
+
       setIsSubmitting(true);
       try {
         let requestHeaders: Record<string, string> | undefined;
@@ -354,13 +367,9 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           request_mapping: bodyToRequestMapping(
             reqBody
           ) as unknown as Endpoint['request_mapping'],
-          response_mapping: (() => {
-            try {
-              return JSON.parse(resBody);
-            } catch {
-              return {};
-            }
-          })() as unknown as Endpoint['response_mapping'],
+          response_mapping: JSON.parse(
+            resBody
+          ) as unknown as Endpoint['response_mapping'],
         };
 
         if (requestHeaders) {

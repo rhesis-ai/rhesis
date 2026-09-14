@@ -27,6 +27,7 @@ import AutoConfigureDrawer from '../../components/AutoConfigureDrawer';
 import {
   bodyToRequestMapping,
   parseBodyMapping,
+  validateMappingJson,
   parseResMapping,
 } from '../../components/mappingUtils';
 import { useEndpointDetailContext } from './EndpointDetailContext';
@@ -251,20 +252,29 @@ export default function EndpointMappingTab() {
         }
         initialValue={mappingInitial}
         onSave={async draft => {
-          let responseMapping: Record<string, string>;
-          try {
-            responseMapping = JSON.parse(draft.resBody);
-          } catch {
-            notifications.show('Invalid JSON in response mapping', {
-              severity: 'error',
-            });
+          const reqError = validateMappingJson(draft.reqBody);
+          if (reqError) {
+            notifications.show(
+              `Invalid JSON in request mapping: ${reqError}`,
+              { severity: 'error' }
+            );
+            throw new Error('validation');
+          }
+          const resError = validateMappingJson(draft.resBody);
+          if (resError) {
+            notifications.show(
+              `Invalid JSON in response mapping: ${resError}`,
+              { severity: 'error' }
+            );
             throw new Error('validation');
           }
           await saveFields({
             request_mapping: bodyToRequestMapping(
               draft.reqBody
             ) as unknown as Record<string, unknown>,
-            response_mapping: responseMapping,
+            response_mapping: JSON.parse(
+              draft.resBody
+            ) as Record<string, string>,
           });
         }}
       >
