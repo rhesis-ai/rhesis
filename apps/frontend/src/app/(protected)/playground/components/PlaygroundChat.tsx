@@ -134,7 +134,7 @@ export default function PlaygroundChat({
         setTestParamsParsed(parsed as Record<string, unknown>);
       }
     } catch {
-      // Keep the previous parsed value until the JSON becomes valid
+      setTestParamsParsed(null);
     }
   }, []);
 

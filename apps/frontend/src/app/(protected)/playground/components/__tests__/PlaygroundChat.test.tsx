@@ -352,10 +352,10 @@ describe('PlaygroundChat — reset conversation', () => {
     renderChat();
 
     // With 1 message the button order is:
-    //   [0] MultiTurn (disabled), [1] Reset/Refresh, [2] Send
-    // allButtons[1] is the reset button.
+    //   [0] TestParams, [1] MultiTurn (disabled), [2] Reset/Refresh, [3] Send
+    // allButtons[2] is the reset button.
     const allButtons = screen.getAllByRole('button');
-    await user.click(allButtons[1]);
+    await user.click(allButtons[2]);
 
     expect(clearMessages).toHaveBeenCalled();
   });
@@ -380,10 +380,10 @@ describe('PlaygroundChat — header buttons', () => {
     renderChat({ onClose });
 
     // With 0 messages and onClose (no onSplit) the button order is:
-    //   [0] MultiTurn (disabled), [1] Close, [2] Send
-    // allButtons[1] is the close button.
+    //   [0] TestParams, [1] MultiTurn (disabled), [2] Close, [3] Send
+    // allButtons[2] is the close button.
     const allButtons = screen.getAllByRole('button');
-    await user.click(allButtons[1]);
+    await user.click(allButtons[2]);
 
     expect(onClose).toHaveBeenCalled();
   });

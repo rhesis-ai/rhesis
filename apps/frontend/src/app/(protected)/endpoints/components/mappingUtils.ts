@@ -10,11 +10,11 @@ export function bodyToRequestMapping(body: string): Record<string, unknown> {
 
 /**
  * Validate mapping JSON. Returns null if valid, or the parse error message if
- * invalid. Skips validation when the template uses Jinja block syntax ({@ %})
- * which is intentionally non-JSON.
+ * invalid. Skips validation when the body contains Jinja syntax (`{{` or `{%`)
+ * which is intentionally non-JSON until rendered.
  */
 export function validateMappingJson(body: string): string | null {
-  if (body.includes('{%')) return null;
+  if (body.includes('{%') || body.includes('{{')) return null;
   try {
     JSON.parse(body);
     return null;
