@@ -9,7 +9,7 @@ import { can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { hasConflictingAnnotation } from '@/utils/test-result-status';
 import type { MentionOption } from '@/components/common/MentionTextInput';
-import { getLatestMetricAnnotationForResult } from './test-run-summary-utils';
+import { getLatestMetricAnnotationForResult } from './result-annotations';
 import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 
 interface TestDetailAnnotationsTabProps {

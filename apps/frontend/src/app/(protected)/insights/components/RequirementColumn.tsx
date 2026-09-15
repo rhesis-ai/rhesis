@@ -11,7 +11,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { getReviewBand } from '@/app/(protected)/test-runs/[identifier]/components/test-run-summary-utils';
+import { getReviewBand } from '@/constants/outcomes';
 import { InsightsFilters } from '../types';
 import { RequirementInsightColumn } from '../utils/requirement-insights-utils';
 import {
