@@ -907,7 +907,7 @@ export default function ConversationHistory({
           }}
         />
 
-        {/* Show Confirmed Indicator only if review exists AND matches automated result, otherwise show Confirm button */}
+        {/* Confirmed indicator only when an annotation exists AND matches the automated result; otherwise the Confirm button. */}
         {hasExistingAnnotation && annotationMatchesAutomated ? (
           <Chip
             icon={<CheckIcon sx={{ fontSize: theme.spacing(2) }} />}

@@ -63,7 +63,7 @@ interface TestDetailMetricsTabProps {
   }>;
   /** Source of metrics used in this test run */
   metricsSource?: MetricsSource | string;
-  onReviewMetric?: (metricName: string) => void;
+  onAnnotateMetric?: (metricName: string) => void;
 }
 
 interface MetricSummary {
@@ -77,7 +77,7 @@ export default function TestDetailMetricsTab({
   test,
   requirements,
   metricsSource,
-  onReviewMetric,
+  onAnnotateMetric,
 }: TestDetailMetricsTabProps) {
   const theme = useTheme();
   const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>(
@@ -662,11 +662,11 @@ export default function TestDetailMetricsTab({
                     />
                   )}
                   <Box sx={{ flexGrow: 1 }} />
-                  {onReviewMetric && (
-                    <Tooltip title={`Review ${goalMetricName}`}>
+                  {onAnnotateMetric && (
+                    <Tooltip title="Annotate this metric">
                       <IconButton
                         size="small"
-                        onClick={() => onReviewMetric(goalMetricName)}
+                        onClick={() => onAnnotateMetric(goalMetricName)}
                         sx={{
                           padding: 0.5,
                           color: theme.palette.text.secondary,
@@ -976,22 +976,25 @@ export default function TestDetailMetricsTab({
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell width={onReviewMetric ? '15%' : '15%'}>
+                  <TableCell width={onAnnotateMetric ? '15%' : '15%'}>
                     Status
                   </TableCell>
-                  <TableCell width={onReviewMetric ? '28%' : '30%'}>
+                  <TableCell width={onAnnotateMetric ? '28%' : '30%'}>
                     Metric
                   </TableCell>
-                  <TableCell width={onReviewMetric ? '47%' : '55%'}>
+                  <TableCell width={onAnnotateMetric ? '47%' : '55%'}>
                     Reason
                   </TableCell>
-                  {onReviewMetric && <TableCell width="10%" align="right" />}
+                  {onAnnotateMetric && <TableCell width="10%" align="right" />}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredMetricsForTable.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={onReviewMetric ? 4 : 3} align="center">
+                    <TableCell
+                      colSpan={onAnnotateMetric ? 4 : 3}
+                      align="center"
+                    >
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -1060,7 +1063,7 @@ export default function TestDetailMetricsTab({
                               variant="body2"
                               fontWeight={500}
                               sx={{
-                                ...(onReviewMetric && {
+                                ...(onAnnotateMetric && {
                                   color: theme.palette.primary.main,
                                   cursor: 'pointer',
                                   '&:hover': {
@@ -1069,8 +1072,8 @@ export default function TestDetailMetricsTab({
                                 }),
                               }}
                               onClick={
-                                onReviewMetric
-                                  ? () => onReviewMetric(metric.name)
+                                onAnnotateMetric
+                                  ? () => onAnnotateMetric(metric.name)
                                   : undefined
                               }
                             >
@@ -1098,12 +1101,12 @@ export default function TestDetailMetricsTab({
                             </Typography>
                           )}
                         </TableCell>
-                        {onReviewMetric && (
+                        {onAnnotateMetric && (
                           <TableCell align="right">
                             <Tooltip title="Annotate this metric">
                               <IconButton
                                 size="small"
-                                onClick={() => onReviewMetric(metric.name)}
+                                onClick={() => onAnnotateMetric(metric.name)}
                                 sx={{
                                   padding: 0.5,
                                   color: theme.palette.text.secondary,

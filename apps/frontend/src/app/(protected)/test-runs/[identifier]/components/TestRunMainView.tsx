@@ -223,7 +223,7 @@ export default function TestRunMainView({
     if (filter.statusFilter !== 'all') {
       // Must use the same trusted outcome the row's own status chip renders.
       // Re-deriving it from raw metrics here made the filter disagree with
-      // what the user could see: a test reviewed to Pass showed a "Passed"
+      // what the user could see: a test annotated Pass showed a "Passed"
       // chip but was excluded from the "passed" filter.
       filtered = filtered.filter(test => {
         const isPassed = getEffectiveTestResultStatus(test) === 'Pass';
@@ -259,12 +259,12 @@ export default function TestRunMainView({
 
     if (filter.overruleFilter !== 'all') {
       filtered = filtered.filter(test => {
-        const hasReview = !!test.last_annotation;
+        const hasAnnotation = !!test.last_annotation;
         const hasConflict = !test.matches_annotation;
-        if (filter.overruleFilter === 'overruled') return hasReview;
-        if (filter.overruleFilter === 'original') return !hasReview;
+        if (filter.overruleFilter === 'overruled') return hasAnnotation;
+        if (filter.overruleFilter === 'original') return !hasAnnotation;
         if (filter.overruleFilter === 'conflicting')
-          return hasReview && hasConflict;
+          return hasAnnotation && hasConflict;
         return true;
       });
     }
@@ -341,14 +341,13 @@ export default function TestRunMainView({
     handleTabChange(TAB_KEYS.indexOf('linked_entities'));
   }, [handleTabChange]);
 
-  /** The Reviews tab opens a result in place rather than sending you to the Tests
+  /** The Annotations tab opens a result in place rather than sending you to the Tests
    *  tab, the same way the playground opens a trace from a conversation. */
-  const [reviewedResultId, setReviewedResultId] = useState<string | null>(null);
-  const reviewedResult = useMemo(
+  const [openedResultId, setOpenedResultId] = useState<string | null>(null);
+  const openedResult = useMemo(
     () =>
-      testResults.find(result => String(result.id) === reviewedResultId) ??
-      null,
-    [testResults, reviewedResultId]
+      testResults.find(result => String(result.id) === openedResultId) ?? null,
+    [testResults, openedResultId]
   );
 
   const handleTestResultUpdate = useCallback(
@@ -642,12 +641,12 @@ export default function TestRunMainView({
       <TabPanel value={activeTab} index={4}>
         <TestRunAnnotationsTab
           testRunId={testRun.id}
-          onViewTestResult={setReviewedResultId}
+          onViewTestResult={setOpenedResultId}
         />
         <TestResultDrawer
-          open={reviewedResult !== null}
-          onClose={() => setReviewedResultId(null)}
-          test={reviewedResult}
+          open={openedResult !== null}
+          onClose={() => setOpenedResultId(null)}
+          test={openedResult}
           prompts={prompts}
           requirements={requirements}
           testRunId={testRunId}
