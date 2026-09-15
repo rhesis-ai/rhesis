@@ -39,7 +39,8 @@ import { passRate, allMetricsPassed } from '@/constants/outcomes';
 
 interface MetricOverride {
   original_value: boolean;
-  review_id: string;
+  /** The annotation that overrode the metric. */
+  annotation_id: string;
   overridden_by: string;
   overridden_at: string;
 }

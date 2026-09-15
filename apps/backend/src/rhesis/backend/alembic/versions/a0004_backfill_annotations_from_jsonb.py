@@ -1,9 +1,10 @@
 """Backfill annotation rows from test_result.test_reviews and trace.trace_reviews
 
 Each JSONB ``review_id`` becomes the annotation's primary key, so the override
-markers inside ``test_metrics`` / ``trace_metrics`` (which keep the key
-``review_id``) stay valid without touching that data. ``ON CONFLICT (id) DO
-NOTHING`` makes the insert idempotent.
+markers inside ``test_metrics`` / ``trace_metrics`` still point at the right row
+without touching that data. a0005ovrdkey then renames the marker's key from
+``review_id`` to ``annotation_id``. ``ON CONFLICT (id) DO NOTHING`` makes the
+insert idempotent.
 
 Reviews whose status or author no longer exists are skipped rather than aborting
 the migration on a foreign key, and the counts printed per org say how many rows
