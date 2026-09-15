@@ -5,7 +5,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ANNOTATION_ENTITY_TYPES } from '@/utils/api-client/interfaces/annotation';
 import AnnotationsPanel from '@/components/annotations/AnnotationsPanel';
-import { can } from '@/components/common/Can';
+import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { hasConflictingAnnotation } from '@/utils/test-result-status';
 import type { MentionOption } from '@/components/common/MentionTextInput';
@@ -37,6 +37,7 @@ export default function TestDetailAnnotationsTab({
   mentionableMetrics = [],
   mentionableTurns = [],
 }: TestDetailAnnotationsTabProps) {
+  const canCreate = useCan(Capability.Annotation.CREATE);
   const [createOpen, setCreateOpen] = useState(false);
 
   // Held in a ref so a parent reset does not clear what the drawer opened with.
@@ -93,11 +94,7 @@ export default function TestDetailAnnotationsTab({
         currentUserId={currentUserId}
         hasConflict={hasConflictingAnnotation(test)}
         metricVerdictLabel={metricVerdictLabel}
-        onCreate={
-          can(test, Capability.Annotation.CREATE)
-            ? () => setCreateOpen(true)
-            : undefined
-        }
+        onCreate={canCreate ? () => setCreateOpen(true) : undefined}
         onChanged={() => void refreshParent()}
       />
       <AnnotationDrawer
