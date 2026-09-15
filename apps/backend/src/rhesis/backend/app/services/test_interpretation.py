@@ -149,7 +149,7 @@ def contract_usability(contract: EvaluationContract) -> Tuple[bool, str]:
 def contract_status(test: Any) -> EvaluationContractStatus:
     """Describe a test's stored interpretation without interpreting it.
 
-    A pure read: the review panel must not trigger an LLM call just by being opened.
+    A pure read: the annotation panel must not trigger an LLM call just by being opened.
 
     ``test`` is typed ``Any`` on purpose: besides a real ORM ``Test`` row, callers pass
     ephemeral test-like objects for trial/in-place execution (see
@@ -185,7 +185,7 @@ def ensure_contract(
     """Return the test's contract, interpreting and storing it if it is missing or stale.
 
     Mutates ``test.test_metadata`` but does not commit -- the caller owns the transaction, as
-    with ``services/review_override.py``. A missed commit only costs a repeated interpretation
+    with ``services/annotation_override``. A missed commit only costs a repeated interpretation
     on the next run.
 
     ``test`` is typed ``Any`` on purpose: trial/in-place execution passes an ephemeral,

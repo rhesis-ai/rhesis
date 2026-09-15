@@ -175,10 +175,9 @@ def _test_run_experiment_filter(
     experiment_id: str | None,
     parameter_version: str | None,
     has_experiment: bool | None,
-    has_reviews: bool | None,
-    organization_id: str | None,
+    has_annotations: bool | None,
 ):
-    """Build the experiment/parameter/review row-selection filter for get_test_runs.
+    """Build the experiment/parameter/annotation row-selection filter for get_test_runs.
 
     A row-selection filter (like ``with_odata_filter``), not a loader option --
     must run on the phase-1 id query so the right page of ids is picked in the
@@ -196,26 +195,21 @@ def _test_run_experiment_filter(
             q = q.filter(models.TestRun.experiment_id.isnot(None))
         elif has_experiment is False:
             q = q.filter(models.TestRun.experiment_id.is_(None))
-        if has_reviews is not None:
-            from uuid import UUID
-
-            from sqlalchemy import func
-
-            exists_filters = [
-                models.TestResult.test_run_id == models.TestRun.id,
-                models.TestResult.test_reviews.isnot(None),
-                func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
-                func.coalesce(
-                    func.jsonb_array_length(models.TestResult.test_reviews["reviews"]),
-                    0,
+        if has_annotations is not None:
+            annotated_result_exists = (
+                db.query(models.Annotation.id)
+                .join(
+                    models.TestResult,
+                    (models.Annotation.entity_id == models.TestResult.id)
+                    & (models.Annotation.entity_type == "TestResult"),
                 )
-                > 0,
-            ]
-            if organization_id:
-                exists_filters.append(models.TestResult.organization_id == UUID(organization_id))
-
-            reviewed_result_exists = db.query(models.TestResult.id).filter(*exists_filters).exists()
-            q = q.filter(reviewed_result_exists if has_reviews else ~reviewed_result_exists)
+                .filter(
+                    models.TestResult.test_run_id == models.TestRun.id,
+                    models.Annotation.deleted_at.is_(None),
+                )
+                .exists()
+            )
+            q = q.filter(annotated_result_exists if has_annotations else ~annotated_result_exists)
         return q
 
     return _filter
@@ -231,7 +225,7 @@ def get_test_runs(
     experiment_id: str | None = None,
     parameter_version: str | None = None,
     has_experiment: bool | None = None,
-    has_reviews: bool | None = None,
+    has_annotations: bool | None = None,
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> List[models.TestRun]:
@@ -247,7 +241,7 @@ def get_test_runs(
         organization_id=organization_id,
         user_id=user_id,
         extra_filter=_test_run_experiment_filter(
-            db, experiment_id, parameter_version, has_experiment, has_reviews, organization_id
+            db, experiment_id, parameter_version, has_experiment, has_annotations
         ),
         hydrate_filter=_defer_endpoint_last_token,
     )
@@ -516,24 +510,24 @@ def get_ordered_tests_for_test_set(
     ]
 
 
-def get_review_count_for_run(
+def get_annotation_count_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> int:
-    """Count distinct tests with at least one review recorded, for this run.
+    """Count distinct tests with at least one annotation, for this run.
 
-    A coarse presence count, not the detailed test-vs-metric /
-    review-vs-correction breakdown ``BreakdownsDrawer`` computes lazily from
-    full test result bodies -- this only answers "has anything been
-    reviewed yet" for the KPI row, so it stays a single indexed-by-run
-    aggregate instead of hydrating every result. Same JSONB presence
-    predicate as ``_test_run_experiment_filter``'s ``has_reviews`` filter
-    above.
+    A coarse presence count for the KPI row, not the test-vs-metric breakdown
+    ``BreakdownsDrawer`` computes lazily from full test result bodies -- so it
+    stays a single indexed-by-run aggregate instead of hydrating every result.
     """
-    query = db.query(func.count(func.distinct(models.TestResult.test_id))).filter(
-        models.TestResult.test_run_id == test_run_id,
-        models.TestResult.test_reviews.isnot(None),
-        func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
-        func.coalesce(func.jsonb_array_length(models.TestResult.test_reviews["reviews"]), 0) > 0,
+    query = (
+        db.query(func.count(func.distinct(models.TestResult.test_id)))
+        .join(
+            models.Annotation,
+            (models.Annotation.entity_id == models.TestResult.id)
+            & (models.Annotation.entity_type == "TestResult")
+            & (models.Annotation.deleted_at.is_(None)),
+        )
+        .filter(models.TestResult.test_run_id == test_run_id)
     )
     if organization_id:
         query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))

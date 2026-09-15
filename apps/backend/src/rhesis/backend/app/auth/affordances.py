@@ -15,9 +15,6 @@ memoized**: the effective capability set is computed on first use and reused for
 every object in the response, so a list endpoint is a single PDP pass and a
 response with no affordances pays nothing.
 
-:func:`populate_review_permitted_actions` remains explicit: reviews are JSONB
-sub-documents (plain dicts), not ORM objects routed through a Pydantic
-``WithPermittedActions`` schema, so the validator never sees them.
 """
 
 from __future__ import annotations
@@ -26,12 +23,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import List, Optional
-from uuid import UUID as _UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import (
-    ResourceType,
     get_all_capabilities,
     permitted_actions_for,
 )
@@ -168,38 +163,3 @@ def set_affordance_context(current_user: object, request: object, db: Session) -
 def reset_affordance_context(token: object) -> None:
     """Restore the affordance context to its value before the matching ``set`` call."""
     _affordance_ctx.reset(token)
-
-
-def populate_review_permitted_actions(reviews: List[dict]) -> List[dict]:
-    """Enrich review dicts (JSONB sub-documents) with per-review permitted_actions.
-
-    Review dicts are stored as JSONB blobs — not ORM objects routed through a
-    ``WithPermittedActions`` Pydantic schema — so the automatic validator never
-    sees them. This helper reuses the per-request
-    :class:`_AffordanceContext` (already bound by
-    :func:`~rhesis.backend.app.dependencies.bind_affordance_context`) to project
-    the caller's caps onto each review, reading ``review["user"]["user_id"]`` as
-    the ownership field.
-
-    Returns the list unchanged (and without adding keys) when no affordance context
-    is bound — e.g. in background tasks or scripts.
-
-    Mutates each dict in-place (adds ``"permitted_actions"`` key). Safe to call on
-    GET handlers — the JSONB column is never auto-flushed without an explicit
-    ``flag_modified`` + ``commit``.
-    """
-    if not reviews:
-        return reviews
-
-    ctx = current_affordance_context()
-    if ctx is None:
-        return reviews
-
-    for review in reviews:
-        raw_uid = review.get("user", {}).get("user_id")
-        try:
-            uid: _UUID | None = _UUID(str(raw_uid)) if raw_uid else None
-        except (ValueError, AttributeError):
-            uid = None
-        review["permitted_actions"] = ctx.actions_for(ResourceType.TEST_RESULT, uid)
-    return reviews

@@ -76,10 +76,9 @@ def build_span_tree(
             # been flushed yet still reads None here.
             execution=span.execution or "not_run",
             verdict=span.verdict,
-            trace_reviews=span.trace_reviews,
-            last_review=span.last_review,
-            matches_review=span.matches_review,
-            review_summary=span.review_summary,
+            last_annotation=span.last_annotation,
+            matches_annotation=span.matches_annotation,
+            annotation_summary=span.annotation_summary,
             children=[],
             tags=None,
             comments=None,

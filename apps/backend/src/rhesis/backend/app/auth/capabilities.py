@@ -165,6 +165,14 @@ class Permission:
         #: Delete a comment the caller created (object-level :own qualifier).
         DELETE_OWN = "comment:delete:own"
 
+    class Annotation(_PermissionEnum):
+        READ = "annotation:read"
+        CREATE = "annotation:create"
+        UPDATE = "annotation:update"
+        DELETE = "annotation:delete"
+        UPDATE_OWN = "annotation:update:own"
+        DELETE_OWN = "annotation:delete:own"
+
     class Experiment(_PermissionEnum):
         READ = "experiment:read"
         CREATE = "experiment:create"
@@ -265,8 +273,7 @@ class Permission:
 
     class Telemetry(_PermissionEnum):
         """Trace ingestion and query. Most routes derive these from the
-        telemetry router's ``resource=`` stamp; ``READ`` is also checked
-        explicitly in the annotations dual-gate handler."""
+        telemetry router's ``resource=`` stamp."""
 
         READ = "telemetry:read"
         CREATE = "telemetry:create"
@@ -390,6 +397,7 @@ class ResourceType(_PermissionEnum):
     member when a resource gains object-level (``:own`` or ``:assigned``) affordances.
     """
 
+    ANNOTATION = "annotation"
     COMMENT = "comment"
     EXPERIMENT = "experiment"
     TASK = "task"

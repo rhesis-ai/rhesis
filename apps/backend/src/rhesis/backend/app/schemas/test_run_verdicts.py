@@ -20,7 +20,7 @@ class VerdictKpis(BaseModel):
     verdicts_resolved: int = 0
     verdicts_planned: int = 0
     failures: int = 0
-    reviews_count: int = 0
+    annotations_count: int = 0
 
 
 class VerdictRequirement(BaseModel):

@@ -390,9 +390,9 @@ class TestTraceListEndpoint:
             optional_fields = [
                 "total_tokens",
                 "total_cost_usd",
-                "has_reviews",
-                "last_review",
-                "matches_review",
+                "has_annotations",
+                "last_annotation",
+                "matches_annotation",
             ]
             for field in optional_fields:
                 assert field in trace
@@ -719,11 +719,10 @@ class TestTraceDetailEndpoint:
             assert field in data
 
         optional_fields = [
-            "trace_reviews",
-            "last_review",
-            "matches_review",
-            "review_summary",
-            "has_reviews",
+            "last_annotation",
+            "matches_annotation",
+            "annotation_summary",
+            "has_annotations",
         ]
         for field in optional_fields:
             if field in data:
@@ -781,10 +780,9 @@ class TestTraceDetailEndpoint:
                 assert field in span_node
 
             optional_span_fields = [
-                "trace_reviews",
-                "last_review",
-                "matches_review",
-                "review_summary",
+                "last_annotation",
+                "matches_annotation",
+                "annotation_summary",
             ]
             for field in optional_span_fields:
                 if field in span_node:

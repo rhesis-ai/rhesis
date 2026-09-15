@@ -2374,27 +2374,26 @@ class TestArchitectCompactListRendering:
 class TestCompactUnnamedListResults:
     """Items with no name/title must keep their content.
 
-    ``list_annotations`` returns reviews keyed on ``review_id`` with the
-    human's words in ``comments`` — no name, no title, and ``id`` is
-    always null. Rendering those as a bare "- ?" told the LLM that N
-    reviews existed while showing it none of them, and it filled the
-    gap by inventing reviewers, comments and turn numbers.
+    ``list_annotations`` returns annotations keyed on ``id`` with the
+    human's words in ``comments`` — no name, no title. Rendering those
+    as a bare "- ?" told the LLM that N annotations existed while showing
+    it none of them, and it filled the gap by inventing annotators,
+    comments and turn numbers.
     """
 
     @staticmethod
     def _annotation(idx: int) -> dict:
         return {
-            "id": None,
+            "id": f"r-{idx}",
             "nano_id": None,
-            "review_id": f"r-{idx}",
-            "source": "test_result",
+            "entity_type": "TestResult",
             "comments": f"Turn {idx} contradicted the itinerary",
             "status": {"name": "Fail"},
             "user": {"name": "Nicolai Bohn"},
-            "target": {"type": "turn", "reference": f"Turn {idx}"},
+            "target_type": "turn",
+            "target_reference": f"Turn {idx}",
             "resolved": False,
-            "test_run_id": "run-1",
-            "behavior_name": "Goal Achievement",
+            "context": {"test_run_id": "run-1", "requirement_name": "Goal Achievement"},
         }
 
     def test_annotation_content_survives_compaction(self):
@@ -2549,12 +2548,12 @@ _ANNOTATION_PAGE = json.dumps(
     {
         "results": [
             {
-                "id": None,
-                "review_id": "e87b6bc0-1111",
+                "id": "e87b6bc0-1111",
                 "comments": "Quoted a refund figure that is nowhere in the policy.",
                 "status": {"name": "Fail"},
                 "user": {"name": "Nicolai Bohn"},
-                "target": {"type": "turn", "turn_index": 3},
+                "target_type": "turn",
+                "target_reference": "Turn 3",
             }
         ],
         "_pagination": {"returned": 1, "has_more": False},
@@ -2600,7 +2599,7 @@ class TestCarriedToolResults:
         for prompt in (second._format_history(), second._format_tool_results_for_streaming()):
             assert "Quoted a refund figure" in prompt
             assert "Nicolai Bohn" in prompt
-            assert "turn_index" in prompt
+            assert "Turn 3" in prompt
 
     def test_carried_block_is_labelled_as_earlier_data(self):
         agent = _make_agent(_mock_model())

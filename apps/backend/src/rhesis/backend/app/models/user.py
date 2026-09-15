@@ -131,6 +131,11 @@ class User(Base):
     # Comment relationships
     comments = relationship("Comment", back_populates="user")
 
+    # Annotation relationships
+    annotations = relationship(
+        "Annotation", back_populates="user", foreign_keys="[Annotation.user_id]"
+    )
+
     # Tool relationships
     tools = relationship("Tool", foreign_keys="[Tool.user_id]", back_populates="user")
 

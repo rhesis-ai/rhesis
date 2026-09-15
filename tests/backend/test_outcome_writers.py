@@ -7,6 +7,7 @@ call site actually produces, not the classifier's internal rules (already
 pinned in test_outcomes.py).
 """
 
+import uuid
 from typing import ClassVar
 
 import pytest
@@ -14,6 +15,16 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
+
+
+def _mock_annotation(*, target_type, target_reference=None, user_id=None, annotation_id=None):
+    ann = type("Annotation", (), {
+        "id": uuid.UUID(annotation_id) if annotation_id else uuid.uuid4(),
+        "user_id": user_id,
+        "target_type": target_type,
+        "target_reference": target_reference,
+    })()
+    return ann
 
 
 @pytest.fixture
@@ -254,12 +265,11 @@ class TestTestResultRouterOutcome:
 
 
 @pytest.fixture
-def review_target_result(outcome_writer_setup):
+def annotated_result(outcome_writer_setup):
     """A real, ORM-attached TestResult with both a metric and a turn to
-    review -- review_override.py's functions call
+    annotate -- annotation_override's functions call
     Session.object_session(db_test_result) internally, so a plain stub
-    object (as test_review_override.py's mock-based tests use) can't
-    exercise the parts that actually touch the database.
+    object can't exercise the parts that actually touch the database.
     """
     db = outcome_writer_setup["db"]
     row = models.TestResult(
@@ -281,62 +291,56 @@ def review_target_result(outcome_writer_setup):
 
 @pytest.mark.unit
 class TestRecalculateOverallStatusFoldsInTurns:
-    """Bug 3: a turn-level review was written to test_output and then
+    """Bug 3: a turn-level annotation was written to test_output and then
     silently ignored by recalculate_overall_status, which read only
-    test_metrics. trace_review_override.py's twin function already ANDs
-    in turns_passed; this pins that review_override.py now matches it.
+    test_metrics. The trace override twin function already ANDs
+    in turns_passed; this pins that the test_result override now matches it.
     """
 
-    def test_turn_override_can_flip_an_otherwise_passing_result_to_fail(self, review_target_result):
-        from rhesis.backend.app.services.review_override import apply_review_override
+    def test_turn_override_can_flip_an_otherwise_passing_result_to_fail(self, annotated_result):
+        from rhesis.backend.app.services.annotation_override.test_result import apply_override
 
-        user = type("U", (), {"id": review_target_result.user_id})()
-        apply_review_override(
-            review_target_result,
+        annotation = _mock_annotation(
             target_type="turn",
             target_reference="Turn 1",
-            status_details={"name": "Fail"},
-            current_user=user,
-            review_id="review-turn-1",
+            user_id=annotated_result.user_id,
         )
+        apply_override(annotated_result, annotation, {"name": "Fail"})
 
-        assert (review_target_result.execution, review_target_result.verdict) == (
+        assert (annotated_result.execution, annotated_result.verdict) == (
             "ok",
             "fail",
         )
-        turn = review_target_result.test_output["conversation_summary"][0]
+        turn = annotated_result.test_output["conversation_summary"][0]
         assert turn["success"] is False
         assert turn["override"]["original_value"] is True
 
-    def test_turn_override_agreeing_with_metrics_stays_passed(self, review_target_result):
-        from rhesis.backend.app.services.review_override import apply_review_override
+    def test_turn_override_agreeing_with_metrics_stays_passed(self, annotated_result):
+        from rhesis.backend.app.services.annotation_override.test_result import apply_override
 
-        user = type("U", (), {"id": review_target_result.user_id})()
-        apply_review_override(
-            review_target_result,
+        annotation = _mock_annotation(
             target_type="turn",
             target_reference="Turn 1",
-            status_details={"name": "Pass"},
-            current_user=user,
-            review_id="review-turn-2",
+            user_id=annotated_result.user_id,
         )
+        apply_override(annotated_result, annotation, {"name": "Pass"})
 
-        assert (review_target_result.execution, review_target_result.verdict) == (
+        assert (annotated_result.execution, annotated_result.verdict) == (
             "ok",
             "pass",
         )
 
 
 @pytest.mark.unit
-class TestReviewedResultCanLeaveError:
+class TestAnnotatedResultCanLeaveError:
     """Bug 4: recalculate_overall_status could only ever emit Pass/Fail, so
-    a human review on a result that started Error promoted it permanently
+    a human annotation on a result that started Error promoted it permanently
     -- there was no way back, and no way to represent "a human actively
-    reviewed this crashed metric" versus "the platform never judged it".
+    annotated this crashed metric" versus "the platform never judged it".
     """
 
     def test_overriding_a_crashed_metric_produces_a_real_verdict(self, outcome_writer_setup):
-        from rhesis.backend.app.services.review_override import apply_review_override
+        from rhesis.backend.app.services.annotation_override.test_result import apply_override
 
         db = outcome_writer_setup["db"]
         row = models.TestResult(
@@ -355,17 +359,14 @@ class TestReviewedResultCanLeaveError:
         db.commit()
         db.refresh(row)
 
-        user = type("U", (), {"id": row.user_id})()
-        apply_review_override(
-            row,
+        annotation = _mock_annotation(
             target_type="metric",
             target_reference="Accuracy",
-            status_details={"name": "Pass"},
-            current_user=user,
-            review_id="review-metric-1",
+            user_id=row.user_id,
         )
+        apply_override(row, annotation, {"name": "Pass"})
 
-        # The reviewed result left Error -- previously impossible.
+        # The annotated result left Error -- previously impossible.
         assert (row.execution, row.verdict) == ("ok", "pass")
         metric = row.test_metrics["metrics"]["Accuracy"]
         # The crash marker moved into the override record rather than
@@ -376,9 +377,9 @@ class TestReviewedResultCanLeaveError:
         db.refresh(row, attribute_names=["status"])
         assert row.status.name == "Pass"
 
-    def test_deleting_that_review_restores_the_error(self, outcome_writer_setup):
-        from rhesis.backend.app.services.review_override import (
-            apply_review_override,
+    def test_deleting_that_annotation_restores_the_error(self, outcome_writer_setup):
+        from rhesis.backend.app.services.annotation_override.test_result import (
+            apply_override,
             revert_override,
         )
 
@@ -399,23 +400,22 @@ class TestReviewedResultCanLeaveError:
         db.commit()
         db.refresh(row)
 
-        user = type("U", (), {"id": row.user_id})()
-        apply_review_override(
-            row,
+        annotation = _mock_annotation(
             target_type="metric",
             target_reference="Accuracy",
-            status_details={"name": "Pass"},
-            current_user=user,
-            review_id="review-metric-2",
+            user_id=row.user_id,
+            annotation_id="00000000-0000-0000-0000-000000000002",
         )
+        apply_override(row, annotation, {"name": "Pass"})
         assert (row.execution, row.verdict) == ("ok", "pass")
 
         revert_override(
+            db,
             row,
             target_type="metric",
             target_reference="Accuracy",
-            deleted_review_id="review-metric-2",
-            remaining_reviews=[],
+            deleted_annotation_id=str(annotation.id),
+            replacement=None,
         )
 
         assert (row.execution, row.verdict) == ("error", None)
