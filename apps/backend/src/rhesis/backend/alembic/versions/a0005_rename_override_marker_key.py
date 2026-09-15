@@ -135,9 +135,7 @@ def _rename(old: str, new: str) -> None:
             (_RENAME_IN_ARRAY, _ARRAY_TARGETS),
         ):
             for target in targets:
-                result = conn.execute(
-                    sa.text(template.format(old=old, new=new, **target)), params
-                )
+                result = conn.execute(sa.text(template.format(old=old, new=new, **target)), params)
                 renamed += result.rowcount if result.rowcount is not None else 0
 
     print(
