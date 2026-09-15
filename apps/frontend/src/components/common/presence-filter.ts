@@ -10,7 +10,7 @@ export interface ActivityPresenceFilters {
   comments: PresenceFilterValue;
   tasks: PresenceFilterValue;
   /** Optional — only used on test run grids with child-result review activity. */
-  reviews?: PresenceFilterValue;
+  annotations?: PresenceFilterValue;
 }
 
 export const EMPTY_ACTIVITY_PRESENCE_FILTERS: ActivityPresenceFilters = {
@@ -59,7 +59,7 @@ export function hasActivePresenceFilters(
     filters.tags !== 'all' ||
     filters.comments !== 'all' ||
     filters.tasks !== 'all' ||
-    (filters.reviews !== undefined && filters.reviews !== 'all')
+    (filters.annotations !== undefined && filters.annotations !== 'all')
   );
 }
 
@@ -70,6 +70,6 @@ export function countActivePresenceFilters(
     (filters.tags !== 'all' ? 1 : 0) +
     (filters.comments !== 'all' ? 1 : 0) +
     (filters.tasks !== 'all' ? 1 : 0) +
-    (filters.reviews !== undefined && filters.reviews !== 'all' ? 1 : 0)
+    (filters.annotations !== undefined && filters.annotations !== 'all' ? 1 : 0)
   );
 }

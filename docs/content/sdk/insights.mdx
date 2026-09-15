@@ -27,7 +27,7 @@ failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-
 | Entity | group_by | measures |
 |--------|----------|----------|
 | `test_result` | `requirement`, `requirement_id`, `category`, `category_id`, `topic`, `topic_id`, `test_run`, `status`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
-| `metric` | `metric_name`, `requirement_id`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate`, `automated_passed`, `automated_failed`, `human_review_count` |
+| `metric` | `metric_name`, `requirement_id`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate`, `automated_passed`, `automated_failed`, `human_annotation_count` |
 | `test_run` | `status`, `test_set`, `executor`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
 | `test` | `requirement`, `requirement_id`, `category`, `category_id`, `topic`, `topic_id`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
 

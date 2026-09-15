@@ -13,7 +13,7 @@ jest.mock('../TestResultDrawer', () => ({
   default: () => null,
 }));
 
-jest.mock('../ReviewJudgementDrawer', () => ({
+jest.mock('@/components/annotations/AnnotationDrawer', () => ({
   __esModule: true,
   default: () => null,
 }));

@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test';
 import { TestRunsPage } from '../pages/TestRunsPage';
 
 /**
- * Multi-target review annotation tests — NEW feature #1479.
+ * Multi-target annotation tests.
  *
- * Covers: D10.2 (add overall test result review), D10.5 (revert review),
+ * Covers: D10.2 (annotate a test result), D10.5 (revert an annotation),
  * D10.6 (pass rate recalculates after override).
  * Tagged @new-feature for separate CI execution against staging.
  */
-test.describe('Review Annotations — test result level @new-feature', () => {
+test.describe('Annotations — test result level @crud', () => {
   /** Navigate to the first test run detail page and return it, or skip. */
   async function gotoFirstRunDetail(page: import('@playwright/test').Page) {
     const runsPage = new TestRunsPage(page);
@@ -30,10 +30,10 @@ test.describe('Review Annotations — test result level @new-feature', () => {
     return true;
   }
 
-  test('can open the Reviews tab on a test result', async ({ page }) => {
+  test('can open the Annotations tab on a test result', async ({ page }) => {
     const loaded = await gotoFirstRunDetail(page);
     if (!loaded) {
-      test.skip(true, 'No test run rows — skipping review annotation test');
+      test.skip(true, 'No test run rows — skipping annotation test');
       return;
     }
 
@@ -49,28 +49,28 @@ test.describe('Review Annotations — test result level @new-feature', () => {
     await firstResult.click();
     await page.waitForLoadState('networkidle');
 
-    // Click the "Reviews" tab
-    const reviewsTab = page.getByRole('tab', { name: /reviews/i }).first();
-    const hasReviews = await reviewsTab
+    // Click the "Annotations" tab
+    const annotationsTab = page
+      .getByRole('tab', { name: /annotations/i })
+      .first();
+    const hasAnnotationsTab = await annotationsTab
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
-    if (!hasReviews) {
-      test.skip(true, 'Reviews tab not found — skipping');
+    if (!hasAnnotationsTab) {
+      test.skip(true, 'Annotations tab not found — skipping');
       return;
     }
-    await reviewsTab.click();
+    await annotationsTab.click();
 
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
   });
 
-  test('can add a Pass review annotation on a test result', async ({
-    page,
-  }) => {
+  test('can add a Pass annotation on a test result', async ({ page }) => {
     const loaded = await gotoFirstRunDetail(page);
     if (!loaded) {
-      test.skip(true, 'No test run rows — skipping add review test');
+      test.skip(true, 'No test run rows — skipping add annotation test');
       return;
     }
 
@@ -85,32 +85,34 @@ test.describe('Review Annotations — test result level @new-feature', () => {
     await firstResult.click();
     await page.waitForLoadState('networkidle');
 
-    // Open the Reviews tab
-    const reviewsTab = page.getByRole('tab', { name: /reviews/i }).first();
-    const hasReviews = await reviewsTab
+    // Open the Annotations tab
+    const annotationsTab = page
+      .getByRole('tab', { name: /annotations/i })
+      .first();
+    const hasAnnotationsTab = await annotationsTab
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
-    if (!hasReviews) {
-      test.skip(true, 'Reviews tab not found — skipping');
+    if (!hasAnnotationsTab) {
+      test.skip(true, 'Annotations tab not found — skipping');
       return;
     }
-    await reviewsTab.click();
+    await annotationsTab.click();
     await page.waitForLoadState('networkidle');
 
-    // Click "Add Review"
-    const addReviewBtn = page
-      .getByRole('button', { name: /add review/i })
+    // Click "Add annotation"
+    const addAnnotationBtn = page
+      .getByRole('button', { name: /add annotation/i })
       .first();
-    const hasAddReview = await addReviewBtn
+    const hasAddAnnotation = await addAnnotationBtn
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
-    if (!hasAddReview) {
-      test.skip(true, '"Add Review" button not found — skipping');
+    if (!hasAddAnnotation) {
+      test.skip(true, '"Add annotation" button not found — skipping');
       return;
     }
-    await addReviewBtn.click();
+    await addAnnotationBtn.click();
 
-    // A review form/dialog should appear with Pass/Fail toggle and comment field
+    // An annotation form/dialog should appear with Pass/Fail toggle and comment field
     const passToggle = page
       .getByRole('button', { name: /^pass$/i })
       .or(page.getByRole('radio', { name: /pass/i }))
@@ -119,7 +121,10 @@ test.describe('Review Annotations — test result level @new-feature', () => {
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
     if (!hasPass) {
-      test.skip(true, 'Pass/Fail toggle not found in review form — skipping');
+      test.skip(
+        true,
+        'Pass/Fail toggle not found in the annotation form — skipping'
+      );
       return;
     }
     await passToggle.click();
@@ -132,10 +137,10 @@ test.describe('Review Annotations — test result level @new-feature', () => {
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (hasComment) {
-      await commentInput.fill('E2E automated review — pass');
+      await commentInput.fill('E2E automated annotation — pass');
     }
 
-    // Submit the review
+    // Submit the annotation
     const submitBtn = page
       .getByRole('button', { name: /submit|save|confirm/i })
       .first();
@@ -143,22 +148,22 @@ test.describe('Review Annotations — test result level @new-feature', () => {
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (!hasSubmit) {
-      test.skip(true, 'Submit button for review not found — skipping');
+      test.skip(true, 'Submit button for the annotation not found — skipping');
       return;
     }
     await submitBtn.click();
     await page.waitForLoadState('networkidle');
 
-    // The review should appear in the reviews list
+    // The annotation should appear in the list
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
   });
 
-  test('can add a metric-level review annotation', async ({ page }) => {
+  test('can add a metric-level annotation', async ({ page }) => {
     const loaded = await gotoFirstRunDetail(page);
     if (!loaded) {
-      test.skip(true, 'No test run rows — skipping metric review test');
+      test.skip(true, 'No test run rows — skipping metric annotation test');
       return;
     }
 
@@ -179,13 +184,16 @@ test.describe('Review Annotations — test result level @new-feature', () => {
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
     if (!hasMetrics) {
-      test.skip(true, 'Metrics tab not found — skipping metric review test');
+      test.skip(
+        true,
+        'Metrics tab not found — skipping metric annotation test'
+      );
       return;
     }
     await metricsTab.click();
     await page.waitForLoadState('networkidle');
 
-    // Look for a review/annotate button within a metric accordion
+    // Look for an annotate button within a metric accordion
     const annotateBtn = page
       .getByRole('button', { name: /annotate|review|override/i })
       .first();
@@ -204,7 +212,9 @@ test.describe('Review Annotations — test result level @new-feature', () => {
     );
   });
 
-  test('pass rate card updates after a review override', async ({ page }) => {
+  test('pass rate card updates after an annotation override', async ({
+    page,
+  }) => {
     const loaded = await gotoFirstRunDetail(page);
     if (!loaded) {
       test.skip(true, 'No test run rows — skipping pass rate recalc test');
@@ -223,7 +233,7 @@ test.describe('Review Annotations — test result level @new-feature', () => {
 
     const initialText = await passRateEl.textContent().catch(() => '');
 
-    // Navigate to a test result and add a review
+    // Navigate to a test result and annotate it
     const firstResult = page.locator('[role="row"]').nth(1);
     if (!(await firstResult.isVisible({ timeout: 5_000 }).catch(() => false))) {
       test.skip(true, 'No test results — skipping');
@@ -231,23 +241,27 @@ test.describe('Review Annotations — test result level @new-feature', () => {
     }
     await firstResult.click();
 
-    const reviewsTab = page.getByRole('tab', { name: /reviews/i }).first();
-    if (!(await reviewsTab.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, 'Reviews tab not found — skipping');
-      return;
-    }
-    await reviewsTab.click();
-
-    const addReviewBtn = page
-      .getByRole('button', { name: /add review/i })
+    const annotationsTab = page
+      .getByRole('tab', { name: /annotations/i })
       .first();
     if (
-      !(await addReviewBtn.isVisible({ timeout: 5_000 }).catch(() => false))
+      !(await annotationsTab.isVisible({ timeout: 5_000 }).catch(() => false))
     ) {
-      test.skip(true, '"Add Review" not found — skipping');
+      test.skip(true, 'Annotations tab not found — skipping');
       return;
     }
-    await addReviewBtn.click();
+    await annotationsTab.click();
+
+    const addAnnotationBtn = page
+      .getByRole('button', { name: /add annotation/i })
+      .first();
+    if (
+      !(await addAnnotationBtn.isVisible({ timeout: 5_000 }).catch(() => false))
+    ) {
+      test.skip(true, '"Add annotation" not found — skipping');
+      return;
+    }
+    await addAnnotationBtn.click();
 
     const passToggle = page
       .getByRole('button', { name: /^pass$/i })

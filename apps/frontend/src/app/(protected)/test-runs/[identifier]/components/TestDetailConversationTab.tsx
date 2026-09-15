@@ -1,14 +1,11 @@
 'use client';
 
+import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import {
-  TestResultDetail,
-  Review,
-  REVIEW_TARGET_TYPES,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
-import type {
+import {
   SpanNode,
   TraceSummary,
 } from '@/utils/api-client/interfaces/telemetry';
@@ -29,9 +26,9 @@ interface TestDetailConversationTabProps {
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
-  onConfirmAutomatedReview?: () => void;
-  isConfirmingReview?: boolean;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onConfirmAutomatedAnnotation?: () => void;
+  isConfirmingAnnotation?: boolean;
 }
 
 export default function TestDetailConversationTab({
@@ -39,9 +36,9 @@ export default function TestDetailConversationTab({
   testSetType,
   project,
   projectName,
-  onReviewTurn,
-  onConfirmAutomatedReview,
-  isConfirmingReview = false,
+  onAnnotateTurn,
+  onConfirmAutomatedAnnotation,
+  isConfirmingAnnotation = false,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -147,31 +144,10 @@ export default function TestDetailConversationTab({
     [turnTraceMap]
   );
 
-  const turnReviewMap = useMemo(() => {
-    const map = new Map<number, Review>();
-    const reviews = test.test_reviews?.reviews || [];
-    for (const review of reviews) {
-      if (
-        review.target?.type === REVIEW_TARGET_TYPES.TURN &&
-        review.target.reference
-      ) {
-        const turnNum = parseInt(
-          review.target.reference.replace(/\D/g, ''),
-          10
-        );
-        if (!isNaN(turnNum)) {
-          const existing = map.get(turnNum);
-          if (
-            !existing ||
-            (review.updated_at || '') > (existing.updated_at || '')
-          ) {
-            map.set(turnNum, review);
-          }
-        }
-      }
-    }
-    return map;
-  }, [test.test_reviews]);
+  const turnAnnotationMap = useMemo(
+    () => annotationsByTurn(test.annotation_summary),
+    [test.annotation_summary]
+  );
 
   if (!isMultiTurn) {
     // With no `output` (a rejected call), the turn used to render as an empty bubble and
@@ -207,10 +183,10 @@ export default function TestDetailConversationTab({
           goalEvaluation={test.test_output?.goal_evaluation}
           project={project}
           projectName={projectName}
-          onConfirmAutomatedReview={onConfirmAutomatedReview}
-          hasExistingReview={!!test.last_review}
-          reviewMatchesAutomated={test.matches_review === true}
-          isConfirmingReview={isConfirmingReview}
+          onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
+          hasExistingAnnotation={!!test.last_annotation}
+          annotationMatchesAutomated={test.matches_annotation === true}
+          isConfirmingAnnotation={isConfirmingAnnotation}
           maxHeight="100%"
         />
       </Box>
@@ -261,13 +237,13 @@ export default function TestDetailConversationTab({
         project={project}
         projectName={projectName}
         onResponseClick={traces.length > 0 ? handleResponseClick : undefined}
-        onReviewTurn={onReviewTurn}
-        onConfirmAutomatedReview={onConfirmAutomatedReview}
-        hasExistingReview={!!test.last_review}
-        reviewMatchesAutomated={test.matches_review === true}
-        isConfirmingReview={isConfirmingReview}
+        onAnnotateTurn={onAnnotateTurn}
+        onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
+        hasExistingAnnotation={!!test.last_annotation}
+        annotationMatchesAutomated={test.matches_annotation === true}
+        isConfirmingAnnotation={isConfirmingAnnotation}
         maxHeight="100%"
-        turnReviewMap={turnReviewMap}
+        turnAnnotationMap={turnAnnotationMap}
       />
       <TraceDrawer
         open={traceDrawerOpen}

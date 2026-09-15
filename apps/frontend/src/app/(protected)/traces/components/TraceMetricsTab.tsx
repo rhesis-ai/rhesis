@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  annotationsByMetric,
+  annotationsByTurn,
+} from '@/components/annotations/annotation-summary';
+import type { AnnotationSummaryEntry } from '@/utils/api-client/interfaces/annotation';
 import { useMemo, useState } from 'react';
 import {
   Box,
@@ -26,9 +31,7 @@ import { alpha } from '@mui/material/styles';
 import {
   SpanNode,
   TraceMetricsStatus,
-  TraceReview,
   TRACE_METRICS_STATUS,
-  TRACE_REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/telemetry';
 import StatusChip from '@/components/common/StatusChip';
 import { TEST_RESULT_STATUS_NAMES } from '@/utils/test-result-status';
@@ -36,7 +39,8 @@ import { passRate, allMetricsPassed } from '@/constants/outcomes';
 
 interface MetricOverride {
   original_value: boolean;
-  review_id: string;
+  /** The annotation that overrode the metric. */
+  annotation_id: string;
   overridden_by: string;
   overridden_at: string;
 }
@@ -59,9 +63,9 @@ type FilterStatus = 'all' | 'passed' | 'failed';
 interface TraceMetricsTabProps {
   selectedSpan: SpanNode | null;
   isConversationTrace: boolean;
-  onReviewMetric?: (metricName: string) => void;
-  onReviewTrace?: () => void;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateMetric?: (metricName: string) => void;
+  onAnnotateTrace?: () => void;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   traceMetricsStatus?: TraceMetricsStatus | null;
   selectedTurnNumber?: number | null;
 }
@@ -70,14 +74,14 @@ function MetricsTable({
   metrics,
   executionTime,
   filterStatus,
-  onReviewMetric,
-  metricReviewMap = new Map(),
+  onAnnotateMetric,
+  metricAnnotationMap = new Map(),
 }: {
   metrics: Record<string, MetricEntry>;
   executionTime?: number;
   filterStatus: FilterStatus;
-  onReviewMetric?: (metricName: string) => void;
-  metricReviewMap?: Map<string, TraceReview>;
+  onAnnotateMetric?: (metricName: string) => void;
+  metricAnnotationMap?: Map<string, AnnotationSummaryEntry>;
 }) {
   const theme = useTheme();
   const allEntries = Object.entries(metrics);
@@ -111,25 +115,25 @@ function MetricsTable({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell width={onReviewMetric ? '12%' : '12%'}>
+              <TableCell width={onAnnotateMetric ? '12%' : '12%'}>
                 Status
               </TableCell>
-              <TableCell width={onReviewMetric ? '23%' : '25%'}>
+              <TableCell width={onAnnotateMetric ? '23%' : '25%'}>
                 Metric
               </TableCell>
               <TableCell width="10%" align="right">
                 Score
               </TableCell>
-              <TableCell width={onReviewMetric ? '49%' : '53%'}>
+              <TableCell width={onAnnotateMetric ? '49%' : '53%'}>
                 Reason
               </TableCell>
-              {onReviewMetric && <TableCell width="6%" align="right" />}
+              {onAnnotateMetric && <TableCell width="6%" align="right" />}
             </TableRow>
           </TableHead>
           <TableBody>
             {entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={onReviewMetric ? 5 : 4} align="center">
+                <TableCell colSpan={onAnnotateMetric ? 5 : 4} align="center">
                   <Typography
                     variant="body2"
                     color="text.secondary"
@@ -142,9 +146,9 @@ function MetricsTable({
               </TableRow>
             ) : (
               entries.map(([name, metric]) => {
-                const metricReview = metricReviewMap.get(name);
+                const metricAnnotation = metricAnnotationMap.get(name);
                 const isOverruled = !!metric.override;
-                const isConfirmed = !!metricReview && !isOverruled;
+                const isConfirmed = !!metricAnnotation && !isOverruled;
 
                 return (
                   <TableRow
@@ -168,12 +172,12 @@ function MetricsTable({
                       <Tooltip
                         title={
                           isOverruled
-                            ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
+                            ? `Annotated by ${metricAnnotation?.user?.name}: status changed to ${metricAnnotation?.status?.name}`
                             : isConfirmed
-                              ? `Confirmed by ${metricReview?.user?.name}`
+                              ? `Confirmed by ${metricAnnotation?.user?.name}`
                               : ''
                         }
-                        disableHoverListener={!metricReview}
+                        disableHoverListener={!metricAnnotation}
                         arrow
                       >
                         <StatusChip
@@ -239,12 +243,12 @@ function MetricsTable({
                         </Typography>
                       )}
                     </TableCell>
-                    {onReviewMetric && (
+                    {onAnnotateMetric && (
                       <TableCell align="right">
-                        <Tooltip title="Review this metric">
+                        <Tooltip title="Annotate this metric">
                           <IconButton
                             size="small"
-                            onClick={() => onReviewMetric(name)}
+                            onClick={() => onAnnotateMetric(name)}
                             sx={{
                               padding: 0.5,
                               color: theme.palette.text.secondary,
@@ -278,9 +282,9 @@ function MetricsTable({
 export default function TraceMetricsTab({
   selectedSpan,
   isConversationTrace,
-  onReviewMetric,
-  onReviewTrace,
-  onReviewTurn,
+  onAnnotateMetric,
+  onAnnotateTrace,
+  onAnnotateTurn,
   traceMetricsStatus,
   selectedTurnNumber = null,
 }: TraceMetricsTabProps) {
@@ -321,26 +325,10 @@ export default function TraceMetricsTab({
     return { total, passed, failed, passRate: passRate(passed, failed) };
   }, [turnMetrics, conversationMetrics]);
 
-  const metricReviewMap = useMemo(() => {
-    const map = new Map<string, TraceReview>();
-    const reviews = selectedSpan?.trace_reviews?.reviews;
-    if (!reviews) return map;
-    for (const review of reviews) {
-      if (
-        review.target?.type === TRACE_REVIEW_TARGET_TYPES.METRIC &&
-        review.target.reference
-      ) {
-        const existing = map.get(review.target.reference);
-        if (
-          !existing ||
-          (review.updated_at || '') > (existing.updated_at || '')
-        ) {
-          map.set(review.target.reference, review);
-        }
-      }
-    }
-    return map;
-  }, [selectedSpan?.trace_reviews]);
+  const metricAnnotationMap = useMemo(
+    () => annotationsByMetric(selectedSpan?.annotation_summary),
+    [selectedSpan?.annotation_summary]
+  );
 
   // Per-TURN, which is finer than anything the backend stores an outcome
   // for -- see allMetricsPassed. Not the trace's execution/verdict.
@@ -372,32 +360,10 @@ export default function TraceMetricsTab({
     return result;
   }, [traceMetrics]);
 
-  const turnReviewMap = useMemo(() => {
-    const map = new Map<number, TraceReview>();
-    const reviews = selectedSpan?.trace_reviews?.reviews;
-    if (!reviews) return map;
-    for (const review of reviews) {
-      if (
-        review.target?.type === TRACE_REVIEW_TARGET_TYPES.TURN &&
-        review.target.reference
-      ) {
-        const turnNum = parseInt(
-          review.target.reference.replace(/\D/g, ''),
-          10
-        );
-        if (!isNaN(turnNum)) {
-          const existing = map.get(turnNum);
-          if (
-            !existing ||
-            (review.updated_at || '') > (existing.updated_at || '')
-          ) {
-            map.set(turnNum, review);
-          }
-        }
-      }
-    }
-    return map;
-  }, [selectedSpan?.trace_reviews]);
+  const turnAnnotationMap = useMemo(
+    () => annotationsByTurn(selectedSpan?.annotation_summary),
+    [selectedSpan?.annotation_summary]
+  );
 
   if (!traceMetrics || (!turnMetrics && !conversationMetrics)) {
     return (
@@ -484,11 +450,11 @@ export default function TraceMetricsTab({
                     >
                       {traceMetricsStatus}
                     </Typography>
-                    {onReviewTrace && (
-                      <Tooltip title="Review overall trace">
+                    {onAnnotateTrace && (
+                      <Tooltip title="Annotate this trace">
                         <IconButton
                           size="small"
-                          onClick={onReviewTrace}
+                          onClick={onAnnotateTrace}
                           sx={{
                             color: theme.palette.text.secondary,
                             '&:hover': {
@@ -603,9 +569,10 @@ export default function TraceMetricsTab({
                     const turnSuccess = override
                       ? override.success
                       : (automatedTurnSuccess ?? false);
-                    const review = turnReviewMap.get(selectedTurnNumber);
+                    const turnAnnotation =
+                      turnAnnotationMap.get(selectedTurnNumber);
                     const isOverruled = !!override;
-                    const isConfirmed = !!review && !isOverruled;
+                    const isConfirmed = !!turnAnnotation && !isOverruled;
 
                     return (
                       <Stack
@@ -617,9 +584,9 @@ export default function TraceMetricsTab({
                         <Tooltip
                           title={
                             isOverruled
-                              ? `Reviewed by ${review?.user?.name}: status changed to ${review?.status?.name}`
+                              ? `Annotated by ${turnAnnotation?.user?.name}: status changed to ${turnAnnotation?.status?.name}`
                               : isConfirmed
-                                ? `Confirmed by ${review?.user?.name}`
+                                ? `Confirmed by ${turnAnnotation?.user?.name}`
                                 : ''
                           }
                           disableHoverListener={!isOverruled && !isConfirmed}
@@ -655,12 +622,12 @@ export default function TraceMetricsTab({
                           size="small"
                           variant="filled"
                         />
-                        {onReviewTurn && (
-                          <Tooltip title={`Review Turn ${selectedTurnNumber}`}>
+                        {onAnnotateTurn && (
+                          <Tooltip title="Annotate this turn">
                             <IconButton
                               size="small"
                               onClick={() =>
-                                onReviewTurn(selectedTurnNumber, turnSuccess)
+                                onAnnotateTurn(selectedTurnNumber, turnSuccess)
                               }
                               sx={{
                                 padding: theme.spacing(0.25),
@@ -690,8 +657,8 @@ export default function TraceMetricsTab({
                 metrics={turnMetrics.metrics}
                 executionTime={turnMetrics.execution_time}
                 filterStatus={filterStatus}
-                onReviewMetric={onReviewMetric}
-                metricReviewMap={metricReviewMap}
+                onAnnotateMetric={onAnnotateMetric}
+                metricAnnotationMap={metricAnnotationMap}
               />
             </CardContent>
           </Card>
@@ -718,8 +685,8 @@ export default function TraceMetricsTab({
                   metrics={conversationMetrics.metrics}
                   executionTime={conversationMetrics.execution_time}
                   filterStatus={filterStatus}
-                  onReviewMetric={onReviewMetric}
-                  metricReviewMap={metricReviewMap}
+                  onAnnotateMetric={onAnnotateMetric}
+                  metricAnnotationMap={metricAnnotationMap}
                 />
               </CardContent>
             </Card>

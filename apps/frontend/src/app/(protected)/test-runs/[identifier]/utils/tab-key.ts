@@ -14,7 +14,7 @@ export const TAB_KEYS = [
   'linked_entities',
   'configuration',
   'traces',
-  'reviews',
+  'annotations',
 ] as const;
 
 export type TabKey = (typeof TAB_KEYS)[number];
@@ -31,6 +31,10 @@ export function tabIndexFromKey(
   }
   if (key === 'logs') {
     return TAB_KEYS.indexOf('traces');
+  }
+  // Kept for one release so shared ?tab=reviews links still land correctly.
+  if (key === 'reviews') {
+    return TAB_KEYS.indexOf('annotations');
   }
   const idx = TAB_KEYS.indexOf(key as TabKey);
   if (idx >= 0) return idx;

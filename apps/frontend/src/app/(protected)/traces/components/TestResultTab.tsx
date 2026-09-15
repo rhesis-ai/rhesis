@@ -186,7 +186,7 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
                     sx={{ fontWeight: 600 }}
                   />
                   {/* Show Review Confirmed indicator if review exists */}
-                  {testResult.last_review && (
+                  {testResult.last_annotation && (
                     <Chip
                       icon={<CheckIcon sx={{ fontSize: 16 }} />}
                       label="Confirmed"
@@ -409,7 +409,7 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
       )}
 
       {/* Review Comments - Rectangular Accordion */}
-      {testResult.last_review?.comments && (
+      {testResult.last_annotation?.comments && (
         <Accordion
           sx={{
             backgroundColor: theme => theme.palette.secondary.main + '08',
@@ -435,7 +435,7 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
                     wordBreak: 'break-word',
                   }}
                 >
-                  {testResult.last_review.comments}
+                  {testResult.last_annotation.comments}
                 </Typography>
               </CardContent>
             </Card>

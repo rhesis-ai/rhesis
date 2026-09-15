@@ -1,5 +1,6 @@
 'use client';
 
+import { useTraceAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
@@ -9,7 +10,7 @@ import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
-import TraceReviewDrawer from './TraceReviewDrawer';
+import TraceAnnotationDrawer from './TraceAnnotationDrawer';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -20,10 +21,7 @@ import {
   TraceMetricsStatus,
   SpanNode,
 } from '@/utils/api-client/interfaces/telemetry';
-import {
-  MentionOption,
-  toMentionId,
-} from '@/components/common/MentionTextInput';
+import { toMentionId } from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
 import {
   formatCost,
@@ -243,53 +241,17 @@ export default function TraceDrawer({
     }
   }, [traceId, projectId]);
 
-  // Review drawer state (lifted from SpanDetailsPanel for cross-panel access)
-  const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
-  const [reviewInitialComment, setReviewInitialComment] = useState<
+  // Annotation drawer state (lifted from SpanDetailsPanel for cross-panel access)
+  const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
+  const [annotationInitialComment, setAnnotationInitialComment] = useState<
     string | undefined
   >();
-  const [reviewInitialStatus, setReviewInitialStatus] = useState<
+  const [annotationInitialStatus, setAnnotationInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >();
 
-  const mentionableMetrics: MentionOption[] = useMemo(() => {
-    const traceMetrics = selectedSpan?.trace_metrics as
-      | Record<string, unknown>
-      | undefined;
-    if (!traceMetrics) return [];
-    const names: string[] = [];
-    for (const section of ['turn_metrics', 'conversation_metrics']) {
-      const sectionData = traceMetrics[section] as
-        | Record<string, unknown>
-        | undefined;
-      const metrics = sectionData?.metrics as
-        | Record<string, unknown>
-        | undefined;
-      if (metrics) {
-        names.push(...Object.keys(metrics));
-      }
-    }
-    return names.map(name => ({
-      id: toMentionId(name),
-      display: name,
-      type: 'metric' as const,
-    }));
-  }, [selectedSpan]);
-
-  const mentionableTurns: MentionOption[] = useMemo(() => {
-    if (!trace?.root_spans || !trace.conversation_id) return [];
-    return trace.root_spans
-      .filter(
-        span =>
-          span.attributes['rhesis.conversation.input'] ||
-          span.attributes['rhesis.conversation.output']
-      )
-      .map((_, i) => ({
-        id: String(i + 1),
-        display: `Turn ${i + 1}`,
-        type: 'turn' as const,
-      }));
-  }, [trace]);
+  const { metrics: mentionableMetrics, turns: mentionableTurns } =
+    useTraceAnnotationTargets(selectedSpan, trace);
 
   const traceMetricsStatus = useMemo(() => {
     return (trace?.trace_metrics_status as TraceMetricsStatus) ?? null;
@@ -309,7 +271,7 @@ export default function TraceDrawer({
     return idx >= 0 ? idx + 1 : null;
   }, [selectedSpan, trace]);
 
-  const handleReviewMetric = useCallback(
+  const handleAnnotateMetric = useCallback(
     (metricName: string) => {
       const traceMetrics = selectedSpan?.trace_metrics as
         | Record<string, unknown>
@@ -331,29 +293,29 @@ export default function TraceDrawer({
       }
 
       const slug = toMentionId(metricName);
-      setReviewInitialComment(`@[${metricName}](metric:${slug}) `);
-      setReviewInitialStatus(isSuccessful ? 'failed' : 'passed');
-      setReviewDrawerOpen(true);
+      setAnnotationInitialComment(`@[${metricName}](metric:${slug}) `);
+      setAnnotationInitialStatus(isSuccessful ? 'failed' : 'passed');
+      setAnnotationDrawerOpen(true);
     },
     [selectedSpan]
   );
 
-  const handleReviewTrace = useCallback(() => {
-    setReviewInitialComment(undefined);
-    setReviewInitialStatus(undefined);
-    setReviewDrawerOpen(true);
+  const handleAnnotateTrace = useCallback(() => {
+    setAnnotationInitialComment(undefined);
+    setAnnotationInitialStatus(undefined);
+    setAnnotationDrawerOpen(true);
   }, []);
 
-  const handleReviewTurn = useCallback(
+  const handleAnnotateTurn = useCallback(
     (turnNumber: number, turnSuccess: boolean) => {
-      setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
-      setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-      setReviewDrawerOpen(true);
+      setAnnotationInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
+      setAnnotationInitialStatus(turnSuccess ? 'failed' : 'passed');
+      setAnnotationDrawerOpen(true);
     },
     []
   );
 
-  const handleReviewSave = useCallback(async () => {
+  const handleAnnotationSave = useCallback(async () => {
     await refreshTrace();
     onTraceUpdated?.();
   }, [refreshTrace, onTraceUpdated]);
@@ -689,8 +651,8 @@ export default function TraceDrawer({
                     trace={trace}
                     onSpanSelect={handleSpanSelect}
                     rootSpans={trace.root_spans}
-                    onReviewTurn={
-                      hasTraceMetrics ? handleReviewTurn : undefined
+                    onAnnotateTurn={
+                      hasTraceMetrics ? handleAnnotateTurn : undefined
                     }
                   />
                 )}
@@ -769,9 +731,9 @@ export default function TraceDrawer({
               currentUserName={currentUserName}
               currentUserPicture={currentUserPicture}
               onTraceUpdated={refreshTrace}
-              onReviewMetric={handleReviewMetric}
-              onReviewTrace={handleReviewTrace}
-              onReviewTurn={hasTraceMetrics ? handleReviewTurn : undefined}
+              onAnnotateMetric={handleAnnotateMetric}
+              onAnnotateTrace={handleAnnotateTrace}
+              onAnnotateTurn={hasTraceMetrics ? handleAnnotateTurn : undefined}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
               traceMetricsStatus={traceMetricsStatus}
@@ -834,17 +796,17 @@ export default function TraceDrawer({
         {drawerContent()}
       </Box>
       {hasTraceMetrics && (
-        <TraceReviewDrawer
-          open={reviewDrawerOpen}
+        <TraceAnnotationDrawer
+          open={annotationDrawerOpen}
           onClose={() => {
-            setReviewDrawerOpen(false);
-            setReviewInitialComment(undefined);
-            setReviewInitialStatus(undefined);
+            setAnnotationDrawerOpen(false);
+            setAnnotationInitialComment(undefined);
+            setAnnotationInitialStatus(undefined);
           }}
           selectedSpan={selectedSpan}
-          onSave={handleReviewSave}
-          initialComment={reviewInitialComment}
-          initialStatus={reviewInitialStatus}
+          onSave={handleAnnotationSave}
+          initialComment={annotationInitialComment}
+          initialStatus={annotationInitialStatus}
           mentionableMetrics={mentionableMetrics}
           mentionableTurns={mentionableTurns}
         />

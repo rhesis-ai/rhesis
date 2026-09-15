@@ -2,6 +2,10 @@
 
 import React, { useMemo, useState } from 'react';
 import {
+  ANNOTATION_TARGET_TYPES,
+  type AnnotationSummaryEntry,
+} from '@/utils/api-client/interfaces/annotation';
+import {
   Box,
   Typography,
   Grid,
@@ -38,8 +42,6 @@ import {
   MetricResult,
   CriterionEvaluation,
   BehaviorVerdict,
-  Review,
-  REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import {
@@ -61,7 +63,7 @@ interface TestDetailMetricsTabProps {
   }>;
   /** Source of metrics used in this test run */
   metricsSource?: MetricsSource | string;
-  onReviewMetric?: (metricName: string) => void;
+  onAnnotateMetric?: (metricName: string) => void;
 }
 
 interface MetricSummary {
@@ -75,7 +77,7 @@ export default function TestDetailMetricsTab({
   test,
   requirements,
   metricsSource,
-  onReviewMetric,
+  onAnnotateMetric,
 }: TestDetailMetricsTabProps) {
   const theme = useTheme();
   const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>(
@@ -341,24 +343,20 @@ export default function TestDetailMetricsTab({
     });
   }, [filteredMetrics, isMultiTurn]);
 
-  // Build a map of metric name -> latest review targeting that metric
-  const metricReviewMap = useMemo(() => {
-    const map = new Map<string, Review>();
-    const reviews = test.test_reviews?.reviews || [];
-    for (const review of reviews) {
-      const target = review.target;
-      if (target?.type === REVIEW_TARGET_TYPES.METRIC && target.reference) {
-        const existing = map.get(target.reference);
-        if (
-          !existing ||
-          (review.updated_at || '') > (existing.updated_at || '')
-        ) {
-          map.set(target.reference, review);
-        }
+  // metric name -> the annotation on that metric. The summary is already
+  // reduced to the newest per target, so there is no comparison to make.
+  const metricAnnotationMap = useMemo(() => {
+    const map = new Map<string, AnnotationSummaryEntry>();
+    for (const entry of Object.values(test.annotation_summary ?? {})) {
+      if (
+        entry.target_type === ANNOTATION_TARGET_TYPES.METRIC &&
+        entry.reference
+      ) {
+        map.set(entry.reference, entry);
       }
     }
     return map;
-  }, [test.test_reviews]);
+  }, [test.annotation_summary]);
 
   const endpointFailure = useMemo(
     () => getEndpointFailure(test.test_output),
@@ -608,9 +606,9 @@ export default function TestDetailMetricsTab({
       {goalAchievementData &&
         goalMetricName &&
         (() => {
-          const goalReview = metricReviewMap.get(goalMetricName);
+          const goalAnnotation = metricAnnotationMap.get(goalMetricName);
           const goalIsOverruled = !!goalAchievementData.override;
-          const goalIsConfirmed = !!goalReview && !goalIsOverruled;
+          const goalIsConfirmed = !!goalAnnotation && !goalIsOverruled;
 
           const progressLabel = goalAchievementData.usesBehaviors
             ? 'Behaviour Compliance'
@@ -664,11 +662,11 @@ export default function TestDetailMetricsTab({
                     />
                   )}
                   <Box sx={{ flexGrow: 1 }} />
-                  {onReviewMetric && (
-                    <Tooltip title={`Review ${goalMetricName}`}>
+                  {onAnnotateMetric && (
+                    <Tooltip title="Annotate this metric">
                       <IconButton
                         size="small"
-                        onClick={() => onReviewMetric(goalMetricName)}
+                        onClick={() => onAnnotateMetric(goalMetricName)}
                         sx={{
                           padding: 0.5,
                           color: theme.palette.text.secondary,
@@ -978,22 +976,25 @@ export default function TestDetailMetricsTab({
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell width={onReviewMetric ? '15%' : '15%'}>
+                  <TableCell width={onAnnotateMetric ? '15%' : '15%'}>
                     Status
                   </TableCell>
-                  <TableCell width={onReviewMetric ? '28%' : '30%'}>
+                  <TableCell width={onAnnotateMetric ? '28%' : '30%'}>
                     Metric
                   </TableCell>
-                  <TableCell width={onReviewMetric ? '47%' : '55%'}>
+                  <TableCell width={onAnnotateMetric ? '47%' : '55%'}>
                     Reason
                   </TableCell>
-                  {onReviewMetric && <TableCell width="10%" align="right" />}
+                  {onAnnotateMetric && <TableCell width="10%" align="right" />}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredMetricsForTable.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={onReviewMetric ? 4 : 3} align="center">
+                    <TableCell
+                      colSpan={onAnnotateMetric ? 4 : 3}
+                      align="center"
+                    >
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -1005,9 +1006,11 @@ export default function TestDetailMetricsTab({
                   </TableRow>
                 ) : (
                   filteredMetricsForTable.map(metric => {
-                    const metricReview = metricReviewMap.get(metric.name);
+                    const metricAnnotation = metricAnnotationMap.get(
+                      metric.name
+                    );
                     const isOverruled = !!metric.fullMetricData.override;
-                    const isConfirmed = !!metricReview && !isOverruled;
+                    const isConfirmed = !!metricAnnotation && !isOverruled;
 
                     return (
                       <TableRow
@@ -1028,12 +1031,12 @@ export default function TestDetailMetricsTab({
                           <Tooltip
                             title={
                               isOverruled
-                                ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
+                                ? `Annotated by ${metricAnnotation?.user?.name}: status changed to ${metricAnnotation?.status?.name}`
                                 : isConfirmed
-                                  ? `Confirmed by ${metricReview?.user?.name}`
+                                  ? `Confirmed by ${metricAnnotation?.user?.name}`
                                   : ''
                             }
-                            disableHoverListener={!metricReview}
+                            disableHoverListener={!metricAnnotation}
                             arrow
                           >
                             <Box>
@@ -1060,7 +1063,7 @@ export default function TestDetailMetricsTab({
                               variant="body2"
                               fontWeight={500}
                               sx={{
-                                ...(onReviewMetric && {
+                                ...(onAnnotateMetric && {
                                   color: theme.palette.primary.main,
                                   cursor: 'pointer',
                                   '&:hover': {
@@ -1069,8 +1072,8 @@ export default function TestDetailMetricsTab({
                                 }),
                               }}
                               onClick={
-                                onReviewMetric
-                                  ? () => onReviewMetric(metric.name)
+                                onAnnotateMetric
+                                  ? () => onAnnotateMetric(metric.name)
                                   : undefined
                               }
                             >
@@ -1098,12 +1101,12 @@ export default function TestDetailMetricsTab({
                             </Typography>
                           )}
                         </TableCell>
-                        {onReviewMetric && (
+                        {onAnnotateMetric && (
                           <TableCell align="right">
-                            <Tooltip title="Review this metric">
+                            <Tooltip title="Annotate this metric">
                               <IconButton
                                 size="small"
-                                onClick={() => onReviewMetric(metric.name)}
+                                onClick={() => onAnnotateMetric(metric.name)}
                                 sx={{
                                   padding: 0.5,
                                   color: theme.palette.text.secondary,

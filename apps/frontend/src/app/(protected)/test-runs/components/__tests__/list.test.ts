@@ -67,7 +67,7 @@ describe('testRunsList filters', () => {
       buildListFilter(testRunsList, {
         ...empty,
         runKind: 'tests',
-        reviews: 'with',
+        annotations: 'with',
       })
     ).toBeUndefined();
   });
@@ -92,25 +92,25 @@ describe('testRunsList extraParams', () => {
     expect(params2.has_experiment).toBe(true);
   });
 
-  it('maps reviews to has_reviews', () => {
+  it('maps reviews to has_annotations', () => {
     const params = listParams(testRunsList, {
       page: 1,
       pageSize: 50,
       sort: testRunsList.defaultSort,
-      filters: { ...empty, reviews: 'with' },
+      filters: { ...empty, annotations: 'with' },
     });
-    expect(params.has_reviews).toBe(true);
+    expect(params.has_annotations).toBe(true);
 
     const params2 = listParams(testRunsList, {
       page: 1,
       pageSize: 50,
       sort: testRunsList.defaultSort,
-      filters: { ...empty, reviews: 'without' },
+      filters: { ...empty, annotations: 'without' },
     });
-    expect(params2.has_reviews).toBe(false);
+    expect(params2.has_annotations).toBe(false);
   });
 
-  it('omits has_experiment/has_reviews entirely when unset', () => {
+  it('omits has_experiment/has_annotations entirely when unset', () => {
     const params = listParams(testRunsList, {
       page: 1,
       pageSize: 50,
@@ -118,6 +118,6 @@ describe('testRunsList extraParams', () => {
       filters: empty,
     });
     expect(params).not.toHaveProperty('has_experiment');
-    expect(params).not.toHaveProperty('has_reviews');
+    expect(params).not.toHaveProperty('has_annotations');
   });
 });

@@ -32,8 +32,8 @@ export const TEST_RESULT_STATUS_NAMES = {
  * - 'pass' will match 'Pass', 'Passed', 'passing'
  * - 'success' will match 'Success', 'Successful'
  *
- * Write-side only: resolves which Status row to attach when *submitting* a
- * review (see findStatusByCategory below). Never use this to classify an
+ * Write-side only: resolves which Status row to attach when *submitting* an
+ * annotation (see findStatusByCategory below). Never use this to classify an
  * already-recorded result -- read `execution`/`verdict` (via
  * getEffectiveTestResultStatus) instead, which the backend has already
  * classified once, canonically.
@@ -73,7 +73,7 @@ const STATUS_KEYWORDS = {
  * Find a status by semantic category (passed/failed/error).
  *
  * This provides a centralized way to find the appropriate status when creating
- * or updating test result reviews. It first tries to find the canonical status
+ * or updating test result annotations. It first tries to find the canonical status
  * name, then falls back to keyword matching if needed.
  *
  * @param statuses - Array of available statuses for TestResult entity type
@@ -85,7 +85,7 @@ const STATUS_KEYWORDS = {
  * const statuses = await statusClient.getStatuses({ entity_type: 'TestResult' });
  * const failedStatus = findStatusByCategory(statuses, 'failed');
  * if (failedStatus) {
- *   await testResultsClient.createReview(testId, failedStatus.id, reason);
+ *   await annotationsClient.createAnnotation({ ..., status_id: failedStatus.id });
  * }
  * ```
  */
@@ -122,9 +122,9 @@ export function findStatusByCategory(
  * Determines the effective test result status from the backend's
  * `execution`/`verdict` (see constants/outcomes.ts) -- the source of truth,
  * which already reflects any test-level, metric-level, or turn-level human
- * review by the time it reaches the client (the review write path applies
- * and persists the override synchronously; see
- * apps/backend/.../services/review_override.py).
+ * annotation by the time it reaches the client (the annotation write path
+ * applies and persists the override synchronously; see
+ * apps/backend/.../services/annotation_override/).
  *
  * @param test - The test result detail object
  * @returns The test status: 'Pass', 'Fail', or 'Error'
@@ -137,7 +137,7 @@ export function getEffectiveTestResultStatus(
 
 /**
  * Gets the label text for a test result status, accounting for any human
- * review (the backend's `execution`/`verdict` already do).
+ * annotation (the backend's `execution`/`verdict` already do).
  *
  * @param test - The test result detail object
  * @returns The label text (e.g., "Passed", "Failed", "Error")
@@ -147,28 +147,28 @@ export function getTestResultLabel(test: TestResultDetail): string {
 }
 
 /**
- * Whether a review's own recorded status name is a pass.
+ * Whether an annotation's own recorded status name is a pass.
  *
- * A review's `status.name` is always canonical ("Pass"/"Fail") by
- * construction of the review-submission UI (every submission flow resolves
- * through `findStatusByCategory`'s canonical-name-first lookup) -- so this
- * is a direct read, not a guess. Read-side classification of an already-
- * recorded *result* should use `getEffectiveTestResultStatus` instead; this
- * is only for displaying what a specific review itself said.
+ * An annotation's `status.name` is always canonical ("Pass"/"Fail") by
+ * construction of the annotation drawer (every write resolves through
+ * `findStatusByCategory`'s canonical-name-first lookup) -- so this is a direct
+ * read, not a guess. Read-side classification of an already-recorded *result*
+ * should use `getEffectiveTestResultStatus` instead; this is only for
+ * displaying what a specific annotation itself said.
  */
 export function isPassedStatusName(statusName: string): boolean {
   return statusName === TEST_RESULT_STATUS_NAMES.PASSED;
 }
 
 /**
- * Checks if a test has a conflicting human review
- * (i.e., human review exists but doesn't match automated result)
+ * Checks if a test has a conflicting human annotation
+ * (i.e., a human annotation exists but doesn't match the automated result)
  *
  * @param test - The test result detail object
- * @returns True if there's a conflicting review, false otherwise
+ * @returns True if there's a conflicting annotation, false otherwise
  */
-export function hasConflictingReview(test: TestResultDetail): boolean {
-  return !!test.last_review && test.matches_review === false;
+export function hasConflictingAnnotation(test: TestResultDetail): boolean {
+  return !!test.last_annotation && test.matches_annotation === false;
 }
 
 function isGoalMetricName(name: string): boolean {

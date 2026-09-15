@@ -1,18 +1,17 @@
 'use client';
 
+import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import { useState, useEffect, useMemo } from 'react';
 import { Alert, Box, CircularProgress } from '@mui/material';
 import {
   TraceDetailResponse,
   SpanNode,
-  TRACE_REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/telemetry';
 import {
   TestResultDetail,
   ConversationTurn,
   GoalEvaluation,
   OverrideMarker,
-  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import { reconstructConversationFromSpans } from '@/utils/conversation-from-spans';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
@@ -31,7 +30,7 @@ interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
   onSpanSelect?: (span: SpanNode) => void;
   rootSpans?: SpanNode[];
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
 }
 
 interface TurnOverrideEntry {
@@ -88,7 +87,7 @@ export default function ConversationTraceView({
   trace,
   onSpanSelect,
   rootSpans,
-  onReviewTurn,
+  onAnnotateTurn,
 }: ConversationTraceViewProps) {
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,33 +158,13 @@ export default function ConversationTraceView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trace.trace_id, trace.test_result?.id]);
 
-  const turnReviewMap = useMemo(() => {
-    const map = new Map<number, Review>();
-    const reviews = rootSpans?.find(s => s.trace_reviews)?.trace_reviews
-      ?.reviews;
-    if (!reviews) return map;
-    for (const review of reviews) {
-      if (
-        review.target?.type === TRACE_REVIEW_TARGET_TYPES.TURN &&
-        review.target.reference
-      ) {
-        const turnNum = parseInt(
-          review.target.reference.replace(/\D/g, ''),
-          10
-        );
-        if (!isNaN(turnNum)) {
-          const existing = map.get(turnNum);
-          if (
-            !existing ||
-            (review.updated_at || '') > (existing.updated_at || '')
-          ) {
-            map.set(turnNum, review as unknown as Review);
-          }
-        }
-      }
-    }
-    return map;
-  }, [rootSpans]);
+  const turnAnnotationMap = useMemo(
+    () =>
+      annotationsByTurn(
+        rootSpans?.find(s => s.annotation_summary)?.annotation_summary
+      ),
+    [rootSpans]
+  );
 
   if (loading) {
     return (
@@ -296,9 +275,9 @@ export default function ConversationTraceView({
           onResponseClick={
             onSpanSelect && rootSpans ? handleResponseClick : undefined
           }
-          onReviewTurn={onReviewTurn}
+          onAnnotateTurn={onAnnotateTurn}
           maxHeight="100%"
-          turnReviewMap={turnReviewMap}
+          turnAnnotationMap={turnAnnotationMap}
         />
       </Box>
     </Box>

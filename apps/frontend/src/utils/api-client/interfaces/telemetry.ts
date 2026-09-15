@@ -3,8 +3,8 @@
  * from apps/backend/src/rhesis/backend/app/schemas/telemetry.py
  */
 
-import type { WithPermittedActions } from '@/types/affordances';
 import type { Execution, Verdict } from '@/constants/outcomes';
+import type { AnnotationSummaryEntry } from './annotation';
 
 /** Span event with known structure from OpenTelemetry */
 export interface SpanEvent {
@@ -12,57 +12,6 @@ export interface SpanEvent {
   timestamp?: string;
   attributes?: Record<string, string | number | boolean>;
   [key: string]: unknown;
-}
-
-/**
- * Review types for trace reviews (mirroring test-results review types)
- */
-export const TRACE_REVIEW_TARGET_TYPES = {
-  TRACE: 'trace',
-  METRIC: 'metric',
-  TURN: 'turn',
-} as const;
-
-export type TraceReviewTargetType =
-  (typeof TRACE_REVIEW_TARGET_TYPES)[keyof typeof TRACE_REVIEW_TARGET_TYPES];
-
-/** Display labels for review target types (shared across trace components). */
-export const TRACE_REVIEW_TARGET_LABELS: Record<
-  TraceReviewTargetType | 'test_result',
-  string
-> = {
-  [TRACE_REVIEW_TARGET_TYPES.TRACE]: 'Trace',
-  [TRACE_REVIEW_TARGET_TYPES.METRIC]: 'Metric',
-  [TRACE_REVIEW_TARGET_TYPES.TURN]: 'Turn',
-  test_result: 'Trace',
-};
-
-export interface TraceReviewTarget {
-  type: TraceReviewTargetType;
-  reference: string | null;
-}
-
-export interface TraceReviewUser {
-  name: string;
-}
-
-export interface TraceReviewStatus {
-  name: string;
-}
-
-export interface TraceReview extends WithPermittedActions {
-  review_id: string;
-  status: TraceReviewStatus;
-  user: TraceReviewUser;
-  comments: string;
-  created_at: string;
-  updated_at: string;
-  target: TraceReviewTarget;
-  resolved?: boolean;
-}
-
-export interface TraceReviews {
-  reviews: TraceReview[];
 }
 
 /**
@@ -87,8 +36,9 @@ export interface SpanNode {
   trace_metrics?: Record<string, unknown>;
   execution: Execution;
   verdict: Verdict | null;
-  trace_reviews?: TraceReviews;
-  last_review?: TraceReview;
+  last_annotation?: AnnotationSummaryEntry;
+  matches_annotation?: boolean;
+  annotation_summary?: Record<string, AnnotationSummaryEntry>;
 }
 
 /**
@@ -123,9 +73,10 @@ export interface TraceSummary {
   execution: Execution;
   verdict: Verdict | null;
 
-  // Human reviews
-  has_reviews?: boolean;
-  last_review?: TraceReview;
+  // Human annotations
+  has_annotations?: boolean;
+  last_annotation?: AnnotationSummaryEntry;
+  matches_annotation?: boolean;
 }
 
 /**
@@ -154,6 +105,11 @@ export interface TraceDetailResponse {
   trace_metrics_status?: TraceMetricsStatus;
   execution: Execution;
   verdict: Verdict | null;
+
+  // Human annotations
+  last_annotation?: AnnotationSummaryEntry;
+  matches_annotation?: boolean;
+  annotation_summary?: Record<string, AnnotationSummaryEntry>;
 
   // Related entities (optional - populated via relationships)
   project?: {
