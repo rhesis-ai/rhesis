@@ -30,9 +30,10 @@ import {
   useAnnotationMutations,
   useEntityAnnotations,
 } from '@/hooks/useAnnotations';
-import type {
-  Annotation,
-  AnnotationEntityType,
+import {
+  ENTITY_LEVEL_TARGETS,
+  type Annotation,
+  type AnnotationEntityType,
 } from '@/utils/api-client/interfaces/annotation';
 import { ANNOTATION_COPY } from './annotation-copy';
 
@@ -135,7 +136,7 @@ export default function AnnotationsPanel({
   const visible = mine.length > 0 || showOthers ? sorted : mine;
 
   const entityLevel = useMemo(
-    () => sorted.find(a => a.target_type === entityLevelTarget(entityType)),
+    () => sorted.find(a => a.target_type === ENTITY_LEVEL_TARGETS[entityType]),
     [sorted, entityType]
   );
 
@@ -477,14 +478,6 @@ export default function AnnotationsPanel({
       />
     </Box>
   );
-}
-
-function entityLevelTarget(entityType: AnnotationEntityType): string {
-  return entityType === 'TestResult'
-    ? 'test_result'
-    : entityType === 'Trace'
-      ? 'trace'
-      : 'test';
 }
 
 interface EmptyStateCardProps {

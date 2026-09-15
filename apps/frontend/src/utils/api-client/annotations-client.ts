@@ -30,7 +30,10 @@ export class AnnotationsClient extends BaseApiClient {
     });
   }
 
-  /** Every annotation on one parent, oldest request wins the whole list. */
+  /**
+   * Every annotation on one parent. One page of 100 — the endpoint's own cap,
+   * and far more than an entity accumulates, so there is nothing to page.
+   */
   async getByEntity(
     entityType: string,
     entityId: string

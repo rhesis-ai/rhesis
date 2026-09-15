@@ -55,7 +55,6 @@ export const ENTITY_LEVEL_TARGETS: Record<
 
 export interface AnnotationStatus {
   id?: UUID;
-  status_id?: UUID;
   name?: string;
 }
 

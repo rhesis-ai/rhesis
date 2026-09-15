@@ -75,14 +75,13 @@ export function useAnnotationMutations(
   const queryClient = useQueryClient();
   const notifications = useNotifications();
 
+  // `annotationKeys.all()` is the prefix of every annotation key, so this
+  // covers the entity list this panel reads and the hub's own lists.
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({
-      queryKey: annotationKeys.entity(entityType, entityId ?? ''),
-    });
     queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
     queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
     parentInvalidate?.();
-  }, [queryClient, entityType, entityId, parentInvalidate]);
+  }, [queryClient, parentInvalidate]);
 
   const create = useCallback(
     async (input: {
