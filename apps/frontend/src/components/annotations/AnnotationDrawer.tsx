@@ -21,7 +21,11 @@ import MentionTextInput, {
   InferredTarget,
 } from '@/components/common/MentionTextInput';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import type { AnnotationEntityType } from '@/utils/api-client/interfaces/annotation';
+import { useAnnotationMutations } from '@/hooks/useAnnotations';
+import {
+  ENTITY_LEVEL_TARGETS,
+  type AnnotationEntityType,
+} from '@/utils/api-client/interfaces/annotation';
 import { ANNOTATION_COPY } from './annotation-copy';
 
 /** Comments shorter than this are rejected: a bare verdict explains nothing. */
@@ -74,9 +78,11 @@ export default function AnnotationDrawer({
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { create } = useAnnotationMutations(entityType, entityId);
+
   const inferredTarget: InferredTarget = useMemo(
-    () => inferAnnotationTarget(comment),
-    [comment]
+    () => inferAnnotationTarget(comment, ENTITY_LEVEL_TARGETS[entityType]),
+    [comment, entityType]
   );
 
   const passStatus = useMemo(
@@ -141,10 +147,12 @@ export default function AnnotationDrawer({
     try {
       setSubmitting(true);
       setError('');
-      await new ApiClientFactory().getAnnotationsClient().createAnnotation({
-        entity_type: entityType,
-        entity_id: entityId,
-        status_id: selectedStatusId,
+      // Through the mutation hook, not the client: it invalidates the entity
+      // list this drawer's panel reads. The QueryClient runs a 5 minute
+      // staleTime with refetchOnWindowFocus off, so without that the new
+      // annotation would be missing from the list until it expired.
+      await create({
+        statusId: selectedStatusId,
         comments: trimmed,
         target: inferredTarget,
       });
