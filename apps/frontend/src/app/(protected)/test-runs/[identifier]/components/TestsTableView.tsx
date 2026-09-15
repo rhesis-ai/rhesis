@@ -529,12 +529,12 @@ export default function TestsTableView({
               <AnnotationIndicator
                 verdict={
                   status.isOverruled
-                    ? (status.reviewData?.newStatus ?? 'failed')
+                    ? (status.annotationData?.newStatus ?? 'failed')
                     : null
                 }
                 hasConflict={status.hasConflict}
-                annotator={status.reviewData?.reviewer}
-                comment={status.reviewData?.comments}
+                annotator={status.annotationData?.annotator}
+                comment={status.annotationData?.comments}
                 emptyOpacity={0.3}
               />
             </Box>

@@ -155,8 +155,9 @@ export default function TestResultDrawer({
   metricsSource,
 }: TestResultDrawerProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
-  const [reviewInitialStatus, setReviewInitialStatus] = useState<
+  const [annotationInitialComment, setAnnotationInitialComment] =
+    useState<string>('');
+  const [annotationInitialStatus, setAnnotationInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
   const [isConfirmingAnnotation, setIsConfirmingAnnotation] = useState(false);
@@ -179,9 +180,9 @@ export default function TestResultDrawer({
     setActiveTab(newValue);
   };
 
-  const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
-    setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
-    setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
+  const handleAnnotateTurn = (turnNumber: number, turnSuccess: boolean) => {
+    setAnnotationInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
+    setAnnotationInitialStatus(turnSuccess ? 'failed' : 'passed');
     // Opens the annotation drawer as an overlay via TestDetailAnnotationsTab's own
     // effect — the Conversation tab stays active so context isn't lost.
   };
@@ -191,7 +192,7 @@ export default function TestResultDrawer({
   // dead weight on a grid that never renders it). Fetch the one result this
   // drawer is actually showing when it needs that transcript. Skipped when
   // `test` already carries it (a caller that fetched the single result
-  // directly, e.g. after a review action already re-fetches via
+  // directly, e.g. after an annotation write already re-fetches via
   // getTestResult), so this never re-fetches data already in hand.
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
   const needsTranscript =
@@ -450,7 +451,7 @@ export default function TestResultDrawer({
               testSetType={testSetType}
               project={project}
               projectName={projectName}
-              onAnnotateTurn={isMultiTurn ? handleReviewTurn : undefined}
+              onAnnotateTurn={isMultiTurn ? handleAnnotateTurn : undefined}
               onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
               isConfirmingAnnotation={isConfirmingAnnotation}
             />
@@ -469,11 +470,11 @@ export default function TestResultDrawer({
               test={test}
               onTestResultUpdate={onTestResultUpdate}
               currentUserId={currentUserId}
-              initialComment={reviewInitialComment}
-              initialStatus={reviewInitialStatus}
+              initialComment={annotationInitialComment}
+              initialStatus={annotationInitialStatus}
               onCommentUsed={() => {
-                setReviewInitialComment('');
-                setReviewInitialStatus(undefined);
+                setAnnotationInitialComment('');
+                setAnnotationInitialStatus(undefined);
               }}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
