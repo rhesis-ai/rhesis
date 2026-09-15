@@ -20,23 +20,14 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import { UUID } from 'crypto';
-import { readActiveProjectId } from '@/utils/active-project';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { isMultiTurnTest } from '@/constants/test-types';
-import {
-  isMultiTurnConfig,
-  MultiTurnTestConfig,
-} from '@/utils/api-client/interfaces/multi-turn-test-config';
+import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-
-interface ProjectOption {
-  id: UUID;
-  name: string;
-}
 
 interface EndpointOption {
   id: UUID;
@@ -63,7 +54,7 @@ export default function TrialDrawer({
   const { status } = useSession();
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<TestDetail | null>(null);
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const { activeProject } = useActiveProject();
   const {
     data: rawEndpoints,
     isLoading: endpointsLoading,
@@ -89,7 +80,6 @@ export default function TrialDrawer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpointsError]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
     []
@@ -105,13 +95,11 @@ export default function TrialDrawer({
   const [trialInProgress, setTrialInProgress] = useState(false);
   const [_trialCompleted, setTrialCompleted] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [selectedProjectData, setSelectedProjectData] =
-    useState<Project | null>(null);
   const notifications = useNotifications();
   const hasLoadedRef = useRef(false);
   const testIdsRef = useRef<string>('');
 
-  // Fetch projects, endpoints, and test data
+  // Fetch test data when drawer opens
   useEffect(() => {
     const fetchData = async () => {
       if (!isAuthenticated(status) || !open) {
@@ -123,12 +111,10 @@ export default function TrialDrawer({
       const isTestIdsChanged = testIdsRef.current !== testIdsKey;
       testIdsRef.current = testIdsKey;
 
-      // Only fetch if it's the first load or testIds actually changed
       if (!isTestIdsChanged && hasLoadedRef.current) {
         return;
       }
 
-      // Only reset state on initial open, not on subsequent re-renders
       const isInitialOpen = !hasLoadedRef.current;
 
       try {
@@ -138,85 +124,21 @@ export default function TrialDrawer({
           setTrialCompleted(false);
           setError(undefined);
         }
-        const clientFactory = new ApiClientFactory();
 
-        // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
-          try {
-            const testsClient = clientFactory.getTestsClient();
-            const testDetail = await testsClient.getTest(testIds[0]);
+          const clientFactory = new ApiClientFactory();
+          const testsClient = clientFactory.getTestsClient();
+          const testDetail = await testsClient.getTest(testIds[0]);
 
-            // If test has a prompt_id but no prompt data, fetch the prompt
-            if (testDetail.prompt_id && !testDetail.prompt) {
-              const promptsClient = clientFactory.getPromptsClient();
-              const promptData = await promptsClient.getPrompt(
-                testDetail.prompt_id
-              );
-              testDetail.prompt = promptData;
-            }
-
-            setTestData(testDetail);
-          } catch (_testError) {
-            // Continue with projects/endpoints even if test fetch fails
-          }
-        }
-
-        // Fetch projects with proper response handling
-        try {
-          const projectsClient = clientFactory.getProjectsClient();
-          const projectsData = await projectsClient.getProjects({
-            sort_by: 'name',
-            sort_order: 'asc',
-            limit: 100,
-          });
-
-          // Handle both response formats: direct array or {data: array}
-          let projectsArray: Project[] = [];
-          if (Array.isArray(projectsData)) {
-            // Direct array response (what we're getting)
-            projectsArray = projectsData;
-          } else if (projectsData && Array.isArray(projectsData.data)) {
-            // Paginated response with data property
-            projectsArray = projectsData.data;
-          } else {
+          if (testDetail.prompt_id && !testDetail.prompt) {
+            const promptsClient = clientFactory.getPromptsClient();
+            const promptData = await promptsClient.getPrompt(
+              testDetail.prompt_id
+            );
+            testDetail.prompt = promptData;
           }
 
-          const processedProjects = projectsArray
-            .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
-            .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
-
-          setProjects(processedProjects);
-
-          // Pre-select the active project from the session cookie
-          if (isInitialOpen) {
-            const activeProjectId = readActiveProjectId();
-            if (activeProjectId) {
-              const match = processedProjects.find(
-                p => p.id === activeProjectId
-              );
-              if (match) {
-                setSelectedProject(match.id);
-                // Fetch full project details for icon etc.
-                try {
-                  const projectData = await clientFactory
-                    .getProjectsClient()
-                    .getProject(match.id);
-                  setSelectedProjectData(projectData);
-                } catch {
-                  setSelectedProjectData({
-                    id: match.id,
-                    name: match.name,
-                  } as Project);
-                }
-              }
-            }
-          }
-        } catch (_projectsError) {
-          setProjects([]);
-          notifications.show(
-            'Failed to load projects. Please refresh the page.',
-            { severity: 'error' }
-          );
+          setTestData(testDetail);
         }
       } catch (error) {
         console.error('[TrialDrawer] Error loading data:', error);
@@ -240,22 +162,20 @@ export default function TrialDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Filter endpoints by selected project; when no project is selected show all
+  // Filter endpoints by active project; when no project is active show all
   useEffect(() => {
-    if (!selectedProject) {
+    if (!activeProject?.id) {
       setFilteredEndpoints(endpoints);
       return;
     }
 
-    // Filter endpoints that belong to the selected project
     const filtered = endpoints.filter(
-      endpoint => endpoint.project_id === selectedProject
+      endpoint => endpoint.project_id === activeProject.id
     );
     setFilteredEndpoints(filtered);
 
-    // Reset selected endpoint when project changes
     setSelectedEndpoint(null);
-  }, [selectedProject, endpoints]);
+  }, [activeProject?.id, endpoints]);
 
   const handleEndpointChange = (value: EndpointOption | null) => {
     if (!value) {
@@ -297,49 +217,29 @@ export default function TrialDrawer({
       setError(undefined);
 
       const clientFactory = new ApiClientFactory();
+      const testsClient = clientFactory.getTestsClient();
+
+      const executeResponse = await testsClient.executeTest({
+        test_id: testData.id,
+        endpoint_id:
+          selectedEndpoint as `${string}-${string}-${string}-${string}-${string}`,
+        evaluate_metrics: false,
+      });
 
       if (isMultiTurn) {
-        // Multi-turn test execution
-        const testsClient = clientFactory.getTestsClient();
-        const config = isMultiTurnConfig(testData.test_configuration)
-          ? testData.test_configuration
-          : (testData.test_configuration as unknown as MultiTurnTestConfig);
-
-        const executeRequest = {
-          endpoint_id:
-            selectedEndpoint as `${string}-${string}-${string}-${string}-${string}`,
-          test_configuration: {
-            goal: config.goal,
-            instructions: config.instructions,
-            restrictions: config.restrictions,
-            scenario: config.scenario,
-            min_turns: config.min_turns,
-            max_turns: config.max_turns,
-          },
-          requirement: testData.requirement?.name || '',
-          topic: testData.topic?.name || '',
-          category: testData.category?.name || '',
-          evaluate_metrics: false,
-        };
-
-        const executeResponse = await testsClient.executeTest(executeRequest);
-
         // Extract conversation from test_output
-        let conversation = [];
+        let conversation: ConversationTurn[] = [];
         if (
           executeResponse.test_output &&
           typeof executeResponse.test_output === 'object'
         ) {
-          // Check for conversation_summary
           if (executeResponse.test_output.conversation_summary) {
             conversation = Array.isArray(
               executeResponse.test_output.conversation_summary
             )
               ? executeResponse.test_output.conversation_summary
               : [];
-          }
-          // Also check if test_output itself is an array (alternative structure)
-          else if (Array.isArray(executeResponse.test_output)) {
+          } else if (Array.isArray(executeResponse.test_output)) {
             conversation = executeResponse.test_output;
           }
         }
@@ -349,19 +249,14 @@ export default function TrialDrawer({
           conversation,
           execution_time: executeResponse.execution_time,
           status: executeResponse.status,
-          raw_response: executeResponse, // Keep full response for debugging
+          raw_response: executeResponse,
         });
       } else {
-        // Single-turn test execution
-        const endpointsClient = clientFactory.getEndpointsClient();
-
-        const data = await endpointsClient.invokeEndpoint(selectedEndpoint, {
-          input: testData.prompt?.content || '',
-        });
-
         setTrialResponse({
           type: 'Single-Turn',
-          output: data?.output || data,
+          output: executeResponse.test_output,
+          execution_time: executeResponse.execution_time,
+          status: executeResponse.status,
         });
       }
 
@@ -405,62 +300,6 @@ export default function TrialDrawer({
         }}
       >
         <FormControl fullWidth sx={{ mt: 1 }}>
-          <Autocomplete
-            options={projects}
-            value={projects.find(p => p.id === selectedProject) || null}
-            onChange={async (_, newValue) => {
-              if (!newValue) {
-                setSelectedProject(null);
-                setSelectedProjectData(null);
-                return;
-              }
-              setSelectedProject(newValue.id);
-              setSelectedEndpoint(null);
-
-              // Fetch full project data to get icon
-              try {
-                const clientFactory = new ApiClientFactory();
-                const projectsClient = clientFactory.getProjectsClient();
-                const projectData = await projectsClient.getProject(
-                  newValue.id
-                );
-                setSelectedProjectData(projectData);
-              } catch (error) {
-                console.error(
-                  '[TrialDrawer] Failed to fetch project details:',
-                  error
-                );
-                // Fallback to basic data if fetch fails
-                setSelectedProjectData({
-                  id: newValue.id,
-                  name: newValue.name,
-                } as Project);
-              }
-            }}
-            getOptionLabel={option => option.name}
-            renderOption={(props, option) => {
-              const { key: _key, ...otherProps } = props;
-              return (
-                <Box component="li" key={option.id} {...otherProps}>
-                  {option.name}
-                </Box>
-              );
-            }}
-            renderInput={params => (
-              <TextField
-                {...params}
-                label="Project (optional — filters endpoints)"
-                placeholder="Active project"
-              />
-            )}
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-          />
-          {projects.length === 0 && !loading && (
-            <FormHelperText>No projects available</FormHelperText>
-          )}
-        </FormControl>
-
-        <FormControl fullWidth>
           <Autocomplete
             options={filteredEndpoints}
             value={
@@ -510,7 +349,7 @@ export default function TrialDrawer({
             isOptionEqualToValue={(option, value) => option.id === value.id}
           />
           {filteredEndpoints.length === 0 &&
-            selectedProject &&
+            activeProject &&
             !loading &&
             !endpointsLoading && (
               <FormHelperText>
@@ -736,8 +575,8 @@ export default function TrialDrawer({
                     </Box>
                     <ConversationHistory
                       conversationSummary={trialResponse.conversation}
-                      project={selectedProjectData || undefined}
-                      projectName={selectedProjectData?.name}
+                      project={activeProject || undefined}
+                      projectName={activeProject?.name}
                       maxHeight="100%"
                     />
                   </Box>
