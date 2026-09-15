@@ -490,10 +490,19 @@ export interface InferredTarget {
 }
 
 /**
- * Infer the review target from mention markup in comment text.
- * Returns the first metric or turn mention found; defaults to test_result.
+ * Infer what an annotation targets from the mention markup in its comment:
+ * the first `@metric` or `@turn` mention, or the whole entity when there is
+ * none.
+ *
+ * `entityLevelTarget` is required because the fallback differs per parent --
+ * `trace` for a trace, `test_result` for a result. Defaulting it to
+ * test_result would stamp a whole-trace annotation with a target the trace
+ * override never dispatches on, so it would apply no override at all.
  */
-export function inferAnnotationTarget(text: string): InferredTarget {
+export function inferAnnotationTarget(
+  text: string,
+  entityLevelTarget: AnnotationTargetType
+): InferredTarget {
   const mentionRegex =
     /@\[([^\]]+)\]\(((?:metric|turn):[^)]*(?:\([^)]*\))*[^)]*)\)/g;
   let match;
@@ -511,5 +520,5 @@ export function inferAnnotationTarget(text: string): InferredTarget {
     }
   }
 
-  return { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null };
+  return { type: entityLevelTarget, reference: null };
 }
