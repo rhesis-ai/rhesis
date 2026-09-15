@@ -9,7 +9,7 @@ import {
   isPassedStatusName,
 } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
-import { getLatestMetricAnnotationForResult } from './test-run-summary-utils';
+import { getLatestMetricAnnotationForResult } from './result-annotations';
 
 export type TestResultDisplayStatus = {
   passed: boolean;

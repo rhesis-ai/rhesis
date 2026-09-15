@@ -51,7 +51,7 @@ import {
   getTestResultDisplayStatus,
   truncateText,
 } from './test-run-results-grid-utils';
-import { resultHasAnyHumanAnnotation } from './test-run-summary-utils';
+import { resultHasAnyHumanAnnotation } from './result-annotations';
 import { EntityType } from '@/types/entity-type';
 
 interface TestsTableViewProps {
