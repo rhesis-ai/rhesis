@@ -5,7 +5,7 @@ annotation overwrites it, so ``matches_annotation`` can tell agreement from a
 status the annotation itself just set. Traces never had that snapshot.
 
 Revision ID: a0002annotbl
-Revises: b8d2f3e4a5c6
+Revises: a0a48c28ad64
 Create Date: 2026-09-12
 """
 
@@ -17,7 +17,7 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision: str = "a0002annotbl"
-down_revision: Union[str, None] = "b8d2f3e4a5c6"
+down_revision: Union[str, None] = "a0a48c28ad64"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
