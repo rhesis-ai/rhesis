@@ -8,6 +8,21 @@ export function bodyToRequestMapping(body: string): Record<string, unknown> {
   }
 }
 
+/**
+ * Validate mapping JSON. Returns null if valid, or the parse error message if
+ * invalid. Skips validation when the body contains Jinja syntax (`{{` or `{%`)
+ * which is intentionally non-JSON until rendered.
+ */
+export function validateMappingJson(body: string): string | null {
+  if (body.includes('{%') || body.includes('{{')) return null;
+  try {
+    JSON.parse(body);
+    return null;
+  } catch (e) {
+    return (e as SyntaxError).message;
+  }
+}
+
 export function parseBodyMapping(obj: Record<string, unknown>): string {
   if ('__body__' in obj && typeof obj.__body__ === 'string')
     return obj.__body__;

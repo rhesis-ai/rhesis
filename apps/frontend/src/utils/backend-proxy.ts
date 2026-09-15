@@ -32,6 +32,12 @@ const LONG_RUNNING_PATH_SUFFIXES = [
   // Rewrites a whole metric from its reviews in one generation call, and holds
   // the response until the model answers.
   '/tuning/improve',
+  // Endpoint invocation calls out to an external service; the backend allows
+  // 30s (or a custom timeout_seconds) for the downstream HTTP round-trip.
+  '/invoke',
+  // In-place test execution invokes an endpoint and optionally evaluates
+  // metrics, so it needs the same long budget as /invoke.
+  '/execute',
 ];
 
 const LONG_RUNNING_TIMEOUT_MS = 300_000;

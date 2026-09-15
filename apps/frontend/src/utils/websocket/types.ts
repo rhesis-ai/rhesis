@@ -325,6 +325,8 @@ export interface ChatMessagePayload {
   conversation_id?: string;
   /** Optional file attachments */
   files?: FileAttachment[];
+  /** Optional per-test key-value data for template rendering */
+  test_parameters?: Record<string, unknown>;
 }
 
 /**
