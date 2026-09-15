@@ -254,10 +254,9 @@ export default function EndpointMappingTab() {
         onSave={async draft => {
           const reqError = validateMappingJson(draft.reqBody);
           if (reqError) {
-            notifications.show(
-              `Invalid JSON in request mapping: ${reqError}`,
-              { severity: 'error' }
-            );
+            notifications.show(`Invalid JSON in request mapping: ${reqError}`, {
+              severity: 'error',
+            });
             throw new Error('validation');
           }
           const resError = validateMappingJson(draft.resBody);
@@ -272,9 +271,10 @@ export default function EndpointMappingTab() {
             request_mapping: bodyToRequestMapping(
               draft.reqBody
             ) as unknown as Record<string, unknown>,
-            response_mapping: JSON.parse(
-              draft.resBody
-            ) as Record<string, string>,
+            response_mapping: JSON.parse(draft.resBody) as Record<
+              string,
+              string
+            >,
           });
         }}
       >

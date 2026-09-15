@@ -3,7 +3,10 @@
 import * as React from 'react';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { SectionEditButton, SectionSaveCancelActions } from '@/components/common/SectionCardActions';
+import {
+  SectionEditButton,
+  SectionSaveCancelActions,
+} from '@/components/common/SectionCardActions';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -148,9 +151,7 @@ export default function TestParametersBlock({
             {'{{ test_parameters.<key> }}'}
           </Typography>
         </Box>
-        {canEdit && !isEditing && (
-          <SectionEditButton onClick={startEditing} />
-        )}
+        {canEdit && !isEditing && <SectionEditButton onClick={startEditing} />}
       </Box>
 
       {isEditing ? (
@@ -163,7 +164,12 @@ export default function TestParametersBlock({
             onChange={setDraft}
           />
           <Box
-            sx={{ display: 'flex', gap: '10px', mt: 1, justifyContent: 'flex-end' }}
+            sx={{
+              display: 'flex',
+              gap: '10px',
+              mt: 1,
+              justifyContent: 'flex-end',
+            }}
           >
             {hasParams && (
               <Button

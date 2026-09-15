@@ -244,9 +244,10 @@ export function usePlaygroundChat(
           message: trimmedMessage,
           ...(sessionId && { conversation_id: sessionId }),
           ...(files?.length && { files }),
-          ...(testParameters && Object.keys(testParameters).length > 0 && {
-            test_parameters: testParameters,
-          }),
+          ...(testParameters &&
+            Object.keys(testParameters).length > 0 && {
+              test_parameters: testParameters,
+            }),
           ...(activeProjectId && { project_id: activeProjectId }),
         },
       });
