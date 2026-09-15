@@ -90,7 +90,7 @@ class TestApplyMetricOverride:
         assert metric["is_successful"] is True
         assert "override" in metric
         assert metric["override"]["original_value"] is False
-        assert metric["override"]["review_id"] == "rev-1"
+        assert metric["override"]["annotation_id"] == "rev-1"
 
     def test_override_removes_when_matching_original(self, mock_trace):
         _apply_metric_override(mock_trace, "faithfulness", True, "rev-1", "user-1", "now")
@@ -227,7 +227,7 @@ class TestRecalculateOverallStatus:
             },
             "conversation_metrics": {"metrics": {}},
             "turn_overrides": {
-                "2": {"success": False, "override": {"original_value": True, "review_id": "r1"}},
+                "2": {"success": False, "override": {"original_value": True, "annotation_id": "r1"}},
             },
         }
         recalculate_overall_status(trace)

@@ -129,7 +129,7 @@ def _apply_metric_override(
         metric["is_successful"] = passed
         override_data = {
             "original_value": original_val,
-            "review_id": annotation_id,
+            "annotation_id": annotation_id,
             "overridden_by": user_id,
             "overridden_at": now,
         }
@@ -172,7 +172,7 @@ def _apply_turn_override(
                 turn["success"] = passed
                 turn["override"] = {
                     "original_value": original_val,
-                    "review_id": annotation_id,
+                    "annotation_id": annotation_id,
                     "overridden_by": user_id,
                     "overridden_at": now,
                 }
@@ -227,7 +227,7 @@ def _revert_metric_override(
     metric = metrics[metric_key]
 
     override = metric.get("override")
-    if not override or override.get("review_id") != deleted_annotation_id:
+    if not override or override.get("annotation_id") != deleted_annotation_id:
         return
 
     original_val = override["original_value"]
@@ -245,7 +245,7 @@ def _revert_metric_override(
             metric["is_successful"] = passed
             new_override = {
                 "original_value": original_val,
-                "review_id": str(replacement.id),
+                "annotation_id": str(replacement.id),
                 "overridden_by": str(replacement.user_id),
                 "overridden_at": now,
             }
@@ -282,7 +282,7 @@ def _revert_turn_override(
         if turn.get("turn") != turn_num:
             continue
         override = turn.get("override")
-        if not override or override.get("review_id") != deleted_annotation_id:
+        if not override or override.get("annotation_id") != deleted_annotation_id:
             break
 
         original_val = override["original_value"]
@@ -297,7 +297,7 @@ def _revert_turn_override(
                 turn["success"] = passed
                 turn["override"] = {
                     "original_value": original_val,
-                    "review_id": str(replacement.id),
+                    "annotation_id": str(replacement.id),
                     "overridden_by": str(replacement.user_id),
                     "overridden_at": now,
                 }
