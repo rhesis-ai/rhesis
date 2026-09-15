@@ -1,5 +1,8 @@
 import type { WithPermittedActions } from '@/types/affordances';
-import { UUID } from 'crypto';
+// Type-only: `isolatedModules` transpiles each file alone, so a value import
+// of a Node module that is only ever a type here is left for the bundler to
+// resolve.
+import type { UUID } from 'crypto';
 
 /**
  * A human judgement on a test result, a trace or a test.
