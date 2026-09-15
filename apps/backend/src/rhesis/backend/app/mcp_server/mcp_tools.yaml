@@ -1198,7 +1198,7 @@ tools:
       per-metric breakdowns (Answer Fluency, Contextual Recall, etc.).
         group_by: metric_name, requirement_id, year, month.
         measures: count, passed, failed, pass_rate, automated_passed,
-        automated_failed, human_review_count.
+        automated_failed, human_annotation_count.
 
       entity="test_run" -- one row per run. Use for operational overview
       (how many runs by status, which test sets are run most often, who
