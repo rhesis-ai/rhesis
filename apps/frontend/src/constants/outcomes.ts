@@ -18,7 +18,12 @@ export type Execution = 'not_run' | 'running' | 'ok' | 'error' | 'cancelled';
 export type Verdict = 'pass' | 'fail' | 'inconclusive';
 
 export type Outcome =
-  'pass' | 'fail' | 'inconclusive' | 'error' | 'cancelled' | 'pending';
+  | 'pass'
+  | 'fail'
+  | 'inconclusive'
+  | 'error'
+  | 'cancelled'
+  | 'pending';
 
 /** Anything carrying the backend's outcome pair: a test result or a trace. */
 export interface HasOutcome {
