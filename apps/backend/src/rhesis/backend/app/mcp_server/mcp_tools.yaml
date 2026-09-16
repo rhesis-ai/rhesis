@@ -552,6 +552,15 @@ tools:
           was given — this is the most useful field for failure analysis
         - threshold (float): the pass/fail threshold (numeric metrics)
       - status: overall pass/fail for this test result
+      - last_annotation: the newest human judgement on the result as a
+        whole, or null. When present its status.name outranks the
+        automated status above, because a human looked at this one.
+      - matches_annotation: false when the human disagreed with the
+        automated verdict. This is the signal that a result was corrected.
+      - annotation_summary: one entry per annotated target, keyed by
+        target_type or target_type:reference, so a metric-level or
+        turn-level judgement is visible without a second call. Use
+        list_annotations when you need the full comments and authors.
 
       Use the result IDs from list_test_results (filtered to failures) to
       identify which specific results to drill into. Focus on the 2-3 most
@@ -1317,8 +1326,8 @@ tools:
           reference, rating, and requirement name.
       resolved:
         description: >
-          true for resolved reviews, false for still-open ones. Omit for
-          both.
+          true for resolved annotations, false for still-open ones. Omit
+          for both.
       rating:
         description: >
           "Pass" or "Fail" — the human's verdict, independent of the
@@ -1337,6 +1346,109 @@ tools:
           UUID of a test run. Scopes to all annotations whose parent
           entity (test result or trace) belongs to that run. This is the
           main entry point after get_insights.
+      filter:
+        description: >
+          OData filter for fields the named parameters above do not
+          cover, e.g. "target_reference eq 'Answer Fluency'". Prefer the
+          named parameters where one exists. Keyed without the "$" here
+          because the schema sanitizes it; the wire param is $filter.
+
+  - name: get_annotation
+    label: Retrieving annotation
+    method: GET
+    path: /annotations/{annotation_id}
+    description: >
+      Get one annotation with its full comment, author, verdict and
+      resolved state.
+
+      ENTITY: Annotation. PREREQUISITES: annotation_id from
+      list_annotations. CHAIN: list_annotations truncates nothing, so
+      reach for this only when you need to re-read a single row after
+      writing to it. NEVER: loop this over every id list_annotations
+      returned — that list already carries the same fields.
+    parameters:
+      annotation_id:
+        description: "REQUIRED. UUID of the annotation, from list_annotations."
+
+  - name: create_annotation
+    label: Creating annotation
+    method: POST
+    path: /annotations/
+    requires_confirmation: true
+    description: >
+      Record a human verdict on a test result, a trace or a test.
+
+      This is a judgement attributed to the person you are acting for, so
+      only create one when they have actually told you what they concluded.
+      Do not annotate on your own initiative to record your own analysis.
+
+      A Pass/Fail annotation on a test result or trace OVERRIDES that
+      parent's automated status, and the platform reports the corrected
+      outcome from then on. Creating one is therefore a write against the
+      parent as much as against the annotation.
+
+      ENTITY: Annotation. PREREQUISITES: entity_id from list_test_results
+      or list_annotations, and status_id for Pass or Fail from the
+      organization's TestResult statuses. CHAIN: after the human reads a
+      failure and tells you the metric was wrong. NEVER: use this to note
+      your own opinion of a result, and never to mark work as done.
+    parameters:
+      entity_type:
+        description: >
+          REQUIRED. What is being annotated: "TestResult", "Trace" or
+          "Test".
+      entity_id:
+        description: "REQUIRED. UUID of that entity."
+      status_id:
+        description: >
+          REQUIRED. UUID of the status carrying the verdict, normally the
+          organization's Pass or Fail row for TestResult.
+      comments:
+        description: >
+          The human's reasoning in their own words. Strongly recommended:
+          an annotation with no comment explains nothing later.
+      target:
+        description: >
+          Optional object {"type": ..., "reference": ...} narrowing the
+          judgement to part of the entity: type "metric" with the metric
+          name as reference, or "turn" with "Turn N". Omit for a verdict
+          on the entity as a whole and the right entity-level target is
+          filled in for you. Do NOT send target_type/target_reference
+          flat here; that shape is what responses use, and sending it on a
+          write is ignored.
+
+  - name: update_annotation
+    label: Updating annotation
+    method: PUT
+    path: /annotations/{annotation_id}
+    requires_confirmation: true
+    description: >
+      Change an annotation's verdict, comment, target or resolved state.
+
+      Only the annotation's own author may edit it; not even an admin can
+      edit someone else's. Changing the verdict or target re-applies the
+      override on the parent, so the parent's reported outcome moves with
+      it.
+
+      ENTITY: Annotation. PREREQUISITES: annotation_id from
+      list_annotations. CHAIN: resolving an open item once the underlying
+      problem is fixed is the common case, via resolved=true. NEVER:
+      rewrite someone else's judgement to match your own reading.
+    parameters:
+      annotation_id:
+        description: "REQUIRED. UUID of the annotation to update."
+      status_id:
+        description: "New verdict status UUID. Omit to leave the verdict alone."
+      comments:
+        description: "Replacement comment text."
+      resolved:
+        description: >
+          true to resolve, false to reopen. Resolving says the item has
+          been dealt with; it does not withdraw the verdict.
+      target:
+        description: >
+          Replacement target object {"type": ..., "reference": ...}. See
+          create_annotation.
 
   # ── Knowledge Sources ────────────────────────────────────
   - name: list_sources
