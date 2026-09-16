@@ -28,10 +28,7 @@ export interface MetricTuningReview {
 }
 
 export type MetricTuningOutcome =
-  | 'accepted'
-  | 'rejected'
-  | 'errored'
-  | 'unreviewed';
+  'accepted' | 'rejected' | 'errored' | 'unreviewed';
 
 /**
  * A metric tuning case: one input plus the answer the metric has to judge.

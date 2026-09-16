@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-16
+
+### Added
+- **Test Parameters Support**: Added a new JSONB column `test_parameters` to tests, allowing per-test context to be injected into endpoint request mappings via `{{ test_parameters.<key> }}`.
+- **Configurable Endpoint Timeouts**: Added a configurable `timeout_seconds` field (1-3600s) to endpoints, validated via a new typed `EndpointMetadata` Pydantic model and respected by REST and SDK invokers.
+- **Execution Trace Persistence**: Added a new `execution_trace` table and Row-Level Security (RLS) policies to persist connector execution traces instead of only writing them to server logs.
+- **Server-Side Trace Sorting**: Added backend support for server-side sorting of traces by cost, token usage, and start time.
+- **Run-Scoped Metrics**: Added support for scoping trace metrics (tokens, cost, error rate, and duration percentiles) to specific test runs via `test_run_id`.
+- **Database Readiness Probe**: Introduced a `/ready` endpoint that performs a lightweight query in a worker thread to safely manage pod traffic during database degradation.
+- **Experiment Parameters Alias**: Added `experiment_parameters` as the preferred field name for parameter injection, deprecating the older `params` alias while maintaining backward compatibility.
+
+### Changed
+- **Event Loop Performance Optimizations**: 
+  - Moved heavy synchronous operations off the ASGI event loop into a worker threadpool, including authentication lookups, route handlers, password hashing, and preflight connectivity checks.
+  - Relocated endpoint services, explorer routes, generation tasks, and source/tool operations to worker threads to prevent event loop starvation under load.
+- **Database Performance & RLS Tuning**:
+  - Added indexes on `organization_id` columns across tenant tables to optimize list queries and sorting.
+  - Hoisted Row-Level Security (RLS) policy lookups using subselects to prevent redundant evaluation of tenant variables on every scanned row.
+- **WebSocket Efficiency**:
+  - Refactored the SDK WebSocket connection to open database sessions lazily (only when required, such as during client registration) rather than on every inbound frame, significantly increasing message throughput.
+  - Increased the default WebSocket rate limit to 500 messages per second.
+- **Telemetry & Cost Enrichment**:
+  - Unified trace token calculations into a single shared service to prevent discrepancies between list and detail views.
+  - Improved cost enrichment to preserve token counts for unpriceable spans and prevent double-counting on aggregated framework spans.
+- **Write Reduction & Transaction Bundling**:
+  - Combined test progress updates into the same transaction as the test result write, reducing connection pool checkouts.
+  - Coalesced background job progress writes to a maximum of once per second.
+  - Debounced API token "last used" timestamp updates to 5-minute intervals.
+
+### Fixed
+- **Graceful No-Organization Degradation**: Fixed `/features` to degrade gracefully to community/free-tier limits instead of returning a 403 error when a user does not belong to an organization.
+- **Sequential Test Isolation**: Fixed an issue where a database error during sequential test execution could leave a transaction un-rolled-back, aborting the entire batch run.
+- **WebSocket Authorization**: Ensured WebSocket registration fails closed if authorization cannot be verified.
+- **Embedding Generation Tasks**: Fixed a keyword argument mismatch in `launch_job` that caused background embedding generation tasks to fail and fall back to synchronous execution.
+
+
 ## [0.15.2] - 2026-09-10
 
 ### Added
