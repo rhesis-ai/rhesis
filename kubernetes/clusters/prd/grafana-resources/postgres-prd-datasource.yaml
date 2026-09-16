@@ -22,6 +22,13 @@ spec:
       database: rhesis-prd-db
       sslmode: disable
       postgresVersion: 1700
+    # Placeholder the operator substitutes the secret into. valuesFrom below cannot
+    # create this field on its own: it replaces into an existing value, and silently
+    # drops the secret when the target path is absent, while still reporting
+    # ApplySuccessful. Without it Grafana stores no password and every query fails
+    # authentication. See grafana/grafana-operator#2271 and #2945.
+    secureJsonData:
+      password: ${password}
     editable: false
   valuesFrom:
     - targetPath: "secureJsonData.password"
