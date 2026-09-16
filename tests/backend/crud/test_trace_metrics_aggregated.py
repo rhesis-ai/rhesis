@@ -486,3 +486,126 @@ class TestUsageBreakdown:
 
         assert metrics["models_used"] == []
         assert metrics["providers_used"] == []
+
+
+def blob_without_token_rollup(models):
+    """A breakdown with no trace-level token totals at all.
+
+    Older than legacy_enrichment_blob: this predates total_tokens too, which is the
+    shape 1681 of the span rows on the dev instance are actually in.
+    """
+    blob = legacy_enrichment_blob(models)
+    for key in ("total_tokens", "total_input_tokens", "total_output_tokens"):
+        blob["costs"].pop(key)
+    return blob
+
+
+@pytest.mark.integration
+class TestTokensForBlobsWithNoTokenRollup:
+    """Tokens have to come off the breakdown when the trace-level totals are absent.
+
+    The raw fallback sums llm.invoke spans, which is fine project-wide but reports zero
+    under test-run scope: test_run_id is stamped on the root span only, so the spans it
+    would sum are not in scope. trace_usage_totals already derives these in Python, so
+    without the same derivation in SQL the two disagree.
+    """
+
+    def test_derives_tokens_from_the_breakdown_under_run_scope(
+        self, test_db, db_project, test_org_id, db_test_run
+    ):
+        """The undercount: one root span in scope, all the tokens in the blob."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [run_span(trace_id, project_id, db_test_run.id, operation="function.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, blob_without_token_rollup(["gpt-4"]))
+
+        metrics = get_trace_metrics_aggregated(
+            test_db,
+            organization_id=test_org_id,
+            project_id=project_id,
+            test_run_id=str(db_test_run.id),
+        )
+
+        assert metrics["total_tokens"] == 300
+        assert metrics["total_input_tokens"] == 200
+        assert metrics["total_output_tokens"] == 100
+
+    def test_agrees_with_the_python_accessor(self, test_db, db_project, test_org_id):
+        """The two paths must report the same trace identically."""
+        from rhesis.backend.app.services.telemetry.token_totals import trace_usage_totals
+
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        blob = blob_without_token_rollup(["gpt-4", "gemini-2.0-flash"])
+        create_trace_spans(
+            test_db,
+            [span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, blob)
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+        in_python = trace_usage_totals(blob)
+
+        assert metrics["total_tokens"] == in_python.total_tokens
+        assert metrics["total_input_tokens"] == in_python.input_tokens
+        assert metrics["total_output_tokens"] == in_python.output_tokens
+
+    def test_an_unenriched_trace_still_uses_the_raw_span_sum(
+        self, test_db, db_project, test_org_id
+    ):
+        """The trap in the fix: a breakdown sum of nothing is unknown, not zero.
+
+        Coalescing an empty breakdown to 0 instead of NULL would swallow the raw
+        fallback and report a freshly ingested trace as having spent nothing.
+        """
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(40, 20, 60),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_tokens"] == 60
+        assert metrics["total_input_tokens"] == 40
+        assert metrics["total_output_tokens"] == 20
+
+    def test_a_breakdown_entry_without_its_own_total_falls_back_to_input_plus_output(
+        self, test_db, db_project, test_org_id
+    ):
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        blob = blob_without_token_rollup(["gpt-4"])
+        for entry in blob["costs"]["breakdown"]:
+            entry.pop("total_tokens")
+        create_trace_spans(
+            test_db,
+            [span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, blob)
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_tokens"] == 300

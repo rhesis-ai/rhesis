@@ -61,33 +61,76 @@ def _llm_span_sum(attributes, value_expr) -> Any:
     return func.coalesce(func.sum(case((is_llm_invoke(attributes), value_expr), else_=0.0)), 0.0)
 
 
-def _breakdown_sum(enriched_data, key: str) -> Any:
-    """Sum one cost field across ``costs.breakdown``, for blobs with no trace-level total.
+def _breakdown_sum(enriched_data, entry_value_expr) -> Any:
+    """Sum a per-entry expression across ``costs.breakdown``, NULL when there are none.
 
-    Every blob enriched before the trace-level input/output split existed still carries
-    the same figures per span, so deriving them here is what lets the split appear on
+    Every blob enriched before the trace-level rollup existed still carries the same
+    figures per span, so deriving them here is what lets the new totals appear on
     existing traces without a backfill or a re-enrichment pass.
 
-    Only reached when the rolled-up key is NULL: ``coalesce`` short-circuits, so this
-    stops costing anything for a trace once it has been enriched by a current worker.
+    NULL rather than zero for a trace with no breakdown, which matters: the caller
+    coalesces this against the raw span sum, and a zero here would swallow that fallback
+    and report an unenriched trace as having spent nothing.
+
+    Only reached when the rolled-up key is NULL, since ``coalesce`` short-circuits -- so
+    it stops costing anything once a trace has been enriched by a current worker.
     """
     entries = func.jsonb_array_elements(
         enriched_data[EnrichedDataKeys.COSTS][EnrichedDataKeys.BREAKDOWN]
     ).table_valued(column("value", JSONB), name="breakdown_entry")
 
     return (
-        select(func.coalesce(func.sum(entries.c.value[key].as_float()), 0.0))
-        .select_from(entries)
-        .scalar_subquery()
+        select(func.sum(entry_value_expr(entries.c.value))).select_from(entries).scalar_subquery()
     )
 
 
 def enriched_cost_expr(enriched_data, rollup_key: str, breakdown_key: str) -> Any:
-    """A trace-level cost figure: the rolled-up total, else summed from the breakdown."""
+    """A trace-level cost figure: the rolled-up total, else summed from the breakdown.
+
+    Ends at zero rather than NULL because cost genuinely has no further fallback -- it
+    cannot be derived from span attributes the way tokens can.
+    """
     return func.coalesce(
         enriched_data[EnrichedDataKeys.COSTS][rollup_key].as_float(),
-        _breakdown_sum(enriched_data, breakdown_key),
+        _breakdown_sum(enriched_data, lambda entry: entry[breakdown_key].as_float()),
         0.0,
+    )
+
+
+def _breakdown_entry_total_tokens(entry) -> Any:
+    """One breakdown entry's token total, matching ``_span_token_counts``.
+
+    Trusts the reported total and falls back to input + output, which is what an entry
+    written before per-span totals existed needs.
+    """
+    return func.coalesce(
+        func.nullif(entry[EnrichedDataKeys.TOTAL_TOKENS].as_float(), 0.0),
+        func.coalesce(entry[EnrichedDataKeys.INPUT_TOKENS].as_float(), 0.0)
+        + func.coalesce(entry[EnrichedDataKeys.OUTPUT_TOKENS].as_float(), 0.0),
+        0.0,
+    )
+
+
+def enriched_token_expr(enriched_data, rollup_key: str, breakdown_key: str) -> Any:
+    """A trace-level token figure: the rolled-up total, else summed from the breakdown.
+
+    The breakdown step is what keeps this in step with ``trace_usage_totals``, which
+    derives the same figures in Python. Without it the two disagree for a blob that has
+    a breakdown but no trace-level token totals -- and they disagree worst exactly where
+    it is hardest to notice, under ``test_run_id`` scope, where the llm.invoke spans the
+    raw fallback sums are not in scope at all because only the root span carries the run.
+
+    Stays NULL when neither source knows, so the caller can still fall back to the raw
+    span sum for a trace enrichment has not reached.
+    """
+    return func.coalesce(
+        enriched_data[EnrichedDataKeys.COSTS][rollup_key].as_float(),
+        _breakdown_sum(
+            enriched_data,
+            _breakdown_entry_total_tokens
+            if breakdown_key == EnrichedDataKeys.TOTAL_TOKENS
+            else (lambda entry: entry[breakdown_key].as_float()),
+        ),
     )
 
 
@@ -106,16 +149,24 @@ def per_trace_usage_subquery(db: Session, base) -> Any:
     attributes = base.c.attributes
     enriched = base.c.enriched_data
 
-    def enriched_max(key: str):
-        return func.max(enriched[EnrichedDataKeys.COSTS][key].as_float())
+    def enriched_tokens(rollup_key: str, breakdown_key: str):
+        return func.max(enriched_token_expr(enriched, rollup_key, breakdown_key))
 
     return (
         db.query(
             base.c.trace_id.label("trace_id"),
-            enriched_max(EnrichedDataKeys.TOTAL_TOKENS).label("enriched_tokens"),
-            enriched_max(EnrichedDataKeys.TOTAL_INPUT_TOKENS).label("enriched_input_tokens"),
-            enriched_max(EnrichedDataKeys.TOTAL_OUTPUT_TOKENS).label("enriched_output_tokens"),
-            enriched_max(EnrichedDataKeys.TOTAL_COST_USD).label("cost_usd"),
+            enriched_tokens(EnrichedDataKeys.TOTAL_TOKENS, EnrichedDataKeys.TOTAL_TOKENS).label(
+                "enriched_tokens"
+            ),
+            enriched_tokens(
+                EnrichedDataKeys.TOTAL_INPUT_TOKENS, EnrichedDataKeys.INPUT_TOKENS
+            ).label("enriched_input_tokens"),
+            enriched_tokens(
+                EnrichedDataKeys.TOTAL_OUTPUT_TOKENS, EnrichedDataKeys.OUTPUT_TOKENS
+            ).label("enriched_output_tokens"),
+            func.max(
+                enriched[EnrichedDataKeys.COSTS][EnrichedDataKeys.TOTAL_COST_USD].as_float()
+            ).label("cost_usd"),
             func.max(
                 enriched_cost_expr(
                     enriched,
@@ -203,6 +254,7 @@ __all__ = [
     "coalesced_output_tokens",
     "coalesced_tokens",
     "enriched_cost_expr",
+    "enriched_token_expr",
     "is_llm_invoke",
     "models_used_rows",
     "per_trace_usage_subquery",
