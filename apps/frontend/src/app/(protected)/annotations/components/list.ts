@@ -29,7 +29,20 @@ export const annotationsList = defineList<
   resource: 'annotations',
   capability: Capability.Annotation.READ,
   defaultPageSize: 25,
+  // Newest judgement first: the hub is a worklist, not an archive.
+  defaultSort: { by: 'updated_at', order: 'desc' },
   filters: ANNOTATIONS_FILTERS,
+  delete: {
+    // No bulk endpoint on annotations, so rows go one at a time.
+    one: (factory: ApiClientFactory, id: string) =>
+      factory.getAnnotationsClient().deleteAnnotation(id),
+    capability: Capability.Annotation.DELETE,
+    // Rows carry permitted_actions, and only the author may delete.
+    capabilityMode: 'row',
+    labelSingular: 'annotation',
+    labelPlural: 'annotations',
+    notSelectableReason: 'Only the author can delete this annotation',
+  },
   extraParams: f => ({
     ...(f.search.trim() ? { search: f.search.trim() } : {}),
     ...(f.status === 'resolved' ? { resolved: true } : {}),

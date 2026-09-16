@@ -19,6 +19,8 @@ export const ANNOTATION_COPY = {
   showOthers: (count: number) => `Show annotations from other users (${count})`,
 
   drawerTitle: 'Add Annotation',
+  editTitle: 'Edit Annotation',
+  resolvedLabel: 'Resolved',
   verdictLabel: 'Verdict',
   verdictRequired: 'Please choose a verdict for this annotation.',
   commentPlaceholder:
