@@ -2,7 +2,7 @@ import datetime
 from typing import Any, ClassVar, Dict, Optional, Union
 from uuid import UUID
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import AnnotationTarget, EntityType
@@ -22,6 +22,23 @@ class AnnotationTargetSchema(Base):
     )
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+    @model_validator(mode="after")
+    def _sub_targets_need_a_reference(self) -> "AnnotationTargetSchema":
+        """A metric or turn target is meaningless without naming which one.
+
+        Rejected here rather than downstream: the override writers look the
+        reference up by name, and a null one reaches ``_normalize_metric_name``
+        as ``None.lower()``, which is a 500 rather than a bad request. The UI
+        cannot produce this (a target only exists there once a mention names
+        it), but the SDK and the MCP tools take the target as an argument.
+        """
+        if (
+            self.type in (AnnotationTarget.METRIC, AnnotationTarget.TURN)
+            and not (self.reference or "").strip()
+        ):
+            raise ValueError(f"target.reference is required when target.type is '{self.type}'")
+        return self
 
 
 class AnnotationCreate(Base):

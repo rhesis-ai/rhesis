@@ -28,6 +28,7 @@ import {
   ENTITY_LEVEL_TARGETS,
   type Annotation,
   type AnnotationEntityType,
+  type AnnotationUpdate,
 } from '@/utils/api-client/interfaces/annotation';
 import { ANNOTATION_COPY } from './annotation-copy';
 
@@ -207,12 +208,17 @@ export default function AnnotationDrawer({
       // staleTime with refetchOnWindowFocus off, so without that the saved
       // annotation would be missing from the list until it expired.
       if (annotation) {
-        await update(annotation.id, {
+        // `target` is added only when there is one to set. Omitting the key
+        // is what makes the server keep the target the annotation already
+        // has, so this says that rather than relying on undefined being
+        // dropped during serialization.
+        const changes: AnnotationUpdate = {
           status_id: selectedStatusId,
           comments: trimmed,
-          target: targetToSend,
           resolved,
-        });
+        };
+        if (targetToSend) changes.target = targetToSend;
+        await update(annotation.id, changes);
       } else {
         await create({
           statusId: selectedStatusId,
