@@ -197,6 +197,13 @@ export default function PlaygroundChat({
           } catch {
             /* ignore */
           }
+        } else {
+          setTestParamsParsed(null);
+          try {
+            localStorage.removeItem(storageKey);
+          } catch {
+            /* ignore */
+          }
         }
       } catch {
         setTestParamsParsed(null);
