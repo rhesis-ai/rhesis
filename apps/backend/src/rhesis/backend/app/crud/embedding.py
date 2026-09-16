@@ -133,19 +133,30 @@ def get_embedding_by_hash(
     text_hash: str,
     status_id: uuid.UUID,
 ) -> Optional[models.Embedding]:
-    """Find an exact matching embedding (deduplication)."""
-    return (
-        db.query(models.Embedding)
-        .filter(
-            models.Embedding.entity_id == entity_id,
-            models.Embedding.entity_type == entity_type,
-            models.Embedding.organization_id == organization_id,
-            models.Embedding.config_hash == config_hash,
-            models.Embedding.text_hash == text_hash,
-            models.Embedding.status_id == status_id,
+    """Find an exact matching embedding (deduplication).
+
+    Bypasses the tenant auto-filter because the unique constraint
+    ``uq_embedding_dedup`` does not include ``project_id``. The
+    auto-filter's project clause would hide rows created under a
+    different project scope, causing the caller to attempt an INSERT
+    that the constraint rejects.  Organization isolation is preserved
+    by the explicit ``organization_id`` predicate.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    with bypass_tenant_filter():
+        return (
+            db.query(models.Embedding)
+            .filter(
+                models.Embedding.entity_id == entity_id,
+                models.Embedding.entity_type == entity_type,
+                models.Embedding.organization_id == organization_id,
+                models.Embedding.config_hash == config_hash,
+                models.Embedding.text_hash == text_hash,
+                models.Embedding.status_id == status_id,
+            )
+            .first()
         )
-        .first()
-    )
 
 
 def mark_embeddings_stale(
@@ -156,14 +167,23 @@ def mark_embeddings_stale(
     active_status_id: uuid.UUID,
     stale_status_id: uuid.UUID,
 ) -> int:
-    """Bulk update old active embeddings to stale."""
-    return (
-        db.query(models.Embedding)
-        .filter(
-            models.Embedding.entity_id == entity_id,
-            models.Embedding.entity_type == entity_type,
-            models.Embedding.organization_id == organization_id,
-            models.Embedding.status_id == active_status_id,
+    """Bulk update old active embeddings to stale.
+
+    Bypasses the tenant auto-filter for the same reason as
+    ``get_embedding_by_hash``: embeddings for a given entity may have
+    been created under a different project scope, and the staleness
+    transition must reach all of them.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    with bypass_tenant_filter():
+        return (
+            db.query(models.Embedding)
+            .filter(
+                models.Embedding.entity_id == entity_id,
+                models.Embedding.entity_type == entity_type,
+                models.Embedding.organization_id == organization_id,
+                models.Embedding.status_id == active_status_id,
+            )
+            .update({"status_id": stale_status_id})
         )
-        .update({"status_id": stale_status_id})
-    )
