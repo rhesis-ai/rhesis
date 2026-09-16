@@ -6,12 +6,10 @@
 # to whichever read-only Postgres datasource the cluster defines. In prd that is
 # "Rhesis PRD Postgres (RO)", which routes to the rhesis-prd-ro hot-standby replica.
 #
-# Two panels from the original report are deliberately absent, because the schema
-# cannot answer them:
-#   - The Cloud vs self-hosted split. Self-hosted deployments run their own database,
-#     so this Grafana never sees their rows, and no column marks a row as either.
-#   - "Most active users (by total login)". `user` carries only last_login_at, a single
-#     timestamp, with no login counter anywhere. "Most recently active" replaces it.
+# This dashboard covers what the application database knows. The original report's
+# cloud vs self-hosted split and its login-count ranking come from a different database
+# entirely, the telemetry analytics one written by apps/telemetry-processor, and live in
+# telemetry-dashboard.yaml alongside the panels that read it.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
@@ -42,6 +40,7 @@ spec:
             "label": "Datasource",
             "type": "datasource",
             "query": "postgres",
+            "regex": "/Postgres/",
             "current": {},
             "hide": 0
           },
@@ -50,7 +49,8 @@ spec:
             "label": "Organization",
             "type": "query",
             "datasource": { "type": "postgres", "uid": "${datasource}" },
-            "query": "SELECT id AS __value, COALESCE(display_name, name) AS __text FROM public.organization WHERE deleted_at IS NULL ORDER BY 2",
+            "description": "Includes an explicit \"(no organization)\" entry, because users can exist without one and would otherwise be either invisible or silently mixed into every single-org selection.",
+            "query": "SELECT id::text AS __value, COALESCE(display_name, name) AS __text FROM public.organization WHERE deleted_at IS NULL UNION ALL SELECT 'none', '(no organization)' ORDER BY 2",
             "refresh": 1,
             "sort": 1,
             "multi": true,
@@ -125,7 +125,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  date_trunc('month', u.created_at) AS time,\n  COUNT(*) AS \"New users\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND (u.organization_id IS NULL OR o.id::text IN ($org))\n  AND $__timeFilter(u.created_at)\nGROUP BY 1\nORDER BY 1"
+              "rawSql": "SELECT\n  date_trunc('month', u.created_at) AS time,\n  COUNT(*) AS \"New users\"\nFROM public.\"user\" u\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nGROUP BY 1\nORDER BY 1"
             }
           ]
         },
@@ -151,7 +151,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "WITH monthly AS (\n  SELECT\n    date_trunc('month', u.created_at) AS m,\n    COUNT(*) AS c\n  FROM public.\"user\" u\n  LEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\n  WHERE u.deleted_at IS NULL\n    AND (u.organization_id IS NULL OR o.id::text IN ($org))\n  GROUP BY 1\n),\ncumulative AS (\n  SELECT m, SUM(c) OVER (ORDER BY m) AS running\n  FROM monthly\n)\nSELECT\n  m AS time,\n  running AS \"Total users\"\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY m"
+              "rawSql": "WITH monthly AS (\n  SELECT\n    date_trunc('month', u.created_at) AS m,\n    COUNT(*) AS c\n  FROM public.\"user\" u\n  WHERE u.deleted_at IS NULL\n    AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  GROUP BY 1\n),\ncumulative AS (\n  SELECT m, SUM(c) OVER (ORDER BY m) AS running\n  FROM monthly\n)\nSELECT\n  m AS time,\n  running AS \"Total users\"\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY m"
             }
           ]
         },
@@ -194,7 +194,7 @@ spec:
           "id": 5,
           "type": "table",
           "title": "Most recently active users",
-          "description": "Ordered by last_login_at. The original report ranked by total logins, which no column records, so this ranks by recency instead. Users who have never logged in are excluded. Ignores the time picker.",
+          "description": "Ordered by last_login_at, which the application database records as a single timestamp. For a ranking by number of logins see the Rhesis Telemetry dashboard, which counts login events in the analytics database. Users who have never logged in are excluded. Ignores the time picker.",
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
           "fieldConfig": {
             "defaults": { "custom": { "align": "auto", "filterable": true } },
@@ -210,7 +210,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "table",
-              "rawSql": "SELECT\n  COALESCE(u.name, u.email) AS \"User\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND u.last_login_at IS NOT NULL\n  AND (u.organization_id IS NULL OR o.id::text IN ($org))\nORDER BY u.last_login_at DESC\nLIMIT 25"
+              "rawSql": "SELECT\n  COALESCE(u.name, u.email) AS \"User\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND u.last_login_at IS NOT NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\nORDER BY u.last_login_at DESC\nLIMIT 25"
             }
           ]
         },
@@ -243,7 +243,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "table",
-              "rawSql": "SELECT\n  u.created_at AS \"Created\",\n  COALESCE(u.name, u.email) AS \"User\",\n  u.email AS \"Email\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.provider_type AS \"Provider\",\n  u.is_active AS \"Active\",\n  u.is_email_verified AS \"Email verified\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND (u.organization_id IS NULL OR o.id::text IN ($org))\n  AND $__timeFilter(u.created_at)\nORDER BY u.created_at DESC"
+              "rawSql": "SELECT\n  u.created_at AS \"Created\",\n  COALESCE(u.name, u.email) AS \"User\",\n  u.email AS \"Email\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.provider_type AS \"Provider\",\n  u.is_active AS \"Active\",\n  u.is_email_verified AS \"Email verified\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nORDER BY u.created_at DESC"
             }
           ]
         },
@@ -254,7 +254,7 @@ spec:
           "gridPos": { "h": 6, "w": 24, "x": 0, "y": 34 },
           "options": {
             "mode": "markdown",
-            "content": "This is the cloud database only. Self-hosted deployments keep their own database and never report into it, so there is no cloud vs self-hosted split here and the totals are cloud figures.\n\nSoft-deleted rows (`deleted_at IS NOT NULL`) are excluded everywhere.\n\n`last_login_at` is a single timestamp, not a counter, so users can be ranked by how recently they logged in but not by how often."
+            "content": "Every number here comes from the application database, so it counts registered users and their rows, not sessions or requests.\n\nSoft-deleted rows (`deleted_at IS NOT NULL`) are excluded everywhere.\n\n`last_login_at` is a single timestamp, not a counter, so this dashboard ranks users by how recently they logged in. For how *often* they log in, and for the cloud vs self-hosted split, see the **Rhesis Telemetry** dashboard, which reads the separate analytics database that receives the phone-home events."
           }
         }
       ]

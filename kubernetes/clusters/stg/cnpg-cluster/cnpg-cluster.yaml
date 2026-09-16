@@ -70,6 +70,13 @@ spec:
       # backup). This already-initialized cluster won't rerun that bootstrap SQL, so
       # the same read-only GRANTs still need a one-time manual run against rhesis-stg-db
       # (see PR description / runbook for the exact SQL).
+      #
+      # rhesis-analytics-stg-db is deliberately not granted here beyond CONNECT. Its
+      # tables do not exist at bootstrap (the telemetry-processor's Alembic chain creates
+      # them) and they are owned by rhesis-analytics-user, so only that role can grant on
+      # them. Its migration 002 does exactly that, which also covers tables added by later
+      # revisions. CNPG could not express it anyway: postInitApplicationSQL reaches only
+      # the application database, and a second database cannot be reached from any hook.
       - name: grafana-viewer
         ensure: present
         login: true
@@ -94,6 +101,7 @@ spec:
         - CREATE ROLE "grafana-viewer" WITH LOGIN;
         - CREATE DATABASE "rhesis-analytics-stg-db" OWNER "rhesis-analytics-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
+        - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "grafana-viewer";
       # Runs as superuser inside rhesis-stg-db after initdb creates it.
       postInitApplicationSQL:
         - GRANT ALL ON SCHEMA public TO "rhesis-admin";

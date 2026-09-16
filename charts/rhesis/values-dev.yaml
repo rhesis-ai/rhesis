@@ -407,6 +407,13 @@ postgresql:
             ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public
               GRANT SELECT ON TABLES TO "grafana-viewer";
           EOSQL
+          # Read access to the analytics DB is not granted here. Those tables do not exist
+          # at initdb and are owned by rhesis-analytics-user, so only that role can grant on
+          # them; the telemetry-processor's own migration 002 does it when it creates them.
+          psql -v ON_ERROR_STOP=1 \
+            --username "$POSTGRES_USER" --dbname "postgres" <<'EOSQL'
+            GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "grafana-viewer";
+          EOSQL
     podSecurityContext:
       enabled: true
       fsGroup: 999

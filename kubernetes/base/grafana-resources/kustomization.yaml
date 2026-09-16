@@ -13,6 +13,9 @@ resources:
   - user-activity-dashboard.yaml
   - organization-dashboard.yaml
   - test-activity-dashboard.yaml
+  # Reads the telemetry analytics DB instead of the application one, via the per-cluster
+  # "* Analytics (RO)" datasource. Only source for deployment_type and login counts.
+  - telemetry-dashboard.yaml
   # Alerting: identical in every env. Each cluster's ExternalSecret (see
   # clusters/*/grafana-resources/discord-webhook-secret.yaml and
   # grafana-smtp-credentials.yaml) fills in the two things that differ — the Discord

@@ -1,0 +1,43 @@
+# Read-only datasource for the telemetry analytics database, which the
+# apps/telemetry-processor service writes (user_activity, endpoint_usage,
+# feature_usage). It is a separate database from rhesis-prd-db but lives in the same
+# CNPG cluster, created by postInitSQL in cnpg-cluster.yaml and owned by
+# rhesis-analytics-user, so the same rhesis-prd-ro hot-standby endpoint reaches it.
+#
+# This is what carries deployment_type (cloud / self-hosted) and the login events, so
+# it is the only source for the cloud vs self-hosted split and for login counts.
+#
+# "Analytics" in the name is load-bearing: dashboards select between this and the app
+# datasource with a regex on a datasource template variable, since both are type postgres.
+#
+# grafana-viewer needs GRANTs inside this database, which cnpg-cluster.yaml cannot issue
+# at bootstrap (postInitApplicationSQL only reaches rhesis-prd-db). See the PR description
+# for the one-time SQL.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: rhesis-prd-analytics
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: "Rhesis PRD Analytics (RO)"
+    type: postgres
+    access: proxy
+    url: rhesis-prd-ro.rhesis.svc:5432
+    user: grafana-viewer
+    jsonData:
+      database: rhesis-analytics-prd-db
+      sslmode: disable
+      postgresVersion: 1700
+    editable: false
+  valuesFrom:
+    - targetPath: "secureJsonData.password"
+      valueFrom:
+        secretKeyRef:
+          name: grafana-viewer-credentials
+          key: password

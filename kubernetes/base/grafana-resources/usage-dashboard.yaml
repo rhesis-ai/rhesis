@@ -42,6 +42,7 @@ spec:
             "label": "Datasource",
             "type": "datasource",
             "query": "postgres",
+            "regex": "/Postgres/",
             "current": {},
             "hide": 0
           },

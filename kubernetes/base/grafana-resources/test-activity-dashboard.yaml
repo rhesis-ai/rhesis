@@ -37,6 +37,7 @@ spec:
             "label": "Datasource",
             "type": "datasource",
             "query": "postgres",
+            "regex": "/Postgres/",
             "current": {},
             "hide": 0
           },
@@ -412,6 +413,95 @@ spec:
               "rawQuery": true,
               "format": "table",
               "rawSql": "SELECT\n  ts.created_at AS \"Created\",\n  ts.name AS \"Test set\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COALESCE(u.name, u.email) AS \"Created by\",\n  ts.is_published AS \"Published\",\n  ts.visibility AS \"Visibility\"\nFROM public.test_set ts\nLEFT JOIN public.organization o ON o.id = ts.organization_id AND o.deleted_at IS NULL\nLEFT JOIN public.\"user\" u ON u.id = ts.user_id AND u.deleted_at IS NULL\nWHERE ts.deleted_at IS NULL\n  AND ts.organization_id::text IN ($org)\n  AND $__timeFilter(ts.created_at)\nORDER BY ts.created_at DESC\nLIMIT 25"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Breakdowns",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 12,
+          "type": "barchart",
+          "title": "Test type analysis",
+          "description": "Tests by their type_lookup value in the selected time range. Tests with no test_type_id are grouped as unspecified.",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 61 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(tl.type_value, 'unspecified') AS \"Test type\",\n  COUNT(*) AS \"Tests\"\nFROM public.test t\nLEFT JOIN public.type_lookup tl ON tl.id = t.test_type_id AND tl.deleted_at IS NULL\nWHERE t.deleted_at IS NULL\n  AND t.organization_id::text IN ($org)\n  AND $__timeFilter(t.created_at)\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 15"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "type": "barchart",
+          "title": "Tests by status",
+          "description": "Tests by their status in the selected time range. Tests with no status_id are grouped as no status.",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 61 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(s.name, 'no status') AS \"Status\",\n  COUNT(*) AS \"Tests\"\nFROM public.test t\nLEFT JOIN public.status s ON s.id = t.status_id AND s.deleted_at IS NULL\nWHERE t.deleted_at IS NULL\n  AND t.organization_id::text IN ($org)\n  AND $__timeFilter(t.created_at)\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 15"
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "Prompt creation trends",
+          "description": "Prompts created per month. Follows the time picker and the organization filter.",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 61 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', created_at) AS time,\n  COUNT(*) AS \"Prompts\"\nFROM public.prompt\nWHERE deleted_at IS NULL\n  AND organization_id::text IN ($org)\n  AND $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1"
             }
           ]
         }
