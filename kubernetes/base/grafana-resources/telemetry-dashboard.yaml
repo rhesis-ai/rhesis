@@ -13,6 +13,12 @@
 # deployment_type actually contains and the $deployment variable filters them. Hardcoding
 # two columns would silently drop the rest and make totals disagree.
 #
+# Those series come back as long format (time, metric, value), which Grafana folds into
+# one frame per series. That fold requires the rows sorted by TIME first: ordering by the
+# metric column first fails the whole panel with "unable to process the data because it is
+# not sorted in ascending order by time", not just a mis-drawn line. So every query here
+# ending in a metric column orders by time before metric, never the other way round.
+#
 # Two caveats worth knowing before reading any number here:
 #   - Self-hosted reporting is opt-in (OTEL_RHESIS_TELEMETRY_ENABLED, default false),
 #     while cloud is always on. Self-hosted figures are therefore a floor, not a count.
@@ -199,7 +205,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(deployment_type, 'unknown') AS metric,\n  COUNT(DISTINCT user_id) AS value\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 2, 1"
+              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(deployment_type, 'unknown') AS metric,\n  COUNT(DISTINCT user_id) AS value\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 1, 2"
             }
           ]
         },
@@ -225,7 +231,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "WITH first_seen AS (\n  SELECT DISTINCT ON (user_id)\n    user_id,\n    COALESCE(deployment_type, 'unknown') AS deployment,\n    date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS m\n  FROM public.user_activity\n  WHERE user_id IS NOT NULL\n    AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  ORDER BY user_id, \"timestamp\"\n),\nmonthly AS (\n  SELECT m, deployment, COUNT(*) AS c\n  FROM first_seen\n  GROUP BY 1, 2\n),\ncumulative AS (\n  SELECT m, deployment, SUM(c) OVER (PARTITION BY deployment ORDER BY m) AS running\n  FROM monthly\n)\nSELECT m AS time, deployment AS metric, running AS value\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY deployment, m"
+              "rawSql": "WITH first_seen AS (\n  SELECT DISTINCT ON (user_id)\n    user_id,\n    COALESCE(deployment_type, 'unknown') AS deployment,\n    date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS m\n  FROM public.user_activity\n  WHERE user_id IS NOT NULL\n    AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  ORDER BY user_id, \"timestamp\"\n),\nmonthly AS (\n  SELECT m, deployment, COUNT(*) AS c\n  FROM first_seen\n  GROUP BY 1, 2\n),\ncumulative AS (\n  SELECT m, deployment, SUM(c) OVER (PARTITION BY deployment ORDER BY m) AS running\n  FROM monthly\n)\nSELECT m AS time, deployment AS metric, running AS value\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY m, deployment"
             }
           ]
         },
@@ -251,7 +257,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(deployment_type, 'unknown') AS metric,\n  COUNT(*) AS value\nFROM public.user_activity\nWHERE event_type = 'login'\n  AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 2, 1"
+              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(deployment_type, 'unknown') AS metric,\n  COUNT(*) AS value\nFROM public.user_activity\nWHERE event_type = 'login'\n  AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 1, 2"
             }
           ]
         },
@@ -277,7 +283,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "time_series",
-              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(event_type, 'unknown') AS metric,\n  COUNT(*) AS value\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 2, 1"
+              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(event_type, 'unknown') AS metric,\n  COUNT(*) AS value\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 1, 2"
             }
           ]
         },
