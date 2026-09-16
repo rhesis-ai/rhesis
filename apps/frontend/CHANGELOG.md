@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-16
+
+### Added
+
+- **Trace Cost & Token Metrics**:
+  - Added token and cost status chips to the trace drawer header.
+  - Introduced a "Usage" block in Span Details that displays rolled-up token and cost metrics for the selected span and its entire subtree.
+  - Added "Tokens" and "Cost" columns to the traces list with support for server-side sorting.
+  - Added project-level rollup tiles for total tokens and costs, positioned cleanly above the traces grid.
+- **Test Run Enhancements**:
+  - Added a dedicated "Reviews" tab to the test run details page, listing all reviews (author, timestamp, verdict, and comments) with support for deep-linking and interactive drawer editing.
+  - Added a run-scoped "Usage" card to the test run summary, displaying total tokens and cost metrics for the run.
+  - Restored run-scoped rollup metric tiles on the test run traces tab.
+- **Test Parameters Support**:
+  - Added a collapsible JSON editor (`TestParametersBlock`) to the playground chat and test configurations to support passing custom `test_parameters` for endpoint mappings.
+- **Endpoint Timeout Configuration**:
+  - Added a configurable `timeout_seconds` field to the endpoint creation wizard and edit flows, located on the Overview tab.
+
+### Changed
+
+- **Test Execution Pipeline**:
+  - Refactored the run test drawer to route both single-turn and multi-turn executions through the backend test execution pipeline, ensuring consistent template rendering, parameter resolution, and mapping.
+  - Removed the redundant project selector from the run test drawer, defaulting instead to the active session project.
+- **UI & Styling Consistency**:
+  - Standardized the test parameters block styling using shared button components (`SectionSaveCancelActions` and `SectionEditButton`).
+- **Proxy Configuration**:
+  - Added `/invoke` and `/execute` to the BFF proxy long-running suffixes to prevent 504 timeouts during long-running endpoint invocations.
+
+### Fixed
+
+- **Mapping Validation**:
+  - Added client-side JSON validation for request and response mappings before saving endpoints, displaying specific parse errors while safely allowing Jinja block (`{% %}`) and expression (`{{ }}`) syntax.
+- **Bug Fixes**:
+  - Fixed alignment and indexing of test buttons in the Playground Chat after introducing the test parameters toggle.
+  - Cleared stale parsed test parameters state upon encountering JSON parse errors.
+
 ## [0.15.2] - 2026-09-10
 
 ### Changed

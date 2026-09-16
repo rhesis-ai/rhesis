@@ -13,6 +13,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-16
+
+### Added
+- Added support for a configurable `timeout_seconds` field on the `Endpoint` entity.
+- Added a freeform `test_parameters` field to the `Test` entity, supported by a new `get_test_parameters()` SDK accessor and context variable to inject per-test context into endpoint mappings.
+- Added `get_experiment_parameters()` as the preferred SDK accessor for retrieving experiment parameters.
+- Added automatic grouping of LangGraph turns by `thread_id` to seamlessly map multi-turn graph executions to conversation IDs.
+- Added auto-instrumentation for LangChain retriever calls, tracing them as `ai.retrieval` spans with query, results, and `top_k` attributes.
+- Added a shared deferred-release queue for GenAI integrations (MAF and Google ADK) to collect and export multi-turn text content per trace ID.
+
+### Changed
+- Upgraded minimum dependency requirements for the LangChain and LangGraph ecosystem (including `langchain >= 1.4.0`, `langchain-core >= 1.6.0`, and `langgraph >= 1.2.0`).
+- Rewrote the LangChain/LangGraph callback registration to use `register_configure_hook`, resolving an issue where tracing silently failed on `langchain-core >= 1.5`.
+- Improved LangGraph tracing structure to trace all node runs regardless of naming conventions, routing untraced intermediate steps to their nearest traced ancestor to prevent orphaned spans.
+- Enhanced prompt event tracking to emit one prompt event per message, ensuring the full conversation history is captured rather than just the initial system prompt.
+- Refactored the internal LangChain callback implementation into dedicated modules (`callback`, `span_registry`, and `turns`) to improve maintainability and performance.
+
+### Deprecated
+- Deprecated the `get_parameters()` SDK accessor in favor of `get_experiment_parameters()`.
+
+### Fixed
+- Fixed thread-safety and concurrency issues in the LangGraph callback when executing parallel nodes.
+- Fixed integration teardown in `disable()`, ensuring patched class methods (such as `CompiledStateGraph` and `BaseTool` invokes) and global callback variables are fully restored.
+- Fixed a bug where non-dict tool call shapes returned by certain LLM providers caused agent spans to hang indefinitely.
+- Fixed sequential transition inference that incorrectly flagged sequential graph edges as agent handoffs.
+
+
 ## [0.15.2] - 2026-09-10
 
 ### Added

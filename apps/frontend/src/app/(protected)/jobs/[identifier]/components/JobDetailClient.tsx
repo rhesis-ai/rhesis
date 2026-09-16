@@ -161,9 +161,10 @@ export default function JobDetailClient({
     );
     const unsubActivity = subscribe(
       EventType.JOB_ACTIVITY_APPENDED,
-      forThisJob(() =>
-        queryClient.invalidateQueries({ queryKey: jobKeys.activity(jobId) })
-      )
+      forThisJob(() => {
+        queryClient.invalidateQueries({ queryKey: jobKeys.activity(jobId) });
+        queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+      })
     );
     const unsubError = subscribe(
       EventType.SUBSCRIPTION_ERROR,

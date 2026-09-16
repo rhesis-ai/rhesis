@@ -28,7 +28,17 @@ export default function TestParametersBlock({
   const canEdit = useCan(Capability.Test.UPDATE);
   const monacoTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'vs';
 
-  const currentParams = test.test_parameters ?? null;
+  const [optimistic, setOptimistic] = React.useState<
+    Record<string, unknown> | null | undefined
+  >(undefined);
+
+  // Reset optimistic override once the server prop catches up
+  const serverParams = test.test_parameters ?? null;
+  React.useEffect(() => {
+    setOptimistic(undefined);
+  }, [serverParams]);
+
+  const currentParams = optimistic !== undefined ? optimistic : serverParams;
   const hasParams =
     currentParams !== null && Object.keys(currentParams).length > 0;
 
@@ -81,6 +91,7 @@ export default function TestParametersBlock({
         severity: 'success',
         autoHideDuration: 4000,
       });
+      setOptimistic(parsed);
       setIsEditing(false);
       onUpdate?.();
     } catch {
@@ -105,6 +116,7 @@ export default function TestParametersBlock({
         severity: 'success',
         autoHideDuration: 4000,
       });
+      setOptimistic(null);
       setIsEditing(false);
       onUpdate?.();
     } catch {

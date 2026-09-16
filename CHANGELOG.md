@@ -13,6 +13,42 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-16
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.16.0**
+- **Frontend 0.16.0**
+- **SDK 0.16.0**
+
+### Summary of Changes
+
+**Backend v0.16.0:**
+- Added support for configurable endpoint timeouts (1–3600 seconds) and introduced `test_parameters` to allow per-test context injection in request mappings.
+- Implemented major performance optimizations, including moving synchronous database operations off the main event loop, lazy database session instantiation for SDK WebSockets, and optimized Row-Level Security (RLS) queries.
+- Enhanced telemetry capabilities by scoping trace metrics to test runs, enabling server-side sorting for trace lists, and persisting connector execution traces to a dedicated database table.
+- Introduced `experiment_parameters` as the preferred, backward-compatible alias for experiment parameter injection.
+
+**Frontend v0.16.0:**
+- Enhanced the Trace UI and Test Run Summary with comprehensive token usage and cost tracking, including server-side sorting, subtree usage rollups, and project-level metrics.
+- Added a dedicated "Reviews" tab to test runs to track and edit feedback, alongside a new Usage card showing run-specific token and cost metrics.
+- Introduced support for `test_parameters` with a collapsible JSON editor in the playground chat and improved the test execution pipeline in the run test drawer.
+- Added a configurable endpoint timeout setting (1-3600s) to the Overview tab and implemented JSON validation for request/response mappings.
+
+**SDK v0.16.0:**
+- Upgraded LangChain and LangGraph integrations to fix missing telemetry spans, automatically group turns by `thread_id`, and auto-trace retriever calls as `ai.retrieval`.
+- Added a configurable `timeout_seconds` property to the `Endpoint` entity to control SDK and REST invoker timeouts.
+- Introduced `test_parameters` (via `get_test_parameters()`) for per-test context, and added `experiment_parameters` as the preferred alias for `params`.
+- Added a shared deferred-release queue for GenAI integrations (MAF and Google ADK) to optimize memory usage and turn text collection.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.15.2] - 2026-09-10
 
 ### Platform Release
