@@ -6,8 +6,8 @@ metric and turn targets rewrite the matching entry inside the parent's metrics
 JSONB and the parent status is recalculated from there.
 
 The marker written into that JSONB names the annotation under ``annotation_id``.
-a0004bkflanno reused each legacy JSONB ``review_id`` as the annotation's primary
-key, so the values carried over unchanged; a0005ovrdkey renamed the key itself.
+eb2719043c01 reused each legacy JSONB ``review_id`` as the annotation's primary
+key, so the values carried over unchanged; 01926b6dd2b6 renamed the key itself.
 ``v_metric_stats.has_override`` only tests that ``override`` exists, so it reads
 the same either way.
 """

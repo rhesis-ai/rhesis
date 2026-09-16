@@ -2,7 +2,7 @@
 
 Each JSONB ``review_id`` becomes the annotation's primary key, so the override
 markers inside ``test_metrics`` / ``trace_metrics`` still point at the right row
-without touching that data. a0005ovrdkey then renames the marker's key from
+without touching that data. 01926b6dd2b6 then renames the marker's key from
 ``review_id`` to ``annotation_id``. ``ON CONFLICT (id) DO NOTHING`` makes the
 insert idempotent.
 

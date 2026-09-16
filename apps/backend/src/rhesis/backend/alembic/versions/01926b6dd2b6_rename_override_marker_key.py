@@ -3,7 +3,7 @@
 The marker an annotation writes into ``test_metrics`` / ``trace_metrics`` /
 ``test_output`` pointed at the annotation under the key ``review_id``, left over
 from when annotations were JSONB reviews. Its value already *is* an annotation
-id (a0004bkflanno reused each JSONB ``review_id`` as the annotation's primary
+id (eb2719043c01 reused each JSONB ``review_id`` as the annotation's primary
 key), so this renames the key and touches nothing else.
 
 ``v_metric_stats.has_override`` only tests that ``override`` exists and is
@@ -24,10 +24,10 @@ them. Renaming subtracts the old key and adds the new one, which preserves
 
 ``test_result`` and ``trace`` run under FORCE ROW LEVEL SECURITY, so every
 statement runs with the org GUC bound, one org at a time (same approach as
-a0004bkflanno).
+eb2719043c01).
 
-Revision ID: a0005ovrdkey
-Revises: a0004bkflanno
+Revision ID: 01926b6dd2b6
+Revises: eb2719043c01
 Create Date: 2026-09-15
 """
 
@@ -36,8 +36,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a0005ovrdkey"
-down_revision: Union[str, None] = "a0004bkflanno"
+revision: str = "01926b6dd2b6"
+down_revision: Union[str, None] = "eb2719043c01"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -139,7 +139,7 @@ def _rename(old: str, new: str) -> None:
                 renamed += result.rowcount if result.rowcount is not None else 0
 
     print(
-        f"[a0005ovrdkey] Renamed '{old}' -> '{new}' in override markers on "
+        f"[01926b6dd2b6] Renamed '{old}' -> '{new}' in override markers on "
         f"{renamed} row(s) across {len(org_ids)} organization(s)."
     )
 

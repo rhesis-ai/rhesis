@@ -1,4 +1,4 @@
-"""Pre-merge confidence tests for the override-marker key rename (a0005ovrdkey).
+"""Pre-merge confidence tests for the override-marker key rename (01926b6dd2b6).
 
 TEMPORARY: delete once that migration has shipped everywhere.
 
@@ -46,7 +46,7 @@ _MIGRATION_PATH = (
     / "backend"
     / "alembic"
     / "versions"
-    / "a0005_rename_override_marker_key.py"
+    / "01926b6dd2b6_rename_override_marker_key.py"
 )
 
 
