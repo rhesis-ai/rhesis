@@ -288,3 +288,201 @@ class TestTestRunScoping:
             )
 
         assert caught.value.status_code == 400
+
+
+def legacy_enrichment_blob(models):
+    """A blob shaped the way every already-enriched trace in the database is.
+
+    No trace-level cost split, no models_used, and no per-span provider -- those keys
+    arrived after enrichment had already run over everything. The rollup has to derive
+    them from the breakdown, otherwise the new figures are blank until every trace
+    happens to be re-enriched, which nothing triggers.
+    """
+    return {
+        "costs": {
+            "total_cost_usd": 0.03 * len(models),
+            "total_cost_eur": 0.027 * len(models),
+            "total_input_tokens": 200 * len(models),
+            "total_output_tokens": 100 * len(models),
+            "total_tokens": 300 * len(models),
+            "breakdown": [
+                {
+                    "span_id": uuid.uuid4().hex[:16],
+                    "model_name": model,
+                    "input_tokens": 200,
+                    "output_tokens": 100,
+                    "total_tokens": 300,
+                    "input_cost_usd": 0.02,
+                    "output_cost_usd": 0.01,
+                    "total_cost_usd": 0.03,
+                    "input_cost_eur": 0.018,
+                    "output_cost_eur": 0.009,
+                    "total_cost_eur": 0.027,
+                }
+                for model in models
+            ],
+        }
+    }
+
+
+@pytest.mark.integration
+class TestUsageBreakdown:
+    """The input/output split and the models behind it."""
+
+    def test_splits_tokens_and_cost(self, test_db, six_span_trace, test_org_id):
+        _, project_id = six_span_trace
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_input_tokens"] == 300
+        assert metrics["total_output_tokens"] == 120
+
+    def test_derives_the_cost_split_for_a_blob_that_has_none(
+        self, test_db, db_project, test_org_id
+    ):
+        """The case that covers every trace already in the database."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, legacy_enrichment_blob(["gpt-4"]))
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_input_cost_usd"] == pytest.approx(0.02)
+        assert metrics["total_output_cost_usd"] == pytest.approx(0.01)
+        assert metrics["total_cost_usd"] == pytest.approx(0.03)
+
+    def test_the_split_is_not_multiplied_by_span_count(self, test_db, db_project, test_org_id):
+        """Same trap as the total: the blob is on every span row of the trace."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [
+                span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke"),
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                ),
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                ),
+            ],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, legacy_enrichment_blob(["gpt-4"]))
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_spans"] == 3
+        assert metrics["total_input_cost_usd"] == pytest.approx(0.02)
+
+    def test_models_come_off_span_attributes_before_enrichment(
+        self, test_db, db_project, test_org_id
+    ):
+        """An unenriched trace has no blob, so the spans are the only source."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["models_used"] == ["gpt-4"]
+        assert metrics["providers_used"] == ["openai"]
+
+    def test_models_come_off_the_blob_when_the_spans_are_out_of_scope(
+        self, test_db, db_project, test_org_id, db_test_run
+    ):
+        """The test-run case, and the reason the blob is read at all.
+
+        ``test_run_id`` is stamped on the root span, not on the llm.invoke children, so
+        scoping to a run leaves no span carrying a model name. The enrichment blob is
+        written onto every span row of the trace, including that root, so it still knows.
+        """
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [run_span(trace_id, project_id, db_test_run.id, operation="function.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(
+            test_db, trace_id, legacy_enrichment_blob(["gemini-2.0-flash", "gpt-4"])
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db,
+            organization_id=test_org_id,
+            project_id=project_id,
+            test_run_id=str(db_test_run.id),
+        )
+
+        assert metrics["models_used"] == ["gemini-2.0-flash", "gpt-4"]
+        assert metrics["providers_used"] == ["gemini", "openai"]
+
+    def test_an_unpriceable_model_is_reported_as_unknown(self, test_db, db_project, test_org_id):
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, legacy_enrichment_blob(["self-hosted-7b"]))
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["models_used"] == ["self-hosted-7b"]
+        assert metrics["providers_used"] == ["unknown"]
+
+    def test_a_project_with_no_llm_spans_reports_empty_lists(
+        self, test_db, db_project, test_org_id
+    ):
+        """Empty, not ['unknown'] -- there is nothing to attribute."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [span(trace_id, uuid.uuid4().hex[:16], project_id, operation="tool.invoke")],
+            organization_id=test_org_id,
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["models_used"] == []
+        assert metrics["providers_used"] == []
