@@ -1,0 +1,37 @@
+# Read-only datasource for the telemetry analytics database (user_activity,
+# endpoint_usage, feature_usage), written by apps/telemetry-processor. Separate database
+# from rhesis-dev-db, same Bitnami PostgreSQL subchart, created by the init-analytics-db.sh
+# initdb script in charts/rhesis/values-dev.yaml.
+#
+# As with the app datasource, the (RO) here describes the grafana-viewer role's SELECT-only
+# grant rather than a replica endpoint: dev runs no CNPG, so there is only one service.
+# The grants for this database are in the init-grafana-viewer.sh script alongside it, which
+# unlike stg/prd does run on a fresh dev volume.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: rhesis-dev-analytics
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: "Rhesis DEV Analytics (RO)"
+    type: postgres
+    access: proxy
+    url: rhesis-postgresql.rhesis.svc:5432
+    user: grafana-viewer
+    jsonData:
+      database: rhesis-analytics-dev-db
+      sslmode: disable
+      postgresVersion: 1600
+    editable: false
+  valuesFrom:
+    - targetPath: "secureJsonData.password"
+      valueFrom:
+        secretKeyRef:
+          name: grafana-viewer-credentials
+          key: password

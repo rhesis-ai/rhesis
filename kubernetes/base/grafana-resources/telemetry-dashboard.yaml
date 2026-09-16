@@ -1,0 +1,402 @@
+# Deployment telemetry, read from the analytics database that apps/telemetry-processor
+# writes (user_activity, endpoint_usage, feature_usage). This is a different database from
+# the application one every other Rhesis dashboard reads, reached through its own
+# datasource, so the $analytics variable filters on "Analytics" in the datasource name
+# while every other dashboard filters on "Postgres".
+#
+# This is the only source for the two things the application database cannot answer:
+# deployment_type (cloud / self-hosted) and login counts, both of which the original
+# Looker Studio report showed.
+#
+# No panel hardcodes the set of deployment types. dev already carries a third value,
+# "test", besides cloud and self-hosted, so series are built from whatever
+# deployment_type actually contains and the $deployment variable filters them. Hardcoding
+# two columns would silently drop the rest and make totals disagree.
+#
+# Two caveats worth knowing before reading any number here:
+#   - Self-hosted reporting is opt-in (OTEL_RHESIS_TELEMETRY_ENABLED, default false),
+#     while cloud is always on. Self-hosted figures are therefore a floor, not a count.
+#     Each environment also runs its own collector, and a self-hosted install's default
+#     endpoint is the prd one, so only prd sees third-party self-hosted traffic.
+#   - user_id and organization_id are SHA-256 hashes truncated to 16 characters, not the
+#     application's UUIDs. Resolving them to names needs a cross-database join, which
+#     Postgres cannot do, so the one panel that shows names does it as a Grafana mixed-
+#     datasource join instead. That is the same "blend" the Looker Studio report used.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: rhesis-telemetry
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folder: Rhesis
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  json: |
+    {
+      "uid": "rhesis-telemetry",
+      "title": "Rhesis Telemetry",
+      "tags": ["rhesis", "telemetry", "deployment"],
+      "timezone": "utc",
+      "editable": false,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "",
+      "time": { "from": "now-12M", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "analytics",
+            "label": "Analytics datasource",
+            "type": "datasource",
+            "query": "postgres",
+            "regex": "/Analytics/",
+            "current": {},
+            "hide": 0
+          },
+          {
+            "name": "app",
+            "label": "App datasource",
+            "description": "Only used by the blended panel that resolves hashed user IDs to names.",
+            "type": "datasource",
+            "query": "postgres",
+            "regex": "/Postgres/",
+            "current": {},
+            "hide": 0
+          },
+          {
+            "name": "deployment",
+            "label": "Deployment type",
+            "type": "query",
+            "datasource": { "type": "postgres", "uid": "${analytics}" },
+            "query": "SELECT DISTINCT COALESCE(deployment_type, 'unknown') FROM public.user_activity ORDER BY 1",
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "Overview",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Telemetry totals",
+          "description": "Across the selected deployment types, for all time. Ignores the time picker. Distinct users are counted by hashed ID, so the same person on two deployment types counts twice.",
+          "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "none",
+            "graphMode": "none",
+            "textMode": "auto",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COUNT(DISTINCT user_id) AS \"Users seen\",\n  COUNT(DISTINCT organization_id) AS \"Organizations\",\n  COUNT(*) FILTER (WHERE event_type = 'login') AS \"Logins\",\n  COUNT(*) FILTER (WHERE event_type = 'registration') AS \"Registrations\",\n  COUNT(DISTINCT user_id) FILTER (WHERE \"timestamp\" >= (now() AT TIME ZONE 'UTC') - interval '30 days') AS \"Active last 30d\",\n  COUNT(DISTINCT COALESCE(deployment_type, 'unknown')) AS \"Deployment types\"\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "barchart",
+          "title": "Users and events by deployment type",
+          "description": "Every deployment type present in user_activity, so the figures add up to the totals above. Ignores the time picker.",
+          "gridPos": { "h": 8, "w": 10, "x": 0, "y": 5 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "multi", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(deployment_type, 'unknown') AS \"Deployment\",\n  COUNT(DISTINCT user_id) AS \"Users\",\n  COUNT(*) FILTER (WHERE event_type = 'login') AS \"Logins\"\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\nGROUP BY 1\nORDER BY 2 DESC"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "table",
+          "title": "Reporting window per deployment type",
+          "description": "When each deployment type first and last reported. A last-seen date far in the past means that deployment stopped sending telemetry rather than that it went idle, which matters because self-hosted reporting is opt-in and can simply be switched off.",
+          "gridPos": { "h": 8, "w": 14, "x": 10, "y": 5 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "First seen" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] },
+              { "matcher": { "id": "byName", "options": "Last seen" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(deployment_type, 'unknown') AS \"Deployment\",\n  COUNT(*) AS \"Events\",\n  COUNT(DISTINCT user_id) AS \"Users\",\n  MIN(\"timestamp\" AT TIME ZONE 'UTC') AS \"First seen\",\n  MAX(\"timestamp\" AT TIME ZONE 'UTC') AS \"Last seen\"\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\nGROUP BY 1\nORDER BY 2 DESC"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Growth",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Monthly active users by deployment",
+          "description": "Distinct hashed users seen per month. One series per deployment type, built from the data rather than hardcoded. A user active in two months counts in both.",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(deployment_type, 'unknown') AS metric,\n  COUNT(DISTINCT user_id) AS value\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 2, 1"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Cumulative users seen by deployment",
+          "description": "Running total of distinct hashed users first seen up to each month. A user is attributed to the deployment type of its earliest event. The running total is computed over all history, then the time picker trims which months are drawn, so each line starts at its true total rather than at zero.",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "auto", "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "WITH first_seen AS (\n  SELECT DISTINCT ON (user_id)\n    user_id,\n    COALESCE(deployment_type, 'unknown') AS deployment,\n    date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS m\n  FROM public.user_activity\n  WHERE user_id IS NOT NULL\n    AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  ORDER BY user_id, \"timestamp\"\n),\nmonthly AS (\n  SELECT m, deployment, COUNT(*) AS c\n  FROM first_seen\n  GROUP BY 1, 2\n),\ncumulative AS (\n  SELECT m, deployment, SUM(c) OVER (PARTITION BY deployment ORDER BY m) AS running\n  FROM monthly\n)\nSELECT m AS time, deployment AS metric, running AS value\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY deployment, m"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Login events over time",
+          "description": "Login events per month, one series per deployment type. This is the count the application database cannot provide, since it stores only last_login_at.",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(deployment_type, 'unknown') AS metric,\n  COUNT(*) AS value\nFROM public.user_activity\nWHERE event_type = 'login'\n  AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 2, 1"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Events by type over time",
+          "description": "All user_activity events per month, one series per event type (login, logout, registration).",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": { "mode": "normal", "group": "A" }, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', \"timestamp\" AT TIME ZONE 'UTC') AS time,\n  COALESCE(event_type, 'unknown') AS metric,\n  COUNT(*) AS value\nFROM public.user_activity\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1, 2\nORDER BY 2, 1"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Most active users",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 8,
+          "type": "table",
+          "title": "Most active users by login count",
+          "description": "The login-count ranking the original report had. Target A counts login events in the analytics database; target B lists users from the application database keyed by the same SHA-256 hash the backend emits, and Grafana joins the two. Only users that exist in this environment's application database can be named, so users from other deployments drop out here; the panels above cover them in aggregate.",
+          "gridPos": { "h": 10, "w": 14, "x": 0, "y": 32 },
+          "datasource": { "type": "datasource", "uid": "-- Mixed --" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Last seen" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "transformations": [
+            { "id": "joinByField", "options": { "byField": "user_id", "mode": "inner" } },
+            { "id": "organize", "options": { "excludeByName": { "user_id": true }, "indexByName": {}, "renameByName": {} } },
+            { "id": "sortBy", "options": { "fields": {}, "sort": [{ "field": "Logins", "desc": true }] } }
+          ],
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  user_id,\n  COUNT(*) AS \"Logins\",\n  MAX(\"timestamp\" AT TIME ZONE 'UTC') AS \"Last seen\",\n  MIN(COALESCE(deployment_type, 'unknown')) AS \"Deployment\"\nFROM public.user_activity\nWHERE event_type = 'login'\n  AND user_id IS NOT NULL\n  AND COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY user_id\nORDER BY 2 DESC\nLIMIT 50"
+            },
+            {
+              "refId": "B",
+              "datasource": { "type": "postgres", "uid": "${app}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  substr(encode(sha256(convert_to(u.id::text, 'UTF8')), 'hex'), 1, 16) AS user_id,\n  COALESCE(u.name, u.email) AS \"User\",\n  COALESCE(o.display_name, o.name) AS \"Organization\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "type": "barchart",
+          "title": "Top features used",
+          "description": "Feature usage events in the selected time range, from the feature_usage table.",
+          "gridPos": { "h": 10, "w": 10, "x": 14, "y": 32 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  feature_name AS \"Feature\",\n  COUNT(*) AS \"Events\"\nFROM public.feature_usage\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 15"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "API usage",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 10,
+          "type": "table",
+          "title": "Top API endpoints",
+          "description": "Endpoint usage in the selected time range, with latency and error rate. Error rate counts status_code >= 400 against rows that recorded a status at all.",
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 43 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Endpoint" }, "properties": [{ "id": "custom.width", "value": 320 }] },
+              { "matcher": { "id": "byName", "options": "p95 ms" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 0 }] },
+              { "matcher": { "id": "byName", "options": "Avg ms" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 0 }] },
+              { "matcher": { "id": "byName", "options": "Error rate" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 2 }, { "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${analytics}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  endpoint AS \"Endpoint\",\n  COUNT(*) AS \"Calls\",\n  ROUND(AVG(duration_ms)::numeric, 0) AS \"Avg ms\",\n  ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms)::numeric, 0) AS \"p95 ms\",\n  CASE WHEN COUNT(status_code) = 0 THEN NULL\n       ELSE COUNT(*) FILTER (WHERE status_code >= 400)::numeric / COUNT(status_code) END AS \"Error rate\"\nFROM public.endpoint_usage\nWHERE COALESCE(deployment_type, 'unknown') IN ($deployment)\n  AND $__timeFilter(\"timestamp\" AT TIME ZONE 'UTC')\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 25"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "type": "text",
+          "title": "How to read this",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 53 },
+          "options": {
+            "mode": "markdown",
+            "content": "This dashboard reads the **analytics database**, written by `apps/telemetry-processor` from OTLP events the backend sends to its environment's collector. Every other Rhesis dashboard reads the application database instead, so numbers here will not tie out against them.\n\n**Each environment sees only its own traffic.** dev, stg and prd each run a separate collector and a separate analytics database. A self-hosted install's default endpoint is the prd collector, so third-party self-hosted deployments show up only in prd. A `self-hosted` row in dev or stg is an internal deployment pointed at that environment.\n\n**Self-hosted is undercounted by design.** Cloud deployments always report; self-hosted ones report only if the operator sets `OTEL_RHESIS_TELEMETRY_ENABLED=true`, which defaults to false. Treat self-hosted figures as a lower bound, and check \"Reporting window per deployment type\" before reading a flat line as inactivity: it may just have stopped reporting.\n\n**Users are pseudonymous.** `user_id` and `organization_id` are SHA-256 hashes truncated to 16 characters. \"Most active users by login count\" recovers names by joining, inside Grafana, against the same hash computed over the application database, so it can only name users that exist in *this* environment's application database.\n\n**Events are not soft-deleted.** Unlike the application tables there is no `deleted_at` here, so removing a user from the platform does not remove their past events."
+          }
+        }
+      ]
+    }

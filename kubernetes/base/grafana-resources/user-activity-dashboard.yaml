@@ -1,0 +1,261 @@
+# Platform-wide user engagement, ported from the Looker Studio "User Engagement &
+# Activity Metrics" report that died with the Cloud Run era Cloud SQL instances.
+#
+# Lives in base/ (not per-cluster) for the same reason as usage-dashboard.yaml: the
+# datasource is picked by a template variable that queries type "postgres", so it binds
+# to whichever read-only Postgres datasource the cluster defines. In prd that is
+# "Rhesis PRD Postgres (RO)", which routes to the rhesis-prd-ro hot-standby replica.
+#
+# This dashboard covers what the application database knows. The original report's
+# cloud vs self-hosted split and its login-count ranking come from a different database
+# entirely, the telemetry analytics one written by apps/telemetry-processor, and live in
+# telemetry-dashboard.yaml alongside the panels that read it.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: rhesis-user-activity
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folder: Rhesis
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  json: |
+    {
+      "uid": "rhesis-user-activity",
+      "title": "Rhesis User Activity",
+      "tags": ["rhesis", "users"],
+      "timezone": "utc",
+      "editable": false,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "",
+      "time": { "from": "now-12M", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "label": "Datasource",
+            "type": "datasource",
+            "query": "postgres",
+            "regex": "/Postgres/",
+            "current": {},
+            "hide": 0
+          },
+          {
+            "name": "org",
+            "label": "Organization",
+            "type": "query",
+            "datasource": { "type": "postgres", "uid": "${datasource}" },
+            "description": "Includes an explicit \"(no organization)\" entry, because users can exist without one and would otherwise be either invisible or silently mixed into every single-org selection.",
+            "query": "SELECT id::text AS __value, COALESCE(display_name, name) AS __text FROM public.organization WHERE deleted_at IS NULL UNION ALL SELECT 'none', '(no organization)' ORDER BY 2",
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "Overview",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "User totals",
+          "description": "Counts across the whole platform right now. Ignores the time picker and the organization filter.",
+          "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "none",
+            "graphMode": "none",
+            "textMode": "auto",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COUNT(*) AS \"Total users\",\n  COUNT(*) FILTER (WHERE is_active) AS \"Active\",\n  COUNT(*) FILTER (WHERE organization_id IS NOT NULL) AS \"In an organization\",\n  COUNT(*) FILTER (WHERE created_at >= date_trunc('month', now() AT TIME ZONE 'UTC')) AS \"New this month\",\n  COUNT(*) FILTER (WHERE last_login_at >= (now() AT TIME ZONE 'UTC') - interval '30 days') AS \"Logged in last 30d\"\nFROM public.\"user\"\nWHERE deleted_at IS NULL"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Growth",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "New users over time",
+          "description": "Users created per month, by signup date. Follows the time picker and the organization filter.",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "barAlignment": 0, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', u.created_at) AS time,\n  COUNT(*) AS \"New users\"\nFROM public.\"user\" u\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nGROUP BY 1\nORDER BY 1"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Cumulative users",
+          "description": "Running total of users ever created, by month. The running total is computed over all history, then the time picker trims which months are drawn, so the line starts at the true total rather than at zero.",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "auto", "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "WITH monthly AS (\n  SELECT\n    date_trunc('month', u.created_at) AS m,\n    COUNT(*) AS c\n  FROM public.\"user\" u\n  WHERE u.deleted_at IS NULL\n    AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  GROUP BY 1\n),\ncumulative AS (\n  SELECT m, SUM(c) OVER (ORDER BY m) AS running\n  FROM monthly\n)\nSELECT\n  m AS time,\n  running AS \"Total users\"\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY m"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Activation",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 4,
+          "type": "bargauge",
+          "title": "User activation funnel",
+          "description": "How far users get, as distinct user counts per stage. Grafana has no funnel panel, so this is a horizontal bar gauge with the stages kept in order. Stages are cumulative in intent but measured independently, so a later stage can exceed an earlier one if a user skipped it. Ignores the time picker.",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": [], "fields": "", "values": true },
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "showUnfilled": true,
+            "valueMode": "color"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT stage AS \"Stage\", users AS \"Users\"\nFROM (\n  SELECT 1 AS ord, 'Signed up' AS stage, COUNT(*) AS users\n  FROM public.\"user\" WHERE deleted_at IS NULL\n  UNION ALL\n  SELECT 2, 'Email verified', COUNT(*)\n  FROM public.\"user\" WHERE deleted_at IS NULL AND is_email_verified\n  UNION ALL\n  SELECT 3, 'In an organization', COUNT(*)\n  FROM public.\"user\" WHERE deleted_at IS NULL AND organization_id IS NOT NULL\n  UNION ALL\n  SELECT 4, 'Created a test set', COUNT(DISTINCT u.id)\n  FROM public.\"user\" u\n  JOIN public.test_set ts ON ts.user_id = u.id AND ts.deleted_at IS NULL\n  WHERE u.deleted_at IS NULL\n  UNION ALL\n  SELECT 5, 'Ran a test', COUNT(DISTINCT u.id)\n  FROM public.\"user\" u\n  JOIN public.test_run tr ON tr.user_id = u.id AND tr.deleted_at IS NULL\n  WHERE u.deleted_at IS NULL\n) t\nORDER BY ord"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "table",
+          "title": "Most recently active users",
+          "description": "Ordered by last_login_at, which the application database records as a single timestamp. For a ranking by number of logins see the Rhesis Telemetry dashboard, which counts login events in the analytics database. Users who have never logged in are excluded. Ignores the time picker.",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+          "fieldConfig": {
+            "defaults": { "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Last login" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(u.name, u.email) AS \"User\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND u.last_login_at IS NOT NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\nORDER BY u.last_login_at DESC\nLIMIT 25"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Directory",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "Users by creation date",
+          "description": "One row per user, newest first. Follows the time picker on signup date and the organization filter.",
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Created" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] },
+              { "matcher": { "id": "byName", "options": "Last login" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] },
+              { "matcher": { "id": "byName", "options": "Organization" }, "properties": [{ "id": "custom.width", "value": 220 }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  u.created_at AS \"Created\",\n  COALESCE(u.name, u.email) AS \"User\",\n  u.email AS \"Email\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.provider_type AS \"Provider\",\n  u.is_active AS \"Active\",\n  u.is_email_verified AS \"Email verified\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nORDER BY u.created_at DESC"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "type": "text",
+          "title": "What is and is not here",
+          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 34 },
+          "options": {
+            "mode": "markdown",
+            "content": "Every number here comes from the application database, so it counts registered users and their rows, not sessions or requests.\n\nSoft-deleted rows (`deleted_at IS NOT NULL`) are excluded everywhere.\n\n`last_login_at` is a single timestamp, not a counter, so this dashboard ranks users by how recently they logged in. For how *often* they log in, and for the cloud vs self-hosted split, see the **Rhesis Telemetry** dashboard, which reads the separate analytics database that receives the phone-home events."
+          }
+        }
+      ]
+    }
