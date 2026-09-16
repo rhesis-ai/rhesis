@@ -31,6 +31,7 @@ import {
   parseResMapping,
 } from '../../components/mappingUtils';
 import { useEndpointDetailContext } from './EndpointDetailContext';
+import EndpointVersionInfoSection from './EndpointVersionInfoSection';
 
 interface MappingDraft {
   reqBody: string;
@@ -328,6 +329,8 @@ export default function EndpointMappingTab() {
           </Collapse>
         )}
       </EditableSection>
+
+      <EndpointVersionInfoSection />
 
       <AutoConfigureDrawer
         open={autoConfigureOpen}

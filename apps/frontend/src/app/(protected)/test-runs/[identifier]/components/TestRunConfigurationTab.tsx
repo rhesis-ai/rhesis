@@ -13,6 +13,9 @@ import {
   type ExecutionMetric,
 } from '@/utils/api-client/interfaces/test-configuration';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
+import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import { asVersionInfo, versionInfoSourceLabel } from '@/utils/version-info';
 
 interface TestRunConfigurationTabProps {
   testRun: TestRunDetail;
@@ -37,6 +40,14 @@ const sectionSx = {
   display: 'flex',
   flexDirection: 'column',
   gap: '20px',
+} as const;
+
+/** Horizontal inset that lines content up with ViewField's label and helper text. */
+const FIELD_INSET = '14px';
+
+const captionSx = {
+  px: FIELD_INSET,
+  pt: '3px',
 } as const;
 
 const fieldsSx = {
@@ -77,6 +88,13 @@ export default function TestRunConfigurationTab({
     'Default Model';
   const preflightEnabled =
     (attrs?.run_preflight_checks as boolean | undefined) ?? true;
+
+  // Deliberately the run's own snapshot, not config.endpoint.version_info: the endpoint may
+  // have been edited since, and a finished run must keep reporting what it actually tested.
+  const versionInfo = asVersionInfo(testRun.attributes?.version_info);
+  const versionInfoSource = versionInfoSourceLabel(
+    testRun.attributes?.version_info_source
+  );
 
   return (
     <Paper elevation={0} sx={combinedCardSx}>
@@ -206,14 +224,19 @@ export default function TestRunConfigurationTab({
                   fontSize: 14,
                   lineHeight: '22px',
                   color: theme => theme.palette.greyscale.subtitle,
-                  px: '14px',
+                  px: FIELD_INSET,
                   mb: '6px',
                 }}
               >
                 Metrics
               </Typography>
               <Box
-                sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, px: '14px' }}
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                  px: FIELD_INSET,
+                }}
               >
                 {execMetrics.map(m => (
                   <Chip
@@ -245,6 +268,32 @@ export default function TestRunConfigurationTab({
               Run Preflight Checks
             </Typography>
           </Box>
+        </Box>
+      </Box>
+
+      <Box sx={sectionSx}>
+        <FormSectionDivider headline="Version Information" />
+        <Box sx={fieldsSx}>
+          {versionInfo ? (
+            <Box>
+              <Box component="pre" sx={testPreviewSx}>
+                <JsonPreview value={versionInfo} />
+              </Box>
+              <Typography variant="caption" component="p" sx={captionSx}>
+                {versionInfoSource}
+              </Typography>
+            </Box>
+          ) : (
+            <Typography
+              variant="body1"
+              sx={{
+                color: theme => theme.palette.greyscale.body,
+                px: FIELD_INSET,
+              }}
+            >
+              No version information recorded
+            </Typography>
+          )}
         </Box>
       </Box>
     </Paper>

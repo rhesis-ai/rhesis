@@ -139,3 +139,64 @@ describe('TestRunConfigurationTab evaluation model', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('TestRunConfigurationTab version information', () => {
+  it('renders the recorded version from the run snapshot', () => {
+    render(
+      <TestRunConfigurationTab
+        testRun={testRun(
+          {
+            version_info: { prompt_version: 'v3.2' },
+            version_info_source: 'endpoint',
+          },
+          {}
+        )}
+      />
+    );
+
+    expect(screen.getByText('Version Information')).toBeInTheDocument();
+    expect(screen.getByText(/prompt_version/)).toBeInTheDocument();
+    expect(screen.getByText(/v3\.2/)).toBeInTheDocument();
+  });
+
+  it('says where the version came from', () => {
+    render(
+      <TestRunConfigurationTab
+        testRun={testRun(
+          {
+            version_info: { prompt_version: 'v3.2' },
+            version_info_source: 'response',
+          },
+          {}
+        )}
+      />
+    );
+
+    expect(screen.getByText(/Reported by the endpoint/i)).toBeInTheDocument();
+  });
+
+  it('shows an empty state when the run recorded no version', () => {
+    render(<TestRunConfigurationTab testRun={testRun({}, {})} />);
+
+    expect(
+      screen.getByText('No version information recorded')
+    ).toBeInTheDocument();
+  });
+
+  it('ignores the endpoint\u2019s current value, which may have changed since the run', () => {
+    const run = testRun({}, {});
+    // Endpoint edited after the run finished; the run itself recorded nothing.
+    (
+      run.test_configuration as unknown as {
+        endpoint: Record<string, unknown>;
+      }
+    ).endpoint.version_info = { prompt_version: 'v9-edited-later' };
+
+    render(<TestRunConfigurationTab testRun={run} />);
+
+    expect(screen.queryByText(/v9-edited-later/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('No version information recorded')
+    ).toBeInTheDocument();
+  });
+});

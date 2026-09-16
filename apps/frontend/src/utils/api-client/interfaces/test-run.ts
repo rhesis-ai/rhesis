@@ -3,11 +3,22 @@ import { UserReference, Status } from './tests';
 import { TestConfigurationDetail } from './test-configuration';
 import { Tag } from './tag';
 import type { WithPermittedActions } from '@/types/affordances';
+import type { VersionInfoSource } from '@/constants/version-info';
+
+/**
+ * Run attributes the UI reads by name. The index signature keeps this assignable wherever a
+ * plain Record was used before, while letting consumers narrow without casting.
+ */
+export interface TestRunAttributes {
+  version_info?: Record<string, unknown>;
+  version_info_source?: VersionInfoSource;
+  [key: string]: unknown;
+}
 
 // Base interfaces for TestRun
 export interface TestRunBase {
   name?: string;
-  attributes?: Record<string, unknown>;
+  attributes?: TestRunAttributes;
   test_configuration_id?: UUID;
   experiment_id?: UUID;
   tags?: Tag[];
