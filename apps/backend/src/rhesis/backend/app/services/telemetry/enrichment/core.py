@@ -5,7 +5,7 @@ and extracting metadata from traces.
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import litellm
 from rhesis.telemetry.attributes import AIAttributes
@@ -103,15 +103,6 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     )
 
 
-def _distinct_in_order(values: Iterable[Optional[str]]) -> List[str]:
-    """Deduplicate while keeping first-seen order, so the list is stable between runs."""
-    seen: Dict[str, None] = {}
-    for value in values:
-        if value:
-            seen.setdefault(value, None)
-    return list(seen)
-
-
 def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     """
     Calculate token counts and costs for LLM spans using LiteLLM's pricing database.
@@ -160,8 +151,10 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
         total_input_tokens=sum(entry.input_tokens for entry in cost_breakdown),
         total_output_tokens=sum(entry.output_tokens for entry in cost_breakdown),
         total_tokens=sum(entry.total_tokens for entry in cost_breakdown),
-        models_used=_distinct_in_order(entry.model_name for entry in cost_breakdown),
-        providers_used=_distinct_in_order(entry.provider for entry in cost_breakdown),
+        # dict.fromkeys dedupes while keeping first-seen order, so the lists are stable
+        # between runs over the same trace.
+        models_used=list(dict.fromkeys(e.model_name for e in cost_breakdown if e.model_name)),
+        providers_used=list(dict.fromkeys(e.provider for e in cost_breakdown if e.provider)),
         breakdown=cost_breakdown,
     )
 

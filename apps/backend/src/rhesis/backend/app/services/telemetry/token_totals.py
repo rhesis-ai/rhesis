@@ -160,11 +160,8 @@ class TraceUsage:
 
 
 def _distinct_in_order(values: Iterable[Optional[str]]) -> List[str]:
-    seen = {}
-    for value in values:
-        if value:
-            seen.setdefault(str(value), None)
-    return list(seen)
+    """Dedupe while keeping first-seen order, matching how enrichment writes its lists."""
+    return list(dict.fromkeys(str(value) for value in values if value))
 
 
 def _tokens_from_breakdown(
