@@ -8,8 +8,8 @@ For EE custom roles that already grant ``test_result:<action>``, a matching
 ``annotation:<action>`` row is inserted into ``role_permission`` so the custom
 role's effective permissions mirror what its test_result grants imply.
 
-Revision ID: a0003annperms
-Revises: a0002annotbl
+Revision ID: ea93238b7ca7
+Revises: facfa552f715
 Create Date: 2026-09-12
 """
 
@@ -18,8 +18,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a0003annperms"
-down_revision: Union[str, None] = "a0002annotbl"
+revision: str = "ea93238b7ca7"
+down_revision: Union[str, None] = "facfa552f715"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -87,7 +87,7 @@ def upgrade() -> None:
     )
     count = result.rowcount if result.rowcount is not None else 0
     if count:
-        print(f"[a0003annperms] Granted annotation caps to custom roles: {count} row(s).")
+        print(f"[ea93238b7ca7] Granted annotation caps to custom roles: {count} row(s).")
 
 
 def downgrade() -> None:

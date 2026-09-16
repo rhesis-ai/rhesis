@@ -13,8 +13,8 @@ landed.
 SECURITY, so every statement here runs with the org GUC bound, one org at a time
 (same approach as 9550c62e80a5).
 
-Revision ID: a0004bkflanno
-Revises: a0003annperms
+Revision ID: eb2719043c01
+Revises: ea93238b7ca7
 Create Date: 2026-09-12
 """
 
@@ -23,8 +23,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a0004bkflanno"
-down_revision: Union[str, None] = "a0003annperms"
+revision: str = "eb2719043c01"
+down_revision: Union[str, None] = "ea93238b7ca7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -143,14 +143,14 @@ def upgrade() -> None:
         )
         if inserted or snapshotted:
             print(
-                f"[a0004bkflanno] org {org_id}: {inserted} annotation(s), "
+                f"[eb2719043c01] org {org_id}: {inserted} annotation(s), "
                 f"{snapshotted} original_status_id snapshot(s)."
             )
         annotations += inserted
         snapshots += snapshotted
 
     print(
-        f"[a0004bkflanno] Backfilled {annotations} annotation(s) and {snapshots} "
+        f"[eb2719043c01] Backfilled {annotations} annotation(s) and {snapshots} "
         f"snapshot(s) across {len(org_ids)} organization(s)."
     )
 
