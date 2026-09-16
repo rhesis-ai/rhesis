@@ -33,6 +33,8 @@ flowchart TB
   Test --> TestResult
   TestRun --> TestResult
   TestConfiguration["TestConfiguration (internal)"] -.->|"auto-created"| TestRun
+  TestResult -->|"human verdict"| Annotation
+  Test -->|"human verdict"| Annotation
 ```
 
 ---
@@ -43,6 +45,7 @@ flowchart TB
 |----------|---------|-------|
 | Requirement ↔ Metric | Many-to-many; **required before test generation** | `add_requirement_to_metric`, `get_metric_requirements`, `remove_requirement_from_metric` |
 | TestSet → Test | Tests belong to a set | `generate_test_set`, `list_test_set_tests`, `get_test_set` |
+| TestResult ↔ Annotation | A human Pass/Fail **overrides** the automated status, so the run's reported outcome changes with it | `list_annotations`, `create_annotation` |
 | Source → TestSet | Sources ground **Single-Turn** generation only | `list_sources`, `create_source` → `generate_test_set` |
 | TestSet + Endpoint → TestRun | Execution is always a pair | `execute_test_set` |
 | TestRun → TestResult | Results scoped to a run | `list_test_results` with `$filter=test_run_id eq '…'` |
@@ -121,3 +124,4 @@ flowchart TB
 | Source | `list_sources` | — | `create_source` | — | — |
 | TestRun | `list_test_runs` | `get_test_run` | (via `execute_test_set`) | — | `get_test_run_stats` |
 | TestResult | `list_test_results` | `get_test_result` | — | — | `get_test_result_stats` |
+| Annotation | `list_annotations` | `get_annotation` | `create_annotation` | `update_annotation` | — |

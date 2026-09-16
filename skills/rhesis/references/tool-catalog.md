@@ -426,16 +426,60 @@ Use for **operational questions** ("how many runs this month?"). For pass/fail o
 ---
 
 ### `list_annotations`
-List human annotations — reviews a person left on a test result or a trace. Each carries a Pass/Fail rating in `status.name`, a free-text comment, the author, and a `resolved` flag.
+List human annotations — judgements a person left on a test result, a trace or a test. Each carries a Pass/Fail rating in `status.name`, a free-text comment, the author, and a `resolved` flag.
 
-Human annotations are ground truth: when an annotation disagrees with an automated metric score, **the annotation wins**. Use this to answer "what did people flag?", to explain why a test is considered wrong when metrics say it passed, and to find review work still open.
+Human annotations are ground truth: when an annotation disagrees with an automated metric score, **the annotation wins**. Use this to answer "what did people flag?", to explain why a test is considered wrong when metrics say it passed, and to find work still open.
+
+An annotation names what it judges through `target_type`: the entity as a whole (`test_result`, `trace`, `test`), one `metric` by name, or one `turn` of a conversation. `target_reference` holds that name.
 
 **Key parameters:**
-- `test_run_id` — everything reviewed in that run, both test results and the traces it produced. Main entry point.
-- `test_result_id` — one result plus traces linked to it
-- `trace_id` (32-char OpenTelemetry hex) or `trace_db_id` (internal UUID) — one trace only
-- `source` — restrict to `"test_result"` or `"trace"`
+- `test_run_id` — everything annotated in that run, both test results and the traces it produced. Main entry point.
+- `entity_type` — restrict to `"TestResult"`, `"Trace"` or `"Test"`
+- `target_type` — restrict to `test_result`, `trace`, `test`, `metric` or `turn`
+- `rating` — `"Pass"` or `"Fail"`, the human's verdict
 - `resolved` — pass `false` for open items only
+- `search` — free text over comments, author, target reference and requirement name
+
+**Linking:** use `context.trace_db_id` (a UUID) in a trace URL, never `context.trace_id` (32-char hex). Only the UUID resolves to a page.
+
+---
+
+### `get_annotation`
+Get one annotation by UUID with its full comment, author, verdict and resolved state.
+
+**CHAIN:** after `create_annotation` or `update_annotation` to re-read a row you just wrote.
+
+**Key parameters:** `annotation_id` (required)
+
+---
+
+### `create_annotation`
+Record a human verdict on a test result, a trace or a test. **Requires confirmation.**
+
+**This records a judgement attributed to the person you are working for.** Only create one when they have told you what they concluded. Do not annotate to capture your own analysis of a result — say it in your answer instead.
+
+A Pass/Fail annotation on a test result or trace **overrides that parent's automated status**, and the platform reports the corrected outcome from then on. It is a write against the parent as much as against the annotation.
+
+**Key parameters:**
+- `entity_type` (required) — `"TestResult"`, `"Trace"` or `"Test"`
+- `entity_id` (required) — UUID of that entity
+- `status_id` (required) — the Pass or Fail status UUID
+- `comments` — the person's reasoning in their words. An annotation with no comment explains nothing later.
+- `target` — optional `{"type": "metric", "reference": "Answer Fluency"}` or `{"type": "turn", "reference": "Turn 2"}`. Omit for a verdict on the whole entity.
+
+**Careful:** `target` is nested on writes but flat (`target_type` / `target_reference`) on reads. Copying the flat pair from a `list_annotations` row into a create call is accepted and ignored, landing the annotation on the whole entity instead of the metric it named.
+
+---
+
+### `update_annotation`
+Change an annotation's verdict, comment, target or resolved state. **Requires confirmation.**
+
+Only the annotation's author may edit it; not even an admin can edit someone else's. Changing the verdict or target re-applies the override, so the parent's reported outcome moves with it.
+
+**Key parameters:**
+- `annotation_id` (required)
+- `resolved` — `true` to resolve once the underlying problem is fixed, `false` to reopen. Resolving does not withdraw the verdict.
+- `status_id`, `comments`, `target` — as for `create_annotation`
 
 ---
 

@@ -154,6 +154,29 @@ get_test_result(test_result_id="<uuid>")
 
 Returns: full prompt, full response, expected response, metric scores with individual reasoning, and evaluation metadata. Too expensive to call for all results — use selectively on notable failures only.
 
+The response also carries what people made of this result: `last_annotation` (the newest human verdict, or null), `matches_annotation` (false when the human disagreed with automation), and `annotation_summary` (one entry per annotated metric or turn). Read those before explaining a result, because a human may already have corrected it.
+
+---
+
+## Checking what people already flagged
+
+Automated scores are not the last word. A person can fail a test every metric passed, and when the two disagree the human verdict is the one the platform reports.
+
+Before diagnosing a run, look at whether it has already been diagnosed:
+
+```
+list_annotations(test_run_id="<uuid>")
+```
+
+This covers the run's test results and the traces it produced. Add `resolved=false` for open items only.
+
+Two things this changes in an analysis:
+
+- **A "failure" may be a known false positive.** If an annotation on a result says Pass while the metrics said Fail, the metric is the problem, not the endpoint. Say so rather than reporting the raw failure.
+- **A clean-looking run may not be clean.** A human can fail a result everything passed. Never conclude "no problems found" from metric scores alone without checking.
+
+When a comment names a metric, that judgement is about that metric specifically (`target_type: "metric"`, with the name in `target_reference`), not about the whole result.
+
 ---
 
 ## Insights handoff

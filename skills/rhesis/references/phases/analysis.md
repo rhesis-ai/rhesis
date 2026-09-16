@@ -28,6 +28,14 @@ The shape does **not** change with the pass rate. A run that mostly failed gets
 the same compact structure as one that mostly passed — only the failure list
 differs, and it is still capped at 3.
 
+**Human verdicts outrank the numbers above.** `list_annotations(test_run_id=...)`
+is cheap; check it before writing step 4. A result a person marked Pass is not a
+failure, so leave it out of the failure list and note it in one clause on the
+overall line: `2 corrected by human annotation`. A result a person marked Fail
+belongs in the list even when every metric passed, with their comment as the
+`reason`. This is also why "everything passed" needs the check before you write
+it: the metrics can all be green and a human still have failed the run.
+
 ## Comparison
 
 `get_test_result_stats` with `mode=test_runs` and both `test_run_ids`.
