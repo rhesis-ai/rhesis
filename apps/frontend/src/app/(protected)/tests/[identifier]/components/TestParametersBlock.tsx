@@ -2,10 +2,11 @@
 
 import * as React from 'react';
 import { Box, Button, Typography, useTheme } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
 import DeleteIcon from '@mui/icons-material/Delete';
+import {
+  SectionEditButton,
+  SectionSaveCancelActions,
+} from '@/components/common/SectionCardActions';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -150,11 +151,7 @@ export default function TestParametersBlock({
             {'{{ test_parameters.<key> }}'}
           </Typography>
         </Box>
-        {canEdit && !isEditing && (
-          <Button size="small" startIcon={<EditIcon />} onClick={startEditing}>
-            Edit
-          </Button>
-        )}
+        {canEdit && !isEditing && <SectionEditButton onClick={startEditing} />}
       </Box>
 
       {isEditing ? (
@@ -167,7 +164,12 @@ export default function TestParametersBlock({
             onChange={setDraft}
           />
           <Box
-            sx={{ display: 'flex', gap: 1, mt: 1, justifyContent: 'flex-end' }}
+            sx={{
+              display: 'flex',
+              gap: '10px',
+              mt: 1,
+              justifyContent: 'flex-end',
+            }}
           >
             {hasParams && (
               <Button
@@ -180,23 +182,11 @@ export default function TestParametersBlock({
                 Clear
               </Button>
             )}
-            <Button
-              size="small"
-              startIcon={<CancelIcon />}
-              onClick={cancelEditing}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              Save
-            </Button>
+            <SectionSaveCancelActions
+              onCancel={cancelEditing}
+              onSave={handleSave}
+              isSaving={isSaving}
+            />
           </Box>
         </Box>
       ) : hasParams ? (
