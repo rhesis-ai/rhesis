@@ -5,10 +5,12 @@ so the traces list, the trace detail drawer, the test-run trace list and the
 project metrics endpoint can never disagree again.
 """
 
-from typing import Optional, Sequence, Tuple
+from dataclasses import dataclass, field
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
 from rhesis.backend.app.models.trace import Trace
+from rhesis.backend.app.services.telemetry.providers import resolve_provider
 
 # input, output, total
 TokenTotals = Tuple[int, int, int]
@@ -134,4 +136,115 @@ def trace_summary_totals(
         total_tokens,
         float(costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0) or 0.0),
         float(costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0) or 0.0),
+    )
+
+
+@dataclass(frozen=True)
+class TraceUsage:
+    """Everything one trace spent: tokens, the cost of each half, and what served it.
+
+    Zeros here mean "nothing was recorded", which for cost is indistinguishable from
+    "nothing was priced" -- callers that need to tell those apart should check
+    ``models`` instead, which is empty only when the trace has no priced LLM spans at all.
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    input_cost_usd: float = 0.0
+    output_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
+    total_cost_eur: float = 0.0
+    models: List[str] = field(default_factory=list)
+    providers: List[str] = field(default_factory=list)
+
+
+def _distinct_in_order(values: Iterable[Optional[str]]) -> List[str]:
+    seen = {}
+    for value in values:
+        if value:
+            seen.setdefault(str(value), None)
+    return list(seen)
+
+
+def _tokens_from_breakdown(
+    breakdown: Sequence[dict], llm_tokens_fallback: int
+) -> Tuple[int, int, int]:
+    """Token split for a blob written before the trace-level token fields existed.
+
+    The per-span breakdown has carried input_tokens and output_tokens since the first
+    version of enrichment, so an old blob can still report its split rather than zeros.
+    ``total_tokens`` per span is newer, hence the fall back to input + output, and to the
+    SQL figure when the breakdown is empty too.
+    """
+    if not breakdown:
+        return 0, 0, llm_tokens_fallback
+
+    input_tokens = sum(int(entry.get(EnrichedDataKeys.INPUT_TOKENS, 0) or 0) for entry in breakdown)
+    output_tokens = sum(
+        int(entry.get(EnrichedDataKeys.OUTPUT_TOKENS, 0) or 0) for entry in breakdown
+    )
+    total_tokens = sum(
+        int(entry.get(EnrichedDataKeys.TOTAL_TOKENS, 0) or 0)
+        or int(entry.get(EnrichedDataKeys.INPUT_TOKENS, 0) or 0)
+        + int(entry.get(EnrichedDataKeys.OUTPUT_TOKENS, 0) or 0)
+        for entry in breakdown
+    )
+    return input_tokens, output_tokens, total_tokens
+
+
+def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int = 0) -> TraceUsage:
+    """Full usage for one trace, reading whatever the enrichment blob happens to carry.
+
+    Deliberately tolerant of older blobs. The trace-level input/output cost split and the
+    model and provider lists were added after enrichment had already run over a lot of
+    traces, so when those keys are missing they are derived from ``costs.breakdown``,
+    which has carried the same figures per span from the start. That is what makes this
+    safe to ship without a backfill: an un-re-enriched trace reports the same numbers it
+    will report once it is re-enriched.
+
+    ``llm_tokens_fallback`` is the SQL token sum for traces enrichment has not reached at
+    all, the same figure ``trace_summary_totals`` takes.
+    """
+    costs = (enriched_data or {}).get(EnrichedDataKeys.COSTS) or {}
+    if not costs:
+        return TraceUsage(total_tokens=llm_tokens_fallback)
+
+    breakdown = costs.get(EnrichedDataKeys.BREAKDOWN) or []
+
+    tokens = token_totals_from_enriched(enriched_data)
+    if tokens is None:
+        tokens = _tokens_from_breakdown(breakdown, llm_tokens_fallback)
+
+    input_cost = costs.get(EnrichedDataKeys.TOTAL_INPUT_COST_USD)
+    output_cost = costs.get(EnrichedDataKeys.TOTAL_OUTPUT_COST_USD)
+    if input_cost is None or output_cost is None:
+        input_cost = sum(
+            float(entry.get(EnrichedDataKeys.INPUT_COST_USD, 0.0) or 0.0) for entry in breakdown
+        )
+        output_cost = sum(
+            float(entry.get(EnrichedDataKeys.OUTPUT_COST_USD, 0.0) or 0.0) for entry in breakdown
+        )
+
+    models = costs.get(EnrichedDataKeys.MODELS_USED) or _distinct_in_order(
+        entry.get(EnrichedDataKeys.MODEL_NAME) for entry in breakdown
+    )
+    # An old breakdown entry has no provider, so fall back to what its model implies --
+    # the same answer re-enrichment would reach for a span that stamped nothing.
+    providers = costs.get(EnrichedDataKeys.PROVIDERS_USED) or _distinct_in_order(
+        entry.get(EnrichedDataKeys.PROVIDER)
+        or resolve_provider(None, entry.get(EnrichedDataKeys.MODEL_NAME))
+        for entry in breakdown
+    )
+
+    return TraceUsage(
+        input_tokens=tokens[0],
+        output_tokens=tokens[1],
+        total_tokens=tokens[2],
+        input_cost_usd=round(float(input_cost or 0.0), 6),
+        output_cost_usd=round(float(output_cost or 0.0), 6),
+        total_cost_usd=float(costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0) or 0.0),
+        total_cost_eur=float(costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0) or 0.0),
+        models=list(models),
+        providers=list(providers),
     )

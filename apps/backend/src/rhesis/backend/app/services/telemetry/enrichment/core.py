@@ -5,7 +5,7 @@ and extracting metadata from traces.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import litellm
 from rhesis.telemetry.attributes import AIAttributes
@@ -18,6 +18,7 @@ from rhesis.backend.app.schemas.enrichment import (
     TokenCosts,
 )
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
+from rhesis.backend.app.services.telemetry.providers import resolve_provider
 
 litellm.suppress_debug_info = True
 for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
@@ -56,6 +57,7 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     """
     input_tokens, output_tokens, total_tokens = _span_token_counts(span)
     model_name = span.attributes.get(AIAttributes.MODEL_NAME)
+    provider = resolve_provider(span.attributes, model_name)
 
     if input_tokens == 0 and output_tokens == 0:
         logger.warning(
@@ -88,6 +90,7 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     return CostBreakdown(
         span_id=span.span_id,
         model_name=model_name,
+        provider=provider,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         total_tokens=total_tokens,
@@ -98,6 +101,15 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
         output_cost_eur=round(output_cost_usd * usd_to_eur, 6),
         total_cost_eur=round(span_cost_usd * usd_to_eur, 6),
     )
+
+
+def _distinct_in_order(values: Iterable[Optional[str]]) -> List[str]:
+    """Deduplicate while keeping first-seen order, so the list is stable between runs."""
+    seen: Dict[str, None] = {}
+    for value in values:
+        if value:
+            seen.setdefault(value, None)
+    return list(seen)
 
 
 def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
@@ -143,9 +155,13 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     return TokenCosts(
         total_cost_usd=round(total_cost_usd, 6),
         total_cost_eur=round(total_cost_eur, 6),
+        total_input_cost_usd=round(sum(entry.input_cost_usd for entry in cost_breakdown), 6),
+        total_output_cost_usd=round(sum(entry.output_cost_usd for entry in cost_breakdown), 6),
         total_input_tokens=sum(entry.input_tokens for entry in cost_breakdown),
         total_output_tokens=sum(entry.output_tokens for entry in cost_breakdown),
         total_tokens=sum(entry.total_tokens for entry in cost_breakdown),
+        models_used=_distinct_in_order(entry.model_name for entry in cost_breakdown),
+        providers_used=_distinct_in_order(entry.provider for entry in cost_breakdown),
         breakdown=cost_breakdown,
     )
 

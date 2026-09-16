@@ -251,6 +251,7 @@ class AISpanAttributes:
 
     OPERATION_TYPE = "ai.operation.type"
     MODEL_NAME = "ai.model.name"
+    MODEL_PROVIDER = "ai.model.provider"
     TOKENS_INPUT = "ai.llm.tokens.input"
     TOKENS_OUTPUT = "ai.llm.tokens.output"
     TOKENS_TOTAL = "ai.llm.tokens.total"
@@ -275,9 +276,18 @@ class EnrichedDataKeys:
     TOTAL_TOKENS = "total_tokens"
     TOTAL_INPUT_TOKENS = "total_input_tokens"
     TOTAL_OUTPUT_TOKENS = "total_output_tokens"
+    TOTAL_INPUT_COST_USD = "total_input_cost_usd"
+    TOTAL_OUTPUT_COST_USD = "total_output_cost_usd"
     BREAKDOWN = "breakdown"
     SPAN_ID = "span_id"
     MODEL_NAME = "model_name"
+    PROVIDER = "provider"
+    INPUT_COST_USD = "input_cost_usd"
+    OUTPUT_COST_USD = "output_cost_usd"
+    INPUT_TOKENS = "input_tokens"
+    OUTPUT_TOKENS = "output_tokens"
+    MODELS_USED = "models_used"
+    PROVIDERS_USED = "providers_used"
 
 
 # Test Execution Context Constants
