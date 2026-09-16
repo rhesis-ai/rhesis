@@ -83,12 +83,42 @@ export default function PlaygroundChat({
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [testParamsOpen, setTestParamsOpen] = useState(false);
-  const [testParamsJson, setTestParamsJson] = useState('');
+  const storageKey = `playground-test-params-${endpointId}`;
+
+  const [testParamsOpen, setTestParamsOpen] = useState(() => {
+    try {
+      return !!localStorage.getItem(storageKey);
+    } catch {
+      return false;
+    }
+  });
+  const [testParamsJson, setTestParamsJson] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey) ?? '';
+    } catch {
+      return '';
+    }
+  });
   const [testParamsParsed, setTestParamsParsed] = useState<Record<
     string,
     unknown
-  > | null>(null);
+  > | null>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return null;
+      const parsed: unknown = JSON.parse(saved);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  });
 
   const {
     messages,
@@ -118,25 +148,62 @@ export default function PlaygroundChat({
     ConversationMessage[]
   >([]);
 
-  const handleTestParamsChange = useCallback((value: string) => {
-    setTestParamsJson(value);
-    if (!value.trim()) {
-      setTestParamsParsed(null);
-      return;
-    }
+  // Restore test parameters when switching endpoints
+  useEffect(() => {
     try {
-      const parsed: unknown = JSON.parse(value);
-      if (
-        typeof parsed === 'object' &&
-        parsed !== null &&
-        !Array.isArray(parsed)
-      ) {
-        setTestParamsParsed(parsed as Record<string, unknown>);
+      const saved = localStorage.getItem(storageKey);
+      setTestParamsJson(saved ?? '');
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          !Array.isArray(parsed)
+        ) {
+          setTestParamsParsed(parsed as Record<string, unknown>);
+          setTestParamsOpen(true);
+          return;
+        }
       }
     } catch {
-      setTestParamsParsed(null);
+      /* ignore */
     }
-  }, []);
+    setTestParamsParsed(null);
+    setTestParamsOpen(false);
+  }, [storageKey]);
+
+  const handleTestParamsChange = useCallback(
+    (value: string) => {
+      setTestParamsJson(value);
+      if (!value.trim()) {
+        setTestParamsParsed(null);
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          !Array.isArray(parsed)
+        ) {
+          setTestParamsParsed(parsed as Record<string, unknown>);
+          try {
+            localStorage.setItem(storageKey, value);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        setTestParamsParsed(null);
+      }
+    },
+    [storageKey]
+  );
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -446,8 +513,8 @@ export default function PlaygroundChat({
                 color: 'text.secondary',
               }}
             >
-              Test parameters (JSON object, available as{' '}
-              {'{{ test_parameters.<key> }}'})
+              Sent with every message. Use {'{{ test_parameters.<key> }}'} in
+              the endpoint&apos;s request mapping.
             </Typography>
             <JsonMonacoField
               editorKey={`playground-test-params-${endpointId}`}
