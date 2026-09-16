@@ -113,6 +113,27 @@ export default function AnnotationDrawer({
     [comment, entityType]
   );
 
+  /**
+   * The target to send, or undefined to let the server decide.
+   *
+   * Only a sub-target is ever sent. Omitting it makes a create default to the
+   * parent's entity-level target and makes an update keep the target it has,
+   * which is the safe half of a choice that would otherwise be silent: a
+   * metric or turn annotation whose comment never mentioned it (one the SDK,
+   * the MCP tools or metric tuning created with an explicit target) would be
+   * re-derived as entity-level on any edit, and for a test result or trace
+   * that reverts the old override and applies a new one, moving the parent's
+   * reported status with it.
+   *
+   * The cost is that the mention cannot be deleted to widen an existing
+   * annotation back to entity level. There is no target picker here, so that
+   * was never a deliberate gesture anyway.
+   */
+  const targetToSend: InferredTarget | undefined =
+    inferredTarget.type === ENTITY_LEVEL_TARGETS[entityType]
+      ? undefined
+      : inferredTarget;
+
   const passStatus = useMemo(
     () => findStatusByCategory(statuses, 'passed'),
     [statuses]
@@ -189,14 +210,14 @@ export default function AnnotationDrawer({
         await update(annotation.id, {
           status_id: selectedStatusId,
           comments: trimmed,
-          target: inferredTarget,
+          target: targetToSend,
           resolved,
         });
       } else {
         await create({
           statusId: selectedStatusId,
           comments: trimmed,
-          target: inferredTarget,
+          target: targetToSend,
         });
       }
       await onSaved();
