@@ -106,9 +106,14 @@ class Annotation(BaseEntity):
         pair would be accepted and silently ignored, leaving an annotation
         targeted at the whole entity rather than the metric or turn it named, so
         the remap happens here rather than at each call site.
+
+        The parent and the verdict are required to create, not to update, so
+        ``Annotation(id=..., resolved=True).push()`` resolves one by id without
+        hydrating the rest of it first.
         """
-        self._validate_push_requirements()
         data = self.model_dump(mode="json", exclude_none=True)
+        if self.id is None:
+            self._validate_push_requirements()
 
         target_type = data.pop("target_type", None)
         data.pop("target_reference", None)

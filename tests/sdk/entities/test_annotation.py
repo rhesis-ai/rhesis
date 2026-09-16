@@ -112,9 +112,21 @@ class TestPush:
         assert "status" not in body
         assert body["status_id"] == STATUS_ID
 
-    def test_requires_the_parent_and_a_verdict(self):
+    def test_requires_the_parent_and_a_verdict_to_create(self):
         with pytest.raises(ValueError, match="Required fields for push"):
             Annotation(comments="No parent, no verdict.").push()
+
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_resolves_by_id_without_hydrating_the_rest(self, mock_client):
+        """Requiring the parent and verdict on an update too would make the
+        obvious "resolve this one" call impossible."""
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        Annotation(id="annotation-1", resolved=True).push()
+
+        kwargs = mock_client.return_value.send_request.call_args.kwargs
+        assert kwargs["url_params"] == "annotation-1"
+        assert kwargs["data"] == {"resolved": True}
 
     @patch("rhesis.sdk.entities.base_entity.APIClient")
     def test_an_update_does_not_try_to_re_parent(self, mock_client):
