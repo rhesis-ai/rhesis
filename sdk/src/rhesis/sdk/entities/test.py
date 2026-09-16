@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 from pydantic import BaseModel, field_validator, model_validator
 
 if TYPE_CHECKING:
+    from rhesis.sdk.entities.annotation import Annotation
     from rhesis.sdk.entities.file import File
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
@@ -176,6 +177,18 @@ class Test(BaseEntity):
         if pending_files:
             self.add_files(pending_files)
         return response
+
+    def get_annotations(self) -> List["Annotation"]:
+        """Get every annotation on this test.
+
+        Explorer labels and metric tuning judgements both land here once PR-4
+        migrates them onto the entity.
+        """
+        from rhesis.sdk.entities.annotation import Annotations
+
+        if not self.id:
+            raise ValueError("Test must have an ID to get annotations")
+        return Annotations.for_entity("Test", self.id)
 
     def add_files(self, sources: list) -> List["File"]:
         """Add files to this test from paths or base64 dicts.

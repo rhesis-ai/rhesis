@@ -27,7 +27,8 @@ def test_result_data():
         },
         "test_output": {"response": "Test output"},
         "test_metrics": {"accuracy": 0.95},
-        "test_reviews": {"reviewer": "John Doe"},
+        "last_annotation": {"status": {"name": "Fail"}, "user": {"name": "John Doe"}},
+        "matches_annotation": False,
     }
 
 

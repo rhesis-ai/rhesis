@@ -67,6 +67,18 @@ class TestRun(BaseEntity):
         """Extract name from nested dict if backend returns full Status object."""
         return v.get("name") if isinstance(v, dict) else v
 
+    def get_annotations(self):
+        """Get every annotation left anywhere in this test run.
+
+        Covers the run's test results and the traces it produced, scoped
+        server-side rather than joined here.
+        """
+        from rhesis.sdk.entities.annotation import Annotations
+
+        if self.id is None:
+            raise ValueError("Test run ID is required")
+        return Annotations.for_test_run(self.id)
+
     def get_test_results(self):
         """Get all test results for this test run.
 
