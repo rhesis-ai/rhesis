@@ -19,7 +19,7 @@ from rhesis.backend.app.auth.terms import record_terms_acceptance
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.services.organization import load_initial_data
-from rhesis.backend.app.utils.encryption import hash_token
+from rhesis.backend.app.utils.encryption import hash_password, hash_token
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,9 @@ def initialize_local_environment(db: Session) -> None:
             user = user_crud.get_user_by_email(db, "admin@local.dev")
             if user:
                 logger.info("ℹ️  Local user already exists.")
+
+                if not user.password_hash:
+                    user.password_hash = hash_password("localdev")
 
                 # Direct ORM construction below never goes through crud.user.create_user,
                 # so the RBAC default-org-role hook never fired for pre-existing
@@ -124,6 +127,7 @@ def initialize_local_environment(db: Session) -> None:
             is_email_verified=True,
             organization_id=None,  # Set after organization is created
             auth0_id=None,  # No Auth0 ID for local
+            password_hash=hash_password("localdev"),
             last_login_at=current_time,
             created_at=current_time,
             updated_at=current_time,
