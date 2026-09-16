@@ -12,7 +12,10 @@
 
 /** Which authored field a normalization note refers to. */
 export type ContractSourceField =
-  'goal' | 'instructions' | 'restrictions' | 'scenario';
+  | 'goal'
+  | 'instructions'
+  | 'restrictions'
+  | 'scenario';
 
 export interface ContractSourceNote {
   /** The authored field this note is about. */
