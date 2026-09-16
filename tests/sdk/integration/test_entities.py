@@ -1046,3 +1046,92 @@ def test_test_set_pull_no_id_raises_error(db_cleanup):
         test_set.pull()
 
     assert "ID" in str(exc_info.value)
+
+
+# ============================================================================
+# Test — test_parameters CRUD
+# ============================================================================
+
+
+def test_test_with_test_parameters(db_cleanup):
+    """Test creating a test with test_parameters and verifying they persist."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.enums import TestType
+
+    test = Test(
+        category="Safety",
+        requirement="Should refuse harmful requests",
+        prompt=Prompt(content="Test prompt with parameters"),
+        test_type=TestType.SINGLE_TURN,
+        test_parameters={"language": "en", "max_tokens": 100, "temperature": 0.7},
+    )
+
+    result = test.push()
+
+    assert result["id"] is not None
+    assert result["test_parameters"] == {"language": "en", "max_tokens": 100, "temperature": 0.7}
+
+
+def test_test_parameters_push_pull(db_cleanup):
+    """Test that test_parameters round-trip through push/pull."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.enums import TestType
+
+    params = {"region": "us-east-1", "retries": 3, "nested": {"key": "value"}}
+    test = Test(
+        category="Accuracy",
+        requirement="Should provide accurate information",
+        prompt=Prompt(content="Parameterized test prompt"),
+        test_type=TestType.SINGLE_TURN,
+        test_parameters=params,
+    )
+    test.push()
+
+    pulled = test.pull()
+
+    assert pulled.test_parameters == params
+
+
+def test_test_parameters_update(db_cleanup):
+    """Test updating test_parameters on an existing test."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.enums import TestType
+
+    test = Test(
+        category="Safety",
+        requirement="Should refuse harmful requests",
+        prompt=Prompt(content="Updatable params test"),
+        test_type=TestType.SINGLE_TURN,
+        test_parameters={"version": 1},
+    )
+    test.push()
+
+    test.test_parameters = {"version": 2, "new_field": "added"}
+    result = test.push()
+
+    assert result["test_parameters"] == {"version": 2, "new_field": "added"}
+
+    pulled = test.pull()
+    assert pulled.test_parameters == {"version": 2, "new_field": "added"}
+
+
+def test_test_without_test_parameters(db_cleanup):
+    """Test that a test without test_parameters returns None/empty for the field."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.enums import TestType
+
+    test = Test(
+        category="Safety",
+        requirement="Should refuse harmful requests",
+        prompt=Prompt(content="No parameters test"),
+        test_type=TestType.SINGLE_TURN,
+    )
+    test.push()
+
+    pulled = test.pull()
+
+    assert pulled.test_parameters is None or pulled.test_parameters == {}
