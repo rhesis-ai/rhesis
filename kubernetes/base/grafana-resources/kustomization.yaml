@@ -6,8 +6,13 @@ resources:
   - grafana-ingress.yaml
   - prometheus-datasource.yaml
   - loki-datasource.yaml
-  # Picks its Postgres datasource by template variable, so one copy works in every env.
+  # All pick their Postgres datasource by template variable, so one copy works in every
+  # env. The three activity dashboards replace the Looker Studio reports that died with
+  # the Cloud Run era Cloud SQL instances.
   - usage-dashboard.yaml
+  - user-activity-dashboard.yaml
+  - organization-dashboard.yaml
+  - test-activity-dashboard.yaml
   # Alerting: identical in every env. Each cluster's ExternalSecret (see
   # clusters/*/grafana-resources/discord-webhook-secret.yaml and
   # grafana-smtp-credentials.yaml) fills in the two things that differ — the Discord

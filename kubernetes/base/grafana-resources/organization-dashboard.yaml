@@ -1,0 +1,226 @@
+# Platform-wide organization metrics, ported from the Looker Studio "Organization
+# Metrics" report. Same datasource-variable pattern as usage-dashboard.yaml, so this one
+# definition serves dev, stg and prd, binding in prd to "Rhesis PRD Postgres (RO)" on the
+# rhesis-prd-ro hot-standby replica.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: rhesis-organizations
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folder: Rhesis
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  json: |
+    {
+      "uid": "rhesis-organizations",
+      "title": "Rhesis Organizations",
+      "tags": ["rhesis", "organizations"],
+      "timezone": "utc",
+      "editable": false,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "",
+      "time": { "from": "now-12M", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "label": "Datasource",
+            "type": "datasource",
+            "query": "postgres",
+            "current": {},
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "Overview",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Organization totals",
+          "description": "Counts across the whole platform right now. Ignores the time picker.",
+          "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Avg users per org" }, "properties": [{ "id": "decimals", "value": 1 }] }
+            ]
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "none",
+            "graphMode": "none",
+            "textMode": "auto",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "WITH members AS (\n  SELECT organization_id, COUNT(*) AS n\n  FROM public.\"user\"\n  WHERE deleted_at IS NULL AND organization_id IS NOT NULL\n  GROUP BY 1\n)\nSELECT\n  COUNT(*) AS \"Organizations\",\n  COUNT(*) FILTER (WHERE o.is_active) AS \"Active\",\n  COUNT(*) FILTER (WHERE o.is_onboarding_complete) AS \"Onboarded\",\n  COUNT(*) FILTER (WHERE o.is_domain_verified) AS \"Domain verified\",\n  COUNT(*) FILTER (WHERE m.n IS NOT NULL) AS \"With members\",\n  COALESCE(AVG(m.n), 0) AS \"Avg users per org\",\n  COUNT(*) FILTER (WHERE o.created_at >= date_trunc('month', now() AT TIME ZONE 'UTC')) AS \"New this month\"\nFROM public.organization o\nLEFT JOIN members m ON m.organization_id = o.id\nWHERE o.deleted_at IS NULL"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Growth and onboarding",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Organization growth and onboarding",
+          "description": "Organizations created per month, split by whether onboarding has since been completed. Follows the time picker on creation date.",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": { "mode": "normal", "group": "A" }, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', created_at) AS time,\n  COUNT(*) FILTER (WHERE is_onboarding_complete) AS \"Onboarded\",\n  COUNT(*) FILTER (WHERE NOT is_onboarding_complete) AS \"Not onboarded\"\nFROM public.organization\nWHERE deleted_at IS NULL\n  AND $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Cumulative organizations",
+          "description": "Running total of organizations ever created, by month. Computed over all history, then trimmed by the time picker so the line starts at the true total.",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "auto", "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "WITH monthly AS (\n  SELECT date_trunc('month', created_at) AS m, COUNT(*) AS c\n  FROM public.organization\n  WHERE deleted_at IS NULL\n  GROUP BY 1\n),\ncumulative AS (\n  SELECT m, SUM(c) OVER (ORDER BY m) AS running\n  FROM monthly\n)\nSELECT m AS time, running AS \"Total organizations\"\nFROM cumulative\nWHERE $__timeFilter(m)\nORDER BY m"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "bargauge",
+          "title": "Onboarding funnel",
+          "description": "Organizations reaching each stage. Measured independently rather than as a strict sequence, so a later stage can exceed an earlier one. Ignores the time picker.",
+          "gridPos": { "h": 8, "w": 10, "x": 0, "y": 15 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": [], "fields": "", "values": true },
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "showUnfilled": true,
+            "valueMode": "color"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT stage AS \"Stage\", orgs AS \"Organizations\"\nFROM (\n  SELECT 1 AS ord, 'Created' AS stage, COUNT(*) AS orgs\n  FROM public.organization WHERE deleted_at IS NULL\n  UNION ALL\n  SELECT 2, 'Onboarding complete', COUNT(*)\n  FROM public.organization WHERE deleted_at IS NULL AND is_onboarding_complete\n  UNION ALL\n  SELECT 3, 'Has members', COUNT(DISTINCT o.id)\n  FROM public.organization o\n  JOIN public.\"user\" u ON u.organization_id = o.id AND u.deleted_at IS NULL\n  WHERE o.deleted_at IS NULL\n  UNION ALL\n  SELECT 4, 'Created a test set', COUNT(DISTINCT o.id)\n  FROM public.organization o\n  JOIN public.test_set ts ON ts.organization_id = o.id AND ts.deleted_at IS NULL\n  WHERE o.deleted_at IS NULL\n  UNION ALL\n  SELECT 5, 'Ran a test', COUNT(DISTINCT o.id)\n  FROM public.organization o\n  JOIN public.test_run tr ON tr.organization_id = o.id AND tr.deleted_at IS NULL\n  WHERE o.deleted_at IS NULL\n) t\nORDER BY ord"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "barchart",
+          "title": "Top organizations by members",
+          "description": "The ten organizations with the most non-deleted members. Ignores the time picker.",
+          "gridPos": { "h": 8, "w": 14, "x": 10, "y": 15 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COUNT(u.id) AS \"Members\"\nFROM public.organization o\nJOIN public.\"user\" u ON u.organization_id = o.id AND u.deleted_at IS NULL\nWHERE o.deleted_at IS NULL\nGROUP BY o.id\nORDER BY 2 DESC\nLIMIT 10"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Directory",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "Organizations",
+          "description": "One row per organization with its members and activity. Follows the time picker on creation date.",
+          "gridPos": { "h": 11, "w": 24, "x": 0, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Created" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] },
+              { "matcher": { "id": "byName", "options": "Organization" }, "properties": [{ "id": "custom.width", "value": 240 }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  o.created_at AS \"Created\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  o.domain AS \"Domain\",\n  o.is_active AS \"Active\",\n  o.is_onboarding_complete AS \"Onboarded\",\n  o.is_domain_verified AS \"Domain verified\",\n  (SELECT COUNT(*) FROM public.\"user\" u WHERE u.organization_id = o.id AND u.deleted_at IS NULL) AS \"Members\",\n  (SELECT COUNT(*) FROM public.test_set ts WHERE ts.organization_id = o.id AND ts.deleted_at IS NULL) AS \"Test sets\",\n  (SELECT COUNT(*) FROM public.test_run tr WHERE tr.organization_id = o.id AND tr.deleted_at IS NULL) AS \"Test runs\"\nFROM public.organization o\nWHERE o.deleted_at IS NULL\n  AND $__timeFilter(o.created_at)\nORDER BY o.created_at DESC"
+            }
+          ]
+        }
+      ]
+    }

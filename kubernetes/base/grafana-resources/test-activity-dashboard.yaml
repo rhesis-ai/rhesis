@@ -1,0 +1,419 @@
+# Platform-wide test, test run and test result activity, ported from the Looker Studio
+# "Test, Test Run & Test Result Activity Metrics" report and the activity overview page
+# that followed it. Same datasource-variable pattern as usage-dashboard.yaml, so this one
+# definition serves dev, stg and prd, binding in prd to "Rhesis PRD Postgres (RO)" on the
+# rhesis-prd-ro hot-standby replica.
+#
+# "Failed" throughout means test_result.verdict = 'fail'. Per ck_test_result_verdict_requires_ok
+# a verdict exists only when execution = 'ok', so a run that errored outright counts as
+# neither passed nor failed, and passed + failed + inconclusive is less than total results.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: rhesis-test-activity
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folder: Rhesis
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  json: |
+    {
+      "uid": "rhesis-test-activity",
+      "title": "Rhesis Test Activity",
+      "tags": ["rhesis", "tests"],
+      "timezone": "utc",
+      "editable": false,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "",
+      "time": { "from": "now-12M", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "label": "Datasource",
+            "type": "datasource",
+            "query": "postgres",
+            "current": {},
+            "hide": 0
+          },
+          {
+            "name": "org",
+            "label": "Organization",
+            "type": "query",
+            "datasource": { "type": "postgres", "uid": "${datasource}" },
+            "query": "SELECT id AS __value, COALESCE(display_name, name) AS __text FROM public.organization WHERE deleted_at IS NULL ORDER BY 2",
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "Totals",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Platform totals",
+          "description": "Counts across the whole platform right now. Ignores the time picker and the organization filter.",
+          "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Failed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }, { "id": "custom.colorMode", "value": "value" }] }
+            ]
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "none",
+            "graphMode": "none",
+            "textMode": "auto",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  (SELECT COUNT(*) FROM public.test WHERE deleted_at IS NULL) AS \"Tests\",\n  (SELECT COUNT(*) FROM public.test_set WHERE deleted_at IS NULL) AS \"Test sets\",\n  (SELECT COUNT(*) FROM public.test_run WHERE deleted_at IS NULL) AS \"Test runs\",\n  (SELECT COUNT(*) FROM public.test_result WHERE deleted_at IS NULL) AS \"Test results\",\n  (SELECT COUNT(*) FROM public.test_result WHERE deleted_at IS NULL AND verdict = 'pass') AS \"Passed\",\n  (SELECT COUNT(*) FROM public.test_result WHERE deleted_at IS NULL AND verdict = 'fail') AS \"Failed\""
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Over time",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Tests, test runs and test results over time",
+          "description": "Rows created per month, by creation date. Follows the time picker and the organization filter.",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT date_trunc('month', created_at) AS time, COUNT(*) AS \"Tests\"\nFROM public.test\nWHERE deleted_at IS NULL\n  AND organization_id::text IN ($org)\n  AND $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1"
+            },
+            {
+              "refId": "B",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT date_trunc('month', created_at) AS time, COUNT(*) AS \"Test runs\"\nFROM public.test_run\nWHERE deleted_at IS NULL\n  AND organization_id::text IN ($org)\n  AND $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1"
+            },
+            {
+              "refId": "C",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT date_trunc('month', created_at) AS time, COUNT(*) AS \"Test results\"\nFROM public.test_result\nWHERE deleted_at IS NULL\n  AND organization_id::text IN ($org)\n  AND $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Tests, test runs and test results, cumulative",
+          "description": "Running totals by month. Each is computed over all history, then trimmed by the time picker, so the lines start at their true totals rather than at zero.",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "auto", "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "WITH monthly AS (\n  SELECT date_trunc('month', created_at) AS m, COUNT(*) AS c\n  FROM public.test\n  WHERE deleted_at IS NULL AND organization_id::text IN ($org)\n  GROUP BY 1\n)\nSELECT m AS time, SUM(c) OVER (ORDER BY m) AS \"Tests\"\nFROM monthly\nWHERE $__timeFilter(m)\nORDER BY m"
+            },
+            {
+              "refId": "B",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "WITH monthly AS (\n  SELECT date_trunc('month', created_at) AS m, COUNT(*) AS c\n  FROM public.test_run\n  WHERE deleted_at IS NULL AND organization_id::text IN ($org)\n  GROUP BY 1\n)\nSELECT m AS time, SUM(c) OVER (ORDER BY m) AS \"Test runs\"\nFROM monthly\nWHERE $__timeFilter(m)\nORDER BY m"
+            },
+            {
+              "refId": "C",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "WITH monthly AS (\n  SELECT date_trunc('month', created_at) AS m, COUNT(*) AS c\n  FROM public.test_result\n  WHERE deleted_at IS NULL AND organization_id::text IN ($org)\n  GROUP BY 1\n)\nSELECT m AS time, SUM(c) OVER (ORDER BY m) AS \"Test results\"\nFROM monthly\nWHERE $__timeFilter(m)\nORDER BY m"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Test set generation over time",
+          "description": "Test sets created per month. Follows the time picker and the organization filter.",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "axisSoftMin": 0 }
+            },
+            "overrides": []
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "time_series",
+              "rawSql": "SELECT\n  date_trunc('month', created_at) AS time,\n  COUNT(*) FILTER (WHERE is_published) AS \"Published\",\n  COUNT(*) FILTER (WHERE NOT is_published) AS \"Unpublished\"\nFROM public.test_set\nWHERE deleted_at IS NULL\n  AND organization_id::text IN ($org)\n  AND $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "By organization",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 5,
+          "type": "barchart",
+          "title": "Test runs per organization",
+          "description": "Top ten organizations by test runs created in the selected time range.",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COUNT(*) AS \"Test runs\"\nFROM public.test_run tr\nJOIN public.organization o ON o.id = tr.organization_id AND o.deleted_at IS NULL\nWHERE tr.deleted_at IS NULL\n  AND tr.organization_id::text IN ($org)\n  AND $__timeFilter(tr.created_at)\nGROUP BY o.id\nORDER BY 2 DESC\nLIMIT 10"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "barchart",
+          "title": "Tests per organization",
+          "description": "Top ten organizations by tests created in the selected time range.",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COUNT(*) AS \"Tests\"\nFROM public.test t\nJOIN public.organization o ON o.id = t.organization_id AND o.deleted_at IS NULL\nWHERE t.deleted_at IS NULL\n  AND t.organization_id::text IN ($org)\n  AND $__timeFilter(t.created_at)\nGROUP BY o.id\nORDER BY 2 DESC\nLIMIT 10"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "type": "table",
+          "title": "Tests, test runs and failed tests per organization",
+          "description": "Per organization over the selected time range. Pass rate is passed divided by the results that actually produced a verdict, so results that errored are left out of the denominator.",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 32 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Organization" }, "properties": [{ "id": "custom.width", "value": 240 }] },
+              { "matcher": { "id": "byName", "options": "Pass rate" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 1 }] },
+              { "matcher": { "id": "byName", "options": "Failed" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "WITH scoped AS (\n  SELECT id, COALESCE(display_name, name) AS org\n  FROM public.organization\n  WHERE deleted_at IS NULL AND id::text IN ($org)\n),\ntests AS (\n  SELECT organization_id, COUNT(*) AS n FROM public.test\n  WHERE deleted_at IS NULL AND $__timeFilter(created_at) GROUP BY 1\n),\nruns AS (\n  SELECT organization_id, COUNT(*) AS n FROM public.test_run\n  WHERE deleted_at IS NULL AND $__timeFilter(created_at) GROUP BY 1\n),\nresults AS (\n  SELECT\n    organization_id,\n    COUNT(*) AS n,\n    COUNT(*) FILTER (WHERE verdict = 'pass') AS passed,\n    COUNT(*) FILTER (WHERE verdict = 'fail') AS failed,\n    COUNT(*) FILTER (WHERE verdict IS NOT NULL) AS judged\n  FROM public.test_result\n  WHERE deleted_at IS NULL AND $__timeFilter(created_at) GROUP BY 1\n)\nSELECT\n  s.org AS \"Organization\",\n  COALESCE(t.n, 0) AS \"Tests\",\n  COALESCE(r.n, 0) AS \"Test runs\",\n  COALESCE(res.n, 0) AS \"Test results\",\n  COALESCE(res.passed, 0) AS \"Passed\",\n  COALESCE(res.failed, 0) AS \"Failed\",\n  CASE WHEN COALESCE(res.judged, 0) = 0 THEN NULL\n       ELSE res.passed::numeric / res.judged END AS \"Pass rate\"\nFROM scoped s\nLEFT JOIN tests t ON t.organization_id = s.id\nLEFT JOIN runs r ON r.organization_id = s.id\nLEFT JOIN results res ON res.organization_id = s.id\nWHERE COALESCE(t.n, 0) + COALESCE(r.n, 0) + COALESCE(res.n, 0) > 0\nORDER BY \"Test runs\" DESC, \"Tests\" DESC"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "By user",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 8,
+          "type": "barchart",
+          "title": "Most active users by test runs",
+          "description": "Top ten users by test runs they started in the selected time range. This is the activity-based ranking the original report's login-based one could not be rebuilt as.",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(u.name, u.email) AS \"User\",\n  COUNT(*) AS \"Test runs\"\nFROM public.test_run tr\nJOIN public.\"user\" u ON u.id = tr.user_id AND u.deleted_at IS NULL\nWHERE tr.deleted_at IS NULL\n  AND tr.organization_id::text IN ($org)\n  AND $__timeFilter(tr.created_at)\nGROUP BY u.id\nORDER BY 2 DESC\nLIMIT 10"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "type": "table",
+          "title": "Test results per user",
+          "description": "Results attributed to each user over the selected time range, with their verdict split.",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Failed" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(u.name, u.email) AS \"User\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COUNT(*) AS \"Results\",\n  COUNT(*) FILTER (WHERE tres.verdict = 'pass') AS \"Passed\",\n  COUNT(*) FILTER (WHERE tres.verdict = 'fail') AS \"Failed\"\nFROM public.test_result tres\nJOIN public.\"user\" u ON u.id = tres.user_id AND u.deleted_at IS NULL\nLEFT JOIN public.organization o ON o.id = tres.organization_id AND o.deleted_at IS NULL\nWHERE tres.deleted_at IS NULL\n  AND tres.organization_id::text IN ($org)\n  AND $__timeFilter(tres.created_at)\nGROUP BY u.id, o.id\nORDER BY 3 DESC\nLIMIT 25"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Recent",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 50 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 10,
+          "type": "table",
+          "title": "Last test runs",
+          "description": "The 25 most recent test runs in the selected time range, with the verdict split of their results.",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 51 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Started" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] },
+              { "matcher": { "id": "byName", "options": "Failed" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  tr.created_at AS \"Started\",\n  COALESCE(tr.name, tr.nano_id) AS \"Test run\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COALESCE(u.name, u.email) AS \"Started by\",\n  COUNT(tres.id) AS \"Results\",\n  COUNT(tres.id) FILTER (WHERE tres.verdict = 'pass') AS \"Passed\",\n  COUNT(tres.id) FILTER (WHERE tres.verdict = 'fail') AS \"Failed\"\nFROM public.test_run tr\nLEFT JOIN public.organization o ON o.id = tr.organization_id AND o.deleted_at IS NULL\nLEFT JOIN public.\"user\" u ON u.id = tr.user_id AND u.deleted_at IS NULL\nLEFT JOIN public.test_result tres ON tres.test_run_id = tr.id AND tres.deleted_at IS NULL\nWHERE tr.deleted_at IS NULL\n  AND tr.organization_id::text IN ($org)\n  AND $__timeFilter(tr.created_at)\nGROUP BY tr.id, o.id, u.id\nORDER BY tr.created_at DESC\nLIMIT 25"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "type": "table",
+          "title": "Last test sets",
+          "description": "The 25 most recently created test sets in the selected time range, with how many tests each holds.",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 51 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Created" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] },
+              { "matcher": { "id": "byName", "options": "Test set" }, "properties": [{ "id": "custom.width", "value": 240 }] }
+            ]
+          },
+          "options": { "showHeader": true, "footer": { "show": false } },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  ts.created_at AS \"Created\",\n  ts.name AS \"Test set\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  COALESCE(u.name, u.email) AS \"Created by\",\n  ts.is_published AS \"Published\",\n  ts.visibility AS \"Visibility\"\nFROM public.test_set ts\nLEFT JOIN public.organization o ON o.id = ts.organization_id AND o.deleted_at IS NULL\nLEFT JOIN public.\"user\" u ON u.id = ts.user_id AND u.deleted_at IS NULL\nWHERE ts.deleted_at IS NULL\n  AND ts.organization_id::text IN ($org)\n  AND $__timeFilter(ts.created_at)\nORDER BY ts.created_at DESC\nLIMIT 25"
+            }
+          ]
+        }
+      ]
+    }
