@@ -214,3 +214,42 @@ class TestResponseMapper:
         result = mapper._jsonpath_extract(response_data, "$.invalid[syntax")
 
         assert result is None
+
+
+class TestVersionInfoMapping:
+    """A ``version_info`` mapping key must reach the result as an object.
+
+    The dynamic version-capture path relies on the mapper treating this key like any
+    other and on objects surviving un-stringified. These tests lock both so a future
+    refactor of the mapper cannot silently break version capture.
+    """
+
+    def test_object_valued_version_info_survives_as_an_object(self):
+        mapper = ResponseMapper()
+        response_data = {
+            "text": "hi",
+            "build": {"prompt_version": "v3.2", "model": "gpt-4o"},
+        }
+
+        result = mapper.map_response(
+            response_data, {"output": "$.text", "version_info": "{{ build }}"}
+        )
+
+        assert result["version_info"] == {"prompt_version": "v3.2", "model": "gpt-4o"}
+
+    def test_version_info_via_jsonpath(self):
+        mapper = ResponseMapper()
+        response_data = {"text": "hi", "meta": {"build": {"prompt_version": "v1"}}}
+
+        result = mapper.map_response(
+            response_data, {"output": "$.text", "version_info": "$.meta.build"}
+        )
+
+        assert result["version_info"] == {"prompt_version": "v1"}
+
+    def test_missing_version_info_maps_to_none(self):
+        mapper = ResponseMapper()
+
+        result = mapper.map_response({"text": "hi"}, {"output": "$.text", "version_info": "$.nope"})
+
+        assert result["version_info"] is None

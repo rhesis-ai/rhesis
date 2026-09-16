@@ -443,6 +443,17 @@ def update_test_run_status(
         }
     )
 
+    # A version the endpoint reported itself beats the endpoint's configured value. Done
+    # here rather than per worker because collect_results runs once per run, so there is no
+    # read-modify-write race on attributes. Best-effort: a run must still reach a terminal
+    # status if this lookup fails.
+    try:
+        from rhesis.backend.app.services.version_info import apply_reported_version_info
+
+        apply_reported_version_info(db, test_run=test_run, attributes=updated_attributes)
+    except Exception as e:
+        logger_func("warning", "Failed to resolve reported version_info", error=str(e))
+
     # Add total_execution_time_ms for future clients if we calculated it
     if execution_time and updated_attributes.get("started_at"):
         try:

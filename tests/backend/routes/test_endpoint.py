@@ -375,6 +375,84 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
 
 
 @pytest.mark.integration
+class TestEndpointVersionInfo(EndpointTestMixin, BaseEntityTests):
+    """Free-form version_info round-trips and is validated at the API boundary."""
+
+    def _create(self, client: TestClient, db_project, **extra) -> Dict[str, Any]:
+        payload = {
+            "name": f"Version Endpoint {fake.uuid4()}",
+            "connection_type": "REST",
+            "url": f"https://{fake.domain_name()}/chat",
+            "project_id": str(db_project.id),
+            **extra,
+        }
+        return client.post(self.endpoints.create, json=payload)
+
+    def test_create_and_read_round_trip(self, authenticated_client: TestClient, db_project):
+        version_info = {"prompt_version": "v3.2", "cfg": {"temperature": 0.2}}
+
+        created = self._create(authenticated_client, db_project, version_info=version_info)
+        assert created.status_code == status.HTTP_200_OK
+        assert created.json()["version_info"] == version_info
+
+        fetched = authenticated_client.get(self.endpoints.get(created.json()["id"]))
+        assert fetched.json()["version_info"] == version_info
+
+    def test_defaults_to_null(self, authenticated_client: TestClient, db_project):
+        created = self._create(authenticated_client, db_project)
+        assert created.json()["version_info"] is None
+
+    def test_update_sets_value(self, authenticated_client: TestClient, db_project):
+        endpoint_id = self._create(authenticated_client, db_project).json()["id"]
+
+        updated = authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"version_info": {"prompt_version": "v4"}}
+        )
+
+        assert updated.status_code == status.HTTP_200_OK
+        assert updated.json()["version_info"] == {"prompt_version": "v4"}
+
+    def test_update_omitting_the_key_preserves_the_stored_value(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Regression guard: a rename PUT must not silently wipe the version."""
+        endpoint_id = self._create(
+            authenticated_client, db_project, version_info={"prompt_version": "v4"}
+        ).json()["id"]
+
+        updated = authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"name": "Renamed"}
+        )
+
+        assert updated.json()["version_info"] == {"prompt_version": "v4"}
+
+    def test_update_with_explicit_null_clears(self, authenticated_client: TestClient, db_project):
+        endpoint_id = self._create(
+            authenticated_client, db_project, version_info={"prompt_version": "v4"}
+        ).json()["id"]
+
+        updated = authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"version_info": None}
+        )
+
+        assert updated.json()["version_info"] is None
+
+    def test_array_is_rejected(self, authenticated_client: TestClient, db_project):
+        response = self._create(authenticated_client, db_project, version_info=["v1"])
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_scalar_is_rejected(self, authenticated_client: TestClient, db_project):
+        response = self._create(authenticated_client, db_project, version_info="v1")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_oversize_is_rejected(self, authenticated_client: TestClient, db_project):
+        response = self._create(
+            authenticated_client, db_project, version_info={"blob": "x" * 20_000}
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.integration
 class TestEndpointStatusAssignment(EndpointTestMixin, BaseEntityTests):
     """Test that endpoints are automatically assigned Active status on creation"""
 

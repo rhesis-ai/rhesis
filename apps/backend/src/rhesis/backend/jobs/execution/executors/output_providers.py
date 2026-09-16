@@ -369,6 +369,11 @@ class MultiTurnOutput(OutputProvider):
         trace = penelope_result.model_dump(mode="json")
         penelope_metrics = trace.pop("metrics", {})
 
+        # Lift the endpoint's reported version to the top of the trace so it sits at the
+        # same test_output key single-turn results use, and one query finds both.
+        if target.reported_version_info:
+            trace["version_info"] = target.reported_version_info
+
         # Penelope evaluates metrics internally -> return them with the output.
         return TestOutput(
             response=trace,

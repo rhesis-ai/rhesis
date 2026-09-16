@@ -1,5 +1,5 @@
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSON
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.utils.encryption import EncryptedString
@@ -31,6 +31,12 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
     openapi_spec = Column(JSON)
     llm_suggestions = Column(JSON)
     endpoint_metadata = Column(JSON)
+
+    # Client-declared version of the system behind this endpoint (prompt version, model,
+    # parameters). Free-form; shape and size are enforced in the Pydantic layer. JSONB
+    # rather than the JSON used by the older columns above -- it is the repo default for
+    # new JSON columns and, unlike json, supports equality so the column can be grouped on.
+    version_info = Column(JSONB, nullable=True)
 
     # Request Structure
     method = Column(String)  # Required for REST

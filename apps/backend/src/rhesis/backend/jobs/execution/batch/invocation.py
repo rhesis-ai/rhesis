@@ -210,6 +210,10 @@ async def _run_multi_turn(
     trace = penelope_result.model_dump(mode="json")
     penelope_metrics = trace.pop("metrics", {})
 
+    # Same key single-turn results use, so the run-level lookup finds both.
+    if target.reported_version_info:
+        trace["version_info"] = target.reported_version_info
+
     return {
         "output": trace,
         "penelope_metrics": penelope_metrics,

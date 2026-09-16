@@ -161,3 +161,32 @@ def delete_test_result(
     return delete_item(
         db, models.TestResult, test_result_id, organization_id=organization_id, user_id=user_id
     )
+
+
+def get_first_reported_version_info(
+    db: Session,
+    *,
+    test_run_id: uuid.UUID,
+    organization_id: Optional[str] = None,
+) -> Optional[dict]:
+    """Earliest ``test_output['version_info']`` recorded for a run, or None.
+
+    First-wins rather than collecting every distinct value: a run targets one deployed
+    system, so the set would almost always be a singleton and the UI would have to explain
+    the rare case where it isn't. The per-result values stay on each TestResult either way.
+    """
+    query = (
+        db.query(models.TestResult.test_output["version_info"])
+        .filter(
+            models.TestResult.test_run_id == test_run_id,
+            # SQLAlchemy's JSONB ``?`` operator, not the removed dict.has_key
+            models.TestResult.test_output.has_key("version_info"),
+        )
+        .order_by(models.TestResult.created_at.asc())
+    )
+    if organization_id:
+        query = query.filter(models.TestResult.organization_id == organization_id)
+
+    row = query.first()
+    value = row[0] if row else None
+    return value if isinstance(value, dict) and value else None
