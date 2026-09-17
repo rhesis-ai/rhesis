@@ -17,8 +17,14 @@ import {
   spanUsage,
   subtreeUsage,
   tokenSplitLabel,
+  hasTracedUsage,
+  isCostKnown,
+  isPricingInProgress,
 } from '../trace-utils';
-import type { SpanNode } from '../api-client/interfaces/telemetry';
+import type {
+  SpanNode,
+  TraceMetricsResponse,
+} from '../api-client/interfaces/telemetry';
 
 describe('trace-utils', () => {
   describe('formatDurationShort', () => {
@@ -509,6 +515,79 @@ describe('trace-utils', () => {
       expect(props.label).toBe('UNKNOWN');
       expect(props.color).toBe('default');
       expect(props.variant).toBe('outlined');
+    });
+  });
+  describe('usage predicates', () => {
+    // total_cost_usd is 0 for a scope nobody has priced, for one whose models
+    // have no published price, and for one that genuinely cost nothing. These
+    // three read the counts that tell those apart.
+    function metrics(
+      overrides: Partial<TraceMetricsResponse> = {}
+    ): TraceMetricsResponse {
+      return {
+        total_traces: 4,
+        enriched_traces: 4,
+        priced_traces: 4,
+        total_spans: 20,
+        total_tokens: 900,
+        total_input_tokens: 700,
+        total_output_tokens: 200,
+        total_cost_usd: 0.03,
+        total_input_cost_usd: 0.02,
+        total_output_cost_usd: 0.01,
+        models_used: ['gpt-4o'],
+        providers_used: ['openai'],
+        error_rate: 0,
+        avg_duration_ms: 1,
+        p50_duration_ms: 1,
+        p95_duration_ms: 1,
+        p99_duration_ms: 1,
+        operation_breakdown: {},
+        ...overrides,
+      };
+    }
+
+    describe('hasTracedUsage', () => {
+      it('is false for a scope that traced nothing', () => {
+        expect(hasTracedUsage(metrics({ total_traces: 0 }))).toBe(false);
+      });
+
+      it('is true as soon as one trace exists', () => {
+        expect(hasTracedUsage(metrics({ total_traces: 1 }))).toBe(true);
+      });
+    });
+
+    describe('isCostKnown', () => {
+      it('trusts a zero that priced traces add up to', () => {
+        // A free model costs a knowable nothing.
+        expect(isCostKnown(metrics({ total_cost_usd: 0 }))).toBe(true);
+      });
+
+      it('does not trust a zero nobody computed', () => {
+        expect(
+          isCostKnown(metrics({ priced_traces: 0, total_cost_usd: 0 }))
+        ).toBe(false);
+      });
+
+      it('does not care how large the total is', () => {
+        expect(isCostKnown(metrics({ priced_traces: 0 }))).toBe(false);
+      });
+    });
+
+    describe('isPricingInProgress', () => {
+      it('is true while enrichment has traces left', () => {
+        expect(isPricingInProgress(metrics({ enriched_traces: 1 }))).toBe(true);
+      });
+
+      it('is false once it has been through them all', () => {
+        expect(isPricingInProgress(metrics())).toBe(false);
+      });
+
+      it('is false for a scope with nothing to enrich', () => {
+        expect(
+          isPricingInProgress(metrics({ total_traces: 0, enriched_traces: 0 }))
+        ).toBe(false);
+      });
     });
   });
 });

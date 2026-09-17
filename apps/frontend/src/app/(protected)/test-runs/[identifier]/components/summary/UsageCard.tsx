@@ -4,24 +4,16 @@ import React from 'react';
 import { Box, Link } from '@mui/material';
 import KpiCard from './KpiCard';
 import ModelLabel from '@/components/common/ModelLabel';
-import { formatCost, formatTokenCount } from '@/utils/trace-utils';
-import { isCostKnown } from '../../hooks/useTestRunUsage';
+import {
+  formatCost,
+  formatTokenCount,
+  isCostKnown,
+  isPricingInProgress,
+} from '@/utils/trace-utils';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 
 const COSTS_DOC_URL =
   'https://docs.rhesis.ai/docs/tracing/costs#when-a-figure-is-missing';
-
-/**
- * Whether a run has any traced LLM calls to report on.
- *
- * A run whose endpoint is not instrumented produces no traces at all, and has
- * no usage rather than usage of zero. The card is held back for it entirely,
- * the same way it is held back before the first response arrives -- "0 tokens,
- * no priced models" would answer a question nobody asked.
- */
-export function hasTracedUsage(usage: TraceMetricsResponse): boolean {
-  return usage.total_traces > 0;
-}
 
 /**
  * What a test run spent, and on what.
@@ -39,7 +31,7 @@ export default function UsageCard({ usage }: { usage: TraceMetricsResponse }) {
     // Two different silences, and the run can tell them apart: enrichment still
     // has traces to get through, or it finished and found nothing it could
     // price. Only the second is worth explaining.
-    const stillPricing = usage.enriched_traces < usage.total_traces;
+    const stillPricing = isPricingInProgress(usage);
     return (
       <KpiCard
         title="Usage"
