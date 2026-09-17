@@ -96,6 +96,27 @@ hand-mirrored from the backend enums and must stay in sync with them.
 Fail-closed: features are `false` during the initial fetch and on error. See
 `apps/backend/AGENTS.md` for the registration flow behind them.
 
+## Styling — no hardcoded values
+
+CI runs `scripts/check-hardcoded-styles.js` on every touched file and blocks the PR on any
+violation. Never write literal pixel values, hex colours, or rgba strings in `sx` props or inline
+styles. Use the design tokens from `@/styles/theme` (re-exported from `@/styles/theme-constants`):
+
+| Category      | Wrong                          | Right                                                                              |
+| ------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
+| Border radius | `borderRadius: '12px'`         | `borderRadius: BORDER_RADIUS.md`                                                   |
+| Elevation     | `boxShadow: '0px 2px 4px ...'` | `boxShadow: ELEVATION.xs`                                                          |
+| Colours       | `color: '#545a65'`             | `color: 'text.secondary'` or `GREYSCALE.light.label`                               |
+| Spacing       | `padding: '30px'`              | `padding: theme => theme.spacing(3.75)` or use MUI numeric shorthands (`px: 3.75`) |
+| Font size     | `fontSize: 14`                 | Use MUI Typography `variant` prop                                                  |
+
+Available tokens: `BORDER_RADIUS` (xs/sm/md/lg/pill), `ELEVATION` (xs/s/m/l/xl), `GREYSCALE`
+(light/dark), `BACKDROP_COLORS`, `CODE_FONT_SIZE`, `FAB_SIZE`, `FAB_GROUP_GAP`,
+`GRID_CARD_INSET`, `SECTION_GRID`, `PAGE_SECTION_GAP`. For MUI palette colours use
+`theme.palette.*` or the string shorthand (`'primary.main'`, `'text.secondary'`).
+
+When in doubt, check `src/styles/rhesis-theme-usage.md` for examples.
+
 ## TypeScript & ESLint Conventions
 
 The following are enforced as warnings/errors and must pass with **zero** issues before

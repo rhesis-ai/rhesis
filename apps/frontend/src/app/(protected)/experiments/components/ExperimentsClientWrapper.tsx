@@ -8,6 +8,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { BiotechIcon, SettingsIcon } from '@/components/icons';
 import EntityGrid, {
   type EntityGridDrawerAdapter,
   type EntityGridFilterState,
@@ -21,7 +22,6 @@ import { can } from '@/utils/affordances';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { experimentsList } from './list';
 import CreateExperimentDialog from './CreateExperimentDialog';
@@ -170,6 +170,15 @@ export default function ExperimentsClientWrapper({
       description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
       actions={
         <FabGroup>
+          <Fab
+            icon={<SettingsIcon />}
+            tooltip="Experiments settings"
+            aria-label="Experiments settings"
+            onClick={() =>
+              router.push(`/projects/${activeProject?.id}?tab=experiments`)
+            }
+            disabled={!activeProject}
+          />
           <Can capability={Capability.Experiment.CREATE}>
             <Fab
               icon={<FabAddIcon />}

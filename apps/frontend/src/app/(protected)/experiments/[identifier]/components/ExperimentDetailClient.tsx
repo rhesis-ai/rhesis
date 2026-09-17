@@ -468,7 +468,7 @@ export default function ExperimentDetailClient({
           setConfigDrawerOpen(false);
           setIsDraftDirty(false);
         }}
-        title="Add configuration"
+        title="Add version"
         onSave={async () => {
           const ok = await handleSaveVersion();
           if (ok) setConfigDrawerOpen(false);
