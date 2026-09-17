@@ -162,12 +162,16 @@ export default function TraceFilterDrawer({
     if (!open || !isAuthenticated(status)) return;
 
     let cancelled = false;
-    const projectId = draft.projectId || readActiveProjectId() || undefined;
 
     setProvidersLoading(true);
     new ApiClientFactory()
       .getTelemetryClient()
-      .getProviders(projectId)
+      // Only the explicit choice, never a fallback to the active project. The table
+      // sends project_id the same way -- omitted when the Project filter is cleared --
+      // and the backend applies the session scope to both. Falling back here instead
+      // would scope the checklist to the active project while the rows beside it were
+      // scoped to something else.
+      .getProviders(draft.projectId || undefined)
       .then(list => {
         if (!cancelled) setProviders(list);
       })
