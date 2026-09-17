@@ -1,3 +1,6 @@
+import tempfile
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -519,11 +522,22 @@ def test_get_redis_settings_cache_clear_allows_env_overrides(clean_redis_env, mo
 
 @pytest.mark.unit
 def test_storage_settings_uses_local_defaults(clean_storage_env):
+    """Unset storage must land somewhere writable on any host.
+
+    The default was `file:///app/storage` — a container path that only exists
+    because docker-compose mounts a volume there. Running the backend directly
+    inherited it and every upload died on `mkdir('/app')`. Unset now means
+    `local_storage_path`; the container pins its own path in compose.
+    """
     settings = StorageSettings(_env_file=None)
 
-    assert settings.service_uri == "file:///app/storage"
+    assert settings.service_uri is None
+    assert not settings.local_storage_path.startswith("/app")
     assert settings.service_account_key is None
-    assert settings.local_storage_path == "/tmp/rhesis-files"
+    # From tempfile.gettempdir(), not a literal "/tmp": on Windows that literal
+    # resolves against the current drive, whose root normally needs elevation
+    # to write to.
+    assert settings.local_storage_path == str(Path(tempfile.gettempdir()) / "rhesis-files")
 
 
 @pytest.mark.unit
@@ -541,7 +555,7 @@ def test_storage_settings_loads_existing_environment_variables(clean_storage_env
 
 @pytest.mark.unit
 def test_get_storage_settings_cache_clear_allows_env_overrides(clean_storage_env, monkeypatch):
-    assert get_storage_settings().service_uri == "file:///app/storage"
+    assert get_storage_settings().service_uri is None
 
     monkeypatch.setenv("STORAGE_SERVICE_URI", "s3://rhesis-files")
     get_storage_settings.cache_clear()

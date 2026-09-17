@@ -30,6 +30,8 @@ import {
 } from '../../utils/validation';
 import { AUTH_FONT_SANS } from './authTokens';
 import { useAuthStyles } from './useAuthStyles';
+import { useNavigationItems } from '@/contexts/NavigationItemsContext';
+import { DEFAULT_PRODUCT_NAME } from '@/config/branding';
 
 interface ProviderInfo {
   name: string;
@@ -61,6 +63,10 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     field: fieldSx,
     quietLink: quietLinkSx,
   } = useAuthStyles();
+  // Sign-in is unauthenticated, so this is the deployment's BRAND_PRODUCT_NAME
+  // rather than an organisation's — there is no organisation yet to resolve.
+  const { branding } = useNavigationItems();
+  const productName = branding?.productName ?? DEFAULT_PRODUCT_NAME;
 
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
@@ -328,7 +334,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           </Typography>
           <Typography sx={subheading}>
             {isRegistration
-              ? 'Get started with Rhesis AI'
+              ? `Get started with ${productName}`
               : 'Continue to your workspace.'}
           </Typography>
         </Box>

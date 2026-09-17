@@ -1,10 +1,18 @@
 import {
   DEFAULT_FAVICON_URL,
   DEFAULT_PRODUCT_NAME,
+  ORG_FAVICON_URL,
+  brandFontFileName,
+  brandFontUrl,
+  brandFontWeights,
+  withAssetVersion,
   getServerBranding,
   normalizeBrandColor,
   normalizeFaviconUrl,
   normalizeProductName,
+  resolveBranding,
+  type BrandFont,
+  type Branding,
 } from '../branding';
 
 describe('normalizeBrandColor', () => {
@@ -316,5 +324,269 @@ describe('getServerBranding', () => {
       expect(getServerBranding().font).toBeUndefined();
       expect(warn).toHaveBeenCalled();
     });
+  });
+});
+
+describe('resolveBranding', () => {
+  let warn: jest.SpyInstance;
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  const deployment: Branding = {
+    primaryColor: '#111111',
+    secondaryColor: '#222222',
+    faviconUrl: '/deployment-icon.svg',
+    productName: 'Deployment',
+    isDefaultProductName: false,
+    font: {
+      family: 'Deployment Sans',
+      source: 'google',
+      slug: 'deployment-sans',
+      googleHref: 'https://fonts.googleapis.com/css2?family=Deployment+Sans',
+    },
+  };
+
+  it('returns the deployment branding untouched when the org has none', () => {
+    expect(resolveBranding(deployment, null)).toEqual(deployment);
+    expect(resolveBranding(deployment, undefined)).toEqual(deployment);
+    expect(resolveBranding(deployment, {})).toEqual(deployment);
+  });
+
+  it('overrides only the fields the org sets', () => {
+    const resolved = resolveBranding(deployment, { product_name: 'Acme' });
+
+    expect(resolved.productName).toBe('Acme');
+    expect(resolved.primaryColor).toBe('#111111');
+    expect(resolved.secondaryColor).toBe('#222222');
+    expect(resolved.faviconUrl).toBe('/deployment-icon.svg');
+  });
+
+  it('normalizes org colours the same way as env vars', () => {
+    const resolved = resolveBranding(deployment, { primary_color: '#6a1b9a' });
+
+    expect(resolved.primaryColor).toBe('#6A1B9A');
+  });
+
+  it('falls back to the deployment value when an org colour is malformed', () => {
+    const resolved = resolveBranding(deployment, { primary_color: '#fff' });
+
+    expect(resolved.primaryColor).toBe('#111111');
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('treats a cleared org field as unset rather than empty', () => {
+    const resolved = resolveBranding(deployment, {
+      primary_color: null,
+      product_name: null,
+    });
+
+    expect(resolved.primaryColor).toBe('#111111');
+    expect(resolved.productName).toBe('Deployment');
+  });
+
+  it('points the favicon at the org asset proxy once one is uploaded', () => {
+    const resolved = resolveBranding(deployment, {
+      favicon: { path: 'branding/org-1/favicon.png' },
+    });
+
+    expect(resolved.faviconUrl).toBe(ORG_FAVICON_URL);
+  });
+
+  it('content-addresses the favicon so a replacement busts browser caches', () => {
+    // The path never changes when the bytes do, and favicons are cached hard.
+    const resolved = resolveBranding(deployment, {
+      favicon: {
+        path: 'branding/org-1/favicon.png',
+        sha256: 'abcdef1234567890',
+      },
+    });
+
+    expect(resolved.faviconUrl).toBe(`${ORG_FAVICON_URL}?v=abcdef12`);
+  });
+
+  it('resolves an org font as a unit, replacing the deployment font', () => {
+    const resolved = resolveBranding(deployment, {
+      font: {
+        source: 'upload',
+        family: 'Inria Sans',
+        slug: 'inria-sans',
+        weights: ['400', '700'],
+        extensions: { '400': '.woff2', '700': '.ttf' },
+      },
+    });
+
+    expect(resolved.font).toEqual({
+      family: 'Inria Sans',
+      source: 'org',
+      slug: 'inria-sans',
+      weights: ['400', '700'],
+      extensions: { '400': '.woff2', '700': '.ttf' },
+    });
+  });
+
+  it('keeps the deployment font when an org upload has no weights', () => {
+    // An upload with no files would emit @font-face rules pointing nowhere.
+    const resolved = resolveBranding(deployment, {
+      font: {
+        source: 'upload',
+        family: 'Inria Sans',
+        slug: 'inria-sans',
+        weights: [],
+      },
+    });
+
+    expect(resolved.font).toBe(deployment.font);
+  });
+
+  it('resolves an org Google font to a stylesheet link, with no files', () => {
+    const resolved = resolveBranding(deployment, {
+      font: { source: 'google', family: 'Open Sans' },
+    });
+
+    expect(resolved.font).toMatchObject({
+      family: 'Open Sans',
+      source: 'google',
+      slug: 'open-sans',
+    });
+    expect(resolved.font?.googleHref).toContain('family=Open%20Sans');
+    expect(resolved.font?.googleHref).toContain('wght@300;400;700');
+  });
+
+  it('needs no slug or weights for an org Google font', () => {
+    // Unlike an upload, there are no files to point at.
+    const resolved = resolveBranding(deployment, {
+      font: { source: 'google', family: 'Roboto' },
+    });
+
+    expect(resolved.font?.source).toBe('google');
+  });
+
+  it.each([
+    ['Font</style>', 'angle brackets'],
+    ['Font "Name"', 'double quotes'],
+  ])('rejects an org font family with %s (%s)', family => {
+    const resolved = resolveBranding(deployment, {
+      font: { source: 'upload', family, slug: 'x', weights: ['400'] },
+    });
+
+    expect(resolved.font).toBe(deployment.font);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('reports isDefaultProductName for an org that clears its name', () => {
+    const rhesisDefault: Branding = {
+      ...deployment,
+      productName: DEFAULT_PRODUCT_NAME,
+      isDefaultProductName: true,
+    };
+
+    expect(
+      resolveBranding(rhesisDefault, { product_name: null })
+    ).toMatchObject({
+      productName: DEFAULT_PRODUCT_NAME,
+      isDefaultProductName: true,
+    });
+  });
+});
+
+describe('brandFontFileName', () => {
+  it('uses the uploaded extension for an org font', () => {
+    const font: BrandFont = {
+      family: 'Inria Sans',
+      source: 'org',
+      slug: 'inria-sans',
+      weights: ['400'],
+      extensions: { '400': '.woff2' },
+    };
+
+    expect(brandFontFileName(font, '400')).toBe('inria-sans-400.woff2');
+  });
+
+  it('defaults to .ttf for a BRAND_FONT_BASE_URL font', () => {
+    const font: BrandFont = {
+      family: 'Inria Sans',
+      source: 'custom',
+      slug: 'inria-sans',
+      baseUrl: 'https://fonts.example.com',
+    };
+
+    expect(brandFontFileName(font, '300')).toBe('inria-sans-300.ttf');
+  });
+});
+
+describe('brandFontWeights', () => {
+  it('uses the org font’s own weights', () => {
+    expect(
+      brandFontWeights({
+        family: 'Inria Sans',
+        source: 'org',
+        slug: 'inria-sans',
+        weights: ['400'],
+      })
+    ).toEqual(['400']);
+  });
+
+  it('falls back to all three weights when none are recorded', () => {
+    expect(
+      brandFontWeights({
+        family: 'Inria Sans',
+        source: 'custom',
+        slug: 'inria-sans',
+      })
+    ).toEqual(['300', '400', '700']);
+  });
+});
+
+describe('brandFontUrl', () => {
+  const uploaded: BrandFont = {
+    family: 'Inria Sans',
+    source: 'org',
+    slug: 'inria-sans',
+    weights: ['400'],
+    extensions: { '400': '.woff2' },
+    sha256: { '400': 'feedface00000000' },
+  };
+
+  it('content-addresses an uploaded weight', () => {
+    expect(brandFontUrl(uploaded, '400')).toBe(
+      '/brand-fonts/inria-sans-400.woff2?v=feedface'
+    );
+  });
+
+  it('omits the version when no hash is recorded', () => {
+    // A BRAND_FONT_BASE_URL font is fetched from a server we do not control
+    // and has no hash; the plain filename is all we can ask for.
+    const envFont: BrandFont = {
+      family: 'Inria Sans',
+      source: 'custom',
+      slug: 'inria-sans',
+      baseUrl: 'https://fonts.example.com',
+    };
+
+    expect(brandFontUrl(envFont, '300')).toBe(
+      '/brand-fonts/inria-sans-300.ttf'
+    );
+  });
+});
+
+describe('withAssetVersion', () => {
+  it('appends a truncated hash', () => {
+    expect(withAssetVersion('/a', '0123456789abcdef')).toBe('/a?v=01234567');
+  });
+
+  it('returns the url untouched when there is no hash', () => {
+    expect(withAssetVersion('/a', undefined)).toBe('/a');
+  });
+
+  it('uses & when the url already has a query string', () => {
+    expect(withAssetVersion('/a?b=c', '0123456789abcdef')).toBe(
+      '/a?b=c&v=01234567'
+    );
   });
 });

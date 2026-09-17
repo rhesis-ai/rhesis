@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 
 export const metadata: Metadata = {
-  title: 'Generate Test Set | Rhesis AI',
+  title: 'Generate Test Set',
 };
 
 export default function GenerateTestSetLayout({

@@ -242,6 +242,16 @@ class StorageService:
         return f"{prefix}/thumb-{size}.webp"
 
     @staticmethod
+    def get_branding_path(organization_id: str, filename: str) -> str:
+        """branding/{org_id}/{filename} — per-org white-label assets.
+
+        ``filename`` is built by the branding service from a fixed vocabulary
+        ("favicon.png", "fonts/inria-sans-400.ttf"), never from user input, so
+        a caller cannot traverse out of the organization's prefix.
+        """
+        return f"branding/{organization_id}/{filename}"
+
+    @staticmethod
     def get_owasp_content_path(cache_key: str) -> str:
         """owasp/{cache_key}.json — shared (not org-scoped) cache of parsed OWASP sections.
 

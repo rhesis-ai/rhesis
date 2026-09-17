@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import UUID4, field_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.organization_settings import OrganizationSettings
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
 # Public alias used by the SSO router and other modules that need the same pattern.
@@ -60,4 +61,7 @@ class OrganizationUpdate(OrganizationBase):
 
 
 class Organization(OrganizationBase, ServerIdentity):
-    pass
+    # Read-only here. Writes go through the dedicated /organizations/settings
+    # endpoints, which validate each section and own the storage-backed
+    # favicon/font descriptors.
+    organization_settings: Optional[OrganizationSettings] = None

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Organization Branding Settings**: Added a Branding tab to Organization Settings with primary/secondary colour (hex field plus a colour swatch), product name, favicon upload, and brand-font upload for the 300/400/700 weights.
+- **Branding Asset Proxies**: Added `/brand-assets/[asset]` for the organization favicon, and taught `/brand-fonts/[...path]` to serve organization-uploaded fonts before falling back to `BRAND_FONT_BASE_URL`.
+- **Google Fonts In Organization Branding**: The Branding tab offers a Google Fonts family (with an autocomplete over the live catalogue) alongside uploading font files, matching what `BRAND_FONT_FAMILY` already allowed at the deployment level.
+- **Deployment Defaults Shown In Branding Settings**: An organization that has set no branding now sees what it inherits from the deployment's `BRAND_*` variables — colour swatches filled, product name and font family as placeholders, and the inherited favicon previewed — instead of empty fields and a "None" icon. The root layout passes the deployment branding (not the resolved branding) through `window.__ENV__`, since `BRAND_*` carries no `NEXT_PUBLIC_` prefix and cannot be read from a client bundle.
+- **Branding Upload Guidance**: The Branding tab states the accepted formats and sizes for each asset, shows an uploaded favicon's dimensions, and warns when one is not square or is too small to stay sharp.
+
+### Changed
+
+- **Branding Resolution**: Branding now resolves per field as organization setting > `BRAND_*` env var > Rhesis default, so clearing a field in the settings form reveals the deployment default rather than resetting everything. The root layout resolves the organization once per request and shares it with `generateMetadata`.
+
+### Fixed
+
+- **Font Env Vars Not Plumbed**: `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL` were documented but missing from the Helm ConfigMap, chart values and `docker-compose.yml`, so a deployment could not actually set them.
+
 ## [0.16.0] - 2026-09-16
 
 ### Added
