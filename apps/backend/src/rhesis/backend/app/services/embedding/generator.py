@@ -239,6 +239,21 @@ class EmbeddingGenerator:
             if early is not None:
                 return early
 
+        # Every read this needs is done, so end the transaction before calling the
+        # provider. Holding one open across a network call makes the transaction last
+        # as long as the call does: Postgres cannot vacuum past its snapshot, the pool
+        # slot is unusable, and any DDL on a table it touched queues behind it. One of
+        # these was found idle in transaction blocking a migration, its last statement
+        # the Embedding status lookup above -- ``get_or_create_status`` returns an
+        # existing status without committing, so the reads leave a transaction open.
+        #
+        # Committing rather than rolling back because those lookups create the status
+        # and type_lookup rows on first use, and dropping them would mean creating them
+        # again on the next entity. Every caller owns its session for the whole call
+        # (the Celery task, the ``after_commit`` listener's own session, the backfill
+        # loop), so there is no unrelated pending work being committed early here.
+        self.db.commit()
+
         # Generate the embedding vector
         try:
             embedding_vector = embedder.generate(searchable_text)
