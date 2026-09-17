@@ -128,9 +128,7 @@ export default function ProjectMetadataCard({
                 editing={isEditing}
                 label="Name"
                 value={draft.name}
-                onChange={e =>
-                  setDraft(d => ({ ...d, name: e.target.value }))
-                }
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
                 required={isEditing}
               />
             </Grid>

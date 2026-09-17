@@ -510,10 +510,12 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
                   paginationModel: { page: 0, pageSize: 10 },
                 },
               }}
-              sx={[
-                linkedDataGridRowSx,
-                hideToolbarAddButton ? sectionCardGridDataGridInsetSx : false,
-              ]}
+              sx={{
+                ...(linkedDataGridRowSx as Record<string, unknown>),
+                ...(hideToolbarAddButton
+                  ? (sectionCardGridDataGridInsetSx as Record<string, unknown>)
+                  : undefined),
+              }}
             />
           </Box>
 
