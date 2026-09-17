@@ -301,9 +301,9 @@ export default function TestRunsGrid({
       },
       {
         field: 'version_info',
-        headerName: 'Version',
+        headerName: 'Version Information',
         flex: 1.2,
-        minWidth: 130,
+        minWidth: 170,
         // The value lives inside a JSONB blob, so there is no OData path to sort or filter on.
         sortable: false,
         filterable: false,

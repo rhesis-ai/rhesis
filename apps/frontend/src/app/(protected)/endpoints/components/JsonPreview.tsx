@@ -47,7 +47,7 @@ export const OUTPUT_VARIABLES = [
   {
     name: 'version_info',
     label: '{{ version_info }}',
-    groupLabel: 'Version info',
+    groupLabel: 'Version Information',
     description:
       'Version of the system under test (prompt version, model, parameters). Recorded on the test run, overriding the version configured on the endpoint.',
   },
