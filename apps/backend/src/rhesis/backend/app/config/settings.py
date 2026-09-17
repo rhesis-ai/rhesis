@@ -1,4 +1,6 @@
+import tempfile
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 from urllib.parse import quote_plus, urlparse
 
@@ -286,13 +288,37 @@ class RedisSettings(BaseSettings):
 
 
 class StorageSettings(BaseSettings):
-    """Object storage configuration."""
+    """Object storage configuration.
+
+    ``service_uri`` has no default on purpose. It used to default to
+    ``file:///app/storage``, which is a *container* path — it only exists
+    because docker-compose mounts a volume there. Running the backend directly
+    on a host (the quick start's debug mode, or plain ``uvicorn``) inherited
+    that default and every upload failed with a read-only-filesystem error from
+    ``mkdir('/app')``. Unset now means ``local_storage_path``, which is
+    writable anywhere; the container pins its own path in docker-compose, next
+    to the volume mount that makes it real.
+
+    ``local_storage_path`` comes from :func:`tempfile.gettempdir`, not a
+    literal ``/tmp``. On Windows that literal resolves against the current
+    drive (``C:\\tmp\\rhesis-files``), and creating a directory at the drive
+    root normally needs elevation — so the backend could not write at all when
+    run natively there. ``gettempdir()`` gives ``/tmp`` on POSIX and the user's
+    own ``%TEMP%`` on Windows.
+
+    Local storage is per-process, so any deployment running more than one
+    replica must set a cloud URI (``gs://``, ``s3://``) — otherwise a file
+    uploaded to one pod is a 404 on the next.
+    """
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    service_uri: str | None = Field(default="file:///app/storage", alias="STORAGE_SERVICE_URI")
+    service_uri: str | None = Field(default=None, alias="STORAGE_SERVICE_URI")
     service_account_key: str | None = Field(default=None, alias="STORAGE_SERVICE_ACCOUNT_KEY")
-    local_storage_path: str = Field(default="/tmp/rhesis-files", alias="LOCAL_STORAGE_PATH")
+    local_storage_path: str = Field(
+        default_factory=lambda: str(Path(tempfile.gettempdir()) / "rhesis-files"),
+        alias="LOCAL_STORAGE_PATH",
+    )
 
 
 class SMTPSettings(BaseSettings):

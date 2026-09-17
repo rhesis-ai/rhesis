@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Uploads Failed When The Backend Ran Outside A Container**: `STORAGE_SERVICE_URI` defaulted to `file:///app/storage`, a path that only exists because docker-compose mounts a volume there, so running the backend directly (debug mode, plain uvicorn) failed every upload with a read-only-filesystem error from `mkdir('/app')`. The default is now unset, meaning `LOCAL_STORAGE_PATH`, and docker-compose pins the container path beside the volume that provides it. `LOCAL_STORAGE_PATH` now derives from the OS temp directory rather than a literal `/tmp`, which resolves against the current drive on Windows. Affected knowledge sources and attachments too, not only branding.
+- **Unwritable Storage Returned A 500**: uploads now answer 503 naming `STORAGE_SERVICE_URI` instead of surfacing a raw `OSError` traceback.
+
+### Added
+- **Shared Upload Helpers**: `app/utils/uploads.py` holds the capped-read and store-with-clear-errors steps that every file feature repeated (knowledge sources, attachments, OWASP cache, branding). Branding uses it; the older callers still have their own copies.
+- **Organization Settings**: Added an `organization_settings` JSONB column on `organization` — the org-level mirror of `user.user_settings` — with an `OrganizationSettingsManager` accessor and `GET`/`PATCH /organizations/settings` (partial updates are deep merged; an explicit `null` clears a field).
+- **Google Fonts For Organization Branding**: An organization can set a Google Fonts family through `PATCH /organizations/settings` as an alternative to uploading files. The family is verified against Google on save (a network failure accepts it unverified rather than blocking air-gapped deployments), and `GET /organizations/settings/branding/google-fonts` serves the catalogue for the picker, cached in-process for a day.
+- **Branding Asset Validation**: Favicon uploads are opened with Pillow (or parsed as XML for SVG) rather than trusting the client-declared content type, and their pixel dimensions are recorded so the settings page can flag an icon that will render soft.
+- **Per-Organization Branding**: Added a `branding` section in organization settings holding primary/secondary colour, product name, and uploaded favicon and brand-font assets. Assets are stored under `branding/{org_id}/` in the configured object storage and served through `GET /organizations/settings/branding/assets/{asset}`, scoped to the caller's own organization. Uploads have their own endpoints because they are multipart; everything expressible as JSON, including clearing an asset, goes through the settings PATCH.
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

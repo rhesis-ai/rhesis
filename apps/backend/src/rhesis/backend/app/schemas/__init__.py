@@ -61,6 +61,16 @@ from .notification import (
     NotificationSummaryResponse,
 )
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
+from .organization_settings import (
+    BrandingFavicon,
+    BrandingFont,
+    BrandingGoogleFont,
+    BrandingSettings,
+    BrandingSettingsUpdate,
+    OrganizationSettings,
+    OrganizationSettingsRead,
+    OrganizationSettingsUpdate,
+)
 from .parameters import (
     ENVIRONMENT_NAME_MAX_LENGTH,
     ENVIRONMENT_NAME_PATTERN,
@@ -373,6 +383,14 @@ __all__ = [
     "OrganizationBase",
     "OrganizationCreate",
     "OrganizationUpdate",
+    "OrganizationSettings",
+    "OrganizationSettingsRead",
+    "OrganizationSettingsUpdate",
+    "BrandingFavicon",
+    "BrandingFont",
+    "BrandingGoogleFont",
+    "BrandingSettings",
+    "BrandingSettingsUpdate",
     "Project",
     "ProjectBase",
     "ProjectCreate",
