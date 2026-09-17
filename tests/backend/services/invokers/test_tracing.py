@@ -1,9 +1,11 @@
 """Tests for invoker trace creation utility."""
 
+import json
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.tracing import (
@@ -13,7 +15,6 @@ from rhesis.backend.app.services.invokers.tracing import (
     generate_span_id,
     generate_trace_id,
 )
-from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 
 def test_generate_trace_id():
@@ -439,3 +440,40 @@ async def test_create_invocation_trace_with_none_project_id():
 
         # Verify EnrichmentService was NOT called (trace creation skipped)
         assert not mock_service.create_and_enrich_spans.called
+
+
+class TestVersionInfoOnSpans:
+    """The version of the system under test is recorded per invocation.
+
+    A trace outlives the endpoint's configuration, and a standalone invocation has no test
+    run to carry the snapshot, so the span is the only place this version survives.
+    """
+
+    def _endpoint(self, version_info=None):
+        return Endpoint(
+            id=uuid4(),
+            name="ep",
+            connection_type="REST",
+            url="https://example.test/chat",
+            version_info=version_info,
+        )
+
+    def test_configured_version_is_recorded(self):
+        attrs = create_endpoint_attributes(self._endpoint({"prompt_version": "v3.2"}))
+
+        assert json.loads(attrs[EndpointAttributes.VERSION_INFO]) == {"prompt_version": "v3.2"}
+
+    def test_nested_configured_version_survives_serialization(self):
+        attrs = create_endpoint_attributes(self._endpoint({"cfg": {"temperature": 0.2}}))
+
+        assert json.loads(attrs[EndpointAttributes.VERSION_INFO]) == {"cfg": {"temperature": 0.2}}
+
+    @pytest.mark.parametrize("version_info", [None, {}])
+    def test_no_attribute_when_nothing_is_configured(self, version_info):
+        attrs = create_endpoint_attributes(self._endpoint(version_info))
+
+        assert EndpointAttributes.VERSION_INFO not in attrs
+
+    def test_attribute_key_is_stable(self):
+        """Mirrored in apps/frontend/.../traces/components/SpanDetailsPanel.tsx."""
+        assert EndpointAttributes.VERSION_INFO == "endpoint.version_info"

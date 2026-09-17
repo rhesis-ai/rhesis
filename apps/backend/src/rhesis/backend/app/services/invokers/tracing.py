@@ -77,6 +77,10 @@ class EndpointAttributes:
     ENDPOINT_TYPE = "endpoint.type"
     ENDPOINT_URL = "endpoint.url"
     ENDPOINT_METHOD = "endpoint.method"  # For REST
+    # Version of the client's system behind this endpoint. Recorded per invocation because a
+    # trace can outlive the endpoint's configuration, and standalone invocations have no test
+    # run to carry the snapshot.
+    VERSION_INFO = "endpoint.version_info"
 
     # Request/response
     REQUEST_SIZE = "endpoint.request.size"
@@ -140,6 +144,12 @@ def create_endpoint_attributes(
     # Add method for REST endpoints
     if hasattr(endpoint, "method") and endpoint.method:
         attrs[EndpointAttributes.ENDPOINT_METHOD] = endpoint.method
+
+    # The version configured on the endpoint. A version the endpoint reports in its own
+    # response overrides this once the result is known; see create_invocation_trace.
+    configured_version = getattr(endpoint, "version_info", None)
+    if isinstance(configured_version, dict) and configured_version:
+        attrs[EndpointAttributes.VERSION_INFO] = json.dumps(configured_version)
 
     # Add any additional attributes
     attrs.update(kwargs)
@@ -233,6 +243,10 @@ async def create_invocation_trace(
         if result and isinstance(result, dict):
             attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
             attributes[EndpointAttributes.RESPONSE_HAS_OUTPUT] = result.get("output") is not None
+
+            reported_version = result.get("version_info")
+            if isinstance(reported_version, dict) and reported_version:
+                attributes[EndpointAttributes.VERSION_INFO] = json.dumps(reported_version)
 
             output = result.get("output")
             if output:
