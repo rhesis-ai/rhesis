@@ -97,6 +97,7 @@ export default function TracesClient({
       startTimeBefore: drawerFilters.startTimeBefore ?? '',
       traceSource: drawerFilters.traceSource ?? '',
       traceMetricsStatus: drawerFilters.traceMetricsStatus ?? '',
+      providers: drawerFilters.providers ?? [],
       testRunId: drawerFilters.testRunId ?? '',
       testResultId: drawerFilters.testResultId ?? '',
       testId: drawerFilters.testId ?? '',
@@ -209,6 +210,9 @@ export default function TracesClient({
     drawerFilters.endpointId ||
     drawerFilters.traceSource ||
     drawerFilters.traceMetricsStatus ||
+    // The metrics endpoint has no provider filter, so the tiles above cover more
+    // traces than the table lists and say so.
+    drawerFilters.providers?.length ||
     drawerFilters.testResultId ||
     drawerFilters.testId
   );

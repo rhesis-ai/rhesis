@@ -18,6 +18,7 @@ from rhesis.backend.app.crud.telemetry import (
     get_trace_by_db_id,
     get_trace_by_id,
     get_trace_metrics_aggregated,
+    list_trace_providers,
     query_traces,
 )
 from rhesis.backend.app.database import temporary_project_scope
@@ -270,6 +271,14 @@ def list_traces(
     test_result_id: Optional[str] = Query(None, description="Filter by test result ID"),
     test_id: Optional[str] = Query(None, description="Filter by test ID"),
     conversation_id: Optional[str] = Query(None, description="Filter by conversation ID"),
+    provider: Optional[List[str]] = Query(
+        None,
+        description=(
+            "Filter by LLM provider, repeatable. A trace matches when any of its priced "
+            "calls was served by one of the named providers. Values come from "
+            "GET /telemetry/providers; a trace enrichment has not priced yet matches none."
+        ),
+    ),
     trace_source: TraceSource = Query(
         TraceSource.ALL,
         description=(
@@ -373,6 +382,7 @@ def list_traces(
             test_result_id=test_result_id,
             test_id=test_id,
             conversation_id=conversation_id,
+            providers=provider,
             trace_metrics_status=(trace_metrics_status.value if trace_metrics_status else None),
             sort_by=sort_by,
             sort_order=sort_order,
@@ -733,6 +743,46 @@ def list_span_files(
     organization_id, user_id = tenant_context
     return file_crud.get_files_for_entity(
         db, span_db_id, EntityType.TRACE.value, organization_id, user_id
+    )
+
+
+@router.get("/providers", response_model=List[str])
+def get_providers(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    project_id: Optional[str] = Query(
+        None, description="Project ID. Defaults to the session project from X-Project-Id."
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
+) -> List[str]:
+    """LLM providers appearing in this scope's traces, for the traces filter.
+
+    Built from the same data the provider filter matches on, so the list never offers a
+    value that would return nothing. A provider neither the trace nor its model name
+    identifies comes back as 'unknown', which is a real choice: those traces exist and
+    filtering to them is how you find what is not attributed.
+
+    Scoped exactly as ``list_traces`` is, including the access check and the temporary
+    rebind: a checklist that answered for a project the caller cannot list would leak
+    which models that project runs, and one answering under the wrong scope would come
+    back empty beside a table full of rows.
+    """
+    organization_id, user_id = tenant_context
+    if project_id is not None:
+        assert_project_access(request, current_user, project_id, db=db)
+
+    effective_project_id = project_id or scope_project_id
+
+    if effective_project_id and effective_project_id != scope_project_id:
+        with temporary_project_scope(db, organization_id, user_id, effective_project_id):
+            return list_trace_providers(
+                db, organization_id=organization_id, project_id=effective_project_id
+            )
+
+    return list_trace_providers(
+        db, organization_id=organization_id, project_id=effective_project_id
     )
 
 

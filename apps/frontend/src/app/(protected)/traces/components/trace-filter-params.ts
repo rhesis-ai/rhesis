@@ -16,6 +16,8 @@ export interface TraceDrawerFilters {
   startTimeBefore?: string;
   traceSource?: string;
   traceMetricsStatus?: string;
+  /** Several at once: a trace matches if any of its priced calls used one of them. */
+  providers?: string[];
   testRunId?: string;
   testResultId?: string;
   testId?: string;
@@ -30,8 +32,12 @@ export function countActiveTraceDrawerFilters(
   options?: { excludeTestRunId?: boolean; testRunScope?: boolean }
 ): number {
   if (options?.testRunScope) {
-    return [f.traceMetricsStatus, f.testResultId, f.testId].filter(Boolean)
-      .length;
+    return [
+      f.traceMetricsStatus,
+      f.providers?.length ? true : undefined,
+      f.testResultId,
+      f.testId,
+    ].filter(Boolean).length;
   }
   const filters = options?.excludeTestRunId
     ? { ...f, testRunId: undefined }
@@ -42,6 +48,9 @@ export function countActiveTraceDrawerFilters(
     filters.environment,
     filters.traceSource,
     filters.traceMetricsStatus,
+    // One active filter however many providers are ticked, matching the drawer's
+    // single Provider section.
+    filters.providers?.length ? true : undefined,
     filters.testRunId,
     filters.testResultId,
     filters.testId,
@@ -58,7 +67,12 @@ export function hasActiveTraceDrawerFilters(
   options?: { excludeTestRunId?: boolean; testRunScope?: boolean }
 ): boolean {
   if (options?.testRunScope) {
-    return !!(f.traceMetricsStatus || f.testResultId || f.testId);
+    return !!(
+      f.traceMetricsStatus ||
+      f.providers?.length ||
+      f.testResultId ||
+      f.testId
+    );
   }
 
   const filters = options?.excludeTestRunId
@@ -70,6 +84,7 @@ export function hasActiveTraceDrawerFilters(
     filters.environment ||
     filters.traceSource ||
     filters.traceMetricsStatus ||
+    filters.providers?.length ||
     filters.testRunId ||
     filters.testResultId ||
     filters.testId ||
@@ -88,6 +103,8 @@ export function sanitizeTraceDrawerFiltersForTestRunScope(
     timeRange: 'all',
     testRunId,
     traceMetricsStatus: filters.traceMetricsStatus,
+    // Kept: one run can span several providers, so narrowing to one is still useful.
+    providers: filters.providers,
     testResultId: filters.testResultId,
     testId: filters.testId,
   };
@@ -157,6 +174,7 @@ export function buildTraceQueryParams(
     params.trace_metrics_status =
       drawer.traceMetricsStatus as TraceMetricsStatus;
   }
+  if (drawer.providers?.length) params.provider = drawer.providers;
   if (drawer.testRunId) params.test_run_id = drawer.testRunId;
   if (drawer.testResultId) params.test_result_id = drawer.testResultId;
   if (drawer.testId) params.test_id = drawer.testId;

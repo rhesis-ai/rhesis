@@ -187,6 +187,8 @@ export interface TraceQueryParams {
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
   trace_type?: TraceType; // Filter by trace type (all/Single-Turn/Multi-Turn)
   trace_metrics_status?: TraceMetricsStatus;
+  /** Repeatable: a trace matches if any of its priced calls used one of these. */
+  provider?: string[];
   limit?: number;
   offset?: number;
   sort_by?: string;

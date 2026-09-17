@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { GridColDef } from '@mui/x-data-grid';
-import { Typography } from '@mui/material';
 import ModelLabel from '@/components/common/ModelLabel';
 import UsageCell from '@/components/common/UsageCell';
 import { formatCost, formatTokenCount } from '@/utils/trace-utils';
@@ -33,14 +32,6 @@ type UsageKey = keyof NonNullable<TestRunDetail['usage']>;
  */
 function hasUsage(row: TestRunDetail): boolean {
   return (row.usage?.models?.length ?? 0) > 0;
-}
-
-function EmptyCell() {
-  return (
-    <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-      —
-    </Typography>
-  );
 }
 
 function numericColumn(

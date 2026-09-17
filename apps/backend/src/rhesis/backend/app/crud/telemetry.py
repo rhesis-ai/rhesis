@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc, func, or_, select
+from sqlalchemy import and_, asc, desc, false, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -25,10 +25,13 @@ from rhesis.backend.app.crud.usage_sql import (
     coalesced_input_tokens,
     coalesced_output_tokens,
     coalesced_tokens,
+    distinct_breakdown_pairs,
     enriched_cost_expr,
     enriched_token_expr,
     models_used_rows,
+    one_row_per_trace,
     per_trace_usage_subquery,
+    provider_breakdown_clause,
     span_total_tokens_expr,
     trace_first_model_expr,
 )
@@ -38,7 +41,10 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceSource,
     TraceType,
 )
-from rhesis.backend.app.services.telemetry.providers import resolve_provider
+from rhesis.backend.app.services.telemetry.providers import (
+    normalize_provider,
+    resolve_provider,
+)
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
@@ -413,6 +419,82 @@ def _build_trace_search_conditions(pattern: str):
     )
 
 
+def _provider_scope(db: Session, org_uuid, project_id: Optional[str]):
+    """One row per trace in scope, for resolving which models map to which provider.
+
+    Collapsed rather than scanned raw because the enrichment blob is duplicated onto
+    every span row: unnesting it per span expands the same breakdown once per span, which
+    on the dev instance is 49x the entries actually needed.
+    """
+    scope_filters = [models.Trace.organization_id == org_uuid, models.Trace.deleted_at.is_(None)]
+    if project_id:
+        scope_filters.append(models.Trace.project_id == project_id)
+    return one_row_per_trace(db, models.Trace, *scope_filters)
+
+
+def _provider_filter(db: Session, org_uuid, project_id: Optional[str], providers: List[str]):
+    """Keep traces with at least one LLM call served by one of *providers*.
+
+    The provider is not a column and often not recorded anywhere: most breakdown entries
+    predate it and are placed from their model name through LiteLLM, which SQL cannot
+    call. So the scope's distinct (model, recorded provider) pairs are resolved in Python
+    first, and the answer is turned back into a clause over the entries themselves.
+
+    Matched against ``costs.breakdown`` rather than span attributes, because that is
+    where the row's own Model column reads from and a filter has to agree with the thing
+    beside it. They are not interchangeable: spans on this instance stamp ``openai`` on a
+    gemini-2.5-flash call while its breakdown entries record no provider, so the row
+    shows gemini. Filtering the attributes returned traces whose Model column disagreed.
+
+    A trace enrichment has not reached has no breakdown and matches nothing, for the same
+    reason its Model column is a dash: nobody knows yet.
+    """
+    wanted = {normalize_provider(name) for name in providers}
+    wanted.discard(None)
+    if not wanted:
+        return false()
+
+    scope = _provider_scope(db, org_uuid, project_id)
+
+    recorded, model_names = set(), set()
+    for row in distinct_breakdown_pairs(db, scope):
+        resolved = resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.recorded}, row.model_name)
+        if resolved not in wanted:
+            continue
+        if row.recorded:
+            recorded.add(row.recorded)
+        else:
+            model_names.add(row.model_name)
+
+    return provider_breakdown_clause(models.Trace.enriched_data, recorded, model_names)
+
+
+def list_trace_providers(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[str] = None,
+) -> List[str]:
+    """Every LLM provider appearing in a scope's traces, for the filter checklist.
+
+    Built from the same breakdown pairs the filter matches on, so the list never offers a
+    provider that selecting would return nothing for.
+
+    No counts. A trace using two models of one provider would be counted once per model,
+    and deduplicating that per provider costs another pass for a number nobody needs on a
+    checkbox; a wrong count is worse than none.
+    """
+    from uuid import UUID as _UUID
+
+    scope = _provider_scope(db, _UUID(str(organization_id)), project_id)
+
+    return sorted(
+        {
+            resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.recorded}, row.model_name)
+            for row in distinct_breakdown_pairs(db, scope)
+        }
+    )
+
+
 def query_traces(
     db: Session,
     organization_id: str,
@@ -433,6 +515,7 @@ def query_traces(
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    providers: Optional[List[str]] = None,
     trace_metrics_status: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: str = "desc",
@@ -666,6 +749,9 @@ def query_traces(
 
     if conversation_id:
         query = query.filter(models.Trace.conversation_id == conversation_id)
+
+    if providers:
+        query = query.filter(_provider_filter(db, org_uuid, project_id, providers))
 
     # Trace type filter (single-turn vs multi-turn)
     if trace_type == TraceType.MULTI_TURN:

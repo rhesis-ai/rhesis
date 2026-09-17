@@ -16,11 +16,20 @@ export class TelemetryClient extends BaseApiClient {
   async listTraces(params: TraceQueryParams): Promise<TraceListResponse> {
     const queryParams = new URLSearchParams();
 
-    // Add all defined parameters to query string
+    // Add all defined parameters to query string. Arrays are appended one entry at a
+    // time: FastAPI reads a repeatable filter as `?provider=a&provider=b`, and the
+    // default toString() would send the single value "a,b" instead.
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        queryParams.append(key, value.toString());
+      if (value === undefined || value === null || value === '') return;
+      if (Array.isArray(value)) {
+        value.forEach(entry => {
+          if (entry !== undefined && entry !== null && entry !== '') {
+            queryParams.append(key, String(entry));
+          }
+        });
+        return;
       }
+      queryParams.append(key, value.toString());
     });
 
     const queryString = queryParams.toString();
@@ -29,6 +38,21 @@ export class TelemetryClient extends BaseApiClient {
       : '/telemetry/traces';
 
     return this.fetch<TraceListResponse>(endpoint, {
+      cache: 'no-store',
+    });
+  }
+
+  /**
+   * LLM providers present in a project's traces, for the traces filter checklist.
+   *
+   * Comes from the same data the filter matches on, so every value offered returns
+   * something.
+   */
+  async getProviders(projectId?: string): Promise<string[]> {
+    const query = projectId
+      ? `?project_id=${encodeURIComponent(projectId)}`
+      : '';
+    return this.fetch<string[]>(`/telemetry/providers${query}`, {
       cache: 'no-store',
     });
   }
