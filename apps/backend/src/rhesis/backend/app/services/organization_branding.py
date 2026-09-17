@@ -29,7 +29,7 @@ from rhesis.backend.app.schemas.organization_settings import (
     BrandingFont,
 )
 from rhesis.backend.app.services.storage_service import StorageService
-from rhesis.backend.app.utils.uploads import read_upload_capped, store_bytes
+from rhesis.backend.app.utils.uploads import read_upload_capped, store_bytes_async
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +222,7 @@ async def upload_favicon(organization_id: str, upload: UploadFile) -> BrandingFa
 
     storage = _storage()
     dest_path = storage.get_branding_path(organization_id, favicon_filename(content_type))
-    stored_path, sha256 = store_bytes(storage, content, dest_path, content_type)
+    stored_path, sha256 = await store_bytes_async(storage, content, dest_path, content_type)
 
     return BrandingFavicon(
         path=stored_path,
@@ -388,7 +388,9 @@ async def upload_font(
         dest_path = storage.get_branding_path(
             organization_id, font_filename(slug, weight, extension)
         )
-        _, sha256 = store_bytes(storage, content, dest_path, FONT_CONTENT_TYPES[extension])
+        _, sha256 = await store_bytes_async(
+            storage, content, dest_path, FONT_CONTENT_TYPES[extension]
+        )
         extensions[weight] = extension
         hashes[weight] = sha256
 

@@ -19,6 +19,7 @@ stays on it. This module is only the request-shaped wrapper around it.
 
 import logging
 
+import anyio
 from fastapi import HTTPException, UploadFile
 
 from rhesis.backend.app.services.storage_service import StorageService
@@ -80,3 +81,15 @@ def store_bytes(
                 "Check STORAGE_SERVICE_URI and that its location exists."
             ),
         ) from e
+
+
+async def store_bytes_async(
+    storage: StorageService,
+    content: bytes,
+    dest_path: str,
+    content_type: str,
+) -> tuple:
+    """Async version of :func:`store_bytes` for callers on the event loop."""
+    return await anyio.to_thread.run_sync(
+        lambda: store_bytes(storage, content, dest_path, content_type)
+    )

@@ -132,35 +132,48 @@ def _persist_settings(db: Session, org: models.Organization, updates: dict) -> d
 # The branding handlers below are ``async`` because they await file reads and,
 # for a Google font, an outbound HTTP check. That puts them on the event loop,
 # where a psycopg2 call would block every other request in the worker — so they
-# take an ``OffLoopSession`` and reach it only through these two helpers, which
-# hop to the threadpool. See tests/backend/test_no_sync_db_on_loop.py.
+# take an ``OffLoopSession`` and reach it only through these helpers, which hop
+# to the threadpool. Each helper does all its DB work in a single
+# ``run_sync`` call so the Session never crosses thread boundaries.
+# See tests/backend/test_no_sync_db_on_loop.py.
 
 
-async def _read_branding(db: OffLoopSession, organization_id) -> dict:
-    """The org's current branding block, read off the event loop."""
+async def _read_and_apply_branding(
+    db: OffLoopSession,
+    organization_id,
+    updates: dict,
+    read_key: str | None = None,
+) -> tuple[dict | None, dict]:
+    """Read the previous branding (optionally), apply updates and commit.
 
-    def _read() -> dict:
-        return dict(_current_organization(db, organization_id).settings.branding.all)
+    Returns ``(previous_value, new_settings)``.  When ``read_key`` is given the
+    previous value is ``branding[read_key]`` (e.g. ``"font"`` or ``"favicon"``);
+    otherwise ``previous`` is ``None``.
 
-    return await anyio.to_thread.run_sync(_read)
-
-
-async def _apply_branding(db: OffLoopSession, organization_id, updates: dict) -> dict:
-    """Deep-merge ``updates`` into the org's settings, off the event loop.
-
-    Commits before returning, rather than leaving it to the session teardown,
-    because the callers delete the replaced file from storage straight after.
-    If that commit then failed, the descriptor would roll back to a path whose
-    bytes are already gone and the organization would silently lose its asset.
+    Everything runs in one thread hop so the Session is never used from two
+    different threads.
     """
 
-    def _apply() -> dict:
+    def _do() -> tuple[dict | None, dict]:
+        previous = None
+        if read_key is not None:
+            branding = dict(
+                _current_organization(db, organization_id).settings.branding.all
+            )
+            previous = branding.get(read_key)
+
         org = _current_organization(db, organization_id)
         settings = _persist_settings(db, org, updates)
         db.commit()
-        return settings
+        return previous, settings
 
-    return await anyio.to_thread.run_sync(_apply)
+    return await anyio.to_thread.run_sync(_do)
+
+
+async def _apply_branding(db: OffLoopSession, organization_id, updates: dict) -> dict:
+    """Apply updates without reading previous state. Convenience wrapper."""
+    _, settings = await _read_and_apply_branding(db, organization_id, updates)
+    return settings
 
 
 @router.get(
@@ -231,11 +244,9 @@ async def update_organization_settings(
 
     # Switching to a Google font, or clearing the font, strands whatever files
     # a previous upload left in storage.
-    previous_font = (
-        (await _read_branding(db, organization_id)).get("font") if font_touched else None
+    previous_font, result = await _read_and_apply_branding(
+        db, organization_id, updates, read_key="font" if font_touched else None
     )
-
-    result = await _apply_branding(db, organization_id, updates)
 
     if previous_font and previous_font.get("source", "upload") == "upload":
         await branding_service.delete_font(str(organization_id), previous_font)
@@ -258,11 +269,10 @@ async def upload_branding_favicon(
     """Upload the organization's favicon, replacing any existing one."""
     organization_id, _ = tenant_context
 
-    previous = (await _read_branding(db, organization_id)).get("favicon")
     descriptor = await branding_service.upload_favicon(str(organization_id), file)
 
-    result = await _apply_branding(
-        db, organization_id, {"branding": {"favicon": descriptor.model_dump()}}
+    previous, result = await _read_and_apply_branding(
+        db, organization_id, {"branding": {"favicon": descriptor.model_dump()}}, read_key="favicon"
     )
 
     # Only after the new descriptor is persisted, and only when the path
@@ -290,8 +300,9 @@ async def delete_branding_favicon(
     """Clear the organization's favicon, reverting to BRAND_FAVICON_URL or the Rhesis icon."""
     organization_id, _ = tenant_context
 
-    previous = (await _read_branding(db, organization_id)).get("favicon")
-    result = await _apply_branding(db, organization_id, {"branding": {"favicon": None}})
+    previous, result = await _read_and_apply_branding(
+        db, organization_id, {"branding": {"favicon": None}}, read_key="favicon"
+    )
     await branding_service.delete_favicon(previous)
     return result
 
@@ -313,15 +324,14 @@ async def upload_branding_font(
     """Upload the organization's brand font. At least one weight is required."""
     organization_id, _ = tenant_context
 
-    previous = (await _read_branding(db, organization_id)).get("font")
     descriptor = await branding_service.upload_font(
         str(organization_id),
         family,
         {"300": weight_300, "400": weight_400, "700": weight_700},
     )
 
-    result = await _apply_branding(
-        db, organization_id, {"branding": {"font": descriptor.model_dump()}}
+    previous, result = await _read_and_apply_branding(
+        db, organization_id, {"branding": {"font": descriptor.model_dump()}}, read_key="font"
     )
 
     # A renamed family writes to a new slug, orphaning every old file; keeping
