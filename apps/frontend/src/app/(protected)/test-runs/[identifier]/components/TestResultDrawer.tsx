@@ -41,7 +41,7 @@ export const TEST_RESULT_DRAWER_TAB = {
   annotations: 3,
   history: 4,
   tasks: 5,
-  /** Kept for one release so shared ?detailTab=reviews links still open here. */
+  /** Alias, so links shared before the rename still open the annotations tab. */
   reviews: 3,
 } as const;
 
@@ -210,7 +210,7 @@ export default function TestResultDrawer({
   // getTestResult), so this never re-fetches data already in hand.
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
   const needsTranscript =
-    activeTab === TAB.conversation || activeTab === TAB.reviews;
+    activeTab === TAB.conversation || activeTab === TAB.annotations;
 
   // Dropped only when the drawer closes or swaps to a different result -- not on
   // every run of the fetch effect below, which also reruns on tab changes and
@@ -480,7 +480,7 @@ export default function TestResultDrawer({
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={TAB.reviews}>
+          <TabPanel value={activeTab} index={TAB.annotations}>
             <TestDetailAnnotationsTab
               test={test}
               onTestResultUpdate={onTestResultUpdate}
