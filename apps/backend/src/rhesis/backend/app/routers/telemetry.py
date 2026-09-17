@@ -748,6 +748,8 @@ def list_span_files(
 
 @router.get("/providers", response_model=List[str])
 def get_providers(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
     project_id: Optional[str] = Query(
         None, description="Project ID. Defaults to the session project from X-Project-Id."
     ),
@@ -761,10 +763,26 @@ def get_providers(
     value that would return nothing. A provider neither the trace nor its model name
     identifies comes back as 'unknown', which is a real choice: those traces exist and
     filtering to them is how you find what is not attributed.
+
+    Scoped exactly as ``list_traces`` is, including the access check and the temporary
+    rebind: a checklist that answered for a project the caller cannot list would leak
+    which models that project runs, and one answering under the wrong scope would come
+    back empty beside a table full of rows.
     """
-    organization_id, _ = tenant_context
+    organization_id, user_id = tenant_context
+    if project_id is not None:
+        assert_project_access(request, current_user, project_id, db=db)
+
+    effective_project_id = project_id or scope_project_id
+
+    if effective_project_id and effective_project_id != scope_project_id:
+        with temporary_project_scope(db, organization_id, user_id, effective_project_id):
+            return list_trace_providers(
+                db, organization_id=organization_id, project_id=effective_project_id
+            )
+
     return list_trace_providers(
-        db, organization_id=organization_id, project_id=project_id or scope_project_id
+        db, organization_id=organization_id, project_id=effective_project_id
     )
 
 
