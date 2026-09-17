@@ -241,14 +241,36 @@ class NotificationSettingsAccessor:
         self._data = notification_settings
 
     @property
-    def email(self) -> dict:
-        """Get email notification settings."""
-        return self._data.get("email", {})
+    def email(self) -> "EmailNotificationSettingsAccessor":
+        """Access email notification settings."""
+        return EmailNotificationSettingsAccessor(self._data.get("email", {}))
 
     @property
     def in_app(self) -> dict:
         """Get in-app notification settings."""
         return self._data.get("in_app", {})
+
+
+class EmailNotificationSettingsAccessor:
+    """Accessor for email notification preferences.
+
+    Every flag reads as on unless it was explicitly switched off, so users who
+    predate the setting -- and any future flag added here -- keep the emails
+    they already get.
+    """
+
+    def __init__(self, email_settings: dict):
+        self._data = email_settings
+
+    @property
+    def job_completion(self) -> bool:
+        """Emails when a background job finishes (test runs, generation, Garak)."""
+        return self._data.get("job_completion") is not False
+
+    @property
+    def task_assignment(self) -> bool:
+        """Emails when a task is assigned to the user."""
+        return self._data.get("task_assignment") is not False
 
 
 class LocalizationSettingsAccessor:

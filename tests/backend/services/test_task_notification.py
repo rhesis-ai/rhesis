@@ -1,7 +1,7 @@
-"""Tests for services.task_notification.send_task_assignment_in_app_notification().
+"""Tests for services.task_notification.
 
-The email counterpart (send_task_assignment_notification) has no existing test
-file; this covers only the new in-app path.
+Covers the in-app assignment notification and the email counterpart's
+per-user opt-out.
 """
 
 import uuid
@@ -9,11 +9,13 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud.notification import get_notifications
 from rhesis.backend.app.services.task_notification import (
     send_task_assignment_in_app_notification,
+    send_task_assignment_notification,
 )
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from tests.backend.fixtures.test_setup import create_test_user
@@ -99,3 +101,76 @@ class TestSendTaskAssignmentInAppNotification:
 
         mock_publish.assert_not_called()
         assert get_notifications(self.db, user_id=self.creator_id) == []
+
+
+@pytest.mark.integration
+class TestSendTaskAssignmentEmail:
+    """The email goes out unless the assignee switched it off."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session, test_org_id, authenticated_user_id):
+        self.db = test_db
+        self.org_id = test_org_id
+        self.creator_id = authenticated_user_id
+        self.assignee = create_test_user(
+            test_db,
+            organization_id=uuid.UUID(test_org_id),
+            email=f"assignee-{uuid.uuid4().hex[:8]}@rhesis-test.com",
+            name="Assignee User",
+        )
+        self.status = get_or_create_status(
+            db=test_db,
+            name="Open",
+            entity_type="Task",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+    def _make_task(self):
+        task = models.Task(
+            id=uuid.uuid4(),
+            organization_id=uuid.UUID(self.org_id),
+            user_id=uuid.UUID(self.creator_id),
+            assignee_id=self.assignee.id,
+            title="Do the thing",
+            status_id=self.status.id,
+        )
+        self.db.add(task)
+        self.db.commit()
+        return task
+
+    def _set_assignee_preference(self, enabled: bool):
+        self.assignee.user_settings = {
+            "version": 1,
+            "notifications": {"email": {"task_assignment": enabled}},
+        }
+        flag_modified(self.assignee, "user_settings")
+        self.db.commit()
+
+    def test_sends_when_preference_is_unset(self):
+        task = self._make_task()
+
+        with patch("rhesis.backend.app.services.task_notification.email_service") as mock_email:
+            mock_email.send_email.return_value = True
+            assert send_task_assignment_notification(self.db, task) is True
+
+        mock_email.send_email.assert_called_once()
+
+    def test_sends_when_preference_is_on(self):
+        task = self._make_task()
+        self._set_assignee_preference(True)
+
+        with patch("rhesis.backend.app.services.task_notification.email_service") as mock_email:
+            mock_email.send_email.return_value = True
+            assert send_task_assignment_notification(self.db, task) is True
+
+        mock_email.send_email.assert_called_once()
+
+    def test_skips_when_preference_is_off(self):
+        task = self._make_task()
+        self._set_assignee_preference(False)
+
+        with patch("rhesis.backend.app.services.task_notification.email_service") as mock_email:
+            assert send_task_assignment_notification(self.db, task) is False
+
+        mock_email.send_email.assert_not_called()

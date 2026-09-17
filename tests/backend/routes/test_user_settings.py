@@ -67,7 +67,7 @@ class TestUserSettingsRoutes:
     def sample_notification_settings(self):
         """Sample notification settings data"""
         return {
-            "email": {"test_run_complete": True, "test_failures": True, "weekly_summary": False},
+            "email": {"job_completion": True, "task_assignment": False},
             "in_app": {"test_run_complete": True, "mentions": True},
         }
 
@@ -259,7 +259,7 @@ class TestUserSettingsRoutes:
         """✅ Test PATCH settings with multiple categories at once"""
         update_data = {
             "ui": {"theme": "dark"},
-            "notifications": {"email": {"test_run_complete": False}},
+            "notifications": {"email": {"job_completion": False}},
         }
 
         response = authenticated_client.patch(settings_endpoint, json=update_data)
@@ -267,7 +267,7 @@ class TestUserSettingsRoutes:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["ui"]["theme"] == "dark"
-        assert data["notifications"]["email"]["test_run_complete"] == False
+        assert data["notifications"]["email"]["job_completion"] == False
 
     def test_patch_settings_preserves_version(self, authenticated_client, settings_endpoint):
         """✅ Test PATCH settings preserves version field"""
@@ -361,25 +361,20 @@ class TestUserSettingsRoutes:
     def test_patch_settings_partial_nested_update(self, authenticated_client, settings_endpoint):
         """✅ Test PATCH settings with deeply nested partial update"""
         # Set initial notification settings
-        initial = {
-            "notifications": {
-                "email": {"test_run_complete": True, "test_failures": True, "weekly_summary": False}
-            }
-        }
+        initial = {"notifications": {"email": {"job_completion": True, "task_assignment": True}}}
         authenticated_client.patch(settings_endpoint, json=initial)
 
         # Update only one email notification setting
-        partial_update = {"notifications": {"email": {"weekly_summary": True}}}
+        partial_update = {"notifications": {"email": {"task_assignment": False}}}
         response = authenticated_client.patch(settings_endpoint, json=partial_update)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        # All original values should be preserved
-        assert data["notifications"]["email"]["test_run_complete"] == True
-        assert data["notifications"]["email"]["test_failures"] == True
-        # Only weekly_summary should be updated
-        assert data["notifications"]["email"]["weekly_summary"] == True
+        # The untouched value should be preserved
+        assert data["notifications"]["email"]["job_completion"] == True
+        # Only task_assignment should be updated
+        assert data["notifications"]["email"]["task_assignment"] == False
 
     def test_patch_settings_with_all_optional_fields(
         self, authenticated_client, settings_endpoint, complete_settings
@@ -397,8 +392,8 @@ class TestUserSettingsRoutes:
             == complete_settings["models"]["generation"]["temperature"]
         )
         assert (
-            data["notifications"]["email"]["test_run_complete"]
-            == complete_settings["notifications"]["email"]["test_run_complete"]
+            data["notifications"]["email"]["job_completion"]
+            == complete_settings["notifications"]["email"]["job_completion"]
         )
         assert data["localization"]["language"] == complete_settings["localization"]["language"]
         assert data["privacy"]["show_email"] == complete_settings["privacy"]["show_email"]

@@ -50,11 +50,21 @@ class UISettings(BaseModel):
 
 
 class EmailNotificationSettings(BaseModel):
-    """Email notification preferences"""
+    """Email notification preferences.
 
-    test_run_complete: Optional[bool] = None
-    test_failures: Optional[bool] = None
-    weekly_summary: Optional[bool] = None
+    Unset means on: a user who never opened the setting keeps getting the
+    emails they got before it existed. See
+    ``services/notification/preferences.py`` for the read side.
+    """
+
+    job_completion: Optional[bool] = Field(
+        None,
+        description="Emails when a background job finishes: test runs, test set "
+        "generation, Garak import and sync",
+    )
+    task_assignment: Optional[bool] = Field(
+        None, description="Emails when someone assigns a task to the user"
+    )
 
 
 class InAppNotificationSettings(BaseModel):

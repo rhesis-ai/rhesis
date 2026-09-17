@@ -12,7 +12,12 @@ from rhesis.backend.app.crud import status as status_crud
 from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.enums import NotificationEventType
-from rhesis.backend.app.services.notification import RenderedNotification, notify
+from rhesis.backend.app.services.notification import (
+    EmailNotificationKind,
+    RenderedNotification,
+    email_enabled,
+    notify,
+)
 from rhesis.backend.notifications import EmailTemplate, email_service
 
 logger = logging.getLogger(__name__)
@@ -30,7 +35,9 @@ def send_task_assignment_notification(
         frontend_url: Optional frontend URL for task links
 
     Returns:
-        bool: True if email was sent successfully, False otherwise
+        bool: True if email was sent successfully. False also covers the
+        assignee having turned these emails off in their settings -- both
+        callers ignore the value, and the in-app notification still goes out.
     """
     try:
         # Get assignee details
@@ -40,6 +47,13 @@ def send_task_assignment_notification(
             logger.warning(
                 "Cannot send task assignment email: assignee not found or "
                 f"no email for task {task.id}"
+            )
+            return False
+
+        if not email_enabled(assignee, EmailNotificationKind.TASK_ASSIGNMENT):
+            logger.info(
+                f"Assignee {assignee.id} turned off task assignment emails, "
+                f"skipping email for task {task.id}"
             )
             return False
 
