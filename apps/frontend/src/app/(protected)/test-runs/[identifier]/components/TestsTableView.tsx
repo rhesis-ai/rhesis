@@ -36,9 +36,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
-import {
-  TestResultDetail,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { Tag } from '@/utils/api-client/interfaces/tag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
