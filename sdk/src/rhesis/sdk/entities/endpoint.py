@@ -258,6 +258,14 @@ class Endpoint(BaseEntity):
 
         return endpoint
 
+    def get_annotations(self):
+        """Every annotation whose parent ran against this endpoint."""
+        from rhesis.sdk.entities.annotation import Annotations
+
+        if not self.id:
+            raise ValueError("Endpoint must have an ID to get annotations")
+        return Annotations.for_endpoint(self.id)
+
 
 class Endpoints(BaseCollection):
     endpoint = ENDPOINT

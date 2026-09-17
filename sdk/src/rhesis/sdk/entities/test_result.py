@@ -61,11 +61,43 @@ class TestResult(BaseEntity):
         Full rows, unlike the ``annotation_summary`` projection above: comments,
         author and resolved state.
         """
-        from rhesis.sdk.entities.annotation import Annotations
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
 
         if not self.id:
             raise ValueError("TestResult must have an ID to get annotations")
-        return Annotations.for_entity("TestResult", self.id)
+        return Annotations.for_entity(AnnotatableEntity.TEST_RESULT, self.id)
+
+    def annotate(
+        self,
+        verdict: str,
+        comment: Optional[str] = None,
+        *,
+        metric: Optional[str] = None,
+        turn: Optional[str] = None,
+    ) -> "Annotation":
+        """Record a human verdict on this result, overriding the automated one.
+
+        ``verdict`` is named rather than looked up: ``"pass"`` or ``"fail"``.
+
+        Target one metric by name or one turn by label to judge just that part and
+        leave the rest on their automated verdicts; name neither to judge the
+        result as a whole.
+
+            result.annotate("fail", "Cites a policy that does not exist.")
+            result.annotate("pass", "Relevant after all.", metric="Answer Relevancy")
+        """
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
+
+        if not self.id:
+            raise ValueError("TestResult must have an ID to annotate")
+        return Annotations.create(
+            AnnotatableEntity.TEST_RESULT,
+            self.id,
+            verdict,
+            comment,
+            metric=metric,
+            turn=turn,
+        )
 
 
 class TestResults(BaseCollection):

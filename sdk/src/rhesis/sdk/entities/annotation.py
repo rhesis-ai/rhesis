@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -14,6 +15,80 @@ ENDPOINT = Endpoints.ANNOTATIONS
 # One page of the entity-scoped route. Paging continues past this, so a parent
 # with more annotations than the page size is read whole rather than truncated.
 _PAGE_SIZE = 100
+
+
+class AnnotatableEntity(str, Enum):
+    """What an annotation can be attached to.
+
+    A ``str`` enum so the plain strings keep working: ``entity_type="TestResult"``
+    and ``entity_type=AnnotatableEntity.TEST_RESULT`` are the same value.
+    """
+
+    TEST_RESULT = "TestResult"
+    TRACE = "Trace"
+    TEST = "Test"
+
+    # Without this, str() and f-strings render "AnnotatableEntity.TEST_RESULT"
+    # rather than the value, which would put that in a URL and a request body.
+    __str__ = str.__str__
+
+
+class Verdict(str, Enum):
+    """The verdicts a caller can name instead of resolving a status id."""
+
+    PASS = "pass"
+    FAIL = "fail"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+    __str__ = str.__str__
+
+
+# Each verdict is a status row, and which one depends on the entity type it is
+# filed under: Pass/Fail are the ones every organization already has for results,
+# while metric tuning has its own pair. Resolving on the name alone would break the
+# day a second entity type gets a status called "Fail".
+_VERDICT_STATUS = {
+    Verdict.PASS: ("Pass", "TestResult"),
+    Verdict.FAIL: ("Fail", "TestResult"),
+    Verdict.ACCEPTED: ("Accepted", "Annotation"),
+    Verdict.REJECTED: ("Rejected", "Annotation"),
+}
+
+# Verdict -> status id, filled on first use. Statuses are per organization and
+# seeded once, so this saves a lookup per annotation in a loop.
+_verdict_cache: Dict[Verdict, str] = {}
+
+
+def resolve_verdict(verdict: str) -> str:
+    """The status id for a named verdict, e.g. ``"fail"``.
+
+    Cached per process. Raises ``ValueError`` for an unknown name, listing the
+    ones that exist, and for a verdict the organization has no status row for.
+    """
+    try:
+        key = Verdict(str(verdict).strip().lower())
+    except ValueError:
+        known = ", ".join(v.value for v in Verdict)
+        raise ValueError(f"Unknown verdict {verdict!r}. Expected one of: {known}") from None
+
+    if key in _verdict_cache:
+        return _verdict_cache[key]
+
+    name, entity_type = _VERDICT_STATUS[key]
+    response = APIClient().send_request(
+        endpoint=Endpoints.STATUSES,
+        method=Methods.GET,
+        params={"entity_type": entity_type, "$filter": f"name eq '{name}'"},
+    )
+    for row in response or []:
+        if str(row.get("name", "")).strip().lower() == name.lower():
+            _verdict_cache[key] = row["id"]
+            return row["id"]
+
+    raise ValueError(
+        f"No '{name}' status exists for entity type '{entity_type}' in this organization."
+    )
 
 
 class AnnotationUser(BaseModel):
@@ -136,6 +211,23 @@ class Annotation(BaseEntity):
 
         return response
 
+    def resolve(self) -> "Annotation":
+        """Close this annotation, the disagreement having been handled."""
+        return self._set_resolved(True)
+
+    def reopen(self) -> "Annotation":
+        """Reopen this annotation, it needing attention again."""
+        return self._set_resolved(False)
+
+    def _set_resolved(self, resolved: bool) -> "Annotation":
+        if not self.id:
+            raise ValueError("Annotation must have an id to resolve or reopen")
+        # Sent as its own update rather than by pushing the whole object, so this
+        # cannot carry along an edit the caller made to a field by accident.
+        Annotation(id=self.id, resolved=resolved).push()
+        self.resolved = resolved
+        return self
+
 
 class Annotations(BaseCollection):
     endpoint = ENDPOINT
@@ -159,6 +251,52 @@ class Annotations(BaseCollection):
             if len(page) < _PAGE_SIZE:
                 return found
             skip += _PAGE_SIZE
+
+    @classmethod
+    def create(
+        cls,
+        entity_type: str,
+        entity_id: str,
+        verdict: str,
+        comment: Optional[str] = None,
+        *,
+        metric: Optional[str] = None,
+        turn: Optional[str] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> Annotation:
+        """Record a judgement, naming the verdict rather than resolving a status id.
+
+        The generic form of ``TestResult.annotate`` and ``Test.annotate``, for a
+        parent with no entity class of its own -- a trace, addressed by its span
+        row id (``context.trace_db_id``, not the OTEL hex).
+
+        ``metric`` and ``turn`` are mutually exclusive: an annotation judges one
+        thing. Naming neither judges the parent as a whole.
+        """
+        if metric and turn:
+            raise ValueError("An annotation targets a metric or a turn, not both")
+
+        target_type = "metric" if metric else "turn" if turn else None
+        annotation = Annotation(
+            entity_type=str(entity_type),
+            entity_id=str(entity_id),
+            status_id=resolve_verdict(verdict),
+            comments=comment,
+            target_type=target_type,
+            target_reference=metric or turn,
+            attributes=attributes,
+        )
+        annotation.push()
+        return annotation
+
+    @classmethod
+    def for_trace(cls, trace_db_id: str) -> List[Annotation]:
+        """Every annotation on one trace.
+
+        ``trace_db_id`` is the span's row id, which is what addresses a trace --
+        the OTEL hex ``trace_id`` does not.
+        """
+        return cls.for_entity(AnnotatableEntity.TRACE, trace_db_id)
 
     @classmethod
     def for_entity(cls, entity_type: str, entity_id: str) -> List[Annotation]:

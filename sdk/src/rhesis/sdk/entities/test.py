@@ -186,11 +186,24 @@ class Test(BaseEntity):
         metric tuning judgement targets ``metric`` and names the metric's id in
         ``target_reference``.
         """
-        from rhesis.sdk.entities.annotation import Annotations
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
 
         if not self.id:
             raise ValueError("Test must have an ID to get annotations")
-        return Annotations.for_entity("Test", self.id)
+        return Annotations.for_entity(AnnotatableEntity.TEST, self.id)
+
+    def annotate(self, verdict: str, comment: Optional[str] = None) -> "Annotation":
+        """Label this test, the way a person labels one in the Explorer.
+
+        ``verdict`` is ``"pass"`` or ``"fail"``. This judges the test itself; a
+        metric tuning judgement targets a metric and is recorded by the tuning
+        endpoints rather than here.
+        """
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
+
+        if not self.id:
+            raise ValueError("Test must have an ID to annotate")
+        return Annotations.create(AnnotatableEntity.TEST, self.id, verdict, comment)
 
     def add_files(self, sources: list) -> List["File"]:
         """Add files to this test from paths or base64 dicts.
