@@ -1,6 +1,6 @@
 """Metrics for evaluating RAG and generation systems.
 
-Heavy backends (native judges, Ragas, DeepEval metric classes) load on first use.
+Heavy backends (native judges, DeepEval metric classes) load on first use.
 """
 
 from __future__ import annotations
@@ -36,13 +36,6 @@ if TYPE_CHECKING:
         GoalAchievementScoreResponse,
     )
     from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
-    from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
-    from rhesis.sdk.metrics.providers.ragas.metrics import (
-        RagasAnswerAccuracy,
-        RagasAspectCritic,
-        RagasContextRelevance,
-        RagasFaithfulness,
-    )
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
@@ -75,27 +68,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "MetricSynthesizer": (
         "rhesis.sdk.metrics.synthesizer",
         "MetricSynthesizer",
-    ),
-    # Ragas
-    "RagasMetricBase": (
-        "rhesis.sdk.metrics.providers.ragas.metric_base",
-        "RagasMetricBase",
-    ),
-    "RagasAnswerAccuracy": (
-        "rhesis.sdk.metrics.providers.ragas.metrics",
-        "RagasAnswerAccuracy",
-    ),
-    "RagasAspectCritic": (
-        "rhesis.sdk.metrics.providers.ragas.metrics",
-        "RagasAspectCritic",
-    ),
-    "RagasContextRelevance": (
-        "rhesis.sdk.metrics.providers.ragas.metrics",
-        "RagasContextRelevance",
-    ),
-    "RagasFaithfulness": (
-        "rhesis.sdk.metrics.providers.ragas.metrics",
-        "RagasFaithfulness",
     ),
 }
 
@@ -192,10 +164,4 @@ __all__ = [
     "GoalAchievementJudge",
     "CriterionEvaluation",
     "GoalAchievementScoreResponse",
-    # Ragas
-    "RagasMetricBase",
-    "RagasAnswerAccuracy",
-    "RagasAspectCritic",
-    "RagasContextRelevance",
-    "RagasFaithfulness",
 ]

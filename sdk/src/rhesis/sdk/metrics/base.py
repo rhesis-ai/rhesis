@@ -34,7 +34,6 @@ F = TypeVar("F", bound=Callable[..., Any])
 class Backend(str, Enum):
     RHESIS = "rhesis"
     DEEPEVAL = "deepeval"
-    RAGAS = "ragas"
     CUSTOM = "custom"
     GARAK = "garak"
     SDK = "sdk"
