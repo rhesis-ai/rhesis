@@ -251,6 +251,52 @@ class TestEmbeddingGenerator:
         assert len(embedding.embedding) == 768
 
     @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
+    def test_no_transaction_is_held_open_across_the_provider_call(
+        self,
+        mock_resolve_embedder,
+        test_db,
+        test_entity,
+        embedding_model,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """The provider call must not run inside an open transaction.
+
+        It is a network call of unbounded duration, and a transaction left open
+        for it holds its snapshot against vacuum, keeps a pool slot, and queues
+        any DDL on the tables it touched behind it. One was found idle in
+        transaction blocking a migration, which is what this guards against.
+
+        Asserted from inside the embedder because that is the only moment the
+        property is observable -- by the time ``generate`` returns, the writes
+        that follow have opened a transaction again.
+        """
+        generator = EmbeddingGenerator(test_db)
+
+        in_transaction = []
+
+        def record_then_embed(_text):
+            in_transaction.append(test_db.in_transaction())
+            return [0.1] * 768
+
+        mock_embedder = Mock()
+        mock_embedder.generate.side_effect = record_then_embed
+        mock_resolve_embedder.return_value = mock_embedder
+
+        result = generator.generate(
+            entity_id=str(test_entity.id),
+            entity_type="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            model_id=str(embedding_model.id),
+        )
+
+        assert result["status"] == "success", result
+        assert in_transaction == [False], (
+            "the embedding provider was called with a transaction still open"
+        )
+
+    @patch("rhesis.backend.app.services.embedding.generator.resolve_embedder")
     def test_generate_with_entity_provided(
         self,
         mock_resolve_embedder,
@@ -382,6 +428,7 @@ class TestEmbeddingGenerator:
     ):
         """Test error when entity doesn't support embedding."""
         import uuid
+
         user = models.User(
             name="Test User",
             email=f"test_{uuid.uuid4()}@example.com",
@@ -608,8 +655,6 @@ class TestEmbeddingGenerator:
                 model_id=str(model.id),
             )
 
-            embedding = test_db.query(models.Embedding).filter_by(
-                id=result["embedding_id"]
-            ).first()
+            embedding = test_db.query(models.Embedding).filter_by(id=result["embedding_id"]).first()
             assert embedding.dimension == dim
             assert len(embedding.embedding) == dim
