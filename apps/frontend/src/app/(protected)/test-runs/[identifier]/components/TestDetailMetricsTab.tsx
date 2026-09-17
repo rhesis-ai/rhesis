@@ -44,6 +44,7 @@ import {
   BehaviorVerdict,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
+import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
 import {
   MetricsSource,
   getMetricsSourceLabel,
@@ -51,7 +52,11 @@ import {
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import { passRate } from '@/constants/outcomes';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
-import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import {
+  getEffectiveTestResultStatus,
+  hasConflictingAnnotation,
+  isPassedStatusName,
+} from '@/utils/test-result-status';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -358,6 +363,14 @@ export default function TestDetailMetricsTab({
     return map;
   }, [test.annotation_summary]);
 
+  const testAnnotation = test.last_annotation;
+  const testIsOverruled = hasConflictingAnnotation(test);
+  const testAnnotationVerdict = testAnnotation
+    ? isPassedStatusName(testAnnotation.status?.name ?? '')
+      ? ('passed' as const)
+      : ('failed' as const)
+    : null;
+
   const endpointFailure = useMemo(
     () => getEndpointFailure(test.test_output),
     [test.test_output]
@@ -474,12 +487,36 @@ export default function TestDetailMetricsTab({
               borderRadius: BORDER_RADIUS.md,
               borderColor: 'divider',
               boxShadow: ELEVATION.xs,
+              ...(testAnnotation && {
+                borderLeft: `${theme.spacing(0.375)} solid ${
+                  testIsOverruled
+                    ? theme.palette.warning.main
+                    : theme.palette.success.light
+                }`,
+              }),
             }}
           >
             <CardContent>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Overall Performance
-              </Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 0.5,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Overall Performance
+                </Typography>
+                {testAnnotation && (
+                  <AnnotationIndicator
+                    verdict={testAnnotationVerdict}
+                    hasConflict={testIsOverruled}
+                    annotator={testAnnotation.user?.name}
+                    comment={testAnnotation.comments}
+                  />
+                )}
+              </Box>
               <Typography variant="h5" fontWeight={600}>
                 {summary.passRate.toFixed(1)}%
               </Typography>

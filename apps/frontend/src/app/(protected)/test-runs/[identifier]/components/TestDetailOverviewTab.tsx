@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
+import EditIcon from '@mui/icons-material/Edit';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
@@ -26,7 +27,10 @@ import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview'
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
 import { useFiles } from '@/hooks/useFiles';
-import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import {
+  getEffectiveTestResultStatus,
+  hasConflictingAnnotation,
+} from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
@@ -228,16 +232,26 @@ export default function TestDetailOverviewTab({
         size="small"
         variant="outlined"
       />
-      {test.last_annotation && (
-        <Chip
-          icon={<CheckIcon sx={{ fontSize: 16 }} />}
-          label="Confirmed"
-          size="small"
-          color="success"
-          variant="filled"
-          sx={{ fontWeight: 600 }}
-        />
-      )}
+      {test.last_annotation &&
+        (hasConflictingAnnotation(test) ? (
+          <Chip
+            icon={<EditIcon sx={{ fontSize: 16 }} />}
+            label="Corrected"
+            size="small"
+            color="warning"
+            variant="filled"
+            sx={{ fontWeight: 600 }}
+          />
+        ) : (
+          <Chip
+            icon={<CheckIcon sx={{ fontSize: 16 }} />}
+            label="Confirmed"
+            size="small"
+            color="success"
+            variant="filled"
+            sx={{ fontWeight: 600 }}
+          />
+        ))}
     </Box>
   );
 
