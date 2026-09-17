@@ -46,6 +46,27 @@ describe('TestRunConfigurationTab configuration source', () => {
     expect(screen.queryByText('Parallel')).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['a string', 'nonsense'],
+    ['an array', ['nonsense']],
+    ['a number', 42],
+  ])(
+    'falls back to the live configuration when run_config is %s',
+    (_label, value) => {
+      render(
+        <TestRunConfigurationTab
+          testRun={testRun(
+            { run_config: value },
+            { execution_mode: 'Parallel' }
+          )}
+        />
+      );
+
+      // Without the guard this would win the ?? and render an empty configuration.
+      expect(screen.getByText('Parallel')).toBeInTheDocument();
+    }
+  );
+
   it('falls back to the live configuration for runs predating the snapshot', () => {
     render(
       <TestRunConfigurationTab

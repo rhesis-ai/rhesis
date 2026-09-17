@@ -80,6 +80,12 @@ def record_resolved_evaluation_model(
             organization_id=str(test_run.organization_id) if test_run.organization_id else None,
             user_id=str(test_run.user_id) if test_run.user_id else None,
         )
+        # Commits the caller's shared session, so anything else pending goes with it. Both
+        # call sites reach here right after update_test_run_start, which commits the same
+        # session the same way, so there is no wider transaction to cut short. Safe inside
+        # prefetch_execution_context only because the engine sets expire_on_commit=False
+        # (app/database.py): with expiry on, the endpoint that function expunges afterwards
+        # would come back detached.
         session.commit()
         test_run.attributes = attributes
     except Exception:
