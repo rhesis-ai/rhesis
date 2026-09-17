@@ -104,9 +104,7 @@ def _annotations_query(
             q = q.filter(models.Annotation.updated_at >= start)
         if date_to:
             end = datetime.combine(date_to, datetime.min.time())
-            q = q.filter(
-                models.Annotation.updated_at < end + timedelta(days=1)
-            )
+            q = q.filter(models.Annotation.updated_at < end + timedelta(days=1))
         return q
 
     return (
