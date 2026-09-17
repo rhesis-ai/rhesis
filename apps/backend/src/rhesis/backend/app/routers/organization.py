@@ -157,9 +157,7 @@ async def _read_and_apply_branding(
     def _do() -> tuple[dict | None, dict]:
         previous = None
         if read_key is not None:
-            branding = dict(
-                _current_organization(db, organization_id).settings.branding.all
-            )
+            branding = dict(_current_organization(db, organization_id).settings.branding.all)
             previous = branding.get(read_key)
 
         org = _current_organization(db, organization_id)
