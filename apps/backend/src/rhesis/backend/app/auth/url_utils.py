@@ -24,10 +24,7 @@ async def build_redirect_url(request, session_token, refresh_token=None):
         configured = urlparse(frontend_settings.url)
         if parsed_origin.netloc == frontend_settings.allowed_domain:
             frontend_url = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
-        elif (
-            configured.hostname in _LOOPBACK_HOSTS
-            and parsed_origin.hostname in _LOOPBACK_HOSTS
-        ):
+        elif configured.hostname in _LOOPBACK_HOSTS and parsed_origin.hostname in _LOOPBACK_HOSTS:
             # Dev/worktree: the browser's port may differ from the configured
             # FRONTEND_URL when a port offset is active. Both are loopback, so
             # this cannot redirect off-box.
