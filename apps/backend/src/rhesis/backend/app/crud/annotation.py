@@ -370,6 +370,30 @@ def get_annotation_statistics_for_runs(
     return stats
 
 
+def annotated_tests_count_expr(test_run_id_column):
+    """How many of a run's tests carry at least one annotation, as a correlated count.
+
+    The same figure ``get_annotation_statistics_for_runs`` reports as
+    ``annotated_tests``, expressed so the test-run list can order by it in the
+    database instead of reshuffling the page it was handed. Built here, next to
+    the display query, so the column and the sort cannot drift apart.
+
+    Annotations point at test results rather than at the run, so this hops through
+    ``test_result``; a run has no annotations of its own to correlate on.
+    """
+    return (
+        select(func.count(distinct(models.TestResult.test_id)))
+        .select_from(models.Annotation)
+        .join(models.TestResult, _ON_TEST_RESULT)
+        .where(
+            models.TestResult.test_run_id == test_run_id_column,
+            models.TestResult.deleted_at.is_(None),
+        )
+        .correlate_except(models.Annotation, models.TestResult)
+        .scalar_subquery()
+    )
+
+
 def get_annotation_facets(
     db: Session,
     organization_id: str,
