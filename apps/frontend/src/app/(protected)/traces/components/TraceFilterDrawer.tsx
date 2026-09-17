@@ -10,6 +10,7 @@ import {
   MenuItem,
   Select,
   TextField,
+  Typography,
 } from '@mui/material';
 import {
   FilterDrawerShell,
@@ -110,6 +111,8 @@ export default function TraceFilterDrawer({
   const [projects, setProjects] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [providers, setProviders] = React.useState<string[]>([]);
+  const [providersLoading, setProvidersLoading] = React.useState(false);
   const { data: endpoints = [] } = useEndpoints(
     { limit: 100 },
     open && !isTestRunScope
@@ -152,6 +155,34 @@ export default function TraceFilterDrawer({
       fetchData();
     }
   }, [open, isTestRunScope, setDraft, status]);
+
+  // Providers are loaded separately from the project list above, because they are wanted
+  // inside a test run too, where that effect does not run.
+  React.useEffect(() => {
+    if (!open || !isAuthenticated(status)) return;
+
+    let cancelled = false;
+    const projectId = draft.projectId || readActiveProjectId() || undefined;
+
+    setProvidersLoading(true);
+    new ApiClientFactory()
+      .getTelemetryClient()
+      .getProviders(projectId)
+      .then(list => {
+        if (!cancelled) setProviders(list);
+      })
+      .catch(() => {
+        // The section degrades to "nothing to filter by"; the rest of the drawer works.
+        if (!cancelled) setProviders([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProvidersLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, status, draft.projectId]);
 
   const filteredEndpoints = draft.projectId
     ? endpoints.filter(e => e.project_id === draft.projectId)
@@ -380,6 +411,47 @@ export default function TraceFilterDrawer({
             </Box>
           ))}
         </Box>
+      </FilterSection>
+
+      <FilterSection title="Provider">
+        {providers.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {providersLoading
+              ? 'Loading…'
+              : 'No priced traces yet, so there is nothing to filter by.'}
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {providers.map(provider => {
+              const selected = (draft.providers ?? []).includes(provider);
+              return (
+                <Box
+                  key={provider}
+                  component="button"
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    setDraft(prev => {
+                      const current = prev.providers ?? [];
+                      const next = selected
+                        ? current.filter(value => value !== provider)
+                        : [...current, provider];
+                      // Undefined rather than [], so "none ticked" reads as no filter
+                      // everywhere that counts active filters.
+                      return {
+                        ...prev,
+                        providers: next.length ? next : undefined,
+                      };
+                    })
+                  }
+                  sx={filterChipSx(selected)}
+                >
+                  {provider}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
       </FilterSection>
 
       <FilterSection title={isTestRunScope ? 'Test case' : 'Test association'}>
