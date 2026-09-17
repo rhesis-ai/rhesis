@@ -79,6 +79,12 @@ def create_test_run(
         if batch_key in cfg_attrs:
             attributes[batch_key] = cfg_attrs[batch_key]
 
+    # Freeze the configured options onto the run. The configuration row is mutable and
+    # re-executable, so reading it live let a later edit rewrite what this run claims it ran.
+    from rhesis.backend.app.services.run_config import snapshot_run_config
+
+    snapshot_run_config(test_config=test_config, attributes=attributes)
+
     from rhesis.backend.app.services.experiment import apply_parameter_snapshot_to_run_attributes
 
     snapshot = apply_parameter_snapshot_to_run_attributes(

@@ -46,11 +46,24 @@ const fieldsSx = {
   width: '100%',
 } as const;
 
+/** Narrow to a plain object, so a non-object value falls through to the next source
+ *  rather than winning the ?? and rendering an empty configuration. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 export default function TestRunConfigurationTab({
   testRun,
 }: TestRunConfigurationTabProps) {
   const config = testRun.test_configuration;
-  const attrs = config?.attributes as Record<string, unknown> | undefined;
+  // Prefer the snapshot frozen onto the run when it was created. A TestConfiguration row is
+  // mutable and re-executable, so reading it live let a later edit rewrite what this run
+  // claims it executed. Runs created before the snapshot existed have none, and fall back to
+  // the live join, which is exactly what they have always shown.
+  const attrs =
+    asRecord(testRun.attributes?.run_config) ?? asRecord(config?.attributes);
   const execMetrics = (attrs?.metrics as ExecutionMetric[] | undefined) ?? [];
   const metricsSource = attrs?.metrics_source as string | undefined;
   const executionMode = attrs?.execution_mode as string | undefined;

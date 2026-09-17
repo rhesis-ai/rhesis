@@ -919,6 +919,10 @@ export default function RunDrawer(props: RunDrawerProps) {
 
       const baseAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
+        // Recorded so the run's Configuration tab reports the choice that was actually
+        // made. It used to be honoured here and then dropped, leaving the tab to
+        // default it to "on" for every run, including ones where it was turned off.
+        run_preflight_checks: preflightEnabled,
       };
 
       if (
