@@ -15,7 +15,7 @@ import {
 import { describeStrip } from './verdict-strip-render';
 import { STRIP_HEIGHTS } from './summary-tokens';
 import { formatCost, formatTokenCount } from '@/utils/trace-utils';
-import { useTestRunUsage } from '../../hooks/useTestRunUsage';
+import { isCostKnown, useTestRunUsage } from '../../hooks/useTestRunUsage';
 import type {
   VerdictMatrix,
   TestRunDetail,
@@ -175,13 +175,13 @@ export default function KpiRow({
               value={formatTokenCount(usage.total_tokens)}
               valueLabel="tokens"
               secondary={{
-                // A dash, not $0.00: until enrichment has priced the run the
-                // total is a zero nobody computed, and claiming the run was
-                // free is the one reading that is definitely wrong.
-                value:
-                  usage.total_cost_usd > 0
-                    ? formatCost(usage.total_cost_usd)
-                    : '\u2014',
+                // A dash where nothing was priced: that zero is one nobody
+                // computed, and reading it as "the run was free" is the one
+                // reading that is definitely wrong. A run whose traces *were*
+                // priced still shows $0.00, because then it really was free.
+                value: isCostKnown(usage)
+                  ? formatCost(usage.total_cost_usd)
+                  : '\u2014',
                 label: 'cost',
               }}
               subtitle={`across ${usage.total_traces} ${

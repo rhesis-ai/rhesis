@@ -12,7 +12,10 @@ import type {
 } from '@/utils/api-client/interfaces/test-run';
 
 // The Usage card fetches its own totals; drive them rather than the network.
+// Only the hook is stubbed. isCostKnown stays real, so these assertions
+// exercise the actual "is this zero a figure or a shrug" rule.
 jest.mock('../../../hooks/useTestRunUsage', () => ({
+  ...jest.requireActual('../../../hooks/useTestRunUsage'),
   useTestRunUsage: jest.fn(() => null),
 }));
 
@@ -424,6 +427,8 @@ describe('KpiRow', () => {
   it('shows tokens and cost side by side on the Usage card', () => {
     mockUsage({
       total_traces: 12,
+      enriched_traces: 12,
+      priced_traces: 12,
       total_spans: 190,
       total_tokens: 45735,
       total_cost_usd: 0.012695,
@@ -452,6 +457,8 @@ describe('KpiRow', () => {
     // is certainly wrong.
     mockUsage({
       total_traces: 3,
+      enriched_traces: 0,
+      priced_traces: 0,
       total_spans: 40,
       total_tokens: 9120,
       total_cost_usd: 0,
@@ -470,11 +477,37 @@ describe('KpiRow', () => {
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
   });
 
+  it('shows $0.00 when the run really was free', () => {
+    // Priced traces that add up to nothing. The dash above is for a zero
+    // nobody computed; this one is an answer.
+    mockUsage({
+      total_traces: 2,
+      enriched_traces: 2,
+      priced_traces: 2,
+      total_spans: 8,
+      total_tokens: 640,
+      total_cost_usd: 0,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('$0.00')).toBeInTheDocument();
+    expect(screen.queryByText('\u2014')).not.toBeInTheDocument();
+  });
+
   it('tells the hook whether the run is still going', () => {
     // The hook stops polling on its own terms; it cannot work out on its own
     // that a run is mid-flight.
     mockUsage({
       total_traces: 1,
+      enriched_traces: 0,
+      priced_traces: 0,
       total_spans: 1,
       total_tokens: 5,
       total_cost_usd: 0,
@@ -495,6 +528,8 @@ describe('KpiRow', () => {
   it('says trace rather than traces when the run produced one', () => {
     mockUsage({
       total_traces: 1,
+      enriched_traces: 1,
+      priced_traces: 1,
       total_spans: 3,
       total_tokens: 150,
       total_cost_usd: 0.001,

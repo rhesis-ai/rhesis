@@ -10,6 +10,9 @@ import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemet
 
 const POLL_MS = 3000;
 
+/** Key scope for a render that has no active project yet; never fetched. */
+const NO_PROJECT = 'no-project';
+
 /** How long to keep waiting for enrichment after a run finishes. */
 const PRICING_WINDOW_MS = 2 * 60 * 1000;
 
@@ -23,14 +26,24 @@ function completedAt(testRun: TestRunDetail): number | null {
 /**
  * Whether the numbers have stopped moving.
  *
- * Tokens are read off the spans themselves, so they are there as soon as the
- * calls are traced. Cost is not: enrichment prices a run asynchronously, and
- * until it has, `total_cost_usd` is a real zero rather than a missing value.
- * Tokens without cost is therefore the one state that means "still working".
- * A run that traced nothing has nothing to wait for.
+ * Asked of how many traces enrichment has been through, not of the cost itself.
+ * Cost cannot answer it: `total_cost_usd` is 0 for a run nobody has priced yet,
+ * for one whose models LiteLLM cannot price, and for one that genuinely cost
+ * nothing, and waiting on that zero would either stop too early or never stop.
  */
 function isSettled(usage: TraceMetricsResponse): boolean {
-  return usage.total_cost_usd > 0 || usage.total_tokens === 0;
+  return usage.enriched_traces >= usage.total_traces;
+}
+
+/**
+ * Whether the cost on screen is a figure somebody computed.
+ *
+ * A run with priced traces that add up to zero really did cost nothing and
+ * should say so. A run with none has a zero that means "no idea", and shows a
+ * dash instead.
+ */
+export function isCostKnown(usage: TraceMetricsResponse): boolean {
+  return usage.priced_traces > 0;
 }
 
 /**
@@ -49,6 +62,8 @@ export function nextPollDelay(
   if (usage && isSettled(usage)) return false;
   // No completed_at means the run never recorded one; one pass is all it gets.
   if (finishedAt === null) return false;
+  // A backstop, not the stop condition: enrichment that dies mid-run leaves
+  // traces unprocessed forever, and the card should not wait forever with it.
   return now - finishedAt < PRICING_WINDOW_MS ? POLL_MS : false;
 }
 
@@ -64,9 +79,9 @@ export function nextPollDelay(
  *
  * Polling does not stop when the run does. Enrichment prices a run *after* it
  * finishes, so stopping on terminal status would stop exactly when the cost is
- * about to arrive. It stops when the figures settle, and failing that, when the
- * run has been finished long enough that nothing more is coming -- a run whose
- * models have no published prices would otherwise poll forever.
+ * about to arrive. It stops once enrichment has been through every trace in the
+ * run, with a two-minute backstop from the run's end for the case where
+ * enrichment dies partway and those traces never get processed at all.
  *
  * Returns null until the numbers arrive, so callers render nothing rather than
  * zeros they do not yet have.
@@ -83,14 +98,19 @@ export function useTestRunUsage(
   const finishedAt = completedAt(testRun);
 
   const { data } = useQuery<TraceMetricsResponse>({
-    queryKey: testRunUsageKeys.detail(projectId ?? '', testRun.id),
-    queryFn: () =>
-      new ApiClientFactory(undefined, projectId ?? undefined)
+    // A sentinel rather than an empty string, so a render with no project yet
+    // cannot share a cache entry with a real one or be swept up by a prefix
+    // invalidation aimed at it.
+    queryKey: testRunUsageKeys.detail(projectId ?? NO_PROJECT, testRun.id),
+    queryFn: () => {
+      // Unreachable while `enabled` holds; narrowing it here is what lets the
+      // request and the cache key name the same project instead of each
+      // falling back on its own.
+      if (!projectId) throw new Error('No active project');
+      return new ApiClientFactory(undefined, projectId)
         .getTelemetryClient()
-        .getMetrics({
-          project_id: projectId ?? '',
-          test_run_id: testRun.id,
-        }),
+        .getMetrics({ project_id: projectId, test_run_id: testRun.id });
+    },
     enabled: Boolean(projectId && testRun.id),
     refetchInterval: query =>
       nextPollDelay(query.state.data, isRunning, finishedAt),

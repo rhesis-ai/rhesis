@@ -200,6 +200,11 @@ export interface TraceQueryParams {
  */
 export interface TraceMetricsResponse {
   total_traces: number;
+  /** Traces enrichment has processed. Below total_traces, more numbers are coming. */
+  enriched_traces: number;
+  /** Traces carrying a cost figure. Zero means nothing here could be priced, which
+   *  a total_cost_usd of 0 on its own cannot distinguish from a scope that was free. */
+  priced_traces: number;
   total_spans: number;
   total_tokens: number;
   total_cost_usd: number;
