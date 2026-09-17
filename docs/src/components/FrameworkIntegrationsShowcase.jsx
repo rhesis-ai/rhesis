@@ -499,8 +499,8 @@ export function EvaluationSection() {
           lineHeight: 1.55,
         }}
       >
-        Library-backed metrics (DeepEval, Rhesis) and Garak probe imports with mapped metrics
-        in Rhesis test suites.
+        Library-backed metrics (DeepEval, Rhesis) and Garak probe imports with mapped metrics in
+        Rhesis test suites.
       </p>
       <div
         style={{

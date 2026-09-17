@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Font Env Vars Not Plumbed**: `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL` were documented but missing from the Helm ConfigMap, chart values and `docker-compose.yml`, so a deployment could not actually set them.
 
 ### Removed
+
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
 ## [0.16.0] - 2026-09-16
