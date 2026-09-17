@@ -111,6 +111,13 @@ export interface TraceSummary {
   total_input_tokens?: number | null;
   total_output_tokens?: number | null;
   total_cost_usd?: number | null;
+  total_input_cost_usd?: number | null;
+  total_output_cost_usd?: number | null;
+
+  // What produced those tokens. `models` is empty only when nothing was priced, which
+  // is how a caller tells that apart from a trace that genuinely cost nothing.
+  models?: string[];
+  providers?: string[];
 
   // Endpoint information (optional)
   endpoint_id?: string;

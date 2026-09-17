@@ -164,6 +164,40 @@ def _distinct_in_order(values: Iterable[Optional[str]]) -> List[str]:
     return list(dict.fromkeys(str(value) for value in values if value))
 
 
+def model_provider_pairs(breakdown: Sequence[dict]) -> List[Tuple[str, str]]:
+    """Distinct (model, provider) pairs from a cost breakdown, ordered by model name.
+
+    Ordered rather than merely deduped, for two reasons that both bite at index 0.
+
+    The list orders by ``trace_first_model_expr``, which is ``MIN(model_name)`` in SQL.
+    Sorting here is what makes ``models[0]`` the same model the ordering used, so a row
+    does not sit where "alpha-model" belongs while its cell reads "gpt-4".
+
+    And the provider has to travel with its own model. Deriving the two lists separately
+    and sorting each -- which is what this replaces -- pairs the alphabetically first
+    model with the alphabetically first provider, which are routinely different rows:
+    alpha-model on openai beside beta-model on gemini renders as "gemini/alpha-model".
+
+    Only index 0 is guaranteed to correspond once the provider list is deduped, which is
+    all any caller pairs; the rest are for counting and filtering.
+
+    Keyed on the pair rather than on the model, because one model name can be served by
+    more than one provider in a single trace -- the same gpt-4o reached through both
+    openai and azure. Keying on the model alone would keep whichever provider was seen
+    first and drop the other from the provider list, quietly narrowing a filter built on
+    it.
+    """
+    pairs = set()
+    for entry in breakdown:
+        model = entry.get(EnrichedDataKeys.MODEL_NAME)
+        if not model:
+            continue
+        model = str(model)
+        provider = entry.get(EnrichedDataKeys.PROVIDER) or resolve_provider(None, model)
+        pairs.add((model, provider))
+    return sorted(pairs)
+
+
 def _tokens_from_breakdown(
     breakdown: Sequence[dict], llm_tokens_fallback: int
 ) -> Tuple[int, int, int]:
@@ -223,16 +257,14 @@ def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int =
             float(entry.get(EnrichedDataKeys.OUTPUT_COST_USD, 0.0) or 0.0) for entry in breakdown
         )
 
-    models = costs.get(EnrichedDataKeys.MODELS_USED) or _distinct_in_order(
-        entry.get(EnrichedDataKeys.MODEL_NAME) for entry in breakdown
-    )
-    # An old breakdown entry has no provider, so fall back to what its model implies --
-    # the same answer re-enrichment would reach for a span that stamped nothing.
-    providers = costs.get(EnrichedDataKeys.PROVIDERS_USED) or _distinct_in_order(
-        entry.get(EnrichedDataKeys.PROVIDER)
-        or resolve_provider(None, entry.get(EnrichedDataKeys.MODEL_NAME))
-        for entry in breakdown
-    )
+    # Always from the breakdown, never from the blob's own models_used/providers_used:
+    # those are two independent lists, and pairing a model with a provider needs them to
+    # have come from the same entry. An entry with no provider falls back to what its
+    # model implies, the same answer re-enrichment would reach for a span that stamped
+    # nothing.
+    pairs = model_provider_pairs(breakdown)
+    models = _distinct_in_order(model for model, _ in pairs)
+    providers = _distinct_in_order(provider for _, provider in pairs)
 
     return TraceUsage(
         input_tokens=tokens[0],
@@ -245,3 +277,44 @@ def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int =
         models=list(models),
         providers=list(providers),
     )
+
+
+def trace_summary_usage(enriched_data: Optional[dict], llm_tokens_fallback: int) -> dict:
+    """The usage fields of a trace list row, ready to splat into a ``TraceSummary``.
+
+    Both list endpoints -- the traces page and a test run's traces tab -- build the same
+    row from the same ``query_traces`` output, and each had its own copy of this
+    unpacking. One copy so a field added here reaches both.
+
+    Zero becomes ``None`` for every figure, which is the convention the list response
+    already used for tokens and cost: the grid renders a dash for an absent number rather
+    than a zero it cannot vouch for. ``models`` stays a list, empty when the trace has
+    nothing priced, since that is what tells "not traced" from "traced and free".
+    """
+    usage = trace_usage_totals(enriched_data, llm_tokens_fallback)
+    priced = bool(usage.models)
+
+    def tokens(value):
+        """Zero tokens is nothing to show, and tokens have a pre-enrichment fallback."""
+        return value or None
+
+    def cost(value):
+        """Keyed off whether the trace was priced at all, not off the number.
+
+        A model LiteLLM prices at zero -- a free tier, a comped deployment -- costs a
+        real, knowable nothing, and showing a dash for it would claim we had no idea.
+        Only a trace nothing priced gets the dash.
+        """
+        return value if priced else None
+
+    return {
+        "total_tokens": tokens(usage.total_tokens),
+        "total_input_tokens": tokens(usage.input_tokens),
+        "total_output_tokens": tokens(usage.output_tokens),
+        "total_cost_usd": cost(usage.total_cost_usd),
+        "total_cost_eur": cost(usage.total_cost_eur),
+        "total_input_cost_usd": cost(usage.input_cost_usd),
+        "total_output_cost_usd": cost(usage.output_cost_usd),
+        "models": usage.models,
+        "providers": usage.providers,
+    }

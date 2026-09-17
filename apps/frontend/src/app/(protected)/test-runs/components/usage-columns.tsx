@@ -2,7 +2,9 @@
 
 import React from 'react';
 import { GridColDef } from '@mui/x-data-grid';
-import { Tooltip, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
+import ModelLabel from '@/components/common/ModelLabel';
+import UsageCell from '@/components/common/UsageCell';
 import { formatCost, formatTokenCount } from '@/utils/trace-utils';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
@@ -58,17 +60,15 @@ function numericColumn(
     valueGetter: (_, row: TestRunDetail) => row.usage?.[field] ?? null,
     renderCell: params => {
       const row = params.row as TestRunDetail;
-      if (!hasUsage(row)) return <EmptyCell />;
-      const value = params.value as number | null;
-      if (value === null || value === undefined) return <EmptyCell />;
+      // The run rollup zero-fills a run it found no traces for, so the "nothing traced"
+      // case has to be recognised here rather than read off the number. The traces grid
+      // needs no equivalent: its rows carry null for a figure nobody knows.
       return (
-        <Typography
-          variant="body2"
-          sx={{ fontVariantNumeric: 'tabular-nums' }}
+        <UsageCell
+          value={hasUsage(row) ? (params.value as number | null) : null}
+          format={format}
           title={tooltip(row)}
-        >
-          {format(value)}
-        </Typography>
+        />
       );
     },
   };
@@ -88,33 +88,6 @@ function costSplit(row: TestRunDetail): string | undefined {
   return `${formatCost(usage.total_input_cost_usd)} input · ${formatCost(
     usage.total_output_cost_usd
   )} output`;
-}
-
-/** `provider/model`, plus `+N` when the run used more than one. */
-function ModelCell({ row }: { row: TestRunDetail }) {
-  const usage = row.usage;
-  const models = usage?.models ?? [];
-  if (models.length === 0) return <EmptyCell />;
-
-  const provider = usage?.providers?.[0];
-  const first = provider ? `${provider}/${models[0]}` : models[0];
-  const label = models.length > 1 ? `${first} +${models.length - 1}` : first;
-  const full = models.join(', ');
-
-  return (
-    <Tooltip title={models.length > 1 ? full : ''}>
-      <Typography
-        variant="body2"
-        sx={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </Typography>
-    </Tooltip>
-  );
 }
 
 export function usageColumns(): GridColDef[] {
@@ -148,7 +121,12 @@ export function usageColumns(): GridColDef[] {
       filterable: false,
       // Sorted by the run's alphabetically first model, which is the one shown here.
       valueGetter: (_, row: TestRunDetail) => row.usage?.models?.[0] ?? null,
-      renderCell: params => <ModelCell row={params.row as TestRunDetail} />,
+      renderCell: params => {
+        const usage = (params.row as TestRunDetail).usage;
+        return (
+          <ModelLabel models={usage?.models} providers={usage?.providers} />
+        );
+      },
     },
   ];
 }

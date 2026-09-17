@@ -13,6 +13,8 @@ const GRID_TO_API_SORT_FIELD: Record<string, string> = {
   'usage.total_input_cost_usd': 'total_input_cost_usd',
   'usage.total_output_cost_usd': 'total_output_cost_usd',
   'usage.models': 'model',
+  // The traces grid carries the same list at the top level of its row.
+  models: 'model',
 };
 
 export function gridSortToApiParams(sortModel: GridSortModel): {

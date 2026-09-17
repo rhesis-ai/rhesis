@@ -107,6 +107,18 @@ class TraceSummary(BaseModel):
     total_output_tokens: Optional[int] = None
     total_cost_usd: Optional[float] = None
     total_cost_eur: Optional[float] = None
+    total_input_cost_usd: Optional[float] = None
+    total_output_cost_usd: Optional[float] = None
+    models: List[str] = Field(
+        default_factory=list,
+        description="Distinct models priced for this trace. Empty means nothing was "
+        "priced, which is how a caller tells that apart from a trace that cost nothing.",
+    )
+    providers: List[str] = Field(
+        default_factory=list,
+        description="Distinct providers behind those models, 'unknown' where neither the "
+        "span nor the model name placed one",
+    )
     has_errors: bool
 
     # Test execution context (optional - only present for test execution traces)

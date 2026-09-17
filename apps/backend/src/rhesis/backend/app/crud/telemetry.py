@@ -25,9 +25,12 @@ from rhesis.backend.app.crud.usage_sql import (
     coalesced_input_tokens,
     coalesced_output_tokens,
     coalesced_tokens,
+    enriched_cost_expr,
+    enriched_token_expr,
     models_used_rows,
     per_trace_usage_subquery,
     span_total_tokens_expr,
+    trace_first_model_expr,
 )
 from rhesis.backend.app.schemas.telemetry import (
     OTELSpanCreate,
@@ -70,7 +73,12 @@ TRACE_SORT_FIELDS = frozenset(
         "root_operation",
         "span_count",
         "total_tokens",
+        "total_input_tokens",
+        "total_output_tokens",
         "total_cost_usd",
+        "total_input_cost_usd",
+        "total_output_cost_usd",
+        "model",
     }
 )
 
@@ -105,20 +113,58 @@ def _trace_sort_clauses(
         "environment": models.Trace.environment,
         "root_operation": models.Trace.span_name,
         "span_count": span_count_col,
-        # Mirrors what the response actually shows: the enriched total when the trace
-        # has been priced, the llm.invoke sum until then.
+        # Every figure below goes through the same expression the response is built
+        # from, so ordering and the number on screen cannot disagree. That matters more
+        # than it sounds: no trace in the database carries the trace-level input/output
+        # cost keys yet, so reading them directly would sort every row as NULL and leave
+        # the new columns tied.
+        #
+        # Tokens keep their pre-enrichment fallback -- the enriched total, else the
+        # breakdown, else the llm.invoke sum -- mirroring trace_usage_totals.
         "total_tokens": func.coalesce(
-            models.Trace.enriched_data[EnrichedDataKeys.COSTS][
-                EnrichedDataKeys.TOTAL_TOKENS
-            ].as_float(),
+            enriched_token_expr(
+                models.Trace.enriched_data,
+                EnrichedDataKeys.TOTAL_TOKENS,
+                EnrichedDataKeys.TOTAL_TOKENS,
+            ),
             llm_tokens_col,
             0,
         ),
-        # Cost has no pre-enrichment fallback, so unpriced traces sort last rather
-        # than leading a "most expensive first" list on a NULLS FIRST default.
-        "total_cost_usd": models.Trace.enriched_data[EnrichedDataKeys.COSTS][
-            EnrichedDataKeys.TOTAL_COST_USD
-        ].as_float(),
+        # The split has no span-level fallback, in SQL or in Python: a list row is one
+        # span, and only enrichment knows how a trace divided.
+        "total_input_tokens": enriched_token_expr(
+            models.Trace.enriched_data,
+            EnrichedDataKeys.TOTAL_INPUT_TOKENS,
+            EnrichedDataKeys.INPUT_TOKENS,
+        ),
+        "total_output_tokens": enriched_token_expr(
+            models.Trace.enriched_data,
+            EnrichedDataKeys.TOTAL_OUTPUT_TOKENS,
+            EnrichedDataKeys.OUTPUT_TOKENS,
+        ),
+        # Cost has no pre-enrichment fallback at all, so an unpriced trace stays NULL
+        # and sinks under nullslast rather than leading a "most expensive first" list.
+        # That also matches what the row shows for it: a dash, not a zero.
+        "total_cost_usd": enriched_cost_expr(
+            models.Trace.enriched_data,
+            EnrichedDataKeys.TOTAL_COST_USD,
+            EnrichedDataKeys.TOTAL_COST_USD,
+            default=None,
+        ),
+        "total_input_cost_usd": enriched_cost_expr(
+            models.Trace.enriched_data,
+            EnrichedDataKeys.TOTAL_INPUT_COST_USD,
+            EnrichedDataKeys.INPUT_COST_USD,
+            default=None,
+        ),
+        "total_output_cost_usd": enriched_cost_expr(
+            models.Trace.enriched_data,
+            EnrichedDataKeys.TOTAL_OUTPUT_COST_USD,
+            EnrichedDataKeys.OUTPUT_COST_USD,
+            default=None,
+        ),
+        # Alphabetically first, matching the model the cell shows before its "+N".
+        "model": trace_first_model_expr(models.Trace.enriched_data),
     }
 
     descending = sort_order.lower() != "asc"
@@ -1061,17 +1107,22 @@ def get_trace_metrics_aggregated(
     )
 
     # The provider is finished in Python, not SQL: a span that stamped none needs the
-    # model-name lookup, which is a LiteLLM call. Sorted because a UNION has no defined
-    # order, and an API that reshuffles its own list between identical calls makes the
-    # UI jump and the tests flaky.
-    model_rows = models_used_rows(db, base)
-    models_used = sorted({row.model_name for row in model_rows})
-    providers_used = sorted(
+    # model-name lookup, which is a LiteLLM call. Ordered by model name because a UNION
+    # has no defined order, and an API that reshuffles its own list between identical
+    # calls makes the UI jump and the tests flaky. Providers follow that same order
+    # rather than being sorted on their own, so index 0 of each still names one model
+    # and the provider that served it.
+    pairs = sorted(
         {
-            resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
-            for row in model_rows
+            (
+                row.model_name,
+                resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name),
+            )
+            for row in models_used_rows(db, base)
         }
     )
+    models_used = list(dict.fromkeys(model for model, _ in pairs))
+    providers_used = list(dict.fromkeys(provider for _, provider in pairs))
 
     return {
         "total_traces": agg.total_traces or 0,

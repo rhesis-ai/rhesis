@@ -10,7 +10,7 @@ test-run rollup have to produce the same number for the same trace or the UI con
 itself.
 """
 
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 from sqlalchemy import case, column, func, select, true
 from sqlalchemy.dialects.postgresql import JSONB
@@ -84,16 +84,44 @@ def _breakdown_sum(enriched_data, entry_value_expr) -> Any:
     )
 
 
-def enriched_cost_expr(enriched_data, rollup_key: str, breakdown_key: str) -> Any:
+def enriched_cost_expr(
+    enriched_data, rollup_key: str, breakdown_key: str, *, default: Optional[float] = 0.0
+) -> Any:
     """A trace-level cost figure: the rolled-up total, else summed from the breakdown.
 
-    Ends at zero rather than NULL because cost genuinely has no further fallback -- it
-    cannot be derived from span attributes the way tokens can.
+    ``default`` is where a trace neither figure knows about lands. Zero suits a rollup,
+    which sums many traces and wants a number for each. ``None`` suits ordering a list of
+    single traces, where an unpriced one should read as unknown and sink under
+    ``nullslast`` rather than claim to have cost nothing -- which is also what the list
+    response shows for it, a dash rather than a zero.
     """
-    return func.coalesce(
+    fallbacks = [
         enriched_data[EnrichedDataKeys.COSTS][rollup_key].as_float(),
         _breakdown_sum(enriched_data, lambda entry: entry[breakdown_key].as_float()),
-        0.0,
+    ]
+    if default is not None:
+        fallbacks.append(default)
+    return func.coalesce(*fallbacks)
+
+
+def trace_first_model_expr(enriched_data) -> Any:
+    """One trace's alphabetically first priced model, NULL when it has none.
+
+    Read from ``costs.breakdown`` rather than ``costs.models_used``, because the
+    breakdown has been there since the first version of enrichment while ``models_used``
+    arrived later -- and one is derived from the other, so they never disagree.
+
+    Ordering a list by "model" has to pick one for a trace that used several; first
+    alphabetically is the one the grid cell already shows before its "+N".
+    """
+    entries = func.jsonb_array_elements(
+        enriched_data[EnrichedDataKeys.COSTS][EnrichedDataKeys.BREAKDOWN]
+    ).table_valued(column("value", JSONB), name="model_entry")
+
+    return (
+        select(func.min(entries.c.value[EnrichedDataKeys.MODEL_NAME].as_string()))
+        .select_from(entries)
+        .scalar_subquery()
     )
 
 
@@ -290,4 +318,5 @@ __all__ = [
     "per_trace_usage_subquery",
     "span_token_expr",
     "span_total_tokens_expr",
+    "trace_first_model_expr",
 ]

@@ -29,6 +29,8 @@ import {
 } from '@/utils/trace-utils';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
+import ModelLabel from '@/components/common/ModelLabel';
+import UsageCell from '@/components/common/UsageCell';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
@@ -38,6 +40,18 @@ import {
 } from './trace-filter-params';
 
 const PILL_TABS = TEST_TYPE_PILL_TABS;
+
+/**
+ * Hidden until the user asks for them. The four split figures are for reconciling a
+ * number, not for scanning a list, and turning them all on makes the grid unreadable --
+ * the same default the test runs grid uses, so the two behave alike.
+ */
+const USAGE_COLUMNS_HIDDEN_BY_DEFAULT = {
+  total_input_tokens: false,
+  total_output_tokens: false,
+  total_input_cost_usd: false,
+  total_output_cost_usd: false,
+} as const;
 
 interface TracesToolbarState {
   searchQuery: string;
@@ -313,17 +327,16 @@ export default function TracesTable({
         minWidth: 70,
         align: 'right',
         renderCell: params => (
-          <Typography
-            variant="body2"
+          <UsageCell
+            value={params.value}
+            format={formatTokenCount}
             // Native title: the split is already on the row, and the drawer shows
             // the same breakdown on its token chip.
             title={tokenSplitLabel(
               params.row.total_input_tokens,
               params.row.total_output_tokens
             )}
-          >
-            {params.value ? formatTokenCount(params.value as number) : '\u2014'}
-          </Typography>
+          />
         ),
       },
       {
@@ -333,10 +346,58 @@ export default function TracesTable({
         minWidth: 70,
         align: 'right',
         renderCell: params => (
-          <Typography variant="body2">
-            {params.value ? formatCost(params.value as number) : '\u2014'}
-          </Typography>
+          <UsageCell value={params.value} format={formatCost} />
         ),
+      },
+      {
+        field: 'total_input_tokens',
+        headerName: 'Input tokens',
+        flex: 1,
+        minWidth: 90,
+        align: 'right',
+        renderCell: params => (
+          <UsageCell value={params.value} format={formatTokenCount} />
+        ),
+      },
+      {
+        field: 'total_output_tokens',
+        headerName: 'Output tokens',
+        flex: 1,
+        minWidth: 90,
+        align: 'right',
+        renderCell: params => (
+          <UsageCell value={params.value} format={formatTokenCount} />
+        ),
+      },
+      {
+        field: 'total_input_cost_usd',
+        headerName: 'Input cost',
+        flex: 1,
+        minWidth: 90,
+        align: 'right',
+        renderCell: params => (
+          <UsageCell value={params.value} format={formatCost} />
+        ),
+      },
+      {
+        field: 'total_output_cost_usd',
+        headerName: 'Output cost',
+        flex: 1,
+        minWidth: 90,
+        align: 'right',
+        renderCell: params => (
+          <UsageCell value={params.value} format={formatCost} />
+        ),
+      },
+      {
+        field: 'models',
+        headerName: 'Model',
+        flex: 1.6,
+        minWidth: 120,
+        renderCell: params => {
+          const row = params.row as TraceSummary;
+          return <ModelLabel models={row.models} providers={row.providers} />;
+        },
       },
       {
         field: 'trace_metrics_status',
@@ -466,6 +527,11 @@ export default function TracesTable({
         )}
         persistState
         storageKey="traces-grid-v2"
+        initialState={{
+          columns: {
+            columnVisibilityModel: { ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT },
+          },
+        }}
         sx={{
           '& .MuiDataGrid-row': {
             cursor: 'pointer',

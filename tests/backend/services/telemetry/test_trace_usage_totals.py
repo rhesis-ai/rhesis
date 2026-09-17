@@ -8,7 +8,11 @@ backfill or a re-enrichment pass.
 
 import pytest
 
-from rhesis.backend.app.services.telemetry.token_totals import TraceUsage, trace_usage_totals
+from rhesis.backend.app.services.telemetry.token_totals import (
+    TraceUsage,
+    trace_summary_usage,
+    trace_usage_totals,
+)
 
 
 def breakdown_entry(span_id, model, input_tokens, output_tokens, in_cost, out_cost, provider=None):
@@ -107,15 +111,20 @@ class TestLegacyBlob:
         )
 
     def test_derives_models_from_the_breakdown(self):
+        """Ordered by model name, not by where they appear in the breakdown.
+
+        The list orders by the alphabetically first model, so this is what keeps the
+        cell and the sort naming the same one. See TestModelsPairWithTheirOwnProviders.
+        """
         usage = trace_usage_totals(legacy_blob())
 
-        assert usage.models == ["gpt-4", "gemini-2.0-flash"]
+        assert usage.models == ["gemini-2.0-flash", "gpt-4"]
 
     def test_derives_providers_from_the_model_names(self):
-        """No entry carries a provider, so each is placed from its model."""
+        """No entry carries a provider, so each is placed from its own model."""
         usage = trace_usage_totals(legacy_blob())
 
-        assert usage.providers == ["openai", "gemini"]
+        assert usage.providers == ["gemini", "openai"]
 
     def test_an_unplaceable_model_is_unknown_not_missing(self):
         blob = legacy_blob()
@@ -199,3 +208,120 @@ class TestMixedPricing:
         assert usage.models == ["gpt-4", "self-hosted-7b"]
         assert usage.providers == ["openai", "unknown"]
         assert usage.total_cost_usd == pytest.approx(0.023)
+
+
+@pytest.mark.unit
+class TestModelsPairWithTheirOwnProviders:
+    """models[0] and providers[0] must describe one model, and match the sort key.
+
+    The grid renders them as "providers[0]/models[0]", and the list orders by the
+    alphabetically first model. Derive the two lists independently and both break: the
+    label names a provider that served a different model, and the row sits where one
+    model belongs while its cell reads another.
+    """
+
+    def blob(self, *pairs):
+        return {
+            "costs": {
+                "total_cost_usd": 0.03,
+                "breakdown": [
+                    breakdown_entry(f"s{i}", model, 10, 5, 0.01, 0.005, provider)
+                    for i, (model, provider) in enumerate(pairs)
+                ],
+            }
+        }
+
+    def test_models_come_back_alphabetically(self):
+        """Which is what trace_first_model_expr orders by in SQL."""
+        usage = trace_usage_totals(self.blob(("gpt-4", "openai"), ("alpha", "gemini")))
+
+        assert usage.models == ["alpha", "gpt-4"]
+
+    def test_the_first_provider_serves_the_first_model(self):
+        usage = trace_usage_totals(self.blob(("gpt-4", "openai"), ("alpha", "gemini")))
+
+        assert usage.providers[0] == "gemini"
+
+    def test_a_provider_that_sorts_the_other_way_still_pairs(self):
+        """alpha is on openai, beta on gemini: sorting each list alone reverses them."""
+        usage = trace_usage_totals(self.blob(("alpha", "openai"), ("beta", "gemini")))
+
+        assert usage.models[0] == "alpha"
+        assert usage.providers[0] == "openai"
+
+    def test_providers_are_still_deduped_for_counting(self):
+        usage = trace_usage_totals(
+            self.blob(("alpha", "openai"), ("beta", "openai"), ("gamma", "gemini"))
+        )
+
+        assert usage.models == ["alpha", "beta", "gamma"]
+        assert usage.providers == ["openai", "gemini"]
+
+
+@pytest.mark.unit
+class TestZeroCostIsNotUnknown:
+    """A model priced at zero costs a knowable nothing; only an unpriced trace is unknown."""
+
+    def test_a_free_model_reports_its_zero(self):
+        blob = {
+            "costs": {
+                "total_cost_usd": 0.0,
+                "breakdown": [breakdown_entry("a", "free-tier", 100, 50, 0.0, 0.0, "gemini")],
+            }
+        }
+
+        row = trace_summary_usage(blob, 0)
+
+        assert row["total_cost_usd"] == 0.0
+        assert row["total_input_cost_usd"] == 0.0
+        assert row["models"] == ["free-tier"]
+
+    def test_an_unpriced_trace_still_reports_nothing(self):
+        row = trace_summary_usage(None, llm_tokens_fallback=420)
+
+        assert row["total_cost_usd"] is None
+        assert row["total_input_cost_usd"] is None
+        assert row["models"] == []
+
+    def test_tokens_survive_when_cost_is_unknown(self):
+        """Tokens have a pre-enrichment fallback; hiding them with cost would lose it."""
+        row = trace_summary_usage(None, llm_tokens_fallback=420)
+
+        assert row["total_tokens"] == 420
+
+
+@pytest.mark.unit
+class TestOneModelServedByTwoProviders:
+    """The same model name can arrive from two providers in one trace.
+
+    gpt-4o through both openai and azure, say, or a run that failed over. Keying the
+    pairs on the model alone keeps whichever provider was seen first and drops the other,
+    which would quietly narrow any filter built on the provider list.
+    """
+
+    def blob(self, *pairs):
+        return {
+            "costs": {
+                "total_cost_usd": 0.03,
+                "breakdown": [
+                    breakdown_entry(f"s{i}", model, 10, 5, 0.01, 0.005, provider)
+                    for i, (model, provider) in enumerate(pairs)
+                ],
+            }
+        }
+
+    def test_keeps_both_providers(self):
+        usage = trace_usage_totals(self.blob(("gpt-4o", "openai"), ("gpt-4o", "azure")))
+
+        assert usage.providers == ["azure", "openai"]
+
+    def test_still_lists_the_model_once(self):
+        usage = trace_usage_totals(self.blob(("gpt-4o", "openai"), ("gpt-4o", "azure")))
+
+        assert usage.models == ["gpt-4o"]
+
+    def test_the_label_still_names_a_provider_that_served_it(self):
+        usage = trace_usage_totals(self.blob(("gpt-4o", "openai"), ("gpt-4o", "azure")))
+
+        assert usage.providers[0] in {"openai", "azure"}
+        assert usage.models[0] == "gpt-4o"

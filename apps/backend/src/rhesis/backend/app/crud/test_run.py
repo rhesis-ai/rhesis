@@ -697,20 +697,22 @@ def _attach_models_per_run(db: Session, base, stats: Dict[str, Dict[str, Any]]) 
     provider is finished in Python because placing a model that reported none is a
     LiteLLM lookup.
     """
-    models_by_run: Dict[str, set] = {}
-    providers_by_run: Dict[str, set] = {}
+    # Kept as (model, provider) pairs rather than two sets. Deriving the lists separately
+    # pairs the alphabetically first model with the alphabetically first provider, which
+    # are routinely different rows; keying on the model alone drops a provider when one
+    # model is served by two. See services/telemetry/token_totals.model_provider_pairs.
+    pairs_by_run: Dict[str, set] = {}
 
     for row in models_used_rows(db, base, extra_columns=(base.c.test_run_id,)):
         run_id = str(row.test_run_id)
-        models_by_run.setdefault(run_id, set()).add(row.model_name)
-        providers_by_run.setdefault(run_id, set()).add(
-            resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
-        )
+        provider = resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
+        pairs_by_run.setdefault(run_id, set()).add((row.model_name, provider))
 
-    for run_id, names in models_by_run.items():
+    for run_id, pairs in pairs_by_run.items():
+        ordered = sorted(pairs)
         bucket = stats.setdefault(run_id, empty_usage())
-        bucket["models"] = sorted(names)
-        bucket["providers"] = sorted(providers_by_run.get(run_id, set()))
+        bucket["models"] = list(dict.fromkeys(model for model, _ in ordered))
+        bucket["providers"] = list(dict.fromkeys(provider for _, provider in ordered))
 
 
 def _run_trace_base(db: Session, organization_id: Optional[str], run_ids=None):
