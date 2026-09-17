@@ -21,12 +21,21 @@ from rhesis.backend.app.constants import (
     EnrichedDataKeys,
     TestExecutionContext,
 )
+from rhesis.backend.app.crud.usage_sql import (
+    coalesced_input_tokens,
+    coalesced_output_tokens,
+    coalesced_tokens,
+    models_used_rows,
+    per_trace_usage_subquery,
+    span_total_tokens_expr,
+)
 from rhesis.backend.app.schemas.telemetry import (
     OTELSpanCreate,
     StatusCode,
     TraceSource,
     TraceType,
 )
+from rhesis.backend.app.services.telemetry.providers import resolve_provider
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
@@ -44,25 +53,6 @@ def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]
         raise HTTPException(
             status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
         )
-
-
-def span_total_tokens_expr(attributes):
-    """Per-span token total in SQL, matching ``_span_token_counts`` in enrichment/core.py.
-
-    Falls back to ``input + output`` when no total was reported, and treats a reported
-    zero as missing when either side is non-zero. That combination is contradictory and
-    only reachable through hand-set OTLP attributes or ``create_llm_attributes`` with a
-    single side, never through a shipped integration; trusting the zero would undercount.
-
-    Each side is coalesced separately because ``NULL + 100`` is ``NULL`` in SQL, which
-    would otherwise drop a span that reported only one of the two.
-    """
-    return func.coalesce(
-        func.nullif(attributes[AISpanAttributes.TOKENS_TOTAL].as_float(), 0.0),
-        func.coalesce(attributes[AISpanAttributes.TOKENS_INPUT].as_float(), 0.0)
-        + func.coalesce(attributes[AISpanAttributes.TOKENS_OUTPUT].as_float(), 0.0),
-        0.0,
-    )
 
 
 # Grid fields the traces list can sort by, mapped to how each is ordered in SQL.
@@ -1024,56 +1014,17 @@ def get_trace_metrics_aggregated(
 
     base = db.query(T).filter(*filters).subquery()
 
-    # Tokens and costs aggregate per *trace*, not per span row.
-    #
-    # enriched_data is a trace-level blob that mark_trace_processed writes onto every
-    # span of the trace, so summing it across span rows multiplies the real figure by
-    # the span count. Collapse to one row per trace first: MAX is exact for the
-    # enriched columns precisely because every row carries the same value.
-    #
-    # raw_tokens is the pre-enrichment fallback, summed over llm.invoke spans only --
-    # the same filter enrichment applies, so an unenriched trace reports the number it
-    # will keep once enrichment lands. Cost has no fallback; it cannot be derived from
-    # span attributes.
-    per_trace = (
-        db.query(
-            base.c.trace_id.label("trace_id"),
-            func.max(
-                base.c.enriched_data[EnrichedDataKeys.COSTS][
-                    EnrichedDataKeys.TOTAL_TOKENS
-                ].as_float()
-            ).label("enriched_tokens"),
-            func.max(
-                base.c.enriched_data[EnrichedDataKeys.COSTS][
-                    EnrichedDataKeys.TOTAL_COST_USD
-                ].as_float()
-            ).label("cost_usd"),
-            func.coalesce(
-                func.sum(
-                    case(
-                        (
-                            base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string()
-                            == AISpanAttributes.OPERATION_LLM_INVOKE,
-                            span_total_tokens_expr(base.c.attributes),
-                        ),
-                        else_=0,
-                    )
-                ),
-                0,
-            ).label("raw_tokens"),
-        )
-        .group_by(base.c.trace_id)
-        .subquery()
-    )
+    # Tokens and costs aggregate per *trace*, not per span row -- see
+    # crud/usage_sql.py for why the collapse is needed and how it is built.
+    per_trace = per_trace_usage_subquery(db, base)
 
     token_cost_agg = db.query(
-        func.coalesce(
-            func.sum(
-                func.coalesce(per_trace.c.enriched_tokens, per_trace.c.raw_tokens, 0),
-            ),
-            0,
-        ).label("total_tokens"),
+        func.coalesce(func.sum(coalesced_tokens(per_trace)), 0).label("total_tokens"),
+        func.coalesce(func.sum(coalesced_input_tokens(per_trace)), 0).label("total_input_tokens"),
+        func.coalesce(func.sum(coalesced_output_tokens(per_trace)), 0).label("total_output_tokens"),
         func.coalesce(func.sum(per_trace.c.cost_usd), 0).label("total_cost_usd"),
+        func.coalesce(func.sum(per_trace.c.input_cost_usd), 0).label("total_input_cost_usd"),
+        func.coalesce(func.sum(per_trace.c.output_cost_usd), 0).label("total_output_cost_usd"),
     ).one()
 
     agg = db.query(
@@ -1109,11 +1060,30 @@ def get_trace_metrics_aggregated(
         .all()
     )
 
+    # The provider is finished in Python, not SQL: a span that stamped none needs the
+    # model-name lookup, which is a LiteLLM call. Sorted because a UNION has no defined
+    # order, and an API that reshuffles its own list between identical calls makes the
+    # UI jump and the tests flaky.
+    model_rows = models_used_rows(db, base)
+    models_used = sorted({row.model_name for row in model_rows})
+    providers_used = sorted(
+        {
+            resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
+            for row in model_rows
+        }
+    )
+
     return {
         "total_traces": agg.total_traces or 0,
         "total_spans": total_spans,
         "total_tokens": int(token_cost_agg.total_tokens or 0),
+        "total_input_tokens": int(token_cost_agg.total_input_tokens or 0),
+        "total_output_tokens": int(token_cost_agg.total_output_tokens or 0),
         "total_cost_usd": round(float(token_cost_agg.total_cost_usd or 0), 6),
+        "total_input_cost_usd": round(float(token_cost_agg.total_input_cost_usd or 0), 6),
+        "total_output_cost_usd": round(float(token_cost_agg.total_output_cost_usd or 0), 6),
+        "models_used": models_used,
+        "providers_used": providers_used,
         "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
         "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
         "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),

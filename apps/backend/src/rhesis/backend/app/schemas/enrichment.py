@@ -4,12 +4,20 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Stands in for a provider that was neither reported on the span nor derivable from the
+# model name, so an unattributed call is still counted rather than dropped.
+UNKNOWN_PROVIDER = "unknown"
+
 
 class CostBreakdown(BaseModel):
     """Cost breakdown for a single span."""
 
     span_id: str = Field(..., description="Span ID")
     model_name: str = Field(..., description="Model name used")
+    provider: str = Field(
+        default=UNKNOWN_PROVIDER,
+        description="LLM provider that served the call (openai, anthropic, gemini, ...)",
+    )
     input_tokens: int = Field(..., ge=0, description="Number of input tokens")
     output_tokens: int = Field(..., ge=0, description="Number of output tokens")
     total_tokens: int = Field(
@@ -31,11 +39,25 @@ class TokenCosts(BaseModel):
 
     total_cost_usd: float = Field(..., ge=0, description="Total cost across all spans in USD")
     total_cost_eur: float = Field(..., ge=0, description="Total cost across all spans in EUR")
+    total_input_cost_usd: float = Field(
+        0.0, ge=0, description="Cost of input tokens across all llm.invoke spans, in USD"
+    )
+    total_output_cost_usd: float = Field(
+        0.0, ge=0, description="Cost of output tokens across all llm.invoke spans, in USD"
+    )
     total_input_tokens: int = Field(0, ge=0, description="Input tokens across all llm.invoke spans")
     total_output_tokens: int = Field(
         0, ge=0, description="Output tokens across all llm.invoke spans"
     )
     total_tokens: int = Field(0, ge=0, description="Total tokens across all llm.invoke spans")
+    models_used: List[str] = Field(
+        default_factory=list,
+        description="Distinct models priced for this trace. Scoped to llm.invoke spans, so it is "
+        "narrower than EnrichedTraceData.models_used, which counts every model the trace touched.",
+    )
+    providers_used: List[str] = Field(
+        default_factory=list, description="Distinct providers behind those models"
+    )
     breakdown: List[CostBreakdown] = Field(..., description="Per-span cost breakdown")
 
 
@@ -86,12 +108,21 @@ class EnrichedTraceData(BaseModel):
                 "costs": {
                     "total_cost_usd": 0.006,
                     "total_cost_eur": 0.0055,
+                    "total_input_cost_usd": 0.003,
+                    "total_output_cost_usd": 0.003,
+                    "total_input_tokens": 100,
+                    "total_output_tokens": 50,
+                    "total_tokens": 150,
+                    "models_used": ["gpt-4"],
+                    "providers_used": ["openai"],
                     "breakdown": [
                         {
                             "span_id": "abc123",
                             "model_name": "gpt-4",
+                            "provider": "openai",
                             "input_tokens": 100,
                             "output_tokens": 50,
+                            "total_tokens": 150,
                             "input_cost_usd": 0.003,
                             "output_cost_usd": 0.003,
                             "total_cost_usd": 0.006,

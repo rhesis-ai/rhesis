@@ -1,0 +1,71 @@
+# Token Costs
+
+Rhesis prices a trace by multiplying the tokens each LLM call reported by the published per-token
+rate for that model, in USD.
+
+Pricing runs as part of enrichment, which is dispatched asynchronously after a trace is ingested.
+Tokens therefore appear on a trace immediately while cost appears a moment later, and a trace
+opened the instant it arrives shows tokens with no cost yet.
+
+## Where the rates come from
+
+Rhesis does not keep its own price list. Rates come from [LiteLLM's model
+database](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), which
+ships with the backend and covers the commercial providers and their published per-token prices for
+input and output separately.
+
+A model that database does not know is priced at zero. That happens for a self-hosted or private
+deployment, and for a model newer than the LiteLLM version the backend was built against.
+
+## What gets priced
+
+Only spans whose `ai.operation.type` attribute is `llm.invoke` are priced. Two kinds of span
+carry token counts but are deliberately left out:
+
+- **Agent-run spans.** Frameworks such as Pydantic AI report aggregated usage on the agent-run span
+  *and* per-call usage on each child model call. Counting both would roughly double the trace.
+- **Embedding spans.** They carry `ai.llm.tokens.*` attributes but their operation type is
+  `embedding.create`. Pricing them would put the token total and the cost total on different
+  footings.
+
+A trace with no `llm.invoke` spans has no cost at all, not a cost of zero.
+
+## When a figure is missing
+
+Rhesis distinguishes "not known" from "nothing spent". A number it does not have is left blank
+rather than shown as zero, so an empty cost never reads as a free run.
+
+| What you see | What it means |
+| --- | --- |
+| No cost, tokens present | Enrichment has not priced the trace yet, or no model in it could be priced |
+| Cost present, no input/output split | The trace was priced before Rhesis recorded the two halves separately |
+| Provider shown as `unknown` | The span reported no provider and its model name could not be placed |
+
+A span that cannot be priced still contributes its tokens. Dropping it would make a trace that
+mixes priced and unpriced models undercount what it actually used.
+
+## Providers
+
+The provider is read from the `ai.model.provider` span attribute, which every Rhesis integration
+sets. A span that does not set one, such as raw OTLP, has its provider derived from the model name
+instead. Where neither works, the provider is recorded as `unknown`.
+
+Provider names are normalised so one provider appears once. LiteLLM names providers by how it routes
+to them, which splits some into two: a bare `gemini-2.0-flash` is `vertex_ai` to LiteLLM while the
+Google ADK integration reports `gemini` for the same call. Rhesis folds those onto a single name.
+
+## Currencies
+
+USD is the stored figure. Costs shown in another currency are converted from it at the current rate,
+fetched daily from [Frankfurter](https://frankfurter.dev). Set `USD_TO_EUR_RATE` to pin a fallback
+rate for an instance with no outbound network access.
+
+## Accuracy
+
+Two things to know when reconciling a Rhesis figure against a provider invoice.
+
+Per-span costs are rounded to six decimal places before being summed, so input cost plus output cost
+can differ from the total by a fraction of a cent on a trace with many spans.
+
+Rhesis prices what the instrumented call reported. Discounts, committed-use pricing, batch rates and
+cached-token rates are not applied, so a figure here is list price for the tokens observed.

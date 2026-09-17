@@ -286,7 +286,21 @@ class TraceMetricsResponse(BaseModel):
     total_traces: int
     total_spans: int
     total_tokens: int
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
     total_cost_usd: float
+    total_input_cost_usd: float = 0.0
+    total_output_cost_usd: float = 0.0
+    models_used: List[str] = Field(
+        default_factory=list,
+        description="Distinct models invoked in scope, read off span attributes so they "
+        "are known before enrichment prices the traces",
+    )
+    providers_used: List[str] = Field(
+        default_factory=list,
+        description="Distinct providers behind those models. A span that reported none "
+        "falls back to what its model implies, then to 'unknown'",
+    )
     error_rate: float
     avg_duration_ms: float
     p50_duration_ms: float
