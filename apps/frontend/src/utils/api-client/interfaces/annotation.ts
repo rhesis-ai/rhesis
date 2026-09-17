@@ -148,6 +148,13 @@ export interface AnnotationUpdate {
   attributes?: Record<string, unknown> | null;
 }
 
+export interface AnnotationFacets {
+  endpoints: { id: string; name: string }[];
+  metrics: string[];
+  annotators: { id: string; name: string }[];
+  requirements: { id: string; name: string }[];
+}
+
 export interface AnnotationsQueryParams {
   skip?: number;
   limit?: number;
@@ -159,5 +166,12 @@ export interface AnnotationsQueryParams {
   target_type?: AnnotationTargetType;
   entity_type?: AnnotationEntityType;
   test_run_id?: string;
+  test_set_id?: string;
+  endpoint_id?: string;
+  metric?: string;
+  annotator_id?: string;
+  requirement_id?: string;
+  date_from?: string;
+  date_to?: string;
   $filter?: string;
 }

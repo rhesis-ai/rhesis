@@ -19,6 +19,13 @@ const ANNOTATIONS_FILTERS = {
   entityType: { kind: 'raw' },
   rating: { kind: 'raw' },
   targetType: { kind: 'raw' },
+  testSetId: { kind: 'raw' },
+  endpointId: { kind: 'raw' },
+  metric: { kind: 'raw' },
+  annotatorId: { kind: 'raw' },
+  requirementId: { kind: 'raw' },
+  dateFrom: { kind: 'raw' },
+  dateTo: { kind: 'raw' },
 } as const;
 
 export const annotationsList = defineList<
@@ -29,7 +36,20 @@ export const annotationsList = defineList<
   resource: 'annotations',
   capability: Capability.Annotation.READ,
   defaultPageSize: 25,
+  // Newest judgement first: the hub is a worklist, not an archive.
+  defaultSort: { by: 'updated_at', order: 'desc' },
   filters: ANNOTATIONS_FILTERS,
+  delete: {
+    // No bulk endpoint on annotations, so rows go one at a time.
+    one: (factory: ApiClientFactory, id: string) =>
+      factory.getAnnotationsClient().deleteAnnotation(id),
+    capability: Capability.Annotation.DELETE,
+    // Rows carry permitted_actions, and only the author may delete.
+    capabilityMode: 'row',
+    labelSingular: 'annotation',
+    labelPlural: 'annotations',
+    notSelectableReason: 'Only the author can delete this annotation',
+  },
   extraParams: f => ({
     ...(f.search.trim() ? { search: f.search.trim() } : {}),
     ...(f.status === 'resolved' ? { resolved: true } : {}),
@@ -37,6 +57,13 @@ export const annotationsList = defineList<
     ...(f.entityType ? { entity_type: f.entityType } : {}),
     ...(f.rating ? { rating: f.rating } : {}),
     ...(f.targetType ? { target_type: f.targetType } : {}),
+    ...(f.testSetId ? { test_set_id: f.testSetId } : {}),
+    ...(f.endpointId ? { endpoint_id: f.endpointId } : {}),
+    ...(f.metric ? { metric: f.metric } : {}),
+    ...(f.annotatorId ? { annotator_id: f.annotatorId } : {}),
+    ...(f.requirementId ? { requirement_id: f.requirementId } : {}),
+    ...(f.dateFrom ? { date_from: f.dateFrom } : {}),
+    ...(f.dateTo ? { date_to: f.dateTo } : {}),
   }),
   list: (factory: ApiClientFactory, params) =>
     factory

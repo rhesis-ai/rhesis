@@ -43,6 +43,7 @@ class Endpoints(Enum):
     EXPERIMENTS = "experiments"
     PREFLIGHT_CHECKS = "preflight-checks"
     INSIGHTS = "insights"
+    ANNOTATIONS = "annotations"
 
 
 class Methods(Enum):

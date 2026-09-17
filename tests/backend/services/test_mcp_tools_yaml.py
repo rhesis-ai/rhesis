@@ -199,6 +199,104 @@ class TestListAnnotationsTool:
 
 
 @pytest.mark.unit
+class TestAnnotationWriteTools:
+    """Reading annotations is not enough; the architect can record one too.
+
+    These are the only annotation tools that write, so the confirmation gate
+    and the target shape are what matter here.
+    """
+
+    def _cfg(self, name):
+        return {tc["name"]: tc for tc in load_tool_configs()}[name]
+
+    def _built(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, operations = build_tools_and_operations(app)
+        return {t.name: t for t in tools}, operations
+
+    @pytest.mark.parametrize(
+        "name", ["get_annotation", "create_annotation", "update_annotation"]
+    )
+    def test_the_tool_resolves_against_a_real_route(self, name):
+        """A path that matches no OpenAPI route makes the tool vanish silently."""
+        by_name, _ = self._built()
+        assert name in by_name, f"{name} absent — path likely matches no route"
+
+    @pytest.mark.parametrize("name", ["create_annotation", "update_annotation"])
+    def test_writes_are_confirmation_gated(self, name):
+        assert self._cfg(name).get("requires_confirmation") is True
+
+    @pytest.mark.parametrize("name", ["create_annotation", "update_annotation"])
+    def test_writes_are_not_hinted_read_only(self, name):
+        by_name, _ = self._built()
+        assert by_name[name].annotations.readOnlyHint is not True
+
+    def test_get_annotation_is_read_only(self):
+        cfg = self._cfg("get_annotation")
+        assert cfg["method"].upper() == "GET"
+        assert "requires_confirmation" not in cfg
+
+    def test_create_exposes_the_parent_and_the_verdict(self):
+        by_name, operations = self._built()
+        props = by_name["create_annotation"].inputSchema["properties"]
+        for param in ("entity_type", "entity_id", "status_id", "comments", "target"):
+            assert param in props, f"{param} missing from create_annotation schema"
+        assert operations["create_annotation"]["method"] == "POST"
+
+    def test_create_warns_off_the_flat_target_shape(self):
+        """Responses carry target flat; sending that on a write is ignored.
+
+        A model copying `target_type` from a list_annotations row into a create
+        call would land an annotation on the whole entity instead of the metric
+        it named, with no error, so the parameter doc has to say so.
+        """
+        target_doc = self._cfg("create_annotation")["parameters"]["target"]["description"]
+        assert "target_type" in target_doc
+        assert "metric" in target_doc and "turn" in target_doc
+
+    def test_create_says_whose_judgement_it_is(self):
+        """An annotation is attributed to a person, not to the model."""
+        description = self._cfg("create_annotation")["description"]
+        assert "own initiative" in description or "own opinion" in description
+
+    def test_create_says_it_overrides_the_parent(self):
+        description = self._cfg("create_annotation")["description"]
+        assert "OVERRIDES" in description or "overrides" in description
+
+    def test_update_documents_the_author_only_rule(self):
+        description = self._cfg("update_annotation")["description"]
+        assert "author" in description
+
+    def test_the_odata_filter_override_is_keyed_without_the_dollar(self):
+        """Overrides are matched on the sanitized property name.
+
+        Keyed as `$filter`, the description is dropped AND a second bogus
+        `$filter` property appears next to the real `filter` one, so the tool
+        advertises two filters and documents neither.
+        """
+        params = self._cfg("list_annotations")["parameters"]
+        assert "filter" in params
+        assert "$filter" not in params
+
+        by_name, _ = self._built()
+        props = by_name["list_annotations"].inputSchema["properties"]
+        assert "$filter" not in props
+        assert "named parameters" in props["filter"]["description"]
+
+
+@pytest.mark.unit
+class TestGetTestResultDocumentsAnnotations:
+    """A result carries its own annotation projections; the tool should say so."""
+
+    def test_annotation_fields_are_documented(self):
+        cfg = {tc["name"]: tc for tc in load_tool_configs()}["get_test_result"]
+        for field in ("last_annotation", "matches_annotation", "annotation_summary"):
+            assert field in cfg["description"], f"{field} undocumented"
+
+
+@pytest.mark.unit
 class TestCreateMetricDocumentsDescriptiveFields:
     """A metric the architect creates must be rich, not just scoreable.
 

@@ -6,6 +6,7 @@ JSONB scan the test-run grid used to do.
 """
 
 import uuid
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from sqlalchemy import distinct, exists, func, or_, select
@@ -60,6 +61,13 @@ def _annotations_query(
     target_type: str | None = None,
     entity_type: str | None = None,
     test_run_id: uuid.UUID | None = None,
+    test_set_id: uuid.UUID | None = None,
+    endpoint_id: uuid.UUID | None = None,
+    metric: str | None = None,
+    annotator_id: uuid.UUID | None = None,
+    requirement_id: uuid.UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     filter: str | None = None,
 ) -> QueryBuilder:
     """Build the filtered annotation query behind both the list page and its count."""
@@ -81,6 +89,22 @@ def _annotations_query(
             q = q.filter(models.Annotation.entity_type == entity_type)
         if test_run_id:
             q = q.filter(_in_test_run(test_run_id))
+        if test_set_id:
+            q = q.filter(_in_test_set(test_set_id))
+        if endpoint_id:
+            q = q.filter(_in_endpoint(endpoint_id))
+        if metric:
+            q = q.filter(_on_metric(metric))
+        if annotator_id:
+            q = q.filter(models.Annotation.user_id == annotator_id)
+        if requirement_id:
+            q = q.filter(_in_requirement(requirement_id))
+        if date_from:
+            start = datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc)
+            q = q.filter(models.Annotation.updated_at >= start)
+        if date_to:
+            end = datetime.combine(date_to, datetime.min.time(), tzinfo=timezone.utc)
+            q = q.filter(models.Annotation.updated_at < end + timedelta(days=1))
         return q
 
     return (
@@ -110,6 +134,72 @@ def _in_test_run(test_run_id: uuid.UUID):
         )
     )
     return or_(on_result, on_trace)
+
+
+def _in_test_set(test_set_id: uuid.UUID):
+    """Annotations whose parent ran under a test configuration tied to the given test set."""
+    on_result = exists(
+        select(models.TestResult.id).where(
+            models.TestResult.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.TestResult.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.test_set_id == test_set_id,
+        )
+    )
+    on_trace = exists(
+        select(models.Trace.id).where(
+            models.Trace.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TRACE.value,
+            models.Trace.test_run_id == models.TestRun.id,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.test_set_id == test_set_id,
+        )
+    )
+    return or_(on_result, on_trace)
+
+
+def _in_endpoint(endpoint_id: uuid.UUID):
+    """Annotations whose parent ran under a test configuration tied to the given endpoint."""
+    on_result = exists(
+        select(models.TestResult.id).where(
+            models.TestResult.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.TestResult.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.endpoint_id == endpoint_id,
+        )
+    )
+    on_trace = exists(
+        select(models.Trace.id).where(
+            models.Trace.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TRACE.value,
+            models.Trace.test_run_id == models.TestRun.id,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.endpoint_id == endpoint_id,
+        )
+    )
+    return or_(on_result, on_trace)
+
+
+def _on_metric(metric_name: str):
+    """Annotations targeting a specific metric by name (case-insensitive, strict equality)."""
+    normalized = metric_name.strip().lower()
+    if not normalized:
+        return models.Annotation.id.isnot(None)
+    return (models.Annotation.target_type == AnnotationTarget.METRIC.value) & (
+        func.lower(models.Annotation.target_reference) == normalized
+    )
+
+
+def _in_requirement(requirement_id: uuid.UUID):
+    """Annotations whose parent test result belongs to a test linked to the given requirement."""
+    return exists(
+        select(models.TestResult.id).where(
+            models.TestResult.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.TestResult.test_id == models.Test.id,
+            models.Test.requirement_id == requirement_id,
+        )
+    )
 
 
 def get_annotations(
@@ -278,3 +368,114 @@ def get_annotation_statistics_for_runs(
         stats[str(run_id)]["corrected_tests"] = count
 
     return stats
+
+
+def get_annotation_facets(
+    db: Session,
+    organization_id: str,
+) -> dict:
+    """Distinct filter values derived from existing annotations.
+
+    Returns endpoints and metric names that actually appear in the org's
+    annotations, so the filter drawer shows only relevant choices. Endpoints
+    are fetched through the test configuration join (bypassing project scope)
+    and metric names come from ``target_reference`` on metric annotations.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    # Endpoints linked to annotated entities via test_configuration.
+    # bypass_tenant_filter so the Endpoint rows (project-scoped) are visible
+    # from the cross-project annotations page. organization_id is always
+    # present in the predicate to maintain org isolation.
+    with bypass_tenant_filter():
+        # Via TestResult annotations.
+        from_results = select(
+            models.Endpoint.id.label("id"),
+            models.Endpoint.name.label("name"),
+        ).where(
+            models.TestConfiguration.endpoint_id == models.Endpoint.id,
+            models.TestResult.test_configuration_id == models.TestConfiguration.id,
+            models.Annotation.entity_id == models.TestResult.id,
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.Annotation.deleted_at.is_(None),
+            models.Annotation.organization_id == organization_id,
+            models.TestResult.deleted_at.is_(None),
+        )
+
+        # Via Trace annotations (Trace -> TestRun -> TestConfiguration).
+        from_traces = select(
+            models.Endpoint.id.label("id"),
+            models.Endpoint.name.label("name"),
+        ).where(
+            models.TestConfiguration.endpoint_id == models.Endpoint.id,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            models.Trace.test_run_id == models.TestRun.id,
+            models.Annotation.entity_id == models.Trace.id,
+            models.Annotation.entity_type == EntityType.TRACE.value,
+            models.Annotation.deleted_at.is_(None),
+            models.Annotation.organization_id == organization_id,
+        )
+
+        combined = from_results.union(from_traces).subquery()
+        endpoint_rows = (
+            db.query(combined.c.id, combined.c.name).distinct().order_by(combined.c.name).all()
+        )
+
+    # Distinct metric names from metric-targeted annotations.
+    metric_rows = (
+        db.query(distinct(models.Annotation.target_reference))
+        .filter(
+            models.Annotation.organization_id == organization_id,
+            models.Annotation.target_type == AnnotationTarget.METRIC.value,
+            models.Annotation.target_reference.isnot(None),
+            models.Annotation.deleted_at.is_(None),
+        )
+        .order_by(models.Annotation.target_reference)
+        .all()
+    )
+
+    # Distinct annotators (users who have created annotations in this org).
+    annotator_rows = (
+        db.query(
+            distinct(models.User.id).label("id"),
+            models.User.name,
+        )
+        .join(
+            models.Annotation,
+            (models.Annotation.user_id == models.User.id)
+            & (models.Annotation.deleted_at.is_(None)),
+        )
+        .filter(models.Annotation.organization_id == organization_id)
+        .order_by(models.User.name)
+        .all()
+    )
+
+    # Distinct requirements linked to annotated test results.
+    with bypass_tenant_filter():
+        requirement_rows = (
+            db.query(
+                distinct(models.Requirement.id).label("id"),
+                models.Requirement.name,
+            )
+            .join(models.Test, models.Test.requirement_id == models.Requirement.id)
+            .join(models.TestResult, models.TestResult.test_id == models.Test.id)
+            .join(
+                models.Annotation,
+                (models.Annotation.entity_id == models.TestResult.id)
+                & (models.Annotation.entity_type == EntityType.TEST_RESULT.value)
+                & (models.Annotation.deleted_at.is_(None)),
+            )
+            .filter(
+                models.Annotation.organization_id == organization_id,
+                models.TestResult.deleted_at.is_(None),
+            )
+            .order_by(models.Requirement.name)
+            .all()
+        )
+
+    return {
+        "endpoints": [{"id": str(r.id), "name": r.name} for r in endpoint_rows],
+        "metrics": [r[0] for r in metric_rows],
+        "annotators": [{"id": str(r.id), "name": r.name} for r in annotator_rows],
+        "requirements": [{"id": str(r.id), "name": r.name} for r in requirement_rows],
+    }
