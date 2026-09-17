@@ -103,10 +103,24 @@ describe('TraceMetricsSummary', () => {
     renderTiles();
 
     expect(await screen.findByText('$0.19')).toBeInTheDocument();
-    expect(screen.getByText('571,062 tokens')).toBeInTheDocument();
+    // Asserted as one string rather than piece by piece: the separators
+    // between the pieces are part of the sentence, and checking the pieces
+    // alone once let a literal "\u00b7" reach the screen.
     expect(
-      screen.getByText('412,000 input · 159,062 output')
+      screen.getByText(
+        '571,062 tokens \u00b7 412,000 input \u00b7 159,062 output'
+      )
     ).toBeInTheDocument();
+  });
+
+  it('renders separators as characters, not as escape sequences', async () => {
+    // JSX text children do not process backslash escapes, so a "\u00b7"
+    // written into one reaches the browser verbatim. Waits for a tile first:
+    // a negative assertion on an empty page passes for the wrong reason.
+    renderTiles();
+    await screen.findByText('$0.19');
+
+    expect(document.body.textContent).not.toMatch(/\\u[0-9a-f]{4}/i);
   });
 
   it('names the models rather than only counting them', async () => {
