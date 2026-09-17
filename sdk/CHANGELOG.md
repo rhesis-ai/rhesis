@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING:** Removed the Ragas metric provider. `RagasMetricBase`, `RagasAnswerAccuracy`,
+  `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness` and `RagasMetricFactory` are
+  gone, along with the `ragas` backend and the `ragas` dependency. Ragas has been unmaintained
+  since its 0.4.3 release in January 2026 and carries advisories with no upstream fix. Use the
+  DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
+  `sqlalchemy` from the SDK's dependency tree.
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

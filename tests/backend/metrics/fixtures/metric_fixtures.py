@@ -9,10 +9,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from .metric_factories import (
-    MetricConfigFactory,
-    RagasMetricConfigFactory,
-)
+from .metric_factories import MetricConfigFactory
 
 
 @pytest.fixture
@@ -41,12 +38,6 @@ def binary_metric_config() -> Dict[str, Any]:
 def rhesis_metric_with_model(test_model) -> Dict[str, Any]:
     """Fixture for metric configuration with custom model."""
     return MetricConfigFactory.with_model(model_id=str(test_model.id))
-
-
-@pytest.fixture
-def ragas_metric_config() -> Dict[str, Any]:
-    """Fixture for Ragas metric configuration."""
-    return RagasMetricConfigFactory.answer_relevancy()
 
 
 @pytest.fixture

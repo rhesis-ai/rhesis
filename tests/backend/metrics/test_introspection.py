@@ -397,13 +397,11 @@ class TestIntrospectionCompleteness:
         """Collect concrete metric classes from provider factory registries."""
         from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
         from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
-        from rhesis.sdk.metrics.providers.ragas.factory import RagasMetricFactory
 
         classes = []
         factories = {
             "rhesis": RhesisMetricFactory,
             "deepeval": DeepEvalMetricFactory,
-            "ragas": RagasMetricFactory,
         }
         for framework, factory_cls in factories.items():
             registry = getattr(factory_cls, "_metrics", {})

@@ -10,7 +10,6 @@ import React from 'react'
  * - OpenAI / Azure: Simple Icons v11 SVGs (hex fills added in-repo; newer CDN omits some slugs)
  * - Cohere, Groq, Together AI, LiteLLM logo: BerriAI/litellm UI assets (dashboard `public/assets/logos`)
  * - DeepEval: `deepeval-logo.svg` from confident-ai/deepeval (`docs/static/icons/deepeval-logo.svg`)
- * - Ragas: project docs on GitHub (see file header in repo history)
  * - Polyphemus: `polyphemus-logo-favicon-transparent.svg` from apps/frontend/public/logos
  */
 
@@ -123,12 +122,6 @@ const EVAL_ITEMS = [
     kind: 'deepeval',
   },
   {
-    name: 'Ragas',
-    href: '/docs/metrics/ragas',
-    src: '/integrations/ragas-logo.png',
-    kind: 'ragas',
-  },
-  {
     name: 'Garak',
     href: '/docs/test-sets/import-from-garak',
     src: '/integrations/nvidia.svg',
@@ -165,20 +158,6 @@ const MODEL_PROVIDERS = [
 
 function LogoBox({ item }) {
   if (item.kind === 'deepeval') {
-    return (
-      <IconWell>
-        <img
-          src={item.src}
-          alt=""
-          width={32}
-          height={32}
-          style={{ width: '32px', height: '32px', objectFit: 'contain' }}
-        />
-      </IconWell>
-    )
-  }
-
-  if (item.kind === 'ragas') {
     return (
       <IconWell>
         <img
@@ -520,8 +499,8 @@ export function EvaluationSection() {
           lineHeight: 1.55,
         }}
       >
-        Library-backed metrics (DeepEval, Ragas, Rhesis) and Garak probe imports with mapped metrics
-        in Rhesis test suites.
+        Library-backed metrics (DeepEval, Rhesis) and Garak probe imports with mapped metrics in
+        Rhesis test suites.
       </p>
       <div
         style={{
@@ -538,7 +517,7 @@ export function EvaluationSection() {
   )
 }
 
-/** Import tests (e.g. Garak) and metrics (DeepEval, Ragas, Rhesis) */
+/** Import tests (e.g. Garak) and metrics (DeepEval, Rhesis) */
 export function TestsSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
@@ -551,7 +530,7 @@ export function TestsSection() {
           lineHeight: 1.55,
         }}
       >
-        Use DeepEval and Ragas metrics in test suites, or import Garak probes as test sets.
+        Use DeepEval metrics in test suites, or import Garak probes as test sets.
       </p>
       <div
         style={{

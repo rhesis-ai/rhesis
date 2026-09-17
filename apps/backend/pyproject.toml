@@ -178,8 +178,9 @@ constraint-dependencies = [
     "transformers>=5.5.0",
     "mcp>=1.28.1",
 ]
-# garak>=0.13.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires datasets>=4.0.0.
-# The existing environment already uses datasets 4.x; this override keeps them compatible.
+# garak declares datasets<4.0, which transitively caps fsspec at <=2025.3.0 and so
+# collides with gcsfs>=2025.9.0 (fsspec==2025.10.0). The existing environment already
+# runs garak on datasets 4.x, so lift garak's cap rather than hold gcsfs back.
 override-dependencies = [
     "datasets>=4.0.0",
     # Match sdk: litellm>=1.83.10 metadata pins python-dotenv==1.0.1, openai==2.24.0; relax for deepeval/CVE fixes.

@@ -31,15 +31,6 @@ The examples below require a Rhesis API key (`RHESIS_API_KEY`); see [Installatio
 | `DeepTeamSafety` | Detects safety violations | No | No | [Docs](https://www.trydeepteam.com/docs/red-teaming-vulnerabilities-personal-safety) |
 | `DeepTeamIllegal` | Detects illegal content or requests | No | No | [Docs](https://www.trydeepteam.com/docs/red-teaming-vulnerabilities-illegal-activity) |
 
-### Ragas Metrics
-
-| Metric | Description | Requires Context | Requires Ground Truth | Reference |
-| --- | --- | --- | --- | --- |
-| `RagasContextRelevance` | Evaluates context relevance to question | Yes | No | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/nvidia_metrics/#context-relevance) |
-| `RagasAnswerAccuracy` | Measures answer accuracy against ground truth | No | Yes | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/nvidia_metrics/#answer-accuracy) |
-| `RagasFaithfulness` | Checks if answer is grounded in context | Yes | No | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/) |
-| `RagasAspectCritic` | Custom aspect-based evaluation | No | No | [Docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/general_purpose/#aspect-critic) |
-
 ### Garak Metrics
 
 <Callout type="warning">
@@ -116,28 +107,6 @@ metric = DeepEvalAnswerRelevancy(threshold=0.7)
 result = metric.evaluate(
     input="What is the capital of France?",
     output="The capital of France is Paris."
-)
-
-print(f"Score: {result.score}")
-print(f"Passed: {result.details['is_successful']}")`}
-</CodeBlock>
-
-### Using Ragas Metrics
-
-<CodeBlock filename="ragas_example.py" language="python">
-{`from rhesis.sdk.metrics import RagasFaithfulness
-
-# Initialize metric
-metric = RagasFaithfulness(threshold=0.8)
-
-# Evaluate with context
-result = metric.evaluate(
-    input="What is photosynthesis?",
-    output="Photosynthesis is the process by which plants convert light into energy.",
-    context=[
-        "Photosynthesis occurs in chloroplasts...",
-        "Plants use sunlight to produce glucose..."
-    ]
 )
 
 print(f"Score: {result.score}")

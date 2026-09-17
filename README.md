@@ -108,7 +108,7 @@ Nobody can review every case by hand. Once the first feedback is in, you can gro
 
 - **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
-- **60+ metrics** — RAGAS, DeepEval, garak, and custom LLM-as-Judge evaluators
+- **60+ metrics** — DeepEval, garak, and custom LLM-as-Judge evaluators
 - **Traces** linked to test results via OpenTelemetry
 
 Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a

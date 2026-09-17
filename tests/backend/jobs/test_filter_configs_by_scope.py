@@ -5,7 +5,7 @@ each test's turn type, so `prepare_metric_configs` is called without a scope and
 filtering has to happen at evaluation time instead.
 
 Regression: nothing filtered on the multi-turn side, so `["Single-Turn"]` metrics
-such as RagasFaithfulness ran against conversations. The multi-turn evaluator
+such as DeepEvalFaithfulness ran against conversations. The multi-turn evaluator
 passes `context=[]`, so they failed by construction, inflating the metric count
 and depressing the reported pass rate.
 """
@@ -33,7 +33,7 @@ class TestFilterConfigsByScope:
     def test_single_turn_metric_excluded_from_multi_turn(self):
         """The reported bug: Faithfulness ran in a multi-turn test."""
         configs = [
-            _Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness"),
+            _Config("Faithfulness", ["Single-Turn"], "DeepEvalFaithfulness"),
             _Config("Booking Momentum", ["Multi-Turn"], "ConversationalJudge"),
         ]
 
@@ -44,7 +44,7 @@ class TestFilterConfigsByScope:
     def test_multi_turn_metric_excluded_from_single_turn(self):
         """The mirror case, which the old _is_multi_turn_only check did cover."""
         configs = [
-            _Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness"),
+            _Config("Faithfulness", ["Single-Turn"], "DeepEvalFaithfulness"),
             _Config("Booking Momentum", ["Multi-Turn"], "ConversationalJudge"),
         ]
 
@@ -76,7 +76,7 @@ class TestFilterConfigsByScope:
         """Explicitly-out-of-scope is routine — most requirements mix scopes."""
         import logging
 
-        configs = [_Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness")]
+        configs = [_Config("Faithfulness", ["Single-Turn"], "DeepEvalFaithfulness")]
 
         with caplog.at_level(logging.DEBUG, logger="rhesis.backend.jobs.execution.evaluation"):
             filter_configs_by_scope(configs, MetricScope.MULTI_TURN, "t1")
@@ -126,8 +126,8 @@ class TestFilterConfigsByScope:
         so the run scores out of 9 (8 plus Goal Achievement) rather than 11.
         """
         configs = [
-            _Config("Answer Accuracy", ["Single-Turn"], "RagasAnswerAccuracy"),
-            _Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness"),
+            _Config("Answer Accuracy", ["Single-Turn"], "DeepEvalAnswerRelevancy"),
+            _Config("Faithfulness", ["Single-Turn"], "DeepEvalFaithfulness"),
             _Config("Booking Momentum", ["Multi-Turn"]),
             _Config("Conversation Completeness", ["Multi-Turn"]),
             _Config("Progressive Clarification", ["Multi-Turn"]),
@@ -172,7 +172,7 @@ class TestMultiTurnEvaluatorAppliesScopeFilter:
         )
 
         configs = [
-            _Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness"),
+            _Config("Faithfulness", ["Single-Turn"], "DeepEvalFaithfulness"),
             _Config("State Consistency", ["Multi-Turn"], "ConversationalJudge"),
         ]
 
@@ -199,7 +199,7 @@ class TestMultiTurnEvaluatorAppliesScopeFilter:
             _evaluate_multi_turn_metrics,
         )
 
-        configs = [_Config("Faithfulness", ["Single-Turn"], "RagasFaithfulness")]
+        configs = [_Config("Faithfulness", ["Single-Turn"], "DeepEvalFaithfulness")]
 
         evaluator = MagicMock()
         evaluator.a_evaluate = MagicMock()

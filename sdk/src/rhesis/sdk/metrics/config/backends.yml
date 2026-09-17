@@ -2,9 +2,6 @@ backends:
   deepeval:
     module: "rhesis.sdk.metrics.providers.deepeval"
     factory: "DeepEvalMetricFactory"
-  ragas:
-    module: "rhesis.sdk.metrics.providers.deepeval"
-    factory: "RagasMetricFactory"
   rhesis:
     module: "rhesis.sdk.metrics.providers.native"
     factory: "RhesisMetricFactory"

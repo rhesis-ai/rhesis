@@ -40,7 +40,7 @@ export class MetricsPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
   }
 
-  /** Click a backend filter button (e.g. "Custom", "DeepEval", "Ragas"). */
+  /** Click a backend filter button (e.g. "Custom", "DeepEval", "Garak"). */
   async clickBackendFilter(name: string | RegExp) {
     const btn = this.page.getByRole('button', { name }).first();
     const visible = await btn.isVisible({ timeout: 5_000 }).catch(() => false);

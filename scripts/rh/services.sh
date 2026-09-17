@@ -214,7 +214,12 @@ start_worker() {
     trap 'cleanup_worker_stack; exit 143' TERM
 
     echo -e "${GREEN}Starting Flower (Celery monitor)...${NC}"
-    uv run celery -A rhesis.backend.worker.app flower --port="$DEV_FLOWER_PORT" &
+    # RHESIS_PROCESS_ROLE becomes the Postgres application_name, so
+    # pg_stat_activity says which process holds which connection. Without it
+    # both of these connect as the bare default and a leaked transaction cannot
+    # be traced back to its owner -- same reason apps/worker/start.sh sets it.
+    RHESIS_PROCESS_ROLE=rhesis-dev-flower \
+        uv run celery -A rhesis.backend.worker.app flower --port="$DEV_FLOWER_PORT" &
     FLOWER_PID=$!
     echo -e "${BLUE}Flower dashboard: http://127.0.0.1:${DEV_FLOWER_PORT}/${NC}"
     echo -e "${BLUE}Override the port with: ${WHITE}DEV_FLOWER_PORT=<port> ./rh dev worker${NC}"
@@ -228,7 +233,8 @@ start_worker() {
     ok "CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}"
 
     # -n puts the node name in the command line, where pgrep can see it.
-    uv run celery -A rhesis.backend.worker.app worker \
+    RHESIS_PROCESS_ROLE=rhesis-dev-worker \
+        uv run celery -A rhesis.backend.worker.app worker \
         -n "$CELERY_WORKER_NAME" \
         --pool threads \
         --loglevel=DEBUG \

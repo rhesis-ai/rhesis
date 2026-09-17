@@ -108,7 +108,6 @@ class MetricBackendType:
     CUSTOM = "custom"
     RHESIS = "rhesis"
     DEEPEVAL = "deepeval"
-    RAGAS = "ragas"
     GARAK = "garak"
 
 

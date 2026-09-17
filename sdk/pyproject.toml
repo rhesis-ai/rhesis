@@ -42,7 +42,6 @@ dependencies = [
     "litellm>=1.84.0",
     "deepteam>=0.2.5",
     "langchain-google-genai>=4.3.0",
-    "ragas>=0.3.7,<0.4",
     "mcp>=1.28.1",
     "websockets>=12.0",
     "rhesis[telemetry]",
@@ -55,9 +54,6 @@ dependencies = [
     "jsonfinder>=0.4.2",
     "chonkie>=1.6.1",
     "pdfminer.six>=20231228",
-    # NOTE: diskcache is still installed transitively via ragas and has unsafe
-    # pickle deserialization (CVE-2025-69872). No patch available. Ensure only
-    # trusted data is cached.
 ]
 
 [project.license]
@@ -274,7 +270,7 @@ override-dependencies = [
     "datasets>=4.0.0",
     "transformers>=5.0.0",
     # litellm 1.83.10+ metadata pins python-dotenv==1.0.1, pydantic==2.12.5, openai==2.24.0;
-    # relax for deepeval/CVEs and ragas (which needs openai>=2.26.0 via langchain-openai).
+    # relax for deepeval and CVE fixes.
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
     "openai>=2.26.0",

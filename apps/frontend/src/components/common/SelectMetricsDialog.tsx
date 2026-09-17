@@ -58,7 +58,6 @@ const getBackendIcon = (backend: string) => {
     case 'custom':
       return <FaceIcon fontSize="small" />;
     case 'deepeval':
-    case 'ragas':
       return <HandymanIcon fontSize="small" />;
     case 'garak':
       return <BugReportIcon fontSize="small" />;
