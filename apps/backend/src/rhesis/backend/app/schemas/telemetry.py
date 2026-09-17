@@ -294,6 +294,17 @@ class TraceMetricsResponse(BaseModel):
     """Aggregated metrics for traces."""
 
     total_traces: int
+    enriched_traces: int = Field(
+        default=0,
+        description="Traces in scope that enrichment has already processed. Fewer than "
+        "total_traces means more numbers are still to come",
+    )
+    priced_traces: int = Field(
+        default=0,
+        description="Traces carrying a cost figure. Zero alongside traces that have been "
+        "enriched means nothing in scope could be priced, which a total of 0.0 alone "
+        "cannot distinguish from a scope that genuinely cost nothing",
+    )
     total_spans: int
     total_tokens: int
     total_input_tokens: int = 0

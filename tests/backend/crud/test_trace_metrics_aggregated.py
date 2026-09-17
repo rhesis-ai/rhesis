@@ -711,3 +711,178 @@ class TestCostTotalDerivedFromBreakdown:
 
         assert metrics["total_cost_usd"] == 0.0
         assert metrics["total_tokens"] == 15
+
+
+@pytest.mark.integration
+class TestPricingProgressSignals:
+    """Two counts that say what a total cost of zero actually means.
+
+    ``total_cost_usd`` bottoms out at 0.0 for a trace nobody has priced, for one whose
+    model LiteLLM does not know, and for one that genuinely cost nothing. On its own it
+    cannot tell a caller which, so the card reading it could neither decide when to stop
+    waiting nor whether to show ``$0.00`` or a dash.
+    """
+
+    def _metrics(self, db, project_id, org_id):
+        return get_trace_metrics_aggregated(db, organization_id=org_id, project_id=project_id)
+
+    def test_an_enriched_priced_trace_counts_as_both(self, test_db, six_span_trace, test_org_id):
+        _, project_id = six_span_trace
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["total_traces"] == 1
+        assert metrics["enriched_traces"] == 1
+        assert metrics["priced_traces"] == 1
+
+    def test_an_unenriched_trace_counts_as_neither(self, test_db, db_project, test_org_id):
+        """Nothing has run over it yet, so its zero cost means nothing at all."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["total_traces"] == 1
+        assert metrics["enriched_traces"] == 0
+        assert metrics["priced_traces"] == 0
+        assert metrics["total_cost_usd"] == 0
+
+    def test_an_enriched_trace_with_no_cost_figure_is_not_priced(
+        self, test_db, db_project, test_org_id
+    ):
+        """Enrichment ran and found nothing to price: the zero is real but unknown.
+
+        This is the case that separates the two counts. Without ``priced_traces`` it is
+        indistinguishable from a trace that cost nothing.
+        """
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, {"costs": {"total_tokens": 15, "breakdown": []}})
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["enriched_traces"] == 1
+        assert metrics["priced_traces"] == 0
+        assert metrics["total_cost_usd"] == 0
+
+    def test_a_trace_priced_at_zero_is_priced(self, test_db, db_project, test_org_id):
+        """A free model costs a knowable nothing, and must not read as unknown."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, enrichment_blob(cost_usd=0.0))
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["enriched_traces"] == 1
+        assert metrics["priced_traces"] == 1
+        assert metrics["total_cost_usd"] == 0
+
+    def test_a_trace_priced_only_through_its_breakdown_is_priced(
+        self, test_db, db_project, test_org_id
+    ):
+        """Every trace already in the database predates the trace-level cost keys."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(
+            test_db,
+            trace_id,
+            {
+                "costs": {
+                    "breakdown": [
+                        {"model_name": "gpt-4", "total_cost_usd": 0.004, "total_tokens": 15}
+                    ]
+                }
+            },
+        )
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["priced_traces"] == 1
+        assert metrics["total_cost_usd"] == pytest.approx(0.004)
+
+    def test_counts_are_per_trace_not_per_span(self, test_db, six_span_trace, test_org_id):
+        """The trap this whole module exists for: the blob is on all six span rows."""
+        _, project_id = six_span_trace
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["total_spans"] == 6
+        assert metrics["enriched_traces"] == 1
+        assert metrics["priced_traces"] == 1
+
+    def test_a_partly_enriched_scope_reports_the_shortfall(
+        self, test_db, db_project, test_org_id, six_span_trace
+    ):
+        """What tells a caller enrichment is still working rather than finished."""
+        project_id = str(db_project.id)
+        pending = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    pending,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["total_traces"] == 2
+        assert metrics["enriched_traces"] == 1
