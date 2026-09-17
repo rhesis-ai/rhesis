@@ -39,7 +39,7 @@ export default function KpiRow({
   onViewFailures,
 }: KpiRowProps) {
   const { kpis } = matrix;
-  const usage = useTestRunUsage(testRun.id);
+  const usage = useTestRunUsage(testRun, isRunning);
 
   const durationDisplay = useMemo(() => {
     if (isRunning) return undefined;
@@ -175,7 +175,13 @@ export default function KpiRow({
               value={formatTokenCount(usage.total_tokens)}
               valueLabel="tokens"
               secondary={{
-                value: formatCost(usage.total_cost_usd),
+                // A dash, not $0.00: until enrichment has priced the run the
+                // total is a zero nobody computed, and claiming the run was
+                // free is the one reading that is definitely wrong.
+                value:
+                  usage.total_cost_usd > 0
+                    ? formatCost(usage.total_cost_usd)
+                    : '\u2014',
                 label: 'cost',
               }}
               subtitle={`across ${usage.total_traces} ${

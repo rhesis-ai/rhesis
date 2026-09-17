@@ -446,6 +446,52 @@ describe('KpiRow', () => {
     expect(screen.getByText('across 12 traces')).toBeInTheDocument();
   });
 
+  it('shows a dash rather than a confident zero before pricing lands', () => {
+    // Tokens come off the spans immediately; cost waits for enrichment. A
+    // $0.00 here would claim the run was free, which is the one reading that
+    // is certainly wrong.
+    mockUsage({
+      total_traces: 3,
+      total_spans: 40,
+      total_tokens: 9120,
+      total_cost_usd: 0,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('9,120')).toBeInTheDocument();
+    expect(screen.getByText('\u2014')).toBeInTheDocument();
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+  });
+
+  it('tells the hook whether the run is still going', () => {
+    // The hook stops polling on its own terms; it cannot work out on its own
+    // that a run is mid-flight.
+    mockUsage({
+      total_traces: 1,
+      total_spans: 1,
+      total_tokens: 5,
+      total_cost_usd: 0,
+    });
+    const testRun = makeTestRun();
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={testRun}
+        isRunning
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(useTestRunUsage).toHaveBeenCalledWith(testRun, true);
+  });
+
   it('says trace rather than traces when the run produced one', () => {
     mockUsage({
       total_traces: 1,
