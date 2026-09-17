@@ -229,6 +229,49 @@ def get_database_url() -> str:
 
 DATABASE_URL = get_database_url()
 
+# How long a connection may sit inside a transaction doing nothing before
+# Postgres closes it. A session that holds a transaction open and then stops
+# working is always a bug: Postgres cannot vacuum past its snapshot, the pool
+# slot is unusable, and any DDL on a table it touched queues behind it. One was
+# found idle in transaction for twenty hours, silently blocking a schema
+# migration -- with this set, the same leak fails loudly at the call site
+# instead.
+#
+# The floor is the longest transaction the application legitimately holds open,
+# which today is one test in sequential mode: ``jobs/execution/sequential.py``
+# commits before each test but then hands the session to ``execute_test``, so
+# the transaction reopens for that test's endpoint call and evaluation. Thirty
+# minutes clears that with room to spare. Set to 0 to disable.
+#
+# Migrations are unaffected: alembic builds its own engine from ``admin_url``.
+#
+# The default is named separately from the configured value so a test can assert
+# that the shipped default is a bound without the answer depending on whoever's
+# ``.env`` is loaded -- disabling the timeout locally is allowed, and must not
+# read as the default having been lost.
+DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_MS = 30 * 60 * 1000
+IDLE_IN_TRANSACTION_TIMEOUT_MS = int(
+    os.getenv("DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", str(DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_MS))
+)
+
+# Named rather than inlined so a test can assert the timeout is still here.
+CONNECT_ARGS = {
+    "connect_timeout": 10,  # Allow a bit more time
+    # Set per process by start.sh (API, celery main, celery architect) and by
+    # scripts/rh/services.sh in dev, so pg_stat_activity shows who holds which
+    # connections.
+    "application_name": os.getenv("RHESIS_PROCESS_ROLE", "rhesis-backend"),
+    "keepalives_idle": "300",  # More aggressive keepalive
+    "keepalives_interval": "10",  # Check more frequently
+    "keepalives_count": "3",
+    # Additional recommended settings
+    "tcp_user_timeout": "30000",  # 30 second TCP timeout
+    # Kills a session that leaked an open transaction. Sent as a startup option
+    # so it covers every connection this engine opens, in every process that
+    # imports it -- API, worker and scripts alike.
+    "options": f"-c idle_in_transaction_session_timeout={IDLE_IN_TRANSACTION_TIMEOUT_MS}",
+}
+
 engine = create_engine(
     DATABASE_URL,
     # More conservative pool settings
@@ -237,18 +280,7 @@ engine = create_engine(
     pool_pre_ping=True,  # Keep this
     pool_recycle=3600,  # 1 hour instead of 30 min
     pool_timeout=10,  # Slightly shorter timeout
-    # Optimized connection args
-    connect_args={
-        "connect_timeout": 10,  # Allow a bit more time
-        # Set per process by start.sh (API, celery main, celery architect) so
-        # pg_stat_activity shows who holds which connections.
-        "application_name": os.getenv("RHESIS_PROCESS_ROLE", "rhesis-backend"),
-        "keepalives_idle": "300",  # More aggressive keepalive
-        "keepalives_interval": "10",  # Check more frequently
-        "keepalives_count": "3",
-        # Additional recommended settings
-        "tcp_user_timeout": "30000",  # 30 second TCP timeout
-    },
+    connect_args=CONNECT_ARGS,
 )
 
 
