@@ -609,3 +609,105 @@ class TestTokensForBlobsWithNoTokenRollup:
         )
 
         assert metrics["total_tokens"] == 300
+
+
+@pytest.mark.integration
+class TestCostTotalDerivedFromBreakdown:
+    """The total cost gets the same breakdown fallback its two halves already have.
+
+    Without it a blob carrying a breakdown but no trace-level total_cost_usd reports a
+    total of zero beside a non-zero input and output cost -- three figures from one trace
+    that do not add up, on the same row.
+    """
+
+    def _trace_with(self, test_db, db_project, test_org_id, costs):
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke")],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(test_db, trace_id, {"costs": costs})
+        return project_id
+
+    def test_sums_the_breakdown_when_the_total_is_absent(self, test_db, db_project, test_org_id):
+        project_id = self._trace_with(
+            test_db,
+            db_project,
+            test_org_id,
+            {
+                "breakdown": [
+                    {
+                        "span_id": uuid.uuid4().hex[:16],
+                        "model_name": "gpt-4",
+                        "input_tokens": 200,
+                        "output_tokens": 100,
+                        "total_tokens": 300,
+                        "input_cost_usd": 0.02,
+                        "output_cost_usd": 0.01,
+                        "total_cost_usd": 0.03,
+                    }
+                ]
+            },
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_cost_usd"] == pytest.approx(0.03)
+
+    def test_the_three_cost_figures_agree(self, test_db, db_project, test_org_id):
+        """The point of the fallback: input + output must not exceed a zeroed total."""
+        project_id = self._trace_with(
+            test_db,
+            db_project,
+            test_org_id,
+            {
+                "breakdown": [
+                    {
+                        "span_id": uuid.uuid4().hex[:16],
+                        "model_name": "gpt-4",
+                        "input_tokens": 200,
+                        "output_tokens": 100,
+                        "input_cost_usd": 0.02,
+                        "output_cost_usd": 0.01,
+                        "total_cost_usd": 0.03,
+                    }
+                ]
+            },
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_input_cost_usd"] + metrics["total_output_cost_usd"] == pytest.approx(
+            metrics["total_cost_usd"]
+        )
+
+    def test_an_unenriched_trace_still_reports_no_cost(self, test_db, db_project, test_org_id):
+        """Cost has no span-attribute fallback, so a trace with no blob stays at zero."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_cost_usd"] == 0.0
+        assert metrics["total_tokens"] == 15

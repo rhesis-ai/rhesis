@@ -169,8 +169,16 @@ def per_trace_usage_subquery(db: Session, base, *, extra_group_by: Sequence = ()
             enriched_tokens(
                 EnrichedDataKeys.TOTAL_OUTPUT_TOKENS, EnrichedDataKeys.OUTPUT_TOKENS
             ).label("enriched_output_tokens"),
+            # Same breakdown fallback as the two halves below. Without it a blob that
+            # carries a breakdown but no trace-level total reports zero cost beside a
+            # non-zero input and output cost -- three figures from one trace that do not
+            # add up.
             func.max(
-                enriched[EnrichedDataKeys.COSTS][EnrichedDataKeys.TOTAL_COST_USD].as_float()
+                enriched_cost_expr(
+                    enriched,
+                    EnrichedDataKeys.TOTAL_COST_USD,
+                    EnrichedDataKeys.TOTAL_COST_USD,
+                )
             ).label("cost_usd"),
             func.max(
                 enriched_cost_expr(
