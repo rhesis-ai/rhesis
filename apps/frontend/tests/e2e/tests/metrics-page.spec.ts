@@ -86,7 +86,7 @@ test.describe('Metrics page — load and filters @interaction', () => {
     await metricsPage.expectLoaded();
 
     // Try clicking known backend filter buttons
-    const filterNames = ['Custom', 'DeepEval', 'Ragas'];
+    const filterNames = ['Custom', 'DeepEval', 'Garak'];
     for (const filterName of filterNames) {
       const btn = page
         .getByRole('button', { name: new RegExp(`^${filterName}$`, 'i') })
