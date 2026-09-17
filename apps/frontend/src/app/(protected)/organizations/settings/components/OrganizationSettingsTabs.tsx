@@ -10,6 +10,9 @@ import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { getOrgSettingsTabs } from '@/lib/extension-registries';
 import OrganizationDetailsForm from './OrganizationDetailsForm';
 import ContactInformationForm from './ContactInformationForm';
+import BrandingColorsForm from './BrandingColorsForm';
+import BrandingFaviconForm from './BrandingFaviconForm';
+import BrandingFontForm from './BrandingFontForm';
 import DangerZone from './DangerZone';
 
 interface BuiltInTab {
@@ -31,6 +34,7 @@ type MergedTab = BuiltInTab | DynamicTab;
 
 const BUILT_IN_TABS: BuiltInTab[] = [
   { id: 'information', label: 'Information', order: 0, dynamic: false },
+  { id: 'branding', label: 'Branding', order: 1, dynamic: false },
   { id: 'danger', label: 'Danger zone', order: 999, dynamic: false },
 ];
 
@@ -131,6 +135,16 @@ export default function OrganizationSettingsTabs({
           organization={organization}
           onUpdate={onUpdate}
         />
+      </DetailTabPanel>
+
+      <DetailTabPanel
+        value={activeTab}
+        index={indexOf('branding')}
+        prefix="org-settings"
+      >
+        <BrandingColorsForm organization={organization} onUpdate={onUpdate} />
+        <BrandingFaviconForm organization={organization} onUpdate={onUpdate} />
+        <BrandingFontForm organization={organization} onUpdate={onUpdate} />
       </DetailTabPanel>
 
       {allTabs

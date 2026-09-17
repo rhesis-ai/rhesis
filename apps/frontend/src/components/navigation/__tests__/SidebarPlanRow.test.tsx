@@ -96,7 +96,6 @@ describe('SidebarPlanRow', () => {
     });
 
     it('leaves the row otherwise intact', () => {
-      // The prompt is additive: the caption and the tier must still read.
       renderRow(plan({ name: 'Community', is_paid: false, is_active: false }), {
         canUpgrade: true,
       });
@@ -194,10 +193,9 @@ describe('SidebarPlanRow', () => {
     });
 
     it('gives the crown the same gutter as a nav row icon', () => {
-      // The crown sits on the row's second line, but in the same 24px gutter at
-      // the same left padding, so the icon column the brief asked for holds.
-      const planIcon = rowOf(renderRow(plan()).container).lastElementChild
-        ?.firstElementChild;
+      const outerRow = rowOf(renderRow(plan()).container);
+      const innerRow = outerRow.lastElementChild as HTMLElement;
+      const planIcon = innerRow?.firstElementChild;
       const navIcon = rowOf(
         render(<NavLinkItem item={starItem} collapsed={false} />).container
       ).firstElementChild;
@@ -212,8 +210,6 @@ describe('SidebarPlanRow', () => {
     });
 
     it('keeps the whole word "Plan" whatever the tier is called', () => {
-      // The regression that prompted the stack: with everything on one line the
-      // label ellipsized to "Pl..." next to a mere "Community" pill.
       renderRow(plan({ name: 'An Extremely Long Tier Name Indeed' }));
       expect(screen.getByText('Plan')).toBeInTheDocument();
       expect(

@@ -1,6 +1,18 @@
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    event,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.organization_settings import OrganizationSettingsManager
 from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
@@ -37,6 +49,16 @@ class Organization(Base, TagsMixin):
     # (e.g. SSO). The schema is owned by the consumer; core stores it
     # as opaque JSON and never inspects its keys.
     sso_config = Column(JSON, nullable=True)
+
+    # Core-owned org preferences, the organization-level mirror of
+    # User.user_settings. Unlike sso_config this schema belongs to core and is
+    # validated on write by schemas/organization_settings.py. Reach it through
+    # the `settings` property below rather than the raw column.
+    organization_settings = Column(
+        JSONB,
+        nullable=False,
+        server_default='{"version": 1, "branding": {}}',
+    )
 
     # Opaque signed license token consumed by the EE licensing layer.
     # Core never inspects its contents; the EE SignedTokenLicenseProvider
@@ -80,3 +102,31 @@ class Organization(Base, TagsMixin):
     tokens = relationship("Token", back_populates="organization")
     type_lookups = relationship("TypeLookup", back_populates="organization")
     tools = relationship("Tool", back_populates="organization")
+
+    @property
+    def settings(self) -> OrganizationSettingsManager:
+        """
+        Centralized access to organization settings.
+
+        The manager instance is cached for the lifetime of the Organization
+        object, and updates made through it are persisted automatically.
+
+        Usage:
+            colour = organization.settings.branding.primary_color
+            organization.settings.update({"branding": {"product_name": "Acme"}})
+        """
+        # Cache the manager so repeated access does not build a new one each
+        # time, and pass self so updates write straight back to the column.
+        if not hasattr(self, "_settings_cache") or self._settings_cache is None:
+            self._settings_cache = OrganizationSettingsManager(
+                self.organization_settings, organization_instance=self
+            )
+        return self._settings_cache
+
+
+# Event listener to invalidate the settings cache when organization_settings is modified
+@event.listens_for(Organization.organization_settings, "set", propagate=True)
+def _invalidate_organization_settings_cache(target, value, oldvalue, initiator):
+    """Invalidate the cached settings manager when organization_settings changes."""
+    if hasattr(target, "_settings_cache"):
+        target._settings_cache = None

@@ -83,10 +83,19 @@ config:
   # brandSecondaryColor: 6-digit hex for the secondary/CTA colour. Independent of
   #   brandPrimaryColor — set either on its own.
   # brandProductName: replaces "Rhesis AI" in page titles, e.g. "Acme".
+  # brandFontFamily: CSS font-family name, e.g. "Inria Sans". Loaded from Google
+  #   Fonts unless brandFontBaseUrl is also set.
+  # brandFontBaseUrl: base URL for self-hosted font files, for deployments that
+  #   cannot reach Google. Files are read as {base}/{slug}-{300,400,700}.ttf.
+  #
+  # Organizations can override all of these from their settings page; these
+  # values are the deployment-wide default they fall back to.
   brandPrimaryColor: ""
   brandSecondaryColor: ""
   brandFaviconUrl: ""
   brandProductName: ""
+  brandFontFamily: ""
+  brandFontBaseUrl: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""

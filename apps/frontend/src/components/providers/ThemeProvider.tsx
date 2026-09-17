@@ -12,6 +12,19 @@ export const ColorModeContext = React.createContext({
   mode: 'light' as 'light' | 'dark',
 });
 
+/**
+ * Lets the branding settings page push colour overrides that take effect
+ * in the theme immediately, before the server round-trip completes.
+ * Cleared automatically when the server-side `brandColors` prop catches up.
+ */
+export const BrandPreviewContext = React.createContext<{
+  previewBrandColors: (colors: Partial<BrandColors>) => void;
+  clearBrandPreview: () => void;
+}>({
+  previewBrandColors: () => {},
+  clearBrandPreview: () => {},
+});
+
 interface ThemeContextProviderProps {
   children: React.ReactNode;
   disableTransitionOnChange?: boolean;
@@ -115,12 +128,38 @@ export default function ThemeContextProvider({
     [mode, disableTransitionOnChange]
   );
 
+  // --- brand colour preview (live editing on the settings page) -----------
+  const [preview, setPreview] = React.useState<Partial<BrandColors>>({});
+
+  const previewBrandColors = React.useCallback(
+    (colors: Partial<BrandColors>) =>
+      setPreview(prev => ({ ...prev, ...colors })),
+    []
+  );
+  const clearBrandPreview = React.useCallback(() => setPreview({}), []);
+
+  const brandPreviewCtx = React.useMemo(
+    () => ({ previewBrandColors, clearBrandPreview }),
+    [previewBrandColors, clearBrandPreview]
+  );
+
   // Destructured so the memo keys on the colour values rather than the object's
   // identity — a fresh `{primary, secondary}` literal from the caller would
   // otherwise rebuild the whole theme on every render.
-  const brandPrimary = brandColors?.primary;
-  const brandSecondary = brandColors?.secondary;
-  const brandFont = brandColors?.fontFamily;
+  // Preview overrides win while the server-side prop hasn't caught up yet.
+  const propPrimary = brandColors?.primary;
+  const propSecondary = brandColors?.secondary;
+  const propFont = brandColors?.fontFamily;
+
+  const brandPrimary = preview.primary ?? propPrimary;
+  const brandSecondary = preview.secondary ?? propSecondary;
+  const brandFont = preview.fontFamily ?? propFont;
+
+  // Clear the preview once the server-side prop reflects the saved value.
+  React.useEffect(() => {
+    setPreview({});
+  }, [propPrimary, propSecondary, propFont]);
+
   const theme = React.useMemo(
     () =>
       createTheme(
@@ -135,12 +174,14 @@ export default function ThemeContextProvider({
 
   return (
     <ColorModeContext.Provider value={colorMode}>
-      <MuiThemeProvider
-        theme={theme}
-        disableTransitionOnChange={disableTransitionOnChange}
-      >
-        {children}
-      </MuiThemeProvider>
+      <BrandPreviewContext.Provider value={brandPreviewCtx}>
+        <MuiThemeProvider
+          theme={theme}
+          disableTransitionOnChange={disableTransitionOnChange}
+        >
+          {children}
+        </MuiThemeProvider>
+      </BrandPreviewContext.Provider>
     </ColorModeContext.Provider>
   );
 }

@@ -1,0 +1,57 @@
+# Branding
+
+Branding replaces the Rhesis colours, icon, product name and typeface with your organization's own, for everyone in that organization. Set it under **Organization Settings → Branding**.
+
+Each field resolves independently: an organization value wins, then the deployment's `BRAND_*` environment variable, then the Rhesis default. Clearing a field reveals the one beneath it rather than resetting everything, so a multi-tenant deployment can set a house style and let individual organizations depart from parts of it.
+
+Changes apply to you immediately and to other members on their next page load.
+
+An empty field shows what it inherits rather than reading as blank: the colour swatches fill with the deployment's colours, the placeholders show its product name and font family, and the favicon preview shows the icon currently in use. So the page always answers "what are we using right now", not only "what has this organization overridden".
+
+## What you can set
+
+| Field | Notes |
+|---|---|
+| Primary colour | App bar, buttons and brand-tinted surfaces. 6-digit hex |
+| Secondary colour | Secondary and call-to-action buttons. 6-digit hex |
+| Product name | Page titles and the sidebar. Max 60 characters |
+| Favicon | Browser-tab icon and the brand mark in the sidebar |
+| Brand font | A Google Fonts family, or your own font files |
+
+Light and dark shades are derived from each colour, and button label text switches between white and near-black to stay readable, so a pale brand colour needs no extra configuration.
+
+## Favicon
+
+Upload a square SVG, or a PNG at 512x512. SVG, PNG, WebP, ICO, JPEG and GIF are accepted, up to 512 KB.
+
+The icon is scaled down for the browser tab and up to 92 px during onboarding, so anything below 192x192 looks soft. The settings page shows the dimensions of what you uploaded and warns when an icon is too small or not square — it still accepts it, since that is your call.
+
+Uploads are checked to be real images rather than trusted by their file extension.
+
+## Brand font
+
+Two sources:
+
+**Google Fonts** — pick a family from the catalogue. The name is checked against Google when you save, so a typo is rejected rather than quietly falling back. The font loads in each visitor's browser, so this needs outbound access to `fonts.googleapis.com`.
+
+**Your own files** — upload one file per weight: 300 (light), 400 (regular), 700 (bold). WOFF2 is smallest and widely supported; WOFF, TTF and OTF also work, up to 2 MB each. Use this for a licensed typeface Google does not carry, or when browsers cannot reach Google.
+
+Upload only the weights you have. The app's intermediate weights (500, 600, 800) are remapped onto 400 and 700, and the browser derives any missing weight from the nearest one you supplied. The family name must match the name inside the font files.
+
+Uploaded files are served from the deployment's configured object storage through the app itself, so no font host needs to be reachable from the browser, and the files are scoped to your organization.
+
+## What stays Rhesis-branded
+
+Three things keep their Rhesis identity on purpose: chart palettes, which need distinguishable hues rather than tints of one colour; the sign-in page's background artwork; and the Documentation, Blog and GitHub links in the sign-in header.
+
+The sign-in page shows the deployment's branding rather than any organization's, because no organization is known until you have signed in.
+
+Transactional email — invitations, verification, password resets — is sent with Rhesis branding and the sending entity's legal imprint. That is the identity of whoever operates the deployment and sends the mail, not of an organization inside it, so organization branding does not change it.
+
+## Permissions
+
+Reading branding comes with `organization:read`, which every member has. Changing it requires `organization:update`. Members without it see the settings with the edit controls hidden.
+
+## Deployment-wide defaults
+
+An operator sets the fallback for every organization with the `BRAND_*` environment variables — see [Environment Variables](/docs/deployment/environment-variables).

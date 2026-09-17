@@ -7,7 +7,14 @@ x-host:
 # Non-secret defaults are owned by settings.py: pass ${VAR:-} so an unset var
 # arrives empty and env_ignore_empty falls back to the application default.
 x-common-storage: &common-storage
-  STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-}
+  # The one exception to the rule above: this path is a property of the
+  # container, not of the application. `/app/storage` only means anything
+  # because of the `rhesis-storage` volume mounted there on backend and worker,
+  # so the value belongs here beside that mount rather than in settings.py —
+  # whose default has to stay host-safe for anyone running the backend
+  # directly. Set STORAGE_SERVICE_URI to a gs:// or s3:// URI to use cloud
+  # storage instead.
+  STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-file:///app/storage}
   STORAGE_SERVICE_ACCOUNT_KEY: ${STORAGE_SERVICE_ACCOUNT_KEY:-}
   LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-}
 
@@ -68,6 +75,8 @@ x-nextjs-frontend: &nextjs-frontend
   BRAND_SECONDARY_COLOR: ${BRAND_SECONDARY_COLOR:-}
   BRAND_FAVICON_URL: ${BRAND_FAVICON_URL:-}
   BRAND_PRODUCT_NAME: ${BRAND_PRODUCT_NAME:-}
+  BRAND_FONT_FAMILY: ${BRAND_FONT_FAMILY:-}
+  BRAND_FONT_BASE_URL: ${BRAND_FONT_BASE_URL:-}
 
 
 services:

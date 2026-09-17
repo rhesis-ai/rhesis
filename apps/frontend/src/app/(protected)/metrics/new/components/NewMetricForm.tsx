@@ -383,7 +383,7 @@ export default function NewMetricForm({
           helperText={
             showErrors && !formData.name.trim()
               ? 'Name is required'
-              : "Your custom metric name is simply for identification purposes only. It must not be one of Rhesis AI's default metric name, and cannot already be taken by another custom metric."
+              : 'Your custom metric name is simply for identification purposes only. It must not be one of the built-in metric names, and cannot already be taken by another custom metric.'
           }
           sx={{ mb: 3 }}
         />
