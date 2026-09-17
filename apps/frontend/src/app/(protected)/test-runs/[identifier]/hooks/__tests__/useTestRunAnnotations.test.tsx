@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { annotationKeys } from '@/constants/query-keys';
 import { useTestRunAnnotations } from '../useTestRunAnnotations';
@@ -94,16 +94,21 @@ describe('useTestRunAnnotations', () => {
     expect(getAnnotations).toHaveBeenCalledTimes(1);
   });
 
-  it('reads the key the annotation writers invalidate', async () => {
+  it('refetches when an annotation is written', async () => {
+    // What useAnnotationMutations does after a create, edit or delete. The badge
+    // only tracks those writes if this key sits under the prefix it invalidates.
     resolvesTo([annotation('a1')]);
     const { result } = renderHook(() => useTestRunAnnotations('run1'), {
       wrapper,
     });
-
     await waitFor(() => expect(result.current.count).toBe(1));
-    expect(
-      queryClient.getQueryData(annotationKeys.list('test_run:run1'))
-    ).toBeDefined();
+
+    resolvesTo([annotation('a1'), annotation('a2')]);
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: annotationKeys.all() });
+    });
+
+    await waitFor(() => expect(result.current.count).toBe(2));
   });
 
   it('scopes the request to the run', async () => {

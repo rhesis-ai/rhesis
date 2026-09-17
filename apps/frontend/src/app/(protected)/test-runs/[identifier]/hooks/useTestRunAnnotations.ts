@@ -28,7 +28,7 @@ export function useTestRunAnnotations(testRunId: string): {
   const isAuthenticated = useIsAuthenticated();
 
   const { data, isLoading } = useQuery<PaginatedResponse<Annotation>>({
-    queryKey: annotationKeys.list(`test_run:${testRunId}`),
+    queryKey: annotationKeys.testRun(testRunId),
     queryFn: () =>
       new ApiClientFactory().getAnnotationsClient().getAnnotations({
         test_run_id: testRunId,

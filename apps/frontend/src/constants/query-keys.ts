@@ -35,6 +35,9 @@ export const annotationKeys = {
   /** Every annotation on one parent. */
   entity: (entityType: string, entityId: string) =>
     ['annotations', 'entity', entityType, entityId] as const,
+  /** Every annotation across one test run, results and traces alike. */
+  testRun: (testRunId: string) =>
+    ['annotations', 'test-run', testRunId] as const,
 };
 
 export const commentKeys = {
