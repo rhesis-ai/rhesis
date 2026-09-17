@@ -110,6 +110,24 @@ def generate_span_id() -> str:
     return secrets.token_hex(8)
 
 
+def _serialize_version_info(value: Any) -> Optional[str]:
+    """Serialize a version_info object for a span attribute, or None if unusable.
+
+    Applies the same bounds as the API so a value that is too large, too deeply nested or
+    not an object never reaches telemetry. Compact separators keep the attribute small.
+    """
+    from rhesis.backend.app.schemas.validators import validate_version_info
+
+    if not isinstance(value, dict) or not value:
+        return None
+    try:
+        validate_version_info(value)
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    except ValueError as e:
+        logger.warning(f"Skipping version_info on span: {e}")
+        return None
+
+
 def create_endpoint_attributes(
     endpoint: Endpoint, test_execution_context: Optional[Dict[str, str]] = None, **kwargs
 ) -> Dict[str, Any]:
@@ -147,9 +165,9 @@ def create_endpoint_attributes(
 
     # The version configured on the endpoint. A version the endpoint reports in its own
     # response overrides this once the result is known; see create_invocation_trace.
-    configured_version = getattr(endpoint, "version_info", None)
-    if isinstance(configured_version, dict) and configured_version:
-        attrs[EndpointAttributes.VERSION_INFO] = json.dumps(configured_version)
+    configured_version = _serialize_version_info(getattr(endpoint, "version_info", None))
+    if configured_version is not None:
+        attrs[EndpointAttributes.VERSION_INFO] = configured_version
 
     # Add any additional attributes
     attrs.update(kwargs)
@@ -244,9 +262,12 @@ async def create_invocation_trace(
             attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
             attributes[EndpointAttributes.RESPONSE_HAS_OUTPUT] = result.get("output") is not None
 
-            reported_version = result.get("version_info")
-            if isinstance(reported_version, dict) and reported_version:
-                attributes[EndpointAttributes.VERSION_INFO] = json.dumps(reported_version)
+            # Validated before it reaches the span: unlike the configured value, this one
+            # comes straight from the client's response and is written on every single
+            # invocation, so an unbounded object here would bloat telemetry per call.
+            reported_version = _serialize_version_info(result.get("version_info"))
+            if reported_version is not None:
+                attributes[EndpointAttributes.VERSION_INFO] = reported_version
 
             output = result.get("output")
             if output:

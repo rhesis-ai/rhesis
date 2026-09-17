@@ -136,7 +136,12 @@ def validate_version_info(value: Any) -> Any:
             f"version_info must not nest more than {VERSION_INFO_MAX_DEPTH} levels deep"
         )
     try:
-        encoded = json.dumps(value, ensure_ascii=False)
+        # Compact separators to match JSON.stringify, so the frontend's mirrored byte cap
+        # agrees with this one; Python's defaults add ~2 bytes per pair and would reject
+        # borderline payloads the client had already accepted. allow_nan=False because
+        # json.loads *accepts* NaN and Infinity, which would otherwise pass here and then
+        # fail at JSONB insert as a 500 rather than a 422.
+        encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     except (TypeError, ValueError) as exc:
         raise ValueError("version_info must contain only JSON-serializable values") from exc
     size = len(encoded.encode("utf-8"))

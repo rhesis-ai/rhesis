@@ -1,5 +1,7 @@
 """Tests for free-form version_info validation on endpoint schemas."""
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -9,6 +11,10 @@ from rhesis.backend.app.schemas.validators import (
     VERSION_INFO_MAX_DEPTH,
     validate_version_info,
 )
+
+#: Bytes {"k": ""} costs once serialized, derived rather than hardcoded so these tests
+#: follow the validator if its separators ever change.
+_ENVELOPE_BYTES = len(json.dumps({"k": ""}, separators=(",", ":")).encode("utf-8"))
 
 
 def _nested(depth: int) -> dict:
@@ -38,13 +44,11 @@ class TestVersionInfoValidator:
             validate_version_info(value)
 
     def test_at_size_limit_accepted(self):
-        # 'x' * n serializes to n + len('{"k": ""}') bytes.
-        padding = "x" * (VERSION_INFO_MAX_BYTES - len('{"k": ""}'))
-        value = {"k": padding}
+        value = {"k": "x" * (VERSION_INFO_MAX_BYTES - _ENVELOPE_BYTES)}
         assert validate_version_info(value) == value
 
     def test_over_size_limit_rejected(self):
-        padding = "x" * (VERSION_INFO_MAX_BYTES - len('{"k": ""}') + 1)
+        padding = "x" * (VERSION_INFO_MAX_BYTES - _ENVELOPE_BYTES + 1)
         with pytest.raises(ValueError, match="at most"):
             validate_version_info({"k": padding})
 
@@ -68,6 +72,27 @@ class TestVersionInfoValidator:
             current = current["n"]
         with pytest.raises(ValueError, match="nest more than"):
             validate_version_info(deep)
+
+
+class TestVersionInfoSerializationRules:
+    """Byte accounting must agree with the frontend's mirrored cap."""
+
+    def test_size_is_measured_with_compact_separators(self):
+        """Python's default separators add ~2 bytes per pair, which the client does not."""
+        # Sized to fit only when measured the way JSON.stringify measures it.
+        pairs = 400
+        value = {f"k{i}": "v" for i in range(pairs)}
+        compact = len(json.dumps(value, separators=(",", ":")).encode("utf-8"))
+        default = len(json.dumps(value).encode("utf-8"))
+
+        assert compact < default, "separators should differ, otherwise this test proves nothing"
+        assert validate_version_info(value) == value
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_numbers_rejected(self, bad):
+        """json.loads accepts NaN/Infinity, so they must be stopped here rather than at insert."""
+        with pytest.raises(ValueError, match="JSON-serializable"):
+            validate_version_info({"x": bad})
 
 
 class TestVersionInfoOnEndpointSchemas:

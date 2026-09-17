@@ -474,6 +474,17 @@ class TestVersionInfoOnSpans:
 
         assert EndpointAttributes.VERSION_INFO not in attrs
 
+    def test_oversize_configured_value_is_skipped(self):
+        """Bounds are applied before telemetry, not only at the API boundary."""
+        attrs = create_endpoint_attributes(self._endpoint({"blob": "x" * 20_000}))
+
+        assert EndpointAttributes.VERSION_INFO not in attrs
+
+    def test_serialized_compactly(self):
+        attrs = create_endpoint_attributes(self._endpoint({"a": 1, "b": 2}))
+
+        assert attrs[EndpointAttributes.VERSION_INFO] == '{"a":1,"b":2}'
+
     def test_attribute_key_is_stable(self):
         """Mirrored in apps/frontend/.../traces/components/SpanDetailsPanel.tsx."""
         assert EndpointAttributes.VERSION_INFO == "endpoint.version_info"
