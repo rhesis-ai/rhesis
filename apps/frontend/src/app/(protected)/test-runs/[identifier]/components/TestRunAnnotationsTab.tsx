@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Avatar,
   Box,
@@ -15,10 +14,8 @@ import { formatDistanceToNow } from 'date-fns';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { annotationKeys } from '@/constants/query-keys';
-import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { Annotation } from '@/utils/api-client/interfaces/annotation';
+import { useTestRunAnnotations } from '../hooks/useTestRunAnnotations';
 
 interface TestRunAnnotationsTabProps {
   testRunId: string;
@@ -57,22 +54,7 @@ export default function TestRunAnnotationsTab({
   testRunId,
   onViewTestResult,
 }: TestRunAnnotationsTabProps) {
-  const isAuthenticated = useIsAuthenticated();
-
-  const { data: annotations = [], isLoading } = useQuery({
-    queryKey: annotationKeys.list(`test_run:${testRunId}`),
-    queryFn: () =>
-      new ApiClientFactory()
-        .getAnnotationsClient()
-        .getAnnotations({
-          test_run_id: testRunId,
-          sort_by: 'updated_at',
-          sort_order: 'desc',
-          limit: 100,
-        })
-        .then(page => page.data),
-    enabled: isAuthenticated && !!testRunId,
-  });
+  const { annotations, isLoading } = useTestRunAnnotations(testRunId);
 
   if (isLoading) {
     return (
