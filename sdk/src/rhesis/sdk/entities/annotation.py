@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -72,7 +72,7 @@ def _client_identity(client: APIClient) -> tuple:
     return (str(client.base_url), digest)
 
 
-def resolve_verdict(verdict: str, client: Optional[APIClient] = None) -> str:
+def resolve_verdict(verdict: Union[Verdict, str], client: Optional[APIClient] = None) -> str:
     """The status id for a named verdict, e.g. ``"fail"``.
 
     Cached per process, per organization. Raises ``ValueError`` for an unknown
@@ -286,9 +286,9 @@ class Annotations(BaseCollection):
     @classmethod
     def create(
         cls,
-        entity_type: str,
+        entity_type: Union[AnnotatableEntity, str],
         entity_id: str,
-        verdict: str,
+        verdict: Union[Verdict, str],
         comment: Optional[str] = None,
         *,
         metric: Optional[str] = None,
@@ -330,7 +330,9 @@ class Annotations(BaseCollection):
         return cls.for_entity(AnnotatableEntity.TRACE, trace_db_id)
 
     @classmethod
-    def for_entity(cls, entity_type: str, entity_id: str) -> List[Annotation]:
+    def for_entity(
+        cls, entity_type: Union[AnnotatableEntity, str], entity_id: str
+    ) -> List[Annotation]:
         """Every annotation on one parent.
 
         Uses the entity-scoped route rather than a filter over the whole list,

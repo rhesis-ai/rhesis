@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, NoReturn, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, NoReturn, Optional, Union
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
 
 if TYPE_CHECKING:
-    from rhesis.sdk.entities.annotation import Annotation
+    from rhesis.sdk.entities.annotation import Annotation, Verdict
     from rhesis.sdk.entities.file import File
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
@@ -69,7 +69,7 @@ class TestResult(BaseEntity):
 
     def annotate(
         self,
-        verdict: str,
+        verdict: Union["Verdict", str],
         comment: Optional[str] = None,
         *,
         metric: Optional[str] = None,
