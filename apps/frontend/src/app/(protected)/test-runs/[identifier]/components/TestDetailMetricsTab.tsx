@@ -365,8 +365,8 @@ export default function TestDetailMetricsTab({
 
   const testAnnotation = test.last_annotation;
   const testIsOverruled = hasConflictingAnnotation(test);
-  const testAnnotationVerdict = testAnnotation
-    ? isPassedStatusName(testAnnotation.status?.name ?? '')
+  const testAnnotationVerdict = testAnnotation?.status?.name
+    ? isPassedStatusName(testAnnotation.status.name)
       ? ('passed' as const)
       : ('failed' as const)
     : null;
