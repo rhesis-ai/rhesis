@@ -72,6 +72,7 @@ constraint-dependencies = [
     "mcp>=1.28.1",
     "pillow>=12.3.0",
     "cryptography>=50.0.0",
+    "soupsieve>=2.9.0",
 ]
 override-dependencies = [
     "python-dotenv>=1.2.2",

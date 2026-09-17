@@ -28,7 +28,7 @@ openai-sdk = [
     "openai>=1.0.0",
 ]
 pydantic-ai = [
-    "pydantic-ai>=1.56.0",
+    "pydantic-ai>=1.106.0",
 ]
 llamaindex = [
     "llama-index-core>=0.12.0",
@@ -48,9 +48,12 @@ haystack = [
 ]
 
 [tool.uv]
-# crewai >=1.15.6 caps google-genai below what google-adk >=2.6 needs, so the two extras
-# cannot co-resolve. Forking them is what lets crewai reach a patched json-repair.
-conflicts = [[{ extra = "crewai" }, { extra = "google-adk" }]]
+# crewai >=1.15.6 caps google-genai below what google-adk >=2.6 and pydantic-ai >=1.106.0
+# need, so these extras cannot co-resolve.
+conflicts = [
+    [{ extra = "crewai" }, { extra = "google-adk" }],
+    [{ extra = "crewai" }, { extra = "pydantic-ai" }],
+]
 exclude-newer = "1 week"
 exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false }
 # Force minimum versions for transitive dependencies with security advisories
@@ -70,9 +73,9 @@ constraint-dependencies = [
     "cryptography>=48.0.1",
     "litellm>=1.84.0",
     "pydantic-settings>=2.14.2",
-    "pydantic-ai>=1.56.0",
+    "pydantic-ai>=1.106.0",
+    "soupsieve>=2.9.0",
     "setuptools>=83.0.0",
-    "nltk>=3.10.3",
     "mcp>=1.28.1",
     "pillow>=12.3.0",
     "httpx2>=2.12.0",
