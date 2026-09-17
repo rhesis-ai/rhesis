@@ -8,7 +8,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { SettingsIcon } from '@/components/icons';
+import { BiotechIcon, SettingsIcon } from '@/components/icons';
 import EntityGrid, {
   type EntityGridDrawerAdapter,
   type EntityGridFilterState,
@@ -22,7 +22,6 @@ import { can } from '@/utils/affordances';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { experimentsList } from './list';
 import CreateExperimentDialog from './CreateExperimentDialog';
@@ -173,12 +172,10 @@ export default function ExperimentsClientWrapper({
         <FabGroup>
           <Fab
             icon={<SettingsIcon />}
-            tooltip="Configuration"
-            aria-label="Configuration"
+            tooltip="Experiments settings"
+            aria-label="Experiments settings"
             onClick={() =>
-              router.push(
-                `/projects/${activeProject?.id}?tab=experiments`
-              )
+              router.push(`/projects/${activeProject?.id}?tab=experiments`)
             }
             disabled={!activeProject}
           />

@@ -248,8 +248,8 @@ export default function ExperimentVersionsGrid({
         />
         {orderedVersions.length === 0 ? (
           <Alert severity="info">
-            No versions yet. Use &quot;Add version&quot; to define values
-            and save the first immutable version.
+            No versions yet. Use &quot;Add version&quot; to define values and
+            save the first immutable version.
           </Alert>
         ) : filteredVersions.length === 0 ? (
           <Typography

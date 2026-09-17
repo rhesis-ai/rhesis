@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Alert, Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -15,7 +15,13 @@ import ProjectExperimentsTab from './ProjectExperimentsTab';
 import ProjectTracesTab from './ProjectTracesTab';
 import ProjectMembersTab from './ProjectMembersTab';
 
-const TAB_KEYS = ['overview', 'members', 'endpoints', 'experiments', 'traces'] as const;
+const TAB_KEYS = [
+  'overview',
+  'members',
+  'endpoints',
+  'experiments',
+  'traces',
+] as const;
 type ProjectTabKey = (typeof TAB_KEYS)[number];
 
 const TAB_LABELS: Record<ProjectTabKey, string> = {
@@ -72,10 +78,21 @@ export default function ProjectDetailTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = (() => {
-    const key = normalizeTabParam(searchParams.get('tab'));
-    return TAB_KEYS.indexOf(key);
-  })();
+  const rawTab = searchParams.get('tab');
+  const normalizedKey = normalizeTabParam(rawTab);
+  const activeTab = TAB_KEYS.indexOf(normalizedKey);
+
+  useEffect(() => {
+    if (
+      rawTab &&
+      rawTab in LEGACY_TAB_MAP &&
+      LEGACY_TAB_MAP[rawTab] !== rawTab
+    ) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', normalizedKey);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }, [rawTab, normalizedKey, router, searchParams]);
 
   const handleTabChange = useCallback(
     (newIndex: number) => {
