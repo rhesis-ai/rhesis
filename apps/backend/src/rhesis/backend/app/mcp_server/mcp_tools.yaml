@@ -544,6 +544,10 @@ tools:
 
       Key fields in the response:
       - test_output.output: the endpoint's actual response text
+      - test_output.conversation_summary: the transcript, on a multi-turn
+        result. A list of turns, each carrying its own turn number. This is
+        where the N in a "Turn N" annotation reference comes from, so read it
+        before annotating one turn of a conversation.
       - test_metrics.metrics: dict of metric name → evaluation result.
         Each evaluation result contains:
         - is_successful (bool): whether this metric passed
@@ -1364,9 +1368,14 @@ tools:
           ran against a test configuration tied to that endpoint.
       metric:
         description: >
-          Metric name (case-insensitive). Returns only annotations that
-          target that specific metric (target_type = "metric" and
-          target_reference matching the name).
+          Metric name or metric UUID (name is case-insensitive). Returns
+          every judgement about that metric, of which there are two kinds
+          filed differently: a judgement on a metric within a test result
+          or trace names the metric, while a metric tuning judgement names
+          the metric's id so a rename does not orphan it. Either input
+          returns both, so this answers "what do people think of this
+          metric" in one call. The tuning ones are the judgements about
+          whether the metric itself is any good.
       annotator_id:
         description: >
           UUID of a user. Returns only annotations created by that user.
@@ -1481,6 +1490,12 @@ tools:
           filled in for you. Do NOT send target_type/target_reference
           flat here; that shape is what responses use, and sending it on a
           write is ignored.
+
+          A turn target only makes sense on a multi-turn result or trace.
+          Take N from test_output.conversation_summary on get_test_result and
+          write it exactly as "Turn 2": the platform groups judgements by this
+          reference, so "2" reads as a different target and would sit beside
+          the turn's other annotations instead of superseding them.
 
   - name: update_annotation
     label: Updating annotation
