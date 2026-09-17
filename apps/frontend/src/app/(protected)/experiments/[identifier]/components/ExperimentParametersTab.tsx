@@ -38,7 +38,7 @@ export default function ExperimentParametersTab({
           schema.fields.length > 0 ? (
             <Button
               component={Link}
-              href={`/projects/${projectId}?tab=parameters`}
+              href={`/projects/${projectId}?tab=experiments`}
               target="_blank"
               rel="noopener noreferrer"
               size="small"
@@ -109,7 +109,7 @@ export default function ExperimentParametersTab({
 
             <Button
               component={Link}
-              href={`/projects/${projectId}?tab=parameters`}
+              href={`/projects/${projectId}?tab=experiments`}
               target="_blank"
               rel="noopener noreferrer"
               variant="contained"

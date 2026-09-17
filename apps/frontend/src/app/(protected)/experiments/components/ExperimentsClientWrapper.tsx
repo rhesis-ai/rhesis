@@ -8,6 +8,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { SettingsIcon } from '@/components/icons';
 import EntityGrid, {
   type EntityGridDrawerAdapter,
   type EntityGridFilterState,
@@ -170,6 +171,17 @@ export default function ExperimentsClientWrapper({
       description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
       actions={
         <FabGroup>
+          <Fab
+            icon={<SettingsIcon />}
+            tooltip="Configuration"
+            aria-label="Configuration"
+            onClick={() =>
+              router.push(
+                `/projects/${activeProject?.id}?tab=experiments`
+              )
+            }
+            disabled={!activeProject}
+          />
           <Can capability={Capability.Experiment.CREATE}>
             <Fab
               icon={<FabAddIcon />}
