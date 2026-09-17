@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -7,7 +7,6 @@ from rhesis.sdk.entities import annotation as annotation_module
 from rhesis.sdk.entities.annotation import (
     Annotation,
     Annotations,
-    Verdict,
     resolve_verdict,
 )
 from rhesis.sdk.entities.endpoint import Endpoint
@@ -273,8 +272,8 @@ class TestVerdictResolution:
         params = mock_client.return_value.send_request.call_args.kwargs["params"]
         # Scoped by entity type, not name alone: Pass/Fail belong to TestResult,
         # and matching on the name would break once another type has a "Fail".
-        assert params["entity_type"] == "TestResult"
-        assert params["$filter"] == "name eq 'Fail'"
+        # The name is matched client-side, so nothing is interpolated into OData.
+        assert params == {"entity_type": "TestResult"}
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
     def test_tuning_verdicts_resolve_under_their_own_entity_type(self, mock_client):
@@ -312,14 +311,16 @@ class TestVerdictResolution:
             resolve_verdict("fail")
 
 
+@patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
 class TestAnnotateFromTheParent:
-    """The common case: judge the thing you already have in hand."""
+    """The common case: judge the thing you already have in hand.
 
-    def setup_method(self):
-        annotation_module._verdict_cache[Verdict.FAIL] = STATUS_ID
+    Verdict resolution is stubbed: what these assert is the body that goes out,
+    and TestVerdictResolution covers the lookup itself.
+    """
 
     @patch("rhesis.sdk.entities.base_entity.APIClient")
-    def test_a_result_annotates_itself(self, mock_client):
+    def test_a_result_annotates_itself(self, mock_client, _verdict):
         mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
 
         annotation = TestResult(id=ENTITY_ID).annotate("fail", "Invented a policy.")
@@ -333,7 +334,7 @@ class TestAnnotateFromTheParent:
         assert annotation.id == "annotation-1"
 
     @patch("rhesis.sdk.entities.base_entity.APIClient")
-    def test_naming_a_metric_targets_only_that_metric(self, mock_client):
+    def test_naming_a_metric_targets_only_that_metric(self, mock_client, _verdict):
         mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
 
         TestResult(id=ENTITY_ID).annotate("fail", "Wrong.", metric="Answer Relevancy")
@@ -342,7 +343,7 @@ class TestAnnotateFromTheParent:
         assert body["target"] == {"type": "metric", "reference": "Answer Relevancy"}
 
     @patch("rhesis.sdk.entities.base_entity.APIClient")
-    def test_naming_a_turn_targets_only_that_turn(self, mock_client):
+    def test_naming_a_turn_targets_only_that_turn(self, mock_client, _verdict):
         mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
 
         TestResult(id=ENTITY_ID).annotate("fail", "Off script.", turn="Turn 2")
@@ -350,12 +351,12 @@ class TestAnnotateFromTheParent:
         body = mock_client.return_value.send_request.call_args.kwargs["data"]
         assert body["target"] == {"type": "turn", "reference": "Turn 2"}
 
-    def test_a_metric_and_a_turn_together_is_refused(self):
+    def test_a_metric_and_a_turn_together_is_refused(self, _verdict):
         with pytest.raises(ValueError, match="not both"):
             TestResult(id=ENTITY_ID).annotate("fail", metric="Relevancy", turn="Turn 2")
 
     @patch("rhesis.sdk.entities.base_entity.APIClient")
-    def test_a_test_labels_itself(self, mock_client):
+    def test_a_test_labels_itself(self, mock_client, _verdict):
         mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
 
         Test(id=ENTITY_ID).annotate("fail", "Not a fair question.")
@@ -363,7 +364,7 @@ class TestAnnotateFromTheParent:
         body = mock_client.return_value.send_request.call_args.kwargs["data"]
         assert body["entity_type"] == "Test"
 
-    def test_annotating_without_an_id_says_what_is_missing(self):
+    def test_annotating_without_an_id_says_what_is_missing(self, _verdict):
         with pytest.raises(ValueError, match="must have an ID to annotate"):
             TestResult().annotate("fail")
 
@@ -428,3 +429,53 @@ class TestParentAccessors:
 
         params = mock_client.return_value.send_request.call_args.kwargs["params"]
         assert params["endpoint_id"] == "endpoint-1"
+
+
+class TestVerdictCacheIsolation:
+    """One process can address two organizations, and status ids differ per org."""
+
+    def setup_method(self):
+        annotation_module._verdict_cache.clear()
+
+    def _client(self, key, base_url="http://one:8000"):
+        client = MagicMock()
+        client.api_key = key
+        client.base_url = base_url
+        return client
+
+    def test_a_second_organization_does_not_inherit_the_first_ones_id(self):
+        org_a = self._client("key-a")
+        org_a.send_request.return_value = [{"id": "status-a", "name": "Fail"}]
+        org_b = self._client("key-b")
+        org_b.send_request.return_value = [{"id": "status-b", "name": "Fail"}]
+
+        assert resolve_verdict("fail", client=org_a) == "status-a"
+        # api_key is a module-level variable a caller can reassign, so this is a
+        # supported flow -- and the cached id would be the wrong organization's.
+        assert resolve_verdict("fail", client=org_b) == "status-b"
+
+    def test_the_same_organization_is_still_looked_up_once(self):
+        org_a = self._client("key-a")
+        org_a.send_request.return_value = [{"id": "status-a", "name": "Fail"}]
+
+        resolve_verdict("fail", client=org_a)
+        resolve_verdict("fail", client=org_a)
+
+        assert org_a.send_request.call_count == 1
+
+    def test_the_same_key_against_another_base_url_is_a_different_cache_entry(self):
+        one = self._client("key-a", "http://one:8000")
+        one.send_request.return_value = [{"id": "status-one", "name": "Pass"}]
+        two = self._client("key-a", "http://two:8000")
+        two.send_request.return_value = [{"id": "status-two", "name": "Pass"}]
+
+        assert resolve_verdict("pass", client=one) == "status-one"
+        assert resolve_verdict("pass", client=two) == "status-two"
+
+    def test_the_cache_does_not_hold_the_api_key(self):
+        org_a = self._client("super-secret-key")
+        org_a.send_request.return_value = [{"id": "status-a", "name": "Fail"}]
+
+        resolve_verdict("fail", client=org_a)
+
+        assert "super-secret-key" not in repr(annotation_module._verdict_cache)

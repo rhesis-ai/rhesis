@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional
 
@@ -55,16 +56,28 @@ _VERDICT_STATUS = {
     Verdict.REJECTED: ("Rejected", "Annotation"),
 }
 
-# Verdict -> status id, filled on first use. Statuses are per organization and
-# seeded once, so this saves a lookup per annotation in a loop.
-_verdict_cache: Dict[Verdict, str] = {}
+# (who we are talking to, verdict) -> status id, filled on first use. Status ids
+# are per organization, so the key has to carry the credentials as well as the
+# verdict: ``api_key`` is a module-level variable a caller can reassign, so one
+# process can address two organizations and would otherwise get the first one's
+# id for the second one's annotation. The key is hashed rather than stored, so
+# this module-level dict never holds the secret itself.
+_verdict_cache: Dict[tuple, str] = {}
 
 
-def resolve_verdict(verdict: str) -> str:
+def _client_identity(client: APIClient) -> tuple:
+    # str() because this must not be the thing that raises: it only builds a
+    # cache key, and a client handed in by a caller may hold anything.
+    digest = hashlib.sha256(str(client.api_key or "").encode("utf-8")).hexdigest()[:16]
+    return (str(client.base_url), digest)
+
+
+def resolve_verdict(verdict: str, client: Optional[APIClient] = None) -> str:
     """The status id for a named verdict, e.g. ``"fail"``.
 
-    Cached per process. Raises ``ValueError`` for an unknown name, listing the
-    ones that exist, and for a verdict the organization has no status row for.
+    Cached per process, per organization. Raises ``ValueError`` for an unknown
+    name, listing the ones that exist, and for a verdict the organization has no
+    status row for.
     """
     try:
         key = Verdict(str(verdict).strip().lower())
@@ -72,18 +85,23 @@ def resolve_verdict(verdict: str) -> str:
         known = ", ".join(v.value for v in Verdict)
         raise ValueError(f"Unknown verdict {verdict!r}. Expected one of: {known}") from None
 
-    if key in _verdict_cache:
-        return _verdict_cache[key]
+    client = client or APIClient()
+    cache_key = (*_client_identity(client), key)
+    if cache_key in _verdict_cache:
+        return _verdict_cache[cache_key]
 
     name, entity_type = _VERDICT_STATUS[key]
-    response = APIClient().send_request(
+    # Filtered by entity type only, and matched on the name here. A name filter
+    # would mean interpolating into OData for no gain: one entity type holds a
+    # handful of statuses, and this already has to compare names to pick one.
+    response = client.send_request(
         endpoint=Endpoints.STATUSES,
         method=Methods.GET,
-        params={"entity_type": entity_type, "$filter": f"name eq '{name}'"},
+        params={"entity_type": entity_type},
     )
     for row in response or []:
         if str(row.get("name", "")).strip().lower() == name.lower():
-            _verdict_cache[key] = row["id"]
+            _verdict_cache[cache_key] = row["id"]
             return row["id"]
 
     raise ValueError(
