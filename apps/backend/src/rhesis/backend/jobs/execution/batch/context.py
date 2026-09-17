@@ -245,6 +245,16 @@ def prefetch_execution_context(
                 model_settings.evaluation_model, session, organization_id
             )
 
+    # Name the model that was actually resolved, so the run's Configuration tab can show it
+    # instead of the raw override UUID (or nothing at all when the default was used).
+    from rhesis.backend.app.services.run_config import record_resolved_evaluation_model
+
+    record_resolved_evaluation_model(
+        session,
+        test_run=test_run,
+        model_name=getattr(evaluation_model, "model_name", None),
+    )
+
     # Warm the session identity map with prompt/requirement/requirement.metrics eager-loaded
     # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics
     # below re-fetch each test by id from this same session -- SQLAlchemy's identity

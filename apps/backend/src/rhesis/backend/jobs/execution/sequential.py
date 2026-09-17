@@ -180,6 +180,16 @@ def execute_tests_sequentially(
                 model_settings.evaluation_model, session, fallback_org_id
             )
 
+    # Name the model that was actually resolved, so the run's Configuration tab can show it
+    # instead of the raw override UUID (or nothing at all when the default was used).
+    from rhesis.backend.app.services.run_config import record_resolved_evaluation_model
+
+    record_resolved_evaluation_model(
+        session,
+        test_run=test_run,
+        model_name=getattr(evaluation_model, "model_name", None),
+    )
+
     # Cooperative cancellation: checked once per test, the only safe point in
     # a loop that otherwise blocks on a synchronous run_on_thread_loop() per test.
     # Same revoke set the batch runner polls, populated by revoke() from
