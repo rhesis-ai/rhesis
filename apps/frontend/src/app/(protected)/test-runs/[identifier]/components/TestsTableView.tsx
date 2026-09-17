@@ -391,7 +391,8 @@ export default function TestsTableView({
           }
           if (status.isOverruled && status.annotationData) {
             const who = status.annotationData.annotator;
-            const what = status.annotationData.newStatus === 'passed' ? 'Pass' : 'Fail';
+            const what =
+              status.annotationData.newStatus === 'passed' ? 'Pass' : 'Fail';
             return (
               <Tooltip title={`Changed to ${what} by ${who}`} enterDelay={500}>
                 <Box component="span" sx={{ display: 'inline-flex' }}>
