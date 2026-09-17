@@ -92,7 +92,7 @@ function makeMatrix(
       verdicts_resolved: 0,
       verdicts_planned: 0,
       failures: 0,
-      reviews_count: 0,
+      annotations_count: 0,
       ...kpiOverrides,
     },
     ...overrides,
