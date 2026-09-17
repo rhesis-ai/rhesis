@@ -113,6 +113,12 @@ dev = [
     # runs without ``--all-extras``. End users install via the
     # ``rhesis-penelope[pydantic-ai]`` optional extra.
     "pydantic-ai>=0.0.49",
+    # Same for tests/penelope/targets/test_langgraph.py, which imports langgraph at
+    # module level. It used to arrive transitively through rhesis-sdk's langchain
+    # chain; that chain went with the Ragas removal, so declare it. End users install
+    # via the ``rhesis-penelope[langgraph]`` extra.
+    "langgraph>=1.2.0",
+    "langchain-core>=1.6.0",
 ]
 
 [build-system]

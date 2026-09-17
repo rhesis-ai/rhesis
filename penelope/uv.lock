@@ -11,7 +11,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-10T16:49:31.330664Z"
+exclude-newer = "2026-09-10T18:20:08.047147Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -4720,6 +4720,8 @@ pydantic-ai = [
 dev = [
     { name = "hatch" },
     { name = "haystack-ai" },
+    { name = "langchain-core" },
+    { name = "langgraph" },
     { name = "pre-commit" },
     { name = "pydantic-ai" },
     { name = "pyright" },
@@ -4770,6 +4772,8 @@ provides-extras = ["langchain", "langgraph", "pydantic-ai", "microsoft-agent-fra
 dev = [
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "haystack-ai", specifier = ">=2.22.0" },
+    { name = "langchain-core", specifier = ">=1.6.0" },
+    { name = "langgraph", specifier = ">=1.2.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pydantic-ai", specifier = ">=0.0.49" },
     { name = "pyright", specifier = ">=1.1.406" },
