@@ -1,6 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import { useTestResultAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
+import React, { useState, useRef } from 'react';
+import {
+  ANNOTATION_ENTITY_TYPES,
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
 import {
   Box,
   Tabs,
@@ -13,32 +18,30 @@ import {
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import {
-  TestResultDetail,
-  REVIEW_TARGET_TYPES,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailConversationTab from './TestDetailConversationTab';
 import TestDetailMetricsTab from './TestDetailMetricsTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
-import TestDetailReviewsTab from './TestDetailReviewsTab';
+import TestDetailAnnotationsTab from './TestDetailAnnotationsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   findStatusByCategory,
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
-import { MentionOption } from '@/components/common/MentionTextInput';
 import { EntityType } from '@/types/entity-type';
 
 export const TEST_RESULT_DRAWER_TAB = {
   overview: 0,
   conversation: 1,
   metrics: 2,
-  reviews: 3,
+  annotations: 3,
   history: 4,
   tasks: 5,
+  /** Kept for one release so shared ?detailTab=reviews links still open here. */
+  reviews: 3,
 } as const;
 
 interface TestResultDrawerProps {
@@ -152,11 +155,12 @@ export default function TestResultDrawer({
   metricsSource,
 }: TestResultDrawerProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
-  const [reviewInitialStatus, setReviewInitialStatus] = useState<
+  const [annotationInitialComment, setAnnotationInitialComment] =
+    useState<string>('');
+  const [annotationInitialStatus, setAnnotationInitialStatus] = useState<
     'passed' | 'failed' | undefined
   >(undefined);
-  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const [isConfirmingAnnotation, setIsConfirmingAnnotation] = useState(false);
   const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
@@ -176,10 +180,10 @@ export default function TestResultDrawer({
     setActiveTab(newValue);
   };
 
-  const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
-    setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
-    setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    // Opens the review drawer as an overlay via TestDetailReviewsTab's own
+  const handleAnnotateTurn = (turnNumber: number, turnSuccess: boolean) => {
+    setAnnotationInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
+    setAnnotationInitialStatus(turnSuccess ? 'failed' : 'passed');
+    // Opens the annotation drawer as an overlay via TestDetailAnnotationsTab's own
     // effect — the Conversation tab stays active so context isn't lost.
   };
 
@@ -188,7 +192,7 @@ export default function TestResultDrawer({
   // dead weight on a grid that never renders it). Fetch the one result this
   // drawer is actually showing when it needs that transcript. Skipped when
   // `test` already carries it (a caller that fetched the single result
-  // directly, e.g. after a review action already re-fetches via
+  // directly, e.g. after an annotation write already re-fetches via
   // getTestResult), so this never re-fetches data already in hand.
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
   const needsTranscript =
@@ -238,29 +242,10 @@ export default function TestResultDrawer({
   const conversationTest =
     fetchedTest?.id === test?.id ? (fetchedTest ?? test) : test;
 
-  const mentionableMetrics: MentionOption[] = useMemo(() => {
-    if (!test?.test_metrics?.metrics) return [];
-    return Object.keys(test.test_metrics.metrics).map(name => ({
-      id: name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, ''),
-      display: name,
-      type: 'metric' as const,
-    }));
-  }, [test]);
+  const { metrics: mentionableMetrics, turns: mentionableTurns } =
+    useTestResultAnnotationTargets(test, conversationTest);
 
-  const mentionableTurns: MentionOption[] = useMemo(() => {
-    const summary = conversationTest?.test_output?.conversation_summary;
-    if (!summary || !Array.isArray(summary)) return [];
-    return summary.map((turn: { turn: number }) => ({
-      id: String(turn.turn),
-      display: `Turn ${turn.turn}`,
-      type: 'turn' as const,
-    }));
-  }, [conversationTest]);
-
-  const handleConfirmAutomatedReview = async () => {
+  const handleConfirmAutomatedAnnotation = async () => {
     if (!test) return;
 
     // Atomic check-and-set to prevent duplicate submissions
@@ -268,7 +253,7 @@ export default function TestResultDrawer({
     isConfirmingRef.current = true;
 
     try {
-      setIsConfirmingReview(true);
+      setIsConfirmingAnnotation(true);
 
       const clientFactory = new ApiClientFactory();
       const testResultsClient = clientFactory.getTestResultsClient();
@@ -279,7 +264,7 @@ export default function TestResultDrawer({
         entity_type: EntityType.TEST_RESULT,
       });
 
-      // Confirm the outcome the reviewer is looking at, not a re-derivation
+      // Confirm the outcome the annotator is looking at, not a re-derivation
       // from goal_evaluation that could contradict it.
       const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
@@ -293,21 +278,22 @@ export default function TestResultDrawer({
         return;
       }
 
-      // Create a review that matches the automated result
-      await testResultsClient.createReview(
-        test.id,
-        targetStatus.id,
-        `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-        { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
-      );
+      // An annotation agreeing with the automated result
+      await new ApiClientFactory().getAnnotationsClient().createAnnotation({
+        entity_type: ANNOTATION_ENTITY_TYPES.TEST_RESULT,
+        entity_id: test.id,
+        status_id: targetStatus.id,
+        comments: `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+        target: { type: ANNOTATION_TARGET_TYPES.TEST_RESULT, reference: null },
+      });
 
       // Refresh the test result
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
     } catch (error) {
-      console.error('Failed to confirm automated review:', error);
+      console.error('Failed to confirm the automated result:', error);
     } finally {
-      setIsConfirmingReview(false);
+      setIsConfirmingAnnotation(false);
       isConfirmingRef.current = false;
     }
   };
@@ -411,7 +397,7 @@ export default function TestResultDrawer({
               aria-controls="test-detail-tabpanel-2"
             />
             <Tab
-              label="Reviews"
+              label="Annotations"
               id="test-detail-tab-3"
               aria-controls="test-detail-tabpanel-3"
             />
@@ -465,9 +451,9 @@ export default function TestResultDrawer({
               testSetType={testSetType}
               project={project}
               projectName={projectName}
-              onReviewTurn={isMultiTurn ? handleReviewTurn : undefined}
-              onConfirmAutomatedReview={handleConfirmAutomatedReview}
-              isConfirmingReview={isConfirmingReview}
+              onAnnotateTurn={isMultiTurn ? handleAnnotateTurn : undefined}
+              onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
+              isConfirmingAnnotation={isConfirmingAnnotation}
             />
           </TabPanel>
 
@@ -480,15 +466,15 @@ export default function TestResultDrawer({
           </TabPanel>
 
           <TabPanel value={activeTab} index={TAB.reviews}>
-            <TestDetailReviewsTab
+            <TestDetailAnnotationsTab
               test={test}
               onTestResultUpdate={onTestResultUpdate}
               currentUserId={currentUserId}
-              initialComment={reviewInitialComment}
-              initialStatus={reviewInitialStatus}
+              initialComment={annotationInitialComment}
+              initialStatus={annotationInitialStatus}
               onCommentUsed={() => {
-                setReviewInitialComment('');
-                setReviewInitialStatus(undefined);
+                setAnnotationInitialComment('');
+                setAnnotationInitialStatus(undefined);
               }}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}

@@ -1303,11 +1303,11 @@ export default function ComparisonView({
                             }
                             project={project}
                             projectName={projectName}
-                            hasExistingReview={
-                              !!selectedTest.baseline.last_review
+                            hasExistingAnnotation={
+                              !!selectedTest.baseline.last_annotation
                             }
-                            reviewMatchesAutomated={
-                              selectedTest.baseline.matches_review === true
+                            annotationMatchesAutomated={
+                              selectedTest.baseline.matches_annotation === true
                             }
                             maxHeight="100%"
                           />
@@ -1412,11 +1412,11 @@ export default function ComparisonView({
                             }
                             project={project}
                             projectName={projectName}
-                            hasExistingReview={
-                              !!selectedTest.current.last_review
+                            hasExistingAnnotation={
+                              !!selectedTest.current.last_annotation
                             }
-                            reviewMatchesAutomated={
-                              selectedTest.current.matches_review === true
+                            annotationMatchesAutomated={
+                              selectedTest.current.matches_annotation === true
                             }
                             maxHeight="100%"
                           />

@@ -42,7 +42,7 @@ import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-s
 import { asVersionInfo } from '@/utils/version-info';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
-import TraceReviewsTab from './TraceReviewsTab';
+import TraceAnnotationsTab from './TraceAnnotationsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -56,9 +56,9 @@ interface SpanDetailsPanelProps {
   currentUserName?: string;
   currentUserPicture?: string;
   onTraceUpdated?: () => void;
-  onReviewMetric?: (metricName: string) => void;
-  onReviewTrace?: () => void;
-  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateMetric?: (metricName: string) => void;
+  onAnnotateTrace?: () => void;
+  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
   traceMetricsStatus?: TraceMetricsStatus | null;
@@ -109,9 +109,9 @@ export default function SpanDetailsPanel({
   currentUserName = '',
   currentUserPicture,
   onTraceUpdated,
-  onReviewMetric,
-  onReviewTrace,
-  onReviewTurn,
+  onAnnotateMetric,
+  onAnnotateTrace,
+  onAnnotateTurn,
   mentionableMetrics = [],
   mentionableTurns = [],
   traceMetricsStatus = null,
@@ -156,10 +156,10 @@ export default function SpanDetailsPanel({
           'aria-controls': 'span-detail-tabpanel-metrics',
         },
         {
-          key: 'reviews',
-          label: 'Reviews',
-          id: 'span-detail-tab-reviews',
-          'aria-controls': 'span-detail-tabpanel-reviews',
+          key: 'annotations',
+          label: 'Annotations',
+          id: 'span-detail-tab-annotations',
+          'aria-controls': 'span-detail-tabpanel-annotations',
         }
       );
     }
@@ -1175,9 +1175,9 @@ export default function SpanDetailsPanel({
             <TraceMetricsTab
               selectedSpan={span}
               isConversationTrace={isConversationTrace}
-              onReviewMetric={onReviewMetric}
-              onReviewTrace={onReviewTrace}
-              onReviewTurn={onReviewTurn}
+              onAnnotateMetric={onAnnotateMetric}
+              onAnnotateTrace={onAnnotateTrace}
+              onAnnotateTurn={onAnnotateTurn}
               traceMetricsStatus={traceMetricsStatus}
               selectedTurnNumber={selectedTurnNumber}
             />
@@ -1185,8 +1185,8 @@ export default function SpanDetailsPanel({
         )}
 
         {hasTraceMetrics && trace && (
-          <TabPanel value={activeTabKey} index="reviews">
-            <TraceReviewsTab
+          <TabPanel value={activeTabKey} index="annotations">
+            <TraceAnnotationsTab
               selectedSpan={span}
               trace={trace}
               onTraceUpdated={onTraceUpdated ?? (() => {})}

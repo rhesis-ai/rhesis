@@ -1,5 +1,9 @@
 'use client';
 
+import {
+  ANNOTATION_TARGET_TYPES,
+  AnnotationTargetType,
+} from '@/utils/api-client/interfaces/annotation';
 import React, {
   useCallback,
   useEffect,
@@ -10,10 +14,6 @@ import React, {
 import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import { Box, Typography, useTheme, FormHelperText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-  REVIEW_TARGET_TYPES,
-  type ReviewTargetType,
-} from '@/utils/api-client/interfaces/test-results';
 import { BORDER_RADIUS } from '@/styles/theme';
 export interface MentionOption {
   id: string;
@@ -485,15 +485,24 @@ export function MentionText({ text }: { text: string }) {
 }
 
 export interface InferredTarget {
-  type: ReviewTargetType;
+  type: AnnotationTargetType;
   reference: string | null;
 }
 
 /**
- * Infer the review target from mention markup in comment text.
- * Returns the first metric or turn mention found; defaults to test_result.
+ * Infer what an annotation targets from the mention markup in its comment:
+ * the first `@metric` or `@turn` mention, or the whole entity when there is
+ * none.
+ *
+ * `entityLevelTarget` is required because the fallback differs per parent --
+ * `trace` for a trace, `test_result` for a result. Defaulting it to
+ * test_result would stamp a whole-trace annotation with a target the trace
+ * override never dispatches on, so it would apply no override at all.
  */
-export function inferReviewTarget(text: string): InferredTarget {
+export function inferAnnotationTarget(
+  text: string,
+  entityLevelTarget: AnnotationTargetType
+): InferredTarget {
   const mentionRegex =
     /@\[([^\]]+)\]\(((?:metric|turn):[^)]*(?:\([^)]*\))*[^)]*)\)/g;
   let match;
@@ -503,13 +512,13 @@ export function inferReviewTarget(text: string): InferredTarget {
     const fullId = match[2];
     const type = fullId.split(':')[0];
 
-    if (type === REVIEW_TARGET_TYPES.METRIC) {
-      return { type: REVIEW_TARGET_TYPES.METRIC, reference: display };
+    if (type === ANNOTATION_TARGET_TYPES.METRIC) {
+      return { type: ANNOTATION_TARGET_TYPES.METRIC, reference: display };
     }
-    if (type === REVIEW_TARGET_TYPES.TURN) {
-      return { type: REVIEW_TARGET_TYPES.TURN, reference: display };
+    if (type === ANNOTATION_TARGET_TYPES.TURN) {
+      return { type: ANNOTATION_TARGET_TYPES.TURN, reference: display };
     }
   }
 
-  return { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null };
+  return { type: entityLevelTarget, reference: null };
 }

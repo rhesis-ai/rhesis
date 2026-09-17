@@ -9,7 +9,7 @@ import {
   isPassedStatusName,
 } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
-import { getLatestMetricReviewForResult } from './test-run-summary-utils';
+import { getLatestMetricAnnotationForResult } from './result-annotations';
 
 export type TestResultDisplayStatus = {
   passed: boolean;
@@ -20,11 +20,11 @@ export type TestResultDisplayStatus = {
   automatedPassed?: boolean;
   hasExecutionError: boolean;
   errorReason?: string;
-  reviewData?: {
-    reviewer: string;
+  annotationData?: {
+    annotator: string;
     comments: string;
     updated_at?: string;
-    newStatus: string;
+    newStatus: 'passed' | 'failed';
   };
 };
 
@@ -81,11 +81,11 @@ export function getTestResultDisplayStatus(
         )?.length || 0;
 
     const originalPassed = allCriteriaMet === true;
-    const lastReview = test.last_review;
+    const lastAnnotation = test.last_annotation;
 
-    if (lastReview && lastReview.status?.name) {
-      const reviewPassed = isPassedStatusName(lastReview.status.name);
-      const hasConflict = reviewPassed !== originalPassed;
+    if (lastAnnotation && lastAnnotation.status?.name) {
+      const annotationPassed = isPassedStatusName(lastAnnotation.status.name);
+      const hasConflict = annotationPassed !== originalPassed;
 
       return {
         passed: getEffectiveTestResultStatus(test) === 'Pass',
@@ -95,11 +95,11 @@ export function getTestResultDisplayStatus(
         hasConflict,
         automatedPassed: originalPassed,
         hasExecutionError: false,
-        reviewData: {
-          reviewer: lastReview.user?.name || 'Unknown',
-          comments: lastReview.comments,
-          updated_at: lastReview.updated_at,
-          newStatus: reviewPassed ? 'passed' : 'failed',
+        annotationData: {
+          annotator: lastAnnotation.user?.name || 'Unknown',
+          comments: lastAnnotation.comments ?? '',
+          updated_at: lastAnnotation.updated_at,
+          newStatus: annotationPassed ? 'passed' : 'failed',
         },
       };
     }
@@ -107,7 +107,7 @@ export function getTestResultDisplayStatus(
     // test_output.status is a legacy per-run marker; it decides only whether
     // to show the execution-error affordance and its reason. The outcome
     // itself always comes from the backend, so this can no longer contradict
-    // the chip a reviewer sees elsewhere.
+    // the chip shown elsewhere.
     const status = getEffectiveTestResultStatus(test);
     if (status === 'Error' || test.test_output.status === 'error') {
       return {
@@ -123,10 +123,12 @@ export function getTestResultDisplayStatus(
       };
     }
 
-    // No entity-level review, but a metric-targeted review may still exist.
-    const latestMetricReview = getLatestMetricReviewForResult(test);
-    if (latestMetricReview?.status?.name) {
-      const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
+    // No entity-level annotation, but a metric-targeted one may still exist.
+    const latestMetricAnnotation = getLatestMetricAnnotationForResult(test);
+    if (latestMetricAnnotation?.status?.name) {
+      const annotationPassed = isPassedStatusName(
+        latestMetricAnnotation.status.name
+      );
 
       return {
         passed: getEffectiveTestResultStatus(test) === 'Pass',
@@ -136,11 +138,11 @@ export function getTestResultDisplayStatus(
         hasConflict: false,
         automatedPassed: originalPassed,
         hasExecutionError: false,
-        reviewData: {
-          reviewer: latestMetricReview.user?.name || 'Unknown',
-          comments: latestMetricReview.comments ?? '',
-          updated_at: latestMetricReview.updated_at,
-          newStatus: reviewPassed ? 'passed' : 'failed',
+        annotationData: {
+          annotator: latestMetricAnnotation.user?.name || 'Unknown',
+          comments: latestMetricAnnotation.comments ?? '',
+          updated_at: latestMetricAnnotation.updated_at,
+          newStatus: annotationPassed ? 'passed' : 'failed',
         },
       };
     }
@@ -159,9 +161,9 @@ export function getTestResultDisplayStatus(
   const metrics = test.test_metrics?.metrics || {};
   const metricValues = Object.values(metrics);
   const totalMetrics = metricValues.length;
-  // Pre-review values: `originalPassed` below is the automated baseline the
-  // conflict indicator compares the human verdict against, so a metric a
-  // review already flipped must not move it.
+  // Pre-annotation values: `originalPassed` below is the automated baseline the
+  // conflict indicator compares the human verdict against, so a metric an
+  // annotation already flipped must not move it.
   const passedMetrics = metricValues.filter(
     m => m.override?.original_value ?? m.is_successful
   ).length;
@@ -181,11 +183,11 @@ export function getTestResultDisplayStatus(
   }
 
   const originalPassed = passedMetrics === totalMetrics;
-  const lastReview = test.last_review;
+  const lastAnnotation = test.last_annotation;
 
-  if (lastReview && lastReview.status?.name) {
-    const reviewPassed = isPassedStatusName(lastReview.status.name);
-    const hasConflict = reviewPassed !== originalPassed;
+  if (lastAnnotation && lastAnnotation.status?.name) {
+    const annotationPassed = isPassedStatusName(lastAnnotation.status.name);
+    const hasConflict = annotationPassed !== originalPassed;
 
     return {
       passed: getEffectiveTestResultStatus(test) === 'Pass',
@@ -195,22 +197,24 @@ export function getTestResultDisplayStatus(
       hasConflict,
       automatedPassed: originalPassed,
       hasExecutionError: false,
-      reviewData: {
-        reviewer: lastReview.user?.name || 'Unknown',
-        comments: lastReview.comments,
-        updated_at: lastReview.updated_at,
-        newStatus: reviewPassed ? 'passed' : 'failed',
+      annotationData: {
+        annotator: lastAnnotation.user?.name || 'Unknown',
+        comments: lastAnnotation.comments ?? '',
+        updated_at: lastAnnotation.updated_at,
+        newStatus: annotationPassed ? 'passed' : 'failed',
       },
     };
   }
 
-  // No entity-level review, but a metric-targeted review may still exist
-  // (e.g. an @mention review left on a specific metric). last_review only
-  // tracks entity-level reviews, so without this the "Review" column would
-  // show "No manual review yet" even though the test has been reviewed.
-  const latestMetricReview = getLatestMetricReviewForResult(test);
-  if (latestMetricReview?.status?.name) {
-    const reviewPassed = isPassedStatusName(latestMetricReview.status.name);
+  // No entity-level annotation, but a metric-targeted one may still exist
+  // (e.g. an @mention annotation left on a specific metric). last_annotation only
+  // tracks entity-level annotations, so without this the "Annotation" column
+  // would read as unannotated even though the test has been annotated.
+  const latestMetricAnnotation = getLatestMetricAnnotationForResult(test);
+  if (latestMetricAnnotation?.status?.name) {
+    const annotationPassed = isPassedStatusName(
+      latestMetricAnnotation.status.name
+    );
 
     return {
       passed: getEffectiveTestResultStatus(test) === 'Pass',
@@ -220,11 +224,11 @@ export function getTestResultDisplayStatus(
       hasConflict: false,
       automatedPassed: originalPassed,
       hasExecutionError: false,
-      reviewData: {
-        reviewer: latestMetricReview.user?.name || 'Unknown',
-        comments: latestMetricReview.comments ?? '',
-        updated_at: latestMetricReview.updated_at,
-        newStatus: reviewPassed ? 'passed' : 'failed',
+      annotationData: {
+        annotator: latestMetricAnnotation.user?.name || 'Unknown',
+        comments: latestMetricAnnotation.comments ?? '',
+        updated_at: latestMetricAnnotation.updated_at,
+        newStatus: annotationPassed ? 'passed' : 'failed',
       },
     };
   }

@@ -5,10 +5,11 @@ TestResult or Trace it targets: entity-level targets flip the parent's status,
 metric and turn targets rewrite the matching entry inside the parent's metrics
 JSONB and the parent status is recalculated from there.
 
-The marker written into that JSONB keeps the key ``review_id``. Its value is the
-annotation id (the backfill reuses each JSONB ``review_id`` as the annotation's
-primary key), so every existing marker, ``v_metric_stats.has_override`` and the
-insights built on them stay valid without touching the data.
+The marker written into that JSONB names the annotation under ``annotation_id``.
+eb2719043c01 reused each legacy JSONB ``review_id`` as the annotation's primary
+key, so the values carried over unchanged; 01926b6dd2b6 renamed the key itself.
+``v_metric_stats.has_override`` only tests that ``override`` exists, so it reads
+the same either way.
 """
 
 import uuid

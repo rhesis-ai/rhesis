@@ -1,5 +1,10 @@
 'use client';
 
+import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
+import {
+  ANNOTATION_ENTITY_TYPES,
+  ANNOTATION_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/annotation';
 import React, {
   useState,
   useMemo,
@@ -28,18 +33,14 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckIcon from '@mui/icons-material/Check';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
-import {
-  TestResultDetail,
-  REVIEW_TARGET_TYPES,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { Tag } from '@/utils/api-client/interfaces/tag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
-import ReviewJudgementDrawer from './ReviewJudgementDrawer';
+import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 import {
   findStatusByCategory,
   getEffectiveTestResultStatus,
@@ -52,7 +53,7 @@ import {
   getTestResultDisplayStatus,
   truncateText,
 } from './test-run-results-grid-utils';
-import { resultHasAnyHumanReview } from './test-run-summary-utils';
+import { resultHasAnyHumanAnnotation } from './result-annotations';
 import { EntityType } from '@/types/entity-type';
 
 interface TestsTableViewProps {
@@ -71,7 +72,7 @@ interface TestsTableViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
-  /** Drawer tab key when opening via deep-link (e.g. "reviews"). */
+  /** Drawer tab key when opening via deep-link (e.g. "annotations"). */
   initialDetailTab?: string;
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
@@ -122,7 +123,7 @@ export default function TestsTableView({
     null
   );
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
-  const [isConfirmingReview, setIsConfirmingReview] = useState(false);
+  const [isConfirmingAnnotation, setIsConfirmingAnnotation] = useState(false);
   const isConfirmingRef = useRef(false);
   const [localTestUpdates, setLocalTestUpdates] = useState<
     Record<string, TestResultDetail>
@@ -142,7 +143,8 @@ export default function TestsTableView({
       const propTest = tests.find(t => t.id === testId);
       const localTest = localTestUpdates[testId];
       return (
-        propTest?.last_review?.review_id === localTest?.last_review?.review_id
+        propTest?.last_annotation?.annotation_id ===
+        localTest?.last_annotation?.annotation_id
       );
     });
 
@@ -231,14 +233,14 @@ export default function TestsTableView({
   // useCallback so the columns memo below can depend on this handler without
   // being rebuilt on every render. Everything it closes over is either a ref
   // or a setState (both stable), leaving onTestResultUpdate as the only dep.
-  const handleConfirmReview = useCallback(
+  const handleConfirmAnnotation = useCallback(
     async (event: React.MouseEvent, test: TestResultDetail) => {
       event.stopPropagation();
       if (isConfirmingRef.current) return;
       isConfirmingRef.current = true;
 
       try {
-        setIsConfirmingReview(true);
+        setIsConfirmingAnnotation(true);
 
         const clientFactory = new ApiClientFactory();
         const testResultsClient = clientFactory.getTestResultsClient();
@@ -247,9 +249,9 @@ export default function TestsTableView({
           entity_type: EntityType.TEST_RESULT,
         });
 
-        // Confirm the outcome the reviewer is actually looking at. Deriving it
+        // Confirm the outcome the annotator is actually looking at. Deriving it
         // from raw metrics here risked submitting a verdict that contradicted
-        // the chip on screen. The review flow only offers pass/fail, so any
+        // the chip on screen. The annotation flow only offers pass/fail, so any
         // non-Pass outcome is confirmed as a fail.
         const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
 
@@ -259,12 +261,16 @@ export default function TestsTableView({
         );
         if (!targetStatus) return;
 
-        await testResultsClient.createReview(
-          test.id,
-          targetStatus.id,
-          `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-          { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
-        );
+        await new ApiClientFactory().getAnnotationsClient().createAnnotation({
+          entity_type: ANNOTATION_ENTITY_TYPES.TEST_RESULT,
+          entity_id: test.id,
+          status_id: targetStatus.id,
+          comments: `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
+          target: {
+            type: ANNOTATION_TARGET_TYPES.TEST_RESULT,
+            reference: null,
+          },
+        });
 
         let updatedTest: TestResultDetail | null = null;
         const delays = [100, 200, 400, 800];
@@ -272,7 +278,7 @@ export default function TestsTableView({
         for (const delay of delays) {
           await new Promise(resolve => setTimeout(resolve, delay));
           const fetchedTest = await testResultsClient.getTestResult(test.id);
-          if (fetchedTest.last_review) {
+          if (fetchedTest.last_annotation) {
             updatedTest = fetchedTest;
             break;
           }
@@ -295,9 +301,9 @@ export default function TestsTableView({
 
         onTestResultUpdate(updatedTest);
       } catch (error) {
-        console.error('Failed to confirm review:', error);
+        console.error('Failed to confirm the automated result:', error);
       } finally {
-        setIsConfirmingReview(false);
+        setIsConfirmingAnnotation(false);
         isConfirmingRef.current = false;
       }
     },
@@ -435,8 +441,8 @@ export default function TestsTableView({
         },
       },
       {
-        field: 'review',
-        headerName: 'Review',
+        field: 'annotation',
+        headerName: 'Annotation',
         width: 120,
         flex: 0,
         sortable: false,
@@ -453,7 +459,7 @@ export default function TestsTableView({
               width: '100%',
             }}
           >
-            Review
+            Annotation
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
               <SmartToyOutlinedIcon sx={{ fontSize: 16 }} />
               <Typography variant="caption" color="text.secondary">
@@ -518,53 +524,17 @@ export default function TestsTableView({
                 </Box>
               </Tooltip>
 
-              {status.isOverruled ? (
-                <Tooltip
-                  title={
-                    status.reviewData
-                      ? `Human review by ${status.reviewData.reviewer}: ${
-                          status.reviewData.newStatus === 'passed'
-                            ? 'Passed'
-                            : 'Failed'
-                        } - ${status.reviewData.comments}`
-                      : 'Manually reviewed'
-                  }
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {status.reviewData?.newStatus === 'passed' ? (
-                      <CheckIcon
-                        sx={{
-                          fontSize: 20,
-                          color: status.hasConflict
-                            ? 'warning.main'
-                            : 'success.main',
-                        }}
-                      />
-                    ) : (
-                      <CloseIcon
-                        sx={{
-                          fontSize: 20,
-                          color: status.hasConflict
-                            ? 'warning.main'
-                            : 'error.main',
-                        }}
-                      />
-                    )}
-                  </Box>
-                </Tooltip>
-              ) : (
-                <Tooltip title="No manual review yet">
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CircleOutlinedIcon
-                      sx={{
-                        fontSize: 20,
-                        color: 'action.disabled',
-                        opacity: 0.3,
-                      }}
-                    />
-                  </Box>
-                </Tooltip>
-              )}
+              <AnnotationIndicator
+                verdict={
+                  status.isOverruled
+                    ? (status.annotationData?.newStatus ?? 'failed')
+                    : null
+                }
+                hasConflict={status.hasConflict}
+                annotator={status.annotationData?.annotator}
+                comment={status.annotationData?.comments}
+                emptyOpacity={0.3}
+              />
             </Box>
           );
         },
@@ -679,13 +649,13 @@ export default function TestsTableView({
                 width: '100%',
               }}
             >
-              {!resultHasAnyHumanReview(test) && (
-                <Tooltip title="Confirm Review">
+              {!resultHasAnyHumanAnnotation(test) && (
+                <Tooltip title="Confirm Annotation">
                   <span>
                     <IconButton
                       size="small"
-                      onClick={e => handleConfirmReview(e, test)}
-                      disabled={isConfirmingReview}
+                      onClick={e => handleConfirmAnnotation(e, test)}
+                      disabled={isConfirmingAnnotation}
                       sx={{
                         p: 0.5,
                         color: 'primary.main',
@@ -700,7 +670,7 @@ export default function TestsTableView({
                 </Tooltip>
               )}
 
-              <Tooltip title="Provide Review">
+              <Tooltip title="Annotate">
                 <IconButton
                   size="small"
                   onClick={e => handleOverruleJudgement(e, test)}
@@ -724,10 +694,10 @@ export default function TestsTableView({
     isMultiTurn,
     prompts,
     theme,
-    isConfirmingReview,
+    isConfirmingAnnotation,
     openTestDrawer,
     requirements,
-    handleConfirmReview,
+    handleConfirmAnnotation,
   ]);
 
   return (
@@ -776,11 +746,12 @@ export default function TestsTableView({
         metricsSource={metricsSource}
       />
 
-      <ReviewJudgementDrawer
+      <AnnotationDrawer
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}
-        test={testToOverrule}
-        onSave={handleOverruleSave}
+        entityType={ANNOTATION_ENTITY_TYPES.TEST_RESULT}
+        entityId={testToOverrule?.id}
+        onSaved={() => handleOverruleSave(testToOverrule?.id ?? '')}
       />
     </Box>
   );

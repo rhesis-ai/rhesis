@@ -91,38 +91,38 @@ describe('ConversationHistory', () => {
     expect(screen.getByText(/conversation concluded/i)).toBeInTheDocument();
   });
 
-  it('shows "Confirmed" chip when hasExistingReview=true and reviewMatchesAutomated=true', () => {
+  it('shows "Confirmed" chip when hasExistingAnnotation=true and annotationMatchesAutomated=true', () => {
     renderConversation({
       conversationSummary: [makeTurn(1)],
-      hasExistingReview: true,
-      reviewMatchesAutomated: true,
+      hasExistingAnnotation: true,
+      annotationMatchesAutomated: true,
     });
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
   });
 
-  it('shows confirm button when hasExistingReview=false and onConfirmAutomatedReview is provided', () => {
-    const onConfirmAutomatedReview = jest.fn();
+  it('shows confirm button when hasExistingAnnotation=false and onConfirmAutomatedAnnotation is provided', () => {
+    const onConfirmAutomatedAnnotation = jest.fn();
     renderConversation({
       conversationSummary: [makeTurn(1)],
-      hasExistingReview: false,
-      onConfirmAutomatedReview,
+      hasExistingAnnotation: false,
+      onConfirmAutomatedAnnotation,
     });
     // The confirm button is an IconButton — look by role
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
-  it('calls onConfirmAutomatedReview when the confirm button is clicked', async () => {
+  it('calls onConfirmAutomatedAnnotation when the confirm button is clicked', async () => {
     const user = userEvent.setup();
-    const onConfirmAutomatedReview = jest.fn();
+    const onConfirmAutomatedAnnotation = jest.fn();
 
     renderConversation({
       conversationSummary: [makeTurn(1)],
-      hasExistingReview: false,
-      onConfirmAutomatedReview,
+      hasExistingAnnotation: false,
+      onConfirmAutomatedAnnotation,
     });
 
     await user.click(screen.getByRole('button'));
-    expect(onConfirmAutomatedReview).toHaveBeenCalled();
+    expect(onConfirmAutomatedAnnotation).toHaveBeenCalled();
   });
 
   it('skips turns that have no penelope_message or target_response', () => {

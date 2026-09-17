@@ -1,8 +1,10 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
-  AnnotationListItem,
+  Annotation,
+  AnnotationCreate,
   AnnotationsQueryParams,
+  AnnotationUpdate,
 } from './interfaces/annotation';
 import { PaginatedResponse } from './interfaces/pagination';
 
@@ -13,15 +15,58 @@ export class AnnotationsClient extends BaseApiClient {
 
   async getAnnotations(
     params: AnnotationsQueryParams = {}
-  ): Promise<PaginatedResponse<AnnotationListItem>> {
-    return this.fetchPaginated<AnnotationListItem>(API_ENDPOINTS.annotations, {
-      skip: params.skip ?? 0,
-      limit: params.limit ?? 50,
-      ...(params.source ? { source: params.source } : {}),
-      ...(params.search ? { search: params.search } : {}),
-      ...(params.resolved !== undefined ? { resolved: params.resolved } : {}),
-      ...(params.rating ? { rating: params.rating } : {}),
-      ...(params.target_type ? { target_type: params.target_type } : {}),
+  ): Promise<PaginatedResponse<Annotation>> {
+    const { skip = 0, limit = 50, sort_by, sort_order, ...filters } = params;
+    return this.fetchPaginated<Annotation>(API_ENDPOINTS.annotations, {
+      skip,
+      limit,
+      ...(sort_by ? { sort_by } : {}),
+      ...(sort_order ? { sort_order } : {}),
+      // Undefined entries are dropped by fetchPaginated, but `resolved: false`
+      // is meaningful and must survive.
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== undefined)
+      ),
     });
+  }
+
+  /**
+   * Every annotation on one parent. One page of 100 — the endpoint's own cap,
+   * and far more than an entity accumulates, so there is nothing to page.
+   */
+  async getByEntity(
+    entityType: string,
+    entityId: string
+  ): Promise<Annotation[]> {
+    return this.fetch<Annotation[]>(
+      `${API_ENDPOINTS.annotations}/entity/${entityType}/${entityId}?skip=0&limit=100`
+    );
+  }
+
+  async createAnnotation(data: AnnotationCreate): Promise<Annotation> {
+    return this.fetch<Annotation>(`${API_ENDPOINTS.annotations}/`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAnnotation(
+    annotationId: string,
+    data: AnnotationUpdate
+  ): Promise<Annotation> {
+    return this.fetch<Annotation>(
+      `${API_ENDPOINTS.annotations}/${annotationId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async deleteAnnotation(annotationId: string): Promise<Annotation> {
+    return this.fetch<Annotation>(
+      `${API_ENDPOINTS.annotations}/${annotationId}`,
+      { method: 'DELETE' }
+    );
   }
 }

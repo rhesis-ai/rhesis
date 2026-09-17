@@ -68,7 +68,7 @@ class TestApplyMetricOverride:
         metric = result.test_metrics["metrics"]["Bias Detection"]
         assert metric["is_successful"] is True
         assert metric["override"]["original_value"] is False
-        assert metric["override"]["review_id"] == "review-1"
+        assert metric["override"]["annotation_id"] == "review-1"
 
 
 class TestHasEvaluableContent:

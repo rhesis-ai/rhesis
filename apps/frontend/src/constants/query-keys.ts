@@ -30,6 +30,13 @@ export const requirementKeys = createEntityKeys('requirements');
 export const projectKeys = createEntityKeys('projects');
 export const explorerKeys = createEntityKeys('explorer');
 
+export const annotationKeys = {
+  ...createEntityKeys('annotations'),
+  /** Every annotation on one parent. */
+  entity: (entityType: string, entityId: string) =>
+    ['annotations', 'entity', entityType, entityId] as const,
+};
+
 export const commentKeys = {
   list: (entityType: string, entityId: string) =>
     ['comments', entityType, entityId] as const,

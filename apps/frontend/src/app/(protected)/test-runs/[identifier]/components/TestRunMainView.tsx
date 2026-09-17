@@ -25,7 +25,7 @@ import {
   TestRunDetail,
   VerdictMatrix,
 } from '@/utils/api-client/interfaces/test-run';
-import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
+import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useViewingEntity } from '@/contexts/NotificationsContext';
 import { NotificationSection } from '@/constants/notifications';
@@ -44,7 +44,7 @@ import {
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
 import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
-import TestRunReviewsTab from './TestRunReviewsTab';
+import TestRunAnnotationsTab from './TestRunAnnotationsTab';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -52,7 +52,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   configuration: 'Configuration',
   linked_entities: 'Tests',
   traces: 'Traces',
-  reviews: 'Reviews',
+  annotations: 'Annotations',
 };
 
 interface TabPanelProps {
@@ -87,7 +87,7 @@ interface TestRunMainViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
-  /** Drawer tab to open when deep-linking via selectedresult (e.g. "reviews"). */
+  /** Drawer tab to open when deep-linking via selectedresult (e.g. "annotations"). */
   initialDetailTab?: string;
   /** Server-prefetched results (small runs only, only when the Tests tab is opening); see
    * `useTestRunDetailData`. */
@@ -143,12 +143,8 @@ export default function TestRunMainView({
     )
   );
 
-  // Fetch test results for the Tests tab, and for Reviews, which builds its list
-  // out of the reviews hanging off those same results.
-  const tabsNeedingResults = [
-    TAB_KEYS.indexOf('linked_entities'),
-    TAB_KEYS.indexOf('reviews'),
-  ];
+  // Only the Tests tab needs the results. Annotations queries by run id.
+  const tabsNeedingResults = [TAB_KEYS.indexOf('linked_entities')];
   const needsTestResults = React.useRef(tabsNeedingResults.includes(activeTab));
   if (tabsNeedingResults.includes(activeTab)) {
     needsTestResults.current = true;
@@ -227,7 +223,7 @@ export default function TestRunMainView({
     if (filter.statusFilter !== 'all') {
       // Must use the same trusted outcome the row's own status chip renders.
       // Re-deriving it from raw metrics here made the filter disagree with
-      // what the user could see: a test reviewed to Pass showed a "Passed"
+      // what the user could see: a test annotated Pass showed a "Passed"
       // chip but was excluded from the "passed" filter.
       filtered = filtered.filter(test => {
         const isPassed = getEffectiveTestResultStatus(test) === 'Pass';
@@ -263,12 +259,12 @@ export default function TestRunMainView({
 
     if (filter.overruleFilter !== 'all') {
       filtered = filtered.filter(test => {
-        const hasReview = !!test.last_review;
-        const hasConflict = !test.matches_review;
-        if (filter.overruleFilter === 'overruled') return hasReview;
-        if (filter.overruleFilter === 'original') return !hasReview;
+        const hasAnnotation = !!test.last_annotation;
+        const hasConflict = !test.matches_annotation;
+        if (filter.overruleFilter === 'overruled') return hasAnnotation;
+        if (filter.overruleFilter === 'original') return !hasAnnotation;
         if (filter.overruleFilter === 'conflicting')
-          return hasReview && hasConflict;
+          return hasAnnotation && hasConflict;
         return true;
       });
     }
@@ -345,14 +341,13 @@ export default function TestRunMainView({
     handleTabChange(TAB_KEYS.indexOf('linked_entities'));
   }, [handleTabChange]);
 
-  /** The Reviews tab opens a result in place rather than sending you to the Tests
+  /** The Annotations tab opens a result in place rather than sending you to the Tests
    *  tab, the same way the playground opens a trace from a conversation. */
-  const [reviewedResultId, setReviewedResultId] = useState<string | null>(null);
-  const reviewedResult = useMemo(
+  const [openedResultId, setOpenedResultId] = useState<string | null>(null);
+  const openedResult = useMemo(
     () =>
-      testResults.find(result => String(result.id) === reviewedResultId) ??
-      null,
-    [testResults, reviewedResultId]
+      testResults.find(result => String(result.id) === openedResultId) ?? null,
+    [testResults, openedResultId]
   );
 
   const handleTestResultUpdate = useCallback(
@@ -644,15 +639,14 @@ export default function TestRunMainView({
       </TabPanel>
 
       <TabPanel value={activeTab} index={4}>
-        <TestRunReviewsTab
-          testResults={testResults}
-          loading={loading}
-          onViewTestResult={setReviewedResultId}
+        <TestRunAnnotationsTab
+          testRunId={testRun.id}
+          onViewTestResult={setOpenedResultId}
         />
         <TestResultDrawer
-          open={reviewedResult !== null}
-          onClose={() => setReviewedResultId(null)}
-          test={reviewedResult}
+          open={openedResult !== null}
+          onClose={() => setOpenedResultId(null)}
+          test={openedResult}
           prompts={prompts}
           requirements={requirements}
           testRunId={testRunId}
@@ -660,7 +654,7 @@ export default function TestRunMainView({
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
-          initialTab={TEST_RESULT_DRAWER_TAB.reviews}
+          initialTab={TEST_RESULT_DRAWER_TAB.annotations}
           testSetType={
             testRun.test_configuration?.test_set?.test_set_type?.type_value
           }

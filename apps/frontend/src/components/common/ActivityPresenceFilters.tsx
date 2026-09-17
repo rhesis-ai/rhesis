@@ -98,13 +98,13 @@ function PresenceFilterRow({
 interface ActivityPresenceFiltersSectionProps {
   values: ActivityPresenceFilters;
   onChange: (next: ActivityPresenceFilters) => void;
-  showReviews?: boolean;
+  showAnnotations?: boolean;
 }
 
 export default function ActivityPresenceFiltersSection({
   values,
   onChange,
-  showReviews = false,
+  showAnnotations = false,
 }: ActivityPresenceFiltersSectionProps) {
   const setField = (
     field: keyof ActivityPresenceFilters,
@@ -122,12 +122,12 @@ export default function ActivityPresenceFiltersSection({
           activeValue={values.tags}
           onChange={value => setField('tags', value)}
         />
-        {showReviews && (
+        {showAnnotations && (
           <PresenceFilterRow
-            label="Reviews"
+            label="Annotations"
             tabs={[...PRESENCE_OPTIONS]}
-            activeValue={values.reviews ?? 'all'}
-            onChange={value => setField('reviews', value)}
+            activeValue={values.annotations ?? 'all'}
+            onChange={value => setField('annotations', value)}
           />
         )}
         <PresenceFilterRow

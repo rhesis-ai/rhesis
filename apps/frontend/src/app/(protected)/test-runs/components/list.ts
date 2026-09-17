@@ -63,9 +63,9 @@ const TEST_RUNS_FILTERS = {
     kind: 'raw',
     toOData: (value: string) => presenceClause('tasks', value),
   },
-  // Not OData -- surfaced as `has_experiment`/`has_reviews` top-level params via `extraParams`.
+  // Not OData -- surfaced as `has_experiment`/`has_annotations` top-level params via `extraParams`.
   runKind: { kind: 'raw', toOData: () => undefined },
-  reviews: { kind: 'raw', toOData: () => undefined },
+  annotations: { kind: 'raw', toOData: () => undefined },
 } as const;
 
 export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
@@ -78,8 +78,8 @@ export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
     extraParams: filters => ({
       ...(filters.runKind === 'tests' ? { has_experiment: false } : {}),
       ...(filters.runKind === 'experiments' ? { has_experiment: true } : {}),
-      ...(filters.reviews === 'with' ? { has_reviews: true } : {}),
-      ...(filters.reviews === 'without' ? { has_reviews: false } : {}),
+      ...(filters.annotations === 'with' ? { has_annotations: true } : {}),
+      ...(filters.annotations === 'without' ? { has_annotations: false } : {}),
     }),
     list: (factory: ApiClientFactory, params) => {
       const { $filter, ...rest } = params;
