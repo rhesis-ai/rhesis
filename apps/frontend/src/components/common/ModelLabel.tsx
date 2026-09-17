@@ -51,23 +51,28 @@ export default function ModelLabel({
   const first = provider ? `${provider}/${names[0]}` : names[0];
   const label = names.length > 1 ? `${first} +${names.length - 1}` : first;
 
-  return (
-    <Tooltip title={names.length > 1 ? names.join(', ') : ''}>
-      <Typography
-        variant="body2"
-        component={component}
-        sx={
-          truncate
-            ? {
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }
-            : { wordBreak: 'break-word' }
-        }
-      >
-        {label}
-      </Typography>
-    </Tooltip>
+  const text = (
+    <Typography
+      variant="body2"
+      component={component}
+      sx={
+        truncate
+          ? {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          : { wordBreak: 'break-word' }
+      }
+    >
+      {label}
+    </Typography>
   );
+
+  // One model is already named in full, so there is nothing for a tooltip to
+  // reveal. MUI refuses to open an empty one, but it still wraps the child and
+  // listens for hover and focus to decide that.
+  if (names.length === 1) return text;
+
+  return <Tooltip title={names.join(', ')}>{text}</Tooltip>;
 }

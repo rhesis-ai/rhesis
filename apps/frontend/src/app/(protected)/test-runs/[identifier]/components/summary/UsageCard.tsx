@@ -12,6 +12,18 @@ const COSTS_DOC_URL =
   'https://docs.rhesis.ai/docs/tracing/costs#when-a-figure-is-missing';
 
 /**
+ * Whether a run has any traced LLM calls to report on.
+ *
+ * A run whose endpoint is not instrumented produces no traces at all, and has
+ * no usage rather than usage of zero. The card is held back for it entirely,
+ * the same way it is held back before the first response arrives -- "0 tokens,
+ * no priced models" would answer a question nobody asked.
+ */
+export function hasTracedUsage(usage: TraceMetricsResponse): boolean {
+  return usage.total_traces > 0;
+}
+
+/**
  * What a test run spent, and on what.
  *
  * Cost leads, because it is the figure people come to this card for; tokens and

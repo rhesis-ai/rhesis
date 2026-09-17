@@ -452,6 +452,31 @@ describe('KpiRow', () => {
     expect(screen.queryByText('cost')).not.toBeInTheDocument();
   });
 
+  it('holds the card back entirely for a run that traced nothing', () => {
+    // An endpoint with no instrumentation produces no traces, so there is no
+    // usage rather than usage of zero. "0 tokens, no priced models" would be an
+    // answer to a question nobody asked.
+    mockUsage({
+      total_traces: 0,
+      enriched_traces: 0,
+      priced_traces: 0,
+      total_spans: 0,
+      total_tokens: 0,
+      total_cost_usd: 0,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.queryByText('Usage')).not.toBeInTheDocument();
+    expect(screen.queryByText(/No priced models/)).not.toBeInTheDocument();
+  });
+
   it('shows a long model name in full rather than clipping it', () => {
     // The card is narrow; half a name answers nothing, so the line wraps.
     mockUsage({

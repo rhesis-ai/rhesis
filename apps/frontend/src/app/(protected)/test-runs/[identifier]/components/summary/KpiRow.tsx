@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Box, Grid, LinearProgress } from '@mui/material';
 import KpiCard from './KpiCard';
-import UsageCard from './UsageCard';
+import UsageCard, { hasTracedUsage } from './UsageCard';
 import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
@@ -167,8 +167,9 @@ export default function KpiRow({
         </Grid>
 
         {/* Held back until the numbers arrive rather than shown as zeros, the
-            same way the rollup tiles on the Traces page behave. */}
-        {usage && (
+            same way the rollup tiles on the Traces page behave, and held back
+            entirely for a run that traced nothing. */}
+        {usage && hasTracedUsage(usage) && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <UsageCard usage={usage} />
           </Grid>
