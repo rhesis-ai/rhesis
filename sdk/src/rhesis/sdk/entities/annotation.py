@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
@@ -120,6 +121,21 @@ def resolve_verdict(verdict: Union[Verdict, str], client: Optional[APIClient] = 
     raise ValueError(
         f"No '{name}' status exists for entity type '{entity_type}' in this organization."
     )
+
+
+def turn_reference(turn: Union[int, str]) -> str:
+    """The canonical reference for a turn, e.g. ``2`` or ``"turn 2"`` -> ``"Turn 2"``.
+
+    The stored reference is what the platform groups and displays a judgement by:
+    ``annotation_summary`` keys entries as ``"{target_type}:{reference}"``, so a
+    turn recorded as ``"2"`` becomes a second entry for the same turn rather than
+    superseding the first. The backend applies the override either way, since it
+    reads the digits out, which is exactly what would make the mismatch quiet.
+    """
+    digits = re.sub(r"\D", "", str(turn))
+    if not digits:
+        raise ValueError(f"Could not read a turn number from {turn!r}. Expected 2 or 'Turn 2'.")
+    return f"Turn {int(digits)}"
 
 
 class AnnotationUser(BaseModel):
@@ -292,7 +308,7 @@ class Annotations(BaseCollection):
         comment: Optional[str] = None,
         *,
         metric: Optional[str] = None,
-        turn: Optional[str] = None,
+        turn: Optional[Union[int, str]] = None,
         attributes: Optional[Dict[str, Any]] = None,
     ) -> Annotation:
         """Record a judgement, naming the verdict rather than resolving a status id.
@@ -304,17 +320,18 @@ class Annotations(BaseCollection):
         ``metric`` and ``turn`` are mutually exclusive: an annotation judges one
         thing. Naming neither judges the parent as a whole.
         """
-        if metric and turn:
+        if metric and turn is not None:
             raise ValueError("An annotation targets a metric or a turn, not both")
 
-        target_type = "metric" if metric else "turn" if turn else None
+        target_type = "metric" if metric else "turn" if turn is not None else None
+        reference = metric if metric else (turn_reference(turn) if turn is not None else None)
         annotation = Annotation(
             entity_type=str(entity_type),
             entity_id=str(entity_id),
             status_id=resolve_verdict(verdict),
             comments=comment,
             target_type=target_type,
-            target_reference=metric or turn,
+            target_reference=reference,
             attributes=attributes,
         )
         annotation.push()
@@ -366,11 +383,16 @@ class Annotations(BaseCollection):
         )
 
     @classmethod
-    def for_metric(cls, metric_name: str) -> List[Annotation]:
-        """Annotations targeting a specific metric by name (case-insensitive)."""
-        return cls._paged(
-            None, {"metric": metric_name, "sort_by": "updated_at", "sort_order": "desc"}
-        )
+    def for_metric(cls, metric: str) -> List[Annotation]:
+        """Every judgement about one metric, given its name or its id.
+
+        Two kinds are filed differently and both come back: a judgement on a
+        metric within a test result or trace names the metric, while a metric
+        tuning judgement names the metric's id, so renaming it does not orphan
+        the judgements people made. The tuning ones are the judgements about
+        whether the metric itself is any good.
+        """
+        return cls._paged(None, {"metric": metric, "sort_by": "updated_at", "sort_order": "desc"})
 
     @classmethod
     def for_annotator(cls, annotator_id: str) -> List[Annotation]:

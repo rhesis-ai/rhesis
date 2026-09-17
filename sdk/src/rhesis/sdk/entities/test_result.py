@@ -73,7 +73,7 @@ class TestResult(BaseEntity):
         comment: Optional[str] = None,
         *,
         metric: Optional[str] = None,
-        turn: Optional[str] = None,
+        turn: Optional[Union[int, str]] = None,
     ) -> "Annotation":
         """Record a human verdict on this result, overriding the automated one.
 

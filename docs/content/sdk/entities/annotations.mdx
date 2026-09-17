@@ -49,7 +49,7 @@ Annotations.for_trace(trace_db_id)          # the span row id, not the OTEL hex
 Annotations.for_test_run(test_run_id)
 Annotations.for_test_set(test_set_id)
 Annotations.for_endpoint(endpoint_id)
-Annotations.for_metric("Answer Relevancy")  # by metric name, case-insensitive
+Annotations.for_metric("Answer Relevancy")  # by name or id; see the note below
 Annotations.for_requirement(requirement_id)
 Annotations.for_annotator(user_id)
 Annotations.for_date_range(date_from="2026-01-01")
@@ -59,6 +59,8 @@ for annotation in Annotations.for_test_run(test_run_id):
 </CodeBlock>
 
 These read every page rather than the first one, so a parent with more annotations than a single page returns whole.
+
+`for_metric` takes a name or an id and returns both kinds of judgement about that metric: the ones left on a metric within a test result or trace, which name the metric, and the metric tuning ones, which name its id so that renaming the metric does not orphan them. The tuning ones are the judgements about whether the metric itself is any good, so asking by name and getting only the first kind would be the wrong answer.
 
 ## Recording a judgement
 
@@ -72,13 +74,22 @@ test_result.annotate("fail", "The answer cites a policy that does not exist.")
 test_result.annotate("pass", "Relevant after all.", metric="Answer Relevancy")
 
 # On one turn of a multi-turn conversation
-test_result.annotate("fail", "Went off script here.", turn="Turn 2")
+test_result.annotate("fail", "Went off script here.", turn=2)
 
 # Labelling a test, the way a person labels one in the Explorer
 test.annotate("fail", "Not a fair question.")`}
 </CodeBlock>
 
-`"pass"` and `"fail"` are resolved to the organization's status rows for you, and cached. Metric tuning uses `"accepted"` and `"rejected"`.
+`"pass"` and `"fail"` are resolved to the organization's status rows for you, and cached. Metric tuning uses `"accepted"` and `"rejected"`. `Verdict` and `AnnotatableEntity` hold the same values as constants if you would rather not type strings.
+
+A turn is given as its number, from `test_output.conversation_summary`, and stored as the label the platform groups judgements by:
+
+<CodeBlock filename="turn_targets.py" language="python">
+{`test_result.annotate("fail", "...", turn=2)          # stored as "Turn 2"
+test_result.annotate("fail", "...", turn="Turn 2")    # the same thing`}
+</CodeBlock>
+
+Both land on the same target. Passing a bare `"2"` would not: judgements are grouped by that reference, so it would sit beside the turn's other annotations instead of superseding them, which is why the number is normalised here rather than sent as given.
 
 For a parent with no entity class of its own, such as a trace, use the collection:
 

@@ -8,6 +8,7 @@ from rhesis.sdk.entities.annotation import (
     Annotation,
     Annotations,
     resolve_verdict,
+    turn_reference,
 )
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.status import Status
@@ -522,3 +523,43 @@ class TestVerdictResolutionPages:
 
         with pytest.raises(ValueError, match="No 'Fail' status exists"):
             resolve_verdict("fail", client=client)
+
+
+class TestTurnReferences:
+    """A turn is stored by the label the platform groups it under."""
+
+    @pytest.mark.parametrize(
+        "given",
+        [2, "2", "Turn 2", "turn 2", "turn-2"],
+    )
+    def test_every_spelling_becomes_the_canonical_label(self, given):
+        assert turn_reference(given) == "Turn 2"
+
+    def test_something_with_no_turn_number_is_refused(self):
+        with pytest.raises(ValueError, match="Could not read a turn number"):
+            turn_reference("the last one")
+
+    @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_an_integer_turn_is_stored_the_way_the_ui_stores_it(self, mock_client, _verdict):
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        TestResult(id=ENTITY_ID).annotate("fail", "Off script.", turn=2)
+
+        body = mock_client.return_value.send_request.call_args.kwargs["data"]
+        # annotation_summary keys entries as "{target_type}:{reference}", so a
+        # reference of "2" would be a second entry for the same turn rather than
+        # superseding the first -- and the override applies either way, which is
+        # what would keep the mismatch quiet.
+        assert body["target"] == {"type": "turn", "reference": "Turn 2"}
+
+    @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_turn_one_is_not_mistaken_for_no_turn(self, mock_client, _verdict):
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        # A falsy turn number must still target that turn, not the whole result.
+        TestResult(id=ENTITY_ID).annotate("fail", "First reply was wrong.", turn=0)
+
+        body = mock_client.return_value.send_request.call_args.kwargs["data"]
+        assert body["target"] == {"type": "turn", "reference": "Turn 0"}
