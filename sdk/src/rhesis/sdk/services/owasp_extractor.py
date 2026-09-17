@@ -21,20 +21,18 @@ Usage::
 from __future__ import annotations
 
 import hashlib
+import importlib.resources
 import io
 import json
 import logging
 import re
 from collections import Counter
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable, Collection, Optional
 
 import requests
 
 logger = logging.getLogger(__name__)
-
-_DATA_DIR = Path(__file__).resolve().parent / "data" / "owasp"
 
 DEFAULT_OWASP_LLM_PDF_URL = (
     "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
@@ -83,12 +81,15 @@ def _load_bundled_sections(url: str) -> Optional[list[ReportSection]]:
     if report_name is None:
         return None
 
-    path = _DATA_DIR / f"{report_name}.json"
-    if not path.exists():
-        logger.warning("[OWASPExtractor] Bundled data missing: %s", path)
+    pkg_files = importlib.resources.files("rhesis.sdk.services")
+    pkg = pkg_files / "data" / "owasp" / f"{report_name}.json"
+    try:
+        raw = pkg.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.warning("[OWASPExtractor] Bundled data missing: %s", report_name)
         return None
 
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(raw)
     sections = [
         ReportSection(id=s["id"], name=s["name"], content=s["content"]) for s in data["sections"]
     ]

@@ -1,5 +1,5 @@
 {
-  "source_url": "https://raw.githubusercontent.com/OWASP/www-project-top-10-for-large-language-model-applications/main/assets/PDF/OWASP-Top-10-for-LLMs-v2025.pdf",
+  "source_url": "https://owasp.org/www-project-top-10-for-large-language-model-applications/assets/PDF/OWASP-Top-10-for-LLMs-v2025.pdf",
   "report": "llm-top-10-2025",
   "sections": [
     {
