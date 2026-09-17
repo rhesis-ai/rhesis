@@ -18,15 +18,13 @@ def test_azure_devops_provider_template_renders_valid_config():
     assert server["command"] == "npx"
     assert server["args"] == [
         "-y",
-        "@azure-devops/mcp",
+        "@azure-devops/mcp@2.10.0",
         "contoso",
         "--authentication",
         "pat",
     ]
     assert "@latest" not in " ".join(server["args"])
-    expected_token = base64.b64encode(
-        b"user@example.com:azure_test_pat_123"
-    ).decode("ascii")
+    expected_token = base64.b64encode(b"user@example.com:azure_test_pat_123").decode("ascii")
     assert server["env"]["PERSONAL_ACCESS_TOKEN"] == expected_token
 
     rendered = json.dumps(factory.config_dict)
