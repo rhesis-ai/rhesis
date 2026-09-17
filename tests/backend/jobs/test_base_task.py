@@ -542,3 +542,51 @@ class TestTaskIntegration:
             with patch("rhesis.backend.jobs.base.logger") as mock_logger:
                 mock_celery_task.log_with_context("info", "Task completed successfully")
                 mock_logger.info.assert_called_once()
+
+
+class TestCompletionEmailRespectsUserPreference:
+    """_send_task_completion_email honours the user's job-completion toggle."""
+
+    @staticmethod
+    def _task() -> BaseJob:
+        from celery.utils.threads import LocalStack
+
+        task = BaseJob()
+        task.request_stack = LocalStack()
+        task.push_request(
+            id="task-1",
+            retries=0,
+            headers={},
+            kwargs={},
+            organization_id="org-1",
+            user_id="user-1",
+        )
+        return task
+
+    def test_sends_when_preference_is_on(self):
+        task = self._task()
+
+        with (
+            patch.object(task, "_get_user_info", return_value=("a@b.com", "A", True)),
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+            patch("rhesis.backend.notifications.email_service") as mock_email,
+        ):
+            mock_email.is_configured = True
+            task._send_task_completion_email("success")
+
+        mock_email.send_email.assert_called_once()
+
+    def test_skips_when_preference_is_off(self):
+        task = self._task()
+
+        with (
+            patch.object(task, "_get_user_info", return_value=("a@b.com", "A", False)),
+            patch.object(task, "_get_execution_time", return_value="1s"),
+            patch.object(task, "log_with_context"),
+            patch("rhesis.backend.notifications.email_service") as mock_email,
+        ):
+            mock_email.is_configured = True
+            task._send_task_completion_email("success")
+
+        mock_email.send_email.assert_not_called()

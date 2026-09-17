@@ -12,7 +12,12 @@ from rhesis.backend.app.crud import status as status_crud
 from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.models.enums import NotificationEventType
-from rhesis.backend.app.services.notification import RenderedNotification, notify
+from rhesis.backend.app.services.notification import (
+    EmailNotificationKind,
+    RenderedNotification,
+    email_enabled,
+    notify,
+)
 from rhesis.backend.notifications import EmailTemplate, email_service
 
 logger = logging.getLogger(__name__)
@@ -30,7 +35,9 @@ def send_task_assignment_notification(
         frontend_url: Optional frontend URL for task links
 
     Returns:
-        bool: True if email was sent successfully, False otherwise
+        bool: True if email was sent successfully. False also covers the
+        assignee having turned these emails off in their settings -- both
+        callers ignore the value, and the in-app notification still goes out.
     """
     try:
         # Get assignee details
@@ -43,24 +50,38 @@ def send_task_assignment_notification(
             )
             return False
 
+        if not email_enabled(assignee, EmailNotificationKind.TASK_ASSIGNMENT):
+            logger.info(
+                f"Assignee {assignee.id} turned off task assignment emails, "
+                f"skipping email for task {task.id}"
+            )
+            return False
+
         # Get creator details
         creator = user_crud.get_user(db, task.user_id) if task.user_id else None
 
-        # Get status details
-        status = status_crud.get_status(db, task.status_id) if task.status_id else None
+        # Get status and priority details. Both lookups raise without an
+        # organization_id (QueryBuilder.with_organization_filter), so the whole
+        # email used to die in the catch-all below for any task with a status.
+        organization_id = str(task.organization_id) if task.organization_id else None
 
-        # Get priority details
+        status = (
+            status_crud.get_status(db, task.status_id, organization_id=organization_id)
+            if task.status_id
+            else None
+        )
+
         priority = (
-            type_lookup_crud.get_type_lookup(db, task.priority_id) if task.priority_id else None
+            type_lookup_crud.get_type_lookup(db, task.priority_id, organization_id=organization_id)
+            if task.priority_id
+            else None
         )
 
         # Get entity name if entity_type and entity_id are provided
         entity_name = None
         if task.entity_type and task.entity_id:
             # SECURITY: Pass task's organization_id for filtering
-            entity_name = _get_entity_name(
-                db, task.entity_type, task.entity_id, str(task.organization_id)
-            )
+            entity_name = _get_entity_name(db, task.entity_type, task.entity_id, organization_id)
             # Ensure we don't pass "N/A" or None as entity_name
             if entity_name in [None, "N/A", "None"]:
                 entity_name = None

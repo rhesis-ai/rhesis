@@ -737,18 +737,24 @@ class BaseJob(Task):
 
     def _get_user_info(
         self, user_id: str, organization_id: str | None = None
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], bool]:
         """
-        Get user email and name for notifications.
+        Get user email, name and email preference for notifications.
 
         Args:
             user_id: The user ID to look up
 
         Returns:
-            Tuple of (email, name) or (None, None) if user not found
+            Tuple of (email, name, wants_job_completion_emails). The preference
+            rides along here because the user row is already loaded; it reads
+            True for a user who never opened the setting.
         """
         try:
             from rhesis.backend.app.crud import user as user_crud
+            from rhesis.backend.app.services.notification import (
+                EmailNotificationKind,
+                email_enabled,
+            )
 
             with self.get_db_session() as db:
                 # Session variables are automatically set by get_db_session()
@@ -759,13 +765,14 @@ class BaseJob(Task):
                         if hasattr(user, "display_name")
                         else (user.name or user.given_name or user.email)
                     )
-                    return user.email, display_name
-                return None, None
+                    wants_email = email_enabled(user, EmailNotificationKind.JOB_COMPLETION)
+                    return user.email, display_name, wants_email
+                return None, None, True
         except Exception as e:
             self.log_with_context(
                 "warning", "Failed to get user info for notifications", error=str(e)
             )
-            return None, None
+            return None, None, True
 
     def _send_task_completion_email(
         self, status: str, error_message: Optional[str] = None, **kwargs
@@ -788,10 +795,14 @@ class BaseJob(Task):
                 return
 
             # Get user information
-            user_email, user_name = self._get_user_info(user_id, organization_id)
+            user_email, user_name, wants_email = self._get_user_info(user_id, organization_id)
 
             if not user_email:
                 self.log_with_context("warning", f"No email found for user {user_id}")
+                return
+
+            if not wants_email:
+                self.log_with_context("debug", "User turned off job completion emails, skipping")
                 return
 
             # Skip placeholder emails (these are internal users without real emails)
