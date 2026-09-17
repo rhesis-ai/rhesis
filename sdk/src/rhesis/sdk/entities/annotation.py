@@ -200,3 +200,29 @@ class Annotations(BaseCollection):
         return cls._paged(
             None, {"metric": metric_name, "sort_by": "updated_at", "sort_order": "desc"}
         )
+
+    @classmethod
+    def for_annotator(cls, annotator_id: str) -> List[Annotation]:
+        """Annotations created by a specific user."""
+        return cls._paged(
+            None, {"annotator_id": annotator_id, "sort_by": "updated_at", "sort_order": "desc"}
+        )
+
+    @classmethod
+    def for_requirement(cls, requirement_id: str) -> List[Annotation]:
+        """Annotations on test results linked to a specific requirement."""
+        return cls._paged(
+            None, {"requirement_id": requirement_id, "sort_by": "updated_at", "sort_order": "desc"}
+        )
+
+    @classmethod
+    def for_date_range(
+        cls, date_from: Optional[str] = None, date_to: Optional[str] = None
+    ) -> List[Annotation]:
+        """Annotations updated within a date range (ISO date strings, e.g. '2026-01-15')."""
+        params: Dict[str, Any] = {"sort_by": "updated_at", "sort_order": "desc"}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        return cls._paged(None, params)

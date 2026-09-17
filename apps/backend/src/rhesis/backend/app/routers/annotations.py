@@ -6,6 +6,7 @@ puts on its parent.
 """
 
 import uuid
+from datetime import date
 from typing import List, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Response
@@ -88,6 +89,14 @@ def read_annotations(
     test_set_id: Optional[uuid.UUID] = Query(None, description="Scope to a test set"),
     endpoint_id: Optional[uuid.UUID] = Query(None, description="Scope to an endpoint"),
     metric: Optional[str] = Query(None, description="Filter to annotations on a specific metric"),
+    annotator_id: Optional[uuid.UUID] = Query(None, description="Filter by annotator (user id)"),
+    requirement_id: Optional[uuid.UUID] = Query(None, description="Filter by requirement id"),
+    date_from: Optional[date] = Query(
+        None, description="Include annotations updated on or after this date"
+    ),
+    date_to: Optional[date] = Query(
+        None, description="Include annotations updated on or before this date"
+    ),
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -103,6 +112,10 @@ def read_annotations(
         "test_set_id": test_set_id,
         "endpoint_id": endpoint_id,
         "metric": metric,
+        "annotator_id": annotator_id,
+        "requirement_id": requirement_id,
+        "date_from": date_from,
+        "date_to": date_to,
         "filter": filter,
     }
     annotations = annotation_crud.get_annotations(

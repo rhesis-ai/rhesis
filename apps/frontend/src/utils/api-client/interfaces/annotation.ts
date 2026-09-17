@@ -151,6 +151,8 @@ export interface AnnotationUpdate {
 export interface AnnotationFacets {
   endpoints: { id: string; name: string }[];
   metrics: string[];
+  annotators: { id: string; name: string }[];
+  requirements: { id: string; name: string }[];
 }
 
 export interface AnnotationsQueryParams {
@@ -167,5 +169,9 @@ export interface AnnotationsQueryParams {
   test_set_id?: string;
   endpoint_id?: string;
   metric?: string;
+  annotator_id?: string;
+  requirement_id?: string;
+  date_from?: string;
+  date_to?: string;
   $filter?: string;
 }

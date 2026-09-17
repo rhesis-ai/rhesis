@@ -1359,6 +1359,21 @@ tools:
           Metric name (case-insensitive). Returns only annotations that
           target that specific metric (target_type = "metric" and
           target_reference matching the name).
+      annotator_id:
+        description: >
+          UUID of a user. Returns only annotations created by that user.
+      requirement_id:
+        description: >
+          UUID of a requirement. Scopes to annotations on test results
+          whose test is linked to that requirement.
+      date_from:
+        description: >
+          ISO date (e.g. "2026-01-15"). Include annotations updated on
+          or after this date.
+      date_to:
+        description: >
+          ISO date (e.g. "2026-01-31"). Include annotations updated on
+          or before this date.
       filter:
         description: >
           OData filter for fields the named parameters above do not

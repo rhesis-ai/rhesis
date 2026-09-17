@@ -50,6 +50,10 @@ function toFilters(state: EntityGridFilterState<AnnotationFilters>) {
     testSetId: state.drawer.test_set_id,
     endpointId: state.drawer.endpoint_id,
     metric: state.drawer.metric,
+    annotatorId: state.drawer.annotator_id,
+    requirementId: state.drawer.requirement_id,
+    dateFrom: state.drawer.date_from,
+    dateTo: state.drawer.date_to,
   };
 }
 

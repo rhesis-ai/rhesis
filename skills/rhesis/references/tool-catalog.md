@@ -437,6 +437,10 @@ An annotation names what it judges through `target_type`: the entity as a whole 
 - `test_set_id` — scope to annotations whose parent ran under a test configuration tied to that test set
 - `endpoint_id` — scope to annotations whose parent ran against that endpoint
 - `metric` — metric name (case-insensitive); returns only annotations targeting that specific metric
+- `annotator_id` — UUID of a user; returns only annotations created by that person
+- `requirement_id` — UUID of a requirement; scopes to annotations on test results linked to it
+- `date_from` — ISO date (e.g. `"2026-01-15"`); annotations updated on or after this date
+- `date_to` — ISO date (e.g. `"2026-01-31"`); annotations updated on or before this date
 - `entity_type` — restrict to `"TestResult"`, `"Trace"` or `"Test"`
 - `target_type` — restrict to `test_result`, `trace`, `test`, `metric` or `turn`
 - `rating` — `"Pass"` or `"Fail"`, the human's verdict

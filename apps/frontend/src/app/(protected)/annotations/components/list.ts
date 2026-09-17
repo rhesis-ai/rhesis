@@ -22,6 +22,10 @@ const ANNOTATIONS_FILTERS = {
   testSetId: { kind: 'raw' },
   endpointId: { kind: 'raw' },
   metric: { kind: 'raw' },
+  annotatorId: { kind: 'raw' },
+  requirementId: { kind: 'raw' },
+  dateFrom: { kind: 'raw' },
+  dateTo: { kind: 'raw' },
 } as const;
 
 export const annotationsList = defineList<
@@ -56,6 +60,10 @@ export const annotationsList = defineList<
     ...(f.testSetId ? { test_set_id: f.testSetId } : {}),
     ...(f.endpointId ? { endpoint_id: f.endpointId } : {}),
     ...(f.metric ? { metric: f.metric } : {}),
+    ...(f.annotatorId ? { annotator_id: f.annotatorId } : {}),
+    ...(f.requirementId ? { requirement_id: f.requirementId } : {}),
+    ...(f.dateFrom ? { date_from: f.dateFrom } : {}),
+    ...(f.dateTo ? { date_to: f.dateTo } : {}),
   }),
   list: (factory: ApiClientFactory, params) =>
     factory

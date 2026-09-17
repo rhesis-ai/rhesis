@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Autocomplete, Box, TextField } from '@mui/material';
+import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -26,6 +26,10 @@ export interface AnnotationFilters {
   test_set_id: string;
   endpoint_id: string;
   metric: string;
+  annotator_id: string;
+  requirement_id: string;
+  date_from: string;
+  date_to: string;
 }
 
 export const EMPTY_ANNOTATION_FILTERS: AnnotationFilters = {
@@ -35,6 +39,10 @@ export const EMPTY_ANNOTATION_FILTERS: AnnotationFilters = {
   test_set_id: '',
   endpoint_id: '',
   metric: '',
+  annotator_id: '',
+  requirement_id: '',
+  date_from: '',
+  date_to: '',
 };
 
 export function hasActiveAnnotationFilters(f: AnnotationFilters): boolean {
@@ -44,7 +52,11 @@ export function hasActiveAnnotationFilters(f: AnnotationFilters): boolean {
     f.target_type !== '' ||
     f.test_set_id !== '' ||
     f.endpoint_id !== '' ||
-    f.metric !== ''
+    f.metric !== '' ||
+    f.annotator_id !== '' ||
+    f.requirement_id !== '' ||
+    f.date_from !== '' ||
+    f.date_to !== ''
   );
 }
 
@@ -55,7 +67,11 @@ export function countActiveAnnotationFilters(f: AnnotationFilters): number {
     (f.target_type !== '' ? 1 : 0) +
     (f.test_set_id !== '' ? 1 : 0) +
     (f.endpoint_id !== '' ? 1 : 0) +
-    (f.metric !== '' ? 1 : 0)
+    (f.metric !== '' ? 1 : 0) +
+    (f.annotator_id !== '' ? 1 : 0) +
+    (f.requirement_id !== '' ? 1 : 0) +
+    (f.date_from !== '' ? 1 : 0) +
+    (f.date_to !== '' ? 1 : 0)
   );
 }
 
@@ -122,10 +138,32 @@ export default function AnnotationFilterDrawer({
 
   const metricOptions = React.useMemo(() => facets?.metrics ?? [], [facets]);
 
+  const annotatorOptions = React.useMemo(
+    () =>
+      (facets?.annotators ?? []).map(a => ({
+        id: a.id,
+        label: a.name,
+      })),
+    [facets]
+  );
+
+  const requirementOptions = React.useMemo(
+    () =>
+      (facets?.requirements ?? []).map(r => ({
+        id: r.id,
+        label: r.name,
+      })),
+    [facets]
+  );
+
   const selectedTestSet =
     testSetOptions.find(o => o.id === draft.test_set_id) ?? null;
   const selectedEndpoint =
     endpointOptions.find(o => o.id === draft.endpoint_id) ?? null;
+  const selectedAnnotator =
+    annotatorOptions.find(o => o.id === draft.annotator_id) ?? null;
+  const selectedRequirement =
+    requirementOptions.find(o => o.id === draft.requirement_id) ?? null;
 
   return (
     <FilterDrawerShell
@@ -135,26 +173,10 @@ export default function AnnotationFilterDrawer({
       onApply={handleApply}
       title="Filter"
     >
-      <FilterSection title="Type">
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {ENTITY_OPTIONS.map(opt => (
-            <Box
-              key={opt.value}
-              component="button"
-              type="button"
-              onClick={() =>
-                setDraft(prev => ({
-                  ...prev,
-                  entity_type: prev.entity_type === opt.value ? '' : opt.value,
-                }))
-              }
-              sx={filterChipSx(draft.entity_type === opt.value)}
-            >
-              {opt.label}
-            </Box>
-          ))}
-        </Box>
-      </FilterSection>
+      {/* ── Basic ── */}
+      <Typography variant="overline" sx={{ mb: -2 }}>
+        Basic
+      </Typography>
 
       <FilterSection title="Rating">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -170,6 +192,104 @@ export default function AnnotationFilterDrawer({
                 }))
               }
               sx={filterChipSx(draft.rating === opt.value)}
+            >
+              {opt.label}
+            </Box>
+          ))}
+        </Box>
+      </FilterSection>
+
+      <FilterSection title="Annotator">
+        <Autocomplete
+          options={annotatorOptions}
+          getOptionLabel={o => o.label}
+          value={selectedAnnotator}
+          loading={loadingFacets}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          onChange={(_, value) =>
+            setDraft(prev => ({ ...prev, annotator_id: value?.id ?? '' }))
+          }
+          renderInput={params => (
+            <TextField
+              {...params}
+              placeholder="Select annotator..."
+              sx={textFieldSx}
+            />
+          )}
+        />
+      </FilterSection>
+
+      <FilterSection title="Date Range">
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            label="From"
+            type="date"
+            size="small"
+            fullWidth
+            value={draft.date_from}
+            onChange={e =>
+              setDraft(prev => ({ ...prev, date_from: e.target.value }))
+            }
+            InputLabelProps={{ shrink: true }}
+            sx={textFieldSx}
+          />
+          <TextField
+            label="To"
+            type="date"
+            size="small"
+            fullWidth
+            value={draft.date_to}
+            onChange={e =>
+              setDraft(prev => ({ ...prev, date_to: e.target.value }))
+            }
+            InputLabelProps={{ shrink: true }}
+            sx={textFieldSx}
+          />
+        </Box>
+      </FilterSection>
+
+      <FilterSection title="Requirement">
+        <Autocomplete
+          options={requirementOptions}
+          getOptionLabel={o => o.label}
+          value={selectedRequirement}
+          loading={loadingFacets}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          onChange={(_, value) =>
+            setDraft(prev => ({
+              ...prev,
+              requirement_id: value?.id ?? '',
+            }))
+          }
+          renderInput={params => (
+            <TextField
+              {...params}
+              placeholder="Select requirement..."
+              sx={textFieldSx}
+            />
+          )}
+        />
+      </FilterSection>
+
+      {/* ── Advanced ── */}
+      <Typography variant="overline" sx={{ mb: -2 }}>
+        Advanced
+      </Typography>
+
+      <FilterSection title="Type">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {ENTITY_OPTIONS.map(opt => (
+            <Box
+              key={opt.value}
+              component="button"
+              type="button"
+              onClick={() =>
+                setDraft(prev => ({
+                  ...prev,
+                  entity_type: prev.entity_type === opt.value ? '' : opt.value,
+                }))
+              }
+              sx={filterChipSx(draft.entity_type === opt.value)}
             >
               {opt.label}
             </Box>
