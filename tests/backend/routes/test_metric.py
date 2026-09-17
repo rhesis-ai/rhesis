@@ -216,7 +216,7 @@ class TestMetricSoftDeleteContract(MetricTestMixin, BaseEntityTests):
 class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
     """Framework metrics must return 403 on detail access; Rhesis and custom must not."""
 
-    @pytest.mark.parametrize("backend", ["deepeval", "ragas", "garak"])
+    @pytest.mark.parametrize("backend", ["deepeval", "garak"])
     def test_get_framework_metric_returns_403(self, backend, metric_factory):
         """GET /metrics/{id} returns 403 for a metric owned by an evaluation framework."""
         data = self.get_sample_data()

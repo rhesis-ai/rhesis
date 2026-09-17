@@ -6,7 +6,6 @@ from .config.loader import MetricConfigLoader
 
 # Use lazy loading to avoid circular imports
 # from .deepeval.factory import DeepEvalMetricFactory
-# from .ragas.factory import RagasMetricFactory
 # from .rhesis.factory import RhesisMetricFactory
 
 
@@ -42,7 +41,7 @@ class MetricFactory:
 
         Args:
             framework: The evaluation framework to use
-                ('deepeval', 'ragas', 'rhesis', 'custom', 'garak')
+                ('deepeval', 'rhesis', 'custom', 'garak')
             class_name: Class name of the metric to instantiate
                 (e.g., 'DeepEvalContextualRecall')
             **kwargs: Additional parameters to pass to the metric constructor
@@ -61,11 +60,6 @@ class MetricFactory:
 
             return DeepEvalMetricFactory()
 
-        def get_ragas_factory():
-            from rhesis.sdk.metrics.providers.ragas import RagasMetricFactory
-
-            return RagasMetricFactory()
-
         def get_rhesis_factory():
             from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
 
@@ -78,7 +72,6 @@ class MetricFactory:
 
         factories = {
             "deepeval": get_deepeval_factory(),
-            "ragas": get_ragas_factory(),
             "rhesis": get_rhesis_factory(),
             "custom": get_rhesis_factory(),
             "garak": get_garak_factory(),
@@ -95,7 +88,7 @@ class MetricFactory:
     @staticmethod
     def list_supported_frameworks() -> List[str]:
         """List all supported evaluation frameworks."""
-        return ["deepeval", "ragas", "rhesis", "custom", "garak"]
+        return ["deepeval", "rhesis", "custom", "garak"]
 
     @staticmethod
     def list_supported_metrics_for_framework(framework: str) -> List[str]:
@@ -111,10 +104,6 @@ class MetricFactory:
             from rhesis.sdk.metrics.providers.deepeval import DeepEvalMetricFactory
 
             return DeepEvalMetricFactory().list_supported_metrics()
-        elif framework == "ragas":
-            from rhesis.sdk.metrics.providers.ragas import RagasMetricFactory
-
-            return RagasMetricFactory().list_supported_metrics()
         elif framework == "rhesis":
             from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
 

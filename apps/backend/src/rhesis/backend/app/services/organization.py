@@ -44,7 +44,7 @@ EXAMPLE_PROJECT_NAME = "Example Project (Insurance Chatbot)"
 _ORG_WIDE_INITIAL_DATA_MODELS = frozenset({"Status", "TypeLookup", "Model", "Project"})
 
 # Built-in metric providers are shared across projects (like statuses/models).
-_ORG_WIDE_METRIC_BACKEND_TYPES = frozenset({"deepeval", "ragas", "garak", "rhesis"})
+_ORG_WIDE_METRIC_BACKEND_TYPES = frozenset({"deepeval", "garak", "rhesis"})
 
 # Requirements/metrics whose name starts with this prefix get tagged "OWASP" so the
 # frontend's OWASP filter pill (Metrics directory page) can find them via the
@@ -1190,7 +1190,7 @@ def _assign_demo_entities_to_example_project(
     Demo entities are seeded before the example project exists, leaving
     ``project_id`` NULL. NULL rows are visible in every project via the
     auto-filter listener. Status, TypeLookup, Model, and built-in metric
-    providers (deepeval/ragas/garak/rhesis) stay org-wide.
+    providers (deepeval/garak/rhesis) stay org-wide.
     """
     example_project = (
         db.query(models.Project)

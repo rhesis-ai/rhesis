@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Branding Asset Validation**: Favicon uploads are opened with Pillow (or parsed as XML for SVG) rather than trusting the client-declared content type, and their pixel dimensions are recorded so the settings page can flag an icon that will render soft.
 - **Per-Organization Branding**: Added a `branding` section in organization settings holding primary/secondary colour, product name, and uploaded favicon and brand-font assets. Assets are stored under `branding/{org_id}/` in the configured object storage and served through `GET /organizations/settings/branding/assets/{asset}`, scoped to the caller's own organization. Uploads have their own endpoints because they are multipart; everything expressible as JSON, including clearing an asset, goes through the settings PATCH.
 
+### Removed
+- Removed the Ragas metric backend, its four seeded metrics (Context Relevance, Answer Accuracy,
+  Faithfulness, Aspect Critic) and the `ragas` BackendType. A migration deletes them together with
+  anything that referenced them. Recorded metric scores are unaffected: test results and the
+  verdict grid read their own JSONB snapshots, not the metric table.
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

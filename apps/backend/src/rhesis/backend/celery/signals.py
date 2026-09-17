@@ -235,7 +235,7 @@ def warm_architect_worker(sender=None, **kwargs):
     """Preload the backend FastAPI app on the architect worker at boot.
 
     The architect task imports ``rhesis.backend.app.main`` lazily inside
-    ``build_agent()``, which pulls in every router plus the ragas/sklearn
+    ``build_agent()``, which pulls in every router plus the deepeval/sklearn
     stack and builds the OpenAPI schema — ~15-25s on a cold process. Paid
     lazily, that cost lands on the user's first message. Doing it here moves
     it to worker startup so the first architect turn hits a warm process.

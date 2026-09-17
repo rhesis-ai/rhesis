@@ -42,7 +42,6 @@ const getBackendIcon = (backendType?: string) => {
 
   switch (backendType.toLowerCase()) {
     case 'deepeval':
-    case 'ragas':
       return <HandymanIcon fontSize="small" />;
     case 'garak':
       return <BugReportIcon fontSize="small" />;
