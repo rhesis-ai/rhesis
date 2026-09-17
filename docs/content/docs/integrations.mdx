@@ -11,7 +11,7 @@ Rhesis plugs into your LLM stack across four layers, each addressing a different
 | **Test execution** | Letting Rhesis invoke entry points in your application remotely to run test cases. | [Connector](/sdk/connector) |
 | **REST API** | Programmatic access to test sets, runs, and platform resources. | [api.rhesis.ai/docs](https://api.rhesis.ai/docs) |
 
-Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEval, Ragas, Garak) and **tool connections** (Notion, GitHub, Jira, and more) as additional sources of metrics, tests, and knowledge context.
+Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEval, Garak) and **tool connections** (Notion, GitHub, Jira, and more) as additional sources of metrics, tests, and knowledge context.
 
 ## Tracing your application
 
@@ -45,9 +45,9 @@ See: [Models](/docs/models) · [API tokens](/docs/api-tokens)
 
 ## Evaluation frameworks
 
-In addition to Rhesis-native metrics, you can use metrics from DeepEval and Ragas, and import Garak probes as test sets for adversarial scanning.
+In addition to Rhesis-native metrics, you can use metrics from DeepEval, and import Garak probes as test sets for adversarial scanning.
 
-See: [DeepEval](/docs/metrics/deepeval) · [Ragas](/docs/metrics/ragas) · [Import from Garak](/docs/test-sets/import-from-garak) · [Metrics](/docs/metrics)
+See: [DeepEval](/docs/metrics/deepeval) · [Import from Garak](/docs/test-sets/import-from-garak) · [Metrics](/docs/metrics)
 
 <div className="not-prose framework-integrations-showcase">
   <TestsSection />
