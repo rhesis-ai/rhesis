@@ -85,7 +85,7 @@ constraint-dependencies = [
     "python-multipart>=0.0.31",
     "pytest>=9.0.3",
     "cryptography>=48.0.1",
-    "soupsieve>=2.8.4",
+    "soupsieve>=2.9.0",
     "uv>=0.11.15",
     "pillow>=12.3.0",
 ]
