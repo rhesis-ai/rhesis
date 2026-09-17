@@ -1406,6 +1406,33 @@ tools:
       annotation_id:
         description: "REQUIRED. UUID of the annotation, from list_annotations."
 
+  - name: list_statuses
+    label: Listing statuses
+    method: GET
+    path: /statuses/
+    page_size: 50
+    description: >
+      List the organization's status rows, optionally for one entity type.
+
+      Statuses carry verdicts, which is why this exists: create_annotation
+      needs a status_id, and the verdict it records depends on which row you
+      pass. Pass and Fail live under entity_type "TestResult" and are what a
+      judgement on a test result or a trace uses. Accepted and Rejected live
+      under "Annotation" and belong to metric tuning.
+
+      ENTITY: Status. CHAIN: before create_annotation or update_annotation,
+      to turn the verdict a person gave you into the status_id those tools
+      take. NEVER: guess a status UUID, and never reuse a status_id across
+      organizations.
+    parameters:
+      entity_type:
+        description: >
+          Restricts to statuses for that entity type, e.g. "TestResult" for
+          Pass and Fail. Omit to list them all, which returns several rows
+          with the same name under different entity types.
+    default_query:
+      $select: "id,name,description"
+
   - name: create_annotation
     label: Creating annotation
     method: POST
@@ -1424,10 +1451,11 @@ tools:
       parent as much as against the annotation.
 
       ENTITY: Annotation. PREREQUISITES: entity_id from list_test_results
-      or list_annotations, and status_id for Pass or Fail from the
-      organization's TestResult statuses. CHAIN: after the human reads a
-      failure and tells you the metric was wrong. NEVER: use this to note
-      your own opinion of a result, and never to mark work as done.
+      or list_annotations, and status_id from list_statuses with
+      entity_type="TestResult" (the Pass or Fail row). CHAIN: after the human
+      reads a failure and tells you the metric was wrong. NEVER: use this to
+      note your own opinion of a result, never mark work as done with it, and
+      never guess a status UUID -- look it up.
     parameters:
       entity_type:
         description: >
@@ -1437,8 +1465,9 @@ tools:
         description: "REQUIRED. UUID of that entity."
       status_id:
         description: >
-          REQUIRED. UUID of the status carrying the verdict, normally the
-          organization's Pass or Fail row for TestResult.
+          REQUIRED. UUID of the status carrying the verdict: the Pass or Fail
+          row from list_statuses with entity_type="TestResult". Metric tuning
+          uses Accepted and Rejected under entity_type="Annotation".
       comments:
         description: >
           The human's reasoning in their own words. Strongly recommended:
