@@ -12,6 +12,7 @@ const meta: MetaRecord = {
   haystack: "Haystack",
   "multi-agent": "Multi-Agent Tracing",
   "conversation-tracing": "Conversation Tracing",
+  costs: "Token Costs",
 };
 
 export default meta;

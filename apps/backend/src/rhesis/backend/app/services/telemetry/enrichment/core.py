@@ -18,6 +18,7 @@ from rhesis.backend.app.schemas.enrichment import (
     TokenCosts,
 )
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
+from rhesis.backend.app.services.telemetry.providers import resolve_provider
 
 litellm.suppress_debug_info = True
 for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
@@ -56,6 +57,7 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     """
     input_tokens, output_tokens, total_tokens = _span_token_counts(span)
     model_name = span.attributes.get(AIAttributes.MODEL_NAME)
+    provider = resolve_provider(span.attributes, model_name)
 
     if input_tokens == 0 and output_tokens == 0:
         logger.warning(
@@ -88,6 +90,7 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     return CostBreakdown(
         span_id=span.span_id,
         model_name=model_name,
+        provider=provider,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         total_tokens=total_tokens,
@@ -143,9 +146,15 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     return TokenCosts(
         total_cost_usd=round(total_cost_usd, 6),
         total_cost_eur=round(total_cost_eur, 6),
+        total_input_cost_usd=round(sum(entry.input_cost_usd for entry in cost_breakdown), 6),
+        total_output_cost_usd=round(sum(entry.output_cost_usd for entry in cost_breakdown), 6),
         total_input_tokens=sum(entry.input_tokens for entry in cost_breakdown),
         total_output_tokens=sum(entry.output_tokens for entry in cost_breakdown),
         total_tokens=sum(entry.total_tokens for entry in cost_breakdown),
+        # dict.fromkeys dedupes while keeping first-seen order, so the lists are stable
+        # between runs over the same trace.
+        models_used=list(dict.fromkeys(e.model_name for e in cost_breakdown if e.model_name)),
+        providers_used=list(dict.fromkeys(e.provider for e in cost_breakdown if e.provider)),
         breakdown=cost_breakdown,
     )
 
