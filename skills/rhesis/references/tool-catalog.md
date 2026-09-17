@@ -426,7 +426,9 @@ Use for **operational questions** ("how many runs this month?"). For pass/fail o
 ---
 
 ### `list_annotations`
-List human annotations — judgements a person left on a test result, a trace or a test. Each carries a Pass/Fail rating in `status.name`, a free-text comment, the author, and a `resolved` flag.
+List human annotations — judgements a person left on a test result, a trace or a test. Each carries a verdict in `status.name`, a free-text comment, the author, and a `resolved` flag.
+
+The verdict is `Pass`/`Fail` on a test result, a trace, or an explorer test labelled by hand. It is `Accepted`/`Rejected` on a metric's own tuning case, where the person is judging what the *metric* said rather than what the system under test said.
 
 Human annotations are ground truth: when an annotation disagrees with an automated metric score, **the annotation wins**. Use this to answer "what did people flag?", to explain why a test is considered wrong when metrics say it passed, and to find work still open.
 
@@ -441,13 +443,13 @@ An annotation names what it judges through `target_type`: the entity as a whole 
 - `requirement_id` — UUID of a requirement; scopes to annotations on test results linked to it
 - `date_from` — ISO date (e.g. `"2026-01-15"`); annotations updated on or after this date
 - `date_to` — ISO date (e.g. `"2026-01-31"`); annotations updated on or before this date
-- `entity_type` — restrict to `"TestResult"`, `"Trace"` or `"Test"`
+- `entity_type` — restrict to `"TestResult"`, `"Trace"` or `"Test"` (`Test` covers explorer labels and metric tuning judgements)
 - `target_type` — restrict to `test_result`, `trace`, `test`, `metric` or `turn`
-- `rating` — `"Pass"` or `"Fail"`, the human's verdict
+- `rating` — `"Pass"` or `"Fail"`, the human's verdict; tuning-case judgements use `"Accepted"` or `"Rejected"`
 - `resolved` — pass `false` for open items only
 - `search` — free text over comments, author, target reference and requirement name
 
-**Linking:** use `context.trace_db_id` (a UUID) in a trace URL, never `context.trace_id` (32-char hex). Only the UUID resolves to a page.
+**Linking:** use `context.trace_db_id` (a UUID) in a trace URL, never `context.trace_id` (32-char hex). Only the UUID resolves to a page. A tuning-case annotation carries `context.metric_id`, which is how you reach it — its `target_reference` is that same metric id, not a metric name.
 
 ---
 
