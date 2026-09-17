@@ -50,7 +50,13 @@ export default function TestRunConfigurationTab({
   testRun,
 }: TestRunConfigurationTabProps) {
   const config = testRun.test_configuration;
-  const attrs = config?.attributes as Record<string, unknown> | undefined;
+  // Prefer the snapshot frozen onto the run when it was created. A TestConfiguration row is
+  // mutable and re-executable, so reading it live let a later edit rewrite what this run
+  // claims it executed. Runs created before the snapshot existed have none, and fall back to
+  // the live join, which is exactly what they have always shown.
+  const attrs =
+    (testRun.attributes?.run_config as Record<string, unknown> | undefined) ??
+    (config?.attributes as Record<string, unknown> | undefined);
   const execMetrics = (attrs?.metrics as ExecutionMetric[] | undefined) ?? [];
   const metricsSource = attrs?.metrics_source as string | undefined;
   const executionMode = attrs?.execution_mode as string | undefined;
