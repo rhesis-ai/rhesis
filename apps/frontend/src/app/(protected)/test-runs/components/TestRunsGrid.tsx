@@ -32,6 +32,7 @@ import TestRunFilterDrawer, {
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
 import { passRate } from '@/constants/outcomes';
+import { usageColumns, USAGE_COLUMNS_HIDDEN_BY_DEFAULT } from './usage-columns';
 
 interface TestRunsGridProps {
   canCreate?: boolean;
@@ -399,6 +400,7 @@ export default function TestRunsGrid({
           );
         },
       },
+      ...usageColumns(),
       {
         field: 'counts.reviewed_tests',
         headerName: 'Reviews',
@@ -548,6 +550,11 @@ export default function TestRunsGrid({
       rowActionsWidth={112}
       onBulkActionsChange={onBulkActionsChange}
       storageKey="test-runs-grid-v3"
+      initialState={{
+        columns: {
+          columnVisibilityModel: { ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT },
+        },
+      }}
       pageSizeOptions={[10, 25, 50]}
       renderSelectionExtras={ctx => (
         <DeleteModal

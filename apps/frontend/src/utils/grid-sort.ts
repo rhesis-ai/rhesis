@@ -4,6 +4,15 @@ const GRID_TO_API_SORT_FIELD: Record<string, string> = {
   'counts.comments': 'comments_count',
   'counts.tasks': 'tasks_count',
   tags: 'tags_count',
+  // Usage totals, aggregated from the run's traces rather than stored on it. The API
+  // name drops the `usage.` prefix the grid needs to read the nested value.
+  'usage.total_tokens': 'total_tokens',
+  'usage.total_input_tokens': 'total_input_tokens',
+  'usage.total_output_tokens': 'total_output_tokens',
+  'usage.total_cost_usd': 'total_cost_usd',
+  'usage.total_input_cost_usd': 'total_input_cost_usd',
+  'usage.total_output_cost_usd': 'total_output_cost_usd',
+  'usage.models': 'model',
 };
 
 export function gridSortToApiParams(sortModel: GridSortModel): {
