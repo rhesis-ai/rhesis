@@ -2,7 +2,10 @@
  * Utility functions for trace visualization and formatting
  */
 
-import { SpanNode } from './api-client/interfaces/telemetry';
+import {
+  SpanNode,
+  TraceMetricsResponse,
+} from './api-client/interfaces/telemetry';
 import { formatDate } from './date';
 
 /**
@@ -317,4 +320,36 @@ export function getStatusChipProps(statusCode: string): {
     color: 'default',
     variant: 'outlined',
   };
+}
+
+/**
+ * Whether a scope has any traced LLM calls to report on.
+ *
+ * A test run against an endpoint with no instrumentation, or a project before
+ * anything has been traced, has no usage rather than usage of zero. Callers
+ * hold their tile back entirely rather than offering a confident nothing.
+ */
+export function hasTracedUsage(usage: TraceMetricsResponse): boolean {
+  return usage.total_traces > 0;
+}
+
+/**
+ * Whether the cost on screen is a figure somebody computed.
+ *
+ * A scope whose traces were priced and add up to zero really did cost nothing
+ * and should say so. One with no priced traces has a zero that means "no idea",
+ * and shows tokens instead. `total_cost_usd` alone cannot tell the two apart.
+ */
+export function isCostKnown(usage: TraceMetricsResponse): boolean {
+  return usage.priced_traces > 0;
+}
+
+/**
+ * Whether enrichment still has traces in this scope to get through.
+ *
+ * The difference between "no cost yet" and "no cost, ever": the first is worth
+ * waiting for, the second is worth explaining.
+ */
+export function isPricingInProgress(usage: TraceMetricsResponse): boolean {
+  return usage.enriched_traces < usage.total_traces;
 }
