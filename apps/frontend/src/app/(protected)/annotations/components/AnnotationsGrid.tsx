@@ -260,6 +260,17 @@ export default function AnnotationsGrid({
       url =
         `/traces?open_trace=${encodeURIComponent(ctx.trace_id)}` +
         `&project_id=${encodeURIComponent(ctx.project_id)}`;
+    } else if (row.entity_type === 'Test') {
+      // Two kinds of annotated test, reached two different ways: a metric's
+      // tuning case through the metric that owns it, an explorer test through
+      // its test set. `metric_id` is what tells them apart.
+      if (ctx?.metric_id) {
+        url = `/metrics/${encodeURIComponent(ctx.metric_id)}?tab=tuning`;
+      } else if (ctx?.test_set_id) {
+        url =
+          `/explorer/${encodeURIComponent(ctx.test_set_id)}` +
+          `?test=${encodeURIComponent(row.entity_id)}`;
+      }
     }
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');

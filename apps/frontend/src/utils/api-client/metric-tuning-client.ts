@@ -6,7 +6,7 @@ import {
   MetricTuningCaseDeleteResponse,
   MetricTuningCaseUpdate,
   MetricTuningImprovement,
-  MetricTuningReviewCreate,
+  MetricTuningAnnotationCreate,
   MetricTuningRun,
 } from './interfaces/metric-tuning';
 import { UUID } from 'crypto';
@@ -26,8 +26,8 @@ export class MetricTuningClient extends BaseApiClient {
     return `${API_ENDPOINTS.metrics}/${metricId}/tuning/run`;
   }
 
-  private reviewsPath(metricId: UUID | string): string {
-    return `${API_ENDPOINTS.metrics}/${metricId}/tuning/reviews`;
+  private annotationsPath(metricId: UUID | string): string {
+    return `${API_ENDPOINTS.metrics}/${metricId}/tuning/annotations`;
   }
 
   private improvePath(metricId: UUID | string): string {
@@ -82,13 +82,13 @@ export class MetricTuningClient extends BaseApiClient {
    * A rejection needs a comment — the API refuses a blank one, so the caller
    * must collect it first.
    */
-  async reviewTuningCase(
+  async annotateTuningCase(
     metricId: UUID | string,
     caseId: UUID | string,
-    data: MetricTuningReviewCreate
+    data: MetricTuningAnnotationCreate
   ): Promise<MetricTuningCase> {
     return this.fetch<MetricTuningCase>(
-      `${this.basePath(metricId)}/${caseId}/review`,
+      `${this.basePath(metricId)}/${caseId}/annotate`,
       {
         method: 'POST',
         body: JSON.stringify(data),
@@ -97,14 +97,14 @@ export class MetricTuningClient extends BaseApiClient {
   }
 
   /**
-   * Accepts every case that is still unreviewed and has a verdict, and returns
+   * Accepts every case that is still unannotated and has a verdict, and returns
    * the whole case list as it now stands.
    */
   async acceptRemainingTuningCases(
     metricId: UUID | string
   ): Promise<MetricTuningCase[]> {
     return this.fetch<MetricTuningCase[]>(
-      `${this.reviewsPath(metricId)}/accept-rest`,
+      `${this.annotationsPath(metricId)}/accept-rest`,
       { method: 'POST' }
     );
   }
@@ -136,7 +136,7 @@ export class MetricTuningClient extends BaseApiClient {
    * returned. Synchronous and one LLM call, so it is only ever called from an
    * explicit action. Refused when no rejection currently stands.
    */
-  async improveFromReviews(
+  async improveFromAnnotations(
     metricId: UUID | string
   ): Promise<MetricTuningImprovement> {
     return this.fetch<MetricTuningImprovement>(this.improvePath(metricId), {

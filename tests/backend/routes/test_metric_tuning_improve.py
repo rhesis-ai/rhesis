@@ -25,24 +25,22 @@ from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
+from rhesis.backend.app.constants import AnnotationTarget, EntityType
 from rhesis.backend.app.schemas.metric import MetricScope
-from rhesis.backend.app.schemas.metric_tuning_metadata import (
-    MetricTuningReview,
-    ReviewDecision,
-    parse_metric_tuning_case_metadata,
-)
+from rhesis.backend.app.schemas.metric_tuning import TuningDecision
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.services.metric_tuning.improve import (
     TEXT_FIELD_LIMIT,
     TRUNCATION_MARKER,
 )
-from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+from rhesis.backend.app.services.metric_tuning.judgement import STATUS_NAMES
+from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 
 IMPROVE = "rhesis.backend.app.services.metric_tuning.improve"
 
@@ -300,55 +298,107 @@ def _run(db: Session, metric: models.Metric, org_id, *results, by_input=None) ->
         service.execute_tuning_run(db, metric, org_id, None)
 
 
-def _review(client: TestClient, metric_id, case_id, decision: str, comment=None) -> dict:
+def _annotate(client: TestClient, metric_id, case_id, decision: str, comment=None) -> dict:
     body = {"decision": decision}
     if comment is not None:
         body["comment"] = comment
-    response = client.post(f"/metrics/{metric_id}/tuning/cases/{case_id}/review", json=body)
+    response = client.post(f"/metrics/{metric_id}/tuning/cases/{case_id}/annotate", json=body)
     assert response.status_code == status.HTTP_200_OK, response.text
     return response.json()
 
 
 def _reject(client: TestClient, metric_id, case_id, comment: str = REVIEW_COMMENT) -> dict:
-    return _review(client, metric_id, case_id, "rejected", comment)
+    return _annotate(client, metric_id, case_id, "rejected", comment)
 
 
 def _accept(client: TestClient, metric_id, case_id) -> dict:
-    return _review(client, metric_id, case_id, "accepted")
+    return _annotate(client, metric_id, case_id, "accepted")
 
 
-def _write_review(
+def _write_annotation(
     db: Session,
     case_id,
+    metric_id,
+    organization_id,
     *,
-    decision: ReviewDecision,
+    decision: TuningDecision,
     verdict: str,
     score_type: str,
     comment: Optional[str] = None,
     reviewer_id: Optional[str] = None,
 ) -> None:
-    """Append a review to a case's history directly.
+    """Write one judgement onto a case directly.
 
-    The review endpoint always stamps the caller as the reviewer, so a review
-    written by somebody else has to be written here. Everything else about the
-    row is exactly what the endpoint would have stored.
+    The annotate endpoint always stamps the caller as the author, so a judgement
+    made by somebody else has to be written here. Everything else about the row
+    is exactly what the endpoint would have stored.
     """
     db.expire_all()
-    db_test = db.query(models.Test).filter(models.Test.id == uuid.UUID(str(case_id))).first()
-    metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
-    reviews = list(metadata.reviews)
-    reviews.append(
-        MetricTuningReview(
-            decision=decision,
-            comment=comment,
-            verdict=verdict,
-            score_type=score_type,
-            reviewer_id=reviewer_id,
-            reviewed_at="2026-08-20T10:00:00+00:00",
+    status_row = get_or_create_status(
+        db,
+        name=STATUS_NAMES[decision],
+        entity_type=EntityType.ANNOTATION,
+        organization_id=organization_id,
+        user_id=reviewer_id,
+        commit=False,
+    )
+    db.add(
+        models.Annotation(
+            entity_type=EntityType.TEST.value,
+            entity_id=uuid.UUID(str(case_id)),
+            target_type=AnnotationTarget.METRIC.value,
+            target_reference=str(metric_id),
+            status_id=status_row.id,
+            comments=comment,
+            attributes={"verdict": verdict, "score_type": score_type},
+            organization_id=organization_id,
+            user_id=reviewer_id,
         )
     )
-    crud_metric_tuning.set_case_reviews(db, db_test, reviews)
     db.commit()
+
+
+def _other_reviewer(db: Session, organization_id) -> models.User:
+    """A second real user, so "somebody else rejected it" means somebody else.
+
+    The annotation's author is a foreign key, so the row cannot name a reviewer
+    who does not exist.
+    """
+    suffix = uuid.uuid4().hex[:10]
+    user = models.User(
+        email=f"tuning-reviewer-{suffix}@rhesis-test.com",
+        name=f"Tuning Reviewer {suffix}",
+        is_active=True,
+        auth0_id=f"auth0|{suffix}",
+        organization_id=organization_id,
+    )
+    db.add(user)
+    db.flush()
+    db.refresh(user)
+    return user
+
+
+def _separate_in_time(db: Session, case_id) -> None:
+    """Push the case's existing judgements a second into the past.
+
+    Every request in a test shares one transaction, so Postgres stamps every row
+    it inserts with the same ``now()``. The id tie-break in
+    ``get_annotations_for_entities`` makes which row comes back first stable, but
+    not the last-written one, so a test about which judgement now stands has to
+    space the writes the way production does -- one transaction each, a moment
+    apart.
+    """
+    db.execute(
+        sa.text(
+            "UPDATE annotation"
+            " SET created_at = created_at - interval '1 second',"
+            "     updated_at = updated_at - interval '1 second'"
+            " WHERE entity_type = 'Test' AND entity_id = CAST(:case_id AS uuid)"
+        ),
+        {"case_id": str(case_id)},
+    )
+    db.flush()
+    db.expire_all()
 
 
 def _improve(client: TestClient, metric_id):
@@ -758,10 +808,11 @@ class TestWhatTheModelIsShown:
         test_org_id,
         generation_model,
     ):
-        """The ten-deep history is storage, not the judgement in force."""
+        """The history behind a case is storage, not the judgement in force."""
         case = _create_case(authenticated_client, tuning_metric.id)
         _run(test_db, tuning_metric, test_org_id)
         _reject(authenticated_client, tuning_metric.id, case["id"], "an earlier objection")
+        _separate_in_time(test_db, case["id"])
         _reject(authenticated_client, tuning_metric.id, case["id"], "what I actually think")
 
         body = _improved(authenticated_client, tuning_metric.id)
@@ -779,6 +830,7 @@ class TestWhatTheModelIsShown:
         generation_model,
     ):
         case = _rejected_case(authenticated_client, test_db, tuning_metric, test_org_id)
+        _separate_in_time(test_db, case["id"])
         _accept(authenticated_client, tuning_metric.id, case["id"])
 
         assert (
@@ -798,14 +850,16 @@ class TestWhatTheModelIsShown:
         the button."""
         case = _create_case(authenticated_client, tuning_metric.id)
         _run(test_db, tuning_metric, test_org_id)
-        _write_review(
+        _write_annotation(
             test_db,
             case["id"],
-            decision=ReviewDecision.REJECTED,
+            tuning_metric.id,
+            test_org_id,
+            decision=TuningDecision.REJECTED,
             verdict="fail",
             score_type="binary",
             comment="somebody else noticed this",
-            reviewer_id=str(uuid.uuid4()),
+            reviewer_id=str(_other_reviewer(test_db, test_org_id).id),
         )
 
         body = _improved(authenticated_client, tuning_metric.id)

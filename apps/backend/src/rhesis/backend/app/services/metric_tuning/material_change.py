@@ -1,22 +1,22 @@
-"""Deciding whether a stored review still describes what the metric says now.
+"""Deciding whether a stored annotation still describes what the metric says now.
 
-A review judges one verdict the metric produced. A later run produces another
-one, and the question this module answers is whether that new verdict is the
-same *decision* as the one the reviewer looked at. If it is, the review stands.
-If it is not, the review is invalidated and the case goes back to unreviewed --
+An annotation judges one verdict the metric produced. A later run produces
+another one, and the question this module answers is whether that new verdict is
+the same *decision* as the one the reviewer looked at. If it is, the annotation
+stands. If it is not, it is invalidated and the case goes back to unannotated --
 see domain.local/adr/0005.
 
 Sameness is decided on the **bucket**, not the string: a numeric score only
 becomes a decision by crossing its threshold, so ``0.79 -> 0.81`` is noise under
 a ``0.5`` threshold and a reversal under a ``0.8`` one. The bucket is derived
 here, on read, from the metric's current threshold and passing categories, and
-never stored -- moving a threshold has to re-evaluate the reviews that already
-exist rather than freeze yesterday's arithmetic.
+never stored -- moving a threshold has to re-evaluate the annotations that
+already exist rather than freeze yesterday's arithmetic.
 
 Where no bucket can be derived -- no threshold, a verdict that is not a number,
 an unknown operator or score type -- the fallback is exact string equality, never
 "it stands". Ordinary drift then invalidates, which is the safe direction: it
-asks for a fresh look instead of keeping a review that may no longer hold.
+asks for a fresh look instead of keeping an annotation that may no longer hold.
 
 Nothing here raises. It runs on every read of every case.
 """
@@ -38,21 +38,21 @@ logger = logging.getLogger(__name__)
 _NO_BUCKET = object()
 
 
-def review_still_stands(
+def annotation_still_stands(
     metric: models.Metric,
     judged_verdict: Optional[str],
     judged_score_type: Optional[str],
     current_verdict: Optional[str],
 ) -> bool:
-    """True when a review of ``judged_verdict`` still holds for ``current_verdict``.
+    """True when an annotation of ``judged_verdict`` still holds for ``current_verdict``.
 
-    ``judged_verdict`` and ``judged_score_type`` are what the review recorded when
-    it was made; ``current_verdict`` is what the latest run produced.
+    ``judged_verdict`` and ``judged_score_type`` are what the annotation recorded
+    when it was made; ``current_verdict`` is what the latest run produced.
     """
     judged = _clean(judged_verdict)
     current = _clean(current_verdict)
 
-    # Nothing to have judged, or nothing that was judged: no review to keep.
+    # Nothing to have judged, or nothing that was judged: no annotation to keep.
     if current is None or judged is None:
         return False
 

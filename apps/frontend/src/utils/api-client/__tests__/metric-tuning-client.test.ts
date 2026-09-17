@@ -78,13 +78,13 @@ describe('MetricTuningClient', () => {
   it('records an accept without a comment', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: TEST_ID }));
 
-    await client.reviewTuningCase(METRIC_ID, TEST_ID, {
+    await client.annotateTuningCase(METRIC_ID, TEST_ID, {
       decision: 'accepted',
     });
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      `${BASE_URL}/metrics/${METRIC_ID}/tuning/cases/${TEST_ID}/review`
+      `${BASE_URL}/metrics/${METRIC_ID}/tuning/cases/${TEST_ID}/annotate`
     );
     expect(options.method).toBe('POST');
     expect(JSON.parse(options.body)).toEqual({ decision: 'accepted' });
@@ -93,14 +93,14 @@ describe('MetricTuningClient', () => {
   it("records a rejection with the reviewer's comment", async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: TEST_ID }));
 
-    await client.reviewTuningCase(METRIC_ID, TEST_ID, {
+    await client.annotateTuningCase(METRIC_ID, TEST_ID, {
       decision: 'rejected',
       comment: 'Far too lenient.',
     });
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      `${BASE_URL}/metrics/${METRIC_ID}/tuning/cases/${TEST_ID}/review`
+      `${BASE_URL}/metrics/${METRIC_ID}/tuning/cases/${TEST_ID}/annotate`
     );
     expect(JSON.parse(options.body)).toEqual({
       decision: 'rejected',
@@ -117,7 +117,7 @@ describe('MetricTuningClient', () => {
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      `${BASE_URL}/metrics/${METRIC_ID}/tuning/reviews/accept-rest`
+      `${BASE_URL}/metrics/${METRIC_ID}/tuning/annotations/accept-rest`
     );
     expect(options.method).toBe('POST');
     expect(result).toHaveLength(1);
@@ -128,7 +128,7 @@ describe('MetricTuningClient', () => {
       makeFetch({ improvement: {}, changed: [], rejections_used: 2 })
     );
 
-    const result = await client.improveFromReviews(METRIC_ID);
+    const result = await client.improveFromAnnotations(METRIC_ID);
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(`${BASE_URL}/metrics/${METRIC_ID}/tuning/improve`);

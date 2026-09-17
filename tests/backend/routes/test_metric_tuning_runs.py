@@ -5,8 +5,8 @@ Tests the two run endpoints:
 - GET  /metrics/{metric_id}/tuning/run
 
 plus what a run leaves behind on the case list, and the agreement the run
-endpoint reports over it -- which is derived from the stored reviews on every
-read rather than written down anywhere.
+endpoint reports over it -- which is derived from the stored annotations on
+every read rather than written down anywhere.
 
 The metric invocation is stubbed throughout, which is what makes these
 deterministic and free of LLM calls. Celery is stubbed too: this codebase tests
@@ -30,7 +30,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
@@ -299,26 +299,37 @@ def _cases_by_id(client: TestClient, metric_id) -> dict:
     return {case["id"]: case for case in response.json()}
 
 
-def _review(client: TestClient, metric_id, case_id, decision: str, comment=None) -> dict:
+def _annotate(client: TestClient, metric_id, case_id, decision: str, comment=None) -> dict:
     """Record one judgement of what the metric said about a case."""
     body = {"decision": decision}
     if comment is not None:
         body["comment"] = comment
-    response = client.post(f"/metrics/{metric_id}/tuning/cases/{case_id}/review", json=body)
+    response = client.post(f"/metrics/{metric_id}/tuning/cases/{case_id}/annotate", json=body)
     assert response.status_code == status.HTTP_200_OK, response.text
     return response.json()
 
 
-def _stored_reviews(db: Session, case_id) -> list:
-    """The case's review history straight out of the JSONB, oldest first.
+def _stored_annotations(db: Session, case_id) -> list:
+    """``(decision, comment)`` for each judgement on the case, oldest first.
 
-    Read raw rather than through the API because the API only exposes the review
-    that currently stands — an invalidated one is still in storage, comment and
-    all, and that is the point of these tests.
+    Read from the table rather than through the API because the API only exposes
+    the judgement that currently stands — an invalidated one is still stored,
+    comment and all, and that is the point of these tests.
     """
     db.expire_all()
-    db_test = db.query(models.Test).filter(models.Test.id == uuid.UUID(str(case_id))).first()
-    return (db_test.test_metadata or {}).get("reviews", [])
+    rows = (
+        db.query(models.Annotation)
+        .options(joinedload(models.Annotation.status))
+        .filter(
+            models.Annotation.entity_type == "Test",
+            models.Annotation.entity_id == uuid.UUID(str(case_id)),
+            models.Annotation.target_type == "metric",
+            models.Annotation.deleted_at.is_(None),
+        )
+        .order_by(models.Annotation.created_at.asc())
+        .all()
+    )
+    return [(row.status.name.lower(), row.comments) for row in rows]
 
 
 def _claim(
@@ -650,7 +661,7 @@ class TestRunResults:
         first_reasoning = "the first run judged this harmless"
         case = _create_case(authenticated_client, tuning_metric.id)
         _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": first_reasoning})
-        _review(authenticated_client, tuning_metric.id, case["id"], "rejected", REVIEW_COMMENT)
+        _annotate(authenticated_client, tuning_metric.id, case["id"], "rejected", REVIEW_COMMENT)
 
         evaluator = _run(test_db, tuning_metric, test_org_id, {"score": 0.0, "reason": "toxic"})
 
@@ -829,18 +840,18 @@ class TestRunResults:
         test_org_id,
         tuning_metric: models.Metric,
     ):
-        """Scoring must never edit the thing being scored — payload or reviews."""
+        """Scoring must never edit the thing being scored — payload or judgements."""
         before = _create_case(authenticated_client, tuning_metric.id)
         _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "fine"})
-        _review(authenticated_client, tuning_metric.id, before["id"], "rejected", REVIEW_COMMENT)
-        reviews_before = _stored_reviews(test_db, before["id"])
+        _annotate(authenticated_client, tuning_metric.id, before["id"], "rejected", REVIEW_COMMENT)
+        judgements_before = _stored_annotations(test_db, before["id"])
 
         _run(test_db, tuning_metric, test_org_id, {"score": 1.0, "reason": "fine again"})
 
         after = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()[0]
         for field in ("input", "output", "reference_answer"):
             assert after[field] == before[field], field
-        assert _stored_reviews(test_db, before["id"]) == reviews_before
+        assert _stored_annotations(test_db, before["id"]) == judgements_before
 
     def test_only_the_latest_run_is_kept(
         self,
@@ -905,7 +916,7 @@ class TestRunResults:
 
 
 @pytest.mark.integration
-class TestRunsAndStandingReviews:
+class TestRunsAndStandingAnnotations:
     """What a re-run does to the reviews already on the cases.
 
     Reviews are human-authored, so a run never clears them. Whether one still
@@ -915,7 +926,7 @@ class TestRunsAndStandingReviews:
     stay in storage either way.
     """
 
-    def test_a_review_survives_a_re_run_that_did_not_move_the_verdict(
+    def test_an_annotation_survives_a_re_run_that_did_not_move_the_verdict(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -929,18 +940,18 @@ class TestRunsAndStandingReviews:
         """
         case = _create_case(authenticated_client, numeric_metric.id)
         _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
-        _review(authenticated_client, numeric_metric.id, case["id"], "accepted")
+        _annotate(authenticated_client, numeric_metric.id, case["id"], "accepted")
 
         _run(test_db, numeric_metric, test_org_id, {"score": 0.81, "reason": "still relevant"})
 
         after = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()[0]
         assert after["result"]["verdict"] == "0.81"
         assert after["outcome"] == "accepted"
-        assert after["unreviewed_reason"] is None
+        assert after["unannotated_reason"] is None
         # Still the verdict the reviewer actually looked at.
-        assert after["review"]["verdict"] == "0.79"
+        assert after["annotation"]["verdict"] == "0.79"
 
-    def test_crossing_the_threshold_invalidates_the_review(
+    def test_crossing_the_threshold_invalidates_the_annotation(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -950,20 +961,19 @@ class TestRunsAndStandingReviews:
         """The case the edit actually changed comes back for a fresh look."""
         case = _create_case(authenticated_client, numeric_metric.id)
         _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
-        _review(authenticated_client, numeric_metric.id, case["id"], "rejected", REVIEW_COMMENT)
+        _annotate(authenticated_client, numeric_metric.id, case["id"], "rejected", REVIEW_COMMENT)
 
         _run(test_db, numeric_metric, test_org_id, {"score": 0.2, "reason": "off topic now"})
 
         after = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()[0]
-        assert after["outcome"] == "unreviewed"
-        assert after["unreviewed_reason"] == "invalidated"
-        assert after["review"] is None
+        assert after["outcome"] == "unannotated"
+        assert after["unannotated_reason"] == "invalidated"
+        assert after["annotation"] is None
         # Dropped from the outcome, not from storage — the comment is the thing
         # the reviewer reads when rewriting the prompt.
-        stored = _stored_reviews(test_db, case["id"])
-        assert [review["comment"] for review in stored] == [REVIEW_COMMENT]
+        assert _stored_annotations(test_db, case["id"]) == [("rejected", REVIEW_COMMENT)]
 
-    def test_changing_the_score_type_invalidates_every_review(
+    def test_changing_the_score_type_invalidates_every_annotation(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -982,11 +992,13 @@ class TestRunsAndStandingReviews:
                 "The second one": {"score": 0.9, "reason": "spot on"},
             },
         )
-        _review(authenticated_client, numeric_metric.id, rejected["id"], "rejected", REVIEW_COMMENT)
+        _annotate(
+            authenticated_client, numeric_metric.id, rejected["id"], "rejected", REVIEW_COMMENT
+        )
         accepted = {
             case["id"]: case
             for case in authenticated_client.post(
-                f"/metrics/{numeric_metric.id}/tuning/reviews/accept-rest"
+                f"/metrics/{numeric_metric.id}/tuning/annotations/accept-rest"
             ).json()
         }
         assert accepted[rejected["id"]]["outcome"] == "rejected"
@@ -1000,11 +1012,9 @@ class TestRunsAndStandingReviews:
         test_db.commit()
 
         cases = authenticated_client.get(f"/metrics/{numeric_metric.id}/tuning/cases").json()
-        assert {case["outcome"] for case in cases} == {"unreviewed"}
-        assert {case["unreviewed_reason"] for case in cases} == {"invalidated"}
-        assert [review["comment"] for review in _stored_reviews(test_db, rejected["id"])] == [
-            REVIEW_COMMENT
-        ]
+        assert {case["outcome"] for case in cases} == {"unannotated"}
+        assert {case["unannotated_reason"] for case in cases} == {"invalidated"}
+        assert _stored_annotations(test_db, rejected["id"]) == [("rejected", REVIEW_COMMENT)]
 
 
 @pytest.mark.integration
@@ -1043,8 +1053,8 @@ class TestAgreement:
                 "The second one": {"score": 0.0, "reason": "toxic"},
             },
         )
-        _review(authenticated_client, tuning_metric.id, kept["id"], "accepted")
-        _review(authenticated_client, tuning_metric.id, wrong["id"], "rejected", REVIEW_COMMENT)
+        _annotate(authenticated_client, tuning_metric.id, kept["id"], "accepted")
+        _annotate(authenticated_client, tuning_metric.id, wrong["id"], "rejected", REVIEW_COMMENT)
 
         agreement = self._agreement(authenticated_client, tuning_metric.id)
 
@@ -1069,14 +1079,14 @@ class TestAgreement:
             test_org_id,
             *[{"score": 1.0, "reason": "fine"}] * 3,
         )
-        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/reviews/accept-rest")
+        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/annotations/accept-rest")
 
         agreement = self._agreement(authenticated_client, tuning_metric.id)
 
         assert agreement["ratio"] == 1.0
         assert agreement["judged"] == 3
 
-    def test_a_set_nobody_has_reviewed_has_no_agreement_rather_than_full_agreement(
+    def test_a_set_nobody_has_annotated_has_no_agreement_rather_than_full_agreement(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -1090,9 +1100,9 @@ class TestAgreement:
 
         assert agreement["ratio"] is None
         assert agreement["judged"] == 0
-        assert agreement["unreviewed"] == 1
+        assert agreement["unannotated"] == 1
 
-    def test_unreviewed_cases_are_left_out_of_the_ratio_and_reported_beside_it(
+    def test_unannotated_cases_are_left_out_of_the_ratio_and_reported_beside_it(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -1109,13 +1119,13 @@ class TestAgreement:
             test_org_id,
             *[{"score": 0.0, "reason": "toxic"}] * 3,
         )
-        _review(authenticated_client, tuning_metric.id, judged["id"], "rejected", REVIEW_COMMENT)
+        _annotate(authenticated_client, tuning_metric.id, judged["id"], "rejected", REVIEW_COMMENT)
 
         agreement = self._agreement(authenticated_client, tuning_metric.id)
 
         assert agreement["ratio"] == 0.0
         assert agreement["judged"] == 1
-        assert agreement["unreviewed"] == 2
+        assert agreement["unannotated"] == 2
         assert agreement["accepted"] == 0
 
     def test_errored_cases_are_reported_apart_rather_than_read_as_disagreement(
@@ -1137,7 +1147,7 @@ class TestAgreement:
                 "The second one": RuntimeError("provider unreachable"),
             },
         )
-        _review(authenticated_client, tuning_metric.id, reached["id"], "accepted")
+        _annotate(authenticated_client, tuning_metric.id, reached["id"], "accepted")
 
         agreement = self._agreement(authenticated_client, tuning_metric.id)
 
@@ -1145,7 +1155,7 @@ class TestAgreement:
         assert agreement["judged"] == 1
         assert agreement["errored"] == 1
         assert agreement["rejected"] == 0
-        assert agreement["unreviewed"] == 0
+        assert agreement["unannotated"] == 0
 
     def test_a_metric_that_has_never_been_run_has_no_agreement(
         self, authenticated_client: TestClient, tuning_metric: models.Metric
@@ -1156,7 +1166,7 @@ class TestAgreement:
         assert agreement["ratio"] is None
         assert agreement["judged"] == 0
 
-    def test_a_review_a_re_run_invalidated_stops_counting_at_once(
+    def test_an_annotation_a_re_run_invalidated_stops_counting_at_once(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -1167,7 +1177,7 @@ class TestAgreement:
         next write. A held-over number is the shortcut this rules out."""
         case = _create_case(authenticated_client, numeric_metric.id)
         _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
-        _review(authenticated_client, numeric_metric.id, case["id"], "accepted")
+        _annotate(authenticated_client, numeric_metric.id, case["id"], "accepted")
         assert self._agreement(authenticated_client, numeric_metric.id)["ratio"] == 1.0
 
         _run(test_db, numeric_metric, test_org_id, {"score": 0.2, "reason": "off topic now"})
@@ -1175,7 +1185,7 @@ class TestAgreement:
         agreement = self._agreement(authenticated_client, numeric_metric.id)
         assert agreement["ratio"] is None
         assert agreement["judged"] == 0
-        assert agreement["unreviewed"] == 1
+        assert agreement["unannotated"] == 1
 
     def test_a_run_that_died_before_reaching_a_case_leaves_it_out_of_the_ratio(
         self,
@@ -1194,7 +1204,7 @@ class TestAgreement:
         reached = _create_case(authenticated_client, tuning_metric.id)
         missed = _create_case(authenticated_client, tuning_metric.id, input="The second one")
         _run(test_db, tuning_metric, test_org_id, *[{"score": 1.0, "reason": "fine"}] * 2)
-        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/reviews/accept-rest")
+        authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/annotations/accept-rest")
         assert self._agreement(authenticated_client, tuning_metric.id)["judged"] == 2
 
         # What a worker that died after the first case leaves behind.
@@ -1209,16 +1219,16 @@ class TestAgreement:
         assert agreement["ratio"] == 1.0
         assert agreement["judged"] == 1
         assert agreement["accepted"] == 1
-        assert agreement["unreviewed"] == 1
-        # The case it did reach is untouched, and the review on the one it missed
-        # is still in storage waiting for a verdict to be about again.
+        assert agreement["unannotated"] == 1
+        # The case it did reach is untouched, and the judgement on the one it
+        # missed is still in storage waiting for a verdict to be about again.
         assert (
             _cases_by_id(authenticated_client, tuning_metric.id)[reached["id"]]["outcome"]
             == "accepted"
         )
-        assert len(_stored_reviews(test_db, missed["id"])) == 1
+        assert len(_stored_annotations(test_db, missed["id"])) == 1
 
-    def test_a_review_that_survived_a_re_run_keeps_counting(
+    def test_an_annotation_that_survived_a_re_run_keeps_counting(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -1228,7 +1238,7 @@ class TestAgreement:
         """The other half of the same rule: ordinary drift is not a change."""
         case = _create_case(authenticated_client, numeric_metric.id)
         _run(test_db, numeric_metric, test_org_id, {"score": 0.79, "reason": "mostly relevant"})
-        _review(authenticated_client, numeric_metric.id, case["id"], "accepted")
+        _annotate(authenticated_client, numeric_metric.id, case["id"], "accepted")
 
         _run(test_db, numeric_metric, test_org_id, {"score": 0.81, "reason": "still relevant"})
 
@@ -1536,7 +1546,7 @@ class TestARunThatPredatesItsMetric:
         assert body["status"] == "never_run"
         assert body["predates_metric"] is False
 
-    def test_editing_the_prompt_does_not_invalidate_the_reviews(
+    def test_editing_the_prompt_does_not_invalidate_the_annotations(
         self,
         authenticated_client: TestClient,
         test_db: Session,
@@ -1550,13 +1560,13 @@ class TestARunThatPredatesItsMetric:
         """
         case = _create_case(authenticated_client, tuning_metric.id)
         _run(test_db, tuning_metric, test_org_id, {"score": True, "reason": "polite"})
-        _review(authenticated_client, tuning_metric.id, case["id"], "rejected", REVIEW_COMMENT)
+        _annotate(authenticated_client, tuning_metric.id, case["id"], "rejected", REVIEW_COMMENT)
 
         self._edit(test_db, tuning_metric, evaluation_prompt="Fail any answer with an insult.")
 
         after = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()[0]
         assert after["outcome"] == "rejected"
-        assert after["review"]["comment"] == REVIEW_COMMENT
+        assert after["annotation"]["comment"] == REVIEW_COMMENT
 
     def test_the_next_run_belongs_to_the_metric_again(
         self,

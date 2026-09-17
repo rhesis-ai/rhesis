@@ -6,7 +6,7 @@ question. Input, output and the case's reference answer travel together,
 serialized as JSON. See domain.local/adr/0003.
 
 Nothing a human wrote about the case is in here. There is no expected verdict any
-more (ADR-0005), but the structural rule it protected still holds: a review and
+more (ADR-0005), but the structural rule it protected still holds: a judgement and
 its comment are written after the metric has spoken and must never enter the
 invocation, or the scorecard measures the metric's ability to read a hint.
 

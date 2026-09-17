@@ -14,7 +14,7 @@ produced that leak and will produce the next one.
 So a tuning run puts the metric in the system-under-test role: the case payload
 is unpacked into the same three arguments the metric receives in a real run --
 input, output, and the case's reference answer -- and nothing else. Nothing a
-human wrote reaches it, reviews and their comments included: a scorecard has to
+human wrote reaches it, annotations and their comments included: a scorecard has to
 reflect the metric's judgement rather than its ability to read a hint.
 See domain.local/adr/0002, adr/0004 and adr/0005.
 

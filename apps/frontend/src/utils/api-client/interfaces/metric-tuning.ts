@@ -17,28 +17,32 @@ export interface MetricTuningCaseResult {
   evaluated_at: string | null;
 }
 
-/** The review that currently stands for a case. */
-export interface MetricTuningReview {
-  decision: 'accepted' | 'rejected';
+/** What a reviewer said about the verdict a metric gave. */
+export type TuningDecision = 'accepted' | 'rejected';
+
+/** The annotation that currently stands for a case. */
+export interface MetricTuningAnnotation {
+  id: UUID;
+  decision: TuningDecision;
   /** Required on a rejection, always null on an accept. */
   comment: string | null;
-  /** The raw metric verdict this review was judging. */
+  /** The raw metric verdict this judgement was made against. */
   verdict: string | null;
-  reviewed_at: string | null;
+  annotated_at: string | null;
 }
 
 export type MetricTuningOutcome =
   | 'accepted'
   | 'rejected'
   | 'errored'
-  | 'unreviewed';
+  | 'unannotated';
 
 /**
  * A metric tuning case: one input plus the answer the metric has to judge.
  *
  * The case records no expected verdict — nothing is compared for equality.
  * After a run, a reviewer reads what the metric said and either accepts it or
- * rejects it with a comment, which is what `review` and `outcome` carry.
+ * rejects it with a comment, which is what `annotation` and `outcome` carry.
  */
 export interface MetricTuningCase {
   id: UUID;
@@ -51,10 +55,10 @@ export interface MetricTuningCase {
   /** The latest run's result, or null if the metric has not been run over it. */
   result: MetricTuningCaseResult | null;
   outcome: MetricTuningOutcome;
-  /** The standing review, or null when the case is unreviewed/errored. */
-  review: MetricTuningReview | null;
-  /** Why an unreviewed case is unreviewed; null otherwise. */
-  unreviewed_reason: 'never_judged' | 'invalidated' | null;
+  /** The standing judgement, or null when the case is unannotated/errored. */
+  annotation: MetricTuningAnnotation | null;
+  /** Why an unannotated case is unannotated; null otherwise. */
+  unannotated_reason: 'never_judged' | 'invalidated' | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,7 +76,7 @@ export type TuningRunStatus = 'never_run' | 'running' | 'completed' | 'failed';
  * watch while editing an evaluation prompt.
  *
  * `ratio` is null when nothing has been judged, never 1 — a set nobody has
- * looked at has no agreement rather than a perfect one. Unreviewed and errored
+ * looked at has no agreement rather than a perfect one. Unannotated and errored
  * cases are counted out of it and reported beside it instead.
  */
 export interface MetricTuningAgreement {
@@ -83,7 +87,7 @@ export interface MetricTuningAgreement {
   accepted: number;
   rejected: number;
   /** Left out of the ratio, never counted as accepted. */
-  unreviewed: number;
+  unannotated: number;
   /** The metric call failed — left out too, and reported apart. */
   errored: number;
 }
@@ -104,8 +108,8 @@ export interface MetricTuningRun {
   /** Why the run as a whole failed. One case failing does not fail a run. */
   error: string | null;
   /**
-   * Recomputed from the stored reviews on every read, so a review recorded
-   * between runs moves it without a run.
+   * Recomputed from the stored annotations on every read, so a judgement
+   * recorded between runs moves it without a run.
    */
   agreement: MetricTuningAgreement;
   /**
@@ -121,8 +125,8 @@ export interface MetricTuningRun {
  * The metric fields a model may rewrite from a reviewer's rejections.
  *
  * `score_type` and `categories` always come back as the metric already has
- * them — an improvement that moved either would invalidate every review for the
- * metric.
+ * them — an improvement that moved either would invalidate every annotation on
+ * the metric.
  */
 export interface ImprovedMetricFields {
   name: string;
@@ -168,8 +172,8 @@ export interface MetricTuningCaseUpdate {
 }
 
 /** A reviewer's judgement of what the metric said. */
-export interface MetricTuningReviewCreate {
-  decision: 'accepted' | 'rejected';
+export interface MetricTuningAnnotationCreate {
+  decision: TuningDecision;
   /** Required on a rejection — the API rejects a blank one. */
   comment?: string | null;
 }

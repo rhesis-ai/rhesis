@@ -12,7 +12,7 @@ category and a topic and ``get_or_create``s each one, which would file rows like
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -21,7 +21,6 @@ from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningCaseMetadata,
     MetricTuningCaseResult,
-    MetricTuningReview,
     MetricTuningRunSummary,
     parse_metric_tuning_case_metadata,
     parse_metric_tuning_run_summary,
@@ -126,19 +125,21 @@ def get_tuning_cases(
 
 def get_tuning_case_metadata(
     db: Session, test_set_id: uuid.UUID, organization_id: str
-) -> List[Optional[dict]]:
-    """The ``test_metadata`` of every case in a tuning set, and nothing else.
+) -> List[Tuple[uuid.UUID, Optional[dict]]]:
+    """Each case's id and ``test_metadata`` in a tuning set, and nothing else.
 
-    The agreement fold reads only this. Going through ``get_tuning_cases`` would
-    eager-load the prompt beside it -- the whole case payload, one blob per case
-    -- to count four outcomes, on an endpoint the tuning tab polls on a timer.
+    The agreement fold reads only these two. Going through ``get_tuning_cases``
+    would eager-load the prompt beside them -- the whole case payload, one blob
+    per case -- to count four outcomes, on an endpoint the tuning tab polls on a
+    timer. The id comes along because the annotations the fold needs are keyed by
+    it.
 
     Unordered on purpose: the caller tallies these, so the sort ``get_tuning_cases``
     needs to keep the grid from reshuffling would be work for nothing here.
     """
     return [
-        row[0]
-        for row in db.query(models.Test.test_metadata)
+        (row[0], row[1])
+        for row in db.query(models.Test.id, models.Test.test_metadata)
         .join(
             test_test_set_association,
             models.Test.id == test_test_set_association.c.test_id,
@@ -239,31 +240,16 @@ def set_case_result(
 ) -> models.Test:
     """Record what the metric said about this case, overwriting the last run's.
 
-    Writes only the ``result`` key. The case payload is what is being scored and
-    is never touched by scoring it, and the reviews beside it are human-authored
-    history -- wiping those on every run would destroy the comments the feature
+    Writes only the ``result`` key, leaving any other writer's keys in the column
+    alone. The case payload is what is being scored and is never touched by
+    scoring it, and the judgements of it are ``annotation`` rows a run cannot
+    reach -- which is what stops a run from wiping the comments the feature
     exists to produce (ADR-0005).
     """
     metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
     metadata.result = result
     db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)
     db.flush()
-    return db_test
-
-
-def set_case_reviews(
-    db: Session, db_test: models.Test, reviews: List[MetricTuningReview]
-) -> models.Test:
-    """Overwrite a case's review history, leaving the run's result alone.
-
-    The whole list goes down at once because the service decides its shape --
-    whether a review replaced the last one, and which one the cap evicted.
-    """
-    metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
-    metadata.reviews = reviews
-    db_test.test_metadata = metadata.model_dump(mode="json", exclude_none=True)
-    db.flush()
-    db.refresh(db_test)
     return db_test
 
 

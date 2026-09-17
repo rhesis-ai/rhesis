@@ -1279,17 +1279,22 @@ tools:
       end_date:
         description: "End date in ISO format (overrides months)."
 
-  # ── Annotations (human reviews) ──────────────────────────
+  # ── Annotations (human judgements) ──────────────────────────
   - name: list_annotations
     label: Reading annotations
     method: GET
     path: /annotations/
     page_size: 20
     description: >
-      List human annotations on test results and traces. Each annotation
-      carries a Pass/Fail rating in status.name, a free-text comment, who
+      List human annotations on test results, traces and tests. Each
+      annotation carries a verdict in status.name, a free-text comment, who
       wrote it, and a resolved flag. This is ground truth from a human, so
       it outranks automated metric scores when the two disagree.
+
+      The verdict is Pass/Fail on a test result, a trace, or an explorer
+      test someone labelled by hand; it is Accepted/Rejected on a metric's
+      own tuning case, where the human is judging what the metric said
+      rather than what the system under test said.
 
       Use this to answer "what did people flag?", to explain why a test is
       considered wrong when metrics say it passed, and to find work that is
@@ -1298,14 +1303,15 @@ tools:
       Scoping:
       - test_run_id: everything annotated in that run, both test results
         and traces. This is the main entry point.
-      - entity_type: restrict to "TestResult" or "Trace".
+      - entity_type: restrict to "TestResult", "Trace" or "Test".
 
       Key response fields: comments (the human's actual words),
       status.name (Pass/Fail), resolved, target_type (what was annotated:
       test_result, trace, metric, or turn), entity_type/entity_id (the
       parent row), and the context block: test_run_id, test_run_name (the
       run's memorable name — use this when naming the run), test_result_id,
-      requirement_name, trace_id and trace_db_id. Annotations on a
+      requirement_name, trace_id, trace_db_id and, for a tuning case,
+      metric_id. Annotations on a
       test-execution trace carry the run and result ids too, so you can
       walk from a trace annotation back to the run; they are null only for
       traces recorded outside a test run.
@@ -1331,7 +1337,8 @@ tools:
       rating:
         description: >
           "Pass" or "Fail" — the human's verdict, independent of the
-          automated status on the test result.
+          automated status on the test result. Tuning-case judgements use
+          "Accepted" or "Rejected" instead.
       target_type:
         description: >
           What the annotation is attached to: "test_result", "trace",
@@ -1339,8 +1346,9 @@ tools:
           of a conversation).
       entity_type:
         description: >
-          The parent entity class: "TestResult" or "Trace". Restricts
-          results to annotations on that entity type only.
+          The parent entity class: "TestResult", "Trace" or "Test".
+          Restricts results to annotations on that entity type only.
+          "Test" covers explorer labels and metric tuning judgements.
       test_run_id:
         description: >
           UUID of a test run. Scopes to all annotations whose parent
