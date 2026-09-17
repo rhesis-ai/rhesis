@@ -288,3 +288,40 @@ class TestZeroCostIsNotUnknown:
         row = trace_summary_usage(None, llm_tokens_fallback=420)
 
         assert row["total_tokens"] == 420
+
+
+@pytest.mark.unit
+class TestOneModelServedByTwoProviders:
+    """The same model name can arrive from two providers in one trace.
+
+    gpt-4o through both openai and azure, say, or a run that failed over. Keying the
+    pairs on the model alone keeps whichever provider was seen first and drops the other,
+    which would quietly narrow any filter built on the provider list.
+    """
+
+    def blob(self, *pairs):
+        return {
+            "costs": {
+                "total_cost_usd": 0.03,
+                "breakdown": [
+                    breakdown_entry(f"s{i}", model, 10, 5, 0.01, 0.005, provider)
+                    for i, (model, provider) in enumerate(pairs)
+                ],
+            }
+        }
+
+    def test_keeps_both_providers(self):
+        usage = trace_usage_totals(self.blob(("gpt-4o", "openai"), ("gpt-4o", "azure")))
+
+        assert usage.providers == ["azure", "openai"]
+
+    def test_still_lists_the_model_once(self):
+        usage = trace_usage_totals(self.blob(("gpt-4o", "openai"), ("gpt-4o", "azure")))
+
+        assert usage.models == ["gpt-4o"]
+
+    def test_the_label_still_names_a_provider_that_served_it(self):
+        usage = trace_usage_totals(self.blob(("gpt-4o", "openai"), ("gpt-4o", "azure")))
+
+        assert usage.providers[0] in {"openai", "azure"}
+        assert usage.models[0] == "gpt-4o"

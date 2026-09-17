@@ -1112,14 +1112,17 @@ def get_trace_metrics_aggregated(
     # calls makes the UI jump and the tests flaky. Providers follow that same order
     # rather than being sorted on their own, so index 0 of each still names one model
     # and the provider that served it.
-    provider_by_model: dict = {}
-    for row in models_used_rows(db, base):
-        if row.model_name not in provider_by_model:
-            provider_by_model[row.model_name] = resolve_provider(
-                {AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name
+    pairs = sorted(
+        {
+            (
+                row.model_name,
+                resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name),
             )
-    models_used = sorted(provider_by_model)
-    providers_used = list(dict.fromkeys(provider_by_model[model] for model in models_used))
+            for row in models_used_rows(db, base)
+        }
+    )
+    models_used = list(dict.fromkeys(model for model, _ in pairs))
+    providers_used = list(dict.fromkeys(provider for _, provider in pairs))
 
     return {
         "total_traces": agg.total_traces or 0,

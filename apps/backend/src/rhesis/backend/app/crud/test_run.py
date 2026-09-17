@@ -697,23 +697,22 @@ def _attach_models_per_run(db: Session, base, stats: Dict[str, Dict[str, Any]]) 
     provider is finished in Python because placing a model that reported none is a
     LiteLLM lookup.
     """
-    # Kept as pairs rather than two sets: the grid renders providers[0] beside models[0],
-    # and deriving the lists separately pairs the alphabetically first model with the
-    # alphabetically first provider, which are routinely different rows.
-    pairs_by_run: Dict[str, dict] = {}
+    # Kept as (model, provider) pairs rather than two sets. Deriving the lists separately
+    # pairs the alphabetically first model with the alphabetically first provider, which
+    # are routinely different rows; keying on the model alone drops a provider when one
+    # model is served by two. See services/telemetry/token_totals.model_provider_pairs.
+    pairs_by_run: Dict[str, set] = {}
 
     for row in models_used_rows(db, base, extra_columns=(base.c.test_run_id,)):
         run_id = str(row.test_run_id)
-        by_model = pairs_by_run.setdefault(run_id, {})
-        if row.model_name not in by_model:
-            by_model[row.model_name] = resolve_provider(
-                {AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name
-            )
+        provider = resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
+        pairs_by_run.setdefault(run_id, set()).add((row.model_name, provider))
 
-    for run_id, by_model in pairs_by_run.items():
+    for run_id, pairs in pairs_by_run.items():
+        ordered = sorted(pairs)
         bucket = stats.setdefault(run_id, empty_usage())
-        bucket["models"] = sorted(by_model)
-        bucket["providers"] = list(dict.fromkeys(by_model[model] for model in sorted(by_model)))
+        bucket["models"] = list(dict.fromkeys(model for model, _ in ordered))
+        bucket["providers"] = list(dict.fromkeys(provider for _, provider in ordered))
 
 
 def _run_trace_base(db: Session, organization_id: Optional[str], run_ids=None):

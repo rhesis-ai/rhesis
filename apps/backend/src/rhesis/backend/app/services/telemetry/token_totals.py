@@ -180,16 +180,22 @@ def model_provider_pairs(breakdown: Sequence[dict]) -> List[Tuple[str, str]]:
 
     Only index 0 is guaranteed to correspond once the provider list is deduped, which is
     all any caller pairs; the rest are for counting and filtering.
+
+    Keyed on the pair rather than on the model, because one model name can be served by
+    more than one provider in a single trace -- the same gpt-4o reached through both
+    openai and azure. Keying on the model alone would keep whichever provider was seen
+    first and drop the other from the provider list, quietly narrowing a filter built on
+    it.
     """
-    by_model: dict = {}
+    pairs = set()
     for entry in breakdown:
         model = entry.get(EnrichedDataKeys.MODEL_NAME)
         if not model:
             continue
         model = str(model)
-        if model not in by_model:
-            by_model[model] = entry.get(EnrichedDataKeys.PROVIDER) or resolve_provider(None, model)
-    return [(model, by_model[model]) for model in sorted(by_model)]
+        provider = entry.get(EnrichedDataKeys.PROVIDER) or resolve_provider(None, model)
+        pairs.add((model, provider))
+    return sorted(pairs)
 
 
 def _tokens_from_breakdown(
@@ -257,7 +263,7 @@ def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int =
     # model implies, the same answer re-enrichment would reach for a span that stamped
     # nothing.
     pairs = model_provider_pairs(breakdown)
-    models = [model for model, _ in pairs]
+    models = _distinct_in_order(model for model, _ in pairs)
     providers = _distinct_in_order(provider for _, provider in pairs)
 
     return TraceUsage(
