@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { SectionCard } from '@/components/common/SectionCard';
 import { ArrowOutwardIcon, TuneIcon } from '@/components/icons';
 import { ParameterSchema } from '@/utils/api-client/interfaces/parameters';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 const TYPE_LABELS: Record<string, string> = {
   text: 'Text (multi-line)',
@@ -120,7 +121,7 @@ export default function ExperimentParametersTab({
                 lineHeight: '25px',
                 px: '20px',
                 py: '12px',
-                borderRadius: '12px',
+                borderRadius: BORDER_RADIUS.md,
                 textTransform: 'none',
                 gap: 1,
               }}
