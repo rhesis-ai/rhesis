@@ -7,20 +7,17 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.constants import (
-    LEGACY_TARGET_TEST,
-    REVIEW_TARGET_TEST_RESULT,
-)
+from rhesis.backend.app.constants import AnnotationTarget
 
 from .base import Base
 from .guid import GUID
 from .mixins import (
+    AnnotationsMixin,
     CommentsMixin,
     CountsMixin,
     EmbeddableMixin,
     FilesMixin,
     ProjectMixin,
-    ReviewsMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -35,7 +32,7 @@ class TestResult(
     TasksMixin,
     CountsMixin,
     FilesMixin,
-    ReviewsMixin,
+    AnnotationsMixin,
 ):
     __tablename__ = "test_result"
     __table_args__ = (
@@ -55,15 +52,14 @@ class TestResult(
         ),
     )
 
-    _reviews_column_name = "test_reviews"
-    _reviews_entity_type = REVIEW_TARGET_TEST_RESULT
-    _reviews_legacy_types = (LEGACY_TARGET_TEST,)
+    _annotations_entity_type = AnnotationTarget.TEST_RESULT
 
     test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"))
     test_run_id = Column(GUID(), ForeignKey("test_run.id"), index=True)
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
     test_id = Column(GUID(), ForeignKey("test.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"), index=True)
+    original_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
     # Source of truth for aggregation -- see app/outcomes.py. `status_id`
     # (Pass/Fail/Error) stays alongside these as a display/review artefact;
     # nothing should derive an outcome from it going forward.
@@ -77,7 +73,8 @@ class TestResult(
     test_configuration = relationship("TestConfiguration", back_populates="test_results")
     test_run = relationship("TestRun", back_populates="test_results")
     user = relationship("User", back_populates="test_results")
-    status = relationship("Status", back_populates="test_results")
+    status = relationship("Status", back_populates="test_results", foreign_keys=[status_id])
+    original_status = relationship("Status", foreign_keys=[original_status_id])
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
 

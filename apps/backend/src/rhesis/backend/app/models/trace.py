@@ -15,14 +15,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.constants import REVIEW_TARGET_TRACE, AISpanAttributes
+from rhesis.backend.app.constants import AISpanAttributes, AnnotationTarget
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import (
+    AnnotationsMixin,
     CommentsMixin,
     EmbeddableMixin,
     FilesMixin,
-    ReviewsMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -38,15 +38,13 @@ class Trace(
     CommentsMixin,
     TasksMixin,
     FilesMixin,
-    ReviewsMixin,
+    AnnotationsMixin,
 ):
     """OpenTelemetry trace span model."""
 
     __tablename__ = "trace"
 
-    _reviews_column_name = "trace_reviews"
-    _reviews_entity_type = REVIEW_TARGET_TRACE
-    _reviews_legacy_types = ()
+    _annotations_entity_type = AnnotationTarget.TRACE
 
     # OpenTelemetry identifiers
     trace_id = Column(String(32), nullable=False, index=True)
@@ -104,11 +102,13 @@ class Trace(
     trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
     trace_metrics_processed_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Human reviews
+    original_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
+
+    # Human reviews (dormant; kept for rollback until PR-5 drops the column)
     trace_reviews = Column(JSONB, nullable=True)
 
     def _get_status_id_for_match(self):
-        """Traces compare reviews against trace_metrics_status_id, not status_id."""
+        """Traces compare annotations against trace_metrics_status_id."""
         return self.trace_metrics_status_id
 
     # Relationships
@@ -117,6 +117,7 @@ class Trace(
     test_result = relationship("TestResult", foreign_keys=[test_result_id], backref="traces")
     test = relationship("Test", foreign_keys=[test_id], backref="traces")
     trace_metrics_status = relationship("Status", foreign_keys=[trace_metrics_status_id])
+    original_status = relationship("Status", foreign_keys=[original_status_id])
 
     # Composite indexes
     __table_args__ = (

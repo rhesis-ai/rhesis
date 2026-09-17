@@ -1277,40 +1277,36 @@ tools:
     path: /annotations/
     page_size: 20
     description: >
-      List human annotations — reviews a person left on a test result or on
-      a trace. Each annotation carries a Pass/Fail rating in status.name, a
-      free-text comment, who wrote it, and a resolved flag. This is ground
-      truth from a human, so it outranks automated metric scores when the
-      two disagree.
+      List human annotations on test results and traces. Each annotation
+      carries a Pass/Fail rating in status.name, a free-text comment, who
+      wrote it, and a resolved flag. This is ground truth from a human, so
+      it outranks automated metric scores when the two disagree.
 
       Use this to answer "what did people flag?", to explain why a test is
       considered wrong when metrics say it passed, and to find work that is
       still open. Pass resolved=false for open items only.
 
       Scoping:
-      - test_run_id: everything reviewed in that run — both the run's test
-        results and the traces it produced. This is the main entry point.
-      - test_result_id: one result plus traces linked to it.
-      - trace_id (32-char OpenTelemetry hex id) or trace_db_id (internal
-        UUID): one trace only. Use whichever id you already have; both are
-        returned on every trace annotation.
-      - source: restrict to "test_result" or "trace" when you want one side.
+      - test_run_id: everything annotated in that run, both test results
+        and traces. This is the main entry point.
+      - entity_type: restrict to "TestResult" or "Trace".
 
       Key response fields: comments (the human's actual words),
-      status.name (Pass/Fail), resolved, target.type (what was reviewed —
-      test_result, trace, metric, or turn), plus requirement_name,
-      test_run_name (the run's memorable name — use this when naming the
-      run) and the test_run_id/test_result_id/trace_id deep-link ids. Annotations on a
+      status.name (Pass/Fail), resolved, target_type (what was annotated:
+      test_result, trace, metric, or turn), entity_type/entity_id (the
+      parent row), and the context block: test_run_id, test_run_name (the
+      run's memorable name — use this when naming the run), test_result_id,
+      requirement_name, trace_id and trace_db_id. Annotations on a
       test-execution trace carry the run and result ids too, so you can
-      walk from a trace review back to the run — they are null only for
+      walk from a trace annotation back to the run; they are null only for
       traces recorded outside a test run.
 
-      When linking to a trace in the UI, use trace_db_id (a UUID) in the
-      URL path, not trace_id (a 32-char hex string). Only trace_db_id
-      resolves to a trace page.
+      When linking to a trace in the UI, use context.trace_db_id (a UUID)
+      in the URL path, not context.trace_id (a 32-char hex string). Only
+      trace_db_id resolves to a trace page.
 
       CHAIN: after get_insights shows failures, call this with the
-      same test_run_id to see whether a human already diagnosed them — then
+      same test_run_id to see whether a human already diagnosed them, then
       use get_test_result on the ids it returns to read the full exchange.
       NEVER: assume no annotations exist because a run looks clean; a human
       can fail a test the metrics passed.
@@ -1329,9 +1325,18 @@ tools:
           automated status on the test result.
       target_type:
         description: >
-          What the review is attached to: "test_result", "trace", "metric"
-          (a specific metric on a result), or "turn" (one turn of a
-          conversation).
+          What the annotation is attached to: "test_result", "trace",
+          "metric" (a specific metric on a result), or "turn" (one turn
+          of a conversation).
+      entity_type:
+        description: >
+          The parent entity class: "TestResult" or "Trace". Restricts
+          results to annotations on that entity type only.
+      test_run_id:
+        description: >
+          UUID of a test run. Scopes to all annotations whose parent
+          entity (test result or trace) belongs to that run. This is the
+          main entry point after get_insights.
 
   # ── Knowledge Sources ────────────────────────────────────
   - name: list_sources

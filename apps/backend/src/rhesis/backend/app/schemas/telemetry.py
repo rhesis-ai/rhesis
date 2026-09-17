@@ -158,16 +158,16 @@ class TraceSummary(BaseModel):
         description="pass | fail | inconclusive -- set only when execution == 'ok'",
     )
 
-    # Human reviews
-    has_reviews: Optional[bool] = Field(
-        default=False, description="Whether this trace has human reviews"
+    # Human annotations
+    has_annotations: Optional[bool] = Field(
+        default=False, description="Whether this trace has human annotations"
     )
-    last_review: Optional[Dict[str, Any]] = Field(
-        default=None, description="Most recent trace-level review"
+    last_annotation: Optional[Dict[str, Any]] = Field(
+        default=None, description="Most recent trace-level annotation"
     )
-    matches_review: bool = Field(
+    matches_annotation: bool = Field(
         default=False,
-        description="Whether automated status matches the human review",
+        description="Whether automated status matches the human annotation",
     )
 
     # Tags and comments count for summary view
@@ -216,11 +216,10 @@ class SpanNode(BaseModel):
     execution: str = "not_run"
     verdict: Optional[str] = None
 
-    # Human reviews
-    trace_reviews: Optional[Dict[str, Any]] = None
-    last_review: Optional[Dict[str, Any]] = None
-    matches_review: bool = False
-    review_summary: Optional[Dict[str, Any]] = None
+    # Human annotations
+    last_annotation: Optional[Dict[str, Any]] = None
+    matches_annotation: bool = False
+    annotation_summary: Optional[Dict[str, Any]] = None
 
     # Tags and comments
     tags: Optional[List[TagRead]] = Field(
@@ -267,11 +266,10 @@ class TraceDetailResponse(BaseModel):
         description="pass | fail | inconclusive -- set only when execution == 'ok'",
     )
 
-    # Human reviews
-    trace_reviews: Optional[Dict[str, Any]] = None
-    last_review: Optional[Dict[str, Any]] = None
-    matches_review: bool = False
-    review_summary: Optional[Dict[str, Any]] = None
+    # Human annotations
+    last_annotation: Optional[Dict[str, Any]] = None
+    matches_annotation: bool = False
+    annotation_summary: Optional[Dict[str, Any]] = None
 
     # Related entities (optional - populated via relationships)
     project: Optional[Project] = Field(default=None, description="Project this trace belongs to")

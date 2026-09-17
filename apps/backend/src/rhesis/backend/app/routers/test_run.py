@@ -92,11 +92,11 @@ def read_test_runs(
         description="Filter by experiment association: true = only runs with an experiment, "
         "false = only runs without, omit = all runs",
     ),
-    has_reviews: bool | None = Query(
+    has_annotations: bool | None = Query(
         None,
-        description="Filter by human review activity on child test results: "
-        "true = runs with at least one reviewed test, "
-        "false = runs with no reviewed tests, omit = all runs",
+        description="Filter by human annotation activity on child test results: "
+        "true = runs with at least one annotated test, "
+        "false = runs with no annotated tests, omit = all runs",
     ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -111,7 +111,7 @@ def read_test_runs(
         sort_order=sort_order,
         filter=filter,
         has_experiment=has_experiment,
-        has_reviews=has_reviews,
+        has_annotations=has_annotations,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )
@@ -123,16 +123,16 @@ def read_test_runs(
     # runs grid pass-rate column) don't rely on the stale
     # ``attributes.completed_tests`` / ``failed_tests`` counters. Aggregated in
     # a single query to avoid the N+1 cost of one stats query per run.
+    from rhesis.backend.app.crud.annotation import get_annotation_statistics_for_runs
     from rhesis.backend.jobs.execution.result_processor import (
-        get_review_statistics_for_runs,
         get_test_statistics_for_runs,
-        inject_review_counts_into_serialized_runs,
+        inject_annotation_counts_into_serialized_runs,
     )
 
     run_ids = [run.id for run in results]
     organization_id = str(current_user.organization_id)
     run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
-    review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    annotation_stats = get_annotation_statistics_for_runs(db, run_ids)
     usage_stats = test_run_crud.get_usage_statistics_for_runs(
         db, run_ids, organization_id=organization_id
     )
@@ -146,7 +146,7 @@ def read_test_runs(
         )
         item["usage"] = usage_stats.get(run_id, test_run_crud.empty_usage())
         serialized.append(item)
-    inject_review_counts_into_serialized_runs(serialized, review_stats)
+    inject_annotation_counts_into_serialized_runs(serialized, annotation_stats)
     return JSONResponse(content=serialized)
 
 

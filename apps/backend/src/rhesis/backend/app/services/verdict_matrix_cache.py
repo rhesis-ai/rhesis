@@ -6,11 +6,11 @@ Python loop on every call. For a terminal run (Completed/Partial/Failed/Cancelle
 that result is fixed, so repeating it on every page load -- and, while anyone has
 the Summary tab open, every WebSocket-triggered refetch -- buys nothing.
 
-The three review endpoints in routers/test_result.py call ``invalidate``; they are
-the only writes that can change a finished run's grid, via the ``has_override`` /
-``effective_success`` columns ``services/review_override.py`` maintains. (Trace
-reviews write to ``Trace``, which the grid never reads, and a rescore produces a
-new run rather than mutating this one.) The TTL is a safety net for a write path
+The annotation service calls ``invalidate`` on create/update/delete; annotations
+are the only writes that can change a finished run's grid, via the ``has_override``
+/ ``effective_success`` columns ``services/annotation_override`` maintains. (Trace
+annotations write to ``Trace``, which the grid never reads, and a rescore produces
+a new run rather than mutating this one.) The TTL is a safety net for a write path
 added later without an ``invalidate`` call, not the primary mechanism.
 
 A live run is never cached: its grid changes every few seconds, so any TTL short
@@ -79,7 +79,7 @@ class VerdictMatrixCache(RedisBackedCache):
 
     def invalidate(self, test_run_id: str) -> None:
         """Drop both columns-mode entries for this run -- call after any write that
-        can change its verdicts, overrides, or review count (see module docstring).
+        can change its verdicts, overrides, or annotation count (see module docstring).
         """
         self._delete(self._key(test_run_id, None), self._key(test_run_id, "none"))
 
