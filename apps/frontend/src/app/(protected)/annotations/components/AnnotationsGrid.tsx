@@ -2,17 +2,7 @@
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { GridColDef, GridRowParams } from '@mui/x-data-grid';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  FormControlLabel,
-  Switch,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import EntityGrid, {
   type EntityGridDrawerAdapter,
@@ -20,17 +10,15 @@ import EntityGrid, {
 } from '@/components/common/EntityGrid';
 import GridBadge from '@/components/common/GridBadge';
 import { MentionText } from '@/components/common/MentionTextInput';
-import { DeleteModal } from '@/components/common/DeleteModal';
-import { useNotifications } from '@/components/common/NotificationContext';
 import { can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { DeleteIcon } from '@/components/icons';
 import {
   Annotation,
   ANNOTATION_ENTITY_LABELS,
+  ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/annotation';
+import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 import { annotationsList } from './list';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import AnnotationFilterDrawer, {
@@ -59,6 +47,13 @@ function toFilters(state: EntityGridFilterState<AnnotationFilters>) {
     entityType: state.drawer.entity_type,
     rating: state.drawer.rating,
     targetType: state.drawer.target_type,
+    testSetId: state.drawer.test_set_id,
+    endpointId: state.drawer.endpoint_id,
+    metric: state.drawer.metric,
+    annotatorId: state.drawer.annotator_id,
+    requirementId: state.drawer.requirement_id,
+    dateFrom: state.drawer.date_from,
+    dateTo: state.drawer.date_to,
   };
 }
 
@@ -86,7 +81,6 @@ export default function AnnotationsGrid({
   initialTotalCount,
 }: AnnotationsGridProps) {
   const theme = useTheme();
-  const notifications = useNotifications();
 
   // Per-row affordances now arrive on the row itself, so no ambient gate and
   // no branching on which parent the annotation hangs off.
@@ -94,97 +88,15 @@ export default function AnnotationsGrid({
     (row: Annotation) => can(row, Capability.Annotation.UPDATE),
     []
   );
-  const canDeleteRow = useCallback(
-    (row: Annotation) => can(row, Capability.Annotation.DELETE),
+
+  const [editTarget, setEditTarget] = useState<Annotation | null>(null);
+
+  const handleEditClick = useCallback(
+    (row: Annotation) => setEditTarget(row),
     []
   );
 
-  const [editTarget, setEditTarget] = useState<Annotation | null>(null);
-  const [editComments, setEditComments] = useState('');
-  const [editResolved, setEditResolved] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
-
-  const handleEditClick = useCallback((row: Annotation) => {
-    setEditTarget(row);
-    setEditComments(row.comments ?? '');
-    setEditResolved(Boolean(row.resolved));
-  }, []);
-
   const handleCancelEdit = useCallback(() => setEditTarget(null), []);
-
-  const makeConfirmEdit = useCallback(
-    (refresh: () => void) => async () => {
-      if (!editTarget) return;
-      try {
-        setEditSaving(true);
-        const factory = new ApiClientFactory();
-        await factory.getAnnotationsClient().updateAnnotation(editTarget.id, {
-          comments: editComments,
-          resolved: editResolved,
-        });
-        notifications.show('Annotation updated.', { severity: 'success' });
-        setEditTarget(null);
-        refresh();
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Failed to update annotation. Please try again.';
-        notifications.show(message, { severity: 'error' });
-      } finally {
-        setEditSaving(false);
-      }
-    },
-    [editTarget, editComments, editResolved, notifications]
-  );
-
-  const [deleteTarget, setDeleteTarget] = useState<Annotation | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDeleteClick = useCallback((row: Annotation) => {
-    setDeleteTarget(row);
-  }, []);
-
-  const handleCancelDelete = useCallback(() => setDeleteTarget(null), []);
-
-  const makeConfirmDelete = useCallback(
-    (refresh: () => void) => async () => {
-      if (!deleteTarget) return;
-      try {
-        setDeleting(true);
-        const factory = new ApiClientFactory();
-        await factory.getAnnotationsClient().deleteAnnotation(deleteTarget.id);
-        notifications.show('Annotation deleted.', { severity: 'success' });
-        setDeleteTarget(null);
-        refresh();
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Failed to delete annotation. Please try again.';
-        notifications.show(message, { severity: 'error' });
-      } finally {
-        setDeleting(false);
-      }
-    },
-    [deleteTarget, notifications]
-  );
-
-  const extraRowActions = useMemo(
-    () => [
-      {
-        key: 'delete',
-        icon: DeleteIcon,
-        tooltip: 'Delete annotation',
-        onClick: (_id: string, row: Record<string, unknown>) =>
-          handleDeleteClick(row as unknown as Annotation),
-        can: (row: Record<string, unknown>) =>
-          canDeleteRow(row as unknown as Annotation),
-        hoverColor: 'error.main' as const,
-      },
-    ],
-    [handleDeleteClick, canDeleteRow]
-  );
 
   const onTotalCountChangeRef = useRef(onTotalCountChange);
   onTotalCountChangeRef.current = onTotalCountChange;
@@ -372,66 +284,24 @@ export default function AnnotationsGrid({
         onClick: (_id, row) => handleEditClick(row),
         can: canEditRow,
       }}
-      extraRowActions={extraRowActions}
       persistState={false}
       serverSort={false}
       pageSizeOptions={[10, 25, 50]}
       sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
       renderSelectionExtras={ctx => (
-        <>
-          <Dialog
-            open={editTarget !== null}
-            onClose={handleCancelEdit}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>Edit Annotation</DialogTitle>
-            <DialogContent>
-              <TextField
-                autoFocus
-                margin="dense"
-                label="Comment"
-                fullWidth
-                multiline
-                rows={4}
-                value={editComments}
-                onChange={e => setEditComments(e.target.value)}
-              />
-              <FormControlLabel
-                sx={{ mt: 1 }}
-                control={
-                  <Switch
-                    checked={editResolved}
-                    onChange={e => setEditResolved(e.target.checked)}
-                  />
-                }
-                label="Resolved"
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCancelEdit} disabled={editSaving}>
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                onClick={makeConfirmEdit(ctx.refresh)}
-                disabled={editSaving}
-              >
-                {editSaving ? 'Saving…' : 'Save'}
-              </Button>
-            </DialogActions>
-          </Dialog>
-          <DeleteModal
-            open={deleteTarget !== null}
-            onClose={handleCancelDelete}
-            onConfirm={makeConfirmDelete(ctx.refresh)}
-            isLoading={deleting}
-            title="Delete Annotation"
-            itemType="annotation"
-            message="Are you sure you want to delete this annotation? This action cannot be undone."
-            confirmButtonText={deleting ? 'Deleting…' : 'Delete Annotation'}
-          />
-        </>
+        <AnnotationDrawer
+          open={editTarget !== null}
+          onClose={handleCancelEdit}
+          entityType={
+            editTarget?.entity_type ?? ANNOTATION_ENTITY_TYPES.TEST_RESULT
+          }
+          entityId={editTarget?.entity_id}
+          annotation={editTarget}
+          onSaved={() => {
+            setEditTarget(null);
+            ctx.refresh();
+          }}
+        />
       )}
     />
   );

@@ -6,6 +6,7 @@ puts on its parent.
 """
 
 import uuid
+from datetime import date
 from typing import List, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Response
@@ -85,6 +86,17 @@ def read_annotations(
     target_type: Optional[str] = Query(None, description="Filter by target type"),
     entity_type: Optional[str] = Query(None, description="Filter by entity type"),
     test_run_id: Optional[uuid.UUID] = Query(None, description="Scope to a test run"),
+    test_set_id: Optional[uuid.UUID] = Query(None, description="Scope to a test set"),
+    endpoint_id: Optional[uuid.UUID] = Query(None, description="Scope to an endpoint"),
+    metric: Optional[str] = Query(None, description="Filter to annotations on a specific metric"),
+    annotator_id: Optional[uuid.UUID] = Query(None, description="Filter by annotator (user id)"),
+    requirement_id: Optional[uuid.UUID] = Query(None, description="Filter by requirement id"),
+    date_from: Optional[date] = Query(
+        None, description="Include annotations updated on or after this date"
+    ),
+    date_to: Optional[date] = Query(
+        None, description="Include annotations updated on or before this date"
+    ),
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -97,6 +109,13 @@ def read_annotations(
         "target_type": target_type,
         "entity_type": entity_type,
         "test_run_id": test_run_id,
+        "test_set_id": test_set_id,
+        "endpoint_id": endpoint_id,
+        "metric": metric,
+        "annotator_id": annotator_id,
+        "requirement_id": requirement_id,
+        "date_from": date_from,
+        "date_to": date_to,
         "filter": filter,
     }
     annotations = annotation_crud.get_annotations(
@@ -113,6 +132,20 @@ def read_annotations(
     )
     response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
     return attach_context(db, annotations)
+
+
+@router.get("/facets")
+def read_annotation_facets(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Distinct filter values derived from existing annotations.
+
+    Returns endpoints and metric names that appear in the org's annotations,
+    so filter dropdowns show only relevant choices.
+    """
+    organization_id, _ = tenant_context
+    return annotation_crud.get_annotation_facets(db, organization_id)
 
 
 @router.get(

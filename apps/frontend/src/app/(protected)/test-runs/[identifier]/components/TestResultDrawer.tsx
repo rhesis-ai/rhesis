@@ -1,7 +1,8 @@
 'use client';
 
 import { useTestResultAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import { toMentionId } from '@/components/common/MentionTextInput';
 import {
   ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
@@ -186,6 +187,19 @@ export default function TestResultDrawer({
     // Opens the annotation drawer as an overlay via TestDetailAnnotationsTab's own
     // effect — the Conversation tab stays active so context isn't lost.
   };
+
+  const handleAnnotateMetric = useCallback(
+    (metricName: string) => {
+      const metrics = test?.test_metrics?.metrics ?? {};
+      const metricResult = metrics[metricName];
+      const isSuccessful = !!metricResult?.is_successful;
+      const slug = toMentionId(metricName);
+      setAnnotationInitialComment(`@[${metricName}](metric:${slug}) `);
+      setAnnotationInitialStatus(isSuccessful ? 'failed' : 'passed');
+      setActiveTab(TAB.annotations);
+    },
+    [test, TAB.annotations]
+  );
 
   // `test` comes from a results-grid fetch, which strips
   // test_output.conversation_summary (the full multi-turn transcript --
@@ -462,6 +476,7 @@ export default function TestResultDrawer({
               test={test}
               requirements={requirements}
               metricsSource={metricsSource}
+              onAnnotateMetric={handleAnnotateMetric}
             />
           </TabPanel>
 

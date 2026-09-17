@@ -113,6 +113,29 @@ class TestDomainValidation:
         url = _build(request, "token123")
         assert "evil-app" not in url
 
+    @patch(
+        "rhesis.backend.app.auth.token_utils.get_secret_key",
+        return_value="test-secret",
+    )
+    def test_accepts_localhost_different_port(self, _mock_key):
+        """localhost:3030 should be accepted when FRONTEND_URL is localhost:3000."""
+        request = _make_request(original_frontend="http://localhost:3030")
+        url = _build(request, "token123")
+        assert url.startswith("http://localhost:3030/")
+
+    @patch(
+        "rhesis.backend.app.auth.token_utils.get_secret_key",
+        return_value="test-secret",
+    )
+    def test_rejects_non_loopback_different_port(self, _mock_key, monkeypatch):
+        """A non-loopback origin must not bypass the exact-netloc check."""
+        monkeypatch.setenv("FRONTEND_URL", "https://app.rhesis.ai")
+        get_frontend_settings.cache_clear()
+
+        request = _make_request(original_frontend="https://app.rhesis.ai:9999")
+        url = _build(request, "token123")
+        assert ":9999" not in url
+
 
 @pytest.mark.unit
 class TestRedirectUrlAuthCode:

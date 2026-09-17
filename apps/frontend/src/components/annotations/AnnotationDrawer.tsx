@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  FormControlLabel,
+  Switch,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -24,12 +26,31 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useAnnotationMutations } from '@/hooks/useAnnotations';
 import {
   ENTITY_LEVEL_TARGETS,
+  type Annotation,
   type AnnotationEntityType,
+  type AnnotationUpdate,
 } from '@/utils/api-client/interfaces/annotation';
 import { ANNOTATION_COPY } from './annotation-copy';
 
 /** Comments shorter than this are rejected: a bare verdict explains nothing. */
 const MIN_COMMENT_LENGTH = 10;
+
+/**
+ * Whether the comment is good enough to save.
+ *
+ * A new annotation must carry a real reason. An existing one only has to not
+ * get worse: metric tuning and explorer labels record a verdict with no
+ * comment at all, and holding those to the minimum would make them
+ * permanently un-editable, verdict included.
+ */
+function commentIsAcceptable(
+  comment: string,
+  original: string | null | undefined
+): boolean {
+  const trimmed = comment.trim();
+  if (trimmed.length >= MIN_COMMENT_LENGTH) return true;
+  return original !== undefined && trimmed === (original ?? '').trim();
+}
 
 export interface AnnotationDrawerProps {
   open: boolean;
@@ -41,6 +62,11 @@ export interface AnnotationDrawerProps {
   onSaved: () => void | Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
+  /**
+   * Edit this annotation instead of creating one. Its verdict and comment seed
+   * the form, and saving PUTs rather than POSTs.
+   */
+  annotation?: Annotation | null;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
   /**
@@ -51,7 +77,7 @@ export interface AnnotationDrawerProps {
 }
 
 /**
- * Records one annotation on any entity.
+ * Records one annotation on any entity, or edits one that exists.
  *
  * The target comes from the comment: an `@metric` or `@turn` mention makes this
  * a metric or turn annotation, and its absence makes it entity-level. That is
@@ -66,10 +92,12 @@ export default function AnnotationDrawer({
   onSaved,
   initialComment,
   initialStatus,
+  annotation = null,
   mentionableMetrics = [],
   mentionableTurns = [],
   renderContext,
 }: AnnotationDrawerProps) {
+  const isEditing = annotation !== null;
   const { status: sessionStatus } = useSession();
   const [selectedStatusId, setSelectedStatusId] = useState('');
   const [comment, setComment] = useState('');
@@ -77,13 +105,35 @@ export default function AnnotationDrawer({
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [resolved, setResolved] = useState(false);
 
-  const { create } = useAnnotationMutations(entityType, entityId);
+  const { create, update } = useAnnotationMutations(entityType, entityId);
 
   const inferredTarget: InferredTarget = useMemo(
     () => inferAnnotationTarget(comment, ENTITY_LEVEL_TARGETS[entityType]),
     [comment, entityType]
   );
+
+  /**
+   * The target to send, or undefined to let the server decide.
+   *
+   * Only a sub-target is ever sent. Omitting it makes a create default to the
+   * parent's entity-level target and makes an update keep the target it has,
+   * which is the safe half of a choice that would otherwise be silent: a
+   * metric or turn annotation whose comment never mentioned it (one the SDK,
+   * the MCP tools or metric tuning created with an explicit target) would be
+   * re-derived as entity-level on any edit, and for a test result or trace
+   * that reverts the old override and applies a new one, moving the parent's
+   * reported status with it.
+   *
+   * The cost is that the mention cannot be deleted to widen an existing
+   * annotation back to entity level. There is no target picker here, so that
+   * was never a deliberate gesture anyway.
+   */
+  const targetToSend: InferredTarget | undefined =
+    inferredTarget.type === ENTITY_LEVEL_TARGETS[entityType]
+      ? undefined
+      : inferredTarget;
 
   const passStatus = useMemo(
     () => findStatusByCategory(statuses, 'passed'),
@@ -118,9 +168,10 @@ export default function AnnotationDrawer({
   // actively filling, which is why initialComment/initialStatus are excluded.
   useEffect(() => {
     if (!open) return;
-    setComment(initialComment ?? '');
+    setComment(annotation?.comments ?? initialComment ?? '');
     setError('');
-    setSelectedStatusId('');
+    setSelectedStatusId(annotation ? String(annotation.status_id) : '');
+    setResolved(Boolean(annotation?.resolved));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open only
   }, [open]);
 
@@ -132,9 +183,14 @@ export default function AnnotationDrawer({
     if (matching) setSelectedStatusId(String(matching.id));
   }, [open, statuses, initialStatus, selectedStatusId]);
 
+  const commentOk = commentIsAcceptable(
+    comment,
+    annotation ? (annotation.comments ?? '') : undefined
+  );
+
   const handleSave = async () => {
     const trimmed = comment.trim();
-    if (trimmed.length < MIN_COMMENT_LENGTH) {
+    if (!commentOk) {
       setError(ANNOTATION_COPY.commentTooShort(MIN_COMMENT_LENGTH));
       return;
     }
@@ -149,13 +205,27 @@ export default function AnnotationDrawer({
       setError('');
       // Through the mutation hook, not the client: it invalidates the entity
       // list this drawer's panel reads. The QueryClient runs a 5 minute
-      // staleTime with refetchOnWindowFocus off, so without that the new
+      // staleTime with refetchOnWindowFocus off, so without that the saved
       // annotation would be missing from the list until it expired.
-      await create({
-        statusId: selectedStatusId,
-        comments: trimmed,
-        target: inferredTarget,
-      });
+      if (annotation) {
+        // `target` is added only when there is one to set. Omitting the key
+        // is what makes the server keep the target the annotation already
+        // has, so this says that rather than relying on undefined being
+        // dropped during serialization.
+        const changes: AnnotationUpdate = {
+          status_id: selectedStatusId,
+          comments: trimmed,
+          resolved,
+        };
+        if (targetToSend) changes.target = targetToSend;
+        await update(annotation.id, changes);
+      } else {
+        await create({
+          statusId: selectedStatusId,
+          comments: trimmed,
+          target: targetToSend,
+        });
+      }
       await onSaved();
       onClose();
     } catch (_err) {
@@ -188,15 +258,14 @@ export default function AnnotationDrawer({
     <BaseDrawer
       open={open}
       onClose={handleCancel}
-      title={ANNOTATION_COPY.drawerTitle}
+      title={
+        isEditing ? ANNOTATION_COPY.editTitle : ANNOTATION_COPY.drawerTitle
+      }
       onSave={handleSave}
       anchor="right"
       saveButtonText="Save"
       saveDisabled={
-        !selectedStatusId ||
-        comment.trim().length < MIN_COMMENT_LENGTH ||
-        submitting ||
-        loadingStatuses
+        !selectedStatusId || !commentOk || submitting || loadingStatuses
       }
       error={error}
       loading={submitting || loadingStatuses}
@@ -247,6 +316,18 @@ export default function AnnotationDrawer({
         </ToggleButtonGroup>
       </Box>
 
+      {isEditing && (
+        <FormControlLabel
+          control={
+            <Switch
+              checked={resolved}
+              onChange={event => setResolved(event.target.checked)}
+            />
+          }
+          label={ANNOTATION_COPY.resolvedLabel}
+        />
+      )}
+
       <MentionTextInput
         label="Comment"
         value={comment}
@@ -259,12 +340,12 @@ export default function AnnotationDrawer({
         mentionableTurns={mentionableTurns}
         error={!!error && !selectedStatusId}
         helperText={
-          comment.trim().length < MIN_COMMENT_LENGTH
-            ? ANNOTATION_COPY.commentCounter(
+          commentOk
+            ? ANNOTATION_COPY.commentHelp
+            : ANNOTATION_COPY.commentCounter(
                 comment.trim().length,
                 MIN_COMMENT_LENGTH
               )
-            : ANNOTATION_COPY.commentHelp
         }
         minRows={4}
       />

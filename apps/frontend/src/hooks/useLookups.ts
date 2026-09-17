@@ -11,6 +11,7 @@ import {
   typeLookupKeys,
   testKeys,
   testSetKeys,
+  annotationKeys,
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -20,6 +21,7 @@ import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import type { AnnotationFacets } from '@/utils/api-client/interfaces/annotation';
 import type { TestFacets } from '@/utils/api-client/interfaces/tests';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { getPriorities } from '@/utils/task-lookup';
@@ -149,6 +151,16 @@ export function useRunTestSets(enabled = true) {
         });
       return response.data;
     },
+    enabled: enabled && isAuthenticated,
+    staleTime: STALE_TIME,
+  });
+}
+
+export function useAnnotationFacets(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery<AnnotationFacets>({
+    queryKey: [...annotationKeys.all(), 'facets'],
+    queryFn: () => new ApiClientFactory().getAnnotationsClient().getFacets(),
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });

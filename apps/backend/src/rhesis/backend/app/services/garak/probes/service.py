@@ -7,6 +7,7 @@ extracting Garak probes for import into Rhesis as test sets.
 
 import asyncio
 import importlib
+import inspect
 import logging
 import pkgutil
 from typing import Any, ClassVar, Dict, List, Optional
@@ -232,7 +233,7 @@ class GarakProbeService:
         # Check if it inherits from a Garak probe base class
         try:
             Probe = compat.get_probe_base_class()
-            return issubclass(obj, Probe) and obj is not Probe
+            return issubclass(obj, Probe) and obj is not Probe and not inspect.isabstract(obj)
         except ImportError:
             # Fallback: check for common probe attributes
             return hasattr(obj, "prompts") or hasattr(obj, "probe")

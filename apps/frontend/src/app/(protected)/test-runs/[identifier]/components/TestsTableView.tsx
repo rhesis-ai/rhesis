@@ -369,6 +369,9 @@ export default function TestsTableView({
                   : status.passed
                     ? 'success.dark'
                     : 'error.dark',
+                ...(status.isOverruled && {
+                  border: `${theme.spacing(0.125)} solid ${theme.palette.warning.main}`,
+                }),
               }}
             />
           );
@@ -380,6 +383,18 @@ export default function TestsTableView({
             );
             return (
               <Tooltip title={tooltip} enterDelay={500}>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  {badge}
+                </Box>
+              </Tooltip>
+            );
+          }
+          if (status.isOverruled && status.annotationData) {
+            const who = status.annotationData.annotator;
+            const what =
+              status.annotationData.newStatus === 'passed' ? 'Pass' : 'Fail';
+            return (
+              <Tooltip title={`Changed to ${what} by ${who}`} enterDelay={500}>
                 <Box component="span" sx={{ display: 'inline-flex' }}>
                   {badge}
                 </Box>
@@ -443,7 +458,7 @@ export default function TestsTableView({
       {
         field: 'annotation',
         headerName: 'Annotation',
-        width: 120,
+        width: 150,
         flex: 0,
         sortable: false,
         disableColumnMenu: true,
