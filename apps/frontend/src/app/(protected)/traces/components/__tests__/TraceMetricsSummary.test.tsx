@@ -1,0 +1,182 @@
+import React from 'react';
+import { act, render, screen, waitFor, fireEvent } from '@/test-utils';
+import '@testing-library/jest-dom';
+import TraceMetricsSummary from '../TraceMetricsSummary';
+import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
+
+const getMetrics = jest.fn();
+
+jest.mock('@/utils/api-client/client-factory', () => ({
+  ApiClientFactory: jest.fn().mockImplementation(() => ({
+    getTelemetryClient: () => ({ getMetrics }),
+  })),
+}));
+
+function metrics(
+  overrides: Partial<TraceMetricsResponse> = {}
+): TraceMetricsResponse {
+  return {
+    total_traces: 226,
+    enriched_traces: 226,
+    priced_traces: 226,
+    total_spans: 3089,
+    total_tokens: 571062,
+    total_input_tokens: 412000,
+    total_output_tokens: 159062,
+    total_cost_usd: 0.19,
+    total_input_cost_usd: 0.12,
+    total_output_cost_usd: 0.07,
+    models_used: ['gpt-4o', 'gemini-2.5-flash'],
+    providers_used: ['openai', 'gemini'],
+    error_rate: 0.0129,
+    avg_duration_ms: 812,
+    p50_duration_ms: 600,
+    p95_duration_ms: 2400,
+    p99_duration_ms: 4100,
+    operation_breakdown: {
+      'llm.invoke': 1800,
+      'agent.invoke': 900,
+      'function.invoke': 300,
+      'tool.invoke': 60,
+      'embedding.invoke': 29,
+    },
+    ...overrides,
+  };
+}
+
+function renderTiles(props: Record<string, unknown> = {}) {
+  return render(<TraceMetricsSummary projectId="project-1" {...props} />);
+}
+
+describe('TraceMetricsSummary', () => {
+  beforeEach(() => {
+    getMetrics.mockReset();
+    getMetrics.mockResolvedValue(metrics());
+  });
+
+  it('renders nothing until the numbers arrive', () => {
+    const { container } = renderTiles();
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing without a project to scope to', () => {
+    const { container } = renderTiles({ projectId: null });
+
+    expect(container).toBeEmptyDOMElement();
+    expect(getMetrics).not.toHaveBeenCalled();
+  });
+
+  it('counts traces, and names the kinds of work in them', async () => {
+    renderTiles();
+
+    expect(await screen.findByText('226')).toBeInTheDocument();
+    expect(screen.getByText('5 span types')).toBeInTheDocument();
+  });
+
+  it('lists the span types on hover rather than in the tile', async () => {
+    renderTiles();
+
+    fireEvent.mouseOver(await screen.findByText('5 span types'));
+
+    await waitFor(() =>
+      expect(screen.getByRole('tooltip')).toHaveTextContent('llm.invoke')
+    );
+  });
+
+  it('counts spans, with how many failed', async () => {
+    renderTiles();
+
+    expect(await screen.findByText('3,089')).toBeInTheDocument();
+    // 1.29% of 3,089 spans, and the rest stated as a share that reads well.
+    expect(screen.getByText('40 errors · 99% ok')).toBeInTheDocument();
+  });
+
+  it('says so plainly when nothing errored', async () => {
+    getMetrics.mockResolvedValue(metrics({ error_rate: 0 }));
+    renderTiles();
+
+    expect(await screen.findByText('No errors')).toBeInTheDocument();
+  });
+
+  it('leads usage with cost, and explains it with the token split', async () => {
+    renderTiles();
+
+    expect(await screen.findByText('$0.19')).toBeInTheDocument();
+    expect(screen.getByText('571,062 tokens')).toBeInTheDocument();
+    expect(
+      screen.getByText('412,000 input · 159,062 output')
+    ).toBeInTheDocument();
+  });
+
+  it('names the models rather than only counting them', async () => {
+    renderTiles();
+
+    expect(await screen.findByText('2')).toBeInTheDocument();
+    expect(screen.getByText('models')).toBeInTheDocument();
+    expect(screen.getByText('openai/gpt-4o +1')).toBeInTheDocument();
+  });
+
+  it('falls back to tokens while enrichment is still pricing', async () => {
+    getMetrics.mockResolvedValue(
+      metrics({ enriched_traces: 100, priced_traces: 0, total_cost_usd: 0 })
+    );
+    renderTiles();
+
+    expect(
+      await screen.findByText('Working out what this cost')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+  });
+
+  it('says nothing could be priced once enrichment has finished', async () => {
+    getMetrics.mockResolvedValue(
+      metrics({ priced_traces: 0, total_cost_usd: 0 })
+    );
+    renderTiles();
+
+    expect(await screen.findByText('No priced models')).toBeInTheDocument();
+  });
+
+  it('shows a real $0.00 for a scope that was priced and free', async () => {
+    getMetrics.mockResolvedValue(metrics({ total_cost_usd: 0 }));
+    renderTiles();
+
+    expect(await screen.findByText('$0.00')).toBeInTheDocument();
+    expect(screen.queryByText('No priced models')).not.toBeInTheDocument();
+  });
+
+  it('holds every tile back for a project that has traced nothing', async () => {
+    getMetrics.mockResolvedValue(
+      metrics({ total_traces: 0, total_spans: 0, total_tokens: 0 })
+    );
+    const { container } = renderTiles();
+
+    // Flush the fetch and the state update it triggers. Waiting only for the
+    // call would pass whether or not the tiles are suppressed, since nothing
+    // has re-rendered yet at that point.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getMetrics).toHaveBeenCalled();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('warns that the totals ignore filters the endpoint cannot honor', async () => {
+    renderTiles({ hasUnsupportedFilters: true });
+
+    expect(
+      await screen.findByText(/Totals cover the whole project/)
+    ).toBeInTheDocument();
+  });
+
+  it('narrows to one run when given one', async () => {
+    renderTiles({ testRunId: 'run-1' });
+
+    await waitFor(() => expect(getMetrics).toHaveBeenCalled());
+    expect(getMetrics).toHaveBeenCalledWith(
+      expect.objectContaining({ test_run_id: 'run-1' })
+    );
+  });
+});
