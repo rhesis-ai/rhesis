@@ -152,7 +152,8 @@ start_server() {
             --host "$host" \
             --port "$port" \
             --log-level debug \
-            --reload
+            --reload \
+            --reload-dir src
     else
         # Default: local, development, staging, integration tests — no reload
         log "${BLUE}🛠️  Starting server with Uvicorn...${NC}"
