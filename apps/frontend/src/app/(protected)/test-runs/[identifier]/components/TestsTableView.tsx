@@ -31,10 +31,12 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
+import TagLabel from '@/components/common/Tag';
 import {
   TestResultDetail,
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
+import type { Tag } from '@/utils/api-client/interfaces/tag';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
@@ -396,6 +398,41 @@ export default function TestsTableView({
             </Typography>
           </Tooltip>
         ),
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        flex: 1,
+        minWidth: 140,
+        sortable: false,
+        disableColumnMenu: true,
+        renderCell: params => {
+          const tags = params.row.tags;
+          if (!tags || tags.length === 0) return null;
+
+          const validTags = tags.filter(
+            (tag: Tag) => tag && tag.id && tag.name
+          );
+          if (validTags.length === 0) return null;
+
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
+              {validTags.slice(0, 2).map((tag: Tag) => (
+                <TagLabel key={tag.id} label={tag.name} />
+              ))}
+              {validTags.length > 2 && (
+                <TagLabel label={`+${validTags.length - 2}`} />
+              )}
+            </Box>
+          );
+        },
       },
       {
         field: 'review',
