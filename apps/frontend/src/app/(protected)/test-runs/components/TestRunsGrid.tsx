@@ -403,7 +403,6 @@ export default function TestRunsGrid({
         headerName: 'Annotations',
         flex: 1,
         minWidth: 80,
-        sortable: false,
         filterable: false,
         valueGetter: (_, row) => row.counts?.annotated_tests ?? 0,
         renderCell: params => {

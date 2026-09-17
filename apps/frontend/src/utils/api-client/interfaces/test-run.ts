@@ -42,7 +42,8 @@ export interface TestRunDetail extends TestRun {
   counts?: {
     comments: number;
     tasks: number;
-    reviewed_tests?: number;
+    /** Both set on list rows only -- the detail route does not compute them. */
+    annotated_tests?: number;
     corrected_tests?: number;
   };
   stats?: {

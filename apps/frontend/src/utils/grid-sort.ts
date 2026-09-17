@@ -3,6 +3,7 @@ import type { GridSortModel } from '@mui/x-data-grid';
 const GRID_TO_API_SORT_FIELD: Record<string, string> = {
   'counts.comments': 'comments_count',
   'counts.tasks': 'tasks_count',
+  'counts.annotated_tests': 'annotated_tests_count',
   tags: 'tags_count',
   // Usage totals, aggregated from the run's traces rather than stored on it. The API
   // name drops the `usage.` prefix the grid needs to read the nested value.
