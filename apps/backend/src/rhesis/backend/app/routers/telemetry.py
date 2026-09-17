@@ -56,7 +56,7 @@ from rhesis.backend.app.services.review import (
 )
 from rhesis.backend.app.services.telemetry.token_totals import (
     trace_cost_usd,
-    trace_summary_totals,
+    trace_summary_usage,
     trace_token_totals,
 )
 from rhesis.backend.app.services.trace_review_override import (
@@ -314,7 +314,8 @@ def list_traces(
         description=(
             "Field to sort by. One of: "
             "start_time, duration_ms, trace_id, environment, root_operation, "
-            "span_count, total_tokens, total_cost_usd."
+            "span_count, total_tokens, total_input_tokens, total_output_tokens, "
+            "total_cost_usd, total_input_cost_usd, total_output_cost_usd, model."
         ),
     ),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
@@ -410,13 +411,7 @@ def list_traces(
         for row in rows:
             trace = row.trace
             has_errors = trace.status_code == StatusCode.ERROR.value
-            (
-                total_input_tokens,
-                total_output_tokens,
-                total_tokens,
-                total_cost_usd,
-                total_cost_eur,
-            ) = trace_summary_totals(trace.enriched_data, row.llm_tokens)
+            usage = trace_summary_usage(trace.enriched_data, row.llm_tokens)
 
             # Get endpoint information from eagerly loaded relationships
             trace_endpoint_id = None
@@ -464,11 +459,7 @@ def list_traces(
                 test_id=str(trace.test_id) if trace.test_id else None,
                 endpoint_id=trace_endpoint_id,
                 endpoint_name=trace_endpoint_name,
-                total_tokens=total_tokens if total_tokens > 0 else None,
-                total_input_tokens=total_input_tokens if total_input_tokens > 0 else None,
-                total_output_tokens=total_output_tokens if total_output_tokens > 0 else None,
-                total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
-                total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
+                **usage,
                 has_errors=has_errors,
                 trace_metrics_status=trace_metrics_status_name,
                 execution=trace.execution,

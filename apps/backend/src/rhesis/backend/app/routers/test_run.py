@@ -21,7 +21,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource, TraceSummary
 from rhesis.backend.app.services import test_run as services_test_run
-from rhesis.backend.app.services.telemetry.token_totals import trace_summary_totals
+from rhesis.backend.app.services.telemetry.token_totals import trace_summary_usage
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
     rescore_test_run,
@@ -563,13 +563,7 @@ def get_test_run_traces(
     for row in rows:
         trace = row.trace
         has_errors = trace.status_code == "ERROR"
-        (
-            total_input_tokens,
-            total_output_tokens,
-            total_tokens,
-            total_cost_usd,
-            total_cost_eur,
-        ) = trace_summary_totals(trace.enriched_data, row.llm_tokens)
+        usage = trace_summary_usage(trace.enriched_data, row.llm_tokens)
 
         conversation_input = None
         if isinstance(trace.attributes, dict):
@@ -588,11 +582,7 @@ def get_test_run_traces(
             root_operation=trace.span_name,
             status_code=trace.status_code,
             has_errors=has_errors,
-            total_tokens=total_tokens if total_tokens > 0 else None,
-            total_input_tokens=total_input_tokens if total_input_tokens > 0 else None,
-            total_output_tokens=total_output_tokens if total_output_tokens > 0 else None,
-            total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
-            total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
+            **usage,
             test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
             test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
             test_id=str(trace.test_id) if trace.test_id else None,

@@ -245,3 +245,33 @@ def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int =
         models=list(models),
         providers=list(providers),
     )
+
+
+def trace_summary_usage(enriched_data: Optional[dict], llm_tokens_fallback: int) -> dict:
+    """The usage fields of a trace list row, ready to splat into a ``TraceSummary``.
+
+    Both list endpoints -- the traces page and a test run's traces tab -- build the same
+    row from the same ``query_traces`` output, and each had its own copy of this
+    unpacking. One copy so a field added here reaches both.
+
+    Zero becomes ``None`` for every figure, which is the convention the list response
+    already used for tokens and cost: the grid renders a dash for an absent number rather
+    than a zero it cannot vouch for. ``models`` stays a list, empty when the trace has
+    nothing priced, since that is what tells "not traced" from "traced and free".
+    """
+    usage = trace_usage_totals(enriched_data, llm_tokens_fallback)
+
+    def present(value):
+        return value if value else None
+
+    return {
+        "total_tokens": present(usage.total_tokens),
+        "total_input_tokens": present(usage.input_tokens),
+        "total_output_tokens": present(usage.output_tokens),
+        "total_cost_usd": present(usage.total_cost_usd),
+        "total_cost_eur": present(usage.total_cost_eur),
+        "total_input_cost_usd": present(usage.input_cost_usd),
+        "total_output_cost_usd": present(usage.output_cost_usd),
+        "models": usage.models,
+        "providers": usage.providers,
+    }
