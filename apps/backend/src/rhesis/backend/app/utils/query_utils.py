@@ -103,6 +103,10 @@ class QueryBuilder:
         self._sort_order = "asc"
         self._secondary_sort_by = None
         self._secondary_sort_order = "asc"
+        # Remembered by with_organization_filter. A sort that scans another table needs
+        # to scope that scan itself; the ORM auto-filter only reaches ORM entities in the
+        # statement being executed, not a plain subquery nested inside one.
+        self._organization_id: str | None = None
         # Track eager-load count so we can warn callers who request an
         # unreasonably large number of relationships on a single query. Not
         # split by strategy (joined vs. selectin) -- that decision happens
@@ -202,6 +206,7 @@ class QueryBuilder:
         )
         if provided:
             self.query = self.query.filter(self.model.organization_id == organization_id)
+            self._organization_id = str(organization_id)
         elif self.model.__name__ not in ("User", "Organization", "Token"):
             # SECURITY: organization_id must be provided for non-exempt models
             # that have it, to prevent data leakage across organizations.
@@ -341,8 +346,21 @@ class QueryBuilder:
             apply_virtual_relationship_sort,
             is_virtual_relationship_sort,
         )
+        from rhesis.backend.app.utils.usage_sort import (
+            apply_virtual_usage_sort,
+            is_virtual_usage_sort,
+        )
 
-        if self._sort_by and is_virtual_count_sort(self._sort_by):
+        if self._sort_by and is_virtual_usage_sort(self._sort_by):
+            self.query = apply_virtual_usage_sort(
+                self.query,
+                self.model,
+                self._sort_by,
+                self._sort_order,
+                self.db,
+                self._organization_id,
+            )
+        elif self._sort_by and is_virtual_count_sort(self._sort_by):
             self.query = apply_virtual_count_sort(
                 self.query,
                 self.model,
