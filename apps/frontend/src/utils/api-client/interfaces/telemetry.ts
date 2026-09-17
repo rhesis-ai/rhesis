@@ -207,7 +207,17 @@ export interface TraceMetricsResponse {
   priced_traces: number;
   total_spans: number;
   total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
   total_cost_usd: number;
+  total_input_cost_usd: number;
+  total_output_cost_usd: number;
+  /** Distinct models invoked in scope, read off span attributes so they are known
+   *  before enrichment prices the traces. */
+  models_used: string[];
+  /** Distinct providers behind those models, in the same order, so index 0 of each
+   *  names one model and the provider that served it. */
+  providers_used: string[];
   error_rate: number;
   avg_duration_ms: number;
   p50_duration_ms: number;

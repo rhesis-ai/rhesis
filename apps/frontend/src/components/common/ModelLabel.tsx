@@ -8,6 +8,14 @@ interface ModelLabelProps {
   models?: string[] | null;
   /** Distinct providers behind them, used to qualify the first model. */
   providers?: string[] | null;
+  /** Element to render as. Pass `span` when this sits inside another
+   *  Typography, since a <p> nested in a <p> is invalid and React warns.
+   *  Defaults to `p`, which is what body2 maps to anyway. */
+  component?: 'p' | 'span';
+  /** Clip to one line with an ellipsis. True for grid cells, which have a fixed
+   *  column width. False where the name matters more than the line count -- a
+   *  half-shown `gemini/ge...` tells the reader nothing. */
+  truncate?: boolean;
 }
 
 /**
@@ -20,11 +28,20 @@ interface ModelLabelProps {
  * An empty list renders a dash rather than nothing: the row still has to occupy its
  * column, and a dash says "we do not know" where a blank would read as an oversight.
  */
-export default function ModelLabel({ models, providers }: ModelLabelProps) {
+export default function ModelLabel({
+  models,
+  providers,
+  component = 'p',
+  truncate = true,
+}: ModelLabelProps) {
   const names = models ?? [];
   if (names.length === 0) {
     return (
-      <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+      <Typography
+        variant="body2"
+        component={component}
+        sx={{ color: 'text.disabled' }}
+      >
         —
       </Typography>
     );
@@ -34,18 +51,28 @@ export default function ModelLabel({ models, providers }: ModelLabelProps) {
   const first = provider ? `${provider}/${names[0]}` : names[0];
   const label = names.length > 1 ? `${first} +${names.length - 1}` : first;
 
-  return (
-    <Tooltip title={names.length > 1 ? names.join(', ') : ''}>
-      <Typography
-        variant="body2"
-        sx={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </Typography>
-    </Tooltip>
+  const text = (
+    <Typography
+      variant="body2"
+      component={component}
+      sx={
+        truncate
+          ? {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          : { wordBreak: 'break-word' }
+      }
+    >
+      {label}
+    </Typography>
   );
+
+  // One model is already named in full, so there is nothing for a tooltip to
+  // reveal. MUI refuses to open an empty one, but it still wraps the child and
+  // listens for hover and focus to decide that.
+  if (names.length === 1) return text;
+
+  return <Tooltip title={names.join(', ')}>{text}</Tooltip>;
 }

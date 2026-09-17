@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Box, Grid, LinearProgress } from '@mui/material';
 import KpiCard from './KpiCard';
+import UsageCard, { hasTracedUsage } from './UsageCard';
 import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
@@ -14,8 +15,7 @@ import {
 } from './verdict-timeline';
 import { describeStrip } from './verdict-strip-render';
 import { STRIP_HEIGHTS } from './summary-tokens';
-import { formatCost, formatTokenCount } from '@/utils/trace-utils';
-import { isCostKnown, useTestRunUsage } from '../../hooks/useTestRunUsage';
+import { useTestRunUsage } from '../../hooks/useTestRunUsage';
 import type {
   VerdictMatrix,
   TestRunDetail,
@@ -167,28 +167,11 @@ export default function KpiRow({
         </Grid>
 
         {/* Held back until the numbers arrive rather than shown as zeros, the
-            same way the rollup tiles on the Traces page behave. */}
-        {usage && (
+            same way the rollup tiles on the Traces page behave, and held back
+            entirely for a run that traced nothing. */}
+        {usage && hasTracedUsage(usage) && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <KpiCard
-              title="Usage"
-              value={formatTokenCount(usage.total_tokens)}
-              valueLabel="tokens"
-              secondary={{
-                // A dash where nothing was priced: that zero is one nobody
-                // computed, and reading it as "the run was free" is the one
-                // reading that is definitely wrong. A run whose traces *were*
-                // priced still shows $0.00, because then it really was free.
-                value: isCostKnown(usage)
-                  ? formatCost(usage.total_cost_usd)
-                  : '\u2014',
-                label: 'cost',
-              }}
-              subtitle={`across ${usage.total_traces} ${
-                usage.total_traces === 1 ? 'trace' : 'traces'
-              }`}
-              infoTooltip="Tokens and cost across this run's traced LLM calls. Cost appears once enrichment has priced the run."
-            />
+            <UsageCard usage={usage} />
           </Grid>
         )}
       </Grid>

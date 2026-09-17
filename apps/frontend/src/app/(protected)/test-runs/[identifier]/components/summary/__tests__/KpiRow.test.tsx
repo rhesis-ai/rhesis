@@ -424,7 +424,7 @@ describe('KpiRow', () => {
     expect(screen.queryByText('Usage')).not.toBeInTheDocument();
   });
 
-  it('shows tokens and cost side by side on the Usage card', () => {
+  it('leads the Usage card with cost, explained by tokens and the model', () => {
     mockUsage({
       total_traces: 12,
       enriched_traces: 12,
@@ -432,6 +432,8 @@ describe('KpiRow', () => {
       total_spans: 190,
       total_tokens: 45735,
       total_cost_usd: 0.012695,
+      models_used: ['gpt-4o'],
+      providers_used: ['openai'],
     });
     renderWithClock(
       <KpiRow
@@ -443,21 +445,119 @@ describe('KpiRow', () => {
       />
     );
     expect(screen.getByText('Usage')).toBeInTheDocument();
-    expect(screen.getByText('45,735')).toBeInTheDocument();
-    expect(screen.getByText('tokens')).toBeInTheDocument();
     // formatCost drops to two decimals above a cent, same as the Traces page.
     expect(screen.getByText('$0.01')).toBeInTheDocument();
-    expect(screen.getByText('cost')).toBeInTheDocument();
-    expect(screen.getByText('across 12 traces')).toBeInTheDocument();
+    expect(screen.getByText('45,735 tokens')).toBeInTheDocument();
+    expect(screen.getByText('openai/gpt-4o')).toBeInTheDocument();
+    expect(screen.queryByText('cost')).not.toBeInTheDocument();
   });
 
-  it('shows a dash rather than a confident zero before pricing lands', () => {
-    // Tokens come off the spans immediately; cost waits for enrichment. A
-    // $0.00 here would claim the run was free, which is the one reading that
-    // is certainly wrong.
+  it('holds the card back entirely for a run that traced nothing', () => {
+    // An endpoint with no instrumentation produces no traces, so there is no
+    // usage rather than usage of zero. "0 tokens, no priced models" would be an
+    // answer to a question nobody asked.
+    mockUsage({
+      total_traces: 0,
+      enriched_traces: 0,
+      priced_traces: 0,
+      total_spans: 0,
+      total_tokens: 0,
+      total_cost_usd: 0,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.queryByText('Usage')).not.toBeInTheDocument();
+    expect(screen.queryByText(/No priced models/)).not.toBeInTheDocument();
+  });
+
+  it('shows a long model name in full rather than clipping it', () => {
+    // The card is narrow; half a name answers nothing, so the line wraps.
+    mockUsage({
+      total_traces: 6,
+      enriched_traces: 6,
+      priced_traces: 6,
+      total_spans: 60,
+      total_tokens: 112557,
+      total_cost_usd: 0.03,
+      models_used: ['gemini-2.5-flash-preview-09-2025'],
+      providers_used: ['gemini'],
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    const label = screen.getByText('gemini/gemini-2.5-flash-preview-09-2025');
+    expect(label).toBeInTheDocument();
+    expect(label).not.toHaveStyle({ textOverflow: 'ellipsis' });
+  });
+
+  it('names only the first model, with a count for the rest', () => {
+    mockUsage({
+      total_traces: 4,
+      enriched_traces: 4,
+      priced_traces: 4,
+      total_spans: 20,
+      total_tokens: 900,
+      total_cost_usd: 0.05,
+      models_used: ['gpt-4o', 'claude-sonnet-4', 'gemini-2.5-flash'],
+      providers_used: ['openai', 'anthropic', 'gemini'],
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('openai/gpt-4o +2')).toBeInTheDocument();
+  });
+
+  it('drops the model when the run reported none', () => {
+    mockUsage({
+      total_traces: 2,
+      enriched_traces: 2,
+      priced_traces: 2,
+      total_spans: 6,
+      total_tokens: 400,
+      total_cost_usd: 0.004,
+      models_used: [],
+      providers_used: [],
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    // No trailing separator with nothing after it.
+    expect(screen.getByText('400 tokens')).toBeInTheDocument();
+    expect(screen.queryByText('·')).not.toBeInTheDocument();
+  });
+
+  it('falls back to tokens, and says why, when nothing could be priced', () => {
+    // Tokens come off the spans immediately; cost waits for enrichment, and
+    // never arrives for a model with no published price. A $0.00 here would
+    // claim the run was free, which is the one reading that is certainly wrong.
     mockUsage({
       total_traces: 3,
-      enriched_traces: 0,
+      enriched_traces: 3,
       priced_traces: 0,
       total_spans: 40,
       total_tokens: 9120,
@@ -473,8 +573,57 @@ describe('KpiRow', () => {
       />
     );
     expect(screen.getByText('9,120')).toBeInTheDocument();
-    expect(screen.getByText('\u2014')).toBeInTheDocument();
+    expect(screen.getByText('tokens')).toBeInTheDocument();
+    expect(screen.getByText(/No priced models/)).toBeInTheDocument();
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+  });
+
+  it('says it is still working while enrichment has traces left', () => {
+    // Distinct from "nothing here can be priced": that one is final and gets
+    // an explanation, this one just needs a moment.
+    mockUsage({
+      total_traces: 10,
+      enriched_traces: 4,
+      priced_traces: 0,
+      total_spans: 30,
+      total_tokens: 2200,
+      total_cost_usd: 0,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('Working out what this cost')).toBeInTheDocument();
+    expect(screen.queryByText(/No priced models/)).not.toBeInTheDocument();
+  });
+
+  it('links the unpriced explanation to the costs documentation', () => {
+    mockUsage({
+      total_traces: 1,
+      enriched_traces: 1,
+      priced_traces: 0,
+      total_spans: 2,
+      total_tokens: 10,
+      total_cost_usd: 0,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByRole('link', { name: 'Why?' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('tracing/costs')
+    );
   });
 
   it('shows $0.00 when the run really was free', () => {
@@ -523,26 +672,5 @@ describe('KpiRow', () => {
       />
     );
     expect(useTestRunUsage).toHaveBeenCalledWith(testRun.id, true);
-  });
-
-  it('says trace rather than traces when the run produced one', () => {
-    mockUsage({
-      total_traces: 1,
-      enriched_traces: 1,
-      priced_traces: 1,
-      total_spans: 3,
-      total_tokens: 150,
-      total_cost_usd: 0.001,
-    });
-    renderWithClock(
-      <KpiRow
-        matrix={makeMatrix({})}
-        testRun={makeTestRun()}
-        isRunning={false}
-        testIds={[]}
-        timings={EMPTY_TIMINGS}
-      />
-    );
-    expect(screen.getByText('across 1 trace')).toBeInTheDocument();
   });
 });
