@@ -37,9 +37,14 @@ and the public URL usually differ.
 
 ## Branding
 
-Replace the Rhesis colours, icon and product name with your own. All four are read at request time, so
-the same image serves every deployment — no rebuild, and no `NEXT_PUBLIC_` counterpart. Each is
+Replace the Rhesis colours, icon and product name with your own. All of these are read at request time,
+so the same image serves every deployment — no rebuild, and no `NEXT_PUBLIC_` counterpart. Each is
 independent; set only the ones you need.
+
+These set the deployment-wide default. An organization can override any of them from
+Organization Settings → Branding, which also accepts uploaded favicon and font files rather than URLs.
+A field the organization leaves empty falls back to the variable below, and then to the Rhesis default,
+so a multi-tenant deployment can set a house style here and let individual organizations depart from it.
 
 | Variable | Description | Default |
 |---|---|---|
@@ -69,6 +74,36 @@ When only `BRAND_FONT_FAMILY` is set, the font is loaded from Google Fonts. Add
 `BRAND_FONT_BASE_URL` for deployments that cannot reach Google (air-gapped, on-prem) or prefer to
 serve the files themselves. Name the .ttf files `\{slug\}-\{weight\}.ttf` (e.g. `inria-sans-300.ttf`,
 `inria-sans-400.ttf`, `inria-sans-700.ttf`).
+
+An organization can override both variables for its members from the settings page, choosing either a
+Google Fonts family or its own uploaded files. Uploaded files are served from the configured object
+storage (`STORAGE_SERVICE_URI`) through the app, so no font host needs to be reachable from the
+browser; a Google family is loaded by the visitor's browser and needs outbound access to
+`fonts.googleapis.com`.
+
+### What to upload
+
+For organization branding set from the settings page rather than these variables:
+
+| Asset | Format | Size |
+|---|---|---|
+| Favicon | SVG, PNG, WebP, ICO, JPEG or GIF | Square. 512x512 for a raster format, or any SVG. Max 512 KB |
+| Font (Google) | A family name | Any family published on Google Fonts. Weights 300, 400 and 700 are requested |
+| Font (uploaded) | WOFF2, WOFF, TTF or OTF | One file per weight: 300 (light), 400 (regular), 700 (bold). Max 2 MB each |
+
+The favicon is scaled down to the browser tab and up to 92 px in onboarding, so anything under
+192x192 looks soft; the settings page warns when an uploaded icon is smaller than that or not
+square, but still accepts it. Uploads are checked to be real images, not just files with an image
+content type.
+
+The font family field suggests names from the Google Fonts catalogue, fetched from Google and cached
+for a day; a deployment that cannot reach Google gets no suggestions and the field accepts any name.
+A Google family is checked against Google when you save, so a typo is rejected rather than silently
+falling back.
+
+Uploaded fonts need only the weights you have. The app's intermediate weights (500, 600, 800) are
+remapped onto 400 and 700, and the browser derives any missing weight from the nearest one it was
+given. The family name must match the name inside the font files.
 
 Setting `BRAND_PRODUCT_NAME` also drops the Rhesis tagline from the page description and stops the
 sign-in wordmark linking to rhesis.ai.
@@ -160,7 +195,8 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 
 | Variable | Description | Default |
 |---|---|---|
-| `STORAGE_SERVICE_URI` | Storage backend URI (`file://`, `gs://`, or `s3://`) | `file:///app/storage` |
+| `STORAGE_SERVICE_URI` | Storage backend URI (`file://`, `gs://`, or `s3://`) | *(unset — a local directory at `LOCAL_STORAGE_PATH`)* |
+| `LOCAL_STORAGE_PATH` | Directory used when `STORAGE_SERVICE_URI` is unset or `file://` without a path | `rhesis-files` inside the system temp directory |
 | `STORAGE_SERVICE_ACCOUNT_KEY` | Base64 service-account credentials for GCS | *(unset)* |
 | `LOCAL_STORAGE_PATH` | Filesystem path for the `file://` backend | `/tmp/rhesis-files` |
 

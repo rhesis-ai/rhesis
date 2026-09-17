@@ -47,6 +47,8 @@ data:
   BRAND_SECONDARY_COLOR: {{ .Values.config.brandSecondaryColor | quote }}
   BRAND_FAVICON_URL: {{ .Values.config.brandFaviconUrl | quote }}
   BRAND_PRODUCT_NAME: {{ .Values.config.brandProductName | quote }}
+  BRAND_FONT_FAMILY: {{ .Values.config.brandFontFamily | quote }}
+  BRAND_FONT_BASE_URL: {{ .Values.config.brandFontBaseUrl | quote }}
 
   # -------------------------------------------------------------------------
   # Backend
