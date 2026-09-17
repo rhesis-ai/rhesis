@@ -90,8 +90,7 @@ export default function BrandingColorsForm({
   const setDraft = (
     next: BrandingDraft | ((prev: BrandingDraft) => BrandingDraft)
   ) => {
-    const resolved =
-      typeof next === 'function' ? next(draftRef.current) : next;
+    const resolved = typeof next === 'function' ? next(draftRef.current) : next;
     draftRef.current = resolved;
     setDraftState(resolved);
   };
@@ -157,7 +156,10 @@ export default function BrandingColorsForm({
     setDraft(prev => ({ ...prev, [field]: value }));
     previewBrandColors({ [BRAND_COLOR_KEY[field]]: value });
     if (saveTimers.current[field]) clearTimeout(saveTimers.current[field]);
-    saveTimers.current[field] = setTimeout(() => saveField(field), PICKER_SAVE_DELAY_MS);
+    saveTimers.current[field] = setTimeout(
+      () => saveField(field),
+      PICKER_SAVE_DELAY_MS
+    );
   };
 
   const flushPickerSave = (field: ColorDraftField) => {
@@ -273,7 +275,7 @@ function BrandingFields({
       if (value && !HEX_COLOR_PATTERN.test(value)) {
         setFieldErrors(prev => ({
           ...prev,
-          [field]: 'Use a 6-digit hex value, for example #6A1B9A',
+          [field]: 'Use a 6-digit hex value, for example #6A1B9A', // Intentional: example colour in validation text
         }));
       }
       onSave(field);

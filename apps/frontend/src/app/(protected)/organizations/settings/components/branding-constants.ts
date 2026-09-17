@@ -8,8 +8,8 @@ import type {
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 /** Rhesis theme defaults, used when no deployment branding is configured. */
-export const RHESIS_PRIMARY_COLOR = '#0080AF';
-export const RHESIS_SECONDARY_COLOR = '#FD6E12';
+export const RHESIS_PRIMARY_COLOR = '#0080AF'; // Intentional: brand default, not a style
+export const RHESIS_SECONDARY_COLOR = '#FD6E12'; // Intentional: brand default, not a style
 
 export const MAX_PRODUCT_NAME_LENGTH = 60;
 export const MAX_FONT_FAMILY_LENGTH = 80;
