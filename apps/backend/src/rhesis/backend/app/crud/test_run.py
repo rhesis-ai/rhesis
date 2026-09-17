@@ -697,20 +697,23 @@ def _attach_models_per_run(db: Session, base, stats: Dict[str, Dict[str, Any]]) 
     provider is finished in Python because placing a model that reported none is a
     LiteLLM lookup.
     """
-    models_by_run: Dict[str, set] = {}
-    providers_by_run: Dict[str, set] = {}
+    # Kept as pairs rather than two sets: the grid renders providers[0] beside models[0],
+    # and deriving the lists separately pairs the alphabetically first model with the
+    # alphabetically first provider, which are routinely different rows.
+    pairs_by_run: Dict[str, dict] = {}
 
     for row in models_used_rows(db, base, extra_columns=(base.c.test_run_id,)):
         run_id = str(row.test_run_id)
-        models_by_run.setdefault(run_id, set()).add(row.model_name)
-        providers_by_run.setdefault(run_id, set()).add(
-            resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
-        )
+        by_model = pairs_by_run.setdefault(run_id, {})
+        if row.model_name not in by_model:
+            by_model[row.model_name] = resolve_provider(
+                {AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name
+            )
 
-    for run_id, names in models_by_run.items():
+    for run_id, by_model in pairs_by_run.items():
         bucket = stats.setdefault(run_id, empty_usage())
-        bucket["models"] = sorted(names)
-        bucket["providers"] = sorted(providers_by_run.get(run_id, set()))
+        bucket["models"] = sorted(by_model)
+        bucket["providers"] = list(dict.fromkeys(by_model[model] for model in sorted(by_model)))
 
 
 def _run_trace_base(db: Session, organization_id: Optional[str], run_ids=None):
