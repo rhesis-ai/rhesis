@@ -212,6 +212,10 @@ function UsageTile({
   metrics: TraceMetricsResponse;
   split?: string;
 }) {
+  const tokens = [`${formatTokenCount(metrics.total_tokens)} tokens`, split]
+    .filter(Boolean)
+    .join(' · ');
+
   if (!isCostKnown(metrics)) {
     return (
       <KpiCard
@@ -231,27 +235,10 @@ function UsageTile({
     <KpiCard
       title="Usage"
       value={formatCost(metrics.total_cost_usd)}
-      subtitle={
-        <Box
-          component="span"
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'baseline',
-            columnGap: 0.5,
-          }}
-        >
-          <Box component="span">
-            {formatTokenCount(metrics.total_tokens)} tokens
-          </Box>
-          {split && (
-            <>
-              <Box component="span">\u00b7</Box>
-              <Box component="span">{split}</Box>
-            </>
-          )}
-        </Box>
-      }
+      // One string rather than flex children: both halves are plain text, so
+      // the separator can be part of the sentence and wrap with it, instead of
+      // being an element whose spacing lives in CSS and is lost on copy.
+      subtitle={tokens}
     />
   );
 }
