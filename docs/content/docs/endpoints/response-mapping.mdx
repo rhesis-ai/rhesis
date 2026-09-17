@@ -66,7 +66,7 @@ Each field is evaluated independently — you can mix JSONPath and Jinja2 in the
 - `tool_calls` — stored with the test result, available to metrics that evaluate tool use
 
 **Recorded on the test run:**
-- `version_info` — the version of the system behind the endpoint, as a JSON object. Recorded on the run and shown in its Configuration tab, the test runs list, and trace span details. Takes precedence over the version configured on the endpoint. See [Version Information](/docs/endpoints/management#version-information)
+- `version_info` — the version of your application behind this endpoint, as a JSON object. Recorded on the run and shown in its Configuration tab, the test runs list, and trace span details. Takes precedence over the version configured on the endpoint. See [Version Information](/docs/endpoints/management#version-information)
 
 Custom fields beyond these are passed through and stored but not actively used by the platform.
 

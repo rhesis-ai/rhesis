@@ -99,7 +99,7 @@ Useful when the endpoint already emits its own telemetry or when tracing overhea
 
 ## Version Information
 
-Each endpoint has a **Version Information** field in the Mapping tab. It holds free-form JSON describing the system behind the endpoint: prompt version, model, temperature, or whatever identifies a build.
+Each endpoint has a **Version Information** field in the Mapping tab. It holds free-form JSON describing your application behind this endpoint: prompt version, model, temperature, or whatever identifies a build.
 
 ```json
 {
@@ -118,7 +118,7 @@ If your API reports its own version, map it with the `version_info` key in the [
 The recorded version appears in three places:
 
 - The **Configuration** tab of a test run, alongside a note of whether it came from the endpoint configuration or the endpoint's response.
-- The **Version** column of the test runs list, for comparing runs at a glance.
+- The **Version Information** column of the test runs list, for comparing runs at a glance.
 - The span details of a [trace](/docs/tracing), under `endpoint.version_info`. Traces cover single invocations as well as test runs, so this is where the version appears for calls made outside a run.
 
 It is stored and exposed as `version_info` in the API and SDK.
