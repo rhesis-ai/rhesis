@@ -17,6 +17,20 @@ natural key. For a tuning judgement that is the case, the author and the moment
 it was made; for an explorer label it is only the case and the author, because
 one person has one label on one test and re-running must not add a second.
 
+**The author of a migrated explorer label is a best guess.** A tuning review
+recorded its own ``reviewer_id``, but a label only ever recorded *that* a person
+set it (``labeler = 'user'``), never which one, and nothing else kept the actor:
+the activity feed derives who did what from the row's own ``user_id``, and
+``activity_log`` is a job narrative with no actor column at all. So this takes
+``test.user_id``, the test's creator, which is right whenever the person who
+added a test is the one who labelled it -- the normal case, since both happen in
+the same explorer session -- and wrong where someone labelled a colleague's
+test, which the endpoint allowed because it scoped to the organization, not the
+owner. The cost of a wrong guess is a name shown against the label and the real
+labeller's next edit opening a second row instead of moving this one; their new
+label still wins on read. A test with no creator at all is left alone, metadata
+label and all, rather than attributed to nobody.
+
 A judgement whose author or status no longer resolves is skipped rather than
 aborting on a foreign key, as in eb2719043c01. A ``reviewer_id`` or
 ``reviewed_at`` that is not merely missing but malformed does abort, on the cast:
@@ -137,6 +151,8 @@ _BACKFILL_EXPLORER = sa.text("""
     SELECT
         t.organization_id,
         t.project_id,
+        -- The creator, standing in for the labeller nobody recorded. See the
+        -- module docstring for what that costs when they are not the same person.
         t.user_id,
         'Test',
         t.id,
