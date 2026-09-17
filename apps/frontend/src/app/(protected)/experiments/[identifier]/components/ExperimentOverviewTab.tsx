@@ -124,7 +124,7 @@ export default function ExperimentOverviewTab({
               <ViewField label="Project">
                 <Box
                   component={Link}
-                  href={`/projects/${experiment.project_id}?tab=parameters`}
+                  href={`/projects/${experiment.project_id}?tab=experiments`}
                   target="_blank"
                   rel="noopener noreferrer"
                   sx={{

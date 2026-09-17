@@ -74,7 +74,7 @@ interface ExperimentVersionsGridProps {
   onPromoteVersion: (version: string) => void;
   /** Called when user clicks "Run this version" — pre-seeds the RunDrawer with this version hash */
   onRunVersion: (versionHash: string) => void;
-  /** Opens the "Add configuration" drawer in the parent */
+  /** Opens the "Add version" drawer in the parent */
   onAddConfiguration?: () => void;
 }
 
@@ -230,7 +230,7 @@ export default function ExperimentVersionsGrid({
       disabled={schema.fields.length === 0}
       size="small"
     >
-      Add configuration
+      Add version
     </Button>
   );
 
@@ -248,8 +248,8 @@ export default function ExperimentVersionsGrid({
         />
         {orderedVersions.length === 0 ? (
           <Alert severity="info">
-            No versions yet. Use &quot;Add configuration&quot; to define values
-            and save the first immutable version.
+            No versions yet. Use &quot;Add version&quot; to define values and
+            save the first immutable version.
           </Alert>
         ) : filteredVersions.length === 0 ? (
           <Typography
