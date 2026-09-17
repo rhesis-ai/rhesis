@@ -1404,18 +1404,26 @@ class TestCreateExplorerTestEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
-    def test_an_unknown_body_field_is_ignored_rather_than_rejected(
+    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService.enqueue_embedding")
+    def test_create_hands_embedding_off_and_ignores_the_retired_flag(
         self,
+        mock_enqueue: MagicMock,
         authenticated_client: TestClient,
         explorer_test_set,
         test_db: Session,
     ):
-        """``generate_embedding`` is gone, and an old client still sending it works.
+        """The request hands the embedding off and writes none itself.
 
-        The body model is ``extra="ignore"``, so the field is dropped rather than
-        rejected with a 422. Embedding now always happens after the commit, via
-        the ``after_insert`` job every Test gets, so there is nothing for a client
-        to ask for.
+        Also covers the retired ``generate_embedding`` field: the body model is
+        ``extra="ignore"``, so an old client still sending it gets a 201 rather
+        than a 422. There is nothing left to ask for, since every new test is
+        embedded after the commit regardless.
+
+        The handoff is stubbed rather than left to run, so the assertion does not
+        depend on the environment: ``enqueue_embedding`` falls back to generating
+        in-process when Celery dispatch fails, and bails out before dispatch when
+        the org has no embedding model configured. Either way the row count stops
+        saying anything about whether this request embedded inline.
         """
         response = authenticated_client.post(
             f"/explorer/{explorer_test_set.id}/tests",
@@ -1429,6 +1437,8 @@ class TestCreateExplorerTestEndpoint:
         )
         assert response.status_code == status.HTTP_201_CREATED
         created_id = response.json()["id"]
+
+        assert mock_enqueue.called, "no embedding was queued for the new test"
 
         rows = (
             test_db.query(models.Embedding)

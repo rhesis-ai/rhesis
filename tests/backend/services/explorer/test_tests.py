@@ -762,21 +762,26 @@ class TestCreateTestNode:
         # One new test node (topic already exists)
         assert len(nodes_after) == len(nodes_before) + 1
 
-    def test_creating_a_test_does_not_embed_inline(
+    def test_creating_a_test_hands_embedding_off_instead_of_doing_it_inline(
         self,
         test_db,
         explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
-        """Creating a test writes no embedding during the request.
+        """Creating a test queues the embedding and writes none itself.
 
-        Embedding is a call to an external provider, and doing it here held this
-        request's transaction open for as long as that call took. It is also
-        redundant: ``EmbeddableMixin.after_insert`` queues an embedding for every
-        new Test and runs it after the commit, on its own session. Both ran for a
-        while, and because the two hashed different configs neither deduplicated
-        the other -- one create meant two provider calls and two embedding rows.
+        Embedding used to happen here, which held this transaction open for as
+        long as the provider call took and duplicated the job that
+        ``EmbeddableMixin.after_insert`` already queues for every new Test.
+        Because the two hashed different configs neither deduplicated the other,
+        so one create meant two provider calls and two embedding rows.
+
+        The handoff is asserted on the session's pending-job list rather than by
+        mocking the dispatch, because that is where ``after_insert`` puts it and
+        it lands there whatever the broker or the org's embedding model is doing.
+        Asserting only "no embedding row" would pass just as well if embedding
+        had stopped happening at all.
         """
         result = create_test_node(
             db=test_db,
@@ -784,8 +789,13 @@ class TestCreateTestNode:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety",
-            input="Embedding should not happen inline",
+            input="Embedding should be deferred, not inline",
             output="ok",
+        )
+
+        queued = test_db.info.get("pending_embedding_jobs", [])
+        assert any(job["entity_id"] == result.id for job in queued), (
+            f"no embedding was queued for the new test (queued: {queued})"
         )
 
         rows = (
