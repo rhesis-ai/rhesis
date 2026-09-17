@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Alert, Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -11,24 +11,33 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { ProjectEnvironmentsData } from './project-data';
 import ProjectOverviewTab from './ProjectOverviewTab';
 import ProjectEndpoints from './ProjectEndpoints';
-import ProjectConfigurationTab from './ProjectConfigurationTab';
+import ProjectExperimentsTab from './ProjectExperimentsTab';
+import ProjectTracesTab from './ProjectTracesTab';
 import ProjectMembersTab from './ProjectMembersTab';
 
-const TAB_KEYS = ['overview', 'members', 'endpoints', 'configuration'] as const;
+const TAB_KEYS = [
+  'overview',
+  'members',
+  'endpoints',
+  'experiments',
+  'traces',
+] as const;
 type ProjectTabKey = (typeof TAB_KEYS)[number];
 
 const TAB_LABELS: Record<ProjectTabKey, string> = {
   overview: 'Overview',
   members: 'Members',
   endpoints: 'Endpoints',
-  configuration: 'Advanced Configuration',
+  experiments: 'Experiments',
+  traces: 'Traces',
 };
 
 const LEGACY_TAB_MAP: Record<string, ProjectTabKey> = {
   endpoints: 'endpoints',
-  traceMetrics: 'configuration',
-  parameters: 'configuration',
-  environments: 'configuration',
+  traceMetrics: 'traces',
+  parameters: 'experiments',
+  environments: 'experiments',
+  configuration: 'experiments',
   members: 'members',
 };
 
@@ -69,10 +78,21 @@ export default function ProjectDetailTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = (() => {
-    const key = normalizeTabParam(searchParams.get('tab'));
-    return TAB_KEYS.indexOf(key);
-  })();
+  const rawTab = searchParams.get('tab');
+  const normalizedKey = normalizeTabParam(rawTab);
+  const activeTab = TAB_KEYS.indexOf(normalizedKey);
+
+  useEffect(() => {
+    if (
+      rawTab &&
+      rawTab in LEGACY_TAB_MAP &&
+      LEGACY_TAB_MAP[rawTab] !== rawTab
+    ) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', normalizedKey);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }, [rawTab, normalizedKey, router, searchParams]);
 
   const handleTabChange = useCallback(
     (newIndex: number) => {
@@ -123,12 +143,17 @@ export default function ProjectDetailTabs({
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={3} prefix="project-detail">
-        <ProjectConfigurationTab
-          project={project}
+        <ProjectExperimentsTab
           projectId={projectId}
+          initialEnvironments={initialData?.environments}
+        />
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={4} prefix="project-detail">
+        <ProjectTracesTab
+          project={project}
           onProjectUpdate={onProjectUpdate}
           initialTraceMetrics={initialData?.traceMetrics}
-          initialEnvironments={initialData?.environments}
         />
       </DetailTabPanel>
     </Box>
