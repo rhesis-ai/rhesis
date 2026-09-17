@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, text
 from rhesis.backend.app.database import (
     CONNECT_ARGS,
     DATABASE_URL,
+    DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_MS,
     IDLE_IN_TRANSACTION_TIMEOUT_MS,
     get_database_url,
 )
@@ -46,8 +47,13 @@ def test_engine_bounds_idle_transactions():
     twenty hours, silently blocking a schema migration. The timeout is what
     turns that into a loud failure at the call site, so it is asserted rather
     than trusted to survive the next edit to ``CONNECT_ARGS``.
+
+    Two separate claims: the shipped default is a bound, and whatever is
+    configured reaches Postgres. The first reads the default constant rather
+    than the configured value, because setting the env var to 0 is a supported
+    way to turn the timeout off and must not fail the suite.
     """
-    assert IDLE_IN_TRANSACTION_TIMEOUT_MS > 0, "the default must be a bound, not disabled"
+    assert DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_MS > 0, "the default must be a bound, not disabled"
     assert (
         f"-c idle_in_transaction_session_timeout={IDLE_IN_TRANSACTION_TIMEOUT_MS}"
         == CONNECT_ARGS["options"]
@@ -62,16 +68,28 @@ def test_idle_transaction_timeout_is_accepted_by_postgres(test_db):
     string or the wrong unit, and neither fails until a process starts. The
     engine under test is built here rather than imported because the suite's
     own engine is the testcontainers one, which does not use ``CONNECT_ARGS``.
+
+    Read from ``pg_settings`` rather than ``SHOW``, which renders the value for
+    people (``30min``): this asserts the exact number of milliseconds arrived,
+    so a value the server silently read as seconds fails here. Comparing
+    against the configured value rather than a non-zero floor is what keeps the
+    supported "set it to 0 to disable" case from failing the suite.
     """
     probe = create_engine(test_db.get_bind().engine.url, connect_args=CONNECT_ARGS)
     try:
         with probe.connect() as conn:
-            reported = conn.execute(text("SHOW idle_in_transaction_session_timeout")).scalar()
+            reported, unit = conn.execute(
+                text(
+                    "SELECT setting, unit FROM pg_settings "
+                    "WHERE name = 'idle_in_transaction_session_timeout'"
+                )
+            ).one()
     finally:
         probe.dispose()
 
-    assert reported not in ("0", 0, None), (
-        f"the option did not take effect (server reports {reported!r})"
+    assert unit == "ms", f"expected the server to report milliseconds, got {unit!r}"
+    assert int(reported) == IDLE_IN_TRANSACTION_TIMEOUT_MS, (
+        f"asked for {IDLE_IN_TRANSACTION_TIMEOUT_MS}ms, server reports {reported!r}{unit}"
     )
 
 

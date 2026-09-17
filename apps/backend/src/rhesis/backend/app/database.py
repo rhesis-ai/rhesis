@@ -244,8 +244,14 @@ DATABASE_URL = get_database_url()
 # minutes clears that with room to spare. Set to 0 to disable.
 #
 # Migrations are unaffected: alembic builds its own engine from ``admin_url``.
+#
+# The default is named separately from the configured value so a test can assert
+# that the shipped default is a bound without the answer depending on whoever's
+# ``.env`` is loaded -- disabling the timeout locally is allowed, and must not
+# read as the default having been lost.
+DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_MS = 30 * 60 * 1000
 IDLE_IN_TRANSACTION_TIMEOUT_MS = int(
-    os.getenv("DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", str(30 * 60 * 1000))
+    os.getenv("DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", str(DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_MS))
 )
 
 # Named rather than inlined so a test can assert the timeout is still here.
