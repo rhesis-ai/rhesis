@@ -26,12 +26,11 @@ if (!process.env.NEXTAUTH_SECRET) {
 // Auth.js reads AUTH_URL/NEXTAUTH_URL from process.env at runtime (see
 // next-auth/lib/env.js:reqWithEnvURL); without it, trustHost infers the base
 // URL from the container hostname (e.g. http://<container-id>:3000), which
-// breaks post-login redirects. An explicitly set AUTH_URL/NEXTAUTH_URL wins.
-if (
-  !process.env.AUTH_URL &&
-  !process.env.NEXTAUTH_URL &&
-  process.env.FRONTEND_URL
-) {
+// breaks post-login redirects. FRONTEND_URL always wins over a stale
+// NEXTAUTH_URL (e.g. one left in .env.local after a port change or worktree
+// creation). AUTH_URL, the Auth.js-native override, still takes precedence
+// because Auth.js checks it before NEXTAUTH_URL.
+if (process.env.FRONTEND_URL && !process.env.AUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.FRONTEND_URL;
 }
 
