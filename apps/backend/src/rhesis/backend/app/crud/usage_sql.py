@@ -12,7 +12,7 @@ itself.
 
 from typing import Any, Optional, Sequence
 
-from sqlalchemy import case, column, func, select, true
+from sqlalchemy import and_, case, column, false, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
@@ -61,6 +61,13 @@ def _llm_span_sum(attributes, value_expr) -> Any:
     return func.coalesce(func.sum(case((is_llm_invoke(attributes), value_expr), else_=0.0)), 0.0)
 
 
+def _breakdown_entries(enriched_data, name: str):
+    """The rows of a trace's cost breakdown, as a table-valued expression."""
+    return func.jsonb_array_elements(
+        enriched_data[EnrichedDataKeys.COSTS][EnrichedDataKeys.BREAKDOWN]
+    ).table_valued(column("value", JSONB), name=name)
+
+
 def _breakdown_sum(enriched_data, entry_value_expr) -> Any:
     """Sum a per-entry expression across ``costs.breakdown``, NULL when there are none.
 
@@ -75,9 +82,7 @@ def _breakdown_sum(enriched_data, entry_value_expr) -> Any:
     Only reached when the rolled-up key is NULL, since ``coalesce`` short-circuits -- so
     it stops costing anything once a trace has been enriched by a current worker.
     """
-    entries = func.jsonb_array_elements(
-        enriched_data[EnrichedDataKeys.COSTS][EnrichedDataKeys.BREAKDOWN]
-    ).table_valued(column("value", JSONB), name="breakdown_entry")
+    entries = _breakdown_entries(enriched_data, "breakdown_entry")
 
     return (
         select(func.sum(entry_value_expr(entries.c.value))).select_from(entries).scalar_subquery()
@@ -102,6 +107,66 @@ def enriched_cost_expr(
     if default is not None:
         fallbacks.append(default)
     return func.coalesce(*fallbacks)
+
+
+def distinct_breakdown_pairs(db: Session, base) -> list:
+    """Distinct (model name, provider exactly as recorded) pairs across the scope.
+
+    Read from ``costs.breakdown`` and not from span attributes, because the breakdown is
+    what the row displays and a filter has to agree with the thing beside it. The two
+    genuinely differ: on the dev instance, spans stamp ``openai`` on a gemini-2.5-flash
+    call while the breakdown entries for that model carry no provider at all, so the row
+    shows gemini. Filtering on the attributes returned traces whose Model column said
+    something else.
+
+    The recorded provider is usually NULL -- it arrived after enrichment had already run
+    over everything -- and those are placed from the model name by the caller, which
+    needs LiteLLM.
+    """
+    entries = _breakdown_entries(base.c.enriched_data, "provider_scope")
+    model = entries.c.value[EnrichedDataKeys.MODEL_NAME].as_string()
+    recorded = entries.c.value[EnrichedDataKeys.PROVIDER].as_string()
+
+    return db.execute(
+        select(model.label("model_name"), recorded.label("recorded"))
+        .select_from(base)
+        .join(entries, true())
+        .where(model.isnot(None))
+        .distinct()
+    ).all()
+
+
+def provider_breakdown_clause(enriched_data, recorded: Sequence[str], models: Sequence[str]) -> Any:
+    """Match a trace whose breakdown holds an entry served by one of the providers.
+
+    Two halves, because a provider reaches an entry two ways. An entry that recorded one
+    is matched on that, which wins outright -- the same precedence ``resolve_provider``
+    applies, so an entry whose provider its model name would not imply still lands where
+    it was recorded. An entry that recorded nothing is matched on its model name, having
+    been placed by LiteLLM beforehand.
+
+    The recorded value must be NULL on the second half, not merely different: without
+    that, an entry recorded as ``azure`` would also match a filter for ``openai`` purely
+    because its model is an OpenAI one, which is the disagreement the record settles.
+
+    A trace enrichment has not reached has no breakdown and so matches nothing, which is
+    right: its Model column is a dash for the same reason.
+    """
+    if not recorded and not models:
+        # Nothing in scope resolves to what was asked for, so nothing matches.
+        return false()
+
+    entries = _breakdown_entries(enriched_data, "provider_match")
+    model = entries.c.value[EnrichedDataKeys.MODEL_NAME].as_string()
+    recorded_col = entries.c.value[EnrichedDataKeys.PROVIDER].as_string()
+
+    clauses = []
+    if recorded:
+        clauses.append(recorded_col.in_(list(recorded)))
+    if models:
+        clauses.append(and_(recorded_col.is_(None), model.in_(list(models))))
+
+    return select(literal(1)).select_from(entries).where(or_(*clauses)).exists()
 
 
 def trace_first_model_expr(enriched_data) -> Any:
@@ -313,9 +378,11 @@ __all__ = [
     "enriched_cost_expr",
     "enriched_token_expr",
     "is_llm_invoke",
+    "distinct_breakdown_pairs",
     "models_used_rows",
     "models_used_select",
     "per_trace_usage_subquery",
+    "provider_breakdown_clause",
     "span_token_expr",
     "span_total_tokens_expr",
     "trace_first_model_expr",
