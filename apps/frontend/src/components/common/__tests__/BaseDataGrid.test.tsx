@@ -20,6 +20,7 @@ jest.mock('@mui/x-data-grid', () => {
     isRowSelectable,
     disableMultipleRowSelection,
     slots,
+    initialState,
   }: {
     rows: GridRowModel[];
     columns: GridColDef[];
@@ -31,6 +32,8 @@ jest.mock('@mui/x-data-grid', () => {
     disableMultipleRowSelection?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     slots?: { baseCheckbox?: React.ComponentType<any> };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    initialState?: any;
   }) => {
     if (loading) return <div data-testid="datagrid-loading">Loading…</div>;
     // Mirrors GridCellCheckboxRenderer and GridHeaderCheckbox: both come from
@@ -50,63 +53,69 @@ jest.mock('@mui/x-data-grid', () => {
         </td>
       ) : null;
     return (
-      <table role="grid" data-testid="data-grid">
-        <thead>
-          <tr>
-            {checkboxSelection && BaseCheckbox && (
-              <th>
-                <BaseCheckbox
-                  disabled={disableMultipleRowSelection === true}
-                  className={checkboxClass}
-                  inputProps={{ name: 'select_all_rows' }}
-                />
-              </th>
-            )}
-            {columns.map((col: GridColDef) => (
-              <th key={String(col.field)}>
-                {String(col.headerName ?? col.field)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row: GridRowModel) => {
-            const rowKey = getRowId
-              ? String(getRowId(row))
-              : String(row.id ?? row);
-            return (
-              <tr
-                key={rowKey}
-                role="row"
-                onClick={() => onRowClick && onRowClick({ row })}
-                data-testid={`row-${rowKey}`}
-              >
-                {renderCheckbox(row)}
-                {columns.map((col: GridColDef) => (
-                  <td key={String(col.field)}>
-                    {String(row[col.field] ?? '')}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-        {/* Stands in for the columns panel: same slot, no grid class, and
-            `disabled` there means the column can't be hidden. */}
-        {checkboxSelection && BaseCheckbox && (
-          <tfoot>
+      <>
+        <div
+          data-testid="datagrid-initial-state"
+          data-value={JSON.stringify(initialState ?? null)}
+        />
+        <table role="grid" data-testid="data-grid">
+          <thead>
             <tr>
-              <td>
-                <BaseCheckbox
-                  disabled={true}
-                  inputProps={{ name: 'status' }}
-                  data-testid="panel-checkbox"
-                />
-              </td>
+              {checkboxSelection && BaseCheckbox && (
+                <th>
+                  <BaseCheckbox
+                    disabled={disableMultipleRowSelection === true}
+                    className={checkboxClass}
+                    inputProps={{ name: 'select_all_rows' }}
+                  />
+                </th>
+              )}
+              {columns.map((col: GridColDef) => (
+                <th key={String(col.field)}>
+                  {String(col.headerName ?? col.field)}
+                </th>
+              ))}
             </tr>
-          </tfoot>
-        )}
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row: GridRowModel) => {
+              const rowKey = getRowId
+                ? String(getRowId(row))
+                : String(row.id ?? row);
+              return (
+                <tr
+                  key={rowKey}
+                  role="row"
+                  onClick={() => onRowClick && onRowClick({ row })}
+                  data-testid={`row-${rowKey}`}
+                >
+                  {renderCheckbox(row)}
+                  {columns.map((col: GridColDef) => (
+                    <td key={String(col.field)}>
+                      {String(row[col.field] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+          {/* Stands in for the columns panel: same slot, no grid class, and
+            `disabled` there means the column can't be hidden. */}
+          {checkboxSelection && BaseCheckbox && (
+            <tfoot>
+              <tr>
+                <td>
+                  <BaseCheckbox
+                    disabled={true}
+                    inputProps={{ name: 'status' }}
+                    data-testid="panel-checkbox"
+                  />
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </>
     );
   };
 
@@ -266,6 +275,88 @@ describe('BaseDataGrid', () => {
       expect(onRowClick).toHaveBeenCalledWith(
         expect.objectContaining({ row: sampleRows[0] })
       );
+    });
+  });
+
+  describe('initialState versus a saved layout', () => {
+    // A grid can ship columns hidden by default (the test runs grid hides the
+    // input/output usage split). Those defaults must not undo a choice the user
+    // already made, or turning a column on would last until the next page load.
+    const STORAGE_KEY = 'rhesis_grid_state_merge-test';
+
+    afterEach(() => {
+      localStorage.clear();
+    });
+
+    function initialStateSeenByGrid() {
+      const node = screen.getByTestId('datagrid-initial-state');
+      return JSON.parse(node.getAttribute('data-value') ?? 'null');
+    }
+
+    it('applies the default hidden columns when nothing is saved', () => {
+      renderAndInit(
+        <BaseDataGrid
+          columns={sampleColumns}
+          rows={sampleRows}
+          persistState
+          storageKey="merge-test"
+          initialState={{ columns: { columnVisibilityModel: { age: false } } }}
+        />
+      );
+
+      expect(
+        initialStateSeenByGrid().columns.columnVisibilityModel
+      ).toMatchObject({ age: false });
+    });
+
+    it('lets a saved choice win over the default', () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: 3,
+          state: { columns: { columnVisibilityModel: { age: true } } },
+        })
+      );
+
+      renderAndInit(
+        <BaseDataGrid
+          columns={sampleColumns}
+          rows={sampleRows}
+          persistState
+          storageKey="merge-test"
+          initialState={{ columns: { columnVisibilityModel: { age: false } } }}
+        />
+      );
+
+      expect(
+        initialStateSeenByGrid().columns.columnVisibilityModel
+      ).toMatchObject({ age: true });
+    });
+
+    it('keeps defaults for columns the saved layout says nothing about', () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: 3,
+          state: { columns: { columnVisibilityModel: { age: true } } },
+        })
+      );
+
+      renderAndInit(
+        <BaseDataGrid
+          columns={sampleColumns}
+          rows={sampleRows}
+          persistState
+          storageKey="merge-test"
+          initialState={{
+            columns: { columnVisibilityModel: { age: false, name: false } },
+          }}
+        />
+      );
+
+      expect(
+        initialStateSeenByGrid().columns.columnVisibilityModel
+      ).toMatchObject({ age: true, name: false });
     });
   });
 
