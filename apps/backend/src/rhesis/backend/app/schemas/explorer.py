@@ -98,7 +98,7 @@ class CreateExplorerTestBody(BaseModel):
     """JSON body for POST /explorer/{{id}}/tests.
 
     Single model avoids FastAPI multi-``Body()`` parsing edge cases with the
-    client JSON (e.g. ``generate_embedding`` being dropped or misread).
+    client JSON (fields being dropped or misread).
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -112,10 +112,6 @@ class CreateExplorerTestBody(BaseModel):
         description="Label: 'pass', 'fail', or empty",
     )
     model_score: float = Field(default=0.0, description="Model score")
-    generate_embedding: bool = Field(
-        default=False,
-        description="If true, embed test input and persist to embedding table",
-    )
 
 
 # ---------------------------------------------------------------------------

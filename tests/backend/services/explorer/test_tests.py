@@ -762,58 +762,51 @@ class TestCreateTestNode:
         # One new test node (topic already exists)
         assert len(nodes_after) == len(nodes_before) + 1
 
-    @patch(
-        "rhesis.backend.app.services.explorer.tests.generate_embedding_vector",
-        return_value=[0.01] * 384,
-    )
-    def test_generate_embedding_persists_embedding_row(
+    def test_creating_a_test_hands_embedding_off_instead_of_doing_it_inline(
         self,
-        _mock_embed,
         test_db,
         explorer_test_set,
         test_org_id,
         authenticated_user_id,
-        authenticated_user,
-        explorer_embedding_model,
     ):
-        """generate_embedding=True should persist an embedding row for the created test."""
+        """Creating a test queues the embedding and writes none itself.
+
+        Embedding used to happen here, which held this transaction open for as
+        long as the provider call took and duplicated the job that
+        ``EmbeddableMixin.after_insert`` already queues for every new Test.
+        Because the two hashed different configs neither deduplicated the other,
+        so one create meant two provider calls and two embedding rows.
+
+        The handoff is asserted on the session's pending-job list rather than by
+        mocking the dispatch, because that is where ``after_insert`` puts it and
+        it lands there whatever the broker or the org's embedding model is doing.
+        Asserting only "no embedding row" would pass just as well if embedding
+        had stopped happening at all.
+        """
         result = create_test_node(
             db=test_db,
             test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety",
-            input="Embedding persistence check prompt",
+            input="Embedding should be deferred, not inline",
             output="ok",
-            generate_embedding=True,
-            current_user=authenticated_user,
         )
 
-        row = (
+        queued = test_db.info.get("pending_embedding_jobs", [])
+        assert any(job["entity_id"] == result.id for job in queued), (
+            f"no embedding was queued for the new test (queued: {queued})"
+        )
+
+        rows = (
             test_db.query(models.Embedding)
             .filter(
                 models.Embedding.entity_id == uuid.UUID(result.id),
                 models.Embedding.entity_type == "Test",
             )
-            .first()
+            .all()
         )
-        assert row is not None, "expected embedding row for created explorer test"
-        assert row.embedding_config.get("source") == "explorer"
-
-    def test_generate_embedding_requires_current_user(
-        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
-    ):
-        """generate_embedding=True without current_user is a caller error, not swallowed."""
-        with pytest.raises(ValueError, match="current_user is required"):
-            create_test_node(
-                db=test_db,
-                test_set_id=explorer_test_set.id,
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                topic="Safety",
-                input="Should not be created without current_user",
-                generate_embedding=True,
-            )
+        assert rows == [], "the create path embedded inline instead of leaving it deferred"
 
 
 # ============================================================================

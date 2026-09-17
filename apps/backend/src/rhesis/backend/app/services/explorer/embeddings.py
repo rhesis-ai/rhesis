@@ -3,28 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
-from uuid import UUID as UUIDType
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models, schemas
-from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud import user as user_crud
-from rhesis.backend.app.crud.embedding import get_embedding_by_hash, mark_embeddings_stale
-from rhesis.backend.app.crud.explorer import (
-    get_default_embedding_model,
-    get_test_for_embedding,
-    upsert_test_embedding,
-)
-from rhesis.backend.app.models.embedding import EmbeddingConfig
-from rhesis.backend.app.models.enums import EmbeddingStatus
-from rhesis.backend.app.models.test import Test
-from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
@@ -113,21 +98,13 @@ def sort_by_diversity(
     return sorted_with + without
 
 
-def _compute_hash(data: Union[str, dict]) -> str:
-    if isinstance(data, dict):
-        data_str = json.dumps(data, sort_keys=True)
-    else:
-        data_str = data
-    return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
-
-
 def resolve_embedder(db: Session, user_id: str):
     """Resolve the embedding model for a user once.
 
     Returns a ready-to-use SDK ``BaseEmbedder`` instance configured with
     :data:`EXPLORER_EMBEDDING_DIMENSION`.  Call this once and pass the
-    result to :func:`generate_embedding_vector`, :func:`a_generate_embedding_vector`,
-    or :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
+    result to :func:`a_generate_embedding_vector` or
+    :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
     """
     user = user_crud.get_user_by_id(db, user_id)
     if not user:
@@ -152,44 +129,6 @@ def resolve_embedder(db: Session, user_id: str):
     return embedder
 
 
-def generate_embedding_vector(
-    text: str,
-    db: Session,
-    user_id: str,
-    *,
-    embedder=None,
-) -> List[float]:
-    """Embed plain text using the user's configured embedding model or platform default.
-
-    Always requests :data:`EXPLORER_EMBEDDING_DIMENSION` (768) so vectors match
-    supported ``embedding`` table columns regardless of provider defaults.
-
-    Parameters
-    ----------
-    embedder : BaseEmbedder, optional
-        Pre-resolved embedder from :func:`resolve_embedder`.  When provided the
-        ``db`` / ``user_id`` lookup is skipped.
-    """
-    stripped = (text or "").strip()
-    if not stripped:
-        raise ValueError("Cannot embed empty text")
-
-    if embedder is None:
-        embedder = resolve_embedder(db, user_id)
-
-    target_dim = EXPLORER_EMBEDDING_DIMENSION
-    vector = embedder.generate(text=stripped, dimensions=target_dim)
-    out = list(vector)
-    if len(out) != target_dim:
-        logger.warning(
-            "Explorer embedding length %s != requested %s (provider may ignore dimensions); "
-            "persistence may be skipped",
-            len(out),
-            target_dim,
-        )
-    return out
-
-
 async def a_generate_embedding_vector(
     text: str,
     db: Session,
@@ -199,7 +138,7 @@ async def a_generate_embedding_vector(
 ) -> List[float]:
     """Async embed plain text using the user's configured embedding model or platform default.
 
-    Same requirement as :func:`generate_embedding_vector` but uses the embedder's async API.
+    Uses the embedder's async API.
 
     Parameters
     ----------
@@ -278,174 +217,3 @@ async def a_generate_embedding_vectors_batch(
                 return None
 
     return list(await asyncio.gather(*[asyncio.create_task(_embed_one(t)) for t in texts]))
-
-
-def load_test_for_embedding(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
-    """Load a Test with relationships required for ``to_searchable_text()``.
-
-    Kept as a service-level name because ``routers/explorer.py`` and this package's
-    ``__init__`` both export it.
-    """
-    return get_test_for_embedding(db, test_id, organization_id)
-
-
-def create_test_embedding(
-    db: Session,
-    test: Test,
-    vector: List[float],
-    user: User,
-) -> Optional[models.Embedding]:
-    """
-    Persist an embedding row for a Test.
-
-    Uses the user's embedding model_id from settings when set; otherwise the org's
-    default Rhesis embedding model row (same as onboarding/migrations). The stored
-    dimension follows the actual vector length when it fits a supported ``embedding_*``
-    column (384, 768, 1024, 1536), even if the model row's ``dimension`` field differs.
-    """
-    model_id_setting = None
-    if user.settings and user.settings.models and user.settings.models.embedding:
-        model_id_setting = user.settings.models.embedding.model_id
-
-    organization_id = str(user.organization_id)
-    user_id = str(user.id)
-
-    if model_id_setting:
-        model_id = str(model_id_setting)
-    else:
-        fallback = get_default_embedding_model(db, organization_id)
-        if not fallback:
-            logger.info(
-                "Skipping explorer test embedding persistence: no embedding model_id in user "
-                f"settings and no org default embedding model (user_id={user.id})"
-            )
-            return None
-        model_id = str(fallback.id)
-        logger.debug(
-            "Using organization default embedding model for explorer test persistence "
-            f"(user_id={user.id}, model_id={model_id})"
-        )
-
-    model = model_crud.get_model(db, UUIDType(model_id), organization_id, user_id)
-    if not model:
-        logger.warning(
-            "Skipping explorer test embedding persistence: model not found "
-            f"(model_id={model_id}, user_id={user_id})"
-        )
-        return None
-
-    provider = model.provider_type.type_value if model.provider_type else None
-    model_name = model.model_name
-    vec_len = len(vector)
-
-    if model.dimension is not None and vec_len == model.dimension:
-        dimension = model.dimension
-    elif vec_len in EmbeddingConfig.SUPPORTED_DIMENSIONS:
-        dimension = vec_len
-        if model.dimension is not None and model.dimension != vec_len:
-            logger.info(
-                "Explorer test embedding: storing vector length %s; model.dimension is %s "
-                "(explorer may request a fixed output size)",
-                vec_len,
-                model.dimension,
-            )
-    else:
-        logger.warning(
-            "Skipping explorer test embedding persistence: vector length %s is not supported "
-            "(supported: %s; model.dimension=%s)",
-            vec_len,
-            tuple(sorted(EmbeddingConfig.SUPPORTED_DIMENSIONS.keys())),
-            model.dimension,
-        )
-        return None
-
-    searchable_text = test.to_searchable_text()
-    stripped = (searchable_text or "").strip()
-    if not stripped:
-        logger.info("Skipping explorer test embedding persistence: empty searchable text")
-        return None
-
-    config = {
-        "provider": provider,
-        "model_name": model_name,
-        "dimension": dimension,
-        "model_id": model_id,
-        "source": "explorer",
-    }
-    config_hash = _compute_hash(config)
-    text_hash = _compute_hash(stripped)
-    entity_id = str(test.id)
-    entity_type = "Test"
-
-    from rhesis.backend.app.utils.crud_utils import get_or_create_status
-
-    active_status = get_or_create_status(
-        db,
-        name=EmbeddingStatus.ACTIVE.value,
-        entity_type="Embedding",
-        organization_id=organization_id,
-        user_id=user_id,
-        commit=False,
-    )
-    if not active_status:
-        logger.error("Failed to get Active status for Embedding")
-        return None
-
-    stale_status = get_or_create_status(
-        db,
-        name=EmbeddingStatus.STALE.value,
-        entity_type="Embedding",
-        organization_id=organization_id,
-        user_id=user_id,
-        commit=False,
-    )
-    if not stale_status:
-        logger.error("Failed to get Stale status for Embedding")
-        return None
-
-    existing = get_embedding_by_hash(
-        db,
-        entity_id=entity_id,
-        entity_type=entity_type,
-        organization_id=organization_id,
-        config_hash=config_hash,
-        text_hash=text_hash,
-        status_id=active_status.id,
-    )
-    if existing:
-        logger.debug("Explorer test embedding already exists for test_id=%s", entity_id)
-        return existing
-
-    embedding_vector = vector
-    if not embedding_vector:
-        return None
-
-    stale_count = mark_embeddings_stale(
-        db,
-        entity_id=entity_id,
-        entity_type=entity_type,
-        organization_id=organization_id,
-        active_status_id=active_status.id,
-        stale_status_id=stale_status.id,
-    )
-    if stale_count > 0:
-        logger.info("Marked %s old embedding(s) stale for test_id=%s", stale_count, entity_id)
-
-    embedding_create = schemas.EmbeddingCreate(
-        entity_id=entity_id,
-        entity_type=entity_type,
-        model_id=model_id,
-        embedding_config=config,
-        config_hash=config_hash,
-        searchable_text=stripped,
-        text_hash=text_hash,
-        status_id=active_status.id,
-        embedding=embedding_vector,
-    )
-
-    return upsert_test_embedding(
-        db,
-        embedding=embedding_create,
-        organization_id=organization_id,
-        user_id=user_id,
-    )

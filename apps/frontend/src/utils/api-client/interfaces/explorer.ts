@@ -79,8 +79,6 @@ export interface TestNodeCreate {
   labeler?: string;
   to_eval?: boolean;
   model_score?: number;
-  /** When true, backend embeds test input and persists to embedding table */
-  generate_embedding?: boolean;
 }
 
 export interface TestNodeUpdate {

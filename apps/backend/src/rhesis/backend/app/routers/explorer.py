@@ -595,8 +595,6 @@ def create_explorer_test(
         labeler=body.labeler,
         label=body.label or "",
         model_score=body.model_score,
-        generate_embedding=body.generate_embedding,
-        current_user=current_user,
     )
 
     return node

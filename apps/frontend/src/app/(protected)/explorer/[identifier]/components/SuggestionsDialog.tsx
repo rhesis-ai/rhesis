@@ -140,7 +140,6 @@ function buildTestNodeCreateFromSuggestion(row: SuggestionRow): TestNodeCreate {
     input: row.input,
     output: row.output || undefined,
     labeler: 'suggestion',
-    generate_embedding: true,
   };
   if (row.topic) {
     data.topic = row.topic;

@@ -2,9 +2,6 @@
 
 from rhesis.backend.app.services.explorer.embeddings import (
     a_generate_embedding_vectors_batch,
-    create_test_embedding,
-    generate_embedding_vector,
-    load_test_for_embedding,
     resolve_embedder,
 )
 from rhesis.backend.app.services.explorer.evaluation import (
@@ -47,7 +44,6 @@ from rhesis.backend.app.services.explorer.topics import (
 
 __all__ = [
     "a_generate_embedding_vectors_batch",
-    "create_test_embedding",
     "bulk_delete_explorer_test_sets",
     "create_explorer_test_set",
     "create_test_node",
@@ -57,7 +53,6 @@ __all__ = [
     "export_regular_test_set_from_explorer",
     "evaluate_suggestions_stream",
     "evaluate_tests_for_explorer_set",
-    "generate_embedding_vector",
     "generate_outputs_for_tests",
     "resolve_embedder",
     "generate_suggestions",
@@ -68,7 +63,6 @@ __all__ = [
     "get_tree_topics",
     "import_explorer_test_set_from_source",
     "invoke_endpoint_for_suggestions_stream",
-    "load_test_for_embedding",
     "suggestion_pipeline_stream",
     "remove_topic_node",
     "resolve_endpoint_id",
