@@ -224,7 +224,13 @@ packages = [
 include = [
     "src/rhesis/py.typed",
     "src/rhesis/sdk/metrics/providers/garak/detectors.yaml",
+    "src/rhesis/sdk/services/data/owasp/*.json",
     "src/rhesis/sdk/synthesizers/assets/*.jinja",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/rhesis/sdk/services/data/owasp/*.json",
 ]
 
 [tool.hatch.build.hooks.custom]

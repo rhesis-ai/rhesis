@@ -4,6 +4,10 @@ Downloads any OWASP Top 10 PDF, extracts the full text with heading structure,
 and splits it into individual risk sections — usable standalone or as the data
 source for the OWASPSynthesizer.
 
+The SDK ships pre-extracted JSON for known reports under ``data/owasp/``.
+``fetch_owasp_sections`` loads bundled data when the URL matches a known
+report, falling back to a live PDF download + parse for custom URLs.
+
 Usage::
 
     from rhesis.sdk.services.owasp_extractor import fetch_owasp_sections, DEFAULT_OWASP_LLM_PDF_URL
@@ -17,7 +21,9 @@ Usage::
 from __future__ import annotations
 
 import hashlib
+import importlib.resources
 import io
+import json
 import logging
 import re
 from collections import Counter
@@ -33,6 +39,12 @@ DEFAULT_OWASP_LLM_PDF_URL = (
     "assets/PDF/OWASP-Top-10-for-LLMs-v2025.pdf"
 )
 DEFAULT_OWASP_AGENTIC_PDF_URL = "https://genai.owasp.org/download/52117/"
+
+# Maps known report URLs to their bundled JSON filenames (without .json).
+_BUNDLED_REPORTS: dict[str, str] = {
+    DEFAULT_OWASP_LLM_PDF_URL: "llm-top-10-2025",
+    DEFAULT_OWASP_AGENTIC_PDF_URL: "agentic-top-10-2025",
+}
 
 # Reference appendices add noise without attack-surface value.
 DEFAULT_SUBSECTION_EXCLUSIONS: frozenset[str] = frozenset(
@@ -61,6 +73,32 @@ class ReportSection:
     id: str  # normalised lowercase, e.g. "llm01"
     name: str  # human-readable, e.g. "Prompt Injection"
     content: str  # full section text with markdown heading markers
+
+
+def _load_bundled_sections(url: str) -> Optional[list[ReportSection]]:
+    """Load pre-extracted sections from bundled JSON if the URL matches a known report."""
+    report_name = _BUNDLED_REPORTS.get(url)
+    if report_name is None:
+        return None
+
+    pkg_files = importlib.resources.files("rhesis.sdk.services")
+    pkg = pkg_files / "data" / "owasp" / f"{report_name}.json"
+    try:
+        raw = pkg.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.warning("[OWASPExtractor] Bundled data missing: %s", report_name)
+        return None
+
+    data = json.loads(raw)
+    sections = [
+        ReportSection(id=s["id"], name=s["name"], content=s["content"]) for s in data["sections"]
+    ]
+    logger.info(
+        "[OWASPExtractor] Loaded %d sections from bundled data (%s)",
+        len(sections),
+        report_name,
+    )
+    return sections
 
 
 def _fetch_pdf_bytes(url: str) -> bytes:
@@ -398,7 +436,12 @@ def fetch_owasp_sections(
     key = cache_key or hashlib.sha256(url.encode("utf-8")).hexdigest()
 
     raw_sections: Optional[list[ReportSection]] = None
-    if cache_loader is not None:
+
+    # 1. Try bundled data shipped with the SDK (no network, no parse).
+    raw_sections = _load_bundled_sections(url)
+
+    # 2. Try caller-provided cache (Redis / object store in the backend).
+    if raw_sections is None and cache_loader is not None:
         cached = cache_loader(key)
         # An empty list is treated as a cache miss, not valid data: cache_writer
         # is only ever called with a non-empty list (see the no-sections guard
@@ -413,6 +456,7 @@ def fetch_owasp_sections(
                 key,
             )
 
+    # 3. Fall back to live PDF download + parse.
     if raw_sections is None:
         logger.info("[OWASPExtractor] Fetching report from %s", url)
         pdf_bytes = _fetch_pdf_bytes(url)
