@@ -4,6 +4,7 @@ import React from 'react';
 import { GridColDef } from '@mui/x-data-grid';
 import { Typography } from '@mui/material';
 import ModelLabel from '@/components/common/ModelLabel';
+import UsageCell from '@/components/common/UsageCell';
 import { formatCost, formatTokenCount } from '@/utils/trace-utils';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
@@ -59,17 +60,15 @@ function numericColumn(
     valueGetter: (_, row: TestRunDetail) => row.usage?.[field] ?? null,
     renderCell: params => {
       const row = params.row as TestRunDetail;
-      if (!hasUsage(row)) return <EmptyCell />;
-      const value = params.value as number | null;
-      if (value === null || value === undefined) return <EmptyCell />;
+      // The run rollup zero-fills a run it found no traces for, so the "nothing traced"
+      // case has to be recognised here rather than read off the number. The traces grid
+      // needs no equivalent: its rows carry null for a figure nobody knows.
       return (
-        <Typography
-          variant="body2"
-          sx={{ fontVariantNumeric: 'tabular-nums' }}
+        <UsageCell
+          value={hasUsage(row) ? (params.value as number | null) : null}
+          format={format}
           title={tooltip(row)}
-        >
-          {format(value)}
-        </Typography>
+        />
       );
     },
   };

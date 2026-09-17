@@ -30,6 +30,7 @@ import {
 import { formatDate } from '@/utils/date';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import ModelLabel from '@/components/common/ModelLabel';
+import UsageCell from '@/components/common/UsageCell';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
@@ -326,17 +327,16 @@ export default function TracesTable({
         minWidth: 70,
         align: 'right',
         renderCell: params => (
-          <Typography
-            variant="body2"
+          <UsageCell
+            value={params.value}
+            format={formatTokenCount}
             // Native title: the split is already on the row, and the drawer shows
             // the same breakdown on its token chip.
             title={tokenSplitLabel(
               params.row.total_input_tokens,
               params.row.total_output_tokens
             )}
-          >
-            {params.value ? formatTokenCount(params.value as number) : '\u2014'}
-          </Typography>
+          />
         ),
       },
       {
@@ -346,9 +346,7 @@ export default function TracesTable({
         minWidth: 70,
         align: 'right',
         renderCell: params => (
-          <Typography variant="body2">
-            {params.value ? formatCost(params.value as number) : '\u2014'}
-          </Typography>
+          <UsageCell value={params.value} format={formatCost} />
         ),
       },
       {
@@ -358,9 +356,7 @@ export default function TracesTable({
         minWidth: 90,
         align: 'right',
         renderCell: params => (
-          <Typography variant="body2">
-            {params.value ? formatTokenCount(params.value as number) : '\u2014'}
-          </Typography>
+          <UsageCell value={params.value} format={formatTokenCount} />
         ),
       },
       {
@@ -370,9 +366,7 @@ export default function TracesTable({
         minWidth: 90,
         align: 'right',
         renderCell: params => (
-          <Typography variant="body2">
-            {params.value ? formatTokenCount(params.value as number) : '\u2014'}
-          </Typography>
+          <UsageCell value={params.value} format={formatTokenCount} />
         ),
       },
       {
@@ -382,9 +376,7 @@ export default function TracesTable({
         minWidth: 90,
         align: 'right',
         renderCell: params => (
-          <Typography variant="body2">
-            {params.value ? formatCost(params.value as number) : '\u2014'}
-          </Typography>
+          <UsageCell value={params.value} format={formatCost} />
         ),
       },
       {
@@ -394,9 +386,7 @@ export default function TracesTable({
         minWidth: 90,
         align: 'right',
         renderCell: params => (
-          <Typography variant="body2">
-            {params.value ? formatCost(params.value as number) : '\u2014'}
-          </Typography>
+          <UsageCell value={params.value} format={formatCost} />
         ),
       },
       {
