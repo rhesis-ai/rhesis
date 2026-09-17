@@ -91,18 +91,31 @@ def resolve_verdict(verdict: str, client: Optional[APIClient] = None) -> str:
         return _verdict_cache[cache_key]
 
     name, entity_type = _VERDICT_STATUS[key]
-    # Filtered by entity type only, and matched on the name here. A name filter
-    # would mean interpolating into OData for no gain: one entity type holds a
-    # handful of statuses, and this already has to compare names to pick one.
-    response = client.send_request(
-        endpoint=Endpoints.STATUSES,
-        method=Methods.GET,
-        params={"entity_type": entity_type},
-    )
-    for row in response or []:
-        if str(row.get("name", "")).strip().lower() == name.lower():
-            _verdict_cache[cache_key] = row["id"]
-            return row["id"]
+    # Filtered by entity type and matched on the name here, rather than with a
+    # name filter, which would mean interpolating into OData.
+    #
+    # Paged rather than read in one call: /statuses/ defaults to ten rows sorted
+    # newest first, and the verdicts are seeded, so they are the oldest rows of
+    # their entity type. An organization that had added ten statuses of its own
+    # would push Pass and Fail off the first page and this would report that they
+    # do not exist.
+    skip = 0
+    while True:
+        page = (
+            client.send_request(
+                endpoint=Endpoints.STATUSES,
+                method=Methods.GET,
+                params={"entity_type": entity_type, "skip": skip, "limit": _PAGE_SIZE},
+            )
+            or []
+        )
+        for row in page:
+            if str(row.get("name", "")).strip().lower() == name.lower():
+                _verdict_cache[cache_key] = row["id"]
+                return row["id"]
+        if len(page) < _PAGE_SIZE:
+            break
+        skip += _PAGE_SIZE
 
     raise ValueError(
         f"No '{name}' status exists for entity type '{entity_type}' in this organization."

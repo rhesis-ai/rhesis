@@ -273,7 +273,7 @@ class TestVerdictResolution:
         # Scoped by entity type, not name alone: Pass/Fail belong to TestResult,
         # and matching on the name would break once another type has a "Fail".
         # The name is matched client-side, so nothing is interpolated into OData.
-        assert params == {"entity_type": "TestResult"}
+        assert params == {"entity_type": "TestResult", "skip": 0, "limit": 100}
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
     def test_tuning_verdicts_resolve_under_their_own_entity_type(self, mock_client):
@@ -479,3 +479,46 @@ class TestVerdictCacheIsolation:
         resolve_verdict("fail", client=org_a)
 
         assert "super-secret-key" not in repr(annotation_module._verdict_cache)
+
+
+class TestVerdictResolutionPages:
+    """The verdicts are the oldest rows of their entity type, so page one is not enough."""
+
+    def setup_method(self):
+        annotation_module._verdict_cache.clear()
+
+    def _client(self):
+        client = MagicMock()
+        client.api_key = "key"
+        client.base_url = "http://one:8000"
+        return client
+
+    def test_finds_a_verdict_that_is_not_on_the_first_page(self):
+        client = self._client()
+        page_size = annotation_module._PAGE_SIZE
+        # /statuses/ defaults to ten rows sorted newest first, and Pass/Fail are
+        # seeded, so an organization with statuses of its own pushes them back.
+        first = [{"id": f"custom-{i}", "name": f"Custom {i}"} for i in range(page_size)]
+        second = [{"id": STATUS_ID, "name": "Fail"}]
+        client.send_request.side_effect = [first, second]
+
+        assert resolve_verdict("fail", client=client) == STATUS_ID
+        assert client.send_request.call_count == 2
+        assert client.send_request.call_args.kwargs["params"]["skip"] == page_size
+
+    def test_stops_at_a_short_page(self):
+        client = self._client()
+        client.send_request.side_effect = [[{"id": STATUS_ID, "name": "Fail"}]]
+
+        resolve_verdict("fail", client=client)
+
+        # A page shorter than the limit is the last one; asking for another
+        # would be a wasted round trip on every single lookup.
+        assert client.send_request.call_count == 1
+
+    def test_still_reports_a_verdict_that_genuinely_has_no_row(self):
+        client = self._client()
+        client.send_request.side_effect = [[{"id": "x", "name": "Something else"}]]
+
+        with pytest.raises(ValueError, match="No 'Fail' status exists"):
+            resolve_verdict("fail", client=client)
