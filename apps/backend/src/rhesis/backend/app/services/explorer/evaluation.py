@@ -10,6 +10,7 @@ import anyio
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import test_set as test_set_crud
+from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.crud.explorer import set_explorer_test_metadata
 from rhesis.backend.app.crud.metric import get_metrics
 from rhesis.backend.app.schemas.explorer import (
@@ -23,6 +24,7 @@ from rhesis.backend.app.schemas.explorer_metadata import (
     parse_explorer_test_metadata,
 )
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
+from rhesis.backend.app.services.explorer.labels import entity_level, label_of
 from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
@@ -313,12 +315,23 @@ def _collect_evaluation_targets(
 
     tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
 
+    candidates = _build_eligible_tests(tests, test_ids, topic, include_subtopics)
+    # Only needed to answer "is this already labelled", so it is skipped entirely
+    # when the caller has said to overwrite whatever is there.
+    annotations = {} if overwrite else get_annotations_for_tests(db, [c.id for c in candidates])
+
     eligible: List[Any] = []
     targets: List[_EvaluationTarget] = []
     skipped = 0
-    for t in _build_eligible_tests(tests, test_ids, topic, include_subtopics):
+    for t in candidates:
         meta = t.test_metadata or {}
-        if not overwrite and meta.get("label", "").strip():
+        # A person's label counts as a label here, the same as a metric's. It
+        # lives in an annotation rather than the metadata, so leaving it out
+        # would re-score exactly the tests someone has already judged.
+        already_labelled = bool(meta.get("label", "").strip()) or any(
+            label_of(annotation) for annotation in entity_level(annotations.get(t.id, ()))
+        )
+        if not overwrite and already_labelled:
             skipped += 1
             continue
         eligible.append(t)

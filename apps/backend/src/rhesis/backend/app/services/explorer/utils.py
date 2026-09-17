@@ -1,26 +1,38 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import test_set as test_set_crud
+from rhesis.backend.app.crud.annotation import get_annotations_for_tests
+from rhesis.backend.app.models.mixins import annotation_entry
 from rhesis.backend.app.schemas.explorer import TestTreeNode
 from rhesis.backend.app.schemas.explorer_metadata import parse_explorer_test_metadata
 from rhesis.backend.app.services.explorer.invocation import NO_OUTPUT
+from rhesis.backend.app.services.explorer.labels import effective_label, entity_level
 from rhesis.backend.app.services.explorer.tree import TestTreeData
 
 logger = logging.getLogger(__name__)
 
 
-def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
+def _db_test_to_node(
+    db_test: models.Test,
+    annotations: Sequence[models.Annotation] = (),
+) -> TestTreeNode | None:
     """Convert a backend Test model to a TestTreeNode.
 
     Maps DB fields to the node format:
     - test.topic.name -> node.topic
     - test.prompt.content -> node.input
-    - test.test_metadata -> output, label, labeler, model_score, metrics
+    - test.test_metadata -> output, model_score, metrics
+    - the test's annotations -> label, labeler, annotations_count, last_annotation
+
+    ``annotations`` is the test's own rows, passed in rather than loaded here so a
+    tree of hundreds of nodes costs one query instead of hundreds. Absent, the
+    node reads as unlabelled by anyone, which is what a caller with no annotation
+    data is entitled to say.
 
     Returns None for tests without prompts (unless they are topic markers).
     """
@@ -35,15 +47,23 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
     if db_test.topic:
         topic_name = db_test.topic.name if hasattr(db_test.topic, "name") else ""
 
+    label, labeler = effective_label(meta, annotations)
+    labels = entity_level(annotations)
+    # A row whose metadata names no labeler came in from another test set.
+    if labeler is None:
+        labeler = "imported"
+
     return TestTreeNode(
         id=str(db_test.id),
         topic=topic_name,
         input=db_test.prompt.content if db_test.prompt else "",
         output=meta.output if meta.output is not None else NO_OUTPUT,
-        label=meta.label,
-        labeler=meta.labeler if meta.labeler is not None else "imported",
+        label=label,
+        labeler=labeler,
         model_score=meta.model_score,
         metrics=meta.metrics,
+        annotations_count=len(labels),
+        last_annotation=annotation_entry(labels[0]) if labels else None,
     )
 
 
@@ -108,10 +128,11 @@ def build_test_tree(
         The constructed tree data with all nodes
     """
     db_tests = _get_test_set_tests_from_db(db, test_set_id, organization_id, user_id)
+    annotations = get_annotations_for_tests(db, [db_test.id for db_test in db_tests])
 
     nodes = []
     for db_test in db_tests:
-        node = _db_test_to_node(db_test)
+        node = _db_test_to_node(db_test, annotations.get(db_test.id, ()))
         if node is not None:
             nodes.append(node)
 
