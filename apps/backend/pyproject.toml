@@ -124,8 +124,8 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
 explicit = true
 
 [tool.uv]
@@ -194,7 +194,7 @@ conflicts = [
 torch = [
     { index = "pytorch-cpu", extra = "cpu" },
     # GPU extra: use CUDA on Linux/Windows, fall back to PyPI (CPU) on macOS
-    { index = "pytorch-cu128", extra = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cu129", extra = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 rhesis = { path = "../../packages/rhesis", editable = true }
 rhesis-sdk = { path = "../../sdk", editable = true }

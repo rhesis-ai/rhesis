@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-10T18:39:35.296327Z"
+exclude-newer = "2026-09-10T20:31:19.800138Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -2289,7 +2289,7 @@ requires-dist = [
     { name = "sqlalchemy" },
     { name = "tenacity", specifier = "==8.2.3" },
     { name = "tomli", specifier = ">=2.0.0" },
-    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'gpu') or (sys_platform == 'win32' and extra == 'gpu')", specifier = ">=2.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "rhesis-backend", extra = "gpu" } },
+    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'gpu') or (sys_platform == 'win32' and extra == 'gpu')", specifier = ">=2.0", index = "https://download.pytorch.org/whl/cu129", conflict = { package = "rhesis-backend", extra = "gpu" } },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'gpu'", specifier = ">=2.0" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "rhesis-backend", extra = "cpu" } },
     { name = "umap-learn", marker = "extra == 'all'", specifier = ">=0.5.7" },
