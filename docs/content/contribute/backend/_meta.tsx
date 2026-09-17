@@ -36,8 +36,8 @@ export default {
   "email-notifications": {
     title: "Email Notifications",
   },
-  "test-reviews": {
-    title: "Test Reviews",
+  annotations: {
+    title: "Annotations",
   },
   "test-result-status": {
     title: "Test Result Status",

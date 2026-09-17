@@ -5,22 +5,22 @@ A test run is created when you execute a test set against an endpoint. It captur
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-test-runs.webp"
   darkSrc="/screenshots/rhesis-ai-test-runs-dark.webp"
-  alt="Test Runs page — pass rate, status, executor, and review count per run"
+  alt="Test Runs page — pass rate, status, executor, and annotation count per run"
 />
 
 ## Test Runs List
 
-Use the list to compare status, pass rate, executor, and review activity across
-runs. The **Reviews** column shows how many tests received human reviews. Hover
-the value to see how many reviewed tests were corrected because the human verdict
-changed the automated result.
+Use the list to compare status, pass rate, executor, and annotation activity
+across runs. The **Annotations** column shows how many tests carry a human
+verdict. Hover the value to see how many of those were corrected, meaning the
+human verdict changed the automated result.
 
-Open the filter drawer and set **Reviews** to **With** or **Without** to include
-only runs that have reviews or runs that do not.
+Open the filter drawer and set **Annotations** to **With** or **Without** to
+include only runs that have annotations or only runs that do not.
 
 By clicking on a test run, you'll see the overview of how the test run went. From here you can:
 
-- **Review**: Manually revise the automated test evaluation
+- **Annotate**: Record a human verdict over the automated test evaluation
 - **Compare**: Compare against a baseline test run
 - **Re-run**: Execute the test set again with the same configuration
 - **Download**: Export test run data as CSV
@@ -28,7 +28,7 @@ By clicking on a test run, you'll see the overview of how the test run went. Fro
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-test-run-details.webp"
   darkSrc="/screenshots/rhesis-ai-test-run-details-dark.webp"
-  alt="Test run summary — pass rate, tests executed, duration and review count, with pass rates broken down by requirement and by metric"
+  alt="Test run summary — pass rate, tests executed, duration and annotation count, with pass rates broken down by requirement and by metric"
 />
 
 ## Test Run Detail View
@@ -110,39 +110,17 @@ The API route used by the UI is `POST /test_runs/{id}/cancel`.
   run lists update without waiting for all worker tasks to finish.
 </Callout>
 
-## Review Test Runs
-Reviews allow human evaluators to validate or override automated test evaluations.
+## Annotate results
 
-1. Select a Test Run from the [Test Runs](https://app.rhesis.ai/test-runs) overview page
-2. Click on the **Reviews** tab, then **Add Your Review**
-3. Select a **Review Status**:
-   - **Pass**: The test passes the metric
-   - **Fail**: The test fails the metric
-4. Add a comment explaining your review decision
+An annotation records a human verdict over the automated evaluation. Open a result, use its **Annotations** tab, and see [Annotations](/docs/annotations) for the targets available and what an override does.
 
-### Review targets and override behavior
+Two things are specific to a run:
 
-Reviews can now target different parts of a test result, not only the overall result.
+Open the filter drawer on a run and use **Annotation Status** to show **Annotated**, **Not Annotated**, or **Conflicting** results. Conflicting are the ones where a human verdict disagrees with the automated one.
 
-| Target type | What it reviews | Reference format |
-|---|---|---|
-| `test_result` | Overall pass/fail decision for the test result | `null` |
-| `metric` | A specific metric result in `test_metrics` | Metric name |
-| `turn` | A specific turn in multi-turn conversation output | Turn label such as `Turn 3` |
+In a comment, typing `@` mentions a metric or a turn, and the first mention sets what the annotation targets:
 
-When a review targets a metric or turn, Rhesis stores an override marker on the affected object and recomputes
-effective status in the test run views.
-
-<Callout type="info">
-  In review comments, type `@` to mention metrics or turns. The first metric or turn mention determines the
-  review target automatically.
-</Callout>
-
-On a test run detail page, open the filter drawer and use **Review Status** to
-show reviewed, unreviewed, or conflicting results. **Conflicting** shows results
-where a human review disagrees with the automated verdict.
-
-<CodeBlock filename="review-mention-format.txt" language="text">
+<CodeBlock filename="annotation-mention-format.txt" language="text">
 {`@[Goal Achievement](metric:goal-achievement)
 @[Turn 2](turn:turn-2)`}
 </CodeBlock>
@@ -181,5 +159,5 @@ The **Metrics** tab of a result lists every metric with its verdict and the reas
 
 - Review failed tests to understand issues
 - Compare against baseline runs to detect regressions
-- Add human reviews to test results
+- Annotate results where the automated verdict is wrong
 - Export results for reporting or analysis

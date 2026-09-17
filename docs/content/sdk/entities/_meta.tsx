@@ -8,6 +8,7 @@ const meta: MetaRecord = {
   "test-sets": "Test Sets & Tests",
   "test-attributes": "Test Attributes",
   "test-runs": "Test Runs & Results",
+  annotations: "Annotations",
   files: "Files",
   status: "Status",
   endpoints: "Endpoints",

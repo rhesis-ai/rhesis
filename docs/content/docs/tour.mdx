@@ -73,14 +73,14 @@ can see which expectation is slipping rather than only which test failed.
 
 Automated scores are a signal, not the last word. A response can be technically correct and wrong
 for your brand, and a refusal that reads as a failure is sometimes the right call. A
-[review](/docs/tasks/test-reviews) is a human verdict that overrides the automated one, at the
+[annotation](/docs/annotations) is a human verdict that overrides the automated one, at the
 target that matters: the whole result, one metric, or a single conversation turn. The original score
 stays on record.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-test-run-reviews.webp"
   darkSrc="/screenshots/rhesis-ai-test-run-reviews-dark.webp"
-  alt="Reviewing a test run — human Pass or Fail verdicts with comments alongside the automated scores"
+  alt="Annotating a test run — human Pass or Fail verdicts with comments alongside the automated scores"
 />
 
 Every verdict written anywhere lands in the [Annotations](/docs/annotations) hub, filtered by open
@@ -90,13 +90,13 @@ Anything needing follow-up becomes a [task](/docs/tasks).
 ## Run the same set on every change
 
 Executing a test set against an endpoint creates a [test run](/docs/test-runs). Each run keeps its
-results, metric scores, conversation history, and review activity, so "is it getting better" becomes
+results, metric scores, conversation history, and annotation activity, so "is it getting better" becomes
 a comparison between runs instead of an opinion.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-test-runs.webp"
   darkSrc="/screenshots/rhesis-ai-test-runs-dark.webp"
-  alt="Test Runs page — pass rate, status, executor, and review count for each run"
+  alt="Test Runs page — pass rate, status, executor, and annotation count for each run"
 />
 
 ## Three ways in
@@ -111,18 +111,18 @@ The same workspace, reached in whichever way suits the person using it.
 
 ### Reading the feedback back from code
 
-Reviews are attached to the test results they judge, so a script can pick up what the team decided:
+Annotations are attached to what they judge, so a script can pick up what the team decided:
 
-<CodeBlock filename="read_reviews.py" language="python">
-{`from rhesis.sdk.entities import TestRuns
+<CodeBlock filename="read_annotations.py" language="python">
+{`from rhesis.sdk.entities import Annotations, TestRuns
 
 run = TestRuns.all()[0]
 
-for result in run.get_test_results():
-    for review in (result.get("test_reviews") or {}).get("reviews", []):
-        target = review["target"].get("reference") or review["target"]["type"]
-        print(target, review["status"]["name"], review["user"]["name"])
-        print(review["comments"])`}
+# Everything annotated anywhere in the run: its results and its traces
+for annotation in Annotations.for_test_run(run.id):
+    target = annotation.target_reference or annotation.target_type
+    print(target, annotation.status.name, annotation.user.name)
+    print(annotation.comments)`}
 
 </CodeBlock>
 

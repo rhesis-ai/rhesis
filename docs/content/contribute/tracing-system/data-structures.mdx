@@ -117,8 +117,7 @@ Context attributes added to spans during test execution:
     trace_metrics = Column(JSONB, nullable=True)                   # LLM-based metric evaluation
     trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
     trace_metrics_processed_at = Column(DateTime(timezone=True), nullable=True)
-
-    trace_reviews = Column(JSONB, nullable=True)                   # human review state`}
+`}
 </CodeBlock>
 
 ### Column Details
@@ -142,7 +141,7 @@ Context attributes added to spans during test execution:
 | `processed_at` | TIMESTAMP | Set when enrichment last ran; `NULL` triggers re-enrichment |
 | `enriched_data` | JSONB | Cached enrichment results |
 | `trace_metrics` / `trace_metrics_status_id` / `trace_metrics_processed_at` | JSONB / UUID / TIMESTAMP | LLM-based metric evaluation results and status |
-| `trace_reviews` | JSONB | Human review annotations |
+| `original_status_id` | UUID | The automated verdict, snapshotted when an [annotation](/contribute/backend/annotations) first overrides it |
 
 ## Indexes
 

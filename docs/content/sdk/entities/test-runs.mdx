@@ -72,7 +72,8 @@ A `TestResult` contains the output and evaluation for a single test execution.
 | `status` | `Status` | Status object with name/description |
 | `test_output` | `dict` | Endpoint response data |
 | `test_metrics` | `dict` | Evaluation metric scores |
-| `test_reviews` | `dict` | Human review data |
+| `last_annotation` | `dict` | The newest human verdict on the result, if any |
+| `annotation_summary` | `dict` | One entry per annotated target. Full rows come from `get_annotations()` |
 | `test_configuration_id` | `str` | Test configuration used |
 
 ### Fetching Test Results
