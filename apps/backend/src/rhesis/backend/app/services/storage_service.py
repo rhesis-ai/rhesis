@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import AsyncIterator, Optional
 from urllib.parse import urlparse
 
+import anyio
 import fsspec
 from google.oauth2 import service_account
 
@@ -331,6 +332,17 @@ class StorageService:
 
         return dest_path, sha256.hexdigest()
 
+    async def put_object_bytes_async(
+        self,
+        content: bytes,
+        dest_path: str,
+        content_type: str,
+    ) -> tuple:
+        """Async wrapper around :meth:`put_object_bytes` for callers on the event loop."""
+        return await anyio.to_thread.run_sync(
+            lambda: self.put_object_bytes(content, dest_path, content_type)
+        )
+
     def get_object_bytes(self, dest_path: str) -> Optional[bytes]:
         """Synchronously read ``dest_path`` and return its bytes, or ``None`` if missing."""
         full_path = self._full_path(dest_path)
@@ -421,38 +433,50 @@ class StorageService:
 
     async def save_file(self, content: bytes, file_path: str) -> str:
         """Save file content to storage (legacy full-buffer API)."""
-        with self.fs.open(file_path, "wb") as f:
-            f.write(content)
-        return file_path
+
+        def _write() -> str:
+            with self.fs.open(file_path, "wb") as f:
+                f.write(content)
+            return file_path
+
+        return await anyio.to_thread.run_sync(_write)
 
     async def get_file(self, file_path: str) -> bytes:
         """Retrieve file content from storage with hybrid lookup."""
-        if self.use_cloud_storage:
-            try:
-                with self.fs.open(file_path, "rb") as f:
-                    return f.read()
-            except FileNotFoundError:
-                logger.debug(f"File not found in cloud storage, checking local: {file_path}")
-            except Exception as e:
-                logger.warning(f"Error accessing cloud storage for {file_path}: {e}")
 
-        local_path = self._get_local_path(file_path)
-        if os.path.exists(local_path):
-            try:
-                with open(local_path, "rb") as f:
-                    return f.read()
-            except Exception as e:
-                logger.error(f"Error reading local file {local_path}: {e}")
+        def _read() -> bytes:
+            if self.use_cloud_storage:
+                try:
+                    with self.fs.open(file_path, "rb") as f:
+                        return f.read()
+                except FileNotFoundError:
+                    logger.debug(f"File not found in cloud storage, checking local: {file_path}")
+                except Exception as e:
+                    logger.warning(f"Error accessing cloud storage for {file_path}: {e}")
 
-        raise FileNotFoundError(f"File not found in cloud or local storage: {file_path}")
+            local_path = self._get_local_path(file_path)
+            if os.path.exists(local_path):
+                try:
+                    with open(local_path, "rb") as f:
+                        return f.read()
+                except Exception as e:
+                    logger.error(f"Error reading local file {local_path}: {e}")
+
+            raise FileNotFoundError(f"File not found in cloud or local storage: {file_path}")
+
+        return await anyio.to_thread.run_sync(_read)
 
     async def delete_file(self, file_path: str) -> bool:
         """Delete file from storage."""
-        try:
-            self.fs.rm(file_path)
-            return True
-        except Exception:
-            return False
+
+        def _rm() -> bool:
+            try:
+                self.fs.rm(file_path)
+                return True
+            except Exception:
+                return False
+
+        return await anyio.to_thread.run_sync(_rm)
 
     def file_exists(self, file_path: str) -> bool:
         """Check if file exists in storage with hybrid lookup."""
