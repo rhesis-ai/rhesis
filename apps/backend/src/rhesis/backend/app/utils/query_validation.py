@@ -12,10 +12,22 @@ from rhesis.backend.app.utils.relationship_sort import (
     VIRTUAL_RELATIONSHIP_SORT_FIELDS,
     model_supports_relationship_sort,
 )
+from rhesis.backend.app.utils.usage_sort import (
+    VIRTUAL_USAGE_SORT_FIELDS,
+    model_supports_usage_sort,
+)
 
 
 def validate_sort_field(model: Type, sort_by: str) -> None:
     """Validate that the sort field exists in the model"""
+    if sort_by in VIRTUAL_USAGE_SORT_FIELDS:
+        if not model_supports_usage_sort(model, sort_by):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid sort field: {sort_by}. Model does not support this usage sort.",
+            )
+        return
+
     if sort_by in VIRTUAL_COUNT_SORT_FIELDS:
         if not model_supports_count_sort(model, sort_by):
             raise HTTPException(

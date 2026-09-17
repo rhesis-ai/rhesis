@@ -49,6 +49,25 @@ export interface TestRunDetail extends TestRun {
     total: number;
     passed: number;
   };
+  usage?: TestRunUsage;
+}
+
+/**
+ * Token and cost totals aggregated from a run's traces, and the models behind them.
+ *
+ * The numbers are always present on a list row; `models` being empty is what separates
+ * "this run traced nothing" from "it traced something that cost nothing", so the grid
+ * keys its dash off that rather than off a zero.
+ */
+export interface TestRunUsage {
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+  total_input_cost_usd: number;
+  total_output_cost_usd: number;
+  models: string[];
+  providers: string[];
 }
 
 export interface TestRunBulkDeleteResponse {

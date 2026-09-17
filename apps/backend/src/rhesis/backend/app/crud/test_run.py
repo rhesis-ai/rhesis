@@ -24,6 +24,15 @@ from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.constants import AISpanAttributes
+from rhesis.backend.app.crud.usage_sql import (
+    coalesced_input_tokens,
+    coalesced_output_tokens,
+    coalesced_tokens,
+    models_used_rows,
+    per_trace_usage_subquery,
+)
+from rhesis.backend.app.services.telemetry.providers import resolve_provider
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
     create_item,
@@ -595,3 +604,125 @@ def get_test_outcomes_for_run(
             latest[key] = (created_at, result)
 
     return {test_id: result for test_id, (_, result) in latest.items()}
+
+
+# The per-run usage figures the test runs grid shows, and the keys it reads them by.
+# Mirrors the column names on the traces list so the same number is called the same
+# thing in both places.
+USAGE_FIELDS = (
+    "total_tokens",
+    "total_input_tokens",
+    "total_output_tokens",
+    "total_cost_usd",
+    "total_input_cost_usd",
+    "total_output_cost_usd",
+)
+
+
+def empty_usage() -> Dict[str, Any]:
+    """What a run with no traces reports.
+
+    Zeros rather than nulls for the numbers, because the grid renders a dash for a run
+    whose ``models`` is empty -- that is the field that distinguishes "nothing traced"
+    from "traced nothing".
+    """
+    return {field: 0 for field in USAGE_FIELDS} | {"models": [], "providers": []}
+
+
+def get_usage_statistics_for_runs(
+    db: Session,
+    test_run_ids,
+    organization_id: Optional[str] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Aggregate per-run token and cost totals in a single pass over the run's traces.
+
+    Batched the same way as ``get_test_statistics_for_runs``, for the same reason: the
+    test runs grid needs these for a whole page and one query per run would be an N+1.
+
+    Traces are collapsed per trace before being summed per run. Today a run's traces have
+    one row each -- ``test_run_id`` is stamped on the root span only -- but a multi-turn
+    conversation produces one root span per turn under a single ``trace_id``, and 28
+    traces in the database already have that shape. The collapse is what stops such a run
+    counting its enrichment blob once per turn.
+
+    Returns:
+        Dict keyed by ``str(test_run_id)``, each holding the six usage figures plus the
+        distinct ``models`` and ``providers``. Runs with no traces get a zero-filled
+        entry so the caller can index unconditionally.
+    """
+    run_id_strs = [str(rid) for rid in test_run_ids]
+    stats: Dict[str, Dict[str, Any]] = {rid: empty_usage() for rid in run_id_strs}
+    if not run_id_strs:
+        return stats
+
+    base = _run_trace_base(db, organization_id, run_ids=run_id_strs)
+    per_trace = per_trace_usage_subquery(db, base, extra_group_by=(base.c.test_run_id,))
+
+    rows = (
+        db.query(
+            per_trace.c.test_run_id.label("run_id"),
+            func.coalesce(func.sum(coalesced_tokens(per_trace)), 0).label("total_tokens"),
+            func.coalesce(func.sum(coalesced_input_tokens(per_trace)), 0).label(
+                "total_input_tokens"
+            ),
+            func.coalesce(func.sum(coalesced_output_tokens(per_trace)), 0).label(
+                "total_output_tokens"
+            ),
+            func.coalesce(func.sum(per_trace.c.cost_usd), 0).label("total_cost_usd"),
+            func.coalesce(func.sum(per_trace.c.input_cost_usd), 0).label("total_input_cost_usd"),
+            func.coalesce(func.sum(per_trace.c.output_cost_usd), 0).label("total_output_cost_usd"),
+        )
+        .group_by(per_trace.c.test_run_id)
+        .all()
+    )
+
+    for row in rows:
+        bucket = stats.setdefault(str(row.run_id), empty_usage())
+        bucket["total_tokens"] = int(row.total_tokens or 0)
+        bucket["total_input_tokens"] = int(row.total_input_tokens or 0)
+        bucket["total_output_tokens"] = int(row.total_output_tokens or 0)
+        bucket["total_cost_usd"] = round(float(row.total_cost_usd or 0), 6)
+        bucket["total_input_cost_usd"] = round(float(row.total_input_cost_usd or 0), 6)
+        bucket["total_output_cost_usd"] = round(float(row.total_output_cost_usd or 0), 6)
+
+    _attach_models_per_run(db, base, stats)
+    return stats
+
+
+def _attach_models_per_run(db: Session, base, stats: Dict[str, Dict[str, Any]]) -> None:
+    """Fill in each run's distinct models and providers.
+
+    A second query rather than more columns on the aggregate above: the model list comes
+    from unnesting a JSONB array, which does not collapse into the same GROUP BY. The
+    provider is finished in Python because placing a model that reported none is a
+    LiteLLM lookup.
+    """
+    models_by_run: Dict[str, set] = {}
+    providers_by_run: Dict[str, set] = {}
+
+    for row in models_used_rows(db, base, extra_columns=(base.c.test_run_id,)):
+        run_id = str(row.test_run_id)
+        models_by_run.setdefault(run_id, set()).add(row.model_name)
+        providers_by_run.setdefault(run_id, set()).add(
+            resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.provider}, row.model_name)
+        )
+
+    for run_id, names in models_by_run.items():
+        bucket = stats.setdefault(run_id, empty_usage())
+        bucket["models"] = sorted(names)
+        bucket["providers"] = sorted(providers_by_run.get(run_id, set()))
+
+
+def _run_trace_base(db: Session, organization_id: Optional[str], run_ids=None):
+    """The trace rows in scope for a per-run usage rollup.
+
+    ``run_ids`` narrows to one page of the grid; leaving it out covers every run in the
+    organization, which is what sorting needs -- ordering the whole list by cost cannot
+    be done from the page it is trying to order.
+    """
+    filters = [models.Trace.test_run_id.isnot(None), models.Trace.deleted_at.is_(None)]
+    if run_ids is not None:
+        filters.append(models.Trace.test_run_id.in_(run_ids))
+    if organization_id:
+        filters.append(models.Trace.organization_id == uuid.UUID(str(organization_id)))
+    return db.query(models.Trace).filter(*filters).subquery()
