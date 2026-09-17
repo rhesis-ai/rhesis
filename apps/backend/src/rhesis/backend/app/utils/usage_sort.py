@@ -114,7 +114,13 @@ def _usage_subquery(db: Session, sort_by: str, organization_id: Optional[str]):
     return (
         select(
             per_trace.c.test_run_id.label("test_run_id"),
-            func.sum(_sum_expression(sort_by, per_trace)).label("value"),
+            # Coalesced so that having traces always yields a number, even when none of
+            # them has been priced: cost_usd is NULL for an unenriched trace while the
+            # input/output halves already bottom out at zero, and summing both untouched
+            # would put one run in two different places depending on which cost column
+            # you sorted by. The only genuine unknown is a run with no traces at all,
+            # which has no row here and picks up its NULL from the outer join.
+            func.coalesce(func.sum(_sum_expression(sort_by, per_trace)), 0).label("value"),
         )
         .group_by(per_trace.c.test_run_id)
         .subquery()
@@ -138,4 +144,5 @@ def apply_virtual_usage_sort(
 
     # nullslast so a run with no traces sinks to the bottom either way, rather than
     # leading a "most expensive first" list on Postgres' NULLS FIRST default for DESC.
+    # Only a run with no traces reaches this NULL -- see the coalesce in _usage_subquery.
     return query.outerjoin(usage, usage.c.test_run_id == model.id).order_by(ordered.nullslast())

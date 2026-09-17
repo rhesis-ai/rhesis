@@ -342,3 +342,96 @@ class TestSortingByUsage:
         )
 
         assert [str(run.id) for run in first_page] == [expensive]
+
+
+@pytest.mark.integration
+class TestUnpricedRunsSortConsistently:
+    """A run whose traces carry no cost must sort the same way in every cost column.
+
+    cost_usd is read straight off the enrichment blob and is NULL for a trace nothing has
+    priced, while the input/output halves go through enriched_cost_expr, which ends at
+    zero. Left alone, the same run sorts last by Cost and among the zeros by Input cost --
+    two columns on one row disagreeing about whether it is "unknown" or "nothing".
+    """
+
+    @pytest.fixture
+    def three_runs(
+        self,
+        test_db,
+        db_project,
+        test_org_id,
+        db_test_run,
+        db_test_run_running,
+        db_test_configuration,
+        db_user,
+        db_status,
+    ):
+        """A priced run, a traced-but-unpriced run, and a run with no traces at all.
+
+        The untraced run is given the lowest possible id on purpose. Ordering falls back
+        to id for ties, so while the unpriced run's cost is NULL it lands *below* the
+        untraced one -- which is what makes the assertions below fail without the fix
+        rather than pass on whichever UUID happened to be generated.
+        """
+        from rhesis.backend.app.models.test_run import TestRun
+
+        project_id = str(db_project.id)
+        unpriced, priced = db_test_run, db_test_run_running
+
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [run_root_span(trace_id, project_id, unpriced.id)],
+            organization_id=test_org_id,
+        )  # deliberately not marked processed: no enrichment blob at all
+
+        trace_for_run(
+            test_db,
+            project_id,
+            priced.id,
+            test_org_id,
+            model="gpt-4",
+            tokens=(100, 50),
+            costs=(0.01, 0.005),
+        )
+
+        untraced = TestRun(
+            id=uuid.UUID(int=0),
+            name="no traces at all",
+            user_id=db_user.id,
+            organization_id=uuid.UUID(test_org_id),
+            status_id=db_status.id,
+            test_configuration_id=db_test_configuration.id,
+            attributes={},
+        )
+        test_db.add(untraced)
+        test_db.flush()
+        return str(unpriced.id), str(priced.id), str(untraced.id)
+
+    def _ordered_ids(self, db, org_id, sort_by, sort_order):
+        runs = get_test_runs(
+            db, skip=0, limit=100, sort_by=sort_by, sort_order=sort_order, organization_id=org_id
+        )
+        return [str(run.id) for run in runs]
+
+    def test_every_cost_column_agrees_on_where_an_unpriced_run_goes(
+        self, test_db, test_org_id, three_runs
+    ):
+        unpriced, _, _ = three_runs
+
+        positions = {
+            field: self._ordered_ids(test_db, test_org_id, field, "desc").index(unpriced)
+            for field in ("total_cost_usd", "total_input_cost_usd", "total_output_cost_usd")
+        }
+
+        assert len(set(positions.values())) == 1, (
+            f"the same run lands in different places per cost column: {positions}"
+        )
+
+    def test_a_run_with_traces_outranks_one_with_none(self, test_db, test_org_id, three_runs):
+        """Zero is a number; no traces at all is not. The first must sort above it."""
+        unpriced, _, untraced = three_runs
+
+        ordered = self._ordered_ids(test_db, test_org_id, "total_cost_usd", "desc")
+
+        assert ordered.index(unpriced) < ordered.index(untraced)
