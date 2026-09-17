@@ -47,7 +47,7 @@ eb2719043c01). The status and type_lookup seeds go through the shared templates,
 which are org-wide and need no GUC.
 
 Revision ID: b7d4e2f1a9c3
-Revises: cb3558b77459
+Revises: c2e403bfd18b
 Create Date: 2026-09-17
 """
 
@@ -64,7 +64,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "b7d4e2f1a9c3"
-down_revision: Union[str, None] = "cb3558b77459"
+down_revision: Union[str, None] = "c2e403bfd18b"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
