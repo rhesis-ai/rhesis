@@ -3,6 +3,7 @@
  * Matches the backend schemas in apps/backend/src/rhesis/backend/app/schemas/explorer.py
  */
 
+import type { AnnotationSummaryEntry } from './annotation';
 import { Status } from './status';
 import { UserReference } from './tests';
 
@@ -53,12 +54,21 @@ export interface TestNode {
   topic: string;
   input: string;
   output: string;
-  /** 'error' is set by the backend when a metric raises during evaluation. */
+  /**
+   * The effective label: a person's where one exists, otherwise the metric's.
+   * 'error' is set by the backend when a metric raises during evaluation.
+   * `labeler` says which of the two this is — 'user' for a person, a metric
+   * name for a metric, 'imported' for a test copied in from another set.
+   */
   label: '' | 'topic_marker' | 'pass' | 'fail' | 'error';
   labeler: string;
   to_eval: boolean;
   model_score: number;
   metrics?: Record<string, ExplorerMetricEvalDetail> | null;
+  /** How many people have labelled this test. */
+  annotations_count: number;
+  /** The newest of those labels, for the indicator and the "labelled by" line. */
+  last_annotation?: AnnotationSummaryEntry | null;
 }
 
 export interface TestNodeCreate {

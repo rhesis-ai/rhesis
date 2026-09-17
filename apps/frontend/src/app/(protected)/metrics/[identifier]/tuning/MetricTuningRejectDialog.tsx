@@ -53,7 +53,9 @@ export default function MetricTuningRejectDialog({
       await onSubmit(comment.trim());
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save the review.');
+      setError(
+        e instanceof Error ? e.message : 'Failed to save the annotation.'
+      );
     } finally {
       setSaving(false);
     }
