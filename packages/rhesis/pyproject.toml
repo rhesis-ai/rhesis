@@ -72,11 +72,11 @@ exclude-newer-package = { tornado = false, litellm = false, langsmith = false, l
 constraint-dependencies = [
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
-    "tornado>=6.5.7",
+    "tornado>=6.5.8",
     "litellm>=1.84.0",
     "lxml>=6.1.0",
     "langchain-text-splitters>=1.1.2",
-    "langsmith>=0.11.0",
+    "langsmith>=0.12.2",
     "langchain-openai>=1.4.0",
     "langchain-core>=1.6.0",
     "langchain-classic>=1.0.7",

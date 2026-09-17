@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer = "2026-09-10T18:39:35.296327Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -29,6 +29,7 @@ pyjwt = false
 constraints = [
     { name = "authlib", specifier = ">=1.7.1" },
     { name = "cryptography", specifier = ">=48.0.1" },
+    { name = "httplib2", specifier = ">=0.32.0" },
     { name = "idna", specifier = ">=3.15" },
     { name = "joserfc", specifier = ">=1.6.8" },
     { name = "mako", specifier = ">=1.3.12" },
@@ -984,14 +985,14 @@ wheels = [
 
 [[package]]
 name = "httplib2"
-version = "0.31.2"
+version = "0.32.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyparsing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c1/1f/e86365613582c027dda5ddb64e1010e57a3d53e99ab8a72093fa13d565ec/httplib2-0.31.2.tar.gz", hash = "sha256:385e0869d7397484f4eab426197a4c020b606edd43372492337c0b4010ae5d24", size = 250800, upload-time = "2026-01-23T11:04:44.165Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/f5/ccf58de92d61e3ad921119668f54ed36ca1d0cf5dcc5c1657dfb164fd78b/httplib2-0.32.0.tar.gz", hash = "sha256:48a0ef30a42db65d8f3399045e1d09ab0ba66e3b9efc360d07f80ea55d286025", size = 254283, upload-time = "2026-06-26T10:13:56.265Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/90/fd509079dfcab01102c0fdd87f3a9506894bc70afcf9e9785ef6b2b3aff6/httplib2-0.31.2-py3-none-any.whl", hash = "sha256:dbf0c2fa3862acf3c55c078ea9c0bc4481d7dc5117cae71be9514912cf9f8349", size = 91099, upload-time = "2026-01-23T11:04:42.78Z" },
+    { url = "https://files.pythonhosted.org/packages/33/a0/550eec327e5f5c7b732531c489f5307efec41f047b0d703bd4ca1e5ad2db/httplib2-0.32.0-py3-none-any.whl", hash = "sha256:dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816", size = 93148, upload-time = "2026-06-26T10:13:54.985Z" },
 ]
 
 [[package]]
@@ -2166,7 +2167,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.14.0"
+version = "0.16.0"
 source = { editable = "../backend" }
 dependencies = [
     { name = "alembic" },
@@ -2251,7 +2252,6 @@ requires-dist = [
     { name = "jsonpath-ng", specifier = "==1.7.0" },
     { name = "kombu", specifier = "==5.5.3" },
     { name = "mcp", specifier = ">=1.2.0" },
-    { name = "mcp-atlassian", marker = "extra == 'all'", specifier = ">=0.13.0" },
     { name = "mirascope", marker = "extra == 'all'", specifier = "==1.24.0" },
     { name = "nanoid" },
     { name = "numpy", marker = "extra == 'all'" },

@@ -14,13 +14,12 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-10T16:49:34.29566Z"
+exclude-newer = "2026-09-10T18:41:22.500359Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
 tornado = false
 langsmith = false
-gitpython = false
 python-multipart = false
 langchain-core = false
 pydantic-settings = false
@@ -36,7 +35,6 @@ idna = false
 [manifest]
 constraints = [
     { name = "aiohttp", specifier = ">=3.14.1" },
-    { name = "gitpython", specifier = ">=3.1.52" },
     { name = "idna", specifier = ">=3.15" },
     { name = "langchain", specifier = ">=1.4.0" },
     { name = "langchain-classic", specifier = ">=1.0.7" },
@@ -44,7 +42,7 @@ constraints = [
     { name = "langchain-openai", specifier = ">=1.4.0" },
     { name = "langgraph-checkpoint", specifier = ">=4.1.1" },
     { name = "langgraph-sdk", specifier = ">=0.4.0" },
-    { name = "langsmith", specifier = ">=0.11.0" },
+    { name = "langsmith", specifier = ">=0.12.2" },
     { name = "litellm", specifier = ">=1.84.0" },
     { name = "mcp", specifier = ">=1.28.1" },
     { name = "orjson", specifier = ">=3.11.7" },
