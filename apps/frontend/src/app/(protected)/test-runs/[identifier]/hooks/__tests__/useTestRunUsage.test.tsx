@@ -7,7 +7,6 @@ import {
   nextPollDelay,
   useTestRunUsage,
 } from '../useTestRunUsage';
-import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 
 const getMetrics = jest.fn();
@@ -48,6 +47,17 @@ function usage(overrides: Partial<TraceMetricsResponse> = {}) {
   } as TraceMetricsResponse;
 }
 
+/** Enrichment is partway through: 40 of the run's 60 traces done. */
+function behind(overrides: Partial<TraceMetricsResponse> = {}) {
+  return usage({
+    total_traces: 60,
+    enriched_traces: 40,
+    priced_traces: 40,
+    total_cost_usd: 0.02,
+    ...overrides,
+  });
+}
+
 /** Enrichment has been through every trace and priced them. */
 function priced(overrides: Partial<TraceMetricsResponse> = {}) {
   return usage({
@@ -58,59 +68,47 @@ function priced(overrides: Partial<TraceMetricsResponse> = {}) {
   });
 }
 
-function run(completedAt?: string): TestRunDetail {
-  return {
-    id: 'run-1',
-    attributes: completedAt ? { completed_at: completedAt } : {},
-  } as unknown as TestRunDetail;
-}
-
 describe('nextPollDelay', () => {
-  const finishedAt = Date.parse('2026-09-17T10:00:00Z');
-  const justFinished = finishedAt + 10 * 1000;
-  const longFinished = finishedAt + 5 * MINUTE;
+  const SETTLE_MS = POLL_MS;
+  const STALL_MS = 60 * 1000;
 
   it('polls while the run is still going, whatever the numbers say', () => {
-    expect(nextPollDelay(undefined, true, null, justFinished)).toBe(POLL_MS);
-    expect(nextPollDelay(priced(), true, finishedAt, longFinished)).toBe(
-      POLL_MS
-    );
+    expect(nextPollDelay(undefined, true, 0)).toBe(POLL_MS);
+    expect(nextPollDelay(priced(), true, 10 * MINUTE)).toBe(POLL_MS);
   });
 
-  it('keeps polling after the run finishes while enrichment has traces left', () => {
-    // The case the whole hook exists for: enrichment prices a run *after* it
-    // ends, so stopping on terminal status stops exactly when cost is due.
-    expect(nextPollDelay(usage(), false, finishedAt, justFinished)).toBe(
-      POLL_MS
-    );
+  it('polls until the first response arrives', () => {
+    expect(nextPollDelay(undefined, false, 10 * MINUTE)).toBe(POLL_MS);
   });
 
-  it('keeps polling through a partly enriched run', () => {
-    expect(
-      nextPollDelay(
-        usage({ enriched_traces: 3, priced_traces: 3, total_cost_usd: 0.02 }),
-        false,
-        finishedAt,
-        justFinished
-      )
-    ).toBe(POLL_MS);
+  it('keeps polling while enrichment is behind and making progress', () => {
+    // The 98-second tail a real 60-trace run showed: enrichment keeps pricing
+    // long after the run itself ended.
+    expect(nextPollDelay(behind(), false, 2000)).toBe(POLL_MS);
+    expect(nextPollDelay(behind(), false, 45 * 1000)).toBe(POLL_MS);
   });
 
-  it('stops once enrichment has been through every trace', () => {
-    expect(nextPollDelay(priced(), false, finishedAt, justFinished)).toBe(
-      false
-    );
+  it('does not stop the moment enrichment happens to catch up', () => {
+    // Traces arrive in batches. Between two batches everything ingested so far
+    // is enriched, which reads exactly like being finished -- and a poll
+    // landing in that gap used to stop the card for good.
+    expect(nextPollDelay(priced(), false, 0)).toBe(POLL_MS);
+    expect(nextPollDelay(priced(), false, SETTLE_MS - 1)).toBe(POLL_MS);
+  });
+
+  it('stops once a caught-up reading survives a poll unchanged', () => {
+    expect(nextPollDelay(priced(), false, SETTLE_MS)).toBe(false);
   });
 
   it('stops for an enriched run that nothing could price', () => {
-    // The case a cost-based stop condition could never get right: enrichment
-    // finished and found no price, so waiting longer changes nothing.
+    // Enrichment finished and found no price, so waiting longer changes
+    // nothing. A cost-based stop condition could never tell this from a run
+    // still being priced.
     expect(
       nextPollDelay(
         usage({ enriched_traces: 4, priced_traces: 0 }),
         false,
-        finishedAt,
-        justFinished
+        SETTLE_MS
       )
     ).toBe(false);
   });
@@ -120,28 +118,21 @@ describe('nextPollDelay', () => {
       nextPollDelay(
         usage({ total_traces: 0, total_tokens: 0 }),
         false,
-        finishedAt,
-        justFinished
+        SETTLE_MS
       )
     ).toBe(false);
   });
 
-  it('gives up on a run whose enrichment never finished', () => {
-    // Traces still unprocessed long after the run ended: the worker died, or
-    // never picked them up. Without the backstop this polls as long as the tab
-    // is open.
-    expect(nextPollDelay(usage(), false, finishedAt, longFinished)).toBe(false);
+  it('gives up when enrichment is behind and has stalled', () => {
+    // A worker that died mid-run leaves traces unprocessed forever.
+    expect(nextPollDelay(behind(), false, STALL_MS)).toBe(false);
   });
 
-  it('does not poll a run that never recorded when it finished', () => {
-    expect(nextPollDelay(usage(), false, null, longFinished)).toBe(false);
-  });
-
-  it('measures the window from when the run ended, not from when the card opened', () => {
-    // Opening a year-old unpriced run must not start a fresh two minutes of
-    // polling.
-    const ancient = finishedAt - 365 * 24 * 60 * MINUTE;
-    expect(nextPollDelay(usage(), false, ancient, finishedAt)).toBe(false);
+  it('waits far longer on a stalled run than on a settled one', () => {
+    // Being behind is the case worth being patient about; being caught up is
+    // the case worth confirming quickly.
+    expect(nextPollDelay(behind(), false, 10000)).toBe(POLL_MS);
+    expect(nextPollDelay(priced(), false, 10000)).toBe(false);
   });
 });
 
@@ -181,14 +172,14 @@ describe('useTestRunUsage', () => {
 
   it('renders nothing until the numbers arrive', () => {
     getMetrics.mockResolvedValue(usage());
-    const { result } = renderHook(() => useTestRunUsage(run()), { wrapper });
+    const { result } = renderHook(() => useTestRunUsage('run-1'), { wrapper });
 
     expect(result.current).toBeNull();
   });
 
   it('scopes the request to the run and the active project', async () => {
     getMetrics.mockResolvedValue(usage());
-    renderHook(() => useTestRunUsage(run()), { wrapper });
+    renderHook(() => useTestRunUsage('run-1'), { wrapper });
 
     await waitFor(() => expect(getMetrics).toHaveBeenCalled());
     expect(getMetrics).toHaveBeenCalledWith({
@@ -201,7 +192,7 @@ describe('useTestRunUsage', () => {
     // Bypasses the interval's own timing, which fake timers and react-query's
     // scheduler do not agree on, and takes the same path a poll would.
     getMetrics.mockResolvedValue(usage({ total_tokens: 100 }));
-    const { result } = renderHook(() => useTestRunUsage(run(), true), {
+    const { result } = renderHook(() => useTestRunUsage('run-1', true), {
       wrapper,
     });
     await waitFor(() => expect(result.current?.total_tokens).toBe(100));
@@ -218,7 +209,7 @@ describe('useTestRunUsage', () => {
 
   it('survives a failed request without taking the summary down', async () => {
     getMetrics.mockRejectedValue(new Error('telemetry is down'));
-    const { result } = renderHook(() => useTestRunUsage(run()), { wrapper });
+    const { result } = renderHook(() => useTestRunUsage('run-1'), { wrapper });
 
     await waitFor(() => expect(getMetrics).toHaveBeenCalled());
     expect(result.current).toBeNull();

@@ -522,7 +522,7 @@ describe('KpiRow', () => {
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(useTestRunUsage).toHaveBeenCalledWith(testRun, true);
+    expect(useTestRunUsage).toHaveBeenCalledWith(testRun.id, true);
   });
 
   it('says trace rather than traces when the run produced one', () => {

@@ -39,7 +39,7 @@ export default function KpiRow({
   onViewFailures,
 }: KpiRowProps) {
   const { kpis } = matrix;
-  const usage = useTestRunUsage(testRun, isRunning);
+  const usage = useTestRunUsage(testRun.id, isRunning);
 
   const durationDisplay = useMemo(() => {
     if (isRunning) return undefined;
