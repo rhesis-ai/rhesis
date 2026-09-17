@@ -71,7 +71,15 @@ def read_test_runs(
     response: Response,
     skip: int = 0,
     limit: int = 100,
-    sort_by: str = "created_at",
+    sort_by: str = Query(
+        "created_at",
+        description=(
+            "Field to sort by. Any TestRun column, the comments_count/tasks_count/"
+            "tags_count activity counts, or one of the usage totals aggregated from the "
+            "run's traces: total_tokens, total_input_tokens, total_output_tokens, "
+            "total_cost_usd, total_input_cost_usd, total_output_cost_usd, model."
+        ),
+    ),
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     select: str | None = Query(
@@ -125,13 +133,18 @@ def read_test_runs(
     organization_id = str(current_user.organization_id)
     run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
     review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    usage_stats = test_run_crud.get_usage_statistics_for_runs(
+        db, run_ids, organization_id=organization_id
+    )
     serialized = []
     for run in results:
         item = schemas.TestRunDetail.model_validate(run).model_dump(mode="json")
+        run_id = str(item.get("id"))
         item["stats"] = run_stats.get(
-            str(item.get("id")),
+            run_id,
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
+        item["usage"] = usage_stats.get(run_id, test_run_crud.empty_usage())
         serialized.append(item)
     inject_review_counts_into_serialized_runs(serialized, review_stats)
     return JSONResponse(content=serialized)

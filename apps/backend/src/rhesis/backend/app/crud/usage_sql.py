@@ -10,7 +10,7 @@ test-run rollup have to produce the same number for the same trace or the UI con
 itself.
 """
 
-from typing import Any
+from typing import Any, Sequence
 
 from sqlalchemy import case, column, func, select, true
 from sqlalchemy.dialects.postgresql import JSONB
@@ -134,7 +134,7 @@ def enriched_token_expr(enriched_data, rollup_key: str, breakdown_key: str) -> A
     )
 
 
-def per_trace_usage_subquery(db: Session, base) -> Any:
+def per_trace_usage_subquery(db: Session, base, *, extra_group_by: Sequence = ()) -> Any:
     """Collapse a scanned set of span rows to one usage row per trace.
 
     ``MAX`` is exact for the enriched columns precisely because every span row of a trace
@@ -145,6 +145,10 @@ def per_trace_usage_subquery(db: Session, base) -> Any:
 
     Args:
         base: a subquery over ``trace`` already narrowed to the caller's scope.
+        extra_group_by: further columns to carry through and group by alongside
+            ``trace_id``, so a caller can roll the collapsed traces up again -- per test
+            run, say. Must be functionally dependent on the trace, which ``test_run_id``
+            is, or the collapse would split one trace across several rows.
     """
     attributes = base.c.attributes
     enriched = base.c.enriched_data
@@ -154,6 +158,7 @@ def per_trace_usage_subquery(db: Session, base) -> Any:
 
     return (
         db.query(
+            *extra_group_by,
             base.c.trace_id.label("trace_id"),
             enriched_tokens(EnrichedDataKeys.TOTAL_TOKENS, EnrichedDataKeys.TOTAL_TOKENS).label(
                 "enriched_tokens"
@@ -189,12 +194,12 @@ def per_trace_usage_subquery(db: Session, base) -> Any:
                 attributes, span_token_expr(attributes, AISpanAttributes.TOKENS_OUTPUT)
             ).label("raw_output_tokens"),
         )
-        .group_by(base.c.trace_id)
+        .group_by(*extra_group_by, base.c.trace_id)
         .subquery()
     )
 
 
-def models_used_rows(db: Session, base) -> list:
+def models_used_select(base, *, extra_columns: Sequence = ()) -> Any:
     """Distinct (model, reported provider) pairs over a scanned set of span rows.
 
     Reads the enrichment breakdown *and* raw span attributes, because neither alone
@@ -208,6 +213,9 @@ def models_used_rows(db: Session, base) -> list:
     older breakdown entries never carried one. The caller finishes the job with
     ``resolve_provider``, since deriving a provider from a model name is a LiteLLM
     lookup, not something SQL can do.
+
+    ``extra_columns`` are selected ahead of the pair in both branches, so a caller can
+    group the result by something wider -- per test run, say.
     """
     entries = func.jsonb_array_elements(
         base.c.enriched_data[EnrichedDataKeys.COSTS][EnrichedDataKeys.BREAKDOWN]
@@ -216,7 +224,11 @@ def models_used_rows(db: Session, base) -> list:
     enriched_model = entries.c.value[EnrichedDataKeys.MODEL_NAME].as_string()
     enriched_provider = entries.c.value[EnrichedDataKeys.PROVIDER].as_string()
     from_enrichment = (
-        select(enriched_model.label("model_name"), enriched_provider.label("provider"))
+        select(
+            *extra_columns,
+            enriched_model.label("model_name"),
+            enriched_provider.label("provider"),
+        )
         .select_from(base)
         .join(entries, true())
         .where(enriched_model.isnot(None))
@@ -227,13 +239,22 @@ def models_used_rows(db: Session, base) -> list:
     span_model = attributes[AISpanAttributes.MODEL_NAME].as_string()
     span_provider = attributes[AISpanAttributes.MODEL_PROVIDER].as_string()
     from_attributes = (
-        select(span_model.label("model_name"), span_provider.label("provider"))
+        select(
+            *extra_columns,
+            span_model.label("model_name"),
+            span_provider.label("provider"),
+        )
         .select_from(base)
         .where(is_llm_invoke(attributes), span_model.isnot(None))
         .distinct()
     )
 
-    return db.execute(from_enrichment.union(from_attributes)).all()
+    return from_enrichment.union(from_attributes)
+
+
+def models_used_rows(db: Session, base, *, extra_columns: Sequence = ()) -> list:
+    """Execute :func:`models_used_select`. Sorting nests the selectable instead."""
+    return db.execute(models_used_select(base, extra_columns=extra_columns)).all()
 
 
 def coalesced_tokens(per_trace) -> Any:
@@ -257,6 +278,7 @@ __all__ = [
     "enriched_token_expr",
     "is_llm_invoke",
     "models_used_rows",
+    "models_used_select",
     "per_trace_usage_subquery",
     "span_token_expr",
     "span_total_tokens_expr",
