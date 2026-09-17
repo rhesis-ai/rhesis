@@ -3,7 +3,7 @@
     "gitlab": {
       "transport": "stdio",
       "command": "npx",
-      "args": ["-y", "@zereight/mcp-gitlab"],
+      "args": ["-y", "@zereight/mcp-gitlab@2.1.63"],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": {{ GITLAB_PERSONAL_ACCESS_TOKEN | tojson }},
         "GITLAB_API_URL": {{ (GITLAB_API_URL | default("https://gitlab.com/api/v4")) | tojson }},
