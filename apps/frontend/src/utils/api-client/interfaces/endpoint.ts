@@ -51,6 +51,10 @@ export interface Endpoint {
   response_format: 'json' | 'xml' | 'text';
   response_mapping?: Record<string, unknown>;
 
+  // Client-declared version of the system behind this endpoint. `null` clears it on update,
+  // so the type must admit null for EndpointEditData (Partial<Endpoint>) to accept it.
+  version_info?: Record<string, unknown> | null;
+
   // Tracing control
   disable_tracing?: boolean;
 

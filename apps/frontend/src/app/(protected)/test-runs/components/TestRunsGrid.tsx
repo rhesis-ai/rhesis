@@ -24,6 +24,7 @@ import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { asVersionInfo, summarizeVersionInfo } from '@/utils/version-info';
 import { testRunsList } from './list';
 import TestRunFilterDrawer, {
   type TestRunFilters,
@@ -50,6 +51,12 @@ function formatReviewTooltip(reviewed: number, corrected: number): string {
   }
   return reviewedLabel;
 }
+
+/** Inline chip sized to sit inside a grid row without changing its height. */
+const compactChipSx = {
+  height: 20,
+  '& .MuiChip-label': { px: 0.75 },
+} as const;
 
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
@@ -285,10 +292,76 @@ export default function TestRunsGrid({
                   label={version}
                   size="small"
                   variant="outlined"
-                  sx={{ height: 20, '& .MuiChip-label': { px: 0.75 } }}
+                  sx={compactChipSx}
                 />
               )}
             </Box>
+          );
+        },
+      },
+      {
+        field: 'version_info',
+        headerName: 'Version Information',
+        flex: 1.2,
+        minWidth: 170,
+        // The value lives inside a JSONB blob, so there is no OData path to sort or filter on.
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => {
+          const info = asVersionInfo(row.attributes?.version_info);
+          if (!info) return '';
+          return summarizeVersionInfo(info)
+            .map(entry => `${entry.key}=${entry.display}`)
+            .join(' ');
+        },
+        renderCell: params => {
+          const info = asVersionInfo(params.row.attributes?.version_info);
+          if (!info) return null;
+          const entries = summarizeVersionInfo(info);
+          const shown = entries.slice(0, 2);
+          const overflow = entries.length - shown.length;
+
+          return (
+            <Tooltip
+              title={
+                <Box
+                  component="pre"
+                  sx={{
+                    m: 0,
+                    fontSize: theme => theme.typography.caption.fontSize,
+                  }}
+                >
+                  {JSON.stringify(info, null, 2)}
+                </Box>
+              }
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  overflow: 'hidden',
+                }}
+              >
+                {shown.map(entry => (
+                  <Chip
+                    key={entry.key}
+                    label={`${entry.key}: ${entry.display}`}
+                    size="small"
+                    variant="outlined"
+                    sx={compactChipSx}
+                  />
+                ))}
+                {overflow > 0 && (
+                  <Chip
+                    label={`+${overflow}`}
+                    size="small"
+                    variant="outlined"
+                    sx={compactChipSx}
+                  />
+                )}
+              </Box>
+            </Tooltip>
           );
         },
       },
@@ -474,7 +547,7 @@ export default function TestRunsGrid({
       extraRowActions={extraRowActions}
       rowActionsWidth={112}
       onBulkActionsChange={onBulkActionsChange}
-      storageKey="test-runs-grid-v2"
+      storageKey="test-runs-grid-v3"
       pageSizeOptions={[10, 25, 50]}
       renderSelectionExtras={ctx => (
         <DeleteModal

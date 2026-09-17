@@ -20,6 +20,7 @@ from rhesis.backend.app.models.enums import (
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
 from rhesis.backend.app.schemas.user import UserReference
+from rhesis.backend.app.schemas.validators import VersionInfoField
 
 
 def _check_timeout_seconds(v: int | None) -> int | None:
@@ -120,6 +121,11 @@ class EndpointBase(Base):
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
     response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
+
+    # Client-declared version of the system under test. Snapshotted onto every test run;
+    # a ``version_info`` key in ``response_mapping`` overrides it for runs where the
+    # endpoint reports its own version.
+    version_info: VersionInfoField = None
 
     project_id: Optional[UUID4] = None  # Inferred from X-Project-Id session scope when omitted
     status_id: Optional[UUID4] = None
@@ -255,6 +261,10 @@ class Endpoint(Base, ServerIdentity):
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
     response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
+
+    # Unvalidated on the way out: a row that predates the limits, or one written before
+    # they were tightened, must stay readable rather than 500 the detail endpoint.
+    version_info: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None

@@ -17,6 +17,7 @@ import {
   TableRow,
   TableCell,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GridBadge from '@/components/common/GridBadge';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -36,6 +37,9 @@ import {
   formatTokenCount,
   subtreeUsage,
 } from '@/utils/trace-utils';
+import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
+import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import { asVersionInfo } from '@/utils/version-info';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
@@ -79,6 +83,21 @@ function TabPanel({ children, value, index }: TabPanelProps) {
       {value === index && <Box sx={{ height: '100%' }}>{children}</Box>}
     </div>
   );
+}
+
+/** Span attribute carrying the version of the system behind the endpoint. */
+export const VERSION_INFO_ATTRIBUTE = 'endpoint.version_info';
+
+/** Span attributes are flat strings, so the version arrives as serialized JSON. */
+export function parseVersionInfo(
+  value: unknown
+): Record<string, unknown> | null {
+  if (typeof value !== 'string') return asVersionInfo(value);
+  try {
+    return asVersionInfo(JSON.parse(value));
+  } catch {
+    return null;
+  }
 }
 
 export default function SpanDetailsPanel({
@@ -190,42 +209,51 @@ export default function SpanDetailsPanel({
     };
   }, [span?.id, status]);
 
-  const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
-    useMemo(() => {
-      const attrs = span?.attributes;
-      if (!attrs) {
-        return {
-          llmAttributes: {} as Record<string, unknown>,
-          functionAttributes: {} as Record<string, unknown>,
-          testAttributes: {} as Record<string, unknown>,
-          otherAttributes: {} as Record<string, unknown>,
-        };
-      }
-
-      const llm: Record<string, unknown> = {};
-      const fn: Record<string, unknown> = {};
-      const test: Record<string, unknown> = {};
-      const other: Record<string, unknown> = {};
-
-      Object.entries(attrs).forEach(([key, value]) => {
-        if (key.startsWith('ai.') || key.startsWith('llm.')) {
-          llm[key] = value;
-        } else if (key.startsWith('function.')) {
-          fn[key] = value;
-        } else if (key.startsWith('rhesis.test.')) {
-          test[key] = value;
-        } else {
-          other[key] = value;
-        }
-      });
-
+  const {
+    llmAttributes,
+    functionAttributes,
+    testAttributes,
+    otherAttributes,
+    versionInfo,
+  } = useMemo(() => {
+    const attrs = span?.attributes;
+    if (!attrs) {
       return {
-        llmAttributes: llm,
-        functionAttributes: fn,
-        testAttributes: test,
-        otherAttributes: other,
+        llmAttributes: {} as Record<string, unknown>,
+        functionAttributes: {} as Record<string, unknown>,
+        testAttributes: {} as Record<string, unknown>,
+        otherAttributes: {} as Record<string, unknown>,
+        versionInfo: null as Record<string, unknown> | null,
       };
-    }, [span?.attributes]);
+    }
+
+    const llm: Record<string, unknown> = {};
+    const fn: Record<string, unknown> = {};
+    const test: Record<string, unknown> = {};
+    const other: Record<string, unknown> = {};
+
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (key.startsWith('ai.') || key.startsWith('llm.')) {
+        llm[key] = value;
+      } else if (key.startsWith('function.')) {
+        fn[key] = value;
+      } else if (key.startsWith('rhesis.test.')) {
+        test[key] = value;
+      } else if (key !== VERSION_INFO_ATTRIBUTE) {
+        // Rendered as formatted JSON in its own section below, so it is left out
+        // here rather than shown twice, once escaped into a single table cell.
+        other[key] = value;
+      }
+    });
+
+    return {
+      llmAttributes: llm,
+      functionAttributes: fn,
+      testAttributes: test,
+      otherAttributes: other,
+      versionInfo: parseVersionInfo(attrs[VERSION_INFO_ATTRIBUTE]),
+    };
+  }, [span?.attributes]);
 
   if (!span) {
     return (
@@ -1035,6 +1063,30 @@ export default function SpanDetailsPanel({
                 </AccordionSummary>
                 <AccordionDetails>
                   <AttributesTable attributes={testAttributes} />
+                </AccordionDetails>
+              </Accordion>
+            )}
+
+            {/* Version Information */}
+            {versionInfo && (
+              <Accordion
+                defaultExpanded
+                sx={{
+                  backgroundColor: theme =>
+                    alpha(theme.palette.info.main, 0.03),
+                  borderColor: theme => alpha(theme.palette.info.main, 0.125),
+                  mb: 1,
+                }}
+              >
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2">
+                    Version Information
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box component="pre" sx={testPreviewSx}>
+                    <JsonPreview value={versionInfo} />
+                  </Box>
                 </AccordionDetails>
               </Accordion>
             )}

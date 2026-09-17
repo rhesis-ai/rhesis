@@ -97,6 +97,36 @@ Each endpoint has a **Disable tracing** toggle available in both the creation fo
 
 Useful when the endpoint already emits its own telemetry or when tracing overhead is unwanted.
 
+## Version Information
+
+Each endpoint has a **Version Information** field in the Mapping tab. It holds free-form JSON describing your application behind this endpoint: prompt version, model, temperature, or whatever identifies a build.
+
+```json
+{
+  "prompt_version": "v3.2",
+  "model": "gpt-4o",
+  "temperature": 0.2
+}
+```
+
+Rhesis records this on every test run at the moment the run is created, and does not interpret the contents. Because it is recorded per run, editing the endpoint later does not change what earlier runs report: a run from three weeks ago keeps showing the version that produced its results.
+
+The value must be a JSON object. Arrays and single values are rejected, as is anything larger than 16KB or nested more than 8 levels deep.
+
+If your API reports its own version, map it with the `version_info` key in the [response mapping](/docs/endpoints/response-mapping). A reported version takes precedence over the value configured here for that run, which is useful when the deployed version changes more often than the endpoint configuration.
+
+The recorded version appears in three places:
+
+- The **Configuration** tab of a test run, alongside a note of whether it came from the endpoint configuration or the endpoint's response.
+- The **Version Information** column of the test runs list, for comparing runs at a glance.
+- The span details of a [trace](/docs/tracing), under `endpoint.version_info`. Traces cover single invocations as well as test runs, so this is where the version appears for calls made outside a run.
+
+It is stored and exposed as `version_info` in the API and SDK.
+
+<Callout type="warning">
+  Version information is shown wherever the endpoint is visible and is not masked. Do not put credentials or other secrets in it.
+</Callout>
+
 ## Environment Management
 
 Organize endpoints by environment to match your deployment workflow.

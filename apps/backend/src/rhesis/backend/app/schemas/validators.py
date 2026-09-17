@@ -1,6 +1,7 @@
-from typing import Any, Dict, Optional
+import json
+from typing import Annotated, Any, Dict, Optional
 
-from pydantic import ValidationError
+from pydantic import BeforeValidator, ValidationError
 
 from rhesis.backend.app.constants import TestSetType, TestType
 from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
@@ -90,3 +91,68 @@ def validate_test_config_content(v: Optional[Dict[str, Any]]) -> Optional[Dict[s
 
     # For other configurations, allow any valid JSON
     return v
+
+
+#: Byte cap on the serialized ``version_info`` object. Mirrored in
+#: ``apps/frontend/src/constants/version-info.ts`` -- keep the two in lockstep.
+VERSION_INFO_MAX_BYTES: int = 16 * 1024
+VERSION_INFO_MAX_DEPTH: int = 8
+
+
+def _exceeds_depth(value: Any, max_depth: int) -> bool:
+    """Probe nesting depth with an explicit stack.
+
+    Deliberately not recursive: a hostile payload would blow the interpreter stack
+    inside the validator and surface as a 500 rather than the 422 it should be.
+    """
+    stack = [(value, 1)]
+    while stack:
+        node, depth = stack.pop()
+        # Only containers count toward depth -- a scalar leaf is not another level,
+        # so {"a": {"b": 1}} is depth 2, not 3.
+        if not isinstance(node, (dict, list)):
+            continue
+        if depth > max_depth:
+            return True
+        children = node.values() if isinstance(node, dict) else node
+        stack.extend((child, depth + 1) for child in children)
+    return False
+
+
+def validate_version_info(value: Any) -> Any:
+    """Validate a free-form ``version_info`` object: JSON object, bounded size and depth.
+
+    Used for both the endpoint's configured value and the value an endpoint reports at
+    run time, which arrives from the client's own server and is the less trusted of the two.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("version_info must be a JSON object, not an array or a scalar")
+    # Depth first: it is the cheap iterative check, and json.dumps below would itself
+    # raise RecursionError (not ValueError) on a deeply nested payload, escaping as a 500.
+    if _exceeds_depth(value, VERSION_INFO_MAX_DEPTH):
+        raise ValueError(
+            f"version_info must not nest more than {VERSION_INFO_MAX_DEPTH} levels deep"
+        )
+    try:
+        # Compact separators to match JSON.stringify, so the frontend's mirrored byte cap
+        # agrees with this one; Python's defaults add ~2 bytes per pair and would reject
+        # borderline payloads the client had already accepted. allow_nan=False because
+        # json.loads *accepts* NaN and Infinity, which would otherwise pass here and then
+        # fail at JSONB insert as a 500 rather than a 422.
+        encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("version_info must contain only JSON-serializable values") from exc
+    size = len(encoded.encode("utf-8"))
+    if size > VERSION_INFO_MAX_BYTES:
+        raise ValueError(
+            f"version_info must be at most {VERSION_INFO_MAX_BYTES} bytes when serialized "
+            f"(received {size})"
+        )
+    return value
+
+
+#: ``BeforeValidator`` so the "must be a JSON object" message wins over Pydantic's generic
+#: "Input should be a valid dictionary" when a client sends an array.
+VersionInfoField = Annotated[Optional[Dict[str, Any]], BeforeValidator(validate_version_info)]

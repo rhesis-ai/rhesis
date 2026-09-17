@@ -77,6 +77,10 @@ class EndpointAttributes:
     ENDPOINT_TYPE = "endpoint.type"
     ENDPOINT_URL = "endpoint.url"
     ENDPOINT_METHOD = "endpoint.method"  # For REST
+    # Version of the client's system behind this endpoint. Recorded per invocation because a
+    # trace can outlive the endpoint's configuration, and standalone invocations have no test
+    # run to carry the snapshot.
+    VERSION_INFO = "endpoint.version_info"
 
     # Request/response
     REQUEST_SIZE = "endpoint.request.size"
@@ -104,6 +108,24 @@ def generate_trace_id() -> str:
 def generate_span_id() -> str:
     """Generate OTEL span ID (16 hex chars)."""
     return secrets.token_hex(8)
+
+
+def _serialize_version_info(value: Any) -> Optional[str]:
+    """Serialize a version_info object for a span attribute, or None if unusable.
+
+    Applies the same bounds as the API so a value that is too large, too deeply nested or
+    not an object never reaches telemetry. Compact separators keep the attribute small.
+    """
+    from rhesis.backend.app.schemas.validators import validate_version_info
+
+    if not isinstance(value, dict) or not value:
+        return None
+    try:
+        validate_version_info(value)
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    except ValueError as e:
+        logger.warning(f"Skipping version_info on span: {e}")
+        return None
 
 
 def create_endpoint_attributes(
@@ -140,6 +162,12 @@ def create_endpoint_attributes(
     # Add method for REST endpoints
     if hasattr(endpoint, "method") and endpoint.method:
         attrs[EndpointAttributes.ENDPOINT_METHOD] = endpoint.method
+
+    # The version configured on the endpoint. A version the endpoint reports in its own
+    # response overrides this once the result is known; see create_invocation_trace.
+    configured_version = _serialize_version_info(getattr(endpoint, "version_info", None))
+    if configured_version is not None:
+        attrs[EndpointAttributes.VERSION_INFO] = configured_version
 
     # Add any additional attributes
     attrs.update(kwargs)
@@ -233,6 +261,13 @@ async def create_invocation_trace(
         if result and isinstance(result, dict):
             attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
             attributes[EndpointAttributes.RESPONSE_HAS_OUTPUT] = result.get("output") is not None
+
+            # Validated before it reaches the span: unlike the configured value, this one
+            # comes straight from the client's response and is written on every single
+            # invocation, so an unbounded object here would bloat telemetry per call.
+            reported_version = _serialize_version_info(result.get("version_info"))
+            if reported_version is not None:
+                attributes[EndpointAttributes.VERSION_INFO] = reported_version
 
             output = result.get("output")
             if output:

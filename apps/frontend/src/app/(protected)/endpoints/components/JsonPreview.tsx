@@ -44,6 +44,13 @@ export const OUTPUT_VARIABLES = [
     description:
       'Tool or function calls made during response generation. Available to metrics that evaluate tool use.',
   },
+  {
+    name: 'version_info',
+    label: '{{ version_info }}',
+    groupLabel: 'Version Information',
+    description:
+      'Version of the system under test (prompt version, model, parameters). Recorded on the test run, overriding the version configured on the endpoint.',
+  },
 ];
 
 // ── Token colours ─────────────────────────────────────────────────────────────

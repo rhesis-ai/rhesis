@@ -85,6 +85,16 @@ def create_test_run(
 
     snapshot_run_config(test_config=test_config, attributes=attributes)
 
+    # Record which version of the client's application this run tested, before the parameter
+    # snapshot copies ``attributes`` into its own merged dict.
+    from rhesis.backend.app.services.version_info import (
+        apply_version_snapshot_to_run_attributes,
+    )
+
+    apply_version_snapshot_to_run_attributes(
+        session, test_config=test_config, attributes=attributes
+    )
+
     from rhesis.backend.app.services.experiment import apply_parameter_snapshot_to_run_attributes
 
     snapshot = apply_parameter_snapshot_to_run_attributes(

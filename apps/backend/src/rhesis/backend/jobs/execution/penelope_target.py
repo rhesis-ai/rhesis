@@ -117,6 +117,10 @@ class BackendEndpointTarget(Target):
         self._endpoint = endpoint
         self._deferred_traces: list = []
         self._current_trace_id: Optional[str] = None
+        # First version the endpoint reported across the conversation. Collected off the
+        # target the same way _deferred_traces is, because the Penelope trace that becomes
+        # test_output is built from the agent's result, not from the mapped response.
+        self.reported_version_info: Optional[Dict[str, Any]] = None
 
         self._endpoint_name = None
         self._endpoint_url = None
@@ -217,9 +221,12 @@ class BackendEndpointTarget(Target):
             )
         return None
 
-    @staticmethod
-    def _extract_response_metadata(response_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract optional fields (metadata, context, tool_calls) from a response dict."""
+    def _extract_response_metadata(self, response_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract optional fields (metadata, context, tool_calls, version_info).
+
+        Not a staticmethod: it is the one point both the sync and async send paths pass
+        through, so it is also where the endpoint's reported version is captured.
+        """
         metadata: Dict[str, Any] = {}
         if response_data.get("metadata") is not None:
             metadata["endpoint_metadata"] = response_data["metadata"]
@@ -227,6 +234,12 @@ class BackendEndpointTarget(Target):
             metadata["context"] = response_data["context"]
         if response_data.get("tool_calls"):
             metadata["tool_calls"] = response_data["tool_calls"]
+
+        version_info = response_data.get("version_info")
+        if isinstance(version_info, dict) and version_info:
+            metadata["version_info"] = version_info
+            if self.reported_version_info is None:
+                self.reported_version_info = version_info
         return metadata
 
     def send_message(

@@ -38,7 +38,10 @@ Generate two mappings to integrate this function with Rhesis:
    - Use JSONPath for nested values: {% raw %}`$.field.path`{% endraw %}
    - Use Jinja2 for simple fields: {% raw %}`{{ field }}`{% endraw %}
    - Combine with jsonpath() function: {% raw %}`{{ jsonpath('$.nested.value') or 'default' }}`{% endraw %}
-   - Map to: output (required), session_id, context, metadata, tool_calls (as applicable)
+   - Map to: output (required), session_id, context, metadata, tool_calls, version_info (as applicable)
+   - version_info: only when a field describes the version of the system itself (prompt
+     version, model, build). It must resolve to an object, so do not map a bare version
+     string, and do not map an API or schema version
    - Example: {% raw %}`{"output": "{{ response }}", "session_id": "$.conversation_id", "metadata": "$.meta"}`{% endraw %}
    - Example complex: {% raw %}`{"output": "{{ jsonpath('$.text') or jsonpath('$.result') or jsonpath('$.message') }}", "context": "$.documents"}`{% endraw %}
 
