@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Manual Test Writer | Rhesis AI',
+  title: 'Manual Test Writer',
 };
 
 export default function NewTestLayout({

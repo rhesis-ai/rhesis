@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { cache } from 'react';
 import { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
@@ -52,7 +53,14 @@ import { type Organization } from '../utils/api-client/interfaces/organization';
 import { type UserSettings } from '../utils/api-client/interfaces/user';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
-import { getServerBranding, type BrandFont } from '../config/branding';
+import {
+  getServerBranding,
+  resolveBranding,
+  brandFontFileName,
+  brandFontUrl,
+  brandFontWeights,
+  type BrandFont,
+} from '../config/branding';
 import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
@@ -95,48 +103,79 @@ html[data-theme-mode='${mode}'],html[data-theme-mode='${mode}'] body{background-
   )
   .join('\n');
 
+/** Extension → the `format()` hint browsers use to skip formats they can't read. */
+const FONT_FORMATS: Record<string, string> = {
+  '.ttf': 'truetype',
+  '.otf': 'opentype',
+  '.woff': 'woff',
+  '.woff2': 'woff2',
+};
+
 function buildFontFaceCss(font: BrandFont): string {
-  const weights = ['300', '400', '700'];
-  return weights
-    .map(
-      w =>
-        `@font-face{font-family:"${font.family}";font-weight:${w};font-style:normal;font-display:swap;src:url("/brand-fonts/${font.slug}-${w}.ttf") format("truetype")}`
-    )
+  return brandFontWeights(font)
+    .map(w => {
+      const file = brandFontFileName(font, w);
+      const format =
+        FONT_FORMATS[file.slice(file.lastIndexOf('.'))] ?? 'truetype';
+      return `@font-face{font-family:"${font.family}";font-weight:${w};font-style:normal;font-display:swap;src:url("${brandFontUrl(font, w)}") format("${format}")}`;
+    })
     .join('\n');
 }
 
+/**
+ * The session, resolved once per request.
+ *
+ * Wrapped for the same reason as `getRequestOrganization` below, and because
+ * that function has to take no arguments: `cache()` keys on argument identity,
+ * and `auth()` hands back a fresh object each call, so passing the session in
+ * would miss the cache every time and re-fetch the organisation.
+ */
+const getRequestSession = cache(
+  async (): Promise<Session | null> => auth().catch(() => null)
+);
+
+/**
+ * The caller's organisation, fetched once per request.
+ *
+ * `cache()` is what makes this safe to call from both `generateMetadata` and
+ * the layout body: Next renders them in the same request, so the second call
+ * returns the first one's result instead of issuing a second backend round
+ * trip. Without it, adding org branding to the metadata would have doubled the
+ * organisation lookups on every page.
+ *
+ * Returns null rather than throwing on failure — branding then falls back to
+ * the deployment env vars, which is the right outcome for a transient backend
+ * error. Losing the organisation's colours is survivable; a 500 on the root
+ * layout is not.
+ */
+const getRequestOrganization = cache(async (): Promise<Organization | null> => {
+  const session = await getRequestSession();
+  if (!session?.user?.organization_id || session.error) return null;
+  try {
+    const clientFactory = await createServerApiFactory();
+    return await clientFactory
+      .getOrganizationsClient()
+      .getOrganization(session.user.organization_id);
+  } catch {
+    return null;
+  }
+});
+
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(
-  session: Session | null,
-  // Only a fallback: the real organisation name replaces it below whenever the
-  // lookup succeeds. It matters on the paths where it can't — no session yet, or
-  // the request failed — since that is where a branded deployment would
+  organization: Organization | null,
+  // Only a fallback: the real organisation name replaces it whenever the
+  // lookup succeeded. It matters on the paths where it can't — no session yet,
+  // or the request failed — since that is where a branded deployment would
   // otherwise flash "Rhesis AI" in its sidebar.
   fallbackName: string
 ): Promise<{
   items: NavigationItem[];
   organizationName: string;
-  organization: Organization | null;
 }> {
   'use server';
 
-  let organizationName = fallbackName;
-  let organization: Organization | null = null;
-
-  if (session?.user?.organization_id && !session.error) {
-    try {
-      const clientFactory = await createServerApiFactory();
-      organization = await clientFactory
-        .getOrganizationsClient()
-        .getOrganization(session.user.organization_id);
-      if (organization?.name) {
-        organizationName = organization.name;
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Unauthorized')) {
-      }
-    }
-  }
+  const organizationName = organization?.name || fallbackName;
 
   const navItems = [
     {
@@ -317,17 +356,21 @@ async function getNavigationItems(
   return {
     items: navItems as NavigationItem[],
     organizationName,
-    organization,
   };
 }
 
 /**
  * A function rather than a static `metadata` object so the favicon and product
- * name are resolved per request from the environment, letting one image serve
- * deployments with different branding.
+ * name are resolved per request — from the caller's organisation first, then
+ * the environment — letting one image serve deployments, and one deployment
+ * serve organisations, with different branding.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const { faviconUrl, productName, isDefaultProductName } = getServerBranding();
+  const organization = await getRequestOrganization();
+  const { faviconUrl, productName, isDefaultProductName } = resolveBranding(
+    getServerBranding(),
+    organization?.organization_settings?.branding
+  );
 
   return {
     title: {
@@ -352,7 +395,7 @@ const AUTHENTICATION: AuthenticationProps = {
 };
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
-  const session = await auth().catch(() => null);
+  const session = await getRequestSession();
   // Only an explicit choice pins the mode. When the cookie is absent we leave
   // `data-theme-mode` off the <html> element so the pre-paint script below can
   // resolve it from the browser's `prefers-color-scheme` — stamping 'light'
@@ -366,21 +409,28 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   // vars carry no `NEXT_PUBLIC_` prefix — see `config/branding.ts`. Reading it
   // on the server and passing it down as props also keeps the server-rendered
   // markup and the hydrated tree in agreement.
+  //
+  // `getRequestOrganization` was already awaited by `generateMetadata` on this
+  // request, so this is a cache hit, not a second fetch.
+  const organization = await getRequestOrganization();
   const deploymentBranding = getServerBranding();
+  const branding = resolveBranding(
+    deploymentBranding,
+    organization?.organization_settings?.branding
+  );
 
   // Get navigation with dynamic organization name
-  const {
-    items: navigation,
-    organizationName,
+  const { items: navigation, organizationName } = await getNavigationItems(
     organization,
-  } = await getNavigationItems(session, deploymentBranding.productName);
+    branding.productName
+  );
 
-  const branding: BrandingProps = {
+  const brandingProps: BrandingProps = {
     title: organizationName,
-    logo: <ThemeAwareLogo productName={deploymentBranding.productName} />,
-    iconUrl: deploymentBranding.faviconUrl,
-    productName: deploymentBranding.productName,
-    fontFamily: deploymentBranding.font?.family,
+    logo: <ThemeAwareLogo productName={branding.productName} />,
+    iconUrl: branding.faviconUrl,
+    productName: branding.productName,
+    fontFamily: branding.font?.family,
     homeUrl: '/architect',
   };
   // Empty when `API_BASE_URL` is unset or blank — whichever of Helm,
@@ -388,11 +438,22 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   // `getClientApiBaseUrl()` throws instead of silently using localhost;
   // a deployed frontend would otherwise point `/auth/*` at the visitor's
   // own machine.
+  //
+  // The branding here is the *deployment's*, before any organisation override
+  // — the opposite of everything else on this page, which uses the resolved
+  // value. The settings form needs it to show what an empty field inherits,
+  // and it cannot read `BRAND_*` itself: those carry no `NEXT_PUBLIC_` prefix,
+  // so in a client bundle every read compiles to `undefined`. Env vars do not
+  // change at runtime, so this never goes stale.
   const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
     apiBaseUrl: process.env.API_BASE_URL || '',
-    brandPrimaryColor: deploymentBranding.primaryColor,
-    brandFaviconUrl: deploymentBranding.faviconUrl,
-    brandProductName: deploymentBranding.productName,
+    deploymentBranding: {
+      primaryColor: deploymentBranding.primaryColor,
+      secondaryColor: deploymentBranding.secondaryColor,
+      faviconUrl: deploymentBranding.faviconUrl,
+      productName: deploymentBranding.productName,
+      fontFamily: deploymentBranding.font?.family,
+    },
   }).replace(/</g, '\\u003c')};`;
 
   // Fetch the active project, and the full member-project list for the
@@ -464,18 +525,18 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           id="rhesis-theme-mode-paint"
           dangerouslySetInnerHTML={{ __html: THEME_MODE_STYLE }}
         />
-        {deploymentBranding.font?.source === 'google' && (
+        {branding.font?.source === 'google' && (
           <link
             rel="stylesheet"
-            href={deploymentBranding.font.googleHref}
+            href={branding.font.googleHref}
             crossOrigin="anonymous"
           />
         )}
-        {deploymentBranding.font?.source === 'custom' && (
+        {branding.font && branding.font.source !== 'google' && (
           <style
             id="rhesis-brand-font"
             dangerouslySetInnerHTML={{
-              __html: buildFontFaceCss(deploymentBranding.font),
+              __html: buildFontFaceCss(branding.font),
             }}
           />
         )}
@@ -485,15 +546,15 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           disableTransitionOnChange
           initialMode={storedThemeMode ?? 'light'}
           brandColors={{
-            primary: deploymentBranding.primaryColor,
-            secondary: deploymentBranding.secondaryColor,
-            fontFamily: deploymentBranding.font?.family,
+            primary: branding.primaryColor,
+            secondary: branding.secondaryColor,
+            fontFamily: branding.font?.family,
           }}
         >
           <LayoutContent
             session={session}
             navigation={navigation}
-            branding={branding}
+            branding={brandingProps}
             authentication={AUTHENTICATION}
             initialActiveProject={initialActiveProject}
             initialProjects={initialProjects}

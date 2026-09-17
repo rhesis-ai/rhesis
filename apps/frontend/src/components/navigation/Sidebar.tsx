@@ -847,7 +847,7 @@ export function Sidebar() {
       >
         {/* White rounded card for external footer links (Star Rhesis, Support),
             headed by the current plan */}
-        {footerGroup && footerGroup.items.length > 0 && !collapsed && (
+        {footerGroup && footerGroup.items.length > 0 && (
           <Box
             sx={{
               bgcolor: theme =>
@@ -856,9 +856,10 @@ export function Sidebar() {
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
+              alignItems: collapsed ? 'center' : 'stretch',
             }}
           >
-            <SidebarPlanRow />
+            <SidebarPlanRow collapsed={collapsed} />
             {footerGroup.items.map(item => (
               <NavLinkItem
                 key={`footer-${item.title}`}
