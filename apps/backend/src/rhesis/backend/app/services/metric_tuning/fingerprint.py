@@ -1,7 +1,7 @@
 """Whether a run's numbers still belong to the metric on screen.
 
 Applying an improvement rewrites the evaluation prompt every verdict in the run
-came from. The reviews stay -- they are human words, and the per-case
+came from. The annotations stay -- they are human words, and the per-case
 material-change rule re-checks each one on the next run -- but the agreement
 number stops describing the metric it sits under, so the run has to be able to
 say it predates it (domain.local/adr/0006).

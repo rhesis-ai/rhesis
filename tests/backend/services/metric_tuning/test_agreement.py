@@ -15,7 +15,7 @@ from rhesis.backend.app.services.metric_tuning.agreement import agreement_over
 ACCEPTED = TuningCaseOutcome.ACCEPTED
 REJECTED = TuningCaseOutcome.REJECTED
 ERRORED = TuningCaseOutcome.ERRORED
-UNREVIEWED = TuningCaseOutcome.UNREVIEWED
+UNANNOTATED = TuningCaseOutcome.UNANNOTATED
 
 
 @pytest.mark.unit
@@ -39,13 +39,13 @@ class TestTheRatio:
 
 @pytest.mark.unit
 class TestWhatIsLeftOutOfTheDenominator:
-    def test_an_unreviewed_case_is_not_counted_as_accepted(self):
+    def test_an_unannotated_case_is_not_counted_as_accepted(self):
         """The shortcut that makes a set nobody looked at report itself perfect."""
-        agreement = agreement_over([ACCEPTED, UNREVIEWED, UNREVIEWED])
+        agreement = agreement_over([ACCEPTED, UNANNOTATED, UNANNOTATED])
 
         assert agreement.ratio == 1.0
         assert agreement.judged == 1
-        assert agreement.unreviewed == 2
+        assert agreement.unannotated == 2
 
     def test_an_errored_case_is_not_counted_as_rejected(self):
         """The shortcut that makes a flaky provider read as a bad metric."""
@@ -56,7 +56,7 @@ class TestWhatIsLeftOutOfTheDenominator:
         assert agreement.errored == 2
 
     def test_nothing_judged_has_no_agreement_rather_than_full_agreement(self):
-        agreement = agreement_over([UNREVIEWED, UNREVIEWED, ERRORED])
+        agreement = agreement_over([UNANNOTATED, UNANNOTATED, ERRORED])
 
         assert agreement.ratio is None
         assert agreement.judged == 0
@@ -66,7 +66,7 @@ class TestWhatIsLeftOutOfTheDenominator:
 
         assert agreement.ratio is None
         assert agreement.judged == 0
-        assert agreement.unreviewed == 0
+        assert agreement.unannotated == 0
         assert agreement.errored == 0
 
 
@@ -74,20 +74,20 @@ class TestWhatIsLeftOutOfTheDenominator:
 class TestTheCountsBesideIt:
     def test_every_case_lands_in_exactly_one_count(self):
         """The four never collapse into fewer, and none of them double-count."""
-        outcomes = [ACCEPTED, ACCEPTED, REJECTED, UNREVIEWED, ERRORED]
+        outcomes = [ACCEPTED, ACCEPTED, REJECTED, UNANNOTATED, ERRORED]
 
         agreement = agreement_over(outcomes)
 
         assert agreement.accepted == 2
         assert agreement.rejected == 1
-        assert agreement.unreviewed == 1
+        assert agreement.unannotated == 1
         assert agreement.errored == 1
         assert (
-            agreement.accepted + agreement.rejected + agreement.unreviewed + agreement.errored
+            agreement.accepted + agreement.rejected + agreement.unannotated + agreement.errored
             == len(outcomes)
         )
 
     def test_judged_is_the_denominator_and_nothing_else(self):
-        agreement = agreement_over([ACCEPTED, REJECTED, UNREVIEWED, ERRORED])
+        agreement = agreement_over([ACCEPTED, REJECTED, UNANNOTATED, ERRORED])
 
         assert agreement.judged == 2

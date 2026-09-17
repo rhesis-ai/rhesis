@@ -2296,6 +2296,9 @@ export default function ExplorerDetail({
       labeler: data.labeler || 'user',
       to_eval: data.to_eval ?? true,
       model_score: data.model_score ?? 0,
+      // The server writes the annotation; until it answers, the optimistic row
+      // shows the label without claiming anyone has been recorded as its author.
+      annotations_count: 0,
     };
 
     // Optimistically add to local state
@@ -2374,6 +2377,7 @@ export default function ExplorerDetail({
       labeler: 'user',
       to_eval: true,
       model_score: 0,
+      annotations_count: 0,
     };
 
     setTests(prev => [optimisticTest, ...prev]);
@@ -2513,13 +2517,22 @@ export default function ExplorerDetail({
     const clientFactory = new ApiClientFactory();
     const client = clientFactory.getExplorerClient();
 
-    client.updateTest(testSetId, testId, data).catch(() => {
-      // Rollback on error
-      setTests(prev => prev.map(t => (t.id === testId ? previousTest : t)));
-      notifications.show('Failed to update test. Change has been reverted.', {
-        severity: 'error',
+    client
+      .updateTest(testSetId, testId, data)
+      // Swap in what the server answered rather than keeping the optimistic
+      // merge: a label is an annotation now, so the server is the only thing
+      // that knows the resulting labeler and annotation count. Guessing them
+      // here would credit a person's label to whichever metric labelled it last.
+      .then(updated =>
+        setTests(prev => prev.map(t => (t.id === testId ? updated : t)))
+      )
+      .catch(() => {
+        // Rollback on error
+        setTests(prev => prev.map(t => (t.id === testId ? previousTest : t)));
+        notifications.show('Failed to update test. Change has been reverted.', {
+          severity: 'error',
+        });
       });
-    });
   };
 
   const handleDropTestOnTopic = useCallback(

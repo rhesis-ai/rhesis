@@ -1,9 +1,9 @@
-"""Unit tests for material-change invalidation of tuning reviews.
+"""Unit tests for material-change invalidation of tuning annotations.
 
-A review judges one verdict; the next run produces another. These tests pin down
-when the two count as the same decision -- the bucket, not the string -- and that
-every case where no bucket can be derived falls back to exact equality rather
-than to "the review stands".
+An annotation judges one verdict; the next run produces another. These tests pin
+down when the two count as the same decision -- the bucket, not the string -- and
+that every case where no bucket can be derived falls back to exact equality
+rather than to "the annotation stands".
 
 Pure function, so the metric is a plain unsaved ``models.Metric``: no database.
 
@@ -14,7 +14,7 @@ import pytest
 
 from rhesis.backend.app import models
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
-from rhesis.backend.app.services.metric_tuning.material_change import review_still_stands
+from rhesis.backend.app.services.metric_tuning.material_change import annotation_still_stands
 
 
 def numeric_metric(threshold=0.5, operator=ThresholdOperator.GREATER_THAN_OR_EQUAL):
@@ -40,7 +40,7 @@ def binary_metric():
 
 
 def stands(metric, judged, current, judged_score_type=None):
-    return review_still_stands(
+    return annotation_still_stands(
         metric,
         judged,
         judged_score_type if judged_score_type is not None else metric.score_type,
@@ -169,17 +169,17 @@ class TestScoreTypeChange:
 
         assert stands(metric, "0.8", "0.8", judged_score_type=ScoreType.CATEGORICAL.value) is False
 
-    def test_a_review_with_no_recorded_score_type_invalidates(self):
+    def test_an_annotation_with_no_recorded_score_type_invalidates(self):
         metric = numeric_metric(threshold=0.5)
 
-        assert review_still_stands(metric, "0.8", None, "0.8") is False
+        assert annotation_still_stands(metric, "0.8", None, "0.8") is False
 
 
 @pytest.mark.unit
 class TestMissingVerdicts:
     @pytest.mark.parametrize("current", [None, "", "   "])
     def test_no_current_verdict_invalidates(self, current):
-        """Nothing is standing there for the review to have judged."""
+        """Nothing is standing there for the annotation to have judged."""
         assert stands(numeric_metric(), "0.79", current) is False
 
     @pytest.mark.parametrize("judged", [None, "", "   "])

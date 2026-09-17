@@ -11,7 +11,7 @@ def test_gitlab_provider_template_renders_valid_config():
     assert factory.config_dict is not None
     server = factory.config_dict["mcpServers"]["gitlab"]
     assert server["command"] == "npx"
-    assert "@zereight/mcp-gitlab" in server["args"]
+    assert "@zereight/mcp-gitlab@2.1.63" in server["args"]
     assert "@latest" not in " ".join(server["args"])
     assert server["env"]["GITLAB_PERSONAL_ACCESS_TOKEN"] == "glpat_test_token_123"
     assert server["env"]["GITLAB_API_URL"] == "https://gitlab.com/api/v4"

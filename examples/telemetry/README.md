@@ -221,9 +221,19 @@ uv sync --extra llamaindex
 # Install with CrewAI support
 uv sync --extra crewai
 
+# Install with Google ADK support
+uv sync --extra google-adk
+
 # Install with Haystack support
 uv sync --extra haystack
 ```
+
+**`crewai` and `google-adk` cannot be installed together.** CrewAI pins `google-genai` below the
+version Google ADK requires, so there is no set of versions that satisfies both. Install whichever
+one the example you are running needs. `pyproject.toml` declares this to `uv` under
+`[tool.uv] conflicts`, but that key is uv-specific. A resolver that ignores it, such as `pip`, will
+not report a conflict; it backtracks to an old CrewAI that predates the patched `json-repair`, which
+is what `uv` itself did before the `conflicts` entry was added.
 
 ## Prerequisites - Start the Backend
 

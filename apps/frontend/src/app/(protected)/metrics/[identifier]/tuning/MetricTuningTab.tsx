@@ -74,7 +74,7 @@ const ACCEPTED_HINT = 'You accepted this verdict. Press again to re-accept it.';
 const REJECTED_HINT = 'You rejected this verdict.';
 
 const INVALIDATED_HINT =
-  "The metric's verdict crossed its threshold, or its score type changed, since this case was reviewed — the old judgement no longer applies, so it needs a fresh look.";
+  "The metric's verdict crossed its threshold, or its score type changed, since this case was judged — the old judgement no longer applies, so it needs a fresh look.";
 
 const ERRORED_HINT =
   'The metric call failed for this case, so there is no verdict to judge.';
@@ -204,7 +204,7 @@ const MARK_SET_SX = {
  * They stay on a judged row on purpose — reading a case and re-judging it are
  * the same moment, and a mis-click has to be correctable where it happened.
  */
-function ReviewCell({
+function AnnotationCell({
   params,
   canEdit,
   onAccept,
@@ -216,7 +216,7 @@ function ReviewCell({
   onReject: (tuningCase: MetricTuningCase) => void;
 }) {
   const tuningCase = params.row as MetricTuningCase;
-  const { result, outcome, review } = tuningCase;
+  const { result, outcome, annotation } = tuningCase;
 
   if (!result) return <span>—</span>;
 
@@ -232,7 +232,7 @@ function ReviewCell({
 
   const accepted = outcome === 'accepted';
   const rejected = outcome === 'rejected';
-  const invalidated = tuningCase.unreviewed_reason === 'invalidated';
+  const invalidated = tuningCase.unannotated_reason === 'invalidated';
 
   if (!canEdit || !result.verdict) {
     // Read-only: the mark alone, since there is no button to be the state.
@@ -243,7 +243,7 @@ function ReviewCell({
           <CheckIcon fontSize="small" color="success" sx={MARK_SET_SX} />
         )}
         {rejected && (
-          <Tooltip title={review?.comment ?? ''}>
+          <Tooltip title={annotation?.comment ?? ''}>
             <CloseIcon fontSize="small" color="error" sx={MARK_SET_SX} />
           </Tooltip>
         )}
@@ -275,7 +275,7 @@ function ReviewCell({
       <Tooltip
         title={
           rejected
-            ? (review?.comment ?? REJECTED_HINT)
+            ? (annotation?.comment ?? REJECTED_HINT)
             : 'The metric got this wrong — say why'
         }
       >
@@ -297,14 +297,14 @@ function ReviewCell({
   );
 }
 
-/** Says a review was taken away, which is not the same as never having one. */
+/** Says a judgement was taken away, which is not the same as never having one. */
 function InvalidatedMark() {
   return (
     <Tooltip title={INVALIDATED_HINT}>
       <WarningAmberIcon
         fontSize="small"
         color="warning"
-        aria-label="Review invalidated"
+        aria-label="Annotation invalidated"
       />
     </Tooltip>
   );
@@ -314,7 +314,7 @@ function InvalidatedMark() {
  * The metric's agreement, and the counts that stop it being read as more than
  * it is.
  *
- * The denominator is the whole point. Unreviewed and errored cases are counted
+ * The denominator is the whole point. Unannotated and errored cases are counted
  * out of the ratio and reported in their own tile: counting either one in
  * produces a plausible figure meaning something other than what its reader
  * thinks — a set nobody looked at reading as perfect, or a flaky provider
@@ -322,12 +322,12 @@ function InvalidatedMark() {
  * reason, so three out of three does not read like a solved problem.
  */
 function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
-  const { ratio, judged, accepted, rejected, unreviewed, errored } = agreement;
-  const total = judged + unreviewed + errored;
+  const { ratio, judged, accepted, rejected, unannotated, errored } = agreement;
+  const total = judged + unannotated + errored;
   const percent = ratio === null ? null : Math.round(ratio * 100);
 
   const outstanding = [
-    unreviewed > 0 ? `${unreviewed} unreviewed` : null,
+    unannotated > 0 ? `${unannotated} unannotated` : null,
     errored > 0 ? `${errored} the metric could not be reached on` : null,
   ].filter(Boolean);
 
@@ -507,7 +507,7 @@ export interface MetricTuningTabProps {
 }
 
 /**
- * Experimental: a metric's own set of cases, runs over them, and the reviews.
+ * Experimental: a metric's own set of cases, runs over them, and the judgements.
  *
  * Each case is an input plus the answer the metric has to judge — it records no
  * expected verdict, because nothing is compared for equality. Pressing Run
@@ -673,7 +673,7 @@ export default function MetricTuningTab({
     [metricId, notifications]
   );
 
-  // Agreement is derived from the reviews, so judging a case moves it without a
+  // Agreement is derived from the annotations, so judging a case moves it without a
   // run. Re-read rather than recomputed here: one fold, on the server, is what
   // stops the number and the rows it is folded from ever disagreeing.
   const refreshRun = useCallback(async () => {
@@ -681,11 +681,11 @@ export default function MetricTuningTab({
       const client = new ApiClientFactory().getMetricTuningClient();
       setRun(await client.getTuningRun(metricId));
     } catch {
-      // The line keeps its last value; the next review or poll corrects it.
+      // The line keeps its last value; the next judgement or poll corrects it.
     }
   }, [metricId]);
 
-  /** Swaps in the case the review endpoint returns, leaving the rest alone. */
+  /** Swaps in the case the annotate endpoint returns, leaving the rest alone. */
   const replaceCase = useCallback((updated: MetricTuningCase) => {
     setCases(prev =>
       prev.map(c => (String(c.id) === String(updated.id) ? updated : c))
@@ -697,7 +697,7 @@ export default function MetricTuningTab({
       try {
         const client = new ApiClientFactory().getMetricTuningClient();
         replaceCase(
-          await client.reviewTuningCase(metricId, tuningCase.id, {
+          await client.annotateTuningCase(metricId, tuningCase.id, {
             decision: 'accepted',
           })
         );
@@ -705,8 +705,8 @@ export default function MetricTuningTab({
       } catch (error) {
         notifications.show(
           error instanceof Error
-            ? `Failed to save the review: ${error.message}`
-            : 'Failed to save the review',
+            ? `Failed to save the annotation: ${error.message}`
+            : 'Failed to save the annotation',
           { severity: 'error', autoHideDuration: 6000 }
         );
       }
@@ -721,7 +721,7 @@ export default function MetricTuningTab({
       if (!rejecting) return;
       const client = new ApiClientFactory().getMetricTuningClient();
       replaceCase(
-        await client.reviewTuningCase(metricId, rejecting.id, {
+        await client.annotateTuningCase(metricId, rejecting.id, {
           decision: 'rejected',
           comment,
         })
@@ -737,7 +737,7 @@ export default function MetricTuningTab({
       const client = new ApiClientFactory().getMetricTuningClient();
       setCases(await client.acceptRemainingTuningCases(metricId));
       await refreshRun();
-      notifications.show('Accepted every case left unreviewed', {
+      notifications.show('Accepted every case left unannotated', {
         severity: 'success',
         autoHideDuration: 4000,
       });
@@ -764,7 +764,7 @@ export default function MetricTuningTab({
       const client = new ApiClientFactory().getMetricTuningClient();
       // The dialog opens on the answer, not on the click — there is nothing to
       // show until the rewrite is back, and no cancelling a call this short.
-      setImprovement(await client.improveFromReviews(metricId));
+      setImprovement(await client.improveFromAnnotations(metricId));
     } catch (error) {
       notifications.show(
         error instanceof Error
@@ -878,20 +878,20 @@ export default function MetricTuningTab({
       }
     }
 
-    const reviewColumns: GridColDef[] = hasResults
+    const annotationColumns: GridColDef[] = hasResults
       ? [
           {
-            field: 'review',
-            headerName: 'Review',
+            field: 'annotation',
+            headerName: 'Annotation',
             width: 120,
             flex: 0,
-            // The cell reads `outcome`, `review` and `result` together.
+            // The cell reads `outcome`, `annotation` and `result` together.
             sortable: false,
             disableColumnMenu: true,
             align: 'center',
             headerAlign: 'center',
             renderCell: params => (
-              <ReviewCell
+              <AnnotationCell
                 params={params}
                 canEdit={canEdit}
                 onAccept={handleAccept}
@@ -905,7 +905,7 @@ export default function MetricTuningTab({
     return [
       ...caseColumns,
       ...runColumns,
-      ...reviewColumns,
+      ...annotationColumns,
       createRowActionsColumn({
         canEdit: () => canEdit,
         canDelete: () => canEdit,
@@ -949,14 +949,14 @@ export default function MetricTuningTab({
           ...(hasReasoning ? [{ field: 'metric_reasoning' }] : []),
         ],
       });
-      // No group over the review column: a band reading "Review" above a column
-      // reading "Review" labels one thing twice.
+      // No group over the annotation column: a band reading "Annotation" above a
+      // column reading "Annotation" labels one thing twice.
     }
     return groups;
   }, [hasReferenceAnswer, hasReasoning, hasResults]);
 
-  const unreviewedWithVerdict = cases.some(
-    c => c.outcome === 'unreviewed' && Boolean(c.result?.verdict)
+  const unannotatedWithVerdict = cases.some(
+    c => c.outcome === 'unannotated' && Boolean(c.result?.verdict)
   );
 
   const isRunning = run?.status === 'running';
@@ -1022,7 +1022,7 @@ export default function MetricTuningTab({
             variant="outlined"
             startIcon={<CheckIcon />}
             onClick={handleAcceptRest}
-            disabled={!unreviewedWithVerdict || acceptingRest}
+            disabled={!unannotatedWithVerdict || acceptingRest}
           >
             Accept the rest
           </Button>

@@ -1,5 +1,5 @@
-"""Metric tuning: a per-metric set of cases, runs over them, and reviews of what
-the metric said.
+"""Metric tuning: a per-metric set of cases, runs over them, and annotations of
+what the metric said.
 
 Each case is an (input, output) pair -- plus a reference answer where the metric
 needs one -- recording a situation the metric has to get right. It carries no
@@ -17,6 +17,12 @@ from rhesis.backend.app.services.metric_tuning.agreement import (
     agreement_over,
     get_agreement,
 )
+from rhesis.backend.app.services.metric_tuning.annotations import (
+    AnnotationCommentRequired,
+    NothingToAnnotate,
+    accept_remaining,
+    annotate_case,
+)
 from rhesis.backend.app.services.metric_tuning.cases import (
     create_tuning_case,
     delete_tuning_case,
@@ -32,7 +38,7 @@ from rhesis.backend.app.services.metric_tuning.fingerprint import (
 from rhesis.backend.app.services.metric_tuning.improve import (
     ImprovementUnavailable,
     NoStandingRejections,
-    improve_from_reviews,
+    improve_from_annotations,
     standing_rejections,
 )
 from rhesis.backend.app.services.metric_tuning.invoke import (
@@ -41,14 +47,8 @@ from rhesis.backend.app.services.metric_tuning.invoke import (
     resolve_metric_model,
     verdict_from_score,
 )
-from rhesis.backend.app.services.metric_tuning.material_change import review_still_stands
-from rhesis.backend.app.services.metric_tuning.outcome import case_outcome, standing_review
-from rhesis.backend.app.services.metric_tuning.reviews import (
-    NothingToReview,
-    ReviewCommentRequired,
-    accept_remaining,
-    review_case,
-)
+from rhesis.backend.app.services.metric_tuning.material_change import annotation_still_stands
+from rhesis.backend.app.services.metric_tuning.outcome import case_outcome, standing_annotation
 from rhesis.backend.app.services.metric_tuning.runs import (
     NoTuningCases,
     TuningRunInFlight,
@@ -70,15 +70,17 @@ from rhesis.backend.app.services.metric_tuning.test_sets import (
 __all__ = [
     "STALE_RUN_AFTER",
     "STALE_RUN_MESSAGE",
+    "AnnotationCommentRequired",
     "ImprovementUnavailable",
     "MetricModelNotConfigured",
     "NoStandingRejections",
     "NoTuningCases",
-    "NothingToReview",
-    "ReviewCommentRequired",
+    "NothingToAnnotate",
     "TuningRunInFlight",
     "accept_remaining",
     "agreement_over",
+    "annotate_case",
+    "annotation_still_stands",
     "case_outcome",
     "create_tuning_case",
     "delete_tuning_case",
@@ -89,17 +91,15 @@ __all__ = [
     "get_tuning_case",
     "get_tuning_run",
     "get_tuning_test_set",
-    "improve_from_reviews",
+    "improve_from_annotations",
     "invoke_metric_on_case",
     "list_tuning_cases",
     "metric_fingerprint",
     "resolve_metric_model",
-    "review_case",
-    "review_still_stands",
     "run_is_stale",
     "run_predates_metric",
+    "standing_annotation",
     "standing_rejections",
-    "standing_review",
     "start_tuning_run",
     "to_api",
     "update_tuning_case",

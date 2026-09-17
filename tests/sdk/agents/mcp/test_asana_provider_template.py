@@ -11,7 +11,7 @@ def test_asana_provider_template_renders_valid_config():
     assert factory.config_dict is not None
     server = factory.config_dict["mcpServers"]["asana"]
     assert server["command"] == "npx"
-    assert server["args"][1] == "@roychri/mcp-server-asana"
+    assert server["args"][1] == "@roychri/mcp-server-asana@1.8.0"
     assert "@latest" not in " ".join(server["args"])
     assert server["env"]["ASANA_ACCESS_TOKEN"] == "asana_test_token_123"
 

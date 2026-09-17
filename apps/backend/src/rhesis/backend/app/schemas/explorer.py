@@ -2,7 +2,7 @@
 
 import uuid
 from functools import cached_property
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, computed_field
 
@@ -22,12 +22,19 @@ class TestTreeNode(BaseModel):
     topic: str = ""
     input: str = ""
     output: str = ""
-    # "error" is written by the evaluation path when a metric raises.
+    # The effective label: a person's annotation where there is one, otherwise the
+    # metric's own verdict from the metadata. "error" is written by the evaluation
+    # path when a metric raises. ``labeler`` says which of the two this is.
     label: ExplorerLabel = ""
     labeler: str = ""
     to_eval: bool = True
     model_score: float = 0.0
     metrics: Optional[Dict[str, ExplorerMetricEvalDetail]] = None
+    # How many people have labelled this test, and the newest of those labels.
+    # Both absent for a node nobody has annotated, so the tree can show the
+    # indicator without a second request.
+    annotations_count: int = 0
+    last_annotation: Optional[Dict[str, Any]] = None
 
 
 class TopicNode(BaseModel):

@@ -11,7 +11,7 @@ def test_shortcut_provider_template_renders_valid_config():
     assert factory.config_dict is not None
     server = factory.config_dict["mcpServers"]["shortcut"]
     assert server["command"] == "npx"
-    assert server["args"][1] == "@shortcut/mcp"
+    assert server["args"][1] == "@shortcut/mcp@0.25.0"
     assert "@latest" not in " ".join(server["args"])
     assert server["env"]["SHORTCUT_API_TOKEN"] == "sc_test_token_123"
 

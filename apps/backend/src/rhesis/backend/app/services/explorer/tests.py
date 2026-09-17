@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -13,6 +13,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.crud import explorer as crud_explorer
 from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.crud import test_set as test_set_crud
+from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.explorer import (
     ExportExplorerTestSetResponse,
@@ -29,6 +30,12 @@ from rhesis.backend.app.services.explorer.embeddings import (
     create_test_embedding,
     generate_embedding_vector,
     load_test_for_embedding,
+)
+from rhesis.backend.app.services.explorer.labels import (
+    HUMAN_LABELER,
+    effective_label,
+    is_human_label,
+    set_label,
 )
 from rhesis.backend.app.services.explorer.topics import create_topic_node
 from rhesis.backend.app.services.explorer.utils import _db_test_to_node, build_test_tree
@@ -307,8 +314,17 @@ class _TestCopy:
     model_score: float
 
 
-def _parse_test_for_copy(db_test: models.Test, default_labeler: str) -> Optional[_TestCopy]:
+def _parse_test_for_copy(
+    db_test: models.Test,
+    default_labeler: str,
+    annotations: Sequence[models.Annotation] = (),
+) -> Optional[_TestCopy]:
     """Parse a source test into a ``_TestCopy``, or None if it can't be copied.
+
+    The copy carries the source's *effective* label -- a person's annotation
+    where there is one -- as plain metadata under ``default_labeler``. A copy is
+    not a judgement anybody made about the new test, so it must not arrive as an
+    annotation attributed to whoever labelled the original.
 
     Returns None for topic-marker rows and for tests with no prompt content
     (e.g. multi-turn-only); both are counted as skipped by the caller.
@@ -326,13 +342,19 @@ def _parse_test_for_copy(db_test: models.Test, default_labeler: str) -> Optional
     if db_test.topic is not None and getattr(db_test.topic, "name", None):
         topic_name = str(db_test.topic.name) or ""
 
+    label, labeler = effective_label(meta, annotations)
+
     return _TestCopy(
         content=content,
         topic_name=topic_name,
         topic_id=db_test.topic_id,
         output=meta.output if meta.output is not None else "",
-        label=meta.label if meta.label in ("", "pass", "fail") else "",
-        labeler=meta.labeler or default_labeler,
+        label=label if label in ("", "pass", "fail") else "",
+        # A human label loses its author on the way across: ``labeler`` becomes
+        # "imported" or "exported" rather than "user", so the copy never claims
+        # someone judged a test they have never seen. A metric's name survives.
+        # A blank labeler names nobody, the same as an absent one.
+        labeler=default_labeler if not labeler or labeler == HUMAN_LABELER else labeler,
         model_score=meta.model_score,
     )
 
@@ -372,8 +394,11 @@ def _copy_test_set_tests(
         if not items:
             break
 
+        annotations = get_annotations_for_tests(db, [item.id for item in items])
         for db_test in items:
-            test_copy = _parse_test_for_copy(db_test, default_labeler)
+            test_copy = _parse_test_for_copy(
+                db_test, default_labeler, annotations.get(db_test.id, ())
+            )
             if test_copy is None:
                 skipped += 1
                 skipped_test_ids.append(str(db_test.id))
@@ -688,7 +713,10 @@ def create_test_node(
     output : str
         Expected or actual output (default ``""``)
     labeler : str
-        Who labelled this test (default ``"user"``)
+        Who labelled this test (default ``"user"``). ``"user"`` means a person,
+        and the label becomes an annotation on the test rather than metadata;
+        anything else (a metric name, ``"imported"``) is a fact about where the
+        test came from and stays in the metadata. See ``explorer/labels.py``.
     label : str, optional
         Label: 'pass', 'fail', or '' (default ``""``)
     model_score : float
@@ -727,6 +755,11 @@ def create_test_node(
         else None
     )
 
+    # A person's label is an annotation, so it is kept out of the metadata rather
+    # than written to both places -- two copies of one label would disagree the
+    # first time either side changed.
+    human_label = is_human_label(label, labeler)
+
     # Create the prompt (input text) and the test record
     db_test = crud_explorer.create_explorer_test(
         db,
@@ -736,7 +769,7 @@ def create_test_node(
         content=input,
         metadata=ExplorerTestMetadata(
             output=output,
-            label=label,
+            label="" if human_label else label,
             labeler=labeler,
             model_score=model_score,
         ),
@@ -752,11 +785,16 @@ def create_test_node(
         user_id=user_id,
     )
 
+    if human_label:
+        set_label(db, db_test.id, label, organization_id, user_id)
+
     # Re-read so the relationships _db_test_to_node walks are loaded, and so the
     # association is confirmed to have landed.
     db_test = crud_explorer.get_test_in_test_set(db, test_set_id, db_test.id, organization_id)
 
-    node = _db_test_to_node(db_test)
+    node = _db_test_to_node(
+        db_test, get_annotations_for_tests(db, [db_test.id]).get(db_test.id, ())
+    )
 
     logger.info(f"Created test node in test_set={test_set_id} topic='{topic}'")
 
@@ -802,7 +840,9 @@ def update_test_node(
     output : str, optional
         New expected or actual output
     label : str, optional
-        New label (``"pass"``, ``"fail"``, or ``""``)
+        The caller's own label (``"pass"``, ``"fail"``, or ``""`` to clear it).
+        Written as an annotation on the test, not into the metadata, so it never
+        overwrites what a metric said -- see ``explorer/labels.py``.
     topic : str, optional
         New topic path (e.g. ``"Safety/Violence"``)
     model_score : float, optional
@@ -819,12 +859,12 @@ def update_test_node(
     if db_test is None:
         return None
 
-    # Update metadata fields (output, label, model_score)
+    # Update metadata fields (output, model_score). The label is not one of them:
+    # it belongs to whoever set it, and a metric's is the only kind the metadata
+    # holds.
     meta = parse_explorer_test_metadata(db_test.test_metadata)
     if output is not None:
         meta.output = output
-    if label is not None:
-        meta.label = label
     if model_score is not None:
         meta.model_score = model_score
 
@@ -855,7 +895,13 @@ def update_test_node(
         topic_id=topic_id,
     )
 
-    node = _db_test_to_node(db_test)
+    # Last, so the whole edit is one transaction whichever way the label went.
+    if label is not None:
+        set_label(db, db_test.id, label, organization_id, user_id)
+
+    node = _db_test_to_node(
+        db_test, get_annotations_for_tests(db, [db_test.id]).get(db_test.id, ())
+    )
 
     logger.info(f"Updated test node {test_id} in test_set={test_set_id}")
 

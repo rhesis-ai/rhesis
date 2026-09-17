@@ -1,4 +1,4 @@
-"""API shapes for metric tuning cases and the reviews of what a metric said.
+"""API shapes for metric tuning cases and the annotations of what a metric said.
 
 A tuning case is one situation a metric has to get right: an input, the answer
 being judged and -- where the metric needs one -- a reference answer. It records
@@ -9,12 +9,13 @@ rejects it with a comment (domain.local/adr/0005).
 
 The three case fields are the **case payload** -- what the metric is shown --
 stored together in ``prompt.content`` because a tuning case puts the metric in
-the system-under-test role (ADR-0003). Reviews are stored apart, in
-``test.test_metadata``, and are never shown to the metric.
+the system-under-test role (ADR-0003). The judgements are ``annotation`` rows on
+the case, and are never shown to the metric.
 
-``outcome`` and ``review`` are both derived on read. A review is only still
-standing while the metric's verdict has not materially changed under the metric's
-current threshold, which is a question that cannot be answered once and stored.
+``outcome`` and ``annotation`` are both derived on read. An annotation is only
+still standing while the metric's verdict has not materially changed under the
+metric's current threshold, which is a question that cannot be answered once and
+stored.
 """
 
 from datetime import datetime
@@ -24,14 +25,26 @@ from typing import List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.metric_tuning_metadata import ReviewDecision, TuningRunStatus
+from rhesis.backend.app.schemas.metric_tuning_metadata import TuningRunStatus
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
+
+
+class TuningDecision(str, Enum):
+    """What a reviewer said about the verdict a metric gave.
+
+    Carried on the wire as the decision the reviewer made, and stored as the
+    annotation's status -- ``accepted`` is the org's ``Accepted`` status row for
+    the ``Annotation`` entity type, ``rejected`` its ``Rejected`` one.
+    """
+
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
 
 
 class TuningCaseOutcome(str, Enum):
     """How one case stands after the latest run.
 
-    ``UNREVIEWED`` is never counted as accepted: a set nobody looked at must not
+    ``UNANNOTATED`` is never counted as accepted: a set nobody looked at must not
     report itself as perfect, and the cases an edit just broke must not read as
     successes until someone looks.
     """
@@ -40,12 +53,12 @@ class TuningCaseOutcome(str, Enum):
     REJECTED = "rejected"
     # The metric call failed. Not the same as a verdict a reviewer rejected.
     ERRORED = "errored"
-    UNREVIEWED = "unreviewed"
+    UNANNOTATED = "unannotated"
 
 
-class UnreviewedReason(str, Enum):
-    """Why an unreviewed case is unreviewed. The work is the same either way,
-    but a case that lost a review says so rather than looking untouched."""
+class UnannotatedReason(str, Enum):
+    """Why an unannotated case is unannotated. The work is the same either way,
+    but a case that lost an annotation says so rather than looking untouched."""
 
     NEVER_JUDGED = "never_judged"
     INVALIDATED = "invalidated"
@@ -97,31 +110,32 @@ class MetricTuningCaseResult(BaseModel):
     evaluated_at: Optional[str] = None
 
 
-class MetricTuningReview(BaseModel):
-    """The review that currently stands for a case.
+class MetricTuningAnnotation(BaseModel):
+    """The annotation that currently stands for a case.
 
     ``verdict`` is the raw verdict the reviewer was judging, so the interface can
-    show what the judgement was about. The review history behind this is not
+    show what the judgement was about. The annotation history behind this is not
     exposed: what a reader needs is the judgement that holds now and the comment
     that came with it.
     """
 
-    decision: ReviewDecision
+    id: UUID4
+    decision: TuningDecision
     # What is wrong with the verdict. Always present on a rejection.
     comment: Optional[str] = None
     verdict: Optional[str] = None
-    reviewed_at: Optional[str] = None
+    annotated_at: Optional[str] = None
 
 
-class MetricTuningReviewCreate(BaseModel):
+class MetricTuningAnnotationCreate(BaseModel):
     """A reviewer's judgement of the verdict a case currently carries.
 
     The verdict being judged is read server-side from the stored result rather
-    than sent, so a review can never claim to be about something the metric did
-    not say.
+    than sent, so an annotation can never claim to be about something the metric
+    did not say.
     """
 
-    decision: ReviewDecision
+    decision: TuningDecision
     # Required on a rejection: the comment is what someone reads when rewriting
     # the evaluation prompt, so a rejection without one records nothing useful.
     comment: Optional[str] = None
@@ -132,9 +146,9 @@ class MetricTuningCase(MetricTuningCaseBase):
     # The latest run's result for this case, or None if it has never been run.
     result: Optional[MetricTuningCaseResult] = None
     # Derived on read, both of them -- see the module docstring.
-    outcome: TuningCaseOutcome = TuningCaseOutcome.UNREVIEWED
-    review: Optional[MetricTuningReview] = None
-    unreviewed_reason: Optional[UnreviewedReason] = None
+    outcome: TuningCaseOutcome = TuningCaseOutcome.UNANNOTATED
+    annotation: Optional[MetricTuningAnnotation] = None
+    unannotated_reason: Optional[UnannotatedReason] = None
     created_at: Union[datetime, str]
     updated_at: Union[datetime, str]
 
@@ -149,8 +163,8 @@ class TuningAgreement(BaseModel):
 
     ``ratio`` is ``None`` when nothing has been judged, never ``1.0`` -- a set
     nobody has looked at has no agreement rather than a perfect one. It is
-    computed from the stored reviews on every read and never written down, so a
-    review a run has just invalidated stops counting immediately.
+    computed from the stored annotations on every read and never written down, so
+    an annotation a run has just invalidated stops counting immediately.
 
     ``judged`` travels with the ratio because a ratio without its denominator is
     not a measurement: three out of three should not read like a solved problem.
@@ -163,7 +177,7 @@ class TuningAgreement(BaseModel):
     accepted: int = 0
     rejected: int = 0
     # Left out of the ratio and reported beside it, never counted as accepted.
-    unreviewed: int = 0
+    unannotated: int = 0
     # The metric call failed. Left out too, and kept apart from the verdicts so a
     # flaky provider never reads as a bad metric.
     errored: int = 0
@@ -193,10 +207,10 @@ class MetricTuningRun(BaseModel):
     errored_cases: int = 0
     # Why the run as a whole failed. A single case failing does not fail a run.
     error: Optional[str] = None
-    # Not part of the run at all -- reviews are written between runs and change
-    # this without one. It travels with the run because that is the one thing the
-    # tab already re-reads while a run is going, and the number has to move as the
-    # cases land. Derived on every read; see ``TuningAgreement``.
+    # Not part of the run at all -- annotations are written between runs and
+    # change this without one. It travels with the run because that is the one
+    # thing the tab already re-reads while a run is going, and the number has to
+    # move as the cases land. Derived on every read; see ``TuningAgreement``.
     agreement: TuningAgreement = TuningAgreement()
     # True when the metric has changed in a verdict-affecting way since this run
     # started, so its agreement belongs to the earlier metric. Derived from the
@@ -220,8 +234,9 @@ class ImprovedMetricFields(BaseModel):
     ``score_type`` and ``categories`` are here because the model has to reason
     about the score bands coherently, not because it may move them -- both are
     overwritten with the metric's current values before this is returned. An
-    improvement that changed ``score_type`` would invalidate every review for the
-    metric, which is not something a button does quietly (domain.local/adr/0006).
+    improvement that changed ``score_type`` would invalidate every annotation on
+    the metric, which is not something a button does quietly
+    (domain.local/adr/0006).
     """
 
     name: str = Field(description="Title Case with spaces, e.g. 'Factual Accuracy'")
@@ -244,8 +259,8 @@ class MetricTuningImprovement(BaseModel):
 
     Producing one never writes anything. The reviewer sees the current fields
     beside these and applies them with an ordinary metric update, or does not --
-    an in-place rewrite of the evaluation prompt the reviews were made against
-    would have no diff and no undo (ADR-0006).
+    an in-place rewrite of the evaluation prompt the annotations were made
+    against would have no diff and no undo (ADR-0006).
 
     ``changed`` is what the dialog shows; the fields it leaves out are named as
     unchanged rather than hidden, so the reviewer can see the rewrite left them
@@ -261,16 +276,16 @@ class MetricTuningImprovement(BaseModel):
 
 __all__ = [
     "ImprovedMetricFields",
+    "MetricTuningAnnotation",
+    "MetricTuningAnnotationCreate",
     "MetricTuningCase",
     "MetricTuningCaseCreate",
     "MetricTuningCaseResult",
     "MetricTuningCaseUpdate",
     "MetricTuningImprovement",
-    "MetricTuningReview",
-    "MetricTuningReviewCreate",
     "MetricTuningRun",
     "TuningAgreement",
-    "ReviewDecision",
     "TuningCaseOutcome",
-    "UnreviewedReason",
+    "TuningDecision",
+    "UnannotatedReason",
 ]

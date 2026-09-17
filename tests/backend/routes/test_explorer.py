@@ -977,6 +977,8 @@ class TestExplorerTreeEndpoint:
             "labeler",
             "to_eval",
             "model_score",
+            "annotations_count",
+            "last_annotation",
         }
         for node in nodes:
             assert expected_fields.issubset(node.keys())
@@ -1367,6 +1369,8 @@ class TestCreateExplorerTestEndpoint:
             "labeler",
             "to_eval",
             "model_score",
+            "annotations_count",
+            "last_annotation",
         }
         assert expected_fields.issubset(node.keys())
 
@@ -1604,6 +1608,97 @@ class TestUpdateExplorerTestEndpoint:
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         ]
+
+
+@pytest.mark.integration
+class TestLabellingOverHttp:
+    """A person's label is an annotation on the test, and the tree reads it back.
+
+    The precedence is the point: a metric's verdict stays in the metadata, so
+    "the metric said fail, a human said pass" survives a round trip instead of
+    one overwriting the other.
+    """
+
+    def _create(self, client: TestClient, test_set_id, **body) -> dict:
+        response = client.post(
+            f"/explorer/{test_set_id}/tests",
+            json={"topic": "Safety", "input": f"Labelled {uuid.uuid4().hex[:8]}", **body},
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.text
+        return response.json()
+
+    def _label(self, client: TestClient, test_set_id, test_id, label) -> dict:
+        response = client.put(
+            f"/explorer/{test_set_id}/tests/{test_id}",
+            json={"label": label},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        return response.json()
+
+    def test_a_human_label_beats_the_metrics_and_says_who_set_it(
+        self, authenticated_client: TestClient, explorer_test_set
+    ):
+        node = self._create(
+            authenticated_client,
+            explorer_test_set.id,
+            label="fail",
+            labeler="answer_relevancy",
+        )
+        assert node["label"] == "fail"
+        assert node["labeler"] == "answer_relevancy"
+
+        labelled = self._label(authenticated_client, explorer_test_set.id, node["id"], "pass")
+
+        assert labelled["label"] == "pass"
+        assert labelled["labeler"] == "user"
+        assert labelled["annotations_count"] == 1
+        assert labelled["last_annotation"]["status"]["name"] == "Pass"
+
+    def test_clearing_a_label_falls_back_to_the_metrics(
+        self, authenticated_client: TestClient, explorer_test_set
+    ):
+        node = self._create(
+            authenticated_client,
+            explorer_test_set.id,
+            label="fail",
+            labeler="answer_relevancy",
+        )
+        self._label(authenticated_client, explorer_test_set.id, node["id"], "pass")
+
+        cleared = self._label(authenticated_client, explorer_test_set.id, node["id"], "")
+
+        assert cleared["label"] == "fail"
+        assert cleared["labeler"] == "answer_relevancy"
+        assert cleared["annotations_count"] == 0
+        assert cleared["last_annotation"] is None
+
+    def test_the_label_survives_a_tree_read(
+        self, authenticated_client: TestClient, explorer_test_set
+    ):
+        """The tree is what the explorer actually renders, and it batches the
+        annotations rather than reading them per node."""
+        node = self._create(authenticated_client, explorer_test_set.id)
+        self._label(authenticated_client, explorer_test_set.id, node["id"], "fail")
+
+        tree = authenticated_client.get(f"/explorer/{explorer_test_set.id}/tree")
+        assert tree.status_code == status.HTTP_200_OK
+
+        listed = next(item for item in tree.json() if item["id"] == node["id"])
+        assert listed["label"] == "fail"
+        assert listed["labeler"] == "user"
+        assert listed["annotations_count"] == 1
+
+    def test_re_labelling_moves_your_label_rather_than_adding_one(
+        self, authenticated_client: TestClient, explorer_test_set
+    ):
+        """A tree cell shows one label, so editing yours has to be editing."""
+        node = self._create(authenticated_client, explorer_test_set.id)
+        self._label(authenticated_client, explorer_test_set.id, node["id"], "pass")
+
+        relabelled = self._label(authenticated_client, explorer_test_set.id, node["id"], "fail")
+
+        assert relabelled["label"] == "fail"
+        assert relabelled["annotations_count"] == 1
 
 
 @pytest.mark.integration

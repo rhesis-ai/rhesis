@@ -238,20 +238,19 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, gitpython = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
 constraint-dependencies = [
-    "tornado>=6.5.7",
+    "tornado>=6.5.8",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
     "langchain-openai>=1.4.0",
-    "gitpython>=3.1.52",
     "mistune>=3.3.0",
     "jupyterlab>=4.5.10",
     "jupyter-server>=2.20.0",
     "notebook>=7.5.6",
     "langchain-core>=1.6.0",
     "langchain-classic>=1.0.7",
-    "langsmith>=0.11.0",
+    "langsmith>=0.12.2",
     "litellm>=1.84.0",
     "urllib3>=2.7.0",
     "idna>=3.15",
@@ -262,9 +261,13 @@ constraint-dependencies = [
     "pyarrow>=23.0.1",
     "pydantic-settings>=2.14.2",
     "setuptools>=83.0.0",
-    "nltk>=3.10.0",
-    "soupsieve>=2.8.4",
+    "soupsieve>=2.9.0",
     "uv>=0.11.15",
+    "httpx2>=2.12.0",
+    "httpcore2>=2.10.0",
+    "httplib2>=0.32.0",
+    "accelerate>=1.15.0",
+    "transformers>=5.10.0",
 ]
 override-dependencies = [
     "datasets>=4.0.0",

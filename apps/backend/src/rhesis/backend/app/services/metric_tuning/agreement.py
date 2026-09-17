@@ -10,13 +10,13 @@ it means the same thing to its reader and is computed completely differently:
 accepted over accepted plus rejected, both of them a human's judgement.
 
 **The denominator is the whole design.** Every shortcut here inflates it. An
-unreviewed case counted as accepted makes a set nobody looked at report itself
+unannotated case counted as accepted makes a set nobody looked at report itself
 perfect; an errored case counted as rejected makes a flaky provider read as a bad
 metric. Both are left out of the ratio and reported beside it instead.
 
 Nothing is stored. The outcomes this folds over are themselves derived from the
-metric's current threshold on every read (``outcome.py``), so a review a run has
-just invalidated stops counting immediately rather than at the next write.
+metric's current threshold on every read (``outcome.py``), so an annotation a run
+has just invalidated stops counting immediately rather than at the next write.
 """
 
 import logging
@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
+from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.schemas.metric_tuning import TuningAgreement, TuningCaseOutcome
 from rhesis.backend.app.schemas.metric_tuning_metadata import parse_metric_tuning_case_metadata
 from rhesis.backend.app.services.metric_tuning.outcome import case_outcome
@@ -52,23 +53,28 @@ def agreement_over(outcomes: Iterable[TuningCaseOutcome]) -> TuningAgreement:
         judged=judged,
         accepted=accepted,
         rejected=rejected,
-        unreviewed=counts[TuningCaseOutcome.UNREVIEWED],
+        unannotated=counts[TuningCaseOutcome.UNANNOTATED],
         errored=counts[TuningCaseOutcome.ERRORED],
     )
 
 
 def get_agreement(db: Session, metric: models.Metric, organization_id: str) -> TuningAgreement:
-    """The metric's agreement as its stored reviews stand right now.
+    """The metric's agreement as its stored annotations stand right now.
 
     A metric with no tuning set has nothing to agree about, which is the same
-    all-zero, no-ratio answer as a set nobody has reviewed.
+    all-zero, no-ratio answer as a set nobody has annotated.
     """
     test_set = get_tuning_test_set(db, metric.id, organization_id)
     if not test_set:
         return TuningAgreement()
 
-    # Metadata only. The fold reads nothing else, and this endpoint is polled.
+    # Ids, metadata and annotations -- two queries, whatever the case count. The
+    # fold reads nothing else, and this endpoint is polled.
     stored = crud_metric_tuning.get_tuning_case_metadata(db, test_set.id, organization_id)
-    return agreement_over(
-        case_outcome(metric, parse_metric_tuning_case_metadata(raw))[0] for raw in stored
-    )
+    annotations = get_annotations_for_tests(db, [case_id for case_id, _ in stored])
+
+    def outcome_of(case_id, raw) -> TuningCaseOutcome:
+        metadata = parse_metric_tuning_case_metadata(raw)
+        return case_outcome(metric, metadata, annotations.get(case_id, ()))[0]
+
+    return agreement_over(outcome_of(case_id, raw) for case_id, raw in stored)

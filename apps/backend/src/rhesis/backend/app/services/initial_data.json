@@ -189,6 +189,16 @@
             "name": "Stale",
             "description": "Embedding outdated due to text or model configuration changes",
             "entity_type": "Embedding"
+        },
+        {
+            "name": "Accepted",
+            "description": "The reviewer agreed with what the metric said",
+            "entity_type": "Annotation"
+        },
+        {
+            "name": "Rejected",
+            "description": "The reviewer disagreed with what the metric said",
+            "entity_type": "Annotation"
         }
     ],
     "type_lookup": [
@@ -286,6 +296,11 @@
             "type_name": "EntityType",
             "type_value": "Chunk",
             "description": "Entity type for chunks"
+        },
+        {
+            "type_name": "EntityType",
+            "type_value": "Annotation",
+            "description": "Entity type for annotations"
         },
         {
             "type_name": "LicenseType",

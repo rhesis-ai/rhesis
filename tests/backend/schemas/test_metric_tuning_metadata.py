@@ -6,29 +6,19 @@ garbage input), dumping via model_dump(mode="json", exclude_none=True) drops
 None fields rather than writing them as null, and unknown keys survive a
 read/write round trip because the column is shared with other writers.
 
-Two things live in the column and they are opposites. The ``result`` is machine
-output, latest run only; the ``reviews`` are human-authored and accumulate,
-because their comments are what someone reads when rewriting an evaluation
-prompt (domain.local/adr/0005).
+Only the machine's ``result`` lives in the column now, latest run only
+(domain.local/adr/0004). The human judgements that used to sit beside it are
+``annotation`` rows, so a stale ``reviews`` array left behind by an older
+deployment is just another foreign key the column has to round-trip untouched.
 """
 
 import pytest
 
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningCaseMetadata,
-    MetricTuningReview,
-    ReviewDecision,
+    MetricTuningCaseResult,
     parse_metric_tuning_case_metadata,
 )
-
-A_REVIEW = {
-    "decision": "rejected",
-    "comment": "scored a pass, but this is an insult",
-    "verdict": "pass",
-    "score_type": "binary",
-    "reviewer_id": "0f9d4b26-2f9a-4f0e-9b8f-1c2d3e4f5a6b",
-    "reviewed_at": "2026-08-20T09:00:00+00:00",
-}
 
 
 @pytest.mark.unit
@@ -46,74 +36,45 @@ class TestParseIsTotal:
 
         assert meta == MetricTuningCaseMetadata()
 
-    def test_garbage_reviews_value_gives_defaults(self):
+    def test_a_garbage_result_value_does_not_raise(self):
         """A run reading a mangled column has to keep going, not 500."""
-        meta = parse_metric_tuning_case_metadata({"reviews": "not a list"})
-
-        assert meta.reviews == []
-        assert meta.result is None
-
-    def test_garbage_inside_a_review_gives_defaults(self):
-        meta = parse_metric_tuning_case_metadata({"reviews": [{"decision": "maybe"}]})
+        meta = parse_metric_tuning_case_metadata({"result": "not an object"})
 
         assert meta == MetricTuningCaseMetadata()
+        assert meta.result is None
 
 
 @pytest.mark.unit
-class TestReviewsAccumulate:
-    """The reviews are the point of the feature, so they parse and dump exactly."""
+class TestTheResult:
+    """The latest run's verdict, which is the only thing the column now owns."""
 
-    def test_absent_reviews_parse_to_an_empty_list(self):
-        """Callers iterate the list without checking for None first."""
-        meta = parse_metric_tuning_case_metadata({"result": {"verdict": "pass"}})
+    def test_a_result_round_trips(self):
+        raw = {
+            "verdict": "0.2",
+            "reasoning": "the answer contains an insult",
+            "evaluated_at": "2026-08-20T09:00:00+00:00",
+        }
 
-        assert meta.reviews == []
+        meta = parse_metric_tuning_case_metadata({"result": raw})
 
-    def test_a_review_round_trips(self):
-        meta = parse_metric_tuning_case_metadata({"reviews": [A_REVIEW]})
+        assert meta.model_dump(mode="json", exclude_none=True)["result"] == raw
 
-        dumped = meta.model_dump(mode="json", exclude_none=True)
+    def test_default_metadata_dumps_to_nothing_at_all(self):
+        """A case nobody has run carries no keys, not a null result."""
+        assert MetricTuningCaseMetadata().model_dump(mode="json", exclude_none=True) == {}
 
-        assert dumped["reviews"] == [A_REVIEW]
+    def test_an_error_is_kept_apart_from_a_verdict(self):
+        """A failed call is not a verdict a reviewer would reject."""
+        meta = parse_metric_tuning_case_metadata({"result": {"error": "provider unreachable"}})
 
-    def test_dump_writes_no_null_keys(self):
-        """An accept has no comment, and that comes back as an absent key."""
-        meta = MetricTuningCaseMetadata(reviews=[MetricTuningReview(verdict="pass")])
+        assert meta.result.error == "provider unreachable"
+        assert meta.result.verdict is None
 
-        dumped = meta.model_dump(mode="json", exclude_none=True)
+    def test_a_non_string_verdict_is_coerced(self):
+        """The metric's score arrives as a number and is stored as its string."""
+        meta = parse_metric_tuning_case_metadata({"result": {"verdict": 0.2}})
 
-        assert dumped == {"reviews": [{"decision": "accepted", "verdict": "pass"}]}
-
-    def test_default_metadata_dumps_to_an_empty_history(self):
-        dumped = MetricTuningCaseMetadata().model_dump(mode="json", exclude_none=True)
-
-        assert dumped == {"reviews": []}
-        assert "result" not in dumped
-
-
-@pytest.mark.unit
-class TestEvictable:
-    """The history cap drops accepts and never a review someone wrote in."""
-
-    def test_an_accept_is_evictable(self):
-        review = MetricTuningReview(decision=ReviewDecision.ACCEPTED, verdict="pass")
-
-        assert review.evictable is True
-
-    def test_a_review_with_a_comment_is_not(self):
-        review = MetricTuningReview(
-            decision=ReviewDecision.REJECTED,
-            comment="scored a pass, but this is an insult",
-            verdict="pass",
-        )
-
-        assert review.evictable is False
-
-    def test_a_whitespace_comment_does_not_protect_a_review(self):
-        """A blank comment is nothing a human wrote, whatever it is made of."""
-        review = MetricTuningReview(comment="   ")
-
-        assert review.evictable is True
+        assert meta.result.verdict == "0.2"
 
 
 @pytest.mark.unit
@@ -158,16 +119,29 @@ class TestUnknownKeysRoundTrip:
         assert dumped["labeler"] == "user"
         assert dumped["model_score"] == 0.0
 
-    def test_unknown_keys_on_a_review_survive(self):
-        meta = parse_metric_tuning_case_metadata({"reviews": [{**A_REVIEW, "seen_in_ui": True}]})
+    def test_a_legacy_reviews_array_survives_untouched(self):
+        """The judgements are annotation rows now, but PR-5 is what clears the
+        array -- until then it is a foreign key like any other and a run that
+        rewrites the result must not eat it."""
+        reviews = [{"decision": "rejected", "comment": "plainly toxic", "verdict": "pass"}]
+
+        meta = parse_metric_tuning_case_metadata({"reviews": reviews})
+        meta.result = MetricTuningCaseResult(verdict="fail")
+        dumped = meta.model_dump(mode="json", exclude_none=True)
+
+        assert dumped["reviews"] == reviews
+        assert dumped["result"] == {"verdict": "fail"}
+
+    def test_unknown_keys_on_a_result_survive(self):
+        meta = parse_metric_tuning_case_metadata({"result": {"verdict": "0.2", "took_ms": 91}})
 
         dumped = meta.model_dump(mode="json", exclude_none=True)
 
-        assert dumped["reviews"][0]["seen_in_ui"] is True
+        assert dumped["result"]["took_ms"] == 91
 
     def test_assignment_is_validated(self):
-        review = MetricTuningReview()
+        result = MetricTuningCaseResult()
 
-        review.comment = 42
+        result.verdict = 42
 
-        assert review.comment == "42"
+        assert result.verdict == "42"

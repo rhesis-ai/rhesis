@@ -61,6 +61,16 @@ export interface AnnotationStatus {
   name?: string;
 }
 
+/**
+ * The status as it arrives *embedded in a parent payload*, which names the id
+ * `status_id` rather than `id`. Distinct from `AnnotationStatus` on purpose:
+ * one type covering both would type-check `.id` here and hand back undefined.
+ */
+export interface AnnotationSummaryStatus {
+  status_id?: UUID;
+  name?: string;
+}
+
 export interface AnnotationUser {
   id?: UUID;
   name?: string;
@@ -91,6 +101,11 @@ export interface AnnotationContext {
   /** Internal row id of the span. Trace deep links need this, not `trace_id`. */
   trace_db_id?: UUID | null;
   span_name?: string | null;
+  /**
+   * Set when the annotated entity is a metric's tuning case, which is reached
+   * through the metric rather than through its test set.
+   */
+  metric_id?: UUID | null;
 }
 
 export interface Annotation extends WithPermittedActions {
@@ -123,7 +138,7 @@ export interface AnnotationSummaryEntry {
   annotation_id: string;
   target_type: AnnotationTargetType;
   reference: string | null;
-  status: AnnotationStatus | null;
+  status: AnnotationSummaryStatus | null;
   user: AnnotationUser | null;
   comments: string | null;
   updated_at: string;

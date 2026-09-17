@@ -115,6 +115,9 @@ class AnnotationContext(Base):
     trace_id: Optional[str] = None
     trace_db_id: Optional[UUID] = None
     span_name: Optional[str] = None
+    # Set when the annotated entity is a metric's tuning case, which is reached
+    # through the metric rather than through its test set.
+    metric_id: Optional[UUID] = None
 
 
 class AnnotationDetail(Annotation):

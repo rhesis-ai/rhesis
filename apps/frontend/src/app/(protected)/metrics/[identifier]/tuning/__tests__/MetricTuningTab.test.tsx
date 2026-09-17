@@ -16,9 +16,9 @@ const mockUpdateTuningCase = jest.fn();
 const mockDeleteTuningCase = jest.fn();
 const mockGetTuningRun = jest.fn();
 const mockStartTuningRun = jest.fn();
-const mockReviewTuningCase = jest.fn();
+const mockAnnotateTuningCase = jest.fn();
 const mockAcceptRemainingTuningCases = jest.fn();
-const mockImproveFromReviews = jest.fn();
+const mockImproveFromAnnotations = jest.fn();
 const mockGetMetric = jest.fn();
 const mockUpdateMetric = jest.fn();
 
@@ -31,9 +31,9 @@ jest.mock('@/utils/api-client/client-factory', () => ({
       deleteTuningCase: mockDeleteTuningCase,
       getTuningRun: mockGetTuningRun,
       startTuningRun: mockStartTuningRun,
-      reviewTuningCase: mockReviewTuningCase,
+      annotateTuningCase: mockAnnotateTuningCase,
       acceptRemainingTuningCases: mockAcceptRemainingTuningCases,
-      improveFromReviews: mockImproveFromReviews,
+      improveFromAnnotations: mockImproveFromAnnotations,
     }),
     getMetricsClient: () => ({
       getMetric: mockGetMetric,
@@ -62,9 +62,9 @@ const CASE: MetricTuningCase = {
   output: 'I am fine, thanks.',
   reference_answer: null,
   result: null,
-  outcome: 'unreviewed',
-  review: null,
-  unreviewed_reason: 'never_judged',
+  outcome: 'unannotated',
+  annotation: null,
+  unannotated_reason: 'never_judged',
   created_at: '2026-08-06T00:00:00Z',
   updated_at: '2026-08-06T00:00:00Z',
 };
@@ -91,7 +91,7 @@ const NO_AGREEMENT: MetricTuningAgreement = {
   judged: 0,
   accepted: 0,
   rejected: 0,
-  unreviewed: 0,
+  unannotated: 0,
   errored: 0,
 };
 
@@ -447,15 +447,15 @@ describe('MetricTuningTab — the grid', () => {
     mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
   });
 
-  it('separates the case, the run and the review into column groups', async () => {
+  it('separates the case, the run and the annotation into column groups', async () => {
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     await screen.findByText('How are you?');
     const labels = await headerLabels();
     expect(labels).toContain('Case');
     expect(labels).toContain('Metric output');
-    // Review stands outside the group bands, so its name appears exactly once.
-    expect(labels.filter(label => label === 'Review')).toHaveLength(1);
+    // Annotation stands outside the group bands, so its name appears exactly once.
+    expect(labels.filter(label => label === 'Annotation')).toHaveLength(1);
   });
 
   it('labels the case columns without reusing a noun from the run', async () => {
@@ -482,7 +482,7 @@ describe('MetricTuningTab — the grid', () => {
     expect(await headerLabels()).not.toContain('Reference answer');
   });
 
-  it('leaves out the run and review groups before anything has been run', async () => {
+  it('leaves out the run and annotation groups before anything has been run', async () => {
     mockGetTuningCases.mockResolvedValue([CASE]);
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
@@ -490,7 +490,7 @@ describe('MetricTuningTab — the grid', () => {
     await screen.findByText('How are you?');
     const labels = await headerLabels();
     expect(labels).not.toContain('Metric output');
-    expect(labels).not.toContain('Review');
+    expect(labels).not.toContain('Annotation');
     expect(labels).not.toContain('Metric verdict');
   });
 });
@@ -512,28 +512,30 @@ const findRejected = async () =>
     expect(rejectMark()).toHaveAttribute('aria-pressed', 'true')
   );
 
-describe('MetricTuningTab — reviewing', () => {
+describe('MetricTuningTab — annotating', () => {
   const ACCEPTED_CASE: MetricTuningCase = {
     ...JUDGEABLE_CASE,
     outcome: 'accepted',
-    unreviewed_reason: null,
-    review: {
+    unannotated_reason: null,
+    annotation: {
+      id: 'aaaaaaaa-0000-0000-0000-000000000001' as MetricTuningCase['id'],
       decision: 'accepted',
       comment: null,
       verdict: 'pass',
-      reviewed_at: '2026-08-14T09:00:00Z',
+      annotated_at: '2026-08-14T09:00:00Z',
     },
   };
 
   const REJECTED_CASE: MetricTuningCase = {
     ...JUDGEABLE_CASE,
     outcome: 'rejected',
-    unreviewed_reason: null,
-    review: {
+    unannotated_reason: null,
+    annotation: {
+      id: 'aaaaaaaa-0000-0000-0000-000000000002' as MetricTuningCase['id'],
       decision: 'rejected',
       comment: 'This answer dodges the question.',
       verdict: 'pass',
-      reviewed_at: '2026-08-14T09:00:00Z',
+      annotated_at: '2026-08-14T09:00:00Z',
     },
   };
 
@@ -550,8 +552,8 @@ describe('MetricTuningTab — reviewing', () => {
 
   const INVALIDATED_CASE: MetricTuningCase = {
     ...JUDGEABLE_CASE,
-    outcome: 'unreviewed',
-    unreviewed_reason: 'invalidated',
+    outcome: 'unannotated',
+    unannotated_reason: 'invalidated',
   };
 
   beforeEach(() => {
@@ -569,7 +571,7 @@ describe('MetricTuningTab — reviewing', () => {
     expect(rejectMark()).toHaveAttribute('aria-pressed', 'false');
     // Nothing was taken away, so there is no warning to explain.
     expect(
-      screen.queryByLabelText(/review invalidated/i)
+      screen.queryByLabelText(/annotation invalidated/i)
     ).not.toBeInTheDocument();
   });
 
@@ -619,13 +621,13 @@ describe('MetricTuningTab — reviewing', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('marks a review a material change took away, and says why', async () => {
+  it('marks a judgement a material change took away, and says why', async () => {
     mockGetTuningCases.mockResolvedValue([INVALIDATED_CASE]);
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     expect(
-      await screen.findByLabelText(/review invalidated/i)
+      await screen.findByLabelText(/annotation invalidated/i)
     ).toBeInTheDocument();
     await waitFor(() => expect(acceptMark()).toBeInTheDocument());
     expect(acceptMark()).toHaveAttribute('aria-pressed', 'false');
@@ -633,7 +635,7 @@ describe('MetricTuningTab — reviewing', () => {
   });
 
   it('accepts a case in one click', async () => {
-    mockReviewTuningCase.mockResolvedValue(ACCEPTED_CASE);
+    mockAnnotateTuningCase.mockResolvedValue(ACCEPTED_CASE);
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     fireEvent.click(
@@ -641,7 +643,7 @@ describe('MetricTuningTab — reviewing', () => {
     );
 
     await waitFor(() =>
-      expect(mockReviewTuningCase).toHaveBeenCalledWith(
+      expect(mockAnnotateTuningCase).toHaveBeenCalledWith(
         METRIC_ID,
         JUDGEABLE_CASE.id,
         { decision: 'accepted' }
@@ -672,13 +674,13 @@ describe('MetricTuningTab — reviewing', () => {
   });
 
   it('rejects a case with the comment the reviewer wrote', async () => {
-    mockReviewTuningCase.mockResolvedValue({
+    mockAnnotateTuningCase.mockResolvedValue({
       ...REJECTED_CASE,
       review: {
         decision: 'rejected',
         comment: 'Far too lenient.',
         verdict: 'pass',
-        reviewed_at: '2026-08-14T09:00:00Z',
+        annotated_at: '2026-08-14T09:00:00Z',
       },
     });
     render(<MetricTuningTab metricId={METRIC_ID} />);
@@ -692,7 +694,7 @@ describe('MetricTuningTab — reviewing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
-      expect(mockReviewTuningCase).toHaveBeenCalledWith(
+      expect(mockAnnotateTuningCase).toHaveBeenCalledWith(
         METRIC_ID,
         JUDGEABLE_CASE.id,
         { decision: 'rejected', comment: 'Far too lenient.' }
@@ -701,14 +703,14 @@ describe('MetricTuningTab — reviewing', () => {
     await findRejected();
   });
 
-  it('accepts every case still unreviewed in one action', async () => {
+  it('accepts every case still unannotated in one action', async () => {
     mockAcceptRemainingTuningCases.mockResolvedValue([ACCEPTED_CASE]);
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     const acceptRest = await screen.findByRole('button', {
       name: /accept the rest/i,
     });
-    // The button exists before the cases land, disabled until one is unreviewed.
+    // The button exists before the cases land, disabled until one is unannotated.
     await waitFor(() => expect(acceptRest).toBeEnabled());
     fireEvent.click(acceptRest);
 
@@ -777,7 +779,7 @@ describe('MetricTuningTab — agreement', () => {
   });
 
   it('reports no agreement rather than full agreement when nothing is judged', async () => {
-    mockGetTuningRun.mockResolvedValue(runWith({ unreviewed: 3 }));
+    mockGetTuningRun.mockResolvedValue(runWith({ unannotated: 3 }));
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
@@ -788,16 +790,16 @@ describe('MetricTuningTab — agreement', () => {
     ).toBeInTheDocument();
   });
 
-  it('counts unreviewed cases out of the ratio and reports them beside it', async () => {
+  it('counts unannotated cases out of the ratio and reports them beside it', async () => {
     mockGetTuningRun.mockResolvedValue(
-      runWith({ ratio: 1, judged: 1, accepted: 1, unreviewed: 2 })
+      runWith({ ratio: 1, judged: 1, accepted: 1, unannotated: 2 })
     );
 
     render(<MetricTuningTab metricId={METRIC_ID} />);
 
     expect(await screen.findByText('100%')).toBeInTheDocument();
     expect(screen.getByText(/1 of 1 case accepted/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 unreviewed/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 unannotated/i)).toBeInTheDocument();
   });
 
   it('reports errored cases apart, so a flaky provider is visibly one', async () => {
@@ -825,17 +827,17 @@ describe('MetricTuningTab — agreement', () => {
 
   it('re-reads the agreement after a review, since judging a case moves it', async () => {
     mockGetTuningRun
-      .mockResolvedValueOnce(runWith({ unreviewed: 1 }))
+      .mockResolvedValueOnce(runWith({ unannotated: 1 }))
       .mockResolvedValue(runWith({ ratio: 1, judged: 1, accepted: 1 }));
-    mockReviewTuningCase.mockResolvedValue({
+    mockAnnotateTuningCase.mockResolvedValue({
       ...JUDGEABLE_CASE,
       outcome: 'accepted',
-      unreviewed_reason: null,
+      unannotated_reason: null,
       review: {
         decision: 'accepted',
         comment: null,
         verdict: 'pass',
-        reviewed_at: '2026-08-14T09:00:00Z',
+        annotated_at: '2026-08-14T09:00:00Z',
       },
     });
 
@@ -858,7 +860,7 @@ describe('MetricTuningTab — agreement', () => {
     // are what the press is about. The run clears the verdicts as it goes, so
     // the tiles empty out on their own; the progress line says why.
     mockGetTuningRun.mockResolvedValue({
-      ...runWith({ unreviewed: 3 }),
+      ...runWith({ unannotated: 3 }),
       status: 'running',
       completed_at: null,
       completed_cases: 1,
@@ -893,12 +895,13 @@ describe('MetricTuningTab — improving from reviews', () => {
   const REJECTED_CASE: MetricTuningCase = {
     ...JUDGEABLE_CASE,
     outcome: 'rejected',
-    unreviewed_reason: null,
-    review: {
+    unannotated_reason: null,
+    annotation: {
+      id: 'aaaaaaaa-0000-0000-0000-000000000002' as MetricTuningCase['id'],
       decision: 'rejected',
       comment: 'This answer dodges the question.',
       verdict: 'pass',
-      reviewed_at: '2026-08-14T09:00:00Z',
+      annotated_at: '2026-08-14T09:00:00Z',
     },
   };
 
@@ -938,7 +941,7 @@ describe('MetricTuningTab — improving from reviews', () => {
     mockGetMetric.mockResolvedValue(FULL_METRIC);
     mockGetTuningRun.mockResolvedValue(NEVER_RUN);
     mockGetTuningCases.mockResolvedValue([REJECTED_CASE]);
-    mockImproveFromReviews.mockResolvedValue(IMPROVEMENT);
+    mockImproveFromAnnotations.mockResolvedValue(IMPROVEMENT);
     mockUpdateMetric.mockResolvedValue(FULL_METRIC);
   });
 
@@ -974,7 +977,7 @@ describe('MetricTuningTab — improving from reviews', () => {
   it('says a rewrite is being written, and how much it is reading', async () => {
     // The button label alone is too quiet for a call that runs most of a minute.
     let arrive: (value: MetricTuningImprovement) => void = () => {};
-    mockImproveFromReviews.mockReturnValue(
+    mockImproveFromAnnotations.mockReturnValue(
       new Promise<MetricTuningImprovement>(resolve => {
         arrive = resolve;
       })
@@ -1013,7 +1016,7 @@ describe('MetricTuningTab — improving from reviews', () => {
 
   it('says it is improving, and opens nothing until the rewrite arrives', async () => {
     let arrive: (value: MetricTuningImprovement) => void = () => {};
-    mockImproveFromReviews.mockReturnValue(
+    mockImproveFromAnnotations.mockReturnValue(
       new Promise<MetricTuningImprovement>(resolve => {
         arrive = resolve;
       })
@@ -1109,7 +1112,7 @@ describe('MetricTuningTab — improving from reviews', () => {
       threshold: 0.9,
       threshold_operator: '>=',
     };
-    mockImproveFromReviews.mockResolvedValue({
+    mockImproveFromAnnotations.mockResolvedValue({
       ...IMPROVEMENT,
       improvement: scored,
       changed: ['evaluation_prompt', 'threshold'],
@@ -1244,7 +1247,7 @@ describe('MetricTuningTab — improving from reviews', () => {
   });
 
   it('applies an edited threshold as a number, not as its text', async () => {
-    mockImproveFromReviews.mockResolvedValue({
+    mockImproveFromAnnotations.mockResolvedValue({
       ...IMPROVEMENT,
       improvement: {
         ...PROPOSED,

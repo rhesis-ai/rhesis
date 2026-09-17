@@ -2,22 +2,22 @@
 
 Column mapping for one case -- the point of the whole feature:
 
-===========================  =============================================
-API field                    Storage
-===========================  =============================================
-``input``                    ``prompt.content`` (case payload)
-``output``                   ``prompt.content`` (case payload)
-``reference_answer``         ``prompt.content`` (case payload)
-``result``                   ``test.test_metadata["result"]``
-``outcome`` / ``review``     derived from ``test.test_metadata["reviews"]``
-(ownership)                  ``test.metric_id`` / ``test_set.metric_id``
-===========================  =============================================
+============================  =============================================
+API field                     Storage
+============================  =============================================
+``input``                     ``prompt.content`` (case payload)
+``output``                    ``prompt.content`` (case payload)
+``reference_answer``          ``prompt.content`` (case payload)
+``result``                    ``test.test_metadata["result"]``
+``outcome`` / ``annotation``  derived from the case's ``annotation`` rows
+(ownership)                   ``test.metric_id`` / ``test_set.metric_id``
+============================  =============================================
 
 The split is not arbitrary. A tuning case puts the **metric** in the
 system-under-test role: ``prompt.content`` is what that system is shown, so the
 three fields it judges travel together there as the case payload (ADR-0003).
-Everything a human wrote -- the reviews and their comments -- stays in the JSONB
-and is shown to nobody at scoring time.
+Everything a human wrote -- the judgements and their comments -- is an annotation
+on the case and is shown to nobody at scoring time.
 
 ``prompt.expected_response`` is not written at all. It held the expected verdict
 until ADR-0005 retired that model: a case records the situation, and the
@@ -26,24 +26,26 @@ judgement happens afterwards, on what the metric actually said.
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
+from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.crud.test import delete_test
 from rhesis.backend.app.schemas.metric_tuning import (
+    MetricTuningAnnotation,
     MetricTuningCase,
     MetricTuningCaseCreate,
     MetricTuningCaseResult,
     MetricTuningCaseUpdate,
-    MetricTuningReview,
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningCaseMetadata,
     parse_metric_tuning_case_metadata,
 )
+from rhesis.backend.app.services.metric_tuning.judgement import decision_of, judged_verdict
 from rhesis.backend.app.services.metric_tuning.outcome import case_outcome
 from rhesis.backend.app.services.metric_tuning.payload import (
     CasePayload,
@@ -59,13 +61,20 @@ from rhesis.backend.app.services.test import create_test_set_associations
 logger = logging.getLogger(__name__)
 
 
-def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
+def to_api(
+    db_test: models.Test,
+    metric: models.Metric,
+    annotations: Sequence[models.Annotation] = (),
+) -> MetricTuningCase:
     """Project a stored case onto the API shape.
 
-    Takes the metric because the outcome is derived here rather than stored: a
-    review only stands while the metric's verdict has not materially moved under
-    the metric's *current* threshold, so the question is re-answered on every
-    read (ADR-0005).
+    Takes the metric because the outcome is derived here rather than stored: an
+    annotation only stands while the metric's verdict has not materially moved
+    under the metric's *current* threshold, so the question is re-answered on
+    every read (ADR-0005).
+
+    ``annotations`` is the case's own rows, passed in rather than loaded here so
+    a list of forty cases costs one query instead of forty.
     """
     metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
     prompt = db_test.prompt
@@ -83,7 +92,7 @@ def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
             evaluated_at=stored.evaluated_at,
         )
 
-    outcome, review, unreviewed_reason = case_outcome(metric, metadata)
+    outcome, annotation, unannotated_reason = case_outcome(metric, metadata, annotations)
 
     return MetricTuningCase(
         id=db_test.id,
@@ -92,22 +101,28 @@ def to_api(db_test: models.Test, metric: models.Metric) -> MetricTuningCase:
         reference_answer=payload.reference_answer,
         result=result,
         outcome=outcome,
-        review=_review_to_api(review),
-        unreviewed_reason=unreviewed_reason,
+        annotation=_annotation_to_api(annotation),
+        unannotated_reason=unannotated_reason,
         created_at=db_test.created_at,
         updated_at=db_test.updated_at,
     )
 
 
-def _review_to_api(review) -> Optional[MetricTuningReview]:
-    """The standing review, without the bookkeeping the interface has no use for."""
-    if review is None:
+def _annotation_to_api(
+    annotation: Optional[models.Annotation],
+) -> Optional[MetricTuningAnnotation]:
+    """The standing judgement, without the bookkeeping the interface has no use for."""
+    if annotation is None:
         return None
-    return MetricTuningReview(
-        decision=review.decision,
-        comment=review.comment,
-        verdict=review.verdict,
-        reviewed_at=review.reviewed_at,
+    created_at = annotation.created_at
+    return MetricTuningAnnotation(
+        id=annotation.id,
+        # Never None here: ``standing_annotation`` skips rows whose status is
+        # neither Accepted nor Rejected.
+        decision=decision_of(annotation),
+        comment=annotation.comments,
+        verdict=judged_verdict(annotation),
+        annotated_at=created_at.isoformat() if created_at else None,
     )
 
 
@@ -120,7 +135,8 @@ def list_tuning_cases(
         return []
 
     db_tests = crud_metric_tuning.get_tuning_cases(db, test_set.id, organization_id)
-    return [to_api(db_test, metric) for db_test in db_tests]
+    annotations = get_annotations_for_tests(db, [db_test.id for db_test in db_tests])
+    return [to_api(db_test, metric, annotations.get(db_test.id, ())) for db_test in db_tests]
 
 
 def create_tuning_case(
@@ -187,9 +203,9 @@ def update_tuning_case(
 ) -> MetricTuningCase:
     """Apply a partial update. Fields the payload omits are left alone.
 
-    Reviews are untouched: editing the case is not judging it, and a review that
-    no longer fits what the case now says is invalidated by the material-change
-    rule on the next run rather than deleted here.
+    Annotations are untouched: editing the case is not judging it, and a
+    judgement that no longer fits what the case now says is invalidated by the
+    material-change rule on the next run rather than deleted here.
     """
     # Touching any payload field means re-serializing the whole payload, so the
     # parts the caller left alone have to be read back out first.
@@ -207,7 +223,8 @@ def update_tuning_case(
         content = serialize_payload(case_payload)
 
     db_test = crud_metric_tuning.update_tuning_case(db, db_test, content=content)
-    return to_api(db_test, metric)
+    annotations = get_annotations_for_tests(db, [db_test.id])
+    return to_api(db_test, metric, annotations.get(db_test.id, ()))
 
 
 def delete_tuning_case(

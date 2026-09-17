@@ -181,8 +181,10 @@ class Test(BaseEntity):
     def get_annotations(self) -> List["Annotation"]:
         """Get every annotation on this test.
 
-        Explorer labels and metric tuning judgements both land here once PR-4
-        migrates them onto the entity.
+        Both kinds of judgement on a test land here, told apart by their target:
+        an explorer label someone set by hand targets the test itself, while a
+        metric tuning judgement targets ``metric`` and names the metric's id in
+        ``target_reference``.
         """
         from rhesis.sdk.entities.annotation import Annotations
 
