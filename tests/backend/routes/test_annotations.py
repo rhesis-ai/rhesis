@@ -8,7 +8,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.status import Status
+from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_result import TestResult
 from rhesis.backend.app.models.test_run import TestRun
@@ -462,6 +464,77 @@ class TestListAnnotations:
             trace_only = authenticated_client.get("/annotations/?entity_type=Trace")
             assert trace_only.status_code == status.HTTP_200_OK
             assert all(i["entity_type"] == "Trace" for i in trace_only.json())
+
+    def test_filter_by_metric_finds_both_ways_a_metric_is_named(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+    ):
+        """One metric, two reference schemes, one answer.
+
+        A judgement on a metric within a test result names the metric, because
+        that is all the result has to go on. A metric tuning judgement names the
+        metric's id, so renaming the metric does not orphan it. Filtering on the
+        name used to return only the first kind, which quietly dropped the
+        judgements that are specifically about whether the metric is any good.
+        """
+        pass_status, _ = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            metric = Metric(
+                name=f"Metric Filter {uuid.uuid4().hex[:8]}",
+                evaluation_prompt="Score it.",
+                score_type="binary",
+                metric_scope=["single_turn"],
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+            )
+            result = TestResult(
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+                project_id=db_project.id,
+            )
+            tuning_case = Test(
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+                project_id=db_project.id,
+            )
+            test_db.add_all([metric, result, tuning_case])
+            test_db.commit()
+            for row in (metric, result, tuning_case):
+                test_db.refresh(row)
+
+            by_name = _create_annotation(
+                authenticated_client,
+                "TestResult",
+                result.id,
+                pass_status.id,
+                target={"type": "metric", "reference": metric.name},
+            )
+            by_id = _create_annotation(
+                authenticated_client,
+                "Test",
+                tuning_case.id,
+                pass_status.id,
+                target={"type": "metric", "reference": str(metric.id)},
+            )
+
+            found = authenticated_client.get(f"/annotations/?metric={metric.name}")
+            assert found.status_code == status.HTTP_200_OK
+            ids = {i["id"] for i in found.json()}
+            assert by_name["id"] in ids, "the metric-named judgement is missing"
+            assert by_id["id"] in ids, "the tuning judgement, filed under the metric id, is missing"
+
+            # Given the id instead, the same two come back.
+            by_uuid = authenticated_client.get(f"/annotations/?metric={metric.id}")
+            assert by_uuid.status_code == status.HTTP_200_OK
+            assert {by_name["id"], by_id["id"]} <= {i["id"] for i in by_uuid.json()}
 
     def test_search_by_comment(
         self,
