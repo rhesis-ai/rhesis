@@ -90,8 +90,7 @@ def _load_bundled_sections(url: str) -> Optional[list[ReportSection]]:
 
     data = json.loads(path.read_text(encoding="utf-8"))
     sections = [
-        ReportSection(id=s["id"], name=s["name"], content=s["content"])
-        for s in data["sections"]
+        ReportSection(id=s["id"], name=s["name"], content=s["content"]) for s in data["sections"]
     ]
     logger.info(
         "[OWASPExtractor] Loaded %d sections from bundled data (%s)",
