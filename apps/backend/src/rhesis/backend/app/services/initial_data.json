@@ -469,11 +469,6 @@
         },
         {
             "type_name": "BackendType",
-            "type_value": "ragas",
-            "description": "RAGAS framework for RAG evaluation"
-        },
-        {
-            "type_name": "BackendType",
             "type_value": "custom",
             "description": "Custom evaluation backend"
         },
@@ -1229,106 +1224,6 @@
             "status": "New",
             "requirements": [
                 "Compliance"
-            ],
-            "metric_scope": [
-                "Single-Turn"
-            ]
-        },
-        {
-            "name": "Context Relevance",
-            "description": "Ragas implementation of Context Relevance metric. Measures how relevant retrieved contexts are to the input query.",
-            "evaluation_prompt": "[ragas]",
-            "evaluation_steps": "[ragas]",
-            "reasoning": "[ragas]",
-            "score_type": "numeric",
-            "min_score": 0,
-            "max_score": 1,
-            "threshold": 0.5,
-            "explanation": "[ragas]",
-            "ground_truth_required": false,
-            "context_required": true,
-            "class_name": "RagasContextRelevance",
-            "threshold_operator": ">=",
-            "metric_type": "framework",
-            "backend_type": "ragas",
-            "status": "New",
-            "requirements": [
-                "Reliability"
-            ],
-            "metric_scope": [
-                "Single-Turn"
-            ]
-        },
-        {
-            "name": "Answer Accuracy",
-            "description": "Ragas implementation of Answer Accuracy metric. Measures accuracy of the generated answer against ground truth.",
-            "evaluation_prompt": "[ragas]",
-            "evaluation_steps": "[ragas]",
-            "reasoning": "[ragas]",
-            "score_type": "numeric",
-            "min_score": 0,
-            "max_score": 1,
-            "threshold": 0.5,
-            "explanation": "[ragas]",
-            "ground_truth_required": true,
-            "context_required": false,
-            "class_name": "RagasAnswerAccuracy",
-            "threshold_operator": ">=",
-            "metric_type": "framework",
-            "backend_type": "ragas",
-            "status": "New",
-            "requirements": [
-                "Reliability"
-            ],
-            "metric_scope": [
-                "Single-Turn"
-            ]
-        },
-        {
-            "name": "Faithfulness",
-            "description": "Ragas implementation of Faithfulness metric. Measures if the generated answer is faithful to the provided context.",
-            "evaluation_prompt": "[ragas]",
-            "evaluation_steps": "[ragas]",
-            "reasoning": "[ragas]",
-            "score_type": "numeric",
-            "min_score": 0,
-            "max_score": 1,
-            "threshold": 0.5,
-            "explanation": "[ragas]",
-            "ground_truth_required": false,
-            "context_required": true,
-            "class_name": "RagasFaithfulness",
-            "threshold_operator": ">=",
-            "metric_type": "framework",
-            "backend_type": "ragas",
-            "status": "New",
-            "requirements": [
-                "Reliability"
-            ],
-            "metric_scope": [
-                "Single-Turn"
-            ]
-        },
-        {
-            "name": "Aspect Critic",
-            "description": "Ragas implementation of Aspect Critic metric. Evaluates specific aspects of the response based on custom criteria.",
-            "evaluation_prompt": "[ragas]",
-            "evaluation_steps": "[ragas]",
-            "reasoning": "[ragas]",
-            "score_type": "numeric",
-            "min_score": 0,
-            "max_score": 1,
-            "threshold": 0.5,
-            "explanation": "[ragas]",
-            "ground_truth_required": false,
-            "context_required": false,
-            "class_name": "RagasAspectCritic",
-            "threshold_operator": ">=",
-            "metric_type": "framework",
-            "backend_type": "ragas",
-            "status": "New",
-            "requirements": [
-                "Reliability"
             ],
             "metric_scope": [
                 "Single-Turn"
