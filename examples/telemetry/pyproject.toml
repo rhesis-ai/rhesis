@@ -48,6 +48,9 @@ haystack = [
 ]
 
 [tool.uv]
+# crewai >=1.15.6 caps google-genai below what google-adk >=2.6 needs, so the two extras
+# cannot co-resolve. Forking them is what lets crewai reach a patched json-repair.
+conflicts = [[{ extra = "crewai" }, { extra = "google-adk" }]]
 exclude-newer = "1 week"
 exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false }
 # Force minimum versions for transitive dependencies with security advisories
@@ -75,6 +78,7 @@ constraint-dependencies = [
     "httpx2>=2.12.0",
     "httpcore2>=2.10.0",
     "banks>=2.4.5",
+    "json-repair>=0.60.1",
 ]
 override-dependencies = [
     "python-dotenv>=1.2.2",
