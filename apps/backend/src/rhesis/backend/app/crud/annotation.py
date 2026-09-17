@@ -255,8 +255,12 @@ def create_annotation(
     data: dict,
     organization_id: str | None = None,
     user_id: str | None = None,
+    commit: bool = True,
 ) -> models.Annotation:
-    return create_item(db, models.Annotation, data, organization_id, user_id)
+    # commit=False is for callers writing several rows in one request -- metric
+    # tuning's accept-rest walks every unannotated case -- so the request session
+    # commits once instead of once per row.
+    return create_item(db, models.Annotation, data, organization_id, user_id, commit=commit)
 
 
 def update_annotation(
@@ -282,7 +286,12 @@ def get_annotations_for_entities(
     entity_type: str,
     entity_ids: List[uuid.UUID],
 ) -> dict[uuid.UUID, List[models.Annotation]]:
-    """Annotations for many entities of one type, newest first, keyed by entity id."""
+    """Annotations for many entities of one type, newest first, keyed by entity id.
+
+    The id breaks ties on the timestamp, as ``models.mixins`` does: callers take
+    the first row as *the* latest, and rows written in one transaction share a
+    timestamp, so without it two reads of the same data can disagree.
+    """
     if not entity_ids:
         return {}
     rows = (
@@ -293,13 +302,27 @@ def get_annotations_for_entities(
             models.Annotation.deleted_at.is_(None),
         )
         .options(include(models.Annotation.user), include(models.Annotation.status))
-        .order_by(models.Annotation.updated_at.desc())
+        .order_by(models.Annotation.updated_at.desc(), models.Annotation.id.desc())
         .all()
     )
     grouped: dict[uuid.UUID, List[models.Annotation]] = {}
     for row in rows:
         grouped.setdefault(row.entity_id, []).append(row)
     return grouped
+
+
+def get_annotations_for_tests(
+    db: Session,
+    test_ids: List[uuid.UUID],
+) -> dict[uuid.UUID, List[models.Annotation]]:
+    """Annotations on many tests, newest first, keyed by test id.
+
+    One query for a whole grid or tree, so that a page of forty rows does not
+    become forty reads. Both kinds of judgement on a test come back together --
+    an explorer label targets the test, a metric tuning judgement targets the
+    metric -- and the caller picks out the ones it means by target.
+    """
+    return get_annotations_for_entities(db, EntityType.TEST.value, test_ids)
 
 
 def get_annotation_statistics_for_runs(

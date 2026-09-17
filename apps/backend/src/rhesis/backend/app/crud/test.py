@@ -157,6 +157,7 @@ def delete_test(
     The test is marked as deleted but remains in the database to preserve
     referential integrity with test runs, results, and other related data.
     """
+    from rhesis.backend.app.services import cascade as cascade_service
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
     # Get the test to be deleted
@@ -170,6 +171,13 @@ def delete_test(
     ).fetchall()
 
     affected_test_set_ids = [row.test_set_id for row in test_set_ids]
+
+    # Cascade first, as delete_item does. This path soft-deletes by hand rather
+    # than through delete_item because it has to recompute the affected test
+    # sets afterwards, and skipping the cascade left a deleted test's
+    # annotations and files behind -- rows the annotations hub would still list,
+    # pointing at a test nobody can open.
+    cascade_service.cascade_soft_delete(db, models.Test, test_id, organization_id)
 
     # Soft delete the test (preserves referential integrity)
     db_test.soft_delete()

@@ -73,7 +73,13 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
             foreign_key="entity_id",
             extra_filters={"entity_type": "Test"},
             description="Input files belong to a test",
-        )
+        ),
+        CascadeRelationship(
+            child_model=models.Annotation,
+            foreign_key="entity_id",
+            extra_filters={"entity_type": "Test"},
+            description="Annotations judge a test and have nothing to say once it is gone",
+        ),
     ],
     # TestResult cascades to File (output files)
     models.TestResult: [
@@ -82,7 +88,22 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
             foreign_key="entity_id",
             extra_filters={"entity_type": "TestResult"},
             description="Output files belong to a test result",
-        )
+        ),
+        CascadeRelationship(
+            child_model=models.Annotation,
+            foreign_key="entity_id",
+            extra_filters={"entity_type": "TestResult"},
+            description="Annotations judge a test result and go with it",
+        ),
+    ],
+    # Trace cascades to the annotations left on it.
+    models.Trace: [
+        CascadeRelationship(
+            child_model=models.Annotation,
+            foreign_key="entity_id",
+            extra_filters={"entity_type": "Trace"},
+            description="Annotations judge a trace and go with it",
+        ),
     ],
     # Metric cascades to its tuning test set and that set's test cases.
     # Both are metric-owned rows, hidden from the normal lists, so leaving them

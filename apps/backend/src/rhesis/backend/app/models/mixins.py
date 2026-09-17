@@ -243,8 +243,11 @@ class ProjectMixin:
         return relationship("Project", foreign_keys=[cls.project_id])
 
 
-def _annotation_entry(annotation) -> dict:
-    """The shape the frontend reads for one annotation embedded in a parent payload."""
+def annotation_entry(annotation) -> dict:
+    """The shape the frontend reads for one annotation embedded in a parent payload.
+
+    Public because the explorer tree builds the same shape for a test node, which
+    is not an ORM serialization and so cannot go through the mixin."""
     status = annotation.status
     user = annotation.user
     return {
@@ -325,11 +328,11 @@ class AnnotationsMixin:
         for annotation in sorted(rows, key=_annotation_sort_key):
             reference = annotation.target_reference
             key = f"{annotation.target_type}:{reference}" if reference else annotation.target_type
-            summary[key] = _annotation_entry(annotation)
+            summary[key] = annotation_entry(annotation)
             if annotation.target_type == self._annotations_entity_type:
                 latest = annotation
 
-        last = _annotation_entry(latest) if latest else None
+        last = annotation_entry(latest) if latest else None
         return last, self._matches(latest), summary
 
     def _matches(self, latest) -> bool:
