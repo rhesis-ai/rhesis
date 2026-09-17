@@ -62,7 +62,7 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
       verdicts_resolved: 0,
       verdicts_planned: 4,
       failures: 0,
-      reviews_count: 0,
+      annotations_count: 0,
     },
     ...overrides,
   };

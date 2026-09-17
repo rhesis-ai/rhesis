@@ -40,8 +40,12 @@ function annotation(
   } as unknown as Annotation;
 }
 
-function resolvesTo(rows: Annotation[]) {
-  getAnnotations.mockResolvedValue({ data: rows, totalCount: rows.length });
+/** The shape `fetchPaginated` actually returns: rows plus the server's total. */
+function resolvesTo(rows: Annotation[], totalCount = rows.length) {
+  getAnnotations.mockResolvedValue({
+    data: rows,
+    pagination: { totalCount, skip: 0, limit: 100 },
+  });
 }
 
 describe('TestRunAnnotationsTab', () => {

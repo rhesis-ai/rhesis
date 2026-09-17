@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { testRunKeys } from '@/constants/query-keys';
 import DetailTabNav from '@/components/common/DetailTabNav';
+import { TabCountBadge } from '@/components/common/TabCountBadge';
 import {
   TestRunTitle,
   TestRunMetadata,
@@ -39,6 +40,7 @@ import {
 } from '@/utils/test-run-batch';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
+import { useTestRunAnnotations } from '../hooks/useTestRunAnnotations';
 import {
   getTestEvaluationSummary,
   getEffectiveTestResultStatus,
@@ -131,6 +133,8 @@ export default function TestRunMainView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+
+  const { count: annotationCount } = useTestRunAnnotations(testRunId);
 
   const preferLinkedEntities = Boolean(initialSelectedTestId);
   // Resolved once from the URL on load (so deep links like ?selectedresult=
@@ -488,6 +492,11 @@ export default function TestRunMainView({
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
     label: TAB_LABELS[key],
+    // Counted here rather than inside the tab so the badge is there before the
+    // tab is opened. Same query key, so opening it costs nothing extra.
+    ...(key === 'annotations' && {
+      badge: <TabCountBadge count={annotationCount} />,
+    }),
     id: `test-run-tab-${index}`,
     'aria-controls': `test-run-tabpanel-${index}`,
   }));

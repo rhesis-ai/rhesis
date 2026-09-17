@@ -83,7 +83,7 @@ export interface VerdictKpis {
   verdicts_resolved: number;
   verdicts_planned: number;
   failures: number;
-  reviews_count: number;
+  annotations_count: number;
 }
 
 export interface VerdictRequirement {
