@@ -29,6 +29,7 @@ from rhesis.backend.app.crud.usage_sql import (
     enriched_cost_expr,
     enriched_token_expr,
     models_used_rows,
+    one_row_per_trace,
     per_trace_usage_subquery,
     provider_breakdown_clause,
     span_total_tokens_expr,
@@ -418,6 +419,19 @@ def _build_trace_search_conditions(pattern: str):
     )
 
 
+def _provider_scope(db: Session, org_uuid, project_id: Optional[str]):
+    """One row per trace in scope, for resolving which models map to which provider.
+
+    Collapsed rather than scanned raw because the enrichment blob is duplicated onto
+    every span row: unnesting it per span expands the same breakdown once per span, which
+    on the dev instance is 49x the entries actually needed.
+    """
+    scope_filters = [models.Trace.organization_id == org_uuid, models.Trace.deleted_at.is_(None)]
+    if project_id:
+        scope_filters.append(models.Trace.project_id == project_id)
+    return one_row_per_trace(db, models.Trace, *scope_filters)
+
+
 def _provider_filter(db: Session, org_uuid, project_id: Optional[str], providers: List[str]):
     """Keep traces with at least one LLM call served by one of *providers*.
 
@@ -440,10 +454,7 @@ def _provider_filter(db: Session, org_uuid, project_id: Optional[str], providers
     if not wanted:
         return false()
 
-    scope_filters = [models.Trace.organization_id == org_uuid]
-    if project_id:
-        scope_filters.append(models.Trace.project_id == project_id)
-    scope = db.query(models.Trace).filter(*scope_filters).subquery()
+    scope = _provider_scope(db, org_uuid, project_id)
 
     recorded, model_names = set(), set()
     for row in distinct_breakdown_pairs(db, scope):
@@ -474,10 +485,7 @@ def list_trace_providers(
     """
     from uuid import UUID as _UUID
 
-    scope_filters = [models.Trace.organization_id == _UUID(str(organization_id))]
-    if project_id:
-        scope_filters.append(models.Trace.project_id == project_id)
-    scope = db.query(models.Trace).filter(*scope_filters).subquery()
+    scope = _provider_scope(db, _UUID(str(organization_id)), project_id)
 
     return sorted(
         {

@@ -240,3 +240,56 @@ class TestProviderList:
 
         assert list_trace_providers(test_db, test_org_id, project_id) == ["unknown"]
         assert trace_id in filtered(test_db, test_org_id, project_id, ["unknown"])
+
+
+@pytest.mark.integration
+class TestScopeIsCollapsedPerTrace:
+    """Resolving the model/provider pairs must not repeat a trace's breakdown per span.
+
+    enriched_data is written onto every span row of a trace, so unnesting it over a raw
+    span scan expands the same entries once per span. On the dev instance that is 49,812
+    breakdown entries where 1,014 are needed, and it grows with span count rather than
+    trace count.
+    """
+
+    def _trace_with_spans(self, db, project_id, org_id, span_count):
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            db,
+            [root_span(trace_id, project_id, model="gpt-4") for _ in range(span_count)],
+            organization_id=org_id,
+        )
+        mark_trace_processed(db, trace_id, blob(("gpt-4", None)))
+        return trace_id
+
+    def test_a_pair_is_returned_once_however_many_spans(self, test_db, db_project, test_org_id):
+        from rhesis.backend.app.crud.telemetry import _provider_scope
+        from rhesis.backend.app.crud.usage_sql import distinct_breakdown_pairs
+
+        project_id = str(db_project.id)
+        self._trace_with_spans(test_db, project_id, test_org_id, span_count=12)
+
+        scope = _provider_scope(test_db, uuid.UUID(test_org_id), project_id)
+        pairs = distinct_breakdown_pairs(test_db, scope)
+
+        assert len(pairs) == 1
+        assert pairs[0].model_name == "gpt-4"
+
+    def test_the_scope_holds_one_row_per_trace(self, test_db, db_project, test_org_id):
+        from rhesis.backend.app.crud.telemetry import _provider_scope
+
+        project_id = str(db_project.id)
+        self._trace_with_spans(test_db, project_id, test_org_id, span_count=12)
+        self._trace_with_spans(test_db, project_id, test_org_id, span_count=5)
+
+        scope = _provider_scope(test_db, uuid.UUID(test_org_id), project_id)
+        rows = test_db.query(scope).all()
+
+        assert len(rows) == 2, "17 span rows across 2 traces should collapse to 2"
+
+    def test_filtering_still_finds_a_many_span_trace(self, test_db, db_project, test_org_id):
+        """The collapse is an optimisation, not a narrowing."""
+        project_id = str(db_project.id)
+        trace_id = self._trace_with_spans(test_db, project_id, test_org_id, span_count=12)
+
+        assert trace_id in filtered(test_db, test_org_id, project_id, ["openai"])

@@ -109,6 +109,27 @@ def enriched_cost_expr(
     return func.coalesce(*fallbacks)
 
 
+def one_row_per_trace(db: Session, model, *filters):
+    """A scope subquery holding exactly one row per trace.
+
+    ``enriched_data`` is a trace-level blob that ``mark_trace_processed`` writes onto
+    every span row, so anything unnesting it over a raw span scan does the same work once
+    per span. On the dev instance that is 49,812 breakdown entries expanded where 1,014
+    are needed -- 16.7 spans per trace, and it scales with span count rather than trace
+    count.
+
+    DISTINCT ON keeps whichever row comes first; they all carry the identical blob, so
+    which one is immaterial.
+    """
+    return (
+        db.query(model)
+        .filter(*filters)
+        .distinct(model.trace_id)
+        .order_by(model.trace_id)
+        .subquery()
+    )
+
+
 def distinct_breakdown_pairs(db: Session, base) -> list:
     """Distinct (model name, provider exactly as recorded) pairs across the scope.
 
@@ -122,6 +143,9 @@ def distinct_breakdown_pairs(db: Session, base) -> list:
     The recorded provider is usually NULL -- it arrived after enrichment had already run
     over everything -- and those are placed from the model name by the caller, which
     needs LiteLLM.
+
+    Give it a scope built by :func:`one_row_per_trace`: unnesting the breakdown over raw
+    span rows repeats every entry once per span of its trace.
     """
     entries = _breakdown_entries(base.c.enriched_data, "provider_scope")
     model = entries.c.value[EnrichedDataKeys.MODEL_NAME].as_string()
@@ -380,6 +404,7 @@ __all__ = [
     "is_llm_invoke",
     "distinct_breakdown_pairs",
     "models_used_rows",
+    "one_row_per_trace",
     "models_used_select",
     "per_trace_usage_subquery",
     "provider_breakdown_clause",
