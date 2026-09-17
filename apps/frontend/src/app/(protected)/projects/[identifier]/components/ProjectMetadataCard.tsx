@@ -216,11 +216,11 @@ export default function ProjectMetadataCard({
                       src={ownerPicture}
                       alt={ownerName}
                       sx={{
-                        width: AVATAR_SIZES.MEDIUM,
-                        height: AVATAR_SIZES.MEDIUM,
+                        width: AVATAR_SIZES.SMALL,
+                        height: AVATAR_SIZES.SMALL,
                       }}
                     >
-                      <PersonIcon />
+                      <PersonIcon fontSize="small" />
                     </Avatar>
                     <Typography variant="body1">{ownerName}</Typography>
                   </Box>
