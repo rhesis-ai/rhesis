@@ -158,41 +158,6 @@ class RhesisMetricConfigFactory:
 
 
 @dataclass
-class RagasMetricConfigFactory:
-    """Factory for Ragas framework metrics."""
-
-    @classmethod
-    def answer_relevancy(cls, threshold: float = 0.7, **overrides) -> Dict[str, Any]:
-        """Create RagasAnswerRelevancy metric configuration."""
-        config = {
-            "name": "Ragas Answer Relevancy",
-            "class_name": "RagasAnswerRelevancy",
-            "backend": "ragas",
-            "description": "Ragas answer relevancy metric",
-            "parameters": {
-                "threshold": threshold,
-            },
-        }
-        config.update(overrides)
-        return config
-
-    @classmethod
-    def contextual_precision(cls, threshold: float = 0.7, **overrides) -> Dict[str, Any]:
-        """Create RagasContextualPrecision metric configuration."""
-        config = {
-            "name": "Ragas Contextual Precision",
-            "class_name": "RagasContextualPrecision",
-            "backend": "ragas",
-            "description": "Ragas contextual precision metric",
-            "parameters": {
-                "threshold": threshold,
-            },
-        }
-        config.update(overrides)
-        return config
-
-
-@dataclass
 class DeepEvalMetricConfigFactory:
     """Factory for DeepEval framework metrics (currently commented out in backend)."""
 
