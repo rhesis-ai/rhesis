@@ -1,17 +1,15 @@
-import { Box } from '@mui/material';
-import { PAGE_SECTION_GAP } from '@/styles/theme-constants';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
-import ProfileForm from './components/ProfileForm';
-import SecuritySection from './components/SecuritySection';
+import SettingsTabs from './components/SettingsTabs';
 
 /**
- * Server component: fetches the current user's settings so the profile and
- * security cards render with content already in place -- no full-page
- * spinner on first load. Both sections read `userSettings` optionally, so a
- * failed fetch degrades to empty fields rather than an error page.
+ * Server component: fetches the current user's settings so the profile,
+ * security and notification cards render with content already in place -- no
+ * full-page spinner on first load. Every section reads `userSettings`
+ * optionally, so a failed fetch degrades to empty fields rather than an error
+ * page.
  */
 export default async function SettingsPage() {
   await requireSession();
@@ -30,15 +28,10 @@ export default async function SettingsPage() {
   return (
     <PageLayout
       title="Settings"
-      description="Manage your profile and account."
+      description="Manage your profile, account and notifications."
       breadcrumbs={breadcrumbs}
     >
-      <Box
-        sx={{ display: 'flex', flexDirection: 'column', gap: PAGE_SECTION_GAP }}
-      >
-        <ProfileForm userSettings={userSettings} />
-        <SecuritySection userSettings={userSettings} />
-      </Box>
+      <SettingsTabs userSettings={userSettings} />
     </PageLayout>
   );
 }

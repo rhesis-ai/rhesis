@@ -23,6 +23,19 @@ export interface OnboardingProgress {
 
 import type { WithPermittedActions } from '@/types/affordances';
 
+/**
+ * Email notification preferences. Undefined means the user never touched the
+ * setting, which the backend reads as on.
+ */
+export interface EmailNotificationSettings {
+  job_completion?: boolean;
+  task_assignment?: boolean;
+}
+
+export interface NotificationSettings {
+  email?: EmailNotificationSettings;
+}
+
 export interface PolyphemusAccess {
   revoked_at?: string;
   requested_at?: string;
@@ -35,6 +48,7 @@ export interface DefaultProjectSetting {
 
 export interface UserSettings extends WithPermittedActions {
   models?: ModelsSettings;
+  notifications?: NotificationSettings;
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
   default_project?: DefaultProjectSetting;
@@ -50,6 +64,7 @@ export interface UserSettings extends WithPermittedActions {
 
 export interface UserSettingsUpdate {
   models?: ModelsSettings;
+  notifications?: NotificationSettings;
   onboarding?: OnboardingProgress;
   default_project?: DefaultProjectSetting;
 }
