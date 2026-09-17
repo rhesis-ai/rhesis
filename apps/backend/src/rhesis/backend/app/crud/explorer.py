@@ -9,16 +9,13 @@ import uuid
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
-from rhesis.backend.app import models, schemas
-from rhesis.backend.app.crud.embedding import create_embedding, get_embedding_by_hash
+from rhesis.backend.app import models
 
 # _TEST_SET_RELATED_FIELDS lives with the test-set CRUD: the test-set reads all share the
 # tuple, and this module only owns the Explorer slice.
 from rhesis.backend.app.crud.test_set import _TEST_SET_RELATED_FIELDS
-from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.explorer_metadata import (
     ExplorerAdaptiveSettings,
@@ -26,7 +23,7 @@ from rhesis.backend.app.schemas.explorer_metadata import (
     parse_explorer_adaptive_settings,
     parse_explorer_test_metadata,
 )
-from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -662,147 +659,3 @@ def get_test_set_metrics(db: Session, test_set_id: uuid.UUID) -> List[models.Met
         The attached metrics.
     """
     return db.query(models.Metric).filter(models.Metric.test_sets.any(id=test_set_id)).all()
-
-
-# --- Embeddings ---------------------------------------------------------------------
-
-
-def get_test_for_embedding(
-    db: Session, test_id: str, organization_id: str
-) -> Optional[models.Test]:
-    """Load a test with the relationships ``Test.to_searchable_text()`` reads.
-
-    Parameters
-    ----------
-    db : Session
-        Database session
-    test_id : str
-        Test to load
-    organization_id : str
-        Organization ID for tenant isolation
-
-    Returns
-    -------
-    models.Test or None
-        The test with prompt, topic, requirement, category and test type loaded.
-    """
-    return (
-        QueryBuilder(db, models.Test)
-        .with_custom_filter(
-            lambda q: q.filter(
-                models.Test.id == test_id, models.Test.organization_id == organization_id
-            )
-        )
-        .with_related(
-            include(models.Test.prompt),
-            include(models.Test.topic),
-            include(models.Test.requirement),
-            include(models.Test.category),
-            include(models.Test.test_type),
-        )
-        .first()
-    )
-
-
-def upsert_test_embedding(
-    db: Session,
-    *,
-    embedding: schemas.EmbeddingCreate,
-    organization_id: str,
-    user_id: str,
-) -> Optional[models.Embedding]:
-    """Insert an embedding, tolerating a concurrent writer that got there first.
-
-    The insert runs inside a savepoint so that a unique-constraint collision can be
-    recovered from without poisoning the surrounding transaction -- the caller's request
-    session may have unrelated pending work. On collision the winning row is returned
-    instead.
-
-    Parameters
-    ----------
-    db : Session
-        Database session
-    embedding : schemas.EmbeddingCreate
-        Row to insert
-    organization_id : str
-        Organization ID for tenant isolation
-    user_id : str
-        Acting user
-
-    Returns
-    -------
-    models.Embedding or None
-        The inserted row, or the row a concurrent writer created.
-
-    Raises
-    ------
-    sqlalchemy.exc.IntegrityError
-        If the insert fails for a reason other than the row already existing.
-    """
-    try:
-        with db.begin_nested():
-            return create_embedding(
-                db,
-                embedding=embedding,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-    except IntegrityError:
-        existing = get_embedding_by_hash(
-            db,
-            entity_id=embedding.entity_id,
-            entity_type=embedding.entity_type,
-            organization_id=organization_id,
-            config_hash=embedding.config_hash,
-            text_hash=embedding.text_hash,
-            status_id=embedding.status_id,
-        )
-        if existing:
-            return existing
-        raise
-
-
-def get_default_embedding_model(db: Session, organization_id: str) -> Optional[models.Model]:
-    """Fallback row for ``embedding.model_id`` when user settings omit an embedding model.
-
-    Tries the organization's model named "Rhesis Embedding" first, then any
-    protected embedding model from the ``rhesis`` provider.
-
-    Parameters
-    ----------
-    db : Session
-        Database session
-    organization_id : str
-        Organization ID for tenant isolation
-
-    Returns
-    -------
-    models.Model or None
-        The default embedding model, or None when the organization has neither.
-    """
-    org_uuid = uuid.UUID(organization_id)
-
-    by_name = (
-        db.query(models.Model)
-        .filter(
-            models.Model.organization_id == org_uuid,
-            models.Model.name == "Rhesis Embedding",
-            models.Model.model_type == ModelType.EMBEDDING.value,
-            models.Model.is_protected.is_(True),
-        )
-        .first()
-    )
-    if by_name:
-        return by_name
-
-    return (
-        db.query(models.Model)
-        .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
-        .filter(
-            models.Model.organization_id == org_uuid,
-            models.TypeLookup.type_value == "rhesis",
-            models.Model.is_protected.is_(True),
-            models.Model.model_type == ModelType.EMBEDDING.value,
-        )
-        .first()
-    )

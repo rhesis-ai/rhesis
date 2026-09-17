@@ -14,7 +14,6 @@ from rhesis.backend.app.crud import explorer as crud_explorer
 from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.annotation import get_annotations_for_tests
-from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.explorer import (
     ExportExplorerTestSetResponse,
     ImportExplorerTestSetResponse,
@@ -25,11 +24,6 @@ from rhesis.backend.app.schemas.explorer_metadata import (
     ExplorerTestMetadata,
     parse_explorer_adaptive_settings,
     parse_explorer_test_metadata,
-)
-from rhesis.backend.app.services.explorer.embeddings import (
-    create_test_embedding,
-    generate_embedding_vector,
-    load_test_for_embedding,
 )
 from rhesis.backend.app.services.explorer.labels import (
     HUMAN_LABELER,
@@ -633,47 +627,6 @@ def export_regular_test_set_from_explorer(
     )
 
 
-def _generate_test_embedding(
-    db: Session,
-    test_id: UUID,
-    organization_id: str,
-    user_id: str,
-    current_user: User,
-) -> None:
-    """Best-effort embed + persist for a newly created explorer test.
-
-    Never raises: a test create must succeed even if embedding generation or
-    persistence fails, so failures are logged and swallowed here.
-    """
-    try:
-        db_test = load_test_for_embedding(db, test_id, organization_id)
-        if not db_test:
-            logger.warning(
-                "Explorer test embedding skipped: Test row not found after create "
-                "(test_id=%s, organization_id=%s)",
-                test_id,
-                organization_id,
-            )
-            return
-
-        text = db_test.to_searchable_text()
-        vector = generate_embedding_vector(text, db, user_id)
-        stored = create_test_embedding(db, db_test, vector, current_user)
-        if stored is None:
-            logger.warning(
-                "Explorer test embedding not persisted (test_id=%s); "
-                "see earlier create_test_embedding logs for the reason",
-                test_id,
-            )
-    except Exception as e:
-        logger.warning(
-            "Explorer test embedding skipped after create (test_id=%s): %s",
-            test_id,
-            e,
-            exc_info=True,
-        )
-
-
 def create_test_node(
     db: Session,
     test_set_id: UUID,
@@ -685,8 +638,6 @@ def create_test_node(
     labeler: str = "user",
     label: str = "",
     model_score: float = 0.0,
-    generate_embedding: bool = False,
-    current_user: Optional[User] = None,
 ) -> TestTreeNode:
     """Create a test node in the explorer test tree.
 
@@ -721,12 +672,6 @@ def create_test_node(
         Label: 'pass', 'fail', or '' (default ``""``)
     model_score : float
         Model score for the test (default ``0.0``)
-    generate_embedding : bool
-        If true, embed the test input and persist it to the embedding table
-        on a best-effort basis (default ``False``)
-    current_user : User, optional
-        Required when ``generate_embedding`` is true; the ORM user object
-        embedding persistence reads settings from
 
     Returns
     -------
@@ -798,11 +743,10 @@ def create_test_node(
 
     logger.info(f"Created test node in test_set={test_set_id} topic='{topic}'")
 
-    if generate_embedding:
-        if current_user is None:
-            raise ValueError("current_user is required when generate_embedding=True")
-        _generate_test_embedding(db, node.id, organization_id, user_id, current_user)
-
+    # Embedding is not done here. ``EmbeddableMixin.after_insert`` queues one for
+    # every new Test and runs it after this transaction commits, on its own
+    # session -- so it neither duplicates the work nor holds this request's
+    # transaction open across a call to the embedding provider.
     return node
 
 

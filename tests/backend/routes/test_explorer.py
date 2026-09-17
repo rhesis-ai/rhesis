@@ -80,33 +80,6 @@ def _create_test_with_metadata(db, topic_name, prompt_content, metadata, organiz
 
 
 @pytest.fixture
-def explorer_embedding_model(test_db: Session, test_org_id, authenticated_user_id):
-    """Create a minimal 'Rhesis Embedding' model so create_test_embedding can persist rows.
-
-    The model uses dimension=384 so it matches the [0.01]*384 mock vector used in
-    test_create_test_with_generate_embedding_persists_embedding_row without needing a
-    real embedding API call.
-    """
-    from rhesis.backend.app.models.enums import ModelType
-
-    model = models.Model(
-        name="Rhesis Embedding",
-        model_name="rhesis/rhesis-embedding",
-        model_type=ModelType.EMBEDDING.value,
-        key="test-key-not-used",
-        dimension=384,
-        is_protected=True,
-        organization_id=test_org_id,
-        user_id=authenticated_user_id,
-        owner_id=authenticated_user_id,
-    )
-    test_db.add(model)
-    test_db.flush()
-    test_db.refresh(model)
-    return model
-
-
-@pytest.fixture
 def explorer_test_set(test_db: Session, test_org_id, authenticated_user_id):
     """Create a test set with explorer tree data for route tests.
 
@@ -1431,24 +1404,24 @@ class TestCreateExplorerTestEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
-    @patch(
-        "rhesis.backend.app.services.explorer.tests.generate_embedding_vector",
-        return_value=[0.01] * 384,
-    )
-    def test_create_test_with_generate_embedding_persists_embedding_row(
+    def test_an_unknown_body_field_is_ignored_rather_than_rejected(
         self,
-        _mock_embed: MagicMock,
         authenticated_client: TestClient,
         explorer_test_set,
         test_db: Session,
-        explorer_embedding_model,
     ):
-        """POST with generate_embedding=true should insert a row into embedding."""
+        """``generate_embedding`` is gone, and an old client still sending it works.
+
+        The body model is ``extra="ignore"``, so the field is dropped rather than
+        rejected with a 422. Embedding now always happens after the commit, via
+        the ``after_insert`` job every Test gets, so there is nothing for a client
+        to ask for.
+        """
         response = authenticated_client.post(
             f"/explorer/{explorer_test_set.id}/tests",
             json={
                 "topic": "Safety",
-                "input": "Embedding persistence check prompt",
+                "input": "Old client still sends the retired flag",
                 "output": "ok",
                 "labeler": "user",
                 "generate_embedding": True,
@@ -1457,18 +1430,48 @@ class TestCreateExplorerTestEndpoint:
         assert response.status_code == status.HTTP_201_CREATED
         created_id = response.json()["id"]
 
-        row = (
+        rows = (
             test_db.query(models.Embedding)
             .filter(
                 models.Embedding.entity_id == uuid.UUID(created_id),
                 models.Embedding.entity_type == "Test",
             )
-            .first()
+            .all()
         )
-        assert row is not None, "expected embedding row for created adaptive test"
-        assert row.embedding_config.get("source") == "explorer"
-        assert row.embedding_config.get("dimension") == 384
-        assert row.searchable_text  # from Test.to_searchable_text()
+        assert rows == [], "the request embedded inline instead of leaving it deferred"
+
+    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService.enqueue_embedding")
+    def test_creating_a_test_succeeds_when_embedding_is_broken(
+        self,
+        mock_enqueue: MagicMock,
+        authenticated_client: TestClient,
+        explorer_test_set,
+    ):
+        """A broken embedding path must not fail the create.
+
+        Embedding is optional enrichment: the test is what the person asked for,
+        and losing its vector costs a search hit rather than their work. This is
+        asserted at ``enqueue_embedding`` because that is the last embedding call
+        the request itself makes -- the ``after_insert`` hook queues the job and
+        the ``after_commit`` listener hands it off from here. Anything past that
+        runs in the worker, where a failure cannot reach the request at all.
+        """
+        mock_enqueue.side_effect = RuntimeError("embedding provider is down")
+
+        response = authenticated_client.post(
+            f"/explorer/{explorer_test_set.id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Created while embeddings are broken",
+                "output": "ok",
+            },
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, response.text
+        assert response.json()["input"] == "Created while embeddings are broken"
+        # Without this the test would pass just as happily if the create stopped
+        # attempting to embed at all, which is the thing it is guarding.
+        assert mock_enqueue.called, "the create never reached the embedding path"
 
 
 @pytest.mark.integration
