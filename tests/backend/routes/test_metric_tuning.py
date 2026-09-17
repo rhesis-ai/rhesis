@@ -9,8 +9,8 @@ Tests the HTTP endpoints:
 
 A case is a situation the metric has to get right -- an input, the answer being
 judged and, where the metric needs one, a reference answer. It records no
-expected verdict; the judgement happens after a run, through the review routes
-(domain.local/adr/0005).
+expected verdict; the judgement happens after a run, through the annotation
+routes (domain.local/adr/0005).
 
 Plus the visibility contract these rows depend on: a tuning test set must not
 appear in GET /test_sets and must not be reachable at GET /test_sets/{id}, a
@@ -350,17 +350,19 @@ class TestCreateTuningCase:
 
         assert _load_case(test_db, data["id"]).prompt.expected_response is None
 
-    def test_metadata_starts_with_no_result_and_no_reviews(
+    def test_metadata_starts_empty(
         self,
         authenticated_client: TestClient,
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """The case text lives in the payload; the JSONB is for what comes after."""
+        """The case text lives in the payload; the JSONB holds only the machine's
+        result, and there has not been a run yet. The judgements of it are
+        annotation rows and never touch this column."""
         data = _create_case(authenticated_client, tuning_metric.id)
 
         metadata = _load_case(test_db, data["id"]).test_metadata
-        assert metadata == {"reviews": []}
+        assert metadata == {}
 
     def test_marks_the_case_as_metric_owned(
         self,
@@ -421,15 +423,15 @@ class TestCreateTuningCase:
 class TestACaseNobodyHasRun:
     """A case can be captured now and judged after a run."""
 
-    def test_it_reads_as_unreviewed_because_it_was_never_judged(
+    def test_it_reads_as_unannotated_because_it_was_never_judged(
         self, authenticated_client: TestClient, tuning_metric: models.Metric
     ):
-        """Unreviewed is never accepted, and a case with no verdict yet says why."""
+        """Unannotated is never accepted, and a case with no verdict yet says why."""
         created = _create_case(authenticated_client, tuning_metric.id)
 
-        assert created["outcome"] == "unreviewed"
-        assert created["unreviewed_reason"] == "never_judged"
-        assert created["review"] is None
+        assert created["outcome"] == "unannotated"
+        assert created["unannotated_reason"] == "never_judged"
+        assert created["annotation"] is None
         assert created["result"] is None
 
     def test_it_is_listed_like_any_other_case(
@@ -441,7 +443,7 @@ class TestACaseNobodyHasRun:
         listed = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/cases").json()
 
         assert [item["id"] for item in listed] == [created["id"]]
-        assert listed[0]["outcome"] == "unreviewed"
+        assert listed[0]["outcome"] == "unannotated"
         assert listed[0]["input"] == CASE_INPUT
         assert listed[0]["output"] == CASE_OUTPUT
 
@@ -486,28 +488,25 @@ class TestUpdateTuningCase:
         assert data["input"] == CASE_INPUT
         assert data["reference_answer"] == CASE_REFERENCE_ANSWER
 
-    def test_editing_a_case_leaves_its_reviews_alone(
+    def test_editing_a_case_leaves_its_annotations_alone(
         self,
         authenticated_client: TestClient,
         test_db: Session,
         tuning_metric: models.Metric,
     ):
-        """Editing a case is not judging it. A review that no longer fits is
+        """Editing a case is not judging it. A judgement that no longer fits is
         invalidated by the material-change rule on the next run, not wiped here."""
+        comment = "scored a pass, but this is an insult"
         created = _create_case(authenticated_client, tuning_metric.id)
         db_test = _load_case(test_db, created["id"])
-        db_test.test_metadata = {
-            "result": {"verdict": "pass", "reasoning": "reads as polite"},
-            "reviews": [
-                {
-                    "decision": "rejected",
-                    "comment": "scored a pass, but this is an insult",
-                    "verdict": "pass",
-                    "score_type": "binary",
-                }
-            ],
-        }
+        db_test.test_metadata = {"result": {"verdict": "pass", "reasoning": "reads as polite"}}
         test_db.commit()
+
+        judged = authenticated_client.post(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}/annotate",
+            json={"decision": "rejected", "comment": comment},
+        )
+        assert judged.status_code == status.HTTP_200_OK, judged.text
 
         response = authenticated_client.put(
             f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}",
@@ -515,16 +514,21 @@ class TestUpdateTuningCase:
         )
 
         assert response.status_code == status.HTTP_200_OK, response.text
-        assert response.json()["review"]["comment"] == "scored a pass, but this is an insult"
-        test_db.refresh(db_test)
-        assert db_test.test_metadata["reviews"] == [
-            {
-                "decision": "rejected",
-                "comment": "scored a pass, but this is an insult",
-                "verdict": "pass",
-                "score_type": "binary",
-            }
-        ]
+        assert response.json()["annotation"]["comment"] == comment
+        assert response.json()["outcome"] == "rejected"
+        # And the row itself is untouched: one judgement, still carrying the comment.
+        test_db.expire_all()
+        stored = (
+            test_db.query(models.Annotation)
+            .options(joinedload(models.Annotation.status))
+            .filter(
+                models.Annotation.entity_type == "Test",
+                models.Annotation.entity_id == uuid.UUID(created["id"]),
+                models.Annotation.deleted_at.is_(None),
+            )
+            .all()
+        )
+        assert [(row.status.name, row.comments) for row in stored] == [("Rejected", comment)]
 
     def test_case_from_another_metric_404s(
         self,

@@ -1,4 +1,4 @@
-"""Metric tuning — a metric's own cases, runs over them, and reviews of the results.
+"""Metric tuning — a metric's own cases, runs over them, and annotations of the results.
 
 Mounted under ``/metrics`` with ``resource="metric"``, so the four existing
 ``metric:read|create|update|delete`` capabilities cover these routes and no
@@ -14,11 +14,11 @@ anything else -- one LLM call per case is not something an edit should trigger.
 The work happens in a background task; ``GET .../tuning/run`` is what the
 interface polls while it goes.
 
-Reviewing is by exception: one case at a time through
-``POST .../tuning/cases/{case_id}/review``, and everything still unreviewed in one
-action through ``POST .../tuning/reviews/accept-rest``. The verdict a review is
-about is read from storage, never sent, so a review cannot be recorded against
-something the metric did not say.
+Judging is by exception: one case at a time through
+``POST .../tuning/cases/{case_id}/annotate``, and everything still unannotated in
+one action through ``POST .../tuning/annotations/accept-rest``. The verdict a
+judgement is about is read from storage, never sent, so an annotation cannot be
+recorded against something the metric did not say.
 
 ``POST .../tuning/improve`` reads the rejections back and asks the generation
 model to rewrite the metric from them. It never writes: applying an improvement
@@ -47,24 +47,24 @@ from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_se
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.metric_tuning import (
+    MetricTuningAnnotationCreate,
     MetricTuningCase,
     MetricTuningCaseCreate,
     MetricTuningCaseUpdate,
     MetricTuningImprovement,
-    MetricTuningReviewCreate,
     MetricTuningRun,
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningRunSummary
 from rhesis.backend.app.services import metric_tuning as service
+from rhesis.backend.app.services.metric_tuning.annotations import (
+    AnnotationCommentRequired,
+    NothingToAnnotate,
+)
 from rhesis.backend.app.services.metric_tuning.improve import (
     ImprovementUnavailable,
     NoStandingRejections,
 )
 from rhesis.backend.app.services.metric_tuning.invoke import MetricModelNotConfigured
-from rhesis.backend.app.services.metric_tuning.reviews import (
-    NothingToReview,
-    ReviewCommentRequired,
-)
 from rhesis.backend.app.services.metric_tuning.runs import NoTuningCases, TuningRunInFlight
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.metric_tuning import run_metric_tuning
@@ -123,7 +123,7 @@ def _run_response(
     """The stored run summary plus the two things about it that are never stored.
 
     The agreement is read here on every request rather than written when a run
-    finishes: a review recorded between runs -- or one a run has just invalidated
+    finishes: a judgement recorded between runs -- or one a run has just invalidated
     -- has to move the number straight away. Whether the run predates the metric
     is derived for the same reason: editing the metric has to change how the run
     reads without touching the run.
@@ -198,17 +198,20 @@ def delete_tuning_case(
     return {"deleted": True, "case_id": str(case_id)}
 
 
-# Both review routes are marked update for the same reason the run is: they write
-# onto the metric's own cases, so whoever can edit the metric can judge it.
+# Both annotation routes are marked update for the same reason the run is: they
+# write onto the metric's own cases, so whoever can edit the metric can judge it.
+# Not ``annotation:create``: the row is a judgement of the metric, reachable only
+# through the metric, and gating it separately would let someone tune a metric
+# they cannot annotate or annotate one they cannot tune.
 @router.post(
-    "/{metric_id}/tuning/cases/{case_id}/review",
+    "/{metric_id}/tuning/cases/{case_id}/annotate",
     response_model=MetricTuningCase,
     **capability(Permission.Metric.UPDATE),
 )
-def review_tuning_case(
+def annotate_tuning_case(
     metric_id: UUID,
     case_id: UUID,
-    body: MetricTuningReviewCreate,
+    body: MetricTuningAnnotationCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: models.User = Depends(require_current_user_or_token),
@@ -223,13 +226,13 @@ def review_tuning_case(
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
     db_test = _resolve_case_or_raise(db, metric_id, case_id, organization_id)
     try:
-        return service.review_case(db, metric, db_test, body, user_id)
-    except (NothingToReview, ReviewCommentRequired) as e:
+        return service.annotate_case(db, metric, db_test, body, organization_id, user_id)
+    except (NothingToAnnotate, AnnotationCommentRequired) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post(
-    "/{metric_id}/tuning/reviews/accept-rest",
+    "/{metric_id}/tuning/annotations/accept-rest",
     response_model=List[MetricTuningCase],
     **capability(Permission.Metric.UPDATE),
 )
@@ -239,11 +242,11 @@ def accept_remaining_tuning_cases(
     tenant_context=Depends(get_tenant_context),
     current_user: models.User = Depends(require_current_user_or_token),
 ):
-    """Accept every case still unreviewed, and return the whole set.
+    """Accept every case still unannotated, and return the whole set.
 
     This is what stops forty cases becoming forty decisions. Cases with no
     verdict to judge -- never run, or one the metric call failed on -- are left
-    unreviewed rather than accepted.
+    unannotated rather than accepted.
     """
     organization_id, user_id = tenant_context
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
@@ -325,7 +328,7 @@ def start_tuning_run(
     response_model=MetricTuningImprovement,
     **capability(Permission.Metric.UPDATE),
 )
-def improve_metric_from_reviews(
+def improve_metric_from_annotations(
     metric_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -336,25 +339,25 @@ def improve_metric_from_reviews(
     Synchronous, and it saves nothing. The caller is shown the current fields
     beside the proposed ones and applies them with an ordinary metric update, or
     closes the dialog -- rewriting the evaluation prompt in place would replace
-    the text the reviews were made against with no diff and no undo.
+    the text the annotations were made against with no diff and no undo.
     """
     organization_id, user_id = tenant_context
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
 
     try:
-        return service.improve_from_reviews(db, metric, organization_id, current_user)
+        return service.improve_from_annotations(db, metric, organization_id, current_user)
     except NoStandingRejections as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValidationError as e:
         # The model's fields did not fit MetricUpdate, so applying them would
         # fail. That is our template or our schema, not the caller's request.
-        raise internal_error(e, context=f"improving metric {metric_id} from its reviews") from e
+        raise internal_error(e, context=f"improving metric {metric_id} from its annotations") from e
     except ImprovementUnavailable as e:
         # Same public detail as /metrics/{id}/improve: the caller acts on it the
         # same way, and the real reason stays in the log.
         raise internal_error(
             e,
-            context=f"improving metric {metric_id} from its reviews",
+            context=f"improving metric {metric_id} from its annotations",
             status_code=400,
             public_detail=(
                 "Failed to improve metric: the generation model could not be "

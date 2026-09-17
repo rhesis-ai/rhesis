@@ -8,17 +8,18 @@ reviewer says.
 **It never writes.** The proposed fields go back to the caller, the reviewer sees
 them beside the current ones, and applying is an ordinary metric update sent
 afterwards. An in-place LLM rewrite would silently replace the evaluation prompt
-the reviews were made against, with no diff and no undo -- and applying by
+the annotations were made against, with no diff and no undo -- and applying by
 calling the model a second time would save a different rewrite than the one on
 screen. See domain.local/adr/0006.
 
 **The prompt and the schema live here, not in the SDK.** ``MetricSynthesizer`` is
-deliberately not used: this prompt is about reviews, which the SDK has no reason
-to know about. What is borrowed is the model client, because it is the only path
-to an LLM in this codebase and it is where provider auth, retries and usage
+deliberately not used: this prompt is about annotations, which the SDK has no
+reason to know about. What is borrowed is the model client, because it is the only
+path to an LLM in this codebase and it is where provider auth, retries and usage
 metering live. The consequence is that the naming, field-depth and score-type
-rules now exist in two templates -- ``improve_from_reviews.jinja`` here and the
-SDK's ``improve_metric.jinja`` -- and nothing keeps them in step. That is known.
+rules now exist in two templates -- ``improve_from_annotations.jinja`` here and
+the SDK's ``improve_metric.jinja`` -- and nothing keeps them in step. That is
+known.
 
 **Only rejections go in.** Accepted cases are not sent, which removes the only
 counter-pressure in the prompt: the cheapest rewrite satisfying five "this should
@@ -37,16 +38,16 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
+from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.schemas.metric import MetricUpdate
 from rhesis.backend.app.schemas.metric_tuning import (
     ImprovedMetricFields,
     MetricTuningImprovement,
+    TuningDecision,
 )
-from rhesis.backend.app.schemas.metric_tuning_metadata import (
-    ReviewDecision,
-    parse_metric_tuning_case_metadata,
-)
-from rhesis.backend.app.services.metric_tuning.outcome import current_verdict, standing_review
+from rhesis.backend.app.schemas.metric_tuning_metadata import parse_metric_tuning_case_metadata
+from rhesis.backend.app.services.metric_tuning.judgement import decision_of
+from rhesis.backend.app.services.metric_tuning.outcome import current_verdict, standing_annotation
 from rhesis.backend.app.services.metric_tuning.payload import parse_payload
 from rhesis.backend.app.services.metric_tuning.test_sets import get_tuning_test_set
 from rhesis.backend.app.utils.user_model_utils import resolve_model
@@ -65,7 +66,7 @@ TRUNCATION_MARKER = " … [truncated]"
 IMPROVABLE_FIELDS = tuple(ImprovedMetricFields.model_fields)
 
 # Fixed for the metric whatever the model answers. A changed ``score_type``
-# invalidates every review the metric has, and the ``categories`` list is what a
+# invalidates every annotation the metric has, and the ``categories`` list is what a
 # stored categorical verdict is named from -- neither is a thing this button
 # moves. See ADR-0006.
 PRESERVED_FIELDS = ("score_type", "categories")
@@ -97,7 +98,7 @@ class Rejection(BaseModel):
 
 def _load_template() -> Template:
     """The prompt, loaded from beside this module -- as ``llm_mapper`` does."""
-    path = os.path.join(os.path.dirname(__file__), "improve_from_reviews.jinja")
+    path = os.path.join(os.path.dirname(__file__), "improve_from_annotations.jinja")
     with open(path, "r") as handle:
         return Template(handle.read())
 
@@ -116,26 +117,29 @@ def standing_rejections(
 ) -> List[Rejection]:
     """Every rejection that still describes what the metric says now.
 
-    Two filters, both of them the point. A case whose standing review is an
-    accept is left out -- only rejections are sent. And the *standing* review is
-    the one read, not the ten-deep history: a rejection a material change
-    invalidated objects to a verdict the metric no longer gives, so feeding it
-    back would ask for a rewrite nobody wants any more.
+    Two filters, both of them the point. A case whose standing judgement is an
+    accept is left out -- only rejections are sent. And the *standing* one is the
+    one read, not the whole history: a rejection a material change invalidated
+    objects to a verdict the metric no longer gives, so feeding it back would ask
+    for a rewrite nobody wants any more.
 
-    Whoever wrote the review does not matter. A metric is tuned by everyone who
-    reviewed it, not only by whoever pressed the button.
+    Whoever wrote the rejection does not matter. A metric is tuned by everyone
+    who annotated it, not only by whoever pressed the button.
     """
     test_set = get_tuning_test_set(db, metric.id, organization_id)
     if not test_set:
         return []
 
+    cases = crud_metric_tuning.get_tuning_cases(db, test_set.id, organization_id)
+    case_annotations = get_annotations_for_tests(db, [case.id for case in cases])
+
     rejections = []
-    for db_test in crud_metric_tuning.get_tuning_cases(db, test_set.id, organization_id):
+    for db_test in cases:
         metadata = parse_metric_tuning_case_metadata(db_test.test_metadata)
-        review = standing_review(metric, metadata)
-        if review is None or review.decision != ReviewDecision.REJECTED:
+        annotation = standing_annotation(metric, metadata, case_annotations.get(db_test.id, ()))
+        if annotation is None or decision_of(annotation) != TuningDecision.REJECTED:
             continue
-        comment = (review.comment or "").strip()
+        comment = (annotation.comments or "").strip()
         if not comment:
             # A rejection is only stored with a comment, so this is a row written
             # by something older or edited by hand. Nothing to read, so nothing
@@ -150,11 +154,11 @@ def standing_rejections(
                 input=_clip(payload.input) or "",
                 output=_clip(payload.output) or "",
                 reference_answer=_clip(payload.reference_answer),
-                # Both from the latest run, not the verdict the review recorded:
-                # a review survives drift that did not cross the threshold, so
-                # the stored verdict and the current reasoning can be one run
-                # apart. Showing the model a number beside an explanation of a
-                # different number is worse than showing it either alone.
+                # Both from the latest run, not the verdict the annotation
+                # recorded: a judgement survives drift that did not cross the
+                # threshold, so the stored verdict and the current reasoning can
+                # be one run apart. Showing the model a number beside an
+                # explanation of a different number is worse than either alone.
                 verdict=current_verdict(metadata),
                 reasoning=_clip(result.reasoning if result else None),
                 comment=_clip(comment),
@@ -299,7 +303,7 @@ def _comparable(value: Any) -> Any:
     return value
 
 
-def improve_from_reviews(
+def improve_from_annotations(
     db: Session, metric: models.Metric, organization_id: str, user: models.User
 ) -> MetricTuningImprovement:
     """Propose a rewrite of ``metric`` from the rejections that stand against it.
