@@ -311,6 +311,17 @@ def per_trace_usage_subquery(db: Session, base, *, extra_group_by: Sequence = ()
                     EnrichedDataKeys.OUTPUT_COST_USD,
                 )
             ).label("output_cost_usd"),
+            # The same cost figure again, but NULL where the two above bottom out at
+            # zero. It is the only way to tell a trace priced at nothing from a trace
+            # nothing could price, which the zero they share cannot express.
+            func.max(
+                enriched_cost_expr(
+                    enriched,
+                    EnrichedDataKeys.TOTAL_COST_USD,
+                    EnrichedDataKeys.TOTAL_COST_USD,
+                    default=None,
+                )
+            ).label("known_cost_usd"),
             _llm_span_sum(attributes, span_total_tokens_expr(attributes)).label("raw_tokens"),
             _llm_span_sum(
                 attributes, span_token_expr(attributes, AISpanAttributes.TOKENS_INPUT)

@@ -1158,10 +1158,18 @@ def get_trace_metrics_aggregated(
         func.coalesce(func.sum(per_trace.c.cost_usd), 0).label("total_cost_usd"),
         func.coalesce(func.sum(per_trace.c.input_cost_usd), 0).label("total_input_cost_usd"),
         func.coalesce(func.sum(per_trace.c.output_cost_usd), 0).label("total_output_cost_usd"),
+        # COUNT skips NULLs, so this is how many traces carry a cost figure at all --
+        # which is what separates a scope that cost nothing from one nobody has priced.
+        func.count(per_trace.c.known_cost_usd).label("priced_traces"),
     ).one()
 
     agg = db.query(
         func.count(func.distinct(base.c.trace_id)).label("total_traces"),
+        # Enrichment stamps processed_at on every span row of a trace it has finished,
+        # so this says how much of the scope it still has to get through.
+        func.count(func.distinct(case((base.c.processed_at.isnot(None), base.c.trace_id)))).label(
+            "enriched_traces"
+        ),
         func.count(base.c.id).label("total_spans"),
         func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
         func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
@@ -1213,6 +1221,8 @@ def get_trace_metrics_aggregated(
 
     return {
         "total_traces": agg.total_traces or 0,
+        "enriched_traces": agg.enriched_traces or 0,
+        "priced_traces": token_cost_agg.priced_traces or 0,
         "total_spans": total_spans,
         "total_tokens": int(token_cost_agg.total_tokens or 0),
         "total_input_tokens": int(token_cost_agg.total_input_tokens or 0),
