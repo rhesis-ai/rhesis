@@ -132,3 +132,55 @@ class TestSdkEndpointInvoker:
 
         assert kwargs["query"] == "hello"
         assert kwargs["model"] == "gpt-4o"
+
+
+class TestSdkVersionInfoMapping:
+    """A version an SDK function reports must reach the mapped response.
+
+    The connector is transparent to it: the SDK serializer recurses over dicts without
+    filtering keys, the wire ``output`` field is untyped, and the RPC result is a plain
+    dict. So whether it survives comes down to the response mapping, which is what these
+    tests pin.
+    """
+
+    def _invoker(self, endpoint, response_mapping):
+        endpoint.response_mapping = response_mapping
+        context = InvocationContext(db=None, endpoint=endpoint, input_data={"input": "hi"})
+        return SdkEndpointInvoker(context)
+
+    def test_reported_version_is_mapped(self, sample_endpoint_sdk):
+        invoker = self._invoker(
+            sample_endpoint_sdk, {"output": "$.message", "version_info": "$.build"}
+        )
+        result = {"output": {"message": "hello", "build": {"prompt_version": "v3.2"}}}
+
+        mapped = invoker._map_sdk_response(result, "chat")
+
+        assert mapped["version_info"] == {"prompt_version": "v3.2"}
+        assert mapped["output"] == "hello"
+
+    def test_nested_version_object_is_not_stringified(self, sample_endpoint_sdk):
+        invoker = self._invoker(
+            sample_endpoint_sdk, {"output": "$.message", "version_info": "{{ build }}"}
+        )
+        result = {"output": {"message": "hello", "build": {"cfg": {"temperature": 0.2}}}}
+
+        mapped = invoker._map_sdk_response(result, "chat")
+
+        assert mapped["version_info"] == {"cfg": {"temperature": 0.2}}
+
+    def test_without_a_mapping_nothing_but_output_survives(self, sample_endpoint_sdk):
+        """The documented gate: an SDK endpoint with no response_mapping keeps only output.
+
+        Applies equally to metadata, context and tool_calls, so this is the existing
+        contract rather than something specific to version_info.
+        """
+        invoker = self._invoker(sample_endpoint_sdk, None)
+        raw = {"message": "hello", "version_info": {"prompt_version": "v3.2"}}
+
+        mapped = invoker._map_sdk_response({"output": raw}, "chat")
+
+        assert mapped == {"output": raw}
+        # The raw dict rides along inside output, but version_info is not a top-level field,
+        # which is where the run-level lookup reads it from -- so it stays invisible.
+        assert "version_info" not in mapped

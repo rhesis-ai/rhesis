@@ -123,7 +123,8 @@ def endpoint(
             }
         response_mapping: Manual output mappings (function output → Rhesis standard field)
             Maps your function's return value to Rhesis API response fields.
-            Standard Rhesis RESPONSE fields: output, context, metadata, tool_calls
+            Standard Rhesis RESPONSE fields: output, context, metadata, tool_calls,
+                version_info (an object describing the version of the system under test)
             Path syntax: Jinja2 or JSONPath ($.path.to.field)
             Example: {
                 "output": "$.result.text",
