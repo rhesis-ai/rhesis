@@ -121,6 +121,20 @@ def read_annotations(
     return attach_context(db, annotations)
 
 
+@router.get("/facets")
+def read_annotation_facets(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Distinct filter values derived from existing annotations.
+
+    Returns endpoints and metric names that appear in the org's annotations,
+    so filter dropdowns show only relevant choices.
+    """
+    organization_id, _ = tenant_context
+    return annotation_crud.get_annotation_facets(db, organization_id)
+
+
 @router.get(
     "/entity/{entity_type}/{entity_id}",
     response_model=List[schemas.AnnotationDetail],

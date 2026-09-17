@@ -17,7 +17,7 @@ import {
   type AnnotationEntityType,
   type AnnotationTargetType,
 } from '@/utils/api-client/interfaces/annotation';
-import { useRunTestSets, useEndpoints } from '@/hooks/useLookups';
+import { useRunTestSets, useAnnotationFacets } from '@/hooks/useLookups';
 
 export interface AnnotationFilters {
   rating: '' | 'Pass' | 'Fail';
@@ -101,8 +101,7 @@ export default function AnnotationFilterDrawer({
 
   const { data: rawTestSets, isLoading: loadingTestSets } =
     useRunTestSets(open);
-  const { data: rawEndpoints, isLoading: loadingEndpoints } =
-    useEndpoints(open);
+  const { data: facets, isLoading: loadingFacets } = useAnnotationFacets(open);
 
   const testSetOptions = React.useMemo(
     () =>
@@ -114,11 +113,14 @@ export default function AnnotationFilterDrawer({
 
   const endpointOptions = React.useMemo(
     () =>
-      (rawEndpoints ?? [])
-        .filter(ep => ep.id && ep.name)
-        .map(ep => ({ id: ep.id as string, label: ep.name as string })),
-    [rawEndpoints]
+      (facets?.endpoints ?? []).map(ep => ({
+        id: ep.id,
+        label: ep.name,
+      })),
+    [facets]
   );
+
+  const metricOptions = React.useMemo(() => facets?.metrics ?? [], [facets]);
 
   const selectedTestSet =
     testSetOptions.find(o => o.id === draft.test_set_id) ?? null;
@@ -221,7 +223,7 @@ export default function AnnotationFilterDrawer({
           options={endpointOptions}
           getOptionLabel={o => o.label}
           value={selectedEndpoint}
-          loading={loadingEndpoints}
+          loading={loadingFacets}
           isOptionEqualToValue={(o, v) => o.id === v.id}
           onChange={(_, value) =>
             setDraft(prev => ({ ...prev, endpoint_id: value?.id ?? '' }))
@@ -237,14 +239,24 @@ export default function AnnotationFilterDrawer({
       </FilterSection>
 
       <FilterSection title="Metric">
-        <TextField
-          fullWidth
-          placeholder="Metric name..."
-          value={draft.metric}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, metric: e.target.value }))
+        <Autocomplete
+          freeSolo
+          options={metricOptions}
+          value={draft.metric || null}
+          loading={loadingFacets}
+          onChange={(_, value) =>
+            setDraft(prev => ({ ...prev, metric: (value as string) || '' }))
           }
-          sx={textFieldSx}
+          onInputChange={(_, value) =>
+            setDraft(prev => ({ ...prev, metric: value }))
+          }
+          renderInput={params => (
+            <TextField
+              {...params}
+              placeholder="Select metric..."
+              sx={textFieldSx}
+            />
+          )}
         />
       </FilterSection>
     </FilterDrawerShell>

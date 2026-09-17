@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from './config';
 import {
   Annotation,
   AnnotationCreate,
+  AnnotationFacets,
   AnnotationsQueryParams,
   AnnotationUpdate,
 } from './interfaces/annotation';
@@ -68,5 +69,9 @@ export class AnnotationsClient extends BaseApiClient {
       `${API_ENDPOINTS.annotations}/${annotationId}`,
       { method: 'DELETE' }
     );
+  }
+
+  async getFacets(): Promise<AnnotationFacets> {
+    return this.fetch<AnnotationFacets>(`${API_ENDPOINTS.annotations}/facets`);
   }
 }

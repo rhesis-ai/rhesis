@@ -338,3 +338,66 @@ def get_annotation_statistics_for_runs(
         stats[str(run_id)]["corrected_tests"] = count
 
     return stats
+
+
+def get_annotation_facets(
+    db: Session,
+    organization_id: str,
+) -> dict:
+    """Distinct filter values derived from existing annotations.
+
+    Returns endpoints and metric names that actually appear in the org's
+    annotations, so the filter drawer shows only relevant choices. Endpoints
+    are fetched through the test configuration join (bypassing project scope)
+    and metric names come from ``target_reference`` on metric annotations.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    # Endpoints linked to annotated test results via test_configuration.
+    # bypass_tenant_filter so the Endpoint rows (project-scoped) are visible
+    # from the cross-project annotations page.
+    with bypass_tenant_filter():
+        endpoint_rows = (
+            db.query(
+                distinct(models.Endpoint.id).label("id"),
+                models.Endpoint.name,
+            )
+            .join(
+                models.TestConfiguration,
+                models.TestConfiguration.endpoint_id == models.Endpoint.id,
+            )
+            .join(
+                models.TestResult,
+                models.TestResult.test_configuration_id == models.TestConfiguration.id,
+            )
+            .join(
+                models.Annotation,
+                (models.Annotation.entity_id == models.TestResult.id)
+                & (models.Annotation.entity_type == EntityType.TEST_RESULT.value)
+                & (models.Annotation.deleted_at.is_(None)),
+            )
+            .filter(
+                models.Annotation.organization_id == organization_id,
+                models.TestResult.deleted_at.is_(None),
+            )
+            .order_by(models.Endpoint.name)
+            .all()
+        )
+
+    # Distinct metric names from metric-targeted annotations.
+    metric_rows = (
+        db.query(distinct(models.Annotation.target_reference))
+        .filter(
+            models.Annotation.organization_id == organization_id,
+            models.Annotation.target_type == AnnotationTarget.METRIC.value,
+            models.Annotation.target_reference.isnot(None),
+            models.Annotation.deleted_at.is_(None),
+        )
+        .order_by(models.Annotation.target_reference)
+        .all()
+    )
+
+    return {
+        "endpoints": [{"id": str(r.id), "name": r.name} for r in endpoint_rows],
+        "metrics": [r[0] for r in metric_rows],
+    }

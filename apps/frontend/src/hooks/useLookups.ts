@@ -11,7 +11,7 @@ import {
   typeLookupKeys,
   testKeys,
   testSetKeys,
-  endpointKeys,
+  annotationKeys,
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -21,7 +21,7 @@ import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import type { AnnotationFacets } from '@/utils/api-client/interfaces/annotation';
 import type { TestFacets } from '@/utils/api-client/interfaces/tests';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { getPriorities } from '@/utils/task-lookup';
@@ -156,21 +156,11 @@ export function useRunTestSets(enabled = true) {
   });
 }
 
-export function useEndpoints(enabled = true) {
+export function useAnnotationFacets(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
-  return useQuery<Endpoint[]>({
-    queryKey: endpointKeys.list('', 0, 100, 'name', 'asc'),
-    queryFn: async () => {
-      const response = await new ApiClientFactory()
-        .getEndpointsClient()
-        .getEndpoints({
-          skip: 0,
-          limit: 100,
-          sort_by: 'name',
-          sort_order: 'asc',
-        });
-      return response.data;
-    },
+  return useQuery<AnnotationFacets>({
+    queryKey: [...annotationKeys.all(), 'facets'],
+    queryFn: () => new ApiClientFactory().getAnnotationsClient().getFacets(),
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });

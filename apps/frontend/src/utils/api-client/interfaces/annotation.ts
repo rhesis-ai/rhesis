@@ -148,6 +148,11 @@ export interface AnnotationUpdate {
   attributes?: Record<string, unknown> | null;
 }
 
+export interface AnnotationFacets {
+  endpoints: { id: string; name: string }[];
+  metrics: string[];
+}
+
 export interface AnnotationsQueryParams {
   skip?: number;
   limit?: number;
