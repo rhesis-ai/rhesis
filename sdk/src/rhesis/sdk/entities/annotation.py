@@ -179,3 +179,24 @@ class Annotations(BaseCollection):
         return cls._paged(
             None, {"test_run_id": test_run_id, "sort_by": "updated_at", "sort_order": "desc"}
         )
+
+    @classmethod
+    def for_test_set(cls, test_set_id: str) -> List[Annotation]:
+        """Every annotation whose parent ran under the given test set."""
+        return cls._paged(
+            None, {"test_set_id": test_set_id, "sort_by": "updated_at", "sort_order": "desc"}
+        )
+
+    @classmethod
+    def for_endpoint(cls, endpoint_id: str) -> List[Annotation]:
+        """Every annotation whose parent ran against the given endpoint."""
+        return cls._paged(
+            None, {"endpoint_id": endpoint_id, "sort_by": "updated_at", "sort_order": "desc"}
+        )
+
+    @classmethod
+    def for_metric(cls, metric_name: str) -> List[Annotation]:
+        """Annotations targeting a specific metric by name (case-insensitive)."""
+        return cls._paged(
+            None, {"metric": metric_name, "sort_by": "updated_at", "sort_order": "desc"}
+        )

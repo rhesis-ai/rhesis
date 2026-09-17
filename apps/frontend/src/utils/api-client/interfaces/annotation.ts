@@ -159,5 +159,8 @@ export interface AnnotationsQueryParams {
   target_type?: AnnotationTargetType;
   entity_type?: AnnotationEntityType;
   test_run_id?: string;
+  test_set_id?: string;
+  endpoint_id?: string;
+  metric?: string;
   $filter?: string;
 }

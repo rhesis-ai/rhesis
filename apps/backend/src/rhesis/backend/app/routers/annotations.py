@@ -85,6 +85,9 @@ def read_annotations(
     target_type: Optional[str] = Query(None, description="Filter by target type"),
     entity_type: Optional[str] = Query(None, description="Filter by entity type"),
     test_run_id: Optional[uuid.UUID] = Query(None, description="Scope to a test run"),
+    test_set_id: Optional[uuid.UUID] = Query(None, description="Scope to a test set"),
+    endpoint_id: Optional[uuid.UUID] = Query(None, description="Scope to an endpoint"),
+    metric: Optional[str] = Query(None, description="Filter to annotations on a specific metric"),
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -97,6 +100,9 @@ def read_annotations(
         "target_type": target_type,
         "entity_type": entity_type,
         "test_run_id": test_run_id,
+        "test_set_id": test_set_id,
+        "endpoint_id": endpoint_id,
+        "metric": metric,
         "filter": filter,
     }
     annotations = annotation_crud.get_annotations(

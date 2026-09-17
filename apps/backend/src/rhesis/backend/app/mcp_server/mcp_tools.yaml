@@ -1346,6 +1346,19 @@ tools:
           UUID of a test run. Scopes to all annotations whose parent
           entity (test result or trace) belongs to that run. This is the
           main entry point after get_insights.
+      test_set_id:
+        description: >
+          UUID of a test set. Scopes to annotations whose parent entity
+          ran under a test configuration tied to that test set.
+      endpoint_id:
+        description: >
+          UUID of an endpoint. Scopes to annotations whose parent entity
+          ran against a test configuration tied to that endpoint.
+      metric:
+        description: >
+          Metric name (case-insensitive). Returns only annotations that
+          target that specific metric (target_type = "metric" and
+          target_reference matching the name).
       filter:
         description: >
           OData filter for fields the named parameters above do not

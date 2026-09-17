@@ -19,6 +19,9 @@ const ANNOTATIONS_FILTERS = {
   entityType: { kind: 'raw' },
   rating: { kind: 'raw' },
   targetType: { kind: 'raw' },
+  testSetId: { kind: 'raw' },
+  endpointId: { kind: 'raw' },
+  metric: { kind: 'raw' },
 } as const;
 
 export const annotationsList = defineList<
@@ -50,6 +53,9 @@ export const annotationsList = defineList<
     ...(f.entityType ? { entity_type: f.entityType } : {}),
     ...(f.rating ? { rating: f.rating } : {}),
     ...(f.targetType ? { target_type: f.targetType } : {}),
+    ...(f.testSetId ? { test_set_id: f.testSetId } : {}),
+    ...(f.endpointId ? { endpoint_id: f.endpointId } : {}),
+    ...(f.metric ? { metric: f.metric } : {}),
   }),
   list: (factory: ApiClientFactory, params) =>
     factory

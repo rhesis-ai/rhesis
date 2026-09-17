@@ -60,6 +60,9 @@ def _annotations_query(
     target_type: str | None = None,
     entity_type: str | None = None,
     test_run_id: uuid.UUID | None = None,
+    test_set_id: uuid.UUID | None = None,
+    endpoint_id: uuid.UUID | None = None,
+    metric: str | None = None,
     filter: str | None = None,
 ) -> QueryBuilder:
     """Build the filtered annotation query behind both the list page and its count."""
@@ -81,6 +84,12 @@ def _annotations_query(
             q = q.filter(models.Annotation.entity_type == entity_type)
         if test_run_id:
             q = q.filter(_in_test_run(test_run_id))
+        if test_set_id:
+            q = q.filter(_in_test_set(test_set_id))
+        if endpoint_id:
+            q = q.filter(_in_endpoint(endpoint_id))
+        if metric:
+            q = q.filter(_on_metric(metric))
         return q
 
     return (
@@ -110,6 +119,57 @@ def _in_test_run(test_run_id: uuid.UUID):
         )
     )
     return or_(on_result, on_trace)
+
+
+def _in_test_set(test_set_id: uuid.UUID):
+    """Annotations whose parent ran under a test configuration tied to the given test set."""
+    on_result = exists(
+        select(models.TestResult.id).where(
+            models.TestResult.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.TestResult.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.test_set_id == test_set_id,
+        )
+    )
+    on_trace = exists(
+        select(models.Trace.id).where(
+            models.Trace.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TRACE.value,
+            models.Trace.test_run_id == models.TestRun.id,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.test_set_id == test_set_id,
+        )
+    )
+    return or_(on_result, on_trace)
+
+
+def _in_endpoint(endpoint_id: uuid.UUID):
+    """Annotations whose parent ran under a test configuration tied to the given endpoint."""
+    on_result = exists(
+        select(models.TestResult.id).where(
+            models.TestResult.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.TestResult.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.endpoint_id == endpoint_id,
+        )
+    )
+    on_trace = exists(
+        select(models.Trace.id).where(
+            models.Trace.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TRACE.value,
+            models.Trace.test_run_id == models.TestRun.id,
+            models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            models.TestConfiguration.endpoint_id == endpoint_id,
+        )
+    )
+    return or_(on_result, on_trace)
+
+
+def _on_metric(metric_name: str):
+    """Annotations targeting a specific metric by name (case-insensitive)."""
+    return (
+        models.Annotation.target_type == AnnotationTarget.METRIC.value
+    ) & models.Annotation.target_reference.ilike(metric_name)
 
 
 def get_annotations(

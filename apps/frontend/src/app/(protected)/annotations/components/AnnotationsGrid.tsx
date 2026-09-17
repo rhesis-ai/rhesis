@@ -47,6 +47,9 @@ function toFilters(state: EntityGridFilterState<AnnotationFilters>) {
     entityType: state.drawer.entity_type,
     rating: state.drawer.rating,
     targetType: state.drawer.target_type,
+    testSetId: state.drawer.test_set_id,
+    endpointId: state.drawer.endpoint_id,
+    metric: state.drawer.metric,
   };
 }
 
