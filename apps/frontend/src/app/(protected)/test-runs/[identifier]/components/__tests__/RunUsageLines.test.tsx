@@ -79,6 +79,67 @@ describe('RunUsageLines', () => {
     expect(screen.getByText('112,557')).toBeInTheDocument();
   });
 
+  describe('the token delta', () => {
+    it('marks a run that used fewer tokens as the improvement', () => {
+      render(
+        <RunUsageLines
+          usage={usage({ total_tokens: 100000 })}
+          compareTo={usage({ total_tokens: 112557 })}
+        />
+      );
+
+      const delta = screen.getByText('(\u221212,557)');
+      expect(delta).toBeInTheDocument();
+      expect(delta).toHaveStyle({ color: '#38ad87' });
+    });
+
+    it('marks a run that used more tokens as the regression', () => {
+      render(
+        <RunUsageLines
+          usage={usage({ total_tokens: 130000 })}
+          compareTo={usage({ total_tokens: 112557 })}
+        />
+      );
+
+      expect(screen.getByText('(+17,443)')).toBeInTheDocument();
+    });
+
+    it('says nothing when both runs used the same tokens', () => {
+      render(<RunUsageLines usage={usage()} compareTo={usage()} />);
+
+      expect(screen.queryByText(/\(/)).not.toBeInTheDocument();
+    });
+
+    it('compares tokens even where cost could not be compared', () => {
+      // Tokens come off the spans, so they are known whether or not anything
+      // was priced. An unpriced baseline should not cost the reader both.
+      render(
+        <RunUsageLines
+          usage={usage({ total_tokens: 130000 })}
+          compareTo={usage({
+            total_tokens: 112557,
+            priced_traces: 0,
+            total_cost_usd: 0,
+          })}
+        />
+      );
+
+      expect(screen.getByText('(+17,443)')).toBeInTheDocument();
+      expect(screen.queryByText(/\$/)).toBeInTheDocument();
+    });
+
+    it('says nothing against a baseline that traced nothing', () => {
+      render(
+        <RunUsageLines
+          usage={usage()}
+          compareTo={usage({ total_traces: 0, total_tokens: 0 })}
+        />
+      );
+
+      expect(screen.queryByText(/\(/)).not.toBeInTheDocument();
+    });
+  });
+
   describe('the cost delta', () => {
     it('reads as an improvement when the run got cheaper', () => {
       render(

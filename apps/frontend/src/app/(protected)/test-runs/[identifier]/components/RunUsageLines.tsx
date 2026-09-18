@@ -25,17 +25,19 @@ function StatLine({
 }
 
 /**
- * The difference in spend between the two runs.
+ * How much more or less of something this run used than the baseline.
  *
- * Coloured the opposite way round from the pass-rate delta beside it: a run
- * that got cheaper is a run that improved.
+ * Coloured the opposite way round from the pass-rate delta beside it: for both
+ * spend and tokens, less is the improvement.
  */
-function CostDelta({
+function Delta({
   current,
   baseline,
+  format,
 }: {
   current: number;
   baseline: number;
+  format: (value: number) => string;
 }) {
   const theme = useTheme();
   // Rounded to the six places the backend already rounds costs to, and to the
@@ -56,7 +58,7 @@ function CostDelta({
       }}
     >
       ({delta > 0 ? '+' : '−'}
-      {formatCost(Math.abs(delta))})
+      {format(Math.abs(delta))})
     </Box>
   );
 }
@@ -84,20 +86,33 @@ export default function RunUsageLines({
 
   const costKnown = isCostKnown(usage);
   const models = usage.models_used ?? [];
-  const canCompare = costKnown && compareTo != null && isCostKnown(compareTo);
+  // Tokens come off the spans, so a run with traces always has them. Cost has
+  // to be priced on both sides before a difference means anything.
+  const comparable = compareTo != null && compareTo.total_traces > 0;
+  const canCompareCost = comparable && costKnown && isCostKnown(compareTo);
 
   return (
     <>
       <StatLine label="Cost">
         {costKnown ? formatCost(usage.total_cost_usd) : '—'}
-        {canCompare && (
-          <CostDelta
+        {canCompareCost && (
+          <Delta
             current={usage.total_cost_usd}
             baseline={compareTo.total_cost_usd}
+            format={formatCost}
           />
         )}
       </StatLine>
-      <StatLine label="Tokens">{formatTokenCount(usage.total_tokens)}</StatLine>
+      <StatLine label="Tokens">
+        {formatTokenCount(usage.total_tokens)}
+        {comparable && (
+          <Delta
+            current={usage.total_tokens}
+            baseline={compareTo.total_tokens}
+            format={formatTokenCount}
+          />
+        )}
+      </StatLine>
       {models.length > 0 && (
         <StatLine label="Model">
           <ModelLabel
