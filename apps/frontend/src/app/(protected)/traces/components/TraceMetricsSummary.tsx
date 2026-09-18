@@ -107,9 +107,28 @@ export default function TraceMetricsSummary({
     ? 'Whole project, not narrowed by the active filters'
     : undefined;
 
-  const spanTypes = Object.keys(metrics.operation_breakdown ?? {});
+  // Busiest first, which is the order a reader wants, and stable: the endpoint
+  // groups without an ORDER BY, so the keys arrive in whatever order the
+  // database produced them and the hover would otherwise reshuffle itself.
+  const spanTypes = Object.entries(metrics.operation_breakdown ?? {})
+    .sort(
+      ([aName, aCount], [bName, bCount]) =>
+        bCount - aCount || aName.localeCompare(bName)
+    )
+    .map(([name]) => name);
   const errorSpans = metrics.error_spans;
-  const okShare = Math.round((1 - metrics.error_rate) * 100);
+  // From the counts rather than the rounded rate, and capped below 100 while
+  // any span failed: rounding alone put "1 error · 100% ok" on screen for
+  // every scope past 199 spans, a sentence that argues with itself. Capping
+  // rather than flooring keeps 98.7% reading as 99 rather than 98.
+  const okShare = metrics.total_spans
+    ? Math.min(
+        errorSpans > 0 ? 99 : 100,
+        Math.round(
+          ((metrics.total_spans - errorSpans) / metrics.total_spans) * 100
+        )
+      )
+    : 100;
   const models = metrics.models_used ?? [];
   const providers = metrics.providers_used ?? [];
   const split = tokenSplitLabel(

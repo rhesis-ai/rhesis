@@ -105,6 +105,42 @@ describe('TraceMetricsSummary', () => {
     expect(screen.queryByText(/4 errors/)).not.toBeInTheDocument();
   });
 
+  it('never claims everything is ok while reporting errors', async () => {
+    // Rounding the share put "1 error \u00b7 100% ok" on screen for any scope
+    // past 199 spans -- a sentence that argues with itself.
+    getMetrics.mockResolvedValue(
+      metrics({ total_spans: 11667, error_spans: 3, error_rate: 0.0003 })
+    );
+    renderTiles();
+
+    expect(
+      await screen.findByText('3 errors \u00b7 99% ok')
+    ).toBeInTheDocument();
+  });
+
+  it('lists the span types busiest first, so the hover does not reshuffle', async () => {
+    // The endpoint groups without an ORDER BY, so the keys arrive in whatever
+    // order the database produced them.
+    getMetrics.mockResolvedValue(
+      metrics({
+        operation_breakdown: {
+          'tool.invoke': 60,
+          'llm.invoke': 1800,
+          'agent.invoke': 900,
+        },
+      })
+    );
+    renderTiles();
+
+    fireEvent.mouseOver(await screen.findByText('3 span types'));
+
+    await waitFor(() =>
+      expect(screen.getByRole('tooltip')).toHaveTextContent(
+        'llm.invoke, agent.invoke, tool.invoke'
+      )
+    );
+  });
+
   it('says one error rather than one errors', async () => {
     getMetrics.mockResolvedValue(
       metrics({ error_spans: 1, error_rate: 0.0003 })
