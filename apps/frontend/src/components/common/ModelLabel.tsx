@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Tooltip, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 interface ModelLabelProps {
   /** Distinct models, empty when nothing was priced. */
@@ -16,6 +17,9 @@ interface ModelLabelProps {
    *  column width. False where the name matters more than the line count -- a
    *  half-shown `gemini/ge...` tells the reader nothing. */
   truncate?: boolean;
+  /** Merged over the label's own styles, so a caller can have the name inherit
+   *  the weight and colour of the line it sits on. */
+  sx?: SxProps<Theme>;
 }
 
 /**
@@ -33,6 +37,7 @@ export default function ModelLabel({
   providers,
   component = 'p',
   truncate = true,
+  sx,
 }: ModelLabelProps) {
   const names = models ?? [];
   if (names.length === 0) {
@@ -55,15 +60,16 @@ export default function ModelLabel({
     <Typography
       variant="body2"
       component={component}
-      sx={
+      sx={[
         truncate
           ? {
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }
-          : { wordBreak: 'break-word' }
-      }
+          : { wordBreak: 'break-word' },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
     >
       {label}
     </Typography>
