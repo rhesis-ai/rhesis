@@ -115,13 +115,14 @@ class ExchangeRateService:
         self._snapshot: Optional[RateSnapshot] = None
         self._last_fetch: Optional[datetime] = None
         self._cache_duration = timedelta(hours=24)
-        #: How long a fallback snapshot is held. Far shorter than real rates:
-        #: the fallback knows EUR only, so caching it for a day would take the
-        #: other currencies off the menu until tomorrow over one failed fetch.
-        #: Long enough not to hammer the API from behind a firewall.
-        self._fallback_cache_duration = timedelta(minutes=5)
-        #: Whether the snapshot in hand came from the fallback rather than the API.
-        self._is_fallback = False
+        #: How long to sit on a snapshot that is not freshly fetched -- the
+        #: env fallback, or real rates being served past their day because the
+        #: provider is down. Short, so one missed fetch costs minutes rather
+        #: than a day; not zero, so an outage is not met with a network call
+        #: and its timeout on every single request.
+        self._retry_after_failure = timedelta(minutes=5)
+        #: How long the snapshot in hand is good for. Set with the snapshot.
+        self._cache_window = self._cache_duration
         self._api_url = _API_URL
 
     # -- reads ------------------------------------------------------------
@@ -170,29 +171,33 @@ class ExchangeRateService:
 
     # -- internals --------------------------------------------------------
 
-    def _store(self, snapshot: RateSnapshot, *, is_fallback: bool = False) -> RateSnapshot:
+    def _store(self, snapshot: RateSnapshot, *, window: Optional[timedelta] = None) -> RateSnapshot:
+        """Hold *snapshot* for *window*, defaulting to a full day."""
         self._snapshot = snapshot
         self._last_fetch = datetime.now(timezone.utc)
-        self._is_fallback = is_fallback
-        if not is_fallback:
+        self._cache_window = window or self._cache_duration
+        if window is None:
             logger.info(f"Fetched exchange rates ({snapshot.as_of}): {snapshot.rates}")
         return snapshot
 
     def _after_failed_fetch(self) -> RateSnapshot:
-        """Stale rates beat no rates; the env var beats nothing at all."""
-        if self._snapshot:
-            logger.info("Using stale cached exchange rates after a failed fetch")
-            return self._snapshot
+        """Stale rates beat no rates; the env var beats nothing at all.
 
-        # Cached briefly so a firewalled instance does not retry on every call,
-        # while an instance that merely missed one fetch recovers in minutes.
-        return self._store(_env_fallback(), is_fallback=True)
+        Either way the clock is reset to the short retry window. Without that a
+        provider outage is met with a fresh network call, and its timeout, on
+        every request -- and the snapshot keeps its own ``as_of``, so the rates
+        still report the day they are actually from.
+        """
+        if self._snapshot:
+            logger.info("Using stale exchange rates after a failed fetch")
+            return self._store(self._snapshot, window=self._retry_after_failure)
+
+        return self._store(_env_fallback(), window=self._retry_after_failure)
 
     def _is_cache_valid(self) -> bool:
         if not self._snapshot or not self._last_fetch:
             return False
-        window = self._fallback_cache_duration if self._is_fallback else self._cache_duration
-        return datetime.now(timezone.utc) - self._last_fetch < window
+        return datetime.now(timezone.utc) - self._last_fetch < self._cache_window
 
     @property
     def _params(self) -> dict:

@@ -268,6 +268,46 @@ class TestTheFallbackIsNotStickyForADay:
         assert fetch.call_count == 1
 
 
+class TestOutageBackoff:
+    """A provider outage must not put a network timeout on every request."""
+
+    def test_stale_rates_are_served_without_retrying_every_time(self, mocker):
+        service = ExchangeRateService()
+        cached(service, {"EUR": 0.95, "GBP": 0.80}, age_hours=25)
+        fetch = mocker.patch.object(service, "_fetch", return_value=None)
+
+        first = service.get_rates()
+        second = service.get_rates()
+
+        # One attempt, not one per call -- the second is served from the same
+        # stale snapshot rather than sitting on the provider's timeout again.
+        assert fetch.call_count == 1
+        assert first.rates == second.rates == {"EUR": 0.95, "GBP": 0.80}
+
+    def test_it_tries_again_a_few_minutes_later(self, mocker):
+        service = ExchangeRateService()
+        cached(service, {"EUR": 0.95}, age_hours=25)
+        fetch = mocker.patch.object(service, "_fetch", return_value=None)
+        service.get_rates()
+
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(minutes=6)
+        fetch.return_value = fresh({"EUR": 0.871, "GBP": 0.74758})
+
+        snapshot = service.get_rates()
+
+        assert fetch.call_count == 2
+        assert snapshot.rate_for("GBP") == 0.74758
+
+    def test_stale_rates_keep_the_day_they_are_actually_from(self, mocker):
+        """Resetting the retry clock must not backdate the rates themselves."""
+        service = ExchangeRateService()
+        service._snapshot = fresh({"EUR": 0.95}, as_of=date(2026, 9, 10))
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=25)
+        mocker.patch.object(service, "_fetch", return_value=None)
+
+        assert service.get_rates().as_of == date(2026, 9, 10)
+
+
 class TestTheEurAccessorEnrichmentUses:
     """Enrichment asks for EUR by name, and must not notice any of this."""
 
