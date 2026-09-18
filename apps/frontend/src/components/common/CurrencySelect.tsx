@@ -2,7 +2,12 @@
 
 import React from 'react';
 import { MenuItem, TextField } from '@mui/material';
-import { CURRENCIES, formatMoney, type Currency } from '@/utils/money';
+import {
+  CURRENCIES,
+  formatMoney,
+  isAvailable,
+  type Currency,
+} from '@/utils/money';
 
 /** A sample cost, so each option shows what it will actually look like. */
 const SAMPLE_USD = 12.3456;
@@ -55,11 +60,20 @@ export default function CurrencySelect({
       {inheritLabel && (
         <MenuItem value={FOLLOW_ORGANIZATION}>{inheritLabel}</MenuItem>
       )}
-      {CURRENCIES.map(currency => (
-        <MenuItem key={currency} value={currency}>
-          {currency} &nbsp;·&nbsp; {formatMoney(SAMPLE_USD, currency, rates)}
-        </MenuItem>
-      ))}
+      {CURRENCIES.map(currency => {
+        // A currency with no rate would preview in the stored currency, which
+        // reads as a dollar figure sitting under a pound label. Say it is
+        // unavailable instead.
+        const available = isAvailable(currency, rates);
+        return (
+          <MenuItem key={currency} value={currency} disabled={!available}>
+            {currency} &nbsp;·&nbsp;{' '}
+            {available
+              ? formatMoney(SAMPLE_USD, currency, rates)
+              : 'no rate available'}
+          </MenuItem>
+        );
+      })}
     </TextField>
   );
 }

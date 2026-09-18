@@ -2,6 +2,7 @@ import {
   BASE_CURRENCY,
   CURRENCIES,
   formatMoney,
+  isAvailable,
   isCurrency,
   makeMoneyFormatter,
   otherCurrencies,
@@ -111,5 +112,22 @@ describe('isCurrency', () => {
 
   it('agrees with the declared base', () => {
     expect(isCurrency(BASE_CURRENCY)).toBe(true);
+  });
+});
+
+describe('isAvailable', () => {
+  it('needs no rate for the currency costs are stored in', () => {
+    expect(isAvailable('USD', {})).toBe(true);
+  });
+
+  it('needs a rate for anything else', () => {
+    // Without this a picker offers GBP and then renders dollars under it,
+    // which is what an instance that could not reach the rate provider did.
+    expect(isAvailable('GBP', {})).toBe(false);
+    expect(isAvailable('CHF', { EUR: 0.871 })).toBe(false);
+  });
+
+  it('is satisfied by a rate being present', () => {
+    expect(isAvailable('GBP', RATES)).toBe(true);
   });
 });

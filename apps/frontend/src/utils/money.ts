@@ -27,6 +27,17 @@ export function isCurrency(value: unknown): value is Currency {
 }
 
 /**
+ * Whether a cost can actually be shown in this currency.
+ *
+ * The base needs no rate. Anything else does, and an instance that could not
+ * reach the rate provider has none -- offering the currency anyway would put a
+ * dollar figure under a pound label.
+ */
+export function isAvailable(currency: Currency, rates: Rates): boolean {
+  return currency === BASE_CURRENCY || rates[currency] !== undefined;
+}
+
+/**
  * Decimals for a figure of this size, matching what costs have always shown:
  * two for ordinary money, more as the figure shrinks, because a cost of a
  * thousandth of a cent still has to say something other than zero.
@@ -94,8 +105,6 @@ export function otherCurrencies(
   rates: Rates
 ): string[] {
   return CURRENCIES.filter(
-    other =>
-      other !== currency &&
-      (other === BASE_CURRENCY || rates[other] !== undefined)
+    other => other !== currency && isAvailable(other, rates)
   ).map(other => formatMoney(amountUsd, other, rates));
 }
