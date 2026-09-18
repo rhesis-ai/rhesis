@@ -69,3 +69,43 @@ def test_get_base_details(metric):
         "prompt": "test_prompt",
         "name": "test_metric",
     }
+
+
+class TestGetAnnotations:
+    """A metric reaches the judgements people left about it."""
+
+    def test_resolves_by_id_when_the_metric_has_one(self, metric, monkeypatch):
+        metric.id = "11111111-1111-1111-1111-111111111111"
+        asked = {}
+
+        def fake_for_metric(identifier):
+            asked["identifier"] = identifier
+            return ["annotation"]
+
+        monkeypatch.setattr(
+            "rhesis.sdk.entities.annotation.Annotations.for_metric", fake_for_metric
+        )
+
+        assert metric.get_annotations() == ["annotation"]
+        # The id, not the name: tuning judgements are filed under it, and a
+        # renamed metric keeps them.
+        assert asked["identifier"] == metric.id
+
+    def test_falls_back_to_the_name_before_a_push(self, metric, monkeypatch):
+        metric.id = None
+        asked = {}
+        monkeypatch.setattr(
+            "rhesis.sdk.entities.annotation.Annotations.for_metric",
+            lambda identifier: asked.setdefault("identifier", identifier) or [],
+        )
+
+        metric.get_annotations()
+
+        assert asked["identifier"] == "test_metric"
+
+    def test_says_what_is_missing_with_neither(self, metric):
+        metric.id = None
+        metric.name = None
+
+        with pytest.raises(ValueError, match="must have an id or a name"):
+            metric.get_annotations()

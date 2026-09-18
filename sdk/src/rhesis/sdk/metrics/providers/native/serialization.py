@@ -125,6 +125,25 @@ class BackendSyncMixin:
                 self.id = response["id"]
                 self.config.id = response["id"]
 
+    def get_annotations(self):
+        """Every judgement people have left about this metric.
+
+        Two kinds come back, told apart by the parent they hang off. A judgement
+        on this metric within a test result or trace says the metric got that one
+        case wrong. A metric tuning judgement, on a ``Test``, is someone assessing
+        what the metric said about a tuning case, which is the feedback that
+        drives improving it.
+
+        Resolved by id where this metric has one, falling back to its name for a
+        metric that has not been pushed yet.
+        """
+        from rhesis.sdk.entities.annotation import Annotations
+
+        identifier = self.id or getattr(self, "name", None)
+        if not identifier:
+            raise ValueError("Metric must have an id or a name to get annotations")
+        return Annotations.for_metric(str(identifier))
+
     @classmethod
     def pull(cls: type[T], name: Optional[str] = None, nano_id: Optional[str] = None) -> T:
         """
