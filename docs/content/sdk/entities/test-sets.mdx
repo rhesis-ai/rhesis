@@ -115,6 +115,10 @@ test_set = TestSets.pull(name="Safety Evaluation")
 test_set.to_csv("exported_tests.csv")`}
 </CodeBlock>
 
+### Annotations
+
+`test_set.get_annotations()` returns every human verdict left on the results and traces its runs produced. See [Annotations](/sdk/entities/annotations).
+
 ### Executing Test Sets
 
 Run all tests in a set against an endpoint:

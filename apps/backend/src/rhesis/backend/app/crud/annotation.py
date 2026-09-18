@@ -9,7 +9,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
-from sqlalchemy import distinct, exists, func, or_, select
+from sqlalchemy import String, cast, distinct, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -180,13 +180,38 @@ def _in_endpoint(endpoint_id: uuid.UUID):
     return or_(on_result, on_trace)
 
 
-def _on_metric(metric_name: str):
-    """Annotations targeting a specific metric by name (case-insensitive, strict equality)."""
-    normalized = metric_name.strip().lower()
+def _on_metric(metric: str):
+    """Every annotation about one metric, given its name or its id.
+
+    A metric is named two ways in ``target_reference``, and both have to be
+    covered or the answer is half the picture. A judgement on a metric within a
+    test result or trace names the metric, because that is all the result has to
+    go on. A metric tuning judgement names the metric's **id**, so that renaming
+    the metric does not orphan the judgements people made about it.
+
+    The tuning ones are the judgements specifically about whether the metric is
+    any good, so leaving them out of "annotations on this metric" would drop the
+    most relevant set.
+    """
+    normalized = metric.strip().lower()
     if not normalized:
         return models.Annotation.id.isnot(None)
+
+    # Whichever metric was meant, by either of the ways it can be identified.
+    identified = or_(
+        func.lower(models.Metric.name) == normalized,
+        cast(models.Metric.id, String) == normalized,
+    )
+    # Then match both ways a judgement can name it, so a name and an id are
+    # interchangeable as input and each returns the same whole set.
+    references = (
+        select(cast(models.Metric.id, String))
+        .where(identified)
+        .union(select(func.lower(models.Metric.name)).where(identified))
+    )
     return (models.Annotation.target_type == AnnotationTarget.METRIC.value) & (
-        func.lower(models.Annotation.target_reference) == normalized
+        func.lower(models.Annotation.target_reference).in_(references)
+        | (func.lower(models.Annotation.target_reference) == normalized)
     )
 
 

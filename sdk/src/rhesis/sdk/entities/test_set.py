@@ -165,6 +165,18 @@ class TestSet(BaseEntity):
             return self.tests
         return []
 
+    def get_annotations(self):
+        """Every annotation whose parent ran under this test set.
+
+        Covers the results and traces its runs produced, scoped server-side
+        rather than joined here.
+        """
+        from rhesis.sdk.entities.annotation import Annotations
+
+        if not self.id:
+            raise ValueError("TestSet must have an ID to get annotations")
+        return Annotations.for_test_set(self.id)
+
     def pull(self, include_tests: bool = True) -> "TestSet":
         """Pull the test set from the database and update this instance.
 

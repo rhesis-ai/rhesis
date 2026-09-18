@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, Dict, List, Optional
+import hashlib
+import re
+from enum import Enum
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -14,6 +17,125 @@ ENDPOINT = Endpoints.ANNOTATIONS
 # One page of the entity-scoped route. Paging continues past this, so a parent
 # with more annotations than the page size is read whole rather than truncated.
 _PAGE_SIZE = 100
+
+
+class AnnotatableEntity(str, Enum):
+    """What an annotation can be attached to.
+
+    A ``str`` enum so the plain strings keep working: ``entity_type="TestResult"``
+    and ``entity_type=AnnotatableEntity.TEST_RESULT`` are the same value.
+    """
+
+    TEST_RESULT = "TestResult"
+    TRACE = "Trace"
+    TEST = "Test"
+
+    # Without this, str() and f-strings render "AnnotatableEntity.TEST_RESULT"
+    # rather than the value, which would put that in a URL and a request body.
+    __str__ = str.__str__
+
+
+class Verdict(str, Enum):
+    """The verdicts a caller can name instead of resolving a status id."""
+
+    PASS = "pass"
+    FAIL = "fail"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+    __str__ = str.__str__
+
+
+# Each verdict is a status row, and which one depends on the entity type it is
+# filed under: Pass/Fail are the ones every organization already has for results,
+# while metric tuning has its own pair. Resolving on the name alone would break the
+# day a second entity type gets a status called "Fail".
+_VERDICT_STATUS = {
+    Verdict.PASS: ("Pass", "TestResult"),
+    Verdict.FAIL: ("Fail", "TestResult"),
+    Verdict.ACCEPTED: ("Accepted", "Annotation"),
+    Verdict.REJECTED: ("Rejected", "Annotation"),
+}
+
+# (who we are talking to, verdict) -> status id, filled on first use. Status ids
+# are per organization, so the key has to carry the credentials as well as the
+# verdict: ``api_key`` is a module-level variable a caller can reassign, so one
+# process can address two organizations and would otherwise get the first one's
+# id for the second one's annotation. The key is hashed rather than stored, so
+# this module-level dict never holds the secret itself.
+_verdict_cache: Dict[tuple, str] = {}
+
+
+def _client_identity(client: APIClient) -> tuple:
+    # str() because this must not be the thing that raises: it only builds a
+    # cache key, and a client handed in by a caller may hold anything.
+    digest = hashlib.sha256(str(client.api_key or "").encode("utf-8")).hexdigest()[:16]
+    return (str(client.base_url), digest)
+
+
+def resolve_verdict(verdict: Union[Verdict, str], client: Optional[APIClient] = None) -> str:
+    """The status id for a named verdict, e.g. ``"fail"``.
+
+    Cached per process, per organization. Raises ``ValueError`` for an unknown
+    name, listing the ones that exist, and for a verdict the organization has no
+    status row for.
+    """
+    try:
+        key = Verdict(str(verdict).strip().lower())
+    except ValueError:
+        known = ", ".join(v.value for v in Verdict)
+        raise ValueError(f"Unknown verdict {verdict!r}. Expected one of: {known}") from None
+
+    client = client or APIClient()
+    cache_key = (*_client_identity(client), key)
+    if cache_key in _verdict_cache:
+        return _verdict_cache[cache_key]
+
+    name, entity_type = _VERDICT_STATUS[key]
+    # Filtered by entity type and matched on the name here, rather than with a
+    # name filter, which would mean interpolating into OData.
+    #
+    # Paged rather than read in one call: /statuses/ defaults to ten rows sorted
+    # newest first, and the verdicts are seeded, so they are the oldest rows of
+    # their entity type. An organization that had added ten statuses of its own
+    # would push Pass and Fail off the first page and this would report that they
+    # do not exist.
+    skip = 0
+    while True:
+        page = (
+            client.send_request(
+                endpoint=Endpoints.STATUSES,
+                method=Methods.GET,
+                params={"entity_type": entity_type, "skip": skip, "limit": _PAGE_SIZE},
+            )
+            or []
+        )
+        for row in page:
+            if str(row.get("name", "")).strip().lower() == name.lower():
+                _verdict_cache[cache_key] = row["id"]
+                return row["id"]
+        if len(page) < _PAGE_SIZE:
+            break
+        skip += _PAGE_SIZE
+
+    raise ValueError(
+        f"No '{name}' status exists for entity type '{entity_type}' in this organization."
+    )
+
+
+def turn_reference(turn: Union[int, str]) -> str:
+    """The canonical reference for a turn, e.g. ``2`` or ``"turn 2"`` -> ``"Turn 2"``.
+
+    The stored reference is what the platform groups and displays a judgement by:
+    ``annotation_summary`` keys entries as ``"{target_type}:{reference}"``, so a
+    turn recorded as ``"2"`` becomes a second entry for the same turn rather than
+    superseding the first. The backend applies the override either way, since it
+    reads the digits out, which is exactly what would make the mismatch quiet.
+    """
+    digits = re.sub(r"\D", "", str(turn))
+    if not digits:
+        raise ValueError(f"Could not read a turn number from {turn!r}. Expected 2 or 'Turn 2'.")
+    return f"Turn {int(digits)}"
 
 
 class AnnotationUser(BaseModel):
@@ -136,6 +258,23 @@ class Annotation(BaseEntity):
 
         return response
 
+    def resolve(self) -> "Annotation":
+        """Close this annotation, the disagreement having been handled."""
+        return self._set_resolved(True)
+
+    def reopen(self) -> "Annotation":
+        """Reopen this annotation, it needing attention again."""
+        return self._set_resolved(False)
+
+    def _set_resolved(self, resolved: bool) -> "Annotation":
+        if not self.id:
+            raise ValueError("Annotation must have an id to resolve or reopen")
+        # Sent as its own update rather than by pushing the whole object, so this
+        # cannot carry along an edit the caller made to a field by accident.
+        Annotation(id=self.id, resolved=resolved).push()
+        self.resolved = resolved
+        return self
+
 
 class Annotations(BaseCollection):
     endpoint = ENDPOINT
@@ -161,7 +300,56 @@ class Annotations(BaseCollection):
             skip += _PAGE_SIZE
 
     @classmethod
-    def for_entity(cls, entity_type: str, entity_id: str) -> List[Annotation]:
+    def create(
+        cls,
+        entity_type: Union[AnnotatableEntity, str],
+        entity_id: str,
+        verdict: Union[Verdict, str],
+        comment: Optional[str] = None,
+        *,
+        metric: Optional[str] = None,
+        turn: Optional[Union[int, str]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> Annotation:
+        """Record a judgement, naming the verdict rather than resolving a status id.
+
+        The generic form of ``TestResult.annotate`` and ``Test.annotate``, for a
+        parent with no entity class of its own -- a trace, addressed by its span
+        row id (``context.trace_db_id``, not the OTEL hex).
+
+        ``metric`` and ``turn`` are mutually exclusive: an annotation judges one
+        thing. Naming neither judges the parent as a whole.
+        """
+        if metric and turn is not None:
+            raise ValueError("An annotation targets a metric or a turn, not both")
+
+        target_type = "metric" if metric else "turn" if turn is not None else None
+        reference = metric if metric else (turn_reference(turn) if turn is not None else None)
+        annotation = Annotation(
+            entity_type=str(entity_type),
+            entity_id=str(entity_id),
+            status_id=resolve_verdict(verdict),
+            comments=comment,
+            target_type=target_type,
+            target_reference=reference,
+            attributes=attributes,
+        )
+        annotation.push()
+        return annotation
+
+    @classmethod
+    def for_trace(cls, trace_db_id: str) -> List[Annotation]:
+        """Every annotation on one trace.
+
+        ``trace_db_id`` is the span's row id, which is what addresses a trace --
+        the OTEL hex ``trace_id`` does not.
+        """
+        return cls.for_entity(AnnotatableEntity.TRACE, trace_db_id)
+
+    @classmethod
+    def for_entity(
+        cls, entity_type: Union[AnnotatableEntity, str], entity_id: str
+    ) -> List[Annotation]:
         """Every annotation on one parent.
 
         Uses the entity-scoped route rather than a filter over the whole list,
@@ -195,11 +383,16 @@ class Annotations(BaseCollection):
         )
 
     @classmethod
-    def for_metric(cls, metric_name: str) -> List[Annotation]:
-        """Annotations targeting a specific metric by name (case-insensitive)."""
-        return cls._paged(
-            None, {"metric": metric_name, "sort_by": "updated_at", "sort_order": "desc"}
-        )
+    def for_metric(cls, metric: str) -> List[Annotation]:
+        """Every judgement about one metric, given its name or its id.
+
+        Two kinds are filed differently and both come back: a judgement on a
+        metric within a test result or trace names the metric, while a metric
+        tuning judgement names the metric's id, so renaming it does not orphan
+        the judgements people made. The tuning ones are the judgements about
+        whether the metric itself is any good.
+        """
+        return cls._paged(None, {"metric": metric, "sort_by": "updated_at", "sort_order": "desc"})
 
     @classmethod
     def for_annotator(cls, annotator_id: str) -> List[Annotation]:

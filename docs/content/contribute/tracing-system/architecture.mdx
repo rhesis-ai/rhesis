@@ -172,7 +172,7 @@ def get_trace(trace_id: str, project_id: str, db: Session, tenant_context):
 |-------|-------------|
 | `root_spans` | Spans arranged as a parent-child tree |
 | `span_count`, `error_count`, `total_tokens`, `total_cost_usd` | Computed across all spans in the trace |
-| `trace_metrics_status`, `trace_reviews` | LLM-based metric evaluation status and human review state |
+| `trace_metrics_status` | LLM-based metric evaluation status. Human verdicts are [annotations](/contribute/backend/annotations) |
 | `project`, `endpoint`, `test_run`, `test_result`, `test` | Linked entities, populated where applicable |
 
 ## Configuration

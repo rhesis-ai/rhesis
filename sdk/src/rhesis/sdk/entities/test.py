@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
 
 from pydantic import BaseModel, field_validator, model_validator
 
 if TYPE_CHECKING:
-    from rhesis.sdk.entities.annotation import Annotation
+    from rhesis.sdk.entities.annotation import Annotation, Verdict
     from rhesis.sdk.entities.file import File
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
@@ -186,11 +186,26 @@ class Test(BaseEntity):
         metric tuning judgement targets ``metric`` and names the metric's id in
         ``target_reference``.
         """
-        from rhesis.sdk.entities.annotation import Annotations
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
 
         if not self.id:
             raise ValueError("Test must have an ID to get annotations")
-        return Annotations.for_entity("Test", self.id)
+        return Annotations.for_entity(AnnotatableEntity.TEST, self.id)
+
+    def annotate(
+        self, verdict: Union["Verdict", str], comment: Optional[str] = None
+    ) -> "Annotation":
+        """Label this test, the way a person labels one in the Explorer.
+
+        ``verdict`` is ``"pass"`` or ``"fail"``. This judges the test itself; a
+        metric tuning judgement targets a metric and is recorded by the tuning
+        endpoints rather than here.
+        """
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
+
+        if not self.id:
+            raise ValueError("Test must have an ID to annotate")
+        return Annotations.create(AnnotatableEntity.TEST, self.id, verdict, comment)
 
     def add_files(self, sources: list) -> List["File"]:
         """Add files to this test from paths or base64 dicts.

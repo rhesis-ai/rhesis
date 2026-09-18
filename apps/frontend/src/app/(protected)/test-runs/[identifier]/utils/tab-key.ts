@@ -32,7 +32,6 @@ export function tabIndexFromKey(
   if (key === 'logs') {
     return TAB_KEYS.indexOf('traces');
   }
-  // Kept for one release so shared ?tab=reviews links still land correctly.
   if (key === 'reviews') {
     return TAB_KEYS.indexOf('annotations');
   }

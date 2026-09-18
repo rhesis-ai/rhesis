@@ -180,8 +180,13 @@ Metrics can be managed both in the platform and in the SDK. The SDK provides `pu
 metric.push()
 
 # Pull a metric from the platform
-metric = NumericJudge.pull(name="response_clarity")`}
+metric = NumericJudge.pull(name="response_clarity")
+
+# Read what people have said about it
+metric.get_annotations()`}
 </CodeBlock>
+
+`get_annotations` returns both kinds of judgement about the metric: where someone disagreed with it on a test result, and the metric tuning judgements about whether the metric itself is any good. See [Annotations](/sdk/entities/annotations).
 
 ## Next steps
 

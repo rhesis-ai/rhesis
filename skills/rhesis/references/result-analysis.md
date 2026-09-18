@@ -172,6 +172,7 @@ This covers the run's test results and the traces it produced. Add `resolved=fal
 
 Two things this changes in an analysis:
 
+- **On a multi-turn result, a judgement may be about one turn.** `annotation_summary` keys entries as `target_type:reference`, so `turn:Turn 2` is a verdict on that turn alone rather than the whole conversation. Read `test_output.conversation_summary` to see which turn that was before explaining it.
 - **A "failure" may be a known false positive.** If an annotation on a result says Pass while the metrics said Fail, the metric is the problem, not the endpoint. Say so rather than reporting the raw failure.
 - **A clean-looking run may not be clean.** A human can fail a result everything passed. Never conclude "no problems found" from metric scores alone without checking.
 

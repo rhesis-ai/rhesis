@@ -67,7 +67,6 @@ class TestResult(
     verdict = Column(Text)
     test_output = Column(JSONB)
     test_metrics = Column(JSONB)
-    test_reviews = Column(JSONB)
     user_id = Column(GUID(), ForeignKey("user.id"))
     organization_id = Column(GUID(), ForeignKey("organization.id"), index=True)
     test_configuration = relationship("TestConfiguration", back_populates="test_results")

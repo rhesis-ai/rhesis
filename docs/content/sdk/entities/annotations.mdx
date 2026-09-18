@@ -1,0 +1,144 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Annotations
+
+An annotation is a person's judgement recorded against a test result, a trace, or a test. It is its own entity, linked to what it judges by `entity_type` and `entity_id`.
+
+A Pass or Fail annotation on a test result or a trace overrides that parent's automated outcome, so creating one changes what the platform reports for the parent, not only what the annotation says.
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `entity_type` | `str` | What is being judged: `TestResult`, `Trace`, or `Test` |
+| `entity_id` | `str` | Id of that parent. Fixed at creation |
+| `status_id` | `str` | The verdict. Required to create |
+| `status` | `Status` | The verdict as stored, read-only |
+| `target_type` | `str` | What within the parent: the entity itself, `metric`, or `turn` |
+| `target_reference` | `str` | Which metric or turn, when `target_type` names one |
+| `comments` | `str` | What the person wrote |
+| `resolved` | `bool` | Whether the thread has been closed |
+| `attributes` | `dict` | Extra fields per annotation kind, e.g. the verdict a tuning judgement was made against |
+| `user` | `AnnotationUser` | Who wrote it, read-only |
+| `resolved_by` | `AnnotationUser` | Who resolved it, read-only |
+| `context` | `AnnotationContext` | Where the parent sits, for linking back. Populated by the list and entity routes |
+
+Leave `target_type` and `target_reference` unset for a judgement on the parent as a whole; the backend fills in the right entity-level target for the parent type.
+
+## Reading annotations
+
+Start from whatever you already have in hand:
+
+<CodeBlock filename="read_annotations.py" language="python">
+{`# From the parent entity
+test_result.get_annotations()
+test.get_annotations()
+test_run.get_annotations()     # everything in the run: its results and its traces
+test_set.get_annotations()
+endpoint.get_annotations()
+
+# A metric reaches the judgements people left about it
+metric = NumericJudge.pull(name="Answer Relevancy")
+metric.get_annotations()`}
+</CodeBlock>
+
+There is no `Metric` entity class: a platform metric in the SDK is the judge itself, from `rhesis.sdk.metrics`, and `get_annotations` hangs off that.
+
+Or query the collection directly when you have an id rather than an object:
+
+<CodeBlock filename="query_annotations.py" language="python">
+{`from rhesis.sdk.entities import Annotations
+
+Annotations.for_entity("TestResult", test_result_id)
+Annotations.for_trace(trace_db_id)          # the span row id, not the OTEL hex
+Annotations.for_test_run(test_run_id)
+Annotations.for_test_set(test_set_id)
+Annotations.for_endpoint(endpoint_id)
+Annotations.for_metric("Answer Relevancy")  # by name or id; see the note below
+Annotations.for_requirement(requirement_id)
+Annotations.for_annotator(user_id)
+Annotations.for_date_range(date_from="2026-01-01")
+
+for annotation in Annotations.for_test_run(test_run_id):
+    print(annotation.status.name, annotation.user.name, annotation.comments)`}
+</CodeBlock>
+
+These read every page rather than the first one, so a parent with more annotations than a single page returns whole.
+
+`for_metric` takes a name or an id and returns both kinds of judgement about that metric: the ones left on a metric within a test result or trace, which name the metric, and the metric tuning ones, which name its id so that renaming the metric does not orphan them. The tuning ones are the judgements about whether the metric itself is any good, so asking by name and getting only the first kind would be the wrong answer.
+
+## Recording a judgement
+
+Annotate the thing you have in hand. The verdict is named, not looked up.
+
+<CodeBlock filename="record_annotation.py" language="python">
+{`# On the whole result
+test_result.annotate("fail", "The answer cites a policy that does not exist.")
+
+# On one metric within it, leaving the others on their automated verdicts
+test_result.annotate("pass", "Relevant after all.", metric="Answer Relevancy")
+
+# On one turn of a multi-turn conversation
+test_result.annotate("fail", "Went off script here.", turn=2)
+
+# Labelling a test, the way a person labels one in the Explorer
+test.annotate("fail", "Not a fair question.")`}
+</CodeBlock>
+
+`"pass"` and `"fail"` are resolved to the organization's status rows for you, and cached. Metric tuning uses `"accepted"` and `"rejected"`. `Verdict` and `AnnotatableEntity` hold the same values as constants if you would rather not type strings.
+
+A turn is given as its number, from `test_output.conversation_summary`, and stored as the label the platform groups judgements by:
+
+<CodeBlock filename="turn_targets.py" language="python">
+{`test_result.annotate("fail", "...", turn=2)          # stored as "Turn 2"
+test_result.annotate("fail", "...", turn="Turn 2")    # the same thing`}
+</CodeBlock>
+
+Both land on the same target. Passing a bare `"2"` would not: judgements are grouped by that reference, so it would sit beside the turn's other annotations instead of superseding them, which is why the number is normalised here rather than sent as given.
+
+For a parent with no entity class of its own, such as a trace, use the collection:
+
+<CodeBlock filename="annotate_trace.py" language="python">
+{`from rhesis.sdk.entities import Annotations
+
+Annotations.create("Trace", trace_db_id, "fail", "Retrieved the wrong document.")`}
+</CodeBlock>
+
+Constants are available where a literal would be easy to mistype:
+
+<CodeBlock filename="constants.py" language="python">
+{`from rhesis.sdk.entities import AnnotatableEntity, Verdict
+
+Annotations.create(AnnotatableEntity.TRACE, trace_db_id, Verdict.FAIL)`}
+</CodeBlock>
+
+## Resolving and deleting
+
+<CodeBlock filename="resolve_annotation.py" language="python">
+{`annotation.resolve()   # the disagreement has been handled
+annotation.reopen()    # it needs attention again
+
+# Deleting reverts the override it applied to the parent
+annotation.delete()`}
+</CodeBlock>
+
+A resolve sends only that change, so a local edit to a comment cannot ride along with it.
+
+## Building an annotation by hand
+
+`annotate` and `create` cover the common cases. Construct an `Annotation` directly when you need a field they do not take, such as `attributes`:
+
+<CodeBlock filename="manual_annotation.py" language="python">
+{`from rhesis.sdk.entities import Annotation, Statuses
+
+Annotation(
+    entity_type="TestResult",
+    entity_id=test_result_id,
+    status_id=Statuses.pull(name="Fail").id,
+    comments="Recorded by the nightly eval job.",
+    attributes={"source": "nightly"},
+).push()`}
+</CodeBlock>
+
+The write endpoints take the target nested under `target`, while responses return it flat as `target_type` and `target_reference`. `push` handles that remap, so set the flat pair and it arrives correctly.

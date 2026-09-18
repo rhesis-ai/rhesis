@@ -1,0 +1,92 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Annotations
+
+An annotation records a person's verdict on something the platform evaluated automatically, alongside the [automated metric outcome](/contribute/backend/test-result-status). Annotations live in the `annotation` table, one row per judgement. On a test result or a trace, an entity-level verdict overrides the stored status, which is why the stats views behind Insights read the effective result rather than the raw one.
+
+Annotations replaced three JSONB stores: `test_result.test_reviews`, `trace.trace_reviews`, and a `reviews` array inside `test.test_metadata` on metric tuning cases. All three are gone.
+
+## Table
+
+The parent is polymorphic, following the same pattern as `comment`.
+
+| Column | Type | Description |
+| ------ | ---- | ----------- |
+| `entity_type` | string | `TestResult`, `Trace`, or `Test` |
+| `entity_id` | UUID | The parent row. No foreign key, since the parent varies |
+| `target_type` | string | What within the parent: the entity-level target, `metric`, or `turn` |
+| `target_reference` | string | Which metric or turn, where the target names one |
+| `status_id` | UUID | The verdict, a `status` row |
+| `comments` | text | Free text, absent for a verdict that carries none |
+| `resolved` | boolean | Whether the thread is closed |
+| `resolved_at` / `resolved_by_id` | timestamp / UUID | Set when it is resolved |
+| `attributes` | JSONB | Per-kind extras. Metric tuning stores the verdict and score type it judged |
+
+Indexed on `(entity_type, entity_id)` and on `(organization_id, project_id, updated_at)`. The annotator is `user_id`, from `OrganizationAndUserMixin`.
+
+`(entity_type, target_type)` is what discriminates a judgement. There is no `kind` column.
+
+### Verdicts
+
+Verdicts are `status` rows, scoped by entity type:
+
+- Test results, traces, and Explorer tests use the organization's `Pass` and `Fail` under the `TestResult` entity type
+- Metric tuning uses `Accepted` and `Rejected` under the `Annotation` entity type
+
+### Overrides
+
+`original_status_id` lives on `test_result` and `trace`, not on the annotation. The service sets it once, on the first entity-level annotation, and never clears it, so the automated verdict is always recoverable.
+
+`services/annotation_override/` applies and reverts the override, dispatching on the parent type. Deleting an annotation reverts to the next annotation that still stands, or to the original status when none is left. The `override` marker inside `test_metrics` keeps its `review_id` key and value: the backfill reused each JSONB `review_id` as the new annotation's id, so those markers, `v_metric_stats.has_override`, and Insights stayed valid without touching the data.
+
+## API
+
+`app/routers/annotations.py`, resource `annotation`.
+
+| Method & path | Purpose |
+| ------------- | ------- |
+| `GET /annotations/` | List with OData `$filter`, plus `search`, `rating`, `resolved`, `target_type`, `entity_type`, and `test_run_id`. Returns `X-Total-Count` |
+| `GET /annotations/entity/\{entity_type\}/\{entity_id\}` | Every annotation on one parent. What the UI panels read |
+| `GET /annotations/facets` | Filter values for the hub's drawer |
+| `POST /annotations/` | Create. The annotator comes from the authenticated user |
+| `GET /annotations/\{annotation_id\}` | One annotation |
+| `PUT /annotations/\{annotation_id\}` | Update the verdict, comment, target, or resolved state |
+| `DELETE /annotations/\{annotation_id\}` | Delete, reverting any override it applied |
+
+Resolving and reopening are a `PUT` with `resolved`, not separate routes.
+
+### Create request
+
+The target is nested on write and flat on read, which is the one asymmetry worth knowing about.
+
+<CodeBlock filename="create-annotation.json" language="json">
+{`{
+  "entity_type": "TestResult",
+  "entity_id": "5f0c9a1e-2b77-4c31-9a4e-2f6d0c8b1a33",
+  "status_id": "735acfa0-cca2-48a1-bb90-ba10b16f1cdb",
+  "comments": "Refusal was appropriate here.",
+  "target": { "type": "metric", "reference": "Refusal Detection" }
+}`}
+</CodeBlock>
+
+Omit `target` for an entity-level judgement and the service fills in the right target for the parent type. Schemas are `AnnotationCreate`, `AnnotationUpdate`, `Annotation`, and `AnnotationDetail` in `app/schemas/annotation.py`; `AnnotationDetail` adds the `context` block the hub and the agent use to link back to a parent.
+
+## Derived properties
+
+`AnnotationsMixin` (`app/models/mixins.py`) exposes read-only properties on `TestResult`, `Trace`, and `Test`:
+
+- `last_annotation` — the newest entity-level annotation, or `None`
+- `matches_annotation` — whether the newest entity-level verdict agrees with the automated one
+- `annotation_summary` — one entry per target, carrying the annotation id, status, author, timestamp, and comment
+
+These are embedded on the parent's payload so grids, KPIs, and filters stay synchronous. Full rows are fetched per entity when a panel mounts. Annotations are eager-loaded in `crud/test_result.py` and in the trace queries feeding the tree builder, so a page costs one extra query rather than an N+1.
+
+## Permissions
+
+`annotation` is its own RBAC resource: `Permission.Annotation` with read, create, update, delete, and the two `own` variants. Read gating is `annotation:read` alone, with tenant and project scoping from the ambient filter, which replaced the test-result and telemetry dual gate the JSONB model needed.
+
+## Related documentation
+
+- [Annotations](/docs/annotations) — what they are for, from a user's point of view
+- [Test Result Status](/contribute/backend/test-result-status)
+- [Test Run Status](/contribute/backend/test-run-status)

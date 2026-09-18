@@ -47,7 +47,6 @@ def mock_trace():
             }
         },
     }
-    trace.trace_reviews = None
     trace.trace_metrics_status_id = None
     return trace
 
