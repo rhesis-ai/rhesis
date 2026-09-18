@@ -128,3 +128,4 @@ flowchart TB
 | TestRun | `list_test_runs` | `get_test_run` | (via `execute_test_set`) | — | `get_test_run_stats` |
 | TestResult | `list_test_results` | `get_test_result` | — | — | `get_test_result_stats` |
 | Annotation | `list_annotations` | `get_annotation` | `create_annotation` | `update_annotation` | — |
+| Status | `list_statuses` | — | — | — | Carries the verdict a `create_annotation` records; look the id up, never guess it |

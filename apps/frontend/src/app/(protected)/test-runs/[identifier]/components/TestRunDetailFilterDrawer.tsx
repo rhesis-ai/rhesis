@@ -78,7 +78,7 @@ export function countActiveTestRunDetailDrawerFilters(
   );
 }
 
-const REVIEW_STATUS_OPTIONS = [
+const ANNOTATION_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'overruled', label: 'Annotated' },
   { value: 'original', label: 'Not Annotated' },
@@ -392,7 +392,7 @@ export default function TestRunDetailFilterDrawer({
     >
       <FilterSection title="Annotation Status">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {REVIEW_STATUS_OPTIONS.map(option => (
+          {ANNOTATION_STATUS_OPTIONS.map(option => (
             <Box
               key={option.value}
               component="button"

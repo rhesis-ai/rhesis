@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from rhesis.sdk.entities.endpoint import Endpoint, Endpoints
 
-from .annotation import Annotation, Annotations
+from .annotation import AnnotatableEntity, Annotation, Annotations, Verdict
 from .base_collection import BaseCollection
 from .base_entity import BaseEntity
 from .category import Categories, Category
@@ -27,8 +27,10 @@ from .test_set import TestSet, TestSets
 from .topic import Topic, Topics
 
 __all__ = [
+    "AnnotatableEntity",
     "Annotation",
     "Annotations",
+    "Verdict",
     "BaseEntity",
     "BaseCollection",
     "Endpoint",

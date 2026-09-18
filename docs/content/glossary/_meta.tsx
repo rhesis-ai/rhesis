@@ -33,6 +33,9 @@ export default {
   "test-result": {
     display: "hidden",
   },
+  "annotation": {
+    display: "hidden",
+  },
   "knowledge": {
     display: "hidden",
   },

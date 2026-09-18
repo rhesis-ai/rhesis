@@ -438,7 +438,7 @@ An annotation names what it judges through `target_type`: the entity as a whole 
 - `test_run_id` — everything annotated in that run, both test results and the traces it produced. Main entry point.
 - `test_set_id` — scope to annotations whose parent ran under a test configuration tied to that test set
 - `endpoint_id` — scope to annotations whose parent ran against that endpoint
-- `metric` — metric name (case-insensitive); returns only annotations targeting that specific metric
+- `metric` — metric name or UUID (name is case-insensitive); returns every judgement about that metric. Two kinds are filed differently: one on a metric within a result names the metric, while a tuning judgement names the metric's id. Either input returns both, so this answers "what do people think of this metric" in one call
 - `annotator_id` — UUID of a user; returns only annotations created by that person
 - `requirement_id` — UUID of a requirement; scopes to annotations on test results linked to it
 - `date_from` — ISO date (e.g. `"2026-01-15"`); annotations updated on or after this date
@@ -462,6 +462,19 @@ Get one annotation by UUID with its full comment, author, verdict and resolved s
 
 ---
 
+### `list_statuses`
+List the organization's status rows, optionally for one entity type.
+
+Statuses carry verdicts, which is why this matters: `create_annotation` takes a `status_id`, and which row you pass is the verdict you record. Pass and Fail live under `entity_type="TestResult"` and are what a judgement on a test result or a trace uses. Accepted and Rejected live under `"Annotation"` and belong to metric tuning.
+
+Omitting `entity_type` returns several rows sharing a name across different entity types, so filter when you want a specific verdict.
+
+**CHAIN:** before `create_annotation` / `update_annotation`.
+
+**Key parameters:** `entity_type`
+
+---
+
 ### `create_annotation`
 Record a human verdict on a test result, a trace or a test. **Requires confirmation.**
 
@@ -472,9 +485,13 @@ A Pass/Fail annotation on a test result or trace **overrides that parent's autom
 **Key parameters:**
 - `entity_type` (required) — `"TestResult"`, `"Trace"` or `"Test"`
 - `entity_id` (required) — UUID of that entity
-- `status_id` (required) — the Pass or Fail status UUID
+- `status_id` (required) — the Pass or Fail status UUID, from `list_statuses(entity_type="TestResult")`. Never guess it.
 - `comments` — the person's reasoning in their words. An annotation with no comment explains nothing later.
 - `target` — optional `{"type": "metric", "reference": "Answer Fluency"}` or `{"type": "turn", "reference": "Turn 2"}`. Omit for a verdict on the whole entity.
+
+**Turn targets:** only meaningful on a multi-turn result or trace. Take the number from `test_output.conversation_summary` on `get_test_result`, where each turn carries its own, and write it exactly as `"Turn 2"`. The platform groups judgements by this reference, so `"2"` reads as a different target and would sit beside the turn's other annotations rather than superseding them.
+
+**CHAIN:** `list_statuses(entity_type="TestResult")` → `create_annotation`.
 
 **Careful:** `target` is nested on writes but flat (`target_type` / `target_reference`) on reads. Copying the flat pair from a `list_annotations` row into a create call is accepted and ignored, landing the annotation on the whole entity instead of the metric it named.
 

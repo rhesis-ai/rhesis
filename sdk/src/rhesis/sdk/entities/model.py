@@ -7,7 +7,7 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 if TYPE_CHECKING:
     from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.entities.base_collection import BaseCollection
-from rhesis.sdk.entities.base_entity import BaseEntity
+from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
 ENDPOINT = Endpoints.MODELS
 
@@ -104,12 +104,17 @@ class Model(BaseEntity):
             f"Supported providers: {', '.join(available_providers)}"
         )
 
+    @handle_http_errors
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the model to the platform.
 
         If a provider name is set, it will be automatically resolved to
         the provider_type_id before saving. The icon is automatically set
         based on the provider.
+
+        Decorated like the ``BaseEntity.push`` it overrides: without it this one
+        path raised raw ``HTTPError`` while every other call surfaced the
+        platform's own message.
         """
         # Validate provider is set
         if not self.provider and not self.provider_type_id:

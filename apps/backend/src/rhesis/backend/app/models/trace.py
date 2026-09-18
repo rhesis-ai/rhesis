@@ -104,9 +104,6 @@ class Trace(
 
     original_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
 
-    # Human reviews (dormant; kept for rollback until PR-5 drops the column)
-    trace_reviews = Column(JSONB, nullable=True)
-
     def _get_status_id_for_match(self):
         """Traces compare annotations against trace_metrics_status_id."""
         return self.trace_metrics_status_id

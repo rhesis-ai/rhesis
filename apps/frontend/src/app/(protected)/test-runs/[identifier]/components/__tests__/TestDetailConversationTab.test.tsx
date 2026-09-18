@@ -111,12 +111,12 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
     expect(lastSummary[0].success).toBe(false);
   });
 
-  it('follows a human review that overrides a failed result', () => {
-    // The backend applies and persists a test-level review's verdict
-    // synchronously (see services/review_override.py), so a reviewed
+  it('follows a human annotation that overrides a failed result', () => {
+    // The backend applies and persists a test-level annotation's verdict
+    // synchronously (see services/annotation_override/), so an annotated
     // result's execution/verdict already reflect the override by the time
     // the client has it -- the raw is_successful=false metric stays as the
-    // pre-review record.
+    // pre-annotation record.
     const test = makeSingleTurnResult({
       execution: 'ok',
       verdict: 'pass',
