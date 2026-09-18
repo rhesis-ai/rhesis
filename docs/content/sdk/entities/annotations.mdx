@@ -36,8 +36,14 @@ test_result.get_annotations()
 test.get_annotations()
 test_run.get_annotations()     # everything in the run: its results and its traces
 test_set.get_annotations()
-endpoint.get_annotations()`}
+endpoint.get_annotations()
+
+# A metric reaches the judgements people left about it
+metric = NumericJudge.pull(name="Answer Relevancy")
+metric.get_annotations()`}
 </CodeBlock>
+
+There is no `Metric` entity class: a platform metric in the SDK is the judge itself, from `rhesis.sdk.metrics`, and `get_annotations` hangs off that.
 
 Or query the collection directly when you have an id rather than an object:
 
