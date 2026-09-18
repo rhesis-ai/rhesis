@@ -166,9 +166,56 @@ class TestUserSettingsRoutes:
         assert data["ui"]["theme"] == sample_ui_settings["theme"]
         assert data["ui"]["default_page_size"] == sample_ui_settings["default_page_size"]
 
-    def test_patch_settings_rejects_models_embedding(
+    def test_patch_settings_currency_round_trips(self, authenticated_client, settings_endpoint):
+        """✅ The per-user currency override survives a write and a read"""
+        response = authenticated_client.patch(
+            settings_endpoint, json={"localization": {"currency": "CHF"}}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["localization"]["currency"] == "CHF"
+        assert (
+            authenticated_client.get(settings_endpoint).json()["localization"]["currency"] == "CHF"
+        )
+
+    def test_patch_settings_currency_keeps_its_siblings(
         self, authenticated_client, settings_endpoint
     ):
+        """✅ Setting a currency deep merges rather than replacing localization"""
+        authenticated_client.patch(
+            settings_endpoint, json={"localization": {"timezone": "Europe/Zurich"}}
+        )
+
+        response = authenticated_client.patch(
+            settings_endpoint, json={"localization": {"currency": "GBP"}}
+        )
+
+        localization = response.json()["localization"]
+        assert localization["currency"] == "GBP"
+        assert localization["timezone"] == "Europe/Zurich"
+
+    def test_patch_settings_rejects_an_unsupported_currency(
+        self, authenticated_client, settings_endpoint
+    ):
+        """❌ Only the currencies the product offers are accepted"""
+        response = authenticated_client.patch(
+            settings_endpoint, json={"localization": {"currency": "JPY"}}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_patch_settings_currency_can_be_cleared(self, authenticated_client, settings_endpoint):
+        """✅ Clearing the override is how a user defers to the organization"""
+        authenticated_client.patch(settings_endpoint, json={"localization": {"currency": "EUR"}})
+
+        response = authenticated_client.patch(
+            settings_endpoint, json={"localization": {"currency": None}}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["localization"].get("currency") is None
+
+    def test_patch_settings_rejects_models_embedding(self, authenticated_client, settings_endpoint):
         """❌ PATCH cannot change models.embedding via user settings"""
         get_before = authenticated_client.get(settings_endpoint)
         assert get_before.status_code == status.HTTP_200_OK
@@ -478,9 +525,7 @@ class TestUserSettingsRoutes:
 
         from rhesis.backend.app import models
 
-        db_user = (
-            test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
-        )
+        db_user = test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
         db_user.user_settings = {
             **(db_user.user_settings or {}),
             "terms": {

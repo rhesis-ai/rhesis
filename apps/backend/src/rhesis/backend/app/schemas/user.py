@@ -4,6 +4,7 @@ from typing import Any, Optional
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.constants_currency import Currency
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
@@ -90,6 +91,11 @@ class LocalizationSettings(BaseModel):
     )
     date_format: Optional[str] = Field(None, description="Preferred date format")
     time_format: Optional[str] = Field(None, description="Preferred time format: '12h' or '24h'")
+    currency: Optional[Currency] = Field(
+        None,
+        description="Currency this user sees costs in. Unset defers to the "
+        "organization's setting, and then to USD, which costs are stored in.",
+    )
 
 
 class PrivacySettings(BaseModel):

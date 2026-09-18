@@ -59,7 +59,7 @@ class OrganizationSettingsManager:
     @staticmethod
     def _default_settings() -> dict:
         """Return default settings structure."""
-        return {"version": 1, "branding": {}}
+        return {"version": 1, "branding": {}, "display": {}}
 
     @property
     def raw(self) -> dict:
@@ -70,6 +70,11 @@ class OrganizationSettingsManager:
     def branding(self) -> "BrandingSettingsAccessor":
         """Access white-label branding settings."""
         return BrandingSettingsAccessor(self._data.get("branding") or {})
+
+    @property
+    def display(self) -> "DisplaySettingsAccessor":
+        """Access how figures are shown across the organization."""
+        return DisplaySettingsAccessor(self._data.get("display") or {})
 
     def update(self, updates: dict) -> dict:
         """
@@ -154,3 +159,19 @@ class BrandingSettingsAccessor:
     def all(self) -> dict:
         """Get all branding settings as a dictionary."""
         return self._data
+
+
+class DisplaySettingsAccessor:
+    """Accessor for organization-wide display preferences."""
+
+    def __init__(self, display_settings: dict):
+        self._data = display_settings
+
+    @property
+    def currency(self) -> Optional[str]:
+        """Currency costs are shown in, for members with no personal override.
+
+        None means the organization has expressed no preference, and callers
+        fall back to the currency costs are stored in.
+        """
+        return self._data.get("currency")

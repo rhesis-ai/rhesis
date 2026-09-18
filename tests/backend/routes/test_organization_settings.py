@@ -94,6 +94,44 @@ class TestOrganizationSettingsUpdate:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["branding"]["primary_color"] == "#6A1B9A"
 
+    def test_sets_the_organization_wide_currency(self, authenticated_client):
+        """✅ The org default every member without an override sees."""
+        response = authenticated_client.patch(
+            SETTINGS_ENDPOINT, json={"display": {"currency": "CHF"}}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["display"]["currency"] == "CHF"
+        assert authenticated_client.get(SETTINGS_ENDPOINT).json()["display"]["currency"] == "CHF"
+
+    def test_currency_does_not_disturb_branding(self, authenticated_client):
+        """✅ The sections merge independently."""
+        authenticated_client.patch(
+            SETTINGS_ENDPOINT, json={"branding": {"primary_color": "#6A1B9A"}}
+        )
+
+        response = authenticated_client.patch(
+            SETTINGS_ENDPOINT, json={"display": {"currency": "GBP"}}
+        )
+
+        data = response.json()
+        assert data["display"]["currency"] == "GBP"
+        assert data["branding"]["primary_color"] == "#6A1B9A"
+
+    def test_rejects_an_unsupported_currency(self, authenticated_client):
+        """❌ Only the currencies the product offers are accepted."""
+        response = authenticated_client.patch(
+            SETTINGS_ENDPOINT, json={"display": {"currency": "JPY"}}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_currency_starts_unset(self, authenticated_client):
+        """✅ No preference means the stored currency, decided by the reader."""
+        response = authenticated_client.get(SETTINGS_ENDPOINT)
+
+        assert response.json()["display"]["currency"] is None
+
     def test_deep_merges_rather_than_replacing(self, authenticated_client):
         """✅ A second PATCH leaves untouched fields alone."""
         authenticated_client.patch(

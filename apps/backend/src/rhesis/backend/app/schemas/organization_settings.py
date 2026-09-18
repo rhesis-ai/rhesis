@@ -12,6 +12,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from rhesis.backend.app.constants_currency import Currency
+
 #: 6-digit hex only. Mirrors HEX_COLOR_PATTERN in the frontend's
 #: ``config/branding.ts`` — the 3-digit form would widen what a deployment can
 #: store, and MUI's colour manipulators need a parseable value.
@@ -245,6 +247,30 @@ class BrandingSettingsUpdate(BaseModel):
         return _validate_product_name(v)
 
 
+class DisplaySettings(BaseModel):
+    """How figures are shown to everyone in the organization.
+
+    Lenient on read like the other sections, so a future field does not break
+    an older deployment's response.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    currency: Optional[Currency] = Field(
+        None,
+        description="Currency costs are shown in, for members with no personal "
+        "override. Unset means USD, which is the currency costs are stored in.",
+    )
+
+
+class DisplaySettingsUpdate(BaseModel):
+    """Partial update to the display section."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    currency: Optional[Currency] = None
+
+
 class OrganizationSettings(BaseModel):
     """Complete organization settings schema. Lenient on read, like
     :class:`BrandingSettings` — a future section is dropped from the response
@@ -254,6 +280,7 @@ class OrganizationSettings(BaseModel):
 
     version: int = Field(1, description="Settings schema version")
     branding: BrandingSettings = Field(default_factory=BrandingSettings)
+    display: DisplaySettings = Field(default_factory=DisplaySettings)
 
 
 class OrganizationSettingsUpdate(BaseModel):
@@ -262,6 +289,7 @@ class OrganizationSettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     branding: Optional[BrandingSettingsUpdate] = None
+    display: Optional[DisplaySettingsUpdate] = None
 
 
 class OrganizationSettingsRead(OrganizationSettings):
