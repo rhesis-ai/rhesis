@@ -193,6 +193,40 @@ class TestFallbacks:
         assert fetch.call_count == 1
 
 
+class TestMisconfiguredFallback:
+    """The bottom of the chain must not raise; it is the last thing left."""
+
+    @pytest.mark.parametrize("value", ["", "nonsense", "0", "-1", "1,2"])
+    def test_an_unusable_configured_rate_falls_back_to_the_default(
+        self, value, mocker, monkeypatch
+    ):
+        monkeypatch.setenv("USD_TO_EUR_RATE", value)
+        service = ExchangeRateService()
+        mocker.patch.object(service, "_fetch", return_value=None)
+
+        snapshot = service.get_rates()
+
+        assert snapshot.rate_for("EUR") == 0.92
+
+    def test_a_usable_configured_rate_is_honoured(self, mocker, monkeypatch):
+        monkeypatch.setenv("USD_TO_EUR_RATE", "0.88")
+        service = ExchangeRateService()
+        mocker.patch.object(service, "_fetch", return_value=None)
+
+        assert service.get_rates().rate_for("EUR") == 0.88
+
+    def test_the_endpoint_still_gets_rates_under_misconfiguration(self, mocker, monkeypatch):
+        """What the guard is for: this used to raise out of the request."""
+        monkeypatch.setenv("USD_TO_EUR_RATE", "not-a-number")
+        service = ExchangeRateService()
+        mocker.patch.object(service, "_fetch", return_value=None)
+
+        snapshot = service.get_rates()
+
+        assert snapshot.rates
+        assert snapshot.rate_for("USD") == 1.0
+
+
 class TestTheEurAccessorEnrichmentUses:
     """Enrichment asks for EUR by name, and must not notice any of this."""
 

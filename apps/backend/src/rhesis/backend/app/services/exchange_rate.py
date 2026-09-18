@@ -77,9 +77,30 @@ def _parse(payload: dict) -> Optional[RateSnapshot]:
     return RateSnapshot(rates=parsed, as_of=as_of)
 
 
+def _configured_eur_rate() -> float:
+    """The EUR rate from the environment, or the built-in default.
+
+    Parsed defensively because this is the bottom of the fallback chain: a
+    misconfigured value here would otherwise raise out of a request whose whole
+    purpose is to always return something.
+    """
+    raw = os.getenv(_EUR_FALLBACK_ENV)
+    if raw is None:
+        return float(_EUR_FALLBACK_DEFAULT)
+    try:
+        rate = float(raw)
+    except (TypeError, ValueError):
+        logger.error(f"{_EUR_FALLBACK_ENV} is not a number ({raw!r}); using the default")
+        return float(_EUR_FALLBACK_DEFAULT)
+    if rate <= 0:
+        logger.error(f"{_EUR_FALLBACK_ENV} must be positive ({rate}); using the default")
+        return float(_EUR_FALLBACK_DEFAULT)
+    return rate
+
+
 def _env_fallback() -> RateSnapshot:
     """EUR from the env var, for an instance that has never reached the API."""
-    rate = float(os.getenv(_EUR_FALLBACK_ENV, _EUR_FALLBACK_DEFAULT))
+    rate = _configured_eur_rate()
     logger.warning(
         f"No exchange rates available, falling back to {rate} EUR per USD "
         f"(from {_EUR_FALLBACK_ENV} or its default). Other currencies are unavailable."
@@ -128,15 +149,11 @@ class ExchangeRateService:
 
     def get_usd_to_eur_rate(self) -> float:
         """The EUR rate alone, which is what enrichment stores per trace."""
-        return self.get_rates().rate_for("EUR") or float(
-            os.getenv(_EUR_FALLBACK_ENV, _EUR_FALLBACK_DEFAULT)
-        )
+        return self.get_rates().rate_for("EUR") or _configured_eur_rate()
 
     async def get_usd_to_eur_rate_async(self) -> float:
         snapshot = await self.get_rates_async()
-        return snapshot.rate_for("EUR") or float(
-            os.getenv(_EUR_FALLBACK_ENV, _EUR_FALLBACK_DEFAULT)
-        )
+        return snapshot.rate_for("EUR") or _configured_eur_rate()
 
     def refresh_rate(self) -> None:
         """Force a refresh, for a manual or scheduled refetch."""
