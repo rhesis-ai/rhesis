@@ -9,9 +9,11 @@ import { UserSettings } from '@/utils/api-client/interfaces/user';
 import ProfileForm from './ProfileForm';
 import SecuritySection from './SecuritySection';
 import NotificationsForm from './NotificationsForm';
+import PreferencesForm from './PreferencesForm';
 
 const TABS = [
   { id: 'profile', label: 'Profile' },
+  { id: 'preferences', label: 'Preferences' },
   { id: 'notifications', label: 'Notifications' },
 ] as const;
 
@@ -64,6 +66,10 @@ export default function SettingsTabs({ userSettings }: SettingsTabsProps) {
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={1} prefix="settings">
+        <PreferencesForm userSettings={userSettings} />
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={2} prefix="settings">
         <NotificationsForm userSettings={userSettings} />
       </DetailTabPanel>
     </Box>

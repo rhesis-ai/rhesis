@@ -1,226 +1,257 @@
-"""Exchange rate service for currency conversions.
+"""Exchange rates for showing costs in a currency other than the stored one.
 
-Fetches current exchange rates from Frankfurter API (free, no API key required).
-Caches rates for 24 hours and provides fallback to environment variable or default.
+Rates come from the Frankfurter API (free, no API key), which republishes
+European Central Bank reference rates. The ECB sets those once per working day,
+so these are daily figures rather than real-time ones -- the right granularity
+for costs measured in fractions of a cent.
+
+Fetched for every convertible currency at once and cached 24 hours in process,
+with a chain of fallbacks so an instance behind a firewall still shows
+something: the live fetch, then the last rates seen however stale, then the
+``USD_TO_EUR_RATE`` env var. That last one covers EUR only, which is all it ever
+covered; a currency with no rate is simply absent, and callers show the base
+currency rather than invent a conversion.
 """
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
+from typing import Dict, Optional
 
 import httpx
 
+from rhesis.backend.app.constants_currency import BASE_CURRENCY, CONVERTIBLE_CURRENCIES
+
 logger = logging.getLogger(__name__)
+
+#: Used when the API has never been reached and no rate was ever cached.
+_EUR_FALLBACK_ENV = "USD_TO_EUR_RATE"
+_EUR_FALLBACK_DEFAULT = "0.92"
+
+_API_URL = "https://api.frankfurter.dev/v1/latest"
+
+
+@dataclass(frozen=True)
+class RateSnapshot:
+    """Rates per one unit of the base currency, and the day they are from.
+
+    ``as_of`` is None for the env-var fallback, which has no date behind it --
+    callers say the rate's age is unknown rather than implying it is today's.
+    """
+
+    rates: Dict[str, float] = field(default_factory=dict)
+    as_of: Optional[date] = None
+
+    def rate_for(self, currency: str) -> Optional[float]:
+        if currency == BASE_CURRENCY.value:
+            return 1.0
+        return self.rates.get(currency)
+
+
+def _parse(payload: dict) -> Optional[RateSnapshot]:
+    """Turn a Frankfurter response into a snapshot, or None if it made no sense."""
+    rates = payload.get("rates")
+    if not isinstance(rates, dict) or not rates:
+        logger.error(f"Unexpected exchange rate response: {payload}")
+        return None
+
+    parsed: Dict[str, float] = {}
+    for currency, value in rates.items():
+        try:
+            parsed[currency] = float(value)
+        except (TypeError, ValueError):
+            logger.warning(f"Skipping unparseable rate for {currency}: {value!r}")
+
+    if not parsed:
+        return None
+
+    as_of = None
+    raw_date = payload.get("date")
+    if isinstance(raw_date, str):
+        try:
+            as_of = date.fromisoformat(raw_date)
+        except ValueError:
+            logger.warning(f"Unparseable rate date: {raw_date!r}")
+
+    return RateSnapshot(rates=parsed, as_of=as_of)
+
+
+def _configured_eur_rate() -> float:
+    """The EUR rate from the environment, or the built-in default.
+
+    Parsed defensively because this is the bottom of the fallback chain: a
+    misconfigured value here would otherwise raise out of a request whose whole
+    purpose is to always return something.
+    """
+    raw = os.getenv(_EUR_FALLBACK_ENV)
+    if raw is None:
+        return float(_EUR_FALLBACK_DEFAULT)
+    try:
+        rate = float(raw)
+    except (TypeError, ValueError):
+        logger.error(f"{_EUR_FALLBACK_ENV} is not a number ({raw!r}); using the default")
+        return float(_EUR_FALLBACK_DEFAULT)
+    if rate <= 0:
+        logger.error(f"{_EUR_FALLBACK_ENV} must be positive ({rate}); using the default")
+        return float(_EUR_FALLBACK_DEFAULT)
+    return rate
+
+
+def _env_fallback() -> RateSnapshot:
+    """EUR from the env var, for an instance that has never reached the API."""
+    rate = _configured_eur_rate()
+    logger.warning(
+        f"No exchange rates available, falling back to {rate} EUR per USD "
+        f"(from {_EUR_FALLBACK_ENV} or its default). Other currencies are unavailable."
+    )
+    return RateSnapshot(rates={"EUR": rate}, as_of=None)
 
 
 class ExchangeRateService:
-    """Service for fetching and caching exchange rates."""
+    """Fetches and caches rates for every convertible currency."""
 
     def __init__(self):
-        """Initialize the exchange rate service."""
-        self._usd_to_eur_rate: Optional[float] = None
+        self._snapshot: Optional[RateSnapshot] = None
         self._last_fetch: Optional[datetime] = None
         self._cache_duration = timedelta(hours=24)
-        # Frankfurter moved from api.frankfurter.app (301) to api.frankfurter.dev
-        self._api_url = "https://api.frankfurter.dev/v1/latest"
+        #: How long to sit on a snapshot that is not freshly fetched -- the
+        #: env fallback, or real rates being served past their day because the
+        #: provider is down. Short, so one missed fetch costs minutes rather
+        #: than a day; not zero, so an outage is not met with a network call
+        #: and its timeout on every single request.
+        self._retry_after_failure = timedelta(minutes=5)
+        #: How long the snapshot in hand is good for. Set with the snapshot.
+        self._cache_window = self._cache_duration
+        self._api_url = _API_URL
+
+    # -- reads ------------------------------------------------------------
+
+    def get_rates(self) -> RateSnapshot:
+        """Current rates per one USD, fetching if the cache has gone stale."""
+        if self._is_cache_valid():
+            return self._snapshot
+
+        try:
+            snapshot = self._fetch()
+            if snapshot:
+                return self._store(snapshot)
+        except Exception as e:
+            logger.warning(f"Failed to fetch exchange rates: {e}")
+
+        return self._after_failed_fetch()
+
+    async def get_rates_async(self) -> RateSnapshot:
+        """Same, without blocking the event loop."""
+        if self._is_cache_valid():
+            return self._snapshot
+
+        try:
+            snapshot = await self._fetch_async()
+            if snapshot:
+                return self._store(snapshot)
+        except Exception as e:
+            logger.warning(f"Failed to fetch exchange rates: {e}")
+
+        return self._after_failed_fetch()
 
     def get_usd_to_eur_rate(self) -> float:
-        """
-        Get the current USD to EUR exchange rate.
-
-        Fetches from API if cache is stale, otherwise returns cached value.
-        Falls back to environment variable or default if API fails.
-
-        Returns:
-            Exchange rate (EUR per USD)
-        """
-        # Check if cache is valid
-        if self._is_cache_valid():
-            logger.debug(f"Using cached exchange rate: {self._usd_to_eur_rate}")
-            return self._usd_to_eur_rate
-
-        # Try to fetch fresh rate
-        try:
-            rate = self._fetch_rate_from_api()
-            if rate:
-                self._usd_to_eur_rate = rate
-                self._last_fetch = datetime.now(timezone.utc)
-                logger.info(f"Fetched fresh exchange rate: 1 USD = {rate:.4f} EUR")
-                return rate
-        except Exception as e:
-            logger.warning(f"Failed to fetch exchange rate from API: {e}")
-
-        # Fallback to cached rate (even if stale)
-        if self._usd_to_eur_rate:
-            logger.info(f"Using stale cached rate due to API failure: {self._usd_to_eur_rate}")
-            return self._usd_to_eur_rate
-
-        # Final fallback to env var or default — cache it so we do not retry
-        # the API on every call when the network or endpoint is unavailable.
-        fallback_rate = float(os.getenv("USD_TO_EUR_RATE", "0.92"))
-        logger.warning(
-            f"No cached rate available, using fallback: {fallback_rate} "
-            "(from USD_TO_EUR_RATE env var or default)"
-        )
-        self._usd_to_eur_rate = fallback_rate
-        self._last_fetch = datetime.now(timezone.utc)
-        return fallback_rate
-
-    def _is_cache_valid(self) -> bool:
-        """Check if cached exchange rate is still valid."""
-        if not self._usd_to_eur_rate or not self._last_fetch:
-            return False
-
-        age = datetime.now(timezone.utc) - self._last_fetch
-        return age < self._cache_duration
-
-    def _fetch_rate_from_api(self) -> Optional[float]:
-        """
-        Fetch exchange rate from Frankfurter API (synchronous).
-
-        Returns:
-            Exchange rate or None if fetch fails
-        """
-        try:
-            # Fetch latest rates from USD
-            response = httpx.get(
-                self._api_url,
-                params={"from": "USD", "to": "EUR"},
-                timeout=2.0,
-                follow_redirects=True,
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            rate = data.get("rates", {}).get("EUR")
-
-            if rate:
-                return float(rate)
-            else:
-                logger.error(f"Unexpected API response format: {data}")
-                return None
-
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error fetching exchange rate: {e}")
-            return None
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Error parsing exchange rate response: {e}")
-            return None
-
-    async def _fetch_rate_from_api_async(self) -> Optional[float]:
-        """
-        Fetch exchange rate from Frankfurter API (asynchronous).
-
-        Returns:
-            Exchange rate or None if fetch fails
-        """
-        try:
-            # Use async client for non-blocking HTTP request
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                response = await client.get(
-                    self._api_url,
-                    params={"from": "USD", "to": "EUR"},
-                    timeout=5.0,
-                )
-                response.raise_for_status()
-
-                data = response.json()
-                rate = data.get("rates", {}).get("EUR")
-
-                if rate:
-                    return float(rate)
-                else:
-                    logger.error(f"Unexpected API response format: {data}")
-                    return None
-
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error fetching exchange rate: {e}")
-            return None
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Error parsing exchange rate response: {e}")
-            return None
+        """The EUR rate alone, which is what enrichment stores per trace."""
+        return self.get_rates().rate_for("EUR") or _configured_eur_rate()
 
     async def get_usd_to_eur_rate_async(self) -> float:
-        """
-        Get the current USD to EUR exchange rate (asynchronous).
-
-        Fetches from API if cache is stale, otherwise returns cached value.
-        Falls back to environment variable or default if API fails.
-
-        This method should be used in async contexts to avoid blocking the event loop.
-
-        Returns:
-            Exchange rate (EUR per USD)
-        """
-        # Check if cache is valid
-        if self._is_cache_valid():
-            logger.debug(f"Using cached exchange rate: {self._usd_to_eur_rate}")
-            return self._usd_to_eur_rate
-
-        # Try to fetch fresh rate
-        try:
-            rate = await self._fetch_rate_from_api_async()
-            if rate:
-                self._usd_to_eur_rate = rate
-                self._last_fetch = datetime.now(timezone.utc)
-                logger.info(f"Fetched fresh exchange rate: 1 USD = {rate:.4f} EUR")
-                return rate
-        except Exception as e:
-            logger.warning(f"Failed to fetch exchange rate from API: {e}")
-
-        # Fallback to cached rate (even if stale)
-        if self._usd_to_eur_rate:
-            logger.info(f"Using stale cached rate due to API failure: {self._usd_to_eur_rate}")
-            return self._usd_to_eur_rate
-
-        # Final fallback to env var or default — cache it (see sync method).
-        fallback_rate = float(os.getenv("USD_TO_EUR_RATE", "0.92"))
-        logger.warning(
-            f"No cached rate available, using fallback: {fallback_rate} "
-            "(from USD_TO_EUR_RATE env var or default)"
-        )
-        self._usd_to_eur_rate = fallback_rate
-        self._last_fetch = datetime.now(timezone.utc)
-        return fallback_rate
+        snapshot = await self.get_rates_async()
+        return snapshot.rate_for("EUR") or _configured_eur_rate()
 
     def refresh_rate(self) -> None:
+        """Force a refresh, for a manual or scheduled refetch."""
+        logger.info("Manually refreshing exchange rates...")
+        self._last_fetch = None
+        self.get_rates()
+
+    # -- internals --------------------------------------------------------
+
+    def _store(self, snapshot: RateSnapshot, *, window: Optional[timedelta] = None) -> RateSnapshot:
+        """Hold *snapshot* for *window*, defaulting to a full day."""
+        self._snapshot = snapshot
+        self._last_fetch = datetime.now(timezone.utc)
+        self._cache_window = window or self._cache_duration
+        if window is None:
+            logger.info(f"Fetched exchange rates ({snapshot.as_of}): {snapshot.rates}")
+        return snapshot
+
+    def _after_failed_fetch(self) -> RateSnapshot:
+        """Stale rates beat no rates; the env var beats nothing at all.
+
+        Either way the clock is reset to the short retry window. Without that a
+        provider outage is met with a fresh network call, and its timeout, on
+        every request -- and the snapshot keeps its own ``as_of``, so the rates
+        still report the day they are actually from.
         """
-        Force refresh the exchange rate from API.
+        if self._snapshot:
+            logger.info("Using stale exchange rates after a failed fetch")
+            return self._store(self._snapshot, window=self._retry_after_failure)
 
-        Useful for manual refresh or scheduled jobs.
-        """
-        logger.info("Manually refreshing exchange rate...")
-        self._last_fetch = None  # Invalidate cache
-        self.get_usd_to_eur_rate()
+        return self._store(_env_fallback(), window=self._retry_after_failure)
+
+    def _is_cache_valid(self) -> bool:
+        if not self._snapshot or not self._last_fetch:
+            return False
+        return datetime.now(timezone.utc) - self._last_fetch < self._cache_window
+
+    @property
+    def _params(self) -> dict:
+        return {"base": BASE_CURRENCY.value, "symbols": ",".join(CONVERTIBLE_CURRENCIES)}
+
+    def _fetch(self) -> Optional[RateSnapshot]:
+        try:
+            response = httpx.get(
+                self._api_url, params=self._params, timeout=2.0, follow_redirects=True
+            )
+            response.raise_for_status()
+            return _parse(response.json())
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error fetching exchange rates: {e}")
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"Error parsing exchange rate response: {e}")
+            return None
+
+    async def _fetch_async(self) -> Optional[RateSnapshot]:
+        try:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
+                response = await client.get(self._api_url, params=self._params, timeout=5.0)
+                response.raise_for_status()
+                return _parse(response.json())
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error fetching exchange rates: {e}")
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"Error parsing exchange rate response: {e}")
+            return None
 
 
-# Global singleton instance
 _exchange_rate_service = ExchangeRateService()
 
 
 def get_exchange_rate_service() -> ExchangeRateService:
-    """Get the global exchange rate service instance."""
+    """The process-wide service instance."""
     return _exchange_rate_service
 
 
-def get_usd_to_eur_rate() -> float:
-    """
-    Convenience function to get USD to EUR exchange rate (synchronous).
+def get_rates() -> RateSnapshot:
+    """Current rates per one USD."""
+    return _exchange_rate_service.get_rates()
 
-    Returns:
-        Exchange rate (EUR per USD)
-    """
+
+async def get_rates_async() -> RateSnapshot:
+    return await _exchange_rate_service.get_rates_async()
+
+
+def get_usd_to_eur_rate() -> float:
+    """USD to EUR, as enrichment has always asked for it."""
     return _exchange_rate_service.get_usd_to_eur_rate()
 
 
 async def get_usd_to_eur_rate_async() -> float:
-    """
-    Convenience function to get USD to EUR exchange rate (asynchronous).
-
-    Use this in async contexts to avoid blocking the event loop.
-
-    Returns:
-        Exchange rate (EUR per USD)
-    """
     return await _exchange_rate_service.get_usd_to_eur_rate_async()

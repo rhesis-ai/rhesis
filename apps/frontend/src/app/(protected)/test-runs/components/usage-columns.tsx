@@ -4,7 +4,7 @@ import React from 'react';
 import { GridColDef } from '@mui/x-data-grid';
 import ModelLabel from '@/components/common/ModelLabel';
 import UsageCell from '@/components/common/UsageCell';
-import { formatCost, formatTokenCount } from '@/utils/trace-utils';
+import { formatTokenCount } from '@/utils/trace-utils';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
 /**
@@ -65,6 +65,9 @@ function numericColumn(
   };
 }
 
+/** `formatMoney` with a currency already bound; see `utils/money.ts`. */
+type MoneyFormatter = (amountUsd: number) => string;
+
 function tokenSplit(row: TestRunDetail): string | undefined {
   const usage = row.usage;
   if (!usage) return undefined;
@@ -73,15 +76,33 @@ function tokenSplit(row: TestRunDetail): string | undefined {
   )} output`;
 }
 
-function costSplit(row: TestRunDetail): string | undefined {
+function costSplit(
+  row: TestRunDetail,
+  money: MoneyFormatter
+): string | undefined {
   const usage = row.usage;
   if (!usage) return undefined;
-  return `${formatCost(usage.total_input_cost_usd)} input · ${formatCost(
+  return `${money(usage.total_input_cost_usd)} input · ${money(
     usage.total_output_cost_usd
   )} output`;
 }
 
-export function usageColumns(): GridColDef[] {
+/**
+ * The usage columns, formatting money in whatever currency was chosen.
+ *
+ * Takes the formatter rather than reading it from a context: this builds column
+ * definitions outside a component, so there is no hook to call. `TestRunsGrid`
+ * holds the context and passes it down.
+ */
+export function usageColumns(
+  money: MoneyFormatter,
+  alternativesTitle: (amountUsd: number) => string | undefined = () => undefined
+): GridColDef[] {
+  // The split, then the same total in the other currencies, in one native title.
+  const cost = (row: TestRunDetail) =>
+    [costSplit(row, money), alternativesTitle(row.usage?.total_cost_usd ?? 0)]
+      .filter(Boolean)
+      .join('\n');
   return [
     numericColumn('total_tokens', 'Tokens', formatTokenCount, tokenSplit),
     numericColumn(
@@ -96,14 +117,9 @@ export function usageColumns(): GridColDef[] {
       formatTokenCount,
       tokenSplit
     ),
-    numericColumn('total_cost_usd', 'Cost', formatCost, costSplit),
-    numericColumn('total_input_cost_usd', 'Input cost', formatCost, costSplit),
-    numericColumn(
-      'total_output_cost_usd',
-      'Output cost',
-      formatCost,
-      costSplit
-    ),
+    numericColumn('total_cost_usd', 'Cost', money, cost),
+    numericColumn('total_input_cost_usd', 'Input cost', money, cost),
+    numericColumn('total_output_cost_usd', 'Output cost', money, cost),
     {
       field: 'usage.models',
       headerName: 'Model',

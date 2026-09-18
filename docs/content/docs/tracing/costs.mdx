@@ -56,9 +56,22 @@ Google ADK integration reports `gemini` for the same call. Rhesis folds those on
 
 ## Currencies
 
-USD is the stored figure. Costs shown in another currency are converted from it at the current rate,
-fetched daily from [Frankfurter](https://frankfurter.dev). Set `USD_TO_EUR_RATE` to pin a fallback
-rate for an instance with no outbound network access.
+USD is the stored figure. Costs can be shown in USD, EUR, GBP or CHF, converted from the stored
+figure at the current rate rather than read from a second stored one, so every figure on a screen
+is on the same basis.
+
+Rates come from [Frankfurter](https://frankfurter.dev), which republishes European Central Bank
+reference rates. The ECB sets those once per working day, so the rates are daily rather than
+real-time, and Rhesis caches them for a day. Hovering a cost shows the same figure in the other
+currencies and the day the rates are from.
+
+Pick the currency in two places. An organization sets the default under **Settings → Display**,
+which everyone sees unless they choose otherwise. An individual overrides it under their own
+**Settings → Preferences**, or chooses to follow the organization.
+
+Set `USD_TO_EUR_RATE` to pin a fallback rate for an instance with no outbound network access. It
+covers EUR only, which is all it has ever covered — with no rates available, the other currencies
+are not offered and costs show as stored rather than being converted at a guess.
 
 ## Accuracy
 

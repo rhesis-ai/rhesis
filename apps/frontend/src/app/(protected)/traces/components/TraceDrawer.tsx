@@ -3,6 +3,7 @@
 import { useTraceAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
@@ -23,11 +24,7 @@ import {
 } from '@/utils/api-client/interfaces/telemetry';
 import { toMentionId } from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
-import {
-  formatCost,
-  formatTokenCount,
-  tokenSplitLabel,
-} from '@/utils/trace-utils';
+import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { experimentHref } from '@/utils/experiment-links';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
@@ -112,6 +109,7 @@ export default function TraceDrawer({
   onTraceUpdated,
 }: TraceDrawerProps) {
   const { status } = useSession();
+  const { format: money } = useCurrency();
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -583,7 +581,7 @@ export default function TraceDrawer({
               />
             )}
             {trace.total_cost_usd > 0 && (
-              <GridBadge label={formatCost(trace.total_cost_usd)} size="grid" />
+              <GridBadge label={money(trace.total_cost_usd)} size="grid" />
             )}
             {trace.error_count > 0 && (
               <GridBadge

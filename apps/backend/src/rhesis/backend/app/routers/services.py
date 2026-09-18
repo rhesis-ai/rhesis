@@ -21,6 +21,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
+    ExchangeRatesResponse,
     GenerateContentRequest,
     GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
@@ -117,6 +118,29 @@ def _handle_generation_error(error: Exception) -> None:
     # Convert the error to HTTPException and raise it
     http_exception = handle_execution_error(error, operation="generate tests")
     raise http_exception
+
+
+@router.get("/exchange-rates", response_model=ExchangeRatesResponse)
+async def get_exchange_rates(
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Rates for showing stored costs in another currency.
+
+    Public to any signed-in user rather than scoped to a tenant: these are
+    published central-bank figures, identical for everyone, and the caller has
+    already been told its own organization's preferred currency by the settings
+    it fetched. Cached for a day in process, so this is a dictionary read
+    almost every time.
+    """
+    from rhesis.backend.app.constants_currency import BASE_CURRENCY
+    from rhesis.backend.app.services.exchange_rate import get_rates_async
+
+    snapshot = await get_rates_async()
+    return ExchangeRatesResponse(
+        base=BASE_CURRENCY.value,
+        rates=snapshot.rates,
+        as_of=snapshot.as_of,
+    )
 
 
 @router.get("/github/contents")

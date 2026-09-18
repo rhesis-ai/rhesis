@@ -22,7 +22,19 @@ class TestDefaults:
         """✅ A row written before this column existed still reads sensibly."""
         manager = OrganizationSettingsManager(None)
 
-        assert manager.raw == {"version": 1, "branding": {}}
+        assert manager.raw == {"version": 1, "branding": {}, "display": {}}
+
+    def test_display_reads_as_unset_on_an_old_row(self):
+        """✅ No currency chosen means costs show in the one they are stored in."""
+        manager = OrganizationSettingsManager(None)
+
+        assert manager.display.currency is None
+
+    def test_display_survives_a_row_that_predates_the_section(self):
+        """✅ A settings blob written before display existed still reads."""
+        manager = OrganizationSettingsManager({"version": 1, "branding": {}})
+
+        assert manager.display.currency is None
 
     def test_empty_branding_accessor_returns_none_per_field(self):
         """✅ Unset fields read as None so callers fall back to the env vars."""

@@ -5,11 +5,11 @@ import { Box, Link } from '@mui/material';
 import KpiCard from './KpiCard';
 import ModelLabel from '@/components/common/ModelLabel';
 import {
-  formatCost,
   formatTokenCount,
   isCostKnown,
   isPricingInProgress,
 } from '@/utils/trace-utils';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 
 const COSTS_DOC_URL =
@@ -24,6 +24,7 @@ const COSTS_DOC_URL =
  * instead and the card says why rather than showing a confident zero.
  */
 export default function UsageCard({ usage }: { usage: TraceMetricsResponse }) {
+  const { format: money } = useCurrency();
   const tokens = `${formatTokenCount(usage.total_tokens)} tokens`;
   const models = usage.models_used ?? [];
 
@@ -62,7 +63,7 @@ export default function UsageCard({ usage }: { usage: TraceMetricsResponse }) {
   return (
     <KpiCard
       title="Usage"
-      value={formatCost(usage.total_cost_usd)}
+      value={money(usage.total_cost_usd)}
       subtitle={
         // Wraps rather than clipping: the card is narrow and a model name is
         // long, and `gemini/ge...` answers nothing.

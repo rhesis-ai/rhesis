@@ -16,6 +16,7 @@ the approach used in ``test_capabilities.py``.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -98,14 +99,32 @@ def _client(*, caller_id: uuid.UUID) -> TestClient:
 
 
 def _db_test_result(*, owner_id: uuid.UUID) -> Mock:
-    obj = Mock(spec_set=[
-        "id", "user_id", "organization_id", "test_configuration_id",
-        "test_run_id", "prompt_id", "test_id", "status_id",
-        "test_metrics", "test_output",
-        "last_annotation", "matches_annotation", "annotation_summary",
-        "permitted_actions",
-    ])
+    obj = Mock(
+        spec_set=[
+            "id",
+            "user_id",
+            "organization_id",
+            "test_configuration_id",
+            "test_run_id",
+            "prompt_id",
+            "test_id",
+            "status_id",
+            "test_metrics",
+            "test_output",
+            "last_annotation",
+            "matches_annotation",
+            "annotation_summary",
+            "permitted_actions",
+            # Required on the response schema since test results started
+            # serializing their timestamps; a spec_set mock without them fails
+            # response validation before the auth assertion is ever reached.
+            "created_at",
+            "updated_at",
+        ]
+    )
     obj.id = _RESOURCE_ID
+    obj.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    obj.updated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     obj.user_id = owner_id
     obj.organization_id = _ORG_ID
     obj.test_configuration_id = uuid.uuid4()
@@ -123,11 +142,22 @@ def _db_test_result(*, owner_id: uuid.UUID) -> Mock:
 
 
 def _db_test_run(*, owner_id: uuid.UUID) -> Mock:
-    obj = Mock(spec_set=[
-        "id", "user_id", "organization_id", "test_configuration_id",
-        "experiment_id", "status_id", "status", "name", "attributes",
-        "owner_id", "assignee_id", "permitted_actions",
-    ])
+    obj = Mock(
+        spec_set=[
+            "id",
+            "user_id",
+            "organization_id",
+            "test_configuration_id",
+            "experiment_id",
+            "status_id",
+            "status",
+            "name",
+            "attributes",
+            "owner_id",
+            "assignee_id",
+            "permitted_actions",
+        ]
+    )
     obj.id = _RESOURCE_ID
     obj.user_id = owner_id
     obj.organization_id = _ORG_ID
@@ -144,13 +174,28 @@ def _db_test_run(*, owner_id: uuid.UUID) -> Mock:
 
 
 def _db_task(*, owner_id: uuid.UUID, assignee_id: uuid.UUID | None = None) -> Mock:
-    obj = Mock(spec_set=[
-        "id", "user_id", "organization_id", "assignee_id",
-        "title", "description", "status_id", "priority_id",
-        "entity_type", "entity_id", "completed_at", "task_metadata",
-        "comment_count", "user", "assignee", "status", "priority",
-        "permitted_actions",
-    ])
+    obj = Mock(
+        spec_set=[
+            "id",
+            "user_id",
+            "organization_id",
+            "assignee_id",
+            "title",
+            "description",
+            "status_id",
+            "priority_id",
+            "entity_type",
+            "entity_id",
+            "completed_at",
+            "task_metadata",
+            "comment_count",
+            "user",
+            "assignee",
+            "status",
+            "priority",
+            "permitted_actions",
+        ]
+    )
     obj.id = _RESOURCE_ID
     obj.user_id = owner_id
     obj.assignee_id = assignee_id
@@ -196,12 +241,15 @@ class TestUpdateTestResultObjectAuth:
         result = _db_test_result(owner_id=_CREATOR_ID)
         client = _client(caller_id=_CREATOR_ID)
 
-        with patch(
-            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
-            return_value=result,
-        ), patch(
-            "rhesis.backend.app.routers.test_result.test_result_crud.update_test_result",
-            return_value=result,
+        with (
+            patch(
+                "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
+                return_value=result,
+            ),
+            patch(
+                "rhesis.backend.app.routers.test_result.test_result_crud.update_test_result",
+                return_value=result,
+            ),
         ):
             resp = client.put(
                 f"/test_results/{_RESOURCE_ID}",
@@ -250,12 +298,15 @@ class TestDeleteTestResultObjectAuth:
         result = _db_test_result(owner_id=_CREATOR_ID)
         client = _client(caller_id=_CREATOR_ID)
 
-        with patch(
-            "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
-            return_value=result,
-        ), patch(
-            "rhesis.backend.app.routers.test_result.test_result_crud.delete_test_result",
-            return_value=result,
+        with (
+            patch(
+                "rhesis.backend.app.routers.test_result.test_result_crud.get_test_result",
+                return_value=result,
+            ),
+            patch(
+                "rhesis.backend.app.routers.test_result.test_result_crud.delete_test_result",
+                return_value=result,
+            ),
         ):
             resp = client.delete(f"/test_results/{_RESOURCE_ID}")
 
@@ -295,12 +346,15 @@ class TestDeleteTestRunObjectAuth:
         run = _db_test_run(owner_id=_CREATOR_ID)
         client = _client(caller_id=_CREATOR_ID)
 
-        with patch(
-            "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
-            return_value=run,
-        ), patch(
-            "rhesis.backend.app.routers.test_run.test_run_crud.delete_test_run",
-            return_value=run,
+        with (
+            patch(
+                "rhesis.backend.app.routers.test_run.test_run_crud.get_test_run",
+                return_value=run,
+            ),
+            patch(
+                "rhesis.backend.app.routers.test_run.test_run_crud.delete_test_run",
+                return_value=run,
+            ),
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
 
@@ -342,14 +396,18 @@ class TestUpdateTaskObjectAuth:
         task = _db_task(owner_id=_CREATOR_ID)
         client = _client(caller_id=_CREATOR_ID)
 
-        with patch(
-            "rhesis.backend.app.routers.task_management.task_crud.get_task",
-            return_value=task,
-        ), patch(
-            "rhesis.backend.app.routers.task_management.task_crud.update_task",
-            return_value=task,
-        ), patch(
-            "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
+        with (
+            patch(
+                "rhesis.backend.app.routers.task_management.task_crud.get_task",
+                return_value=task,
+            ),
+            patch(
+                "rhesis.backend.app.routers.task_management.task_crud.update_task",
+                return_value=task,
+            ),
+            patch(
+                "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
+            ),
         ):
             resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
 
@@ -359,14 +417,18 @@ class TestUpdateTaskObjectAuth:
         task = _db_task(owner_id=_CREATOR_ID, assignee_id=_ASSIGNEE_ID)
         client = _client(caller_id=_ASSIGNEE_ID)
 
-        with patch(
-            "rhesis.backend.app.routers.task_management.task_crud.get_task",
-            return_value=task,
-        ), patch(
-            "rhesis.backend.app.routers.task_management.task_crud.update_task",
-            return_value=task,
-        ), patch(
-            "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
+        with (
+            patch(
+                "rhesis.backend.app.routers.task_management.task_crud.get_task",
+                return_value=task,
+            ),
+            patch(
+                "rhesis.backend.app.routers.task_management.task_crud.update_task",
+                return_value=task,
+            ),
+            patch(
+                "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
+            ),
         ):
             resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
 
@@ -407,12 +469,15 @@ class TestDeleteTaskObjectAuth:
         task = _db_task(owner_id=_CREATOR_ID)
         client = _client(caller_id=_CREATOR_ID)
 
-        with patch(
-            "rhesis.backend.app.routers.task_management.task_crud.get_task",
-            return_value=task,
-        ), patch(
-            "rhesis.backend.app.routers.task_management.task_crud.delete_task",
-            return_value=True,
+        with (
+            patch(
+                "rhesis.backend.app.routers.task_management.task_crud.get_task",
+                return_value=task,
+            ),
+            patch(
+                "rhesis.backend.app.routers.task_management.task_crud.delete_task",
+                return_value=True,
+            ),
         ):
             resp = client.delete(f"/tasks/{_RESOURCE_ID}")
 

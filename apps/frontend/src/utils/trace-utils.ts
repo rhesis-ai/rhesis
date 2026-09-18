@@ -7,6 +7,7 @@ import type {
   TraceMetricsResponse,
 } from './api-client/interfaces/telemetry';
 import { formatDate } from './date';
+import { formatMoney } from './money';
 
 /**
  * Format duration for display in table (shorter format)
@@ -78,16 +79,7 @@ export function truncateSpanId(spanId: string): string {
  * Uses appropriate precision based on magnitude
  */
 export function formatCost(costUsd: number): string {
-  if (costUsd === 0) {
-    return '$0.00';
-  }
-  if (costUsd < 0.001) {
-    return `$${costUsd.toFixed(6)}`;
-  }
-  if (costUsd < 0.01) {
-    return `$${costUsd.toFixed(4)}`;
-  }
-  return `$${costUsd.toFixed(2)}`;
+  return formatMoney(costUsd);
 }
 
 /**
