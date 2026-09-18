@@ -1,3 +1,4 @@
+import type { Currency } from '@/utils/money';
 import { UUID } from 'crypto';
 
 // User Settings Interfaces
@@ -46,8 +47,20 @@ export interface DefaultProjectSetting {
   name: string;
 }
 
+/** How this user wants things shown. The backend has carried language,
+ *  timezone and the date formats here for a while; only currency is read. */
+export interface LocalizationSettings {
+  language?: string | null;
+  timezone?: string | null;
+  date_format?: string | null;
+  time_format?: string | null;
+  /** Unset defers to the organization's currency, then to USD. */
+  currency?: Currency | null;
+}
+
 export interface UserSettings extends WithPermittedActions {
   models?: ModelsSettings;
+  localization?: LocalizationSettings;
   notifications?: NotificationSettings;
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
@@ -64,6 +77,7 @@ export interface UserSettings extends WithPermittedActions {
 
 export interface UserSettingsUpdate {
   models?: ModelsSettings;
+  localization?: LocalizationSettings;
   notifications?: NotificationSettings;
   onboarding?: OnboardingProgress;
   default_project?: DefaultProjectSetting;

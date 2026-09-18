@@ -1,3 +1,5 @@
+import type { Currency } from '@/utils/money';
+
 import { UUID } from 'crypto';
 
 /** Server-owned descriptor for an uploaded favicon, written by the upload endpoint. */
@@ -42,9 +44,16 @@ export interface BrandingSettings {
   font?: BrandingFont | null;
 }
 
+/** How figures are shown to everyone in the organization. */
+export interface DisplaySettings {
+  /** Unset means costs show in the currency they are stored in. */
+  currency?: Currency | null;
+}
+
 export interface OrganizationSettings {
   version: number;
   branding: BrandingSettings;
+  display?: DisplaySettings;
 }
 
 export interface OrganizationSettingsRead extends OrganizationSettings {
@@ -53,6 +62,7 @@ export interface OrganizationSettingsRead extends OrganizationSettings {
 
 /** Writable subset. The favicon and uploaded fonts go through their own endpoints. */
 export interface OrganizationSettingsUpdate {
+  display?: DisplaySettings;
   branding?: {
     primary_color?: string | null;
     secondary_color?: string | null;

@@ -150,3 +150,9 @@ export const testRunUsageKeys = {
   detail: (projectId: string, testRunId: string) =>
     ['test-run-usage', projectId, testRunId] as const,
 };
+
+// Deployment-wide: exchange rates for showing costs in another currency. Not
+// user-scoped -- they are published central-bank figures, the same for everyone.
+export const exchangeRateKeys = {
+  all: () => ['exchange-rates'] as const,
+};

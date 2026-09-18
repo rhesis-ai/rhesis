@@ -15,6 +15,7 @@ import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
+import { CurrencyProvider } from '@/contexts/CurrencyContext';
 import { QuickStartProvider } from '@/contexts/QuickStartContext';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
 import { userSettingsKeys } from '@/constants/query-keys';
@@ -143,32 +144,39 @@ export function LayoutContent({
                 initialProjects={initialProjects}
               >
                 <OrganizationProvider initialOrganization={initialOrganization}>
-                  <NotificationProvider>
-                    <OnboardingProvider>
-                      {/* Root of the laptop zoom ladder — see
+                  {/* Inside OrganizationProvider and the query client: it reads
+                      the organization's default currency and the user's
+                      override from both. */}
+                  <CurrencyProvider>
+                    <NotificationProvider>
+                      <OnboardingProvider>
+                        {/* Root of the laptop zoom ladder — see
                           `styles/viewport-scaling.css`. Everything the app
                           renders itself lives in here so it scales as one
                           piece; MUI's body-level portals deliberately stay
                           outside it so their JS-computed positions are not
                           scaled a second time. */}
-                      <div data-ui-scale-root>
-                        <Box sx={boxSx}>
-                          <Box sx={{ flex: 1 }}>
-                            <NavigationProvider
-                              navigation={navigation}
-                              branding={branding}
-                              session={session}
-                              authentication={authentication}
-                              theme={theme}
-                            >
-                              {children}
-                            </NavigationProvider>
+                        <div data-ui-scale-root>
+                          <Box sx={boxSx}>
+                            <Box sx={{ flex: 1 }}>
+                              <NavigationProvider
+                                navigation={navigation}
+                                branding={branding}
+                                session={session}
+                                authentication={authentication}
+                                theme={theme}
+                              >
+                                {children}
+                              </NavigationProvider>
+                            </Box>
                           </Box>
-                        </Box>
-                        {session && isProtectedRoute && <OnboardingChecklist />}
-                      </div>
-                    </OnboardingProvider>
-                  </NotificationProvider>
+                          {session && isProtectedRoute && (
+                            <OnboardingChecklist />
+                          )}
+                        </div>
+                      </OnboardingProvider>
+                    </NotificationProvider>
+                  </CurrencyProvider>
                 </OrganizationProvider>
               </ActiveProjectProvider>
             </QuickStartProvider>

@@ -1,3 +1,4 @@
+import type { ExchangeRatesResponse } from './interfaces/services';
 import {
   ApiErrorData,
   BaseApiClient,
@@ -369,6 +370,17 @@ export class ServicesClient extends BaseApiClient {
           tool_id: toolId,
         }),
       }
+    );
+  }
+
+  /**
+   * Rates for showing a stored cost in another currency.
+   *
+   * Cached a day server-side, so this is cheap to ask for on every page load.
+   */
+  async getExchangeRates(): Promise<ExchangeRatesResponse> {
+    return this.fetch<ExchangeRatesResponse>(
+      `${API_ENDPOINTS.services}/exchange-rates`
     );
   }
 }
