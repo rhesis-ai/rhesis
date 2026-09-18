@@ -227,6 +227,47 @@ class TestMisconfiguredFallback:
         assert snapshot.rate_for("USD") == 1.0
 
 
+class TestTheFallbackIsNotStickyForADay:
+    """One missed fetch must not take three currencies off the menu until tomorrow."""
+
+    def test_the_fallback_is_retried_within_minutes(self, mocker):
+        service = ExchangeRateService()
+        fetch = mocker.patch.object(service, "_fetch", return_value=None)
+        service.get_rates()
+        assert fetch.call_count == 1
+
+        # Long past the fallback's own window, nowhere near the real one.
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(minutes=6)
+        fetch.return_value = fresh({"EUR": 0.871, "GBP": 0.74758, "CHF": 0.82449})
+
+        snapshot = service.get_rates()
+
+        assert fetch.call_count == 2
+        assert snapshot.rate_for("GBP") == 0.74758
+
+    def test_real_rates_are_still_kept_for_the_day(self, mocker):
+        service = ExchangeRateService()
+        mocker.patch.object(service, "_fetch", return_value=fresh({"EUR": 0.871}))
+        service.get_rates()
+
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=6)
+        fetch = mocker.patch.object(service, "_fetch")
+
+        service.get_rates()
+
+        fetch.assert_not_called()
+
+    def test_the_fallback_still_holds_for_a_few_minutes(self, mocker):
+        """It is a backstop against hammering the API, just not a day-long one."""
+        service = ExchangeRateService()
+        fetch = mocker.patch.object(service, "_fetch", return_value=None)
+
+        service.get_rates()
+        service.get_rates()
+
+        assert fetch.call_count == 1
+
+
 class TestTheEurAccessorEnrichmentUses:
     """Enrichment asks for EUR by name, and must not notice any of this."""
 

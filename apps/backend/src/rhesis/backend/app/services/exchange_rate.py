@@ -115,6 +115,13 @@ class ExchangeRateService:
         self._snapshot: Optional[RateSnapshot] = None
         self._last_fetch: Optional[datetime] = None
         self._cache_duration = timedelta(hours=24)
+        #: How long a fallback snapshot is held. Far shorter than real rates:
+        #: the fallback knows EUR only, so caching it for a day would take the
+        #: other currencies off the menu until tomorrow over one failed fetch.
+        #: Long enough not to hammer the API from behind a firewall.
+        self._fallback_cache_duration = timedelta(minutes=5)
+        #: Whether the snapshot in hand came from the fallback rather than the API.
+        self._is_fallback = False
         self._api_url = _API_URL
 
     # -- reads ------------------------------------------------------------
@@ -163,10 +170,12 @@ class ExchangeRateService:
 
     # -- internals --------------------------------------------------------
 
-    def _store(self, snapshot: RateSnapshot) -> RateSnapshot:
+    def _store(self, snapshot: RateSnapshot, *, is_fallback: bool = False) -> RateSnapshot:
         self._snapshot = snapshot
         self._last_fetch = datetime.now(timezone.utc)
-        logger.info(f"Fetched exchange rates ({snapshot.as_of}): {snapshot.rates}")
+        self._is_fallback = is_fallback
+        if not is_fallback:
+            logger.info(f"Fetched exchange rates ({snapshot.as_of}): {snapshot.rates}")
         return snapshot
 
     def _after_failed_fetch(self) -> RateSnapshot:
@@ -175,13 +184,15 @@ class ExchangeRateService:
             logger.info("Using stale cached exchange rates after a failed fetch")
             return self._snapshot
 
-        # Cached so a firewalled instance does not retry the API on every call.
-        return self._store(_env_fallback())
+        # Cached briefly so a firewalled instance does not retry on every call,
+        # while an instance that merely missed one fetch recovers in minutes.
+        return self._store(_env_fallback(), is_fallback=True)
 
     def _is_cache_valid(self) -> bool:
         if not self._snapshot or not self._last_fetch:
             return False
-        return datetime.now(timezone.utc) - self._last_fetch < self._cache_duration
+        window = self._fallback_cache_duration if self._is_fallback else self._cache_duration
+        return datetime.now(timezone.utc) - self._last_fetch < window
 
     @property
     def _params(self) -> dict:
