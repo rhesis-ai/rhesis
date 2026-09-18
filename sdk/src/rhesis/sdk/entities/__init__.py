@@ -25,6 +25,7 @@ from .test_result import TestResult, TestResults
 from .test_run import RunStatus, TestRun, TestRuns
 from .test_set import TestSet, TestSets
 from .topic import Topic, Topics
+from .trace import Span, Spans, Trace, Traces
 
 __all__ = [
     "AnnotatableEntity",
@@ -41,6 +42,10 @@ __all__ = [
     "Insights",
     "Requirement",
     "Requirements",
+    "Span",
+    "Spans",
+    "Trace",
+    "Traces",
     "Category",
     "Categories",
     "Model",

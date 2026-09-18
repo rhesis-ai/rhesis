@@ -7,6 +7,7 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 if TYPE_CHECKING:
     from rhesis.sdk.entities.annotation import Annotation, Verdict
     from rhesis.sdk.entities.file import File
+    from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 from rhesis.sdk.entities.status import Status
@@ -54,6 +55,18 @@ class TestResult(BaseEntity):
             url_params=f"{self.id}/files",
         )
         return [File.model_validate(r) for r in results]
+
+    def get_traces(self, limit: Optional[int] = None) -> List["Trace"]:
+        """Get the traces recorded while this result was produced.
+
+        What the endpoint actually did to answer the test, which is where a
+        failure explains itself.
+        """
+        from rhesis.sdk.entities.trace import Traces
+
+        if not self.id:
+            raise ValueError("TestResult must have an ID to get traces")
+        return Traces.for_test_result(self.id, limit=limit)
 
     def get_annotations(self) -> List["Annotation"]:
         """Get every annotation on this test result.
