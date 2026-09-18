@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
@@ -522,3 +522,20 @@ class RecentActivitiesResponse(BaseModel):
 
     activities: List[ActivityItem]
     total: int  # Total number of activity groups (not individual activities)
+
+
+class ExchangeRatesResponse(BaseModel):
+    """Rates for converting a stored cost into another currency.
+
+    Costs are stored in ``base``; every other figure on screen is this
+    multiplication of one. A currency missing from ``rates`` has no rate
+    available, and callers show the base currency rather than guess at one.
+    """
+
+    base: str = Field(description="Currency the rates convert from, and costs are stored in")
+    rates: Dict[str, float] = Field(description="Units of each currency per one of the base")
+    as_of: Optional[date] = Field(
+        None,
+        description="Business day the rates are from. Null when the rates came from the "
+        "configured fallback rather than the rate provider, so their age is unknown",
+    )
