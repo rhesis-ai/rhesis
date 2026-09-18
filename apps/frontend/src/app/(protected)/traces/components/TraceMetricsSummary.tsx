@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, Grid, Typography } from '@mui/material';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import LayersIcon from '@mui/icons-material/Layers';
-import PaidIcon from '@mui/icons-material/Paid';
-import TokenIcon from '@mui/icons-material/Token';
-import { SummaryCard } from '@/components/common/SummaryCard';
+import { Box, Grid, Tooltip, Typography } from '@mui/material';
+import KpiCard from '../../test-runs/[identifier]/components/summary/KpiCard';
+import ModelLabel from '@/components/common/ModelLabel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
-import { formatCost, formatTokenCount } from '@/utils/trace-utils';
+import {
+  formatCost,
+  formatTokenCount,
+  hasTracedUsage,
+  isCostKnown,
+  isPricingInProgress,
+  tokenSplitLabel,
+} from '@/utils/trace-utils';
 
 interface TraceMetricsSummaryProps {
   projectId: string | null;
@@ -93,7 +97,9 @@ export default function TraceMetricsSummary({
     refreshTrigger,
   ]);
 
-  if (!metrics) {
+  // Held back for a scope that has traced nothing: the table below says so in
+  // its own empty state, and four tiles of zero say it less well.
+  if (!metrics || !hasTracedUsage(metrics)) {
     return null;
   }
 
@@ -101,42 +107,90 @@ export default function TraceMetricsSummary({
     ? 'Whole project, not narrowed by the active filters'
     : undefined;
 
+  // Busiest first, which is the order a reader wants, and stable: the endpoint
+  // groups without an ORDER BY, so the keys arrive in whatever order the
+  // database produced them and the hover would otherwise reshuffle itself.
+  const spanTypes = Object.entries(metrics.operation_breakdown ?? {})
+    .sort(
+      ([aName, aCount], [bName, bCount]) =>
+        bCount - aCount || aName.localeCompare(bName)
+    )
+    .map(([name]) => name);
+  const errorSpans = metrics.error_spans;
+  // From the counts rather than the rounded rate, and capped below 100 while
+  // any span failed: rounding alone put "1 error · 100% ok" on screen for
+  // every scope past 199 spans, a sentence that argues with itself. Capping
+  // rather than flooring keeps 98.7% reading as 99 rather than 98.
+  const okShare = metrics.total_spans
+    ? Math.min(
+        errorSpans > 0 ? 99 : 100,
+        Math.round(
+          ((metrics.total_spans - errorSpans) / metrics.total_spans) * 100
+        )
+      )
+    : 100;
+  const models = metrics.models_used ?? [];
+  const providers = metrics.providers_used ?? [];
+  const split = tokenSplitLabel(
+    metrics.total_input_tokens,
+    metrics.total_output_tokens
+  );
+
   return (
     <Box sx={{ mb: 3 }}>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
+          <KpiCard
             title="Traces"
             value={metrics.total_traces.toLocaleString()}
-            subtitle={scope}
-            icon={<AccountTreeIcon />}
+            subtitle={
+              spanTypes.length > 0 ? (
+                <HoverList
+                  label={`${spanTypes.length} ${
+                    spanTypes.length === 1 ? 'span type' : 'span types'
+                  }`}
+                  items={spanTypes}
+                />
+              ) : (
+                scope
+              )
+            }
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
+          <KpiCard
             title="Spans"
             value={metrics.total_spans.toLocaleString()}
-            subtitle={scope}
-            icon={<LayersIcon />}
-            color="info"
+            subtitle={
+              errorSpans > 0
+                ? `${errorSpans.toLocaleString()} ${
+                    errorSpans === 1 ? 'error' : 'errors'
+                  } \u00b7 ${okShare}% ok`
+                : 'No errors'
+            }
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
-            title="Tokens"
-            value={formatTokenCount(metrics.total_tokens)}
-            subtitle={scope}
-            icon={<TokenIcon />}
-            color="success"
-          />
+          <UsageTile metrics={metrics} split={split} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SummaryCard
-            title="Cost"
-            value={formatCost(metrics.total_cost_usd)}
-            subtitle={scope}
-            icon={<PaidIcon />}
-            color="warning"
+          <KpiCard
+            title="Models"
+            value={models.length.toLocaleString()}
+            valueSuffix={models.length === 1 ? 'model' : 'models'}
+            // Names them rather than counting the providers too: a count of
+            // providers says less than the model that produced the spend, and
+            // the label carries the provider anyway as its prefix.
+            subtitle={
+              models.length > 0 ? (
+                <ModelLabel
+                  component="span"
+                  truncate={false}
+                  models={models}
+                  providers={providers}
+                />
+              ) : undefined
+            }
           />
         </Grid>
       </Grid>
@@ -151,5 +205,59 @@ export default function TraceMetricsSummary({
         </Typography>
       )}
     </Box>
+  );
+}
+
+/** A count that names what it counted, on hover. */
+function HoverList({ label, items }: { label: string; items: string[] }) {
+  return (
+    <Tooltip title={items.join(', ')}>
+      <Box component="span" sx={{ borderBottom: '1px dotted', cursor: 'help' }}>
+        {label}
+      </Box>
+    </Tooltip>
+  );
+}
+
+/**
+ * What the scope spent. Cost leads where it is known; where it is not, tokens
+ * lead and the tile says which kind of silence it is -- exactly the rule the
+ * test run summary card follows, so the two cannot describe one run differently.
+ */
+function UsageTile({
+  metrics,
+  split,
+}: {
+  metrics: TraceMetricsResponse;
+  split?: string;
+}) {
+  const tokens = [`${formatTokenCount(metrics.total_tokens)} tokens`, split]
+    .filter(Boolean)
+    .join(' · ');
+
+  if (!isCostKnown(metrics)) {
+    return (
+      <KpiCard
+        title="Usage"
+        value={formatTokenCount(metrics.total_tokens)}
+        valueSuffix="tokens"
+        subtitle={
+          isPricingInProgress(metrics)
+            ? 'Working out what this cost'
+            : 'No priced models'
+        }
+      />
+    );
+  }
+
+  return (
+    <KpiCard
+      title="Usage"
+      value={formatCost(metrics.total_cost_usd)}
+      // One string rather than flex children: both halves are plain text, so
+      // the separator can be part of the sentence and wrap with it, instead of
+      // being an element whose spacing lives in CSS and is lost on copy.
+      subtitle={tokens}
+    />
   );
 }

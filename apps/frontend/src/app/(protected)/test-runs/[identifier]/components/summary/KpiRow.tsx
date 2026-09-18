@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Box, Grid, LinearProgress } from '@mui/material';
 import KpiCard from './KpiCard';
-import UsageCard, { hasTracedUsage } from './UsageCard';
+import UsageCard from './UsageCard';
 import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
@@ -16,6 +16,7 @@ import {
 import { describeStrip } from './verdict-strip-render';
 import { STRIP_HEIGHTS } from './summary-tokens';
 import { useTestRunUsage } from '../../hooks/useTestRunUsage';
+import { hasTracedUsage } from '@/utils/trace-utils';
 import type {
   VerdictMatrix,
   TestRunDetail,

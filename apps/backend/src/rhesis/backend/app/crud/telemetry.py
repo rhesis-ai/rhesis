@@ -1232,6 +1232,7 @@ def get_trace_metrics_aggregated(
         "total_output_cost_usd": round(float(token_cost_agg.total_output_cost_usd or 0), 6),
         "models_used": models_used,
         "providers_used": providers_used,
+        "error_spans": error_count,
         "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
         "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
         "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),

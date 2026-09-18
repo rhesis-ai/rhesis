@@ -2,11 +2,7 @@ import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { testRunUsageKeys } from '@/constants/query-keys';
-import {
-  isCostKnown,
-  nextPollDelay,
-  useTestRunUsage,
-} from '../useTestRunUsage';
+import { nextPollDelay, useTestRunUsage } from '../useTestRunUsage';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 
 const getMetrics = jest.fn();
@@ -37,6 +33,7 @@ function usage(overrides: Partial<TraceMetricsResponse> = {}) {
     total_spans: 12,
     total_tokens: 900,
     total_cost_usd: 0,
+    error_spans: 0,
     error_rate: 0,
     avg_duration_ms: 1,
     p50_duration_ms: 1,
@@ -133,24 +130,6 @@ describe('nextPollDelay', () => {
     // the case worth confirming quickly.
     expect(nextPollDelay(behind(), false, 10000)).toBe(POLL_MS);
     expect(nextPollDelay(priced(), false, 10000)).toBe(false);
-  });
-});
-
-describe('isCostKnown', () => {
-  it('trusts a zero that priced traces add up to', () => {
-    // A free model costs a knowable nothing. $0.00 is the right answer here.
-    expect(isCostKnown(priced({ total_cost_usd: 0 }))).toBe(true);
-  });
-
-  it('does not trust a zero nobody computed', () => {
-    expect(isCostKnown(usage())).toBe(false);
-    expect(isCostKnown(usage({ enriched_traces: 4, priced_traces: 0 }))).toBe(
-      false
-    );
-  });
-
-  it('trusts a real total', () => {
-    expect(isCostKnown(priced())).toBe(true);
   });
 });
 

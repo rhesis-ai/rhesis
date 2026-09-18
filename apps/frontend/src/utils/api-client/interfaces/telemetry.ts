@@ -218,6 +218,9 @@ export interface TraceMetricsResponse {
   /** Distinct providers behind those models, in the same order, so index 0 of each
    *  names one model and the provider that served it. */
   providers_used: string[];
+  /** Spans that failed. Sent rather than derived: error_rate is rounded, so
+   *  multiplying it back by total_spans rebuilds the wrong integer. */
+  error_spans: number;
   error_rate: number;
   avg_duration_ms: number;
   p50_duration_ms: number;

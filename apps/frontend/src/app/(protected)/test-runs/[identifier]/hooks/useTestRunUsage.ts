@@ -40,17 +40,6 @@ function signatureOf(usage: TraceMetricsResponse): string {
 }
 
 /**
- * Whether the cost on screen is a figure somebody computed.
- *
- * A run with priced traces that add up to zero really did cost nothing and
- * should say so. A run with none has a zero that means "no idea", and shows a
- * dash instead.
- */
-export function isCostKnown(usage: TraceMetricsResponse): boolean {
-  return usage.priced_traces > 0;
-}
-
-/**
  * How long until the card asks again, or false to stop asking.
  *
  * Every decision about when this card goes quiet is made here, which is why it
