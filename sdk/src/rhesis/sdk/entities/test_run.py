@@ -79,6 +79,17 @@ class TestRun(BaseEntity):
             raise ValueError("Test run ID is required")
         return Annotations.for_test_run(self.id)
 
+    def get_traces(self, limit: Optional[int] = None):
+        """Get the traces this test run produced.
+
+        One trace per test execution, with what the endpoint did to answer it.
+        """
+        from rhesis.sdk.entities.trace import Traces
+
+        if self.id is None:
+            raise ValueError("Test run ID is required")
+        return Traces.for_test_run(self.id, limit=limit)
+
     def get_test_results(self):
         """Get all test results for this test run.
 
