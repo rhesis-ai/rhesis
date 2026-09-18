@@ -54,8 +54,8 @@ class TestResult(TestResultBase, WithPermittedActions, ServerIdentity):
 
     __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RESULT
 
-    created_at: Union[datetime, str]
-    updated_at: Union[datetime, str]
+    created_at: datetime
+    updated_at: datetime
     last_annotation: Optional[Dict[str, Any]] = None
     matches_annotation: bool = False
     annotation_summary: Optional[Dict[str, Any]] = None
