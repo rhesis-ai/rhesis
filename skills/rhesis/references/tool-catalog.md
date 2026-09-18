@@ -509,6 +509,90 @@ Only the annotation's author may edit it; not even an admin can edit someone els
 
 ---
 
+## Traces
+
+A trace is one request's worth of work inside the application under test, and its spans are the individual operations: the LLM calls, retrievals and tool invocations, each with its own duration, status and model. A test result says what came back and what the metrics made of it. A trace says *why* it was that, which step was slow, and which one failed.
+
+**A trace has two ids and they are not interchangeable.**
+
+| Id | Shape | What it addresses |
+|----|-------|-------------------|
+| `trace_id` | 32-char hex | `get_trace` only |
+| span row id | UUID | annotating a trace, a `/traces/…` link, `lookup_span` |
+
+`list_traces` carries only the hex. The row id comes from `get_trace` as `root_spans[0].id`, or from a `list_annotations` row as `context.trace_db_id`. Using the hex where a row id belongs fails: there is no row with that id.
+
+---
+
+### `list_traces`
+List traces, one row per trace by default (the root span).
+
+Returns per row: `trace_id`, `project_id`, `root_operation`, `duration_ms`, `span_count`, `status_code`, `has_errors`, `total_tokens`, `total_cost_usd`, `models`, `providers`, `environment`, `conversation_id`, the run links (`test_run_id`, `test_result_id`, `test_id`, `endpoint_id`, `endpoint_name`), and the human verdict if there is one (`verdict`, `last_annotation`, `matches_annotation`).
+
+**Key parameters:**
+- `test_run_id` — the traces one run produced, one per test execution. The usual entry point.
+- `test_result_id` / `test_id` / `endpoint_id` / `conversation_id` — narrower provenance
+- `status_code` — `"ERROR"` or `"OK"`. On the default view this is the **root** span's status, so a trace whose inner LLM call failed but whose root returned OK will not match. Pair with `root_spans_only=false`.
+- `root_spans_only` — `false` returns every span as its own row, which is how you find the operation that actually failed
+- `duration_min_ms` / `duration_max_ms` — how you answer "what was slow"; pair with `sort_by=duration_ms`
+- `start_time_after` / `start_time_before` — ISO 8601
+- `span_name` — exact operation name, e.g. `"ai.llm.invoke"`; prefer `search` for anything fuzzy
+- `search` — free text over trace id, operation names, endpoint name and URL, conversation text
+- `trace_metrics_status` — `"Pass"`, `"Fail"`, `"Error"`, `"Inconclusive"` (only evaluated traces have one)
+- `trace_source` — `"test"`, `"operation"` (production traffic) or `"all"`
+- `trace_type` — `"Single-Turn"`, `"Multi-Turn"` or `"all"`
+- `provider` — repeatable; a trace whose costs are not priced yet matches none, so this can hide recent traces
+- `project_id` — omit to use the caller's scope
+- `sort_by`, `sort_order`, `offset`
+
+**Pagination:** the response carries `total`, `limit` and `offset`. Page with **`offset`** — this route does not take `skip`.
+
+**Scoping:** with no project scope and no `project_id`, this returns only traces belonging to no project, which reads as an unexpectedly empty list. Pass `project_id` rather than reporting that there are no traces.
+
+**CHAIN:** `get_test_run` or `get_insights` shows a failure → `list_traces` with that `test_run_id` → `get_trace` on the one that looks wrong.
+
+---
+
+### `get_trace`
+Get one trace with its full span tree: every operation nested parent to child, each with duration, status, model, cost and attributes.
+
+The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the total, is the answer to "why".
+
+**Key parameters:**
+- `trace_id` (required) — the 32-char hex, from a `list_traces` row or `context.trace_id`
+- `project_id` (**required**) — unusual for this API, where scope is normally implicit. Take it from the `list_traces` row or `context.project_id`; never ask the user for it.
+
+**The row id lives here.** `root_spans[0].id` is what annotates the trace as a whole, and each span carries its own `id` so you can judge one operation instead.
+
+**CHAIN:** `list_traces` → `get_trace` → `create_annotation` with `entity_type="Trace"` and `entity_id=root_spans[0].id`, if the person gives you a verdict.
+
+---
+
+### `get_trace_metrics`
+Aggregate cost and latency across a project's traces: total traces and spans, input/output token counts, total cost USD, models and providers involved, error rate and error span count, and latency percentiles (p50, p95, p99) alongside the average.
+
+This is the only tool that reports trace cost or latency. `get_insights` covers `test_result`, `metric`, `test_run` and `test`, and has no trace coverage at all.
+
+**Key parameters:**
+- `project_id` (required)
+- `test_run_id` — narrows every figure to one run, which is how you answer what a run cost
+- `environment`, `start_time_after`, `start_time_before`
+
+**Careful:** when `priced_traces` is well below `total_traces`, the cost is a floor rather than the total. Say so rather than reporting it as final.
+
+---
+
+### `lookup_span`
+Resolve a span's row id (UUID) to `trace_id`, `project_id` and `span_id`.
+
+This is the way back. Annotations, comments and tasks on a trace all record the span's row id, never the hex, so this is the step that turns one into the pair `get_trace` needs. It searches the caller's other projects too, so a span outside the active project still resolves.
+
+**Key parameters:** `span_db_id` (required) — from `context.trace_db_id`, or an annotation's `entity_id` when `entity_type` is `"Trace"`
+
+**CHAIN:** `list_annotations(entity_type="Trace")` → `lookup_span` → `get_trace`
+
+---
+
 ## Inspection (get-by-id)
 
 ### `get_test_set`

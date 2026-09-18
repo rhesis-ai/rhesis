@@ -158,6 +158,29 @@ The response also carries what people made of this result: `last_annotation` (th
 
 ---
 
+## Seeing what the application actually did
+
+`get_test_result` says what came back. It does not say why. When the response is wrong in a way the prompt does not explain, when a test errored, or when the user asks why something was slow, the trace is where the answer is:
+
+```
+list_traces(test_run_id="<uuid>")
+get_trace(trace_id="<32-char hex>", project_id="<uuid>")
+```
+
+The span tree shows each operation inside the request with its own duration and status. The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the total, is the finding.
+
+Three things worth knowing before you read them:
+
+- **`status_code` on a listing is the root span's.** A trace whose inner LLM call failed can still show `OK`. Pass `root_spans_only=false` with `status_code="ERROR"` to land on the span that actually failed.
+- **`get_trace` needs `project_id` as well as `trace_id`,** and `trace_id` is the 32-char hex, not a UUID. Both come from the `list_traces` row. Never ask the user for them.
+- **An empty list usually means no project scope,** not that the run produced no traces. Pass `project_id` and try again before reporting an absence.
+
+For cost and latency rather than one request's shape, `get_trace_metrics(project_id=…, test_run_id=…)` gives totals, error rate and p50/p95/p99. It is the only tool that reports either.
+
+Traces exist for production traffic too, not just test runs: `trace_source="operation"` is how you answer questions about live behaviour.
+
+---
+
 ## Checking what people already flagged
 
 Automated scores are not the last word. A person can fail a test every metric passed, and when the two disagree the human verdict is the one the platform reports.

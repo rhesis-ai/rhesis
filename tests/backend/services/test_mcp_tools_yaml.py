@@ -444,6 +444,23 @@ class TestTraceTools:
         assert "root_spans[0].id" in doc
         assert "trace_db_id" in doc
 
+    @pytest.mark.parametrize("name", sorted(TRACE_TOOLS))
+    def test_the_published_catalog_documents_the_tool(self, name):
+        """skills/rhesis/references/tool-catalog.md is hand-maintained.
+
+        It ships to users as the agent's tool reference, and nothing regenerates
+        it, so a tool added here and not there is invisible to every agent
+        reading the skill. Scoped to the trace tools because the catalog has
+        pre-existing drift in both directions -- six tools it does not document
+        (the garak and owasp generators, get_insights) and two it documents that
+        no longer exist (get_test_result_stats, get_test_run_stats). Widen this
+        as those get cleaned up rather than relaxing it.
+        """
+        catalog = _REPO_ROOT / "skills/rhesis/references/tool-catalog.md"
+        assert f"### `{name}`" in catalog.read_text(), (
+            f"{name} is in mcp_tools.yaml but not in the published tool catalog"
+        )
+
     @pytest.mark.parametrize("name", ["get_trace", "get_trace_metrics"])
     def test_a_required_project_names_where_to_get_it(self, name):
         """These two are the only read routes that will not infer the project.
