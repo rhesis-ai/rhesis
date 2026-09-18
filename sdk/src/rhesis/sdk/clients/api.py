@@ -43,6 +43,9 @@ class Endpoints(Enum):
     EXPERIMENTS = "experiments"
     PREFLIGHT_CHECKS = "preflight-checks"
     INSIGHTS = "insights"
+    TELEMETRY_TRACES = "telemetry/traces"
+    TELEMETRY_SPANS = "telemetry/spans"
+    TELEMETRY_PROVIDERS = "telemetry/providers"
     ANNOTATIONS = "annotations"
 
 
