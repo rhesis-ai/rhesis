@@ -2,7 +2,7 @@
  * Utility functions for trace visualization and formatting
  */
 
-import {
+import type {
   SpanNode,
   TraceMetricsResponse,
 } from './api-client/interfaces/telemetry';
