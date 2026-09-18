@@ -28,6 +28,7 @@ function metrics(
     total_output_cost_usd: 0.07,
     models_used: ['gpt-4o', 'gemini-2.5-flash'],
     providers_used: ['openai', 'gemini'],
+    error_spans: 40,
     error_rate: 0.0129,
     avg_duration_ms: 812,
     p50_duration_ms: 600,
@@ -88,12 +89,33 @@ describe('TraceMetricsSummary', () => {
     renderTiles();
 
     expect(await screen.findByText('3,089')).toBeInTheDocument();
-    // 1.29% of 3,089 spans, and the rest stated as a share that reads well.
     expect(screen.getByText('40 errors · 99% ok')).toBeInTheDocument();
   });
 
+  it('reports the failed spans the API counted, not a figure rebuilt from the rate', async () => {
+    // error_rate is rounded to four places, so multiplying it back by the span
+    // count lands on the wrong integer for most inputs: 3 errors in 11,667
+    // spans rounds to 0.0003, which reads back as 4.
+    getMetrics.mockResolvedValue(
+      metrics({ total_spans: 11667, error_spans: 3, error_rate: 0.0003 })
+    );
+    renderTiles();
+
+    expect(await screen.findByText(/3 errors/)).toBeInTheDocument();
+    expect(screen.queryByText(/4 errors/)).not.toBeInTheDocument();
+  });
+
+  it('says one error rather than one errors', async () => {
+    getMetrics.mockResolvedValue(
+      metrics({ error_spans: 1, error_rate: 0.0003 })
+    );
+    renderTiles();
+
+    expect(await screen.findByText(/^1 error ·/)).toBeInTheDocument();
+  });
+
   it('says so plainly when nothing errored', async () => {
-    getMetrics.mockResolvedValue(metrics({ error_rate: 0 }));
+    getMetrics.mockResolvedValue(metrics({ error_spans: 0, error_rate: 0 }));
     renderTiles();
 
     expect(await screen.findByText('No errors')).toBeInTheDocument();

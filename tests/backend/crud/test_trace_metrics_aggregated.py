@@ -886,3 +886,41 @@ class TestPricingProgressSignals:
 
         assert metrics["total_traces"] == 2
         assert metrics["enriched_traces"] == 1
+
+
+@pytest.mark.integration
+class TestErrorCountIsSentNotDerived:
+    """The exact failed-span count, because the rounded rate cannot rebuild it.
+
+    ``error_rate`` is rounded to four places, so a caller multiplying it back by
+    the span count gets a different integer for most inputs -- 3 errors in 11,667
+    spans rounds to 0.0003, which reads back as 4.
+    """
+
+    def test_counts_the_failed_spans(self, test_db, db_project, test_org_id):
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        spans = [
+            span(trace_id, uuid.uuid4().hex[:16], project_id, operation="agent.invoke"),
+            span(trace_id, uuid.uuid4().hex[:16], project_id, operation="llm.invoke", error=True),
+            span(trace_id, uuid.uuid4().hex[:16], project_id, operation="llm.invoke", error=True),
+        ]
+        create_trace_spans(test_db, spans, organization_id=test_org_id)
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["total_spans"] == 3
+        assert metrics["error_spans"] == 2
+        assert metrics["error_rate"] == pytest.approx(0.6667, abs=1e-4)
+
+    def test_is_zero_when_nothing_failed(self, test_db, six_span_trace, test_org_id):
+        _, project_id = six_span_trace
+
+        metrics = get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id
+        )
+
+        assert metrics["error_spans"] == 0
+        assert metrics["error_rate"] == 0

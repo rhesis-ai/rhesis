@@ -33,6 +33,7 @@ function usage(overrides: Partial<TraceMetricsResponse> = {}) {
     total_spans: 12,
     total_tokens: 900,
     total_cost_usd: 0,
+    error_spans: 0,
     error_rate: 0,
     avg_duration_ms: 1,
     p50_duration_ms: 1,

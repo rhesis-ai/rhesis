@@ -322,6 +322,12 @@ class TraceMetricsResponse(BaseModel):
         description="Distinct providers behind those models. A span that reported none "
         "falls back to what its model implies, then to 'unknown'",
     )
+    error_spans: int = Field(
+        default=0,
+        description="Spans that failed. Sent alongside error_rate because a caller "
+        "cannot recover it from the rounded rate -- 3 errors in 11,667 spans rounds "
+        "to 0.0003, which reads back as 4",
+    )
     error_rate: float
     avg_duration_ms: float
     p50_duration_ms: float

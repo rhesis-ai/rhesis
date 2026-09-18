@@ -108,7 +108,7 @@ export default function TraceMetricsSummary({
     : undefined;
 
   const spanTypes = Object.keys(metrics.operation_breakdown ?? {});
-  const errorSpans = Math.round(metrics.error_rate * metrics.total_spans);
+  const errorSpans = metrics.error_spans;
   const okShare = Math.round((1 - metrics.error_rate) * 100);
   const models = metrics.models_used ?? [];
   const providers = metrics.providers_used ?? [];

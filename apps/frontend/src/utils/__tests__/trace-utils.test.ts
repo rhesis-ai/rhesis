@@ -537,6 +537,7 @@ describe('trace-utils', () => {
         total_output_cost_usd: 0.01,
         models_used: ['gpt-4o'],
         providers_used: ['openai'],
+        error_spans: 0,
         error_rate: 0,
         avg_duration_ms: 1,
         p50_duration_ms: 1,
