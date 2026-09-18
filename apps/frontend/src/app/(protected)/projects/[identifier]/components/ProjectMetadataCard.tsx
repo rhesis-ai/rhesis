@@ -149,6 +149,7 @@ export default function ProjectMetadataCard({
                     }))
                   }
                   readOnly={!isEditing}
+                  tabIndex={isEditing ? undefined : -1}
                 >
                   <MenuItem value="active">Active</MenuItem>
                   <MenuItem value="inactive">Inactive</MenuItem>
@@ -171,6 +172,7 @@ export default function ProjectMetadataCard({
                     setDraft(d => ({ ...d, owner_id: e.target.value }))
                   }
                   readOnly={!isEditing}
+                  tabIndex={isEditing ? undefined : -1}
                   renderValue={selected => {
                     const user = users.find(u => u.id === selected);
                     const displayName = user
