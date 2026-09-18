@@ -12,17 +12,26 @@ import {
   ListItemText,
   MenuItem,
   Select,
-  TextField,
   Typography,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import PersonIcon from '@mui/icons-material/Person';
-import ViewField from '@/components/common/ViewField';
+import EditableField from '@/components/common/EditableField';
 import EditableSection from '@/components/common/EditableSection';
-import GridBadge from '@/components/common/GridBadge';
+import {
+  editableOutlinedFieldSx,
+  readOnlyOutlinedFieldSx,
+} from '@/components/common/drawerFormFieldSx';
+import { SECTION_GRID } from '@/styles/theme-constants';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
 import { UsersClient } from '@/utils/api-client/users-client';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+
+const readOnlySelectSx: SxProps<Theme> = [
+  readOnlyOutlinedFieldSx as Record<string, unknown>,
+  { '& .MuiSelect-icon': { display: 'none' }, pointerEvents: 'none' },
+];
 
 interface MetadataDraft {
   name: string;
@@ -109,144 +118,126 @@ export default function ProjectMetadataCard({
         return (
           <Grid
             container
-            columnSpacing="30px"
-            rowSpacing="20px"
+            columnSpacing={SECTION_GRID.columnSpacing}
+            rowSpacing={SECTION_GRID.rowSpacing}
             alignItems="flex-start"
           >
             <Grid size={{ xs: 12, sm: 6, md: 6 }}>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  label="Name"
-                  value={draft.name}
-                  onChange={e =>
-                    setDraft(d => ({ ...d, name: e.target.value }))
-                  }
-                  required
-                />
-              ) : (
-                <ViewField label="Name" value={draft.name} />
-              )}
+              <EditableField
+                fullWidth
+                editing={isEditing}
+                label="Name"
+                value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                required={isEditing}
+              />
             </Grid>
 
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              {isEditing ? (
-                <TextField
-                  select
-                  fullWidth
-                  label="Status"
+              <FormControl
+                fullWidth
+                sx={isEditing ? editableOutlinedFieldSx : readOnlySelectSx}
+              >
+                <InputLabel>Status</InputLabel>
+                <Select
                   value={draft.is_active ? 'active' : 'inactive'}
+                  label="Status"
                   onChange={e =>
                     setDraft(d => ({
                       ...d,
                       is_active: e.target.value === 'active',
                     }))
                   }
+                  readOnly={!isEditing}
+                  tabIndex={isEditing ? undefined : -1}
                 >
                   <MenuItem value="active">Active</MenuItem>
                   <MenuItem value="inactive">Inactive</MenuItem>
-                </TextField>
-              ) : (
-                <ViewField label="Status">
-                  <GridBadge
-                    size="detail"
-                    label={draft.is_active ? 'Active' : 'Inactive'}
-                  />
-                </ViewField>
-              )}
+                </Select>
+              </FormControl>
             </Grid>
 
             <Grid size={{ xs: 12, md: 3 }}>
-              {isEditing ? (
-                <FormControl fullWidth>
-                  {/* `displayEmpty` + `shrink` keep the label floated when no
-                      owner is set, so "Not assigned" shows in the value slot. */}
-                  <InputLabel shrink>Owner</InputLabel>
-                  <Select
-                    displayEmpty
-                    value={draft.owner_id}
-                    label="Owner"
-                    onChange={e =>
-                      setDraft(d => ({ ...d, owner_id: e.target.value }))
-                    }
-                    renderValue={selected => {
-                      const user = users.find(u => u.id === selected);
-                      if (!user) return ownerFromProject;
-                      return (
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+              <FormControl
+                fullWidth
+                sx={isEditing ? editableOutlinedFieldSx : readOnlySelectSx}
+              >
+                <InputLabel shrink>Owner</InputLabel>
+                <Select
+                  displayEmpty
+                  notched
+                  value={draft.owner_id}
+                  label="Owner"
+                  onChange={e =>
+                    setDraft(d => ({ ...d, owner_id: e.target.value }))
+                  }
+                  readOnly={!isEditing}
+                  tabIndex={isEditing ? undefined : -1}
+                  renderValue={selected => {
+                    const user = users.find(u => u.id === selected);
+                    const displayName = user
+                      ? getUserDisplayName(user)
+                      : ownerName;
+                    const picture = user?.picture ?? ownerPicture;
+                    return (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <Avatar
+                          src={picture}
+                          alt={displayName}
+                          sx={{
+                            width: AVATAR_SIZES.SMALL,
+                            height: AVATAR_SIZES.SMALL,
+                          }}
                         >
-                          <Avatar
-                            src={user.picture}
-                            alt={getUserDisplayName(user)}
-                            sx={{ width: 24, height: 24 }}
-                          >
-                            <PersonIcon sx={{ fontSize: 16 }} />
-                          </Avatar>
-                          <Typography variant="body2">
-                            {getUserDisplayName(user)}
-                          </Typography>
-                        </Box>
-                      );
-                    }}
-                  >
-                    {users.map(user => (
-                      <MenuItem key={user.id} value={user.id}>
-                        <ListItemAvatar>
-                          <Avatar
-                            src={user.picture}
-                            alt={getUserDisplayName(user)}
-                            sx={{ width: 32, height: 32 }}
-                          >
-                            <PersonIcon fontSize="small" />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={getUserDisplayName(user)}
-                          secondary={user.email}
-                        />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              ) : (
-                <ViewField label="Owner">
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar
-                      src={ownerPicture}
-                      alt={ownerName}
-                      sx={{
-                        width: AVATAR_SIZES.MEDIUM,
-                        height: AVATAR_SIZES.MEDIUM,
-                      }}
-                    >
-                      <PersonIcon />
-                    </Avatar>
-                    <Typography variant="body1">{ownerName}</Typography>
-                  </Box>
-                </ViewField>
-              )}
+                          <PersonIcon fontSize="small" />
+                        </Avatar>
+                        <Typography variant="body2">{displayName}</Typography>
+                      </Box>
+                    );
+                  }}
+                >
+                  {users.map(user => (
+                    <MenuItem key={user.id} value={user.id}>
+                      <ListItemAvatar>
+                        <Avatar
+                          src={user.picture}
+                          alt={getUserDisplayName(user)}
+                          sx={{
+                            width: AVATAR_SIZES.MEDIUM,
+                            height: AVATAR_SIZES.MEDIUM,
+                          }}
+                        >
+                          <PersonIcon fontSize="small" />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={getUserDisplayName(user)}
+                        secondary={user.email}
+                      />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
 
             <Grid size={12}>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  label="Description"
-                  value={draft.description}
-                  onChange={e =>
-                    setDraft(d => ({ ...d, description: e.target.value }))
-                  }
-                />
-              ) : (
-                <ViewField
-                  label="Description"
-                  value={draft.description || 'No description provided'}
-                  multiline
-                />
-              )}
+              <EditableField
+                fullWidth
+                editing={isEditing}
+                label="Description"
+                value={
+                  isEditing
+                    ? draft.description
+                    : draft.description || 'No description provided'
+                }
+                onChange={e =>
+                  setDraft(d => ({ ...d, description: e.target.value }))
+                }
+                multiline
+                minRows={3}
+              />
             </Grid>
           </Grid>
         );

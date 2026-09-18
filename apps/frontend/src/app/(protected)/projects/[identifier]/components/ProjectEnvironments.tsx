@@ -51,6 +51,7 @@ import GridToolbar, {
   linkedDataGridRowSx,
   linkedGridToolbarSx,
   sectionCardGridBleedSx,
+  sectionCardGridDataGridInsetSx,
 } from '@/components/common/GridToolbar';
 import {
   ROW_ACTIONS_CLASS,
@@ -509,7 +510,12 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
                   paginationModel: { page: 0, pageSize: 10 },
                 },
               }}
-              sx={linkedDataGridRowSx}
+              sx={{
+                ...(linkedDataGridRowSx as Record<string, unknown>),
+                ...(hideToolbarAddButton
+                  ? (sectionCardGridDataGridInsetSx as Record<string, unknown>)
+                  : undefined),
+              }}
             />
           </Box>
 
