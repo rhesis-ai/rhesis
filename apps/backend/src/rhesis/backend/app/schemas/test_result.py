@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict
@@ -53,6 +54,8 @@ class TestResult(TestResultBase, WithPermittedActions, ServerIdentity):
 
     __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RESULT
 
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
     last_annotation: Optional[Dict[str, Any]] = None
     matches_annotation: bool = False
     annotation_summary: Optional[Dict[str, Any]] = None
