@@ -167,7 +167,7 @@ export default function TracesTable({
     excludeTestRunId: Boolean(fixedTestRunId),
   });
 
-  const { format: money } = useCurrency();
+  const { format: money, alternativesTitle } = useCurrency();
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -344,7 +344,17 @@ export default function TracesTable({
         flex: 1,
         minWidth: 70,
         align: 'right',
-        renderCell: params => <UsageCell value={params.value} format={money} />,
+        renderCell: params => (
+          <UsageCell
+            value={params.value}
+            format={money}
+            title={
+              typeof params.value === 'number'
+                ? alternativesTitle(params.value)
+                : undefined
+            }
+          />
+        ),
       },
       {
         field: 'total_input_tokens',
@@ -372,7 +382,17 @@ export default function TracesTable({
         flex: 1,
         minWidth: 90,
         align: 'right',
-        renderCell: params => <UsageCell value={params.value} format={money} />,
+        renderCell: params => (
+          <UsageCell
+            value={params.value}
+            format={money}
+            title={
+              typeof params.value === 'number'
+                ? alternativesTitle(params.value)
+                : undefined
+            }
+          />
+        ),
       },
       {
         field: 'total_output_cost_usd',
@@ -380,7 +400,17 @@ export default function TracesTable({
         flex: 1,
         minWidth: 90,
         align: 'right',
-        renderCell: params => <UsageCell value={params.value} format={money} />,
+        renderCell: params => (
+          <UsageCell
+            value={params.value}
+            format={money}
+            title={
+              typeof params.value === 'number'
+                ? alternativesTitle(params.value)
+                : undefined
+            }
+          />
+        ),
       },
       {
         field: 'models',
@@ -461,7 +491,7 @@ export default function TracesTable({
       },
     ],
     // Rebuilt when the currency changes, so the cost columns reformat.
-    [money]
+    [money, alternativesTitle]
   );
 
   const handleRowClick = (params: {

@@ -94,8 +94,15 @@ function costSplit(
  * definitions outside a component, so there is no hook to call. `TestRunsGrid`
  * holds the context and passes it down.
  */
-export function usageColumns(money: MoneyFormatter): GridColDef[] {
-  const cost = (row: TestRunDetail) => costSplit(row, money);
+export function usageColumns(
+  money: MoneyFormatter,
+  alternativesTitle: (amountUsd: number) => string | undefined = () => undefined
+): GridColDef[] {
+  // The split, then the same total in the other currencies, in one native title.
+  const cost = (row: TestRunDetail) =>
+    [costSplit(row, money), alternativesTitle(row.usage?.total_cost_usd ?? 0)]
+      .filter(Boolean)
+      .join('\n');
   return [
     numericColumn('total_tokens', 'Tokens', formatTokenCount, tokenSplit),
     numericColumn(

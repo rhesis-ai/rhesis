@@ -26,6 +26,8 @@ interface CurrencyContextValue {
   format: (amountUsd: number) => string;
   /** The same cost in every other currency, for a hover. */
   alternatives: (amountUsd: number) => string[];
+  /** Those alternatives as a native title, with the rates' date. */
+  alternativesTitle: (amountUsd: number) => string | undefined;
   /** What the organization chose, so a picker can name the default. */
   organizationCurrency: Currency | null;
   /** What this user chose, if anything. Null means they follow the org. */
@@ -38,6 +40,7 @@ const FALLBACK: CurrencyContextValue = {
   asOf: null,
   format: makeMoneyFormatter(),
   alternatives: () => [],
+  alternativesTitle: () => undefined,
   organizationCurrency: null,
   userCurrency: null,
 };
@@ -94,6 +97,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       format: makeMoneyFormatter(currency, rates),
       alternatives: (amountUsd: number) =>
         otherCurrencies(amountUsd, currency, rates),
+      alternativesTitle: (amountUsd: number) => {
+        const others = otherCurrencies(amountUsd, currency, rates);
+        if (others.length === 0) return undefined;
+        const dated = rateData?.as_of
+          ? `Rates of ${rateData.as_of}`
+          : 'Rate age unknown';
+        return `${others.join(' \u00b7 ')}\n${dated}`;
+      },
       organizationCurrency,
       userCurrency,
     };

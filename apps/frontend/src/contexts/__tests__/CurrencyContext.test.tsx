@@ -118,6 +118,37 @@ describe('CurrencyProvider', () => {
       );
     });
 
+    it('offers a hover naming the other currencies and the rates date', async () => {
+      const { result } = setup({ userCurrency: 'EUR' });
+
+      await waitFor(() =>
+        expect(result.current.alternativesTitle(1)).toBe(
+          '$1.00 \u00b7 £0.75 \u00b7 CHF\u00a00.82\nRates of 2026-09-17'
+        )
+      );
+    });
+
+    it('says the rate age is unknown when the rates came from a fallback', async () => {
+      getExchangeRates.mockResolvedValue({ ...RATES, as_of: null });
+      const { result } = setup({ userCurrency: 'EUR' });
+
+      await waitFor(() =>
+        expect(result.current.alternativesTitle(1)).toContain(
+          'Rate age unknown'
+        )
+      );
+    });
+
+    it('offers no hover when there is nothing to compare against', async () => {
+      // No rates fetched, so USD is the only currency available and it is
+      // already the one on screen.
+      getExchangeRates.mockRejectedValue(new Error('offline'));
+      const { result } = setup();
+
+      await waitFor(() => expect(getExchangeRates).toHaveBeenCalled());
+      expect(result.current.alternativesTitle(1)).toBeUndefined();
+    });
+
     it('carries the day the rates are from', async () => {
       const { result } = setup();
 

@@ -139,7 +139,7 @@ export default function TestRunsGrid({
     [pendingCancelId, notifications]
   );
 
-  const { format: money } = useCurrency();
+  const { format: money, alternativesTitle } = useCurrency();
 
   const extraRowActions = useMemo(
     () => [
@@ -400,7 +400,7 @@ export default function TestRunsGrid({
           );
         },
       },
-      ...usageColumns(money),
+      ...usageColumns(money, alternativesTitle),
       {
         field: 'counts.annotated_tests',
         headerName: 'Annotations',
@@ -515,7 +515,7 @@ export default function TestRunsGrid({
       },
     ],
     // Rebuilt when the currency changes, so the cost columns reformat.
-    [money]
+    [money, alternativesTitle]
   );
 
   return (
