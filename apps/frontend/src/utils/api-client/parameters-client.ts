@@ -2,6 +2,7 @@ import { BaseApiClient } from './base-client';
 import {
   EnvironmentBindRequest,
   EnvironmentRegisterRequest,
+  ExperimentBulkDeleteResponse,
   ExperimentCreate,
   ExperimentDetail,
   ExperimentRead,
@@ -185,6 +186,16 @@ export class ParametersClient extends BaseApiClient {
     return this.fetch<ExperimentRead>(`/experiments/${experimentId}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteExperiments(
+    experimentIds: string[]
+  ): Promise<ExperimentBulkDeleteResponse> {
+    return this.bulkDelete<ExperimentBulkDeleteResponse>(
+      '/experiments',
+      'experiment_ids',
+      experimentIds
+    );
   }
 
   async listExperimentVersions(

@@ -34,6 +34,8 @@ from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.parameters import (
+    ExperimentBulkDeleteRequest,
+    ExperimentBulkDeleteResponse,
     ExperimentDetail,
     ExperimentRead,
     ExperimentUpdate,
@@ -103,6 +105,32 @@ def list_experiments(
     )
     response.headers["X-Total-Count"] = str(total)
     return [to_read(r) for r in rows]
+
+
+@router.delete("/bulk", response_model=ExperimentBulkDeleteResponse)
+def bulk_delete_experiments(
+    request: ExperimentBulkDeleteRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete multiple experiments at once.
+
+    Only the creator of an experiment may delete it. Ids that exist but
+    belong to someone else land in ``forbidden_ids``. Any project
+    environments pointing at a deleted experiment are unbound first,
+    matching single-delete behaviour.
+
+    Registered before ``/{experiment_id}`` so FastAPI does not treat
+    "bulk" as an id.
+    """
+    organization_id, user_id = tenant_context
+    return experiment_crud.bulk_delete_experiments(
+        db=db,
+        experiment_ids=request.experiment_ids,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 @router.get("/{experiment_id}", response_model=ExperimentDetail)
