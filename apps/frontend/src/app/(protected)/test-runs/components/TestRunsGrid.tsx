@@ -32,6 +32,7 @@ import TestRunFilterDrawer, {
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
 import { passRate } from '@/constants/outcomes';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { usageColumns, USAGE_COLUMNS_HIDDEN_BY_DEFAULT } from './usage-columns';
 
 interface TestRunsGridProps {
@@ -137,6 +138,8 @@ export default function TestRunsGrid({
     },
     [pendingCancelId, notifications]
   );
+
+  const { format: money } = useCurrency();
 
   const extraRowActions = useMemo(
     () => [
@@ -397,7 +400,7 @@ export default function TestRunsGrid({
           );
         },
       },
-      ...usageColumns(),
+      ...usageColumns(money),
       {
         field: 'counts.annotated_tests',
         headerName: 'Annotations',
@@ -511,7 +514,8 @@ export default function TestRunsGrid({
         },
       },
     ],
-    []
+    // Rebuilt when the currency changes, so the cost columns reformat.
+    [money]
   );
 
   return (

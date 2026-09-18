@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { Box, Grid, Tooltip, Typography } from '@mui/material';
 import KpiCard from '../../test-runs/[identifier]/components/summary/KpiCard';
 import ModelLabel from '@/components/common/ModelLabel';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 import {
-  formatCost,
   formatTokenCount,
   hasTracedUsage,
   isCostKnown,
@@ -231,6 +231,7 @@ function UsageTile({
   metrics: TraceMetricsResponse;
   split?: string;
 }) {
+  const { format: money } = useCurrency();
   const tokens = [`${formatTokenCount(metrics.total_tokens)} tokens`, split]
     .filter(Boolean)
     .join(' · ');
@@ -253,7 +254,7 @@ function UsageTile({
   return (
     <KpiCard
       title="Usage"
-      value={formatCost(metrics.total_cost_usd)}
+      value={money(metrics.total_cost_usd)}
       // One string rather than flex children: both halves are plain text, so
       // the separator can be part of the sentence and wrap with it, instead of
       // being an element whose spacing lives in CSS and is lost on copy.

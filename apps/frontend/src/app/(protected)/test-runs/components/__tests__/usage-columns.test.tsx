@@ -5,6 +5,7 @@ import {
   USAGE_COLUMNS_HIDDEN_BY_DEFAULT,
 } from '../usage-columns';
 import { gridSortToApiParams } from '@/utils/grid-sort';
+import { formatCost } from '@/utils/trace-utils';
 import type {
   TestRunDetail,
   TestRunUsage,
@@ -41,7 +42,7 @@ const priced = runWith({
 });
 
 function column(field: string): GridColDef {
-  const found = usageColumns().find(col => col.field === field);
+  const found = usageColumns(formatCost).find(col => col.field === field);
   if (!found) throw new Error(`no column ${field}`);
   return found;
 }
@@ -63,7 +64,7 @@ function renderCell(field: string, row: TestRunDetail) {
 
 describe('usage columns', () => {
   it('adds the seven columns the traces grid also names', () => {
-    expect(usageColumns().map(col => col.headerName)).toEqual([
+    expect(usageColumns(formatCost).map(col => col.headerName)).toEqual([
       'Tokens',
       'Input tokens',
       'Output tokens',
@@ -126,11 +127,13 @@ describe('usage columns', () => {
 
   it('leaves every column server-sortable', () => {
     // sortable defaults to true; an explicit false would silently drop the deep sort.
-    expect(usageColumns().every(col => col.sortable !== false)).toBe(true);
+    expect(usageColumns(formatCost).every(col => col.sortable !== false)).toBe(
+      true
+    );
   });
 
   it('maps every column to a sort field the API accepts', () => {
-    const apiFields = usageColumns().map(
+    const apiFields = usageColumns(formatCost).map(
       col => gridSortToApiParams([{ field: col.field, sort: 'desc' }]).sort_by
     );
 

@@ -20,6 +20,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GridBadge from '@/components/common/GridBadge';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import {
   SpanNode,
@@ -32,11 +33,7 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
-import {
-  formatCost,
-  formatTokenCount,
-  subtreeUsage,
-} from '@/utils/trace-utils';
+import { formatTokenCount, subtreeUsage } from '@/utils/trace-utils';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { asVersionInfo } from '@/utils/version-info';
@@ -118,6 +115,7 @@ export default function SpanDetailsPanel({
   selectedTurnNumber = null,
 }: SpanDetailsPanelProps) {
   const { status } = useSession();
+  const { format: money } = useCurrency();
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
   const [spanFilesLoading, setSpanFilesLoading] = useState(false);
@@ -495,7 +493,7 @@ export default function SpanDetailsPanel({
                       </Typography>
                       {usage.costUsd !== null && (
                         <Typography variant="caption" display="block">
-                          Cost: {formatCost(usage.costUsd)}
+                          Cost: {money(usage.costUsd)}
                         </Typography>
                       )}
                       {usage.llmSpanCount > 0 && (

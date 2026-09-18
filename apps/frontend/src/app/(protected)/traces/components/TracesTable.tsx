@@ -15,6 +15,7 @@ import {
 } from '@/utils/api-client/interfaces/telemetry';
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
@@ -22,11 +23,7 @@ import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
-import {
-  formatCost,
-  formatTokenCount,
-  tokenSplitLabel,
-} from '@/utils/trace-utils';
+import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import ModelLabel from '@/components/common/ModelLabel';
@@ -169,6 +166,8 @@ export default function TracesTable({
     testRunScope: Boolean(fixedTestRunId),
     excludeTestRunId: Boolean(fixedTestRunId),
   });
+
+  const { format: money } = useCurrency();
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -345,9 +344,7 @@ export default function TracesTable({
         flex: 1,
         minWidth: 70,
         align: 'right',
-        renderCell: params => (
-          <UsageCell value={params.value} format={formatCost} />
-        ),
+        renderCell: params => <UsageCell value={params.value} format={money} />,
       },
       {
         field: 'total_input_tokens',
@@ -375,9 +372,7 @@ export default function TracesTable({
         flex: 1,
         minWidth: 90,
         align: 'right',
-        renderCell: params => (
-          <UsageCell value={params.value} format={formatCost} />
-        ),
+        renderCell: params => <UsageCell value={params.value} format={money} />,
       },
       {
         field: 'total_output_cost_usd',
@@ -385,9 +380,7 @@ export default function TracesTable({
         flex: 1,
         minWidth: 90,
         align: 'right',
-        renderCell: params => (
-          <UsageCell value={params.value} format={formatCost} />
-        ),
+        renderCell: params => <UsageCell value={params.value} format={money} />,
       },
       {
         field: 'models',
@@ -467,7 +460,8 @@ export default function TracesTable({
         },
       },
     ],
-    []
+    // Rebuilt when the currency changes, so the cost columns reformat.
+    [money]
   );
 
   const handleRowClick = (params: {
