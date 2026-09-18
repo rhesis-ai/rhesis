@@ -30,7 +30,7 @@ import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 const readOnlySelectSx: SxProps<Theme> = [
   readOnlyOutlinedFieldSx as Record<string, unknown>,
-  { '& .MuiSelect-icon': { display: 'none' } },
+  { '& .MuiSelect-icon': { display: 'none' }, pointerEvents: 'none' },
 ];
 
 interface MetadataDraft {
