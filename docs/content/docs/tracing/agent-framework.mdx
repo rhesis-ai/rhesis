@@ -153,6 +153,23 @@ async def chat(input: str, conversation_id: str = None) -> dict:
   Do not call `agent_framework.observability.configure_otel_providers()` (or `setup_observability()`) after creating the `RhesisClient`. Doing so replaces the Rhesis tracer provider and spans will no longer reach Rhesis. `auto_instrument("agent_framework")` already enables MAF instrumentation against the Rhesis provider for you.
 </Callout>
 
+## Multi-Turn Conversations
+
+MAF opens its own root span per turn, so OpenTelemetry mints a fresh trace id every time you run an agent or a workflow. Bind a conversation id and the integration puts all of that conversation's turns on one trace, with the run root of each turn carrying the turn's message and reply:
+
+<CodeBlock filename="session.py" language="python">
+{`from rhesis.telemetry.context import set_conversation_id
+
+set_conversation_id("user-42")
+
+for message in ["Hello", "Tell me more"]:
+    result = await agent.run(message)`}
+</CodeBlock>
+
+The first turn keeps the trace id it was born with and later turns join it, so a link to the first turn still resolves. Bind the id before the run starts: the target trace has to be known when the run root is created, and MAF assigns no span attributes before then.
+
+Two cases stand this down, because there the trace id is already owned and published elsewhere: a run inside an `@endpoint` or `@observe` span, and a platform-driven turn. Both join the turns themselves, so the integration leaves their spans where they are.
+
 ## Worked Example: Travel Agent
 
 The repository ships a runnable multi-agent MAF demo - a `HandoffBuilder` workflow with a coordinator and three specialists - built specifically to produce agent, LLM, tool, and handoff traces in Rhesis. See [`agents/travel-agent`](https://github.com/rhesis-ai/rhesis/tree/main/agents/travel-agent) and its [architecture notes](https://github.com/rhesis-ai/rhesis/blob/main/agents/travel-agent/docs/architecture.md).

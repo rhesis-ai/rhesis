@@ -87,6 +87,10 @@ WORKFLOW_RUN_SPAN_NAME = "workflow.run"
 # Graph View knows how to connect.
 HANDOFF_TOOL_PREFIX = "handoff_to_"
 
+# MAF names an agent span after the operation that opened it, so the agent's own
+# name follows the prefix (``invoke_agent researcher``).
+_AGENT_SPAN_PREFIXES: tuple[str, ...] = (f"{OP_INVOKE_AGENT} ", f"{OP_CREATE_AGENT} ")
+
 # Operation -> Rhesis span name. The validator in
 # :mod:`rhesis.telemetry.attributes` accepts ``ai.<domain>(.<action>)?`` and
 # anything starting with ``function.``, so we are careful to land here.
@@ -339,3 +343,12 @@ def translate_handoff_attributes(
 def is_workflow_run_span(original_name: str | None) -> bool:
     """Return True for MAF's top-level ``workflow.run`` span (the run root)."""
     return original_name == WORKFLOW_RUN_SPAN_NAME
+
+
+def is_agent_invocation_span(original_name: str | None) -> bool:
+    """Return True for MAF's per-run agent span (``invoke_agent <name>``).
+
+    A plain ``agent.run()`` emits no ``workflow.run`` span, so this is the trace
+    root there and the only span that can carry the turn's conversation.
+    """
+    return bool(original_name) and original_name.startswith(_AGENT_SPAN_PREFIXES)
