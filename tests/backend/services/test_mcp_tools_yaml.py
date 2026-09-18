@@ -287,6 +287,179 @@ class TestAnnotationWriteTools:
 
 
 @pytest.mark.unit
+class TestTraceTools:
+    """Traces are the only view of what the application actually did.
+
+    Before these tools existed the agent could read a result and the
+    annotations on a trace, but could not open the trace itself. The two ids
+    are what these tests guard hardest: the hex addresses the read route and
+    the span row id addresses everything else, and confusing them fails
+    quietly in one direction and loudly in the other.
+    """
+
+    TRACE_TOOLS: ClassVar[set[str]] = {
+        "list_traces",
+        "get_trace",
+        "get_trace_metrics",
+        "lookup_span",
+    }
+
+    def _cfg(self, name):
+        return {tc["name"]: tc for tc in load_tool_configs()}[name]
+
+    def _built(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, operations = build_tools_and_operations(app)
+        return {t.name: t for t in tools}, operations
+
+    def test_trace_tools_in_yaml(self):
+        names = {tc["name"] for tc in load_tool_configs()}
+        missing = self.TRACE_TOOLS - names
+        assert not missing, f"Missing trace tools: {sorted(missing)}"
+
+    @pytest.mark.parametrize("name", sorted(TRACE_TOOLS))
+    def test_the_tool_resolves_against_a_real_route(self, name):
+        """A path that matches no OpenAPI route makes the tool vanish silently.
+
+        The telemetry routes have no trailing slash, unlike /annotations/, so
+        this is the check that catches a copied-in slash.
+        """
+        by_name, _ = self._built()
+        assert name in by_name, f"{name} absent — path likely matches no route"
+
+    @pytest.mark.parametrize("name", sorted(TRACE_TOOLS))
+    def test_trace_tools_are_read_only(self, name):
+        """Nothing here writes; ingestion is the SDK's job, not the agent's."""
+        cfg = self._cfg(name)
+        assert cfg["method"].upper() == "GET"
+        assert "requires_confirmation" not in cfg
+        by_name, _ = self._built()
+        assert by_name[name].annotations.readOnlyHint is True
+
+    def test_list_traces_does_not_declare_page_size(self):
+        """page_size would mis-page this route rather than help it.
+
+        The peek-ahead reads skip and sets limit, but this route pages by
+        offset and answers with {traces, total, limit, offset} rather than a
+        bare list. format_list_response no-ops on a dict, so the wrapper would
+        add no metadata while next_skip advised a parameter the route ignores,
+        leaving the agent re-reading page one.
+        """
+        assert "page_size" not in self._cfg("list_traces")
+
+    def test_list_traces_caps_the_default_page(self):
+        """Without this the route's own default of 100 traces comes back."""
+        assert self._cfg("list_traces")["default_query"]["limit"] == 20
+
+    def test_list_traces_tells_the_agent_to_page_by_offset(self):
+        description = self._cfg("list_traces")["description"]
+        assert "offset" in description
+        assert "not skip" in description
+
+    def test_list_traces_exposes_the_filters_that_matter(self):
+        by_name, operations = self._built()
+        props = by_name["list_traces"].inputSchema["properties"]
+        for param in (
+            "test_run_id",
+            "test_result_id",
+            "endpoint_id",
+            "status_code",
+            "span_name",
+            "search",
+            "duration_min_ms",
+            "start_time_after",
+            "trace_metrics_status",
+            "root_spans_only",
+            "offset",
+        ):
+            assert param in props, f"{param} missing from list_traces schema"
+        assert operations["list_traces"]["method"] == "GET"
+
+    def test_list_traces_documents_both_ids(self):
+        """The listing carries only the hex, which is the trap."""
+        description = self._cfg("list_traces")["description"]
+        assert "root_spans[0].id" in description
+        assert "32-char hex" in description
+
+    def test_list_traces_explains_the_fail_closed_project_scope(self):
+        """An empty list here usually means no project scope, not no traces.
+
+        Without this the agent reports "there are no traces" to a user looking
+        at a screen full of them.
+        """
+        description = self._cfg("list_traces")["description"]
+        assert "project_id" in description
+        assert "empty" in description.lower()
+
+    def test_root_spans_only_explains_what_false_does(self):
+        """Finding the failing operation needs the non-default value."""
+        doc = self._cfg("list_traces")["parameters"]["root_spans_only"]["description"]
+        assert "false" in doc
+        assert "span" in doc
+
+    def test_status_code_warns_it_matches_the_root_span(self):
+        """A trace whose inner LLM call failed can have an OK root span."""
+        doc = self._cfg("list_traces")["parameters"]["status_code"]["description"]
+        assert "root" in doc
+        assert "root_spans_only" in doc
+
+    def test_get_trace_says_project_id_is_required(self):
+        """The one read route in the API that will not infer the project."""
+        cfg = self._cfg("get_trace")
+        assert "REQUIRED" in cfg["parameters"]["project_id"]["description"]
+        by_name, _ = self._built()
+        assert "project_id" in by_name["get_trace"].inputSchema["required"]
+
+    def test_get_trace_points_at_the_row_id(self):
+        """This response is the only place the row id can be got."""
+        description = self._cfg("get_trace")["description"]
+        assert "root_spans[0].id" in description
+        assert "create_annotation" in description
+
+    def test_get_trace_metrics_says_get_insights_does_not_cover_traces(self):
+        """Otherwise the obvious guess is that get_insights already does this."""
+        description = self._cfg("get_trace_metrics")["description"]
+        assert "get_insights" in description
+
+    def test_get_trace_metrics_flags_unpriced_traces(self):
+        """Reporting a partial cost as the total is the failure mode here."""
+        description = self._cfg("get_trace_metrics")["description"]
+        assert "priced_traces" in description
+
+    def test_lookup_span_documents_the_way_back_from_an_annotation(self):
+        description = self._cfg("lookup_span")["description"]
+        assert "trace_db_id" in description
+        assert "list_annotations" in description
+
+    def test_create_annotation_says_a_trace_takes_the_row_id(self):
+        """The whole point of the two-id warnings elsewhere: this call.
+
+        Sending the hex as entity_id addresses no row, so the annotation
+        cannot be created at all.
+        """
+        doc = self._cfg("create_annotation")["parameters"]["entity_id"]["description"]
+        assert "Trace" in doc
+        assert "root_spans[0].id" in doc
+        assert "trace_db_id" in doc
+
+    @pytest.mark.parametrize("name", ["get_trace", "get_trace_metrics"])
+    def test_a_required_project_names_where_to_get_it(self, name):
+        """These two are the only read routes that will not infer the project.
+
+        Required and unguessable is a dead end unless the doc says which
+        earlier tool result carries it, so the agent's alternative is asking
+        the user for a UUID they do not have.
+        """
+        doc = self._cfg(name)["parameters"]["project_id"]["description"]
+        assert "REQUIRED" in doc
+        assert any(
+            source in doc for source in ("list_traces", "context.project_id", "list_projects")
+        ), f"{name} should name where project_id comes from"
+
+
+@pytest.mark.unit
 class TestGetTestResultDocumentsAnnotations:
     """A result carries its own annotation projections; the tool should say so."""
 
