@@ -272,12 +272,13 @@ class Trace(BaseEntity):
 
     def _merge(self, payload: Dict[str, Any]) -> None:
         fresh = Trace.model_validate(payload)
-        for name in type(self).model_fields:
-            value = getattr(fresh, name)
-            # A listing carries fields the detail route does not, so only what
-            # came back is applied; the rest of this trace stays as it was.
-            if value is not None and value != []:
-                setattr(self, name, value)
+        # Apply exactly the fields the response carried, the ones the validator
+        # derives included, and leave the rest alone: a listing carries fields
+        # the detail route does not, and re-reading must not blank them.
+        # Judging by the value instead (skipping None and []) would let a
+        # re-pull keep a span tree the server no longer reports.
+        for name in fresh.model_fields_set:
+            setattr(self, name, getattr(fresh, name))
         self._detail_loaded = True
 
     def pull(self) -> "Trace":
@@ -392,6 +393,11 @@ class Traces(BaseCollection):
 
         ``limit`` is the most traces to return in total, not the page size the
         route calls by that name. Omit it to read everything the filters match.
+
+        A row the model cannot read raises rather than being skipped. Dropping
+        it would hand back a list that is quietly short, which is the same
+        failure as stopping at the first page, and the caller would have no way
+        to tell. Every field is optional, so this means the route changed shape.
         """
         client = APIClient()
         found: List[Trace] = []

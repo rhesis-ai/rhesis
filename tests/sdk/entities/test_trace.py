@@ -312,6 +312,39 @@ class TestSpans:
         assert [s.span_name for s in spans] == ["ai.chat", "ai.llm.invoke"]
 
     @patch("rhesis.sdk.entities.trace.APIClient")
+    def test_a_re_pull_does_not_keep_spans_the_server_no_longer_reports(
+        self, mock_client, detail_payload
+    ):
+        """Merging on the value rather than on what the response said would
+        leave the old tree in place and report a row id that is no longer
+        there."""
+        trace = Trace.model_validate(detail_payload)
+        assert trace.spans() != []
+        emptied = {**detail_payload, "root_spans": [], "span_count": 0}
+        mock_client.return_value.send_request.return_value = emptied
+
+        trace.pull()
+
+        assert trace.root_spans == []
+        assert trace.span_count == 0
+
+    @patch("rhesis.sdk.entities.trace.APIClient")
+    def test_a_re_pull_still_keeps_what_only_a_listing_reports(
+        self, mock_client, summary_payload, detail_payload
+    ):
+        """The other half of the same rule: absent is not the same as empty."""
+        trace = Trace.model_validate(summary_payload)
+        mock_client.return_value.send_request.return_value = detail_payload
+
+        trace.pull()
+
+        # The detail route never mentions these, so they are not the server
+        # saying they are empty.
+        assert trace.models == ["gpt-4o"]
+        assert trace.providers == ["openai"]
+        assert trace.tags_count == 0
+
+    @patch("rhesis.sdk.entities.trace.APIClient")
     def test_the_detail_does_not_blank_what_only_a_listing_carries(
         self, mock_client, summary_payload, detail_payload
     ):
