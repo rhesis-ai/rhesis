@@ -116,6 +116,33 @@ describe('RunUsageLines', () => {
       expect(screen.queryByText(/\(/)).not.toBeInTheDocument();
     });
 
+    it('says nothing when the difference is only floating-point noise', () => {
+      // 0.1 * 3 is not 0.3 in binary floating point; the remainder is around
+      // 1e-17, which is not zero and which formatCost prints as "$0.000000".
+      render(
+        <RunUsageLines
+          usage={usage({ total_cost_usd: 0.1 * 3 })}
+          compareTo={usage({ total_cost_usd: 0.3 })}
+        />
+      );
+
+      expect(screen.getByText('$0.30')).toBeInTheDocument();
+      expect(screen.queryByText(/\(/)).not.toBeInTheDocument();
+    });
+
+    it('still shows a difference small enough to need six decimals', () => {
+      // The rounding must not swallow a real delta: formatCost prints six
+      // places below a tenth of a cent, so the guard rounds no further.
+      render(
+        <RunUsageLines
+          usage={usage({ total_cost_usd: 0.000003 })}
+          compareTo={usage({ total_cost_usd: 0.000001 })}
+        />
+      );
+
+      expect(screen.getByText('(+$0.000002)')).toBeInTheDocument();
+    });
+
     it('never compares against a cost nobody computed', () => {
       // A -100% against an unpriced baseline would be a fabricated saving.
       render(

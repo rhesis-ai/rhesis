@@ -38,7 +38,11 @@ function CostDelta({
   baseline: number;
 }) {
   const theme = useTheme();
-  const delta = current - baseline;
+  // Rounded to the six places the backend already rounds costs to, and to the
+  // most formatCost will ever print. Subtracting two equal-looking floats
+  // leaves noise around 1e-17, which is not zero and renders as "$0.000000" --
+  // a delta claiming a difference too small to write down.
+  const delta = Number((current - baseline).toFixed(6));
   if (delta === 0) return null;
 
   return (
