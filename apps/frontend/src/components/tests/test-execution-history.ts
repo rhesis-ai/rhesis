@@ -41,7 +41,7 @@ export function mapTestResultToHistoryRow(
     passed: status === 'Pass',
     passedMetrics,
     totalMetrics,
-    executedAt: result.created_at || new Date().toISOString(),
+    executedAt: result.created_at,
   };
 }
 
