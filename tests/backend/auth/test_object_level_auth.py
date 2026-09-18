@@ -109,15 +109,14 @@ def _db_test_result(*, owner_id: uuid.UUID) -> Mock:
             "prompt_id",
             "test_id",
             "status_id",
+            "execution",
+            "verdict",
             "test_metrics",
             "test_output",
             "last_annotation",
             "matches_annotation",
             "annotation_summary",
             "permitted_actions",
-            # Required on the response schema since test results started
-            # serializing their timestamps; a spec_set mock without them fails
-            # response validation before the auth assertion is ever reached.
             "created_at",
             "updated_at",
         ]
@@ -132,6 +131,8 @@ def _db_test_result(*, owner_id: uuid.UUID) -> Mock:
     obj.prompt_id = None
     obj.test_id = None
     obj.status_id = None
+    obj.execution = "not_run"
+    obj.verdict = None
     obj.test_metrics = None
     obj.test_output = None
     obj.last_annotation = None
