@@ -52,6 +52,8 @@ import {
 import { scaledVh } from '@/styles/viewport-scaling';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { passRate } from '@/constants/outcomes';
+import RunUsageLines from './RunUsageLines';
+import { useTestRunUsage } from '../hooks/useTestRunUsage';
 
 interface RunExperimentInfo {
   experiment_id?: string;
@@ -382,6 +384,11 @@ export default function ComparisonView({
   }, [selectedBaselineId, onLoadBaseline]);
 
   const baselineRun = availableTestRuns.find(r => r.id === selectedBaselineId);
+  // Both sides read the same endpoint through the same hook, so the two cards
+  // cannot describe one figure differently, and neither can disagree with the
+  // Usage card on the run's own summary. The hook no-ops on an empty id.
+  const currentUsage = useTestRunUsage(currentTestRun.id);
+  const baselineUsage = useTestRunUsage(baselineRun?.id ?? '');
 
   // Whether a test passed, per the backend's own verdict -- never
   // re-derived from raw metrics, so a reviewed or errored result compares
@@ -495,10 +502,10 @@ export default function ComparisonView({
   const currentPassRate = useMemo(() => {
     const passed = currentTestResults.filter(isTestPassed).length;
     const failed = currentTestResults.length - passed;
-    const rate = passRate(passed, failed);
-    // null (nothing resolved) renders as a dash rather than NaN% -- the old
-    // expression divided by length with no zero guard.
-    return rate === null ? null : Math.round(rate);
+    // Kept exact. Rounding here and not on the baseline made the delta subtract
+    // a rounded figure from an unrounded one, so it could disagree with the two
+    // percentages printed either side of it. Rounding happens where it is shown.
+    return passRate(passed, failed);
   }, [currentTestResults]);
 
   const _getPromptSnippet = (
@@ -704,6 +711,7 @@ export default function ComparisonView({
                     </Box>
                   </Typography>
                 )}
+                <RunUsageLines usage={baselineUsage} />
                 {baselineRun.experiment_id && baselineRun.parameter_version && (
                   <ExperimentRunLink
                     experimentId={baselineRun.experiment_id}
@@ -779,7 +787,9 @@ export default function ComparisonView({
                   component="span"
                   sx={{ fontWeight: 700, color: 'text.primary' }}
                 >
-                  {currentPassRate === null ? '—' : `${currentPassRate}%`}
+                  {currentPassRate === null
+                    ? '—'
+                    : `${Math.round(currentPassRate)}%`}
                 </Box>
                 {baselinePassRate !== undefined && currentPassRate !== null && (
                   <Box
@@ -800,6 +810,7 @@ export default function ComparisonView({
                   </Box>
                 )}
               </Typography>
+              <RunUsageLines usage={currentUsage} compareTo={baselineUsage} />
               {currentTestRun.experiment_id &&
                 currentTestRun.parameter_version && (
                   <ExperimentRunLink
