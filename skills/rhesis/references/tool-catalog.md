@@ -513,6 +513,8 @@ Only the annotation's author may edit it; not even an admin can edit someone els
 
 A trace is one request's worth of work inside the application under test, and its spans are the individual operations: the LLM calls, retrievals and tool invocations, each with its own duration, status and model. A test result says what came back and what the metrics made of it. A trace says *why* it was that, which step was slow, and which one failed.
 
+**These are diagnostic tools, not part of routine analysis.** Pass rates, requirement and metric breakdowns, and run comparisons are all answered by `get_insights` and `get_test_result` without a trace. Open one to answer a question the result cannot — an unexplained response, an errored test, a question about latency or cost — on the one result that raised it, never as a sweep across a run.
+
 **A trace has two ids and they are not interchangeable.**
 
 | Id | Shape | What it addresses |

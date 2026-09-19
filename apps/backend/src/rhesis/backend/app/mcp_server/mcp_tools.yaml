@@ -1600,12 +1600,17 @@ tools:
       happens, pass project_id -- do not tell the user there are no traces,
       and do not ask them for a project id.
 
+      This is a diagnostic step, not part of routine analysis. A run summary,
+      a pass rate, a requirement or metric breakdown and a run comparison are
+      all answered by get_insights and get_test_result without a trace.
+
       ENTITY: Trace. PREREQUISITES: none, though test_run_id from
       list_test_runs or get_test_run is the usual scope. CHAIN: after
       get_test_run or get_insights shows a failure, an error or a slow run,
       come here with that test_run_id to see what the application did; then
-      get_trace on the one that looks wrong. NEVER: quote a trace's cost or
-      token count as the run's total -- get_trace_metrics aggregates that.
+      get_trace on the one that looks wrong. NEVER: open traces to build a run
+      summary or a comparison, and never quote a trace's cost or token count as
+      the run's total -- get_trace_metrics aggregates that.
     parameters:
       project_id:
         description: >

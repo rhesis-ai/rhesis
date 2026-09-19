@@ -160,7 +160,9 @@ The response also carries what people made of this result: `last_annotation` (th
 
 ## Seeing what the application actually did
 
-`get_test_result` says what came back. It does not say why. When the response is wrong in a way the prompt does not explain, when a test errored, or when the user asks why something was slow, the trace is where the answer is:
+This is a drill-down, not a step in every analysis. Pass rates, requirement and metric breakdowns and run comparisons are all answered above without a trace, and opening one to produce them costs context and adds nothing.
+
+Reach for a trace when the result cannot answer the question: the response is wrong in a way the prompt does not explain, the test errored, or someone asks why it was slow or what it cost. One trace at a time, on the result that raised the question — never a sweep across a run.
 
 ```
 list_traces(test_run_id="<uuid>")
@@ -173,7 +175,7 @@ The span tree shows each operation inside the request with its own duration and 
 
 When you only need to know *which* operation was slow or failed, `list_traces(root_spans_only=false)` answers that on its own. Those rows carry each span's name, duration and status and none of the payload, so they stay small however large the trace is. Open `get_trace` when you need what a span actually carried, on one trace, not in a loop over a run's results.
 
-Four things worth knowing before you read them:
+Four things worth knowing before you read one:
 
 - **`status_code` on a listing is the root span's.** A trace whose inner LLM call failed can still show `OK`. Pass `root_spans_only=false` with `status_code="ERROR"` to land on the span that actually failed.
 - **`get_trace` needs `project_id` as well as `trace_id`,** and `trace_id` is the 32-char hex, not a UUID. Both come from the `list_traces` row. Never ask the user for them.

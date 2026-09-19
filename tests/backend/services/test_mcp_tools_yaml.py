@@ -442,6 +442,15 @@ class TestTraceTools:
         assert "span_count" in description
         assert "root_spans_only=false" in description
 
+    def test_list_traces_is_framed_as_diagnostic_not_routine(self):
+        """Traces answer a question a result cannot; they are not a step in
+        summarising a run. Without the NEVER an agent tends to open one per
+        result while writing a pass-rate report, which costs context and tells
+        the reader nothing they asked for."""
+        description = self._cfg("list_traces")["description"]
+        assert "diagnostic step, not part of routine analysis" in description
+        assert "NEVER: open traces to build a run summary" in description
+
     def test_list_traces_says_why_it_is_the_cheap_call(self):
         """Its rows carry no attributes and no events, which is the whole
         reason the span listing is a usable substitute for the span tree."""
