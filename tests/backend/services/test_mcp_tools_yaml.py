@@ -1,6 +1,7 @@
 """Tests that mcp_tools.yaml contains expected tools and valid structure."""
 
 import importlib.util
+import re
 from pathlib import Path
 from typing import ClassVar
 
@@ -285,6 +286,50 @@ class TestAnnotationWriteTools:
 
 
 @pytest.mark.unit
+class TestPublishedCatalogMatchesTheToolSurface:
+    """skills/rhesis/references/tool-catalog.md ships as the agent's tool
+    reference and nothing regenerates it from mcp_tools.yaml.
+
+    The two directions of drift are not equally bad. A tool the catalog
+    documents but the server does not expose sends an agent to call something
+    that is not there, which is why that one is enforced for every tool. A tool
+    the server exposes but the catalog omits only means the agent does not know
+    about it, so that direction is still allowed for the garak and owasp
+    surfaces, which nobody has written up yet.
+    """
+
+    _UNDOCUMENTED = frozenset(
+        {
+            "generate_garak_test_set",
+            "generate_owasp_test_set",
+            "import_garak_probes",
+            "list_garak_probes",
+            "list_owasp_categories",
+        }
+    )
+
+    @staticmethod
+    def _documented():
+        catalog = _REPO_ROOT / "skills/rhesis/references/tool-catalog.md"
+        return set(re.findall(r"^### `([a-z_]+)`", catalog.read_text(), re.M))
+
+    def test_the_catalog_names_no_tool_the_server_lacks(self):
+        """The published skill told agents to call get_test_result_stats and
+        get_test_run_stats long after both left the yaml."""
+        phantom = self._documented() - {tc["name"] for tc in load_tool_configs()}
+        assert not phantom, (
+            f"tool-catalog.md documents tools the MCP server does not expose: {sorted(phantom)}"
+        )
+
+    def test_the_undocumented_list_does_not_grow(self):
+        missing = {tc["name"] for tc in load_tool_configs()} - self._documented()
+        assert missing <= self._UNDOCUMENTED, (
+            "new tools missing from the published catalog: "
+            f"{sorted(missing - self._UNDOCUMENTED)}"
+        )
+
+
+@pytest.mark.unit
 class TestTraceTools:
     """Traces are the only view of what the application actually did.
 
@@ -502,11 +547,7 @@ class TestTraceTools:
 
         It ships to users as the agent's tool reference, and nothing regenerates
         it, so a tool added here and not there is invisible to every agent
-        reading the skill. Scoped to the trace tools because the catalog has
-        pre-existing drift in both directions -- six tools it does not document
-        (the garak and owasp generators, get_insights) and two it documents that
-        no longer exist (get_test_result_stats, get_test_run_stats). Widen this
-        as those get cleaned up rather than relaxing it.
+        reading the skill.
         """
         catalog = _REPO_ROOT / "skills/rhesis/references/tool-catalog.md"
         assert f"### `{name}`" in catalog.read_text(), (

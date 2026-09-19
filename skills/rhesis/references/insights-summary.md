@@ -27,18 +27,19 @@ Always pass the **full `test_run_ids` array** (every ID from the prompt) with an
 Never rely on the default mode, and never call these with a single `test_run_id` — that would
 summarize just one run.
 
-1. Get the pooled stats across all runs in one call:
+1. Get the pooled stats across all runs, passing every ID at once:
 
    ```
-   get_test_result_stats
-     mode=all
+   get_insights
+     entity=test_result
+     group_by=[requirement]
+     measures=[count,passed,failed,pass_rate]
      test_run_ids=[<every ID from the prompt>]
    ```
 
-   With `mode=all` this returns overall totals, per-requirement and per-metric pass rates pooled across
-   the whole scope, plus a per-run table — all aggregated over every listed run. If you only need a
-   single dimension, use `mode=summary`, `mode=requirement`, or `mode=metrics`, each still with the full
-   `test_run_ids` array.
+   Passing the whole array pools the numbers across the scope rather than reporting one run.
+   Omit `group_by` for overall totals alone, and repeat with `entity=metric`,
+   `group_by=[metric_name]` for per-metric pass rates.
 2. Identify the weak requirements and metrics from the pooled numbers.
 3. Failures: `list_test_results` with Failed status + requirement scope across the same `test_run_ids`;
    minimal `$select`. Call `get_test_result` only for a few samples.
@@ -47,8 +48,8 @@ summarize just one run.
 
 Do **not** follow the per-run requirement-breakdown loop from `result-analysis.md` for an Insights
 handoff — that loop (one `test_run_id` per call) is for comparing two runs. Pass all IDs at once so
-the stats pool across the whole scope. `mode=test_runs` (per-run rows) is optional and only for an
-at-a-glance per-run table **after** the pooled summary — never a substitute for the aggregate.
+the stats pool across the whole scope. Grouping by `test_run` for per-run rows is optional and only
+for an at-a-glance table **after** the pooled summary — never a substitute for the aggregate.
 
 ## Nested run budget (inside ≤50 IDs)
 

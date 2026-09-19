@@ -1,6 +1,8 @@
 # Analysis phase
 
-**Preferred:** `get_test_result_stats` with `mode=all` and `test_run_id`.
+**Preferred:** `get_insights` with `entity=test_result`, `group_by=[requirement]`,
+`measures=[count,passed,failed,pass_rate]` and `test_run_ids`. Add a second call
+with `entity=metric`, `group_by=[metric_name]` for the metric rows.
 
 **Counts:** `get_test_run` → `attributes.total_tests` — never count list rows.
 
@@ -38,8 +40,8 @@ what you find in the failure's second line in place of the evaluator's `reason`,
 not as an extra section.
 
 Do not open traces to produce the summary above. Every number in it comes from
-`get_test_result_stats` and `get_test_run`, a trace answers none of them, and a
-run of ten results is ten traces nobody asked for.
+`get_insights` and `get_test_run`, a trace answers none of them, and a run of ten
+results is ten traces nobody asked for.
 
 **Human verdicts outrank the numbers above.** `list_annotations(test_run_id=...)`
 is cheap; check it before writing step 4. A result a person marked Pass is not a
@@ -51,7 +53,8 @@ it: the metrics can all be green and a human still have failed the run.
 
 ## Comparison
 
-`get_test_result_stats` with `mode=test_runs` and both `test_run_ids`.
+`get_insights` with `entity=test_result`, `group_by=[test_run,test_run_id]` and
+both `test_run_ids`.
 
 1. **One line** with the pass rate delta: `72% → 85%, +13 points`.
 2. **Regressed**, then **Improved** — one row per requirement or metric with its
@@ -59,7 +62,8 @@ it: the metrics can all be green and a human still have failed the run.
 3. **Unchanged** — a count, not a list.
 4. Links to both runs.
 
-Operational volume (how many runs, which test sets run most): `get_test_run_stats`.
+Operational volume (how many runs, which test sets run most): `get_insights` with
+`entity=test_run`, grouped by `status`, `test_set`, `executor` or `month`.
 
 ## Insights handoff
 

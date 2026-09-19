@@ -10,15 +10,31 @@ the caps on failures and next steps — lives in `phases/analysis.md`.
 
 ## Retrieving results
 
-### Preferred: single call with `mode=all`
+### Preferred: `get_insights`, one call per breakdown
+
+Overall totals, and the requirement breakdown, in one call:
 
 ```
-get_test_result_stats
-  mode=all
-  test_run_id="<uuid>"
+get_insights
+  entity=test_result
+  group_by=[requirement]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<uuid>"]
 ```
 
-Returns requirement pass rates, metric pass rates, overall totals, and timeline in one call. Use this immediately after execution for a complete post-run analysis. Most efficient option.
+The metric breakdown is a second call, because metrics are their own entity — one row per (result, metric):
+
+```
+get_insights
+  entity=metric
+  group_by=[metric_name]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<uuid>"]
+```
+
+Omit `group_by` entirely for a single overall row, which is the cheapest way to get a run's totals.
+
+Two calls cover a full post-run analysis. Prefer them to fetching results and counting: a `list_test_results` page can be truncated, and these are computed server-side over the whole run.
 
 ### Authoritative total counts
 
@@ -56,45 +72,47 @@ To understand a specific failure in depth, call `get_test_result` with the resul
 
 ## Run comparison
 
-When the user asks to compare runs or detect regressions, use `get_test_result_stats`.
+When the user asks to compare runs or detect regressions, use `get_insights`.
 
 ### High-level comparison (most common)
 
 ```
-get_test_result_stats
-  mode=test_runs
+get_insights
+  entity=test_result
+  group_by=[test_run,test_run_id]
+  measures=[count,passed,failed,pass_rate]
   test_run_ids=["<run-a-uuid>", "<run-b-uuid>"]
 ```
 
-Returns per-run pass/fail counts and pass rates in a single call. Best starting point for "did anything change between these runs?"
+Per-run pass/fail counts and pass rates in a single call. Best starting point for "did anything change between these runs?"
+
+`test_run` comes back as the run's name, which is what you show the user; `test_run_id` is the UUID, which is what goes in a link URL. Group by both so you have each.
 
 ### Requirement-level breakdown
 
-Call separately for each run:
+Both runs in one call — group by requirement *and* run, then compare the rows:
 
 ```
-get_test_result_stats
-  mode=requirement
-  test_run_id="<run-a-uuid>"
+get_insights
+  entity=test_result
+  group_by=[requirement,test_run]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<run-a-uuid>", "<run-b-uuid>"]
 ```
 
-```
-get_test_result_stats
-  mode=requirement
-  test_run_id="<run-b-uuid>"
-```
-
-Compare the per-requirement pass rates to identify which requirements improved and which regressed.
+Requirements whose pass rate moved between the two runs are the regressions and improvements.
 
 ### Metric-level breakdown
 
 ```
-get_test_result_stats
-  mode=metrics
-  test_run_id="<uuid>"
+get_insights
+  entity=metric
+  group_by=[metric_name]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<uuid>"]
 ```
 
-Use when the user wants to understand which evaluation criteria changed between runs.
+Use when the user wants to understand which evaluation criteria changed. This entity also carries `human_annotation_count`, `automated_passed` and `automated_failed`, which is how you see where people overrode the automation.
 
 ---
 
@@ -122,25 +140,31 @@ list_test_runs
 
 ## Operational analytics (run volume, not outcomes)
 
-For questions like "how many runs this month?" or "which test sets are run most?", use `get_test_run_stats` instead of `get_test_result_stats`:
+For questions like "how many runs this month?" or "which test sets are run most?", switch entity rather than tool — `entity=test_run` is one row per run, where `entity=test_result` is one row per test execution:
 
 ```
-get_test_run_stats
-  mode=summary
-```
-
-```
-get_test_run_stats
-  mode=test_sets
+get_insights
+  entity=test_run
+  group_by=[status]
+  measures=[count]
 ```
 
 ```
-get_test_run_stats
-  mode=timeline
+get_insights
+  entity=test_run
+  group_by=[test_set]
+  measures=[count]
+```
+
+```
+get_insights
+  entity=test_run
+  group_by=[month]
+  measures=[count]
   months=3
 ```
 
-This returns run volume, status distribution, top test sets by frequency, and monthly trends — not pass/fail outcomes. Use `get_test_result_stats` for pass/fail analysis.
+`executor` is also available, for who runs tests. These answer run volume, status distribution and trends — **not** pass/fail outcomes. Comparing outcomes between runs is `entity=test_result` grouped by `test_run`, because a run's pass rate is computed from its results.
 
 ---
 
