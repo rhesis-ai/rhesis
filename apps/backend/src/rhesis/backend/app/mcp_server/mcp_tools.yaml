@@ -570,6 +570,13 @@ tools:
       identify which specific results to drill into. Focus on the 2-3 most
       informative failures rather than fetching every failing result.
 
+      This says what came back, not what the application did to produce it.
+      When the response is wrong in a way the prompt does not explain, when
+      the test errored, or when it was slow, call list_traces with this
+      result's test_result_id and then get_trace: the span tree shows each
+      LLM call, retrieval and tool invocation with its own duration and
+      status.
+
   # ── Requirements ─────────────────────────────────────────────
   - name: list_requirements
     label: Looking up requirements
@@ -1324,6 +1331,11 @@ tools:
       in the URL path, not context.trace_id (a 32-char hex string). Only
       trace_db_id resolves to a trace page.
 
+      To read the trace itself rather than link to it, pass
+      context.trace_db_id to lookup_span, which returns the trace_id and
+      project_id that get_trace needs. context.trace_id alone is not enough,
+      because get_trace requires the project too.
+
       CHAIN: after get_insights shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them, then
       use get_test_result on the ids it returns to read the full exchange.
@@ -1471,7 +1483,14 @@ tools:
           REQUIRED. What is being annotated: "TestResult", "Trace" or
           "Test".
       entity_id:
-        description: "REQUIRED. UUID of that entity."
+        description: >
+          REQUIRED. UUID of that entity.
+
+          For a Trace this is the span's row id, NOT the 32-char hex
+          trace_id: get_trace returns it as root_spans[0].id for the trace as
+          a whole, or use a specific span's id to judge one operation.
+          list_annotations reports it as context.trace_db_id. Sending the hex
+          fails; there is no row with that id.
       status_id:
         description: >
           REQUIRED. UUID of the status carrying the verdict: the Pass or Fail
@@ -1529,6 +1548,327 @@ tools:
         description: >
           Replacement target object {"type": ..., "reference": ...}. See
           create_annotation.
+
+  # ── Traces (what the application actually did) ──────────────
+  - name: list_traces
+    label: Listing traces
+    method: GET
+    path: /telemetry/traces
+    # No page_size here, unlike the other list tools. The peek-ahead sets
+    # limit and reads skip, but this route pages by offset and answers with
+    # {traces, total, limit, offset} rather than a bare list — so the wrapper
+    # would neither wrap the envelope nor produce a usable next page. The
+    # route's own total and offset are better than a synthesized has_more.
+    default_query:
+      limit: 20
+    description: >
+      List traces: what an instrumented application actually did to serve a
+      request. A trace is one request's worth of work, and its spans are the
+      operations inside it -- the LLM calls, retrievals and tool invocations,
+      each with its own duration, status and model. A test result says what
+      came back and what the metrics made of it; only a trace says why.
+
+      By default one row per trace (the root span), newest first. Response
+      fields per row: trace_id, project_id, start_time, duration_ms,
+      span_count, root_operation (the root span's name), status_code,
+      has_errors, environment, conversation_id, trace_metrics_status,
+      conversation_input (the request that started it, which is how you tell
+      traces apart without opening them), the token and cost totals
+      (total_tokens and total_cost_usd, each also split input and output, plus
+      total_cost_eur), models, providers, and the run links test_run_id,
+      test_result_id, test_id, endpoint_id, endpoint_name. Plus the human
+      verdict where someone left one: has_annotations, verdict,
+      last_annotation, matches_annotation.
+
+      A row carries no span attributes and no events, which is what makes this
+      the cheap call: it stays compact however large the traces are. The one
+      unbounded field is conversation_input, up to 10000 characters, so narrow
+      with filters rather than paging through a project. span_count on each row
+      is what get_trace will cost you if you open it.
+
+      The envelope carries total, limit and offset. Page by passing offset,
+      not skip -- this route does not take skip.
+
+      TWO IDS, NOT INTERCHANGEABLE. trace_id here is a 32-char hex and is
+      what get_trace takes. It is NOT what annotates a trace and NOT what a
+      UI link uses; both of those take the root span's row id (a UUID), which
+      this listing does not carry. get_trace returns it as root_spans[0].id.
+
+      Scoping: project_id defaults to the caller's project scope. With no
+      project scope and no project_id, this returns only traces belonging to
+      no project, which usually reads as an unexpectedly empty list. If that
+      happens, pass project_id -- do not tell the user there are no traces,
+      and do not ask them for a project id.
+
+      This is a diagnostic step, not part of routine analysis. A run summary,
+      a pass rate, a requirement or metric breakdown and a run comparison are
+      all answered by get_insights and get_test_result without a trace.
+
+      ENTITY: Trace. PREREQUISITES: none, though test_run_id from
+      list_test_runs or get_test_run is the usual scope. CHAIN: after
+      get_test_run or get_insights shows a failure, an error or a slow run,
+      come here with that test_run_id to see what the application did; then
+      get_trace on the one that looks wrong. NEVER: open traces to build a run
+      summary or a comparison, and never quote a trace's cost or token count as
+      the run's total -- get_trace_metrics aggregates that.
+    parameters:
+      project_id:
+        description: >
+          UUID of the project. Omit and the caller's project scope applies;
+          see Scoping above for when to pass it.
+      test_run_id:
+        description: >
+          UUID of a test run. The traces that run produced, one per test
+          execution. The usual entry point when diagnosing a run.
+      test_result_id:
+        description: "UUID of a test result. The traces recorded for that one test."
+      test_id:
+        description: "UUID of a test. Traces from every run of that test."
+      endpoint_id:
+        description: "UUID of an endpoint. Traces recorded against it."
+      conversation_id:
+        description: >
+          UUID grouping the turns of one multi-turn conversation, each of
+          which is its own trace.
+      environment:
+        description: 'Deployment environment, e.g. "development", "staging", "production".'
+      search:
+        description: >
+          Free text over trace id, operation names, error messages
+          (status_message), endpoint name and URL, and the conversation input
+          and output. Searching an error message is how you group traces that
+          failed the same way.
+
+          It matches against every span in the trace and returns the whole
+          trace, so on the default one-row-per-trace view this still finds a
+          trace whose inner span carried the text -- unlike status_code, which
+          tests the row itself.
+
+          Passing search makes span_name IGNORED, silently. Use one or the
+          other.
+      span_name:
+        description: >
+          Exact operation name, e.g. "ai.llm.invoke". Tests the row, so with
+          the default root_spans_only it matches root spans only; pass
+          root_spans_only=false to match a span anywhere in the trace.
+          Ignored when search is also passed.
+      status_code:
+        description: >
+          "ERROR" for spans that failed, "OK" for those that did not. On the
+          default one-row-per-trace view this is the root span's status, so a
+          trace whose inner LLM call failed but whose root returned OK will
+          not match. Pass root_spans_only=false to find the failing span
+          itself.
+      trace_metrics_status:
+        description: >
+          Automated trace evaluation verdict: "Pass", "Fail", "Error" or
+          "Inconclusive". Only traces that have been evaluated have one.
+      start_time_after:
+        description: 'ISO 8601 timestamp. Traces starting at or after it.'
+      start_time_before:
+        description: 'ISO 8601 timestamp. Traces starting at or before it.'
+      duration_min_ms:
+        description: >
+          Minimum duration in milliseconds. This is how you answer "what was
+          slow": pass a threshold and sort by duration_ms descending.
+      duration_max_ms:
+        description: "Maximum duration in milliseconds."
+      provider:
+        description: >
+          LLM provider name, repeatable. Matches a trace where any priced call
+          used one of them. Get the values from list_trace_providers rather
+          than guessing a name -- a value that is not in that list matches
+          nothing and returns an empty page rather than an error. A trace whose
+          costs have not been priced yet matches no provider at all, so this
+          filter can hide recent traces.
+      trace_source:
+        description: >
+          "test" for traces produced by test execution, "operation" for those
+          from normal application traffic, "all" for both (the default). Use
+          "operation" for questions about production behaviour rather than
+          test runs.
+      trace_type:
+        description: >
+          "Single-Turn", "Multi-Turn", or "all" (the default). Multi-Turn
+          means the trace belongs to a conversation.
+      root_spans_only:
+        description: >
+          true (the default) gives one row per trace, the root span. false
+          gives every span as its own row, which is what you want to find the
+          individual operation that failed or was slow -- and it is the cheap
+          way to do it, since these rows carry the name, duration and status
+          but none of the attributes or events that make get_trace large. What
+          it does not give you is the parent-child shape; reach for get_trace
+          when you need the tree rather than the list. Note that with false a
+          "trace" row is really a span, and span_count and the cost totals
+          still describe the whole trace.
+      sort_by:
+        description: >
+          One of start_time, duration_ms, trace_id, environment,
+          root_operation, span_count, total_tokens, total_input_tokens,
+          total_output_tokens, total_cost_usd, total_input_cost_usd,
+          total_output_cost_usd, model. Defaults to start_time.
+      sort_order:
+        description: '"desc" (the default) or "asc".'
+      limit:
+        description: >
+          Rows per page, up to 1000. Defaults to 20 here rather than the
+          route's own 100, because a trace row is wide.
+      offset:
+        description: >
+          Rows to skip, for paging. Compare with total in the response. This
+          route takes offset, not skip.
+
+  - name: list_trace_providers
+    label: Listing trace providers
+    method: GET
+    path: /telemetry/providers
+    description: >
+      List the LLM providers that appear in this scope's traces.
+
+      These are the values list_traces accepts for its provider filter, built
+      from the same data that filter matches on, so a name from here never
+      returns an empty page for being misspelled. A provider that neither the
+      trace nor its model name identifies is reported as "unknown", which is
+      itself a real filter value: those traces exist, and filtering to them is
+      how you find what is not attributed.
+
+      ENTITY: Trace (providers). CHAIN: before list_traces with provider, the
+      way list_statuses comes before create_annotation. NEVER: guess a
+      provider name from a model name -- an unmatched value looks like "no
+      traces used that provider" rather than like a typo.
+    parameters:
+      project_id:
+        description: >
+          UUID of the project. Omit and the caller's project scope applies,
+          exactly as for list_traces. Never ask the user for it.
+
+  - name: get_trace
+    label: Retrieving trace
+    method: GET
+    path: /telemetry/traces/{trace_id}
+    description: >
+      Get one trace with its full span tree: every operation inside the
+      request, nested parent to child, each with its duration, status,
+      model, cost and attributes.
+
+      Read this when a test result or a listing says something went wrong and
+      you need to see where. The span whose status_code is "ERROR", or whose
+      duration_ms dominates the total, is the answer to "why".
+
+      THIS RESPONSE CAN BE VERY LARGE, and nothing truncates it. Every span
+      carries its full attributes, events and trace_metrics: an LLM span holds
+      up to 8000 characters of prompt and 8000 of completion, and the root
+      endpoint span up to 10000 each of conversation input and output. A trace
+      with twenty spans can run to tens of thousands of tokens.
+
+      Check span_count on the list_traces row first -- it is there so you can
+      see the size before you pay for it. When it is large, or when all you
+      need is which operation was slow or failed, use
+      list_traces(root_spans_only=false) instead: that returns one compact row
+      per span with its name, duration and status and NO attributes or events.
+      Come here only when you need what a span actually carried, and on one
+      trace at a time rather than in a loop.
+
+      trace_id here is the 32-char hex id, NOT a UUID, and project_id is
+      REQUIRED -- unusual for this API, where scope is normally implicit.
+      Take both from a list_traces row, which carries trace_id and
+      project_id, or from a list_annotations row's context block. Do not ask
+      the user for either.
+
+      THE ROW ID LIVES HERE. To annotate this trace, or link to it in the UI,
+      you need the root span's row id, which is root_spans[0].id in this
+      response -- a UUID, and the only id that addresses a trace in the
+      platform. The hex trace_id resolves to nothing there. Each span in the
+      tree carries its own id, so you can annotate one specific operation
+      rather than the whole trace.
+
+      ENTITY: Trace. PREREQUISITES: trace_id and project_id from list_traces.
+      CHAIN: list_traces to find the trace, get_trace to read it, then
+      create_annotation with entity_type="Trace" and entity_id=root_spans[0].id
+      if the user gives you a verdict on it. NEVER: pass the hex trace_id as an
+      annotation's entity_id, and never put it in a /traces/ URL.
+    parameters:
+      trace_id:
+        description: >
+          REQUIRED. The 32-char hex OpenTelemetry trace id, from a
+          list_traces row or an annotation's context.trace_id.
+      project_id:
+        description: >
+          REQUIRED by this route, unlike most. Take it from the list_traces
+          row for this trace, or from an annotation's context.project_id.
+
+  - name: get_trace_metrics
+    label: Aggregating trace metrics
+    method: GET
+    path: /telemetry/metrics
+    description: >
+      Aggregate what a project's traces cost and how long they took: total
+      traces and spans, token counts split input and output, total cost in
+      USD, the models and providers involved, error rate and error span
+      count, and latency percentiles (p50, p95, p99) alongside the average.
+
+      This is the tool for "what did we spend on LLM calls", "how slow is
+      this in production" and "what is our error rate". get_insights does not
+      cover traces at all, and no other tool reports cost or latency
+      percentiles.
+
+      Scope it with a time window, or with test_run_id to ask the same
+      questions about one run rather than the whole project.
+
+      priced_traces and enriched_traces say how much of the window has been
+      costed. When priced_traces is well below total_traces, the cost figure
+      is a floor rather than the total, and worth saying so rather than
+      reporting it as final.
+
+      ENTITY: Trace (aggregate). PREREQUISITES: project_id. CHAIN: after
+      get_test_run for the outcome, come here for what the run cost and how
+      long its calls took. NEVER: sum costs from list_traces rows instead of
+      calling this -- a listing is one page, and this counts the whole window.
+    parameters:
+      project_id:
+        description: >
+          REQUIRED. UUID of the project. Take it from a list_traces row, an
+          annotation's context.project_id, or list_projects when the user
+          named a project.
+      environment:
+        description: 'Restrict to one environment, e.g. "production".'
+      start_time_after:
+        description: "ISO 8601 timestamp. Omit for all time."
+      start_time_before:
+        description: "ISO 8601 timestamp. Omit for all time."
+      test_run_id:
+        description: >
+          UUID of a test run. Narrows every figure to that run, which is how
+          you answer what a single run cost.
+
+  - name: lookup_span
+    label: Resolving span
+    method: GET
+    path: /telemetry/spans/{span_db_id}/lookup
+    description: >
+      Resolve a span's row id (a UUID) to the trace it belongs to, returning
+      trace_id, project_id and span_id.
+
+      This is the way back. Annotations, comments and tasks on a trace all
+      record the span's row id, never the hex trace_id -- so when you have
+      an annotation on a Trace and want to read the trace itself, this is the
+      step that gets you the pair get_trace needs.
+
+      It searches the caller's other projects too, so a span in a project
+      other than the active one still resolves.
+
+      ENTITY: Trace (span). PREREQUISITES: a span row id, from
+      list_annotations as context.trace_db_id or as an annotation's
+      entity_id when entity_type is "Trace". CHAIN: list_annotations with
+      entity_type="Trace" -> lookup_span on context.trace_db_id -> get_trace
+      with the trace_id and project_id it returns. NEVER: use this on a hex
+      trace_id; it takes a UUID and will 404 on the hex.
+    parameters:
+      span_db_id:
+        description: >
+          REQUIRED. UUID of the span row, from an annotation's
+          context.trace_db_id or entity_id.
 
   # ── Knowledge Sources ────────────────────────────────────
   - name: list_sources

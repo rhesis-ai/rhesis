@@ -10,15 +10,31 @@ the caps on failures and next steps — lives in `phases/analysis.md`.
 
 ## Retrieving results
 
-### Preferred: single call with `mode=all`
+### Preferred: `get_insights`, one call per breakdown
+
+Overall totals, and the requirement breakdown, in one call:
 
 ```
-get_test_result_stats
-  mode=all
-  test_run_id="<uuid>"
+get_insights
+  entity=test_result
+  group_by=[requirement]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<uuid>"]
 ```
 
-Returns requirement pass rates, metric pass rates, overall totals, and timeline in one call. Use this immediately after execution for a complete post-run analysis. Most efficient option.
+The metric breakdown is a second call, because metrics are their own entity — one row per (result, metric):
+
+```
+get_insights
+  entity=metric
+  group_by=[metric_name]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<uuid>"]
+```
+
+Omit `group_by` entirely for a single overall row, which is the cheapest way to get a run's totals.
+
+Two calls cover a full post-run analysis. Prefer them to fetching results and counting: a `list_test_results` page can be truncated, and these are computed server-side over the whole run.
 
 ### Authoritative total counts
 
@@ -56,45 +72,47 @@ To understand a specific failure in depth, call `get_test_result` with the resul
 
 ## Run comparison
 
-When the user asks to compare runs or detect regressions, use `get_test_result_stats`.
+When the user asks to compare runs or detect regressions, use `get_insights`.
 
 ### High-level comparison (most common)
 
 ```
-get_test_result_stats
-  mode=test_runs
+get_insights
+  entity=test_result
+  group_by=[test_run,test_run_id]
+  measures=[count,passed,failed,pass_rate]
   test_run_ids=["<run-a-uuid>", "<run-b-uuid>"]
 ```
 
-Returns per-run pass/fail counts and pass rates in a single call. Best starting point for "did anything change between these runs?"
+Per-run pass/fail counts and pass rates in a single call. Best starting point for "did anything change between these runs?"
+
+`test_run` comes back as the run's name, which is what you show the user; `test_run_id` is the UUID, which is what goes in a link URL. Group by both so you have each.
 
 ### Requirement-level breakdown
 
-Call separately for each run:
+Both runs in one call — group by requirement *and* run, then compare the rows:
 
 ```
-get_test_result_stats
-  mode=requirement
-  test_run_id="<run-a-uuid>"
+get_insights
+  entity=test_result
+  group_by=[requirement,test_run]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<run-a-uuid>", "<run-b-uuid>"]
 ```
 
-```
-get_test_result_stats
-  mode=requirement
-  test_run_id="<run-b-uuid>"
-```
-
-Compare the per-requirement pass rates to identify which requirements improved and which regressed.
+Requirements whose pass rate moved between the two runs are the regressions and improvements.
 
 ### Metric-level breakdown
 
 ```
-get_test_result_stats
-  mode=metrics
-  test_run_id="<uuid>"
+get_insights
+  entity=metric
+  group_by=[metric_name]
+  measures=[count,passed,failed,pass_rate]
+  test_run_ids=["<uuid>"]
 ```
 
-Use when the user wants to understand which evaluation criteria changed between runs.
+Use when the user wants to understand which evaluation criteria changed. This entity also carries `human_annotation_count`, `automated_passed` and `automated_failed`, which is how you see where people overrode the automation.
 
 ---
 
@@ -122,25 +140,31 @@ list_test_runs
 
 ## Operational analytics (run volume, not outcomes)
 
-For questions like "how many runs this month?" or "which test sets are run most?", use `get_test_run_stats` instead of `get_test_result_stats`:
+For questions like "how many runs this month?" or "which test sets are run most?", switch entity rather than tool — `entity=test_run` is one row per run, where `entity=test_result` is one row per test execution:
 
 ```
-get_test_run_stats
-  mode=summary
-```
-
-```
-get_test_run_stats
-  mode=test_sets
+get_insights
+  entity=test_run
+  group_by=[status]
+  measures=[count]
 ```
 
 ```
-get_test_run_stats
-  mode=timeline
+get_insights
+  entity=test_run
+  group_by=[test_set]
+  measures=[count]
+```
+
+```
+get_insights
+  entity=test_run
+  group_by=[month]
+  measures=[count]
   months=3
 ```
 
-This returns run volume, status distribution, top test sets by frequency, and monthly trends — not pass/fail outcomes. Use `get_test_result_stats` for pass/fail analysis.
+`executor` is also available, for who runs tests. These answer run volume, status distribution and trends — **not** pass/fail outcomes. Comparing outcomes between runs is `entity=test_result` grouped by `test_run`, because a run's pass rate is computed from its results.
 
 ---
 
@@ -155,6 +179,36 @@ get_test_result(test_result_id="<uuid>")
 Returns: full prompt, full response, expected response, metric scores with individual reasoning, and evaluation metadata. Too expensive to call for all results — use selectively on notable failures only.
 
 The response also carries what people made of this result: `last_annotation` (the newest human verdict, or null), `matches_annotation` (false when the human disagreed with automation), and `annotation_summary` (one entry per annotated metric or turn). Read those before explaining a result, because a human may already have corrected it.
+
+---
+
+## Seeing what the application actually did
+
+This is a drill-down, not a step in every analysis. Pass rates, requirement and metric breakdowns and run comparisons are all answered above without a trace, and opening one to produce them costs context and adds nothing.
+
+Reach for a trace when the result cannot answer the question: the response is wrong in a way the prompt does not explain, the test errored, or someone asks why it was slow or what it cost. One trace at a time, on the result that raised the question — never a sweep across a run.
+
+```
+list_traces(test_run_id="<uuid>")
+get_trace(trace_id="<32-char hex>", project_id="<uuid>")
+```
+
+The span tree shows each operation inside the request with its own duration and status. The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the total, is the finding.
+
+**`get_trace` is the expensive call.** Every span carries its full attributes and events — up to 8000 characters of prompt and 8000 of completion per LLM span, 10000 each of conversation input and output on the root — and nothing truncates the response. Read `span_count` on the listing row first: it says what opening the trace will cost.
+
+When you only need to know *which* operation was slow or failed, `list_traces(root_spans_only=false)` answers that on its own. Those rows carry each span's name, duration and status and none of the payload, so they stay small however large the trace is. Open `get_trace` when you need what a span actually carried, on one trace, not in a loop over a run's results.
+
+Four things worth knowing before you read one:
+
+- **`status_code` on a listing is the root span's.** A trace whose inner LLM call failed can still show `OK`. Pass `root_spans_only=false` with `status_code="ERROR"` to land on the span that actually failed.
+- **`get_trace` needs `project_id` as well as `trace_id`,** and `trace_id` is the 32-char hex, not a UUID. Both come from the `list_traces` row. Never ask the user for them.
+- **An empty list usually means no project scope,** not that the run produced no traces. Pass `project_id` and try again before reporting an absence.
+- **Narrow before you list.** A `list_traces` row is compact apart from `conversation_input`, which runs to 10000 characters, so a wide page over a busy project is still a lot of text. Filter by run, endpoint, status or duration rather than paging.
+
+For cost and latency rather than one request's shape, `get_trace_metrics(project_id=…, test_run_id=…)` gives totals, error rate and p50/p95/p99. It is the only tool that reports either.
+
+Traces exist for production traffic too, not just test runs: `trace_source="operation"` is how you answer questions about live behaviour.
 
 ---
 

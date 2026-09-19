@@ -48,11 +48,13 @@ flowchart TB
 | Requirement ↔ Metric | Many-to-many; **required before test generation** | `add_requirement_to_metric`, `get_metric_requirements`, `remove_requirement_from_metric` |
 | TestSet → Test | Tests belong to a set | `generate_test_set`, `list_test_set_tests`, `get_test_set` |
 | TestResult ↔ Annotation | A human Pass/Fail **overrides** the automated status, so the run's reported outcome changes with it | `list_annotations`, `create_annotation` |
-| Trace ↔ Annotation | Traces carry annotations too, at trace, metric or turn level. There are no trace tools, so `list_annotations` with `entity_type="Trace"` is how you reach them | `list_annotations`, `create_annotation` |
+| Trace ↔ Annotation | Traces carry annotations too, at trace, metric or turn level. An annotation on a Trace records the **span's row id**, not the hex `trace_id` — `lookup_span` turns it back into a trace | `list_annotations`, `create_annotation`, `lookup_span` |
+| TestRun → Trace | One trace per test execution: what the application did to produce each result | `list_traces` with `test_run_id`, `get_trace` |
+| Trace → Span | A trace is a tree of spans — the LLM calls, retrievals and tool invocations inside one request | `get_trace`, `list_traces` with `root_spans_only=false` |
 | Source → TestSet | Sources ground **Single-Turn** generation only | `list_sources`, `create_source` → `generate_test_set` |
 | TestSet + Endpoint → TestRun | Execution is always a pair | `execute_test_set` |
 | TestRun → TestResult | Results scoped to a run | `list_test_results` with `$filter=test_run_id eq '…'` |
-| Metric → TestResult | Scores when metric is linked to the test's requirement | `get_test_result`, `get_test_result_stats` |
+| Metric → TestResult | Scores when metric is linked to the test's requirement | `get_test_result`, `get_insights` with `entity=metric` |
 
 **Resolution pattern:** `list_*` + `$filter` by name → use `id` in `get_*` / mutate / execute tools.
 
@@ -86,14 +88,21 @@ flowchart TB
 1. `get_test_set_metrics` (optional pre-flight)
 2. `execute_test_set` (test_set_identifier + endpoint_id)
 3. `get_test_run` (accurate totals)
-4. `get_test_result_stats` with `mode=all` and `test_run_id`
+4. `get_insights` with `entity=test_result`, `group_by=[requirement]` and `test_run_ids`; again with `entity=metric`, `group_by=[metric_name]`
 5. `list_test_results` filtered to failures
 6. `get_test_result` on top 2–3 failures (read `reason` field)
+
+### See what the application actually did
+
+1. `list_traces` with `test_run_id` (add `status_code=ERROR` and `root_spans_only=false` to land on the failing span, or `duration_min_ms` + `sort_by=duration_ms` for the slow ones)
+2. `get_trace` with that row's `trace_id` **and** `project_id` — both required
+3. Read the span tree: the `ERROR` span, or the one whose `duration_ms` dominates, is the answer
+4. `get_trace_metrics` for what the run cost and its latency percentiles
 
 ### Compare with previous run
 
 1. `get_test_set_last_run` with test set + endpoint IDs
-2. `get_test_result_stats` with `mode=test_runs` and both `test_run_ids`
+2. `get_insights` with `entity=test_result`, `group_by=[test_run,test_run_id]` and both `test_run_ids`
 
 ### Fix a single test prompt
 
@@ -125,7 +134,8 @@ flowchart TB
 | TestSet | `list_test_sets` | `get_test_set` | `generate_test_set`, `create_test_set_bulk` | `update_test_set` | `list_test_set_tests`, `get_test_set_metrics`, `get_test_set_last_run`, `execute_test_set` |
 | Test | `list_tests`, `list_test_set_tests` | `get_test` | (via test set tools) | `update_test` | — |
 | Source | `list_sources` | — | `create_source` | — | — |
-| TestRun | `list_test_runs` | `get_test_run` | (via `execute_test_set`) | — | `get_test_run_stats` |
-| TestResult | `list_test_results` | `get_test_result` | — | — | `get_test_result_stats` |
+| TestRun | `list_test_runs` | `get_test_run` | (via `execute_test_set`) | — | `get_insights` with `entity=test_run` (volume, status, who ran what) |
+| TestResult | `list_test_results` | `get_test_result` | — | — | `get_insights` with `entity=test_result` (pass rates, comparisons) |
 | Annotation | `list_annotations` | `get_annotation` | `create_annotation` | `update_annotation` | — |
+| Trace | `list_traces` | `get_trace` | (by instrumentation only) | — | `get_trace_metrics` (cost, tokens, latency), `lookup_span` (row id → trace), `list_trace_providers` (values for the `provider` filter) |
 | Status | `list_statuses` | — | — | — | Carries the verdict a `create_annotation` records; look the id up, never guess it |

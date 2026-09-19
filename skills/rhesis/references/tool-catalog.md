@@ -388,40 +388,28 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 
 ## Analytics
 
-### `get_test_result_stats`
-Aggregated statistics for test results. Use for single-run analysis and multi-run comparison.
+### `get_insights`
+One aggregation query over test results, metrics, test runs or tests. This is the analytics tool — pass rates, requirement and metric breakdowns, run comparisons and run volume all come from here, by choosing an `entity` rather than a different tool.
 
-**Mode parameter:**
-- `all` — complete stats for a single run: requirement pass rates, metric pass rates, overall totals, and timeline. **Use this with a single `test_run_id` immediately after execution — most efficient option for post-run analysis.**
-- `requirement` — pass rates grouped by requirement; use with `test_run_id`
-- `metrics` — pass rates grouped by metric name; use with `test_run_id`
-- `test_runs` — per-run pass/fail summary; pass multiple `test_run_ids` to compare runs side by side
-- `summary` — lightweight overall totals only
+Always pass `entity` and `measures`. `group_by` is optional; omit it for a single overall row, which is the cheapest way to get totals.
 
-**For single-run analysis:** `mode=all` with `test_run_id`
-**For multi-run comparison:** `mode=test_runs` with `test_run_ids`
+| `entity` | One row per | `group_by` | `measures` |
+|---|---|---|---|
+| `test_result` | test execution | `requirement`, `requirement_id`, `category`, `category_id`, `topic`, `topic_id`, `test_run`, `test_run_id`, `status`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
+| `metric` | (result, metric name) | `metric_name`, `requirement_id`, `year`, `month` | the same, plus `automated_passed`, `automated_failed`, `human_annotation_count` |
+| `test_run` | run | `status`, `test_set`, `executor`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
+| `test` | test, including never-run ones | `requirement`, `category`, `topic`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
 
-**Key parameters:**
-- `mode`
-- `test_run_ids` — array of UUIDs for multi-run comparison
-- `test_run_id` — single UUID
-- `requirement_ids`, `test_set_ids` — optional filters
-- `start_date`, `end_date` — ISO format
+**Which entity answers which question:**
+- Post-run analysis → `test_result` grouped by `requirement`, then `metric` grouped by `metric_name`
+- Compare runs → `test_result` grouped by `[test_run, test_run_id]` with two or more `test_run_ids`. `test_run` is the name you show; `test_run_id` is the UUID for the link
+- Run volume, who runs tests, most-run test sets → `test_run`. **Not** for comparing outcomes between runs: a run's pass rate is computed from its results, so that is `test_result` grouped by `test_run`
+- Tests that never ran → `test` with `measures=[count,unrun_count]`
+- Where people overrode the automation → `metric`, whose measures include `human_annotation_count`
 
----
+**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `tags`, `months` (default 6), `start_date`, `end_date`.
 
-### `get_test_run_stats`
-Run-level analytics: run volume, status distribution, most-run test sets, top executors, monthly trends.
-
-Use for **operational questions** ("how many runs this month?"). For pass/fail outcomes, use `get_test_result_stats` instead.
-
-**Modes:** `summary` (default), `status`, `results`, `test_sets`, `executors`, `timeline`, `all`
-
-**Key parameters:**
-- `mode`
-- `endpoint_ids`, `test_set_ids` — optional filters
-- `months` — history window (default 6)
-- `start_date`, `end_date`
+**Careful:** counting rows from `list_test_results` is not a substitute. That list pages and can truncate; these measures are computed server-side over everything in scope. For a run's authoritative test count use `get_test_run` → `attributes.total_tests`.
 
 ---
 
@@ -506,6 +494,111 @@ Only the annotation's author may edit it; not even an admin can edit someone els
 - `annotation_id` (required)
 - `resolved` — `true` to resolve once the underlying problem is fixed, `false` to reopen. Resolving does not withdraw the verdict.
 - `status_id`, `comments`, `target` — as for `create_annotation`
+
+---
+
+## Traces
+
+A trace is one request's worth of work inside the application under test, and its spans are the individual operations: the LLM calls, retrievals and tool invocations, each with its own duration, status and model. A test result says what came back and what the metrics made of it. A trace says *why* it was that, which step was slow, and which one failed.
+
+**These are diagnostic tools, not part of routine analysis.** Pass rates, requirement and metric breakdowns, and run comparisons are all answered by `get_insights` and `get_test_result` without a trace. Open one to answer a question the result cannot — an unexplained response, an errored test, a question about latency or cost — on the one result that raised it, never as a sweep across a run.
+
+**A trace has two ids and they are not interchangeable.**
+
+| Id | Shape | What it addresses |
+|----|-------|-------------------|
+| `trace_id` | 32-char hex | `get_trace` only |
+| span row id | UUID | annotating a trace, a `/traces/…` link, `lookup_span` |
+
+`list_traces` carries only the hex. The row id comes from `get_trace` as `root_spans[0].id`, or from a `list_annotations` row as `context.trace_db_id`. Using the hex where a row id belongs fails: there is no row with that id.
+
+---
+
+### `list_traces`
+List traces, one row per trace by default (the root span).
+
+Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration_ms`, `span_count`, `root_operation`, `status_code`, `has_errors`, `environment`, `conversation_id`, `trace_metrics_status`, `conversation_input` (the request that started it — how you tell traces apart without opening them), the token and cost totals (`total_tokens` and `total_cost_usd`, each also split input/output, plus `total_cost_eur`), `models`, `providers`, the run links (`test_run_id`, `test_result_id`, `test_id`, `endpoint_id`, `endpoint_name`), and the human verdict where there is one (`has_annotations`, `verdict`, `last_annotation`, `matches_annotation`).
+
+**Key parameters:**
+- `test_run_id` — the traces one run produced, one per test execution. The usual entry point.
+- `test_result_id` / `test_id` / `endpoint_id` / `conversation_id` — narrower provenance
+- `status_code` — `"ERROR"` or `"OK"`. On the default view this is the **root** span's status, so a trace whose inner LLM call failed but whose root returned OK will not match. Pair with `root_spans_only=false`.
+- `root_spans_only` — `false` returns every span as its own row, which is how you find the operation that actually failed
+- `duration_min_ms` / `duration_max_ms` — how you answer "what was slow"; pair with `sort_by=duration_ms`
+- `start_time_after` / `start_time_before` — ISO 8601
+- `span_name` — exact operation name, e.g. `"ai.llm.invoke"`. Tests the row, so with the default `root_spans_only` it matches root spans only
+- `search` — free text over trace id, operation names, **error messages**, endpoint name and URL, and conversation input/output. Searching an error message groups traces that failed the same way. It matches **any span** and returns the whole trace, so it finds a trace whose *inner* span carried the text even in the default view
+- `trace_metrics_status` — `"Pass"`, `"Fail"`, `"Error"`, `"Inconclusive"` (only evaluated traces have one)
+- `trace_source` — `"test"`, `"operation"` (production traffic) or `"all"`
+- `trace_type` — `"Single-Turn"`, `"Multi-Turn"` or `"all"`
+- `provider` — repeatable; a trace whose costs are not priced yet matches none, so this can hide recent traces
+- `project_id` — omit to use the caller's scope
+- `sort_by`, `sort_order`, `offset`
+
+**Careful:** passing `search` makes `span_name` silently ignored — the route treats them as alternatives, not as an AND. Use one.
+
+**Pagination:** the response carries `total`, `limit` and `offset`. Page with **`offset`** — this route does not take `skip`.
+
+**Scoping:** with no project scope and no `project_id`, this returns only traces belonging to no project, which reads as an unexpectedly empty list. Pass `project_id` rather than reporting that there are no traces.
+
+**CHAIN:** `get_test_run` or `get_insights` shows a failure → `list_traces` with that `test_run_id` → `get_trace` on the one that looks wrong.
+
+---
+
+### `list_trace_providers`
+List the LLM providers appearing in this scope's traces.
+
+These are the values `list_traces` accepts for `provider`, built from the same data that filter matches on. Get a name from here rather than guessing one: an unmatched provider returns an empty page rather than an error, which reads as "nothing used that provider" instead of as a typo.
+
+A provider that neither the trace nor its model name identifies is reported as `"unknown"`. That is a real value to filter on, not a gap — those traces exist, and filtering to them is how you find what is unattributed.
+
+**Key parameters:** `project_id` (omit to use the caller's scope)
+
+**CHAIN:** `list_trace_providers` → `list_traces` with `provider`, the way `list_statuses` comes before `create_annotation`.
+
+---
+
+### `get_trace`
+Get one trace with its full span tree: every operation nested parent to child, each with duration, status, model, cost and attributes.
+
+The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the total, is the answer to "why".
+
+**This response can be very large, and nothing truncates it.** Every span carries its full `attributes`, `events` and `trace_metrics` — up to 8000 characters of prompt and 8000 of completion on an LLM span, and up to 10000 each of conversation input and output on the root. A twenty-span trace runs to tens of thousands of tokens.
+
+`span_count` on the `list_traces` row tells you the size before you pay for it. When it is large, or when you only need which operation was slow or failed, use `list_traces(root_spans_only=false)` — compact rows with name, duration and status, no attributes. Open `get_trace` when you need what a span actually carried, one trace at a time, never in a loop.
+
+**Key parameters:**
+- `trace_id` (required) — the 32-char hex, from a `list_traces` row or `context.trace_id`
+- `project_id` (**required**) — unusual for this API, where scope is normally implicit. Take it from the `list_traces` row or `context.project_id`; never ask the user for it.
+
+**The row id lives here.** `root_spans[0].id` is what annotates the trace as a whole, and each span carries its own `id` so you can judge one operation instead.
+
+**CHAIN:** `list_traces` → `get_trace` → `create_annotation` with `entity_type="Trace"` and `entity_id=root_spans[0].id`, if the person gives you a verdict.
+
+---
+
+### `get_trace_metrics`
+Aggregate cost and latency across a project's traces: total traces and spans, input/output token counts, total cost USD, models and providers involved, error rate and error span count, and latency percentiles (p50, p95, p99) alongside the average.
+
+This is the only tool that reports trace cost or latency. `get_insights` covers `test_result`, `metric`, `test_run` and `test`, and has no trace coverage at all.
+
+**Key parameters:**
+- `project_id` (required)
+- `test_run_id` — narrows every figure to one run, which is how you answer what a run cost
+- `environment`, `start_time_after`, `start_time_before`
+
+**Careful:** when `priced_traces` is well below `total_traces`, the cost is a floor rather than the total. Say so rather than reporting it as final.
+
+---
+
+### `lookup_span`
+Resolve a span's row id (UUID) to `trace_id`, `project_id` and `span_id`.
+
+This is the way back. Annotations, comments and tasks on a trace all record the span's row id, never the hex, so this is the step that turns one into the pair `get_trace` needs. It searches the caller's other projects too, so a span outside the active project still resolves.
+
+**Key parameters:** `span_db_id` (required) — from `context.trace_db_id`, or an annotation's `entity_id` when `entity_type` is `"Trace"`
+
+**CHAIN:** `list_annotations(entity_type="Trace")` → `lookup_span` → `get_trace`
 
 ---
 
@@ -651,7 +744,7 @@ List metrics attached to a test set (execution overrides).
 ### `get_test_set_last_run`
 Most recent completed run for a test set + endpoint pair.
 
-**CHAIN:** use for run comparison; pair with `get_test_result_stats(mode=test_runs)`.
+**CHAIN:** use for run comparison; pair with `get_insights(entity=test_result, group_by=[test_run,test_run_id])`.
 
 **Key parameters:** `test_set_identifier`, `endpoint_id` (required)
 

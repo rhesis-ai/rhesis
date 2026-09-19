@@ -11,7 +11,7 @@ Skip the full workflow when intent is a single action:
 | Unlink | `get_metric_requirements` → `remove_requirement_from_metric` |
 | Ground tests in doc | `create_source` → `generate_test_set` with source id |
 | Show test set contents | `list_test_set_tests` |
-| Compare two runs | `get_test_result_stats` `mode=test_runs` |
+| Compare two runs | `get_insights` `entity=test_result` `group_by=[test_run,test_run_id]` |
 
 Always resolve entities by name — never ask for raw IDs.
 
