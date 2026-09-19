@@ -1,0 +1,174 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Traces
+
+A trace is one request's worth of work inside an instrumented application: the LLM calls, retrievals and tool invocations it made to produce a response, each recorded as a span with its own duration, status and model. A test result says what came back and what the metrics made of it. A trace says why.
+
+Traces are written by instrumentation, not through the API. See [Tracing](/docs/tracing) for recording them; this page is about reading them back.
+
+## A trace has two ids
+
+They are not interchangeable, and confusing them is the one thing that silently produces wrong results.
+
+| Id | Shape | What it addresses |
+|----|-------|-------------------|
+| `trace_id` | 32-character hex | Reading the trace back: `Traces.pull` |
+| `db_id` | UUID | Annotating it, and the `/traces/…` page in the platform |
+
+`db_id` is the root span's row id. The SDK resolves it from `trace_id` for you, so `annotate` and `get_annotations` take neither — they work it out. You only need the distinction when an id reaches you from somewhere else, such as `annotation.context.trace_db_id`, which is the row id.
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `trace_id` | `str` | The OpenTelemetry trace id |
+| `db_id` | `str` | The root span's row id, resolved on access |
+| `project_id` | `str` | Project the trace belongs to |
+| `environment` | `str` | `development`, `staging`, `production` |
+| `start_time` / `end_time` | `datetime` | When it ran |
+| `duration_ms` | `float` | Total duration |
+| `span_count` | `int` | Spans in the trace |
+| `error_count` | `int` | Spans that failed. Detail only |
+| `root_operation` | `str` | The root span's name |
+| `status_code` | `str` | The root span's status, `OK` or `ERROR` |
+| `has_errors` | `bool` | Whether the root span failed |
+| `conversation_id` | `str` | Set when the trace is one turn of a conversation |
+| `conversation_input` | `str` | The request that started it |
+| `total_tokens`, `total_cost_usd` | `int`, `float` | Usage totals, also split input and output |
+| `models`, `providers` | `list[str]` | What served the priced calls |
+| `trace_metrics_status` | `str` | Automated trace evaluation verdict |
+| `verdict`, `last_annotation`, `matches_annotation` | | The human verdict, where someone left one |
+| `test_run_id`, `test_result_id`, `test_id`, `endpoint_id` | `str` | What produced the trace |
+| `root_spans` | `list[Span]` | The span tree. Populated by the detail call |
+
+A `Span` carries `id` (its row id), `span_id` (the OpenTelemetry hex), `span_name`, `span_kind`, `start_time`, `end_time`, `duration_ms`, `status_code`, `status_message`, `model_name`, `cost_usd`, `attributes`, `events`, `trace_metrics` and `children`.
+
+## Finding traces
+
+<CodeBlock filename="find_traces.py" language="python">
+{`from rhesis.sdk.entities import Traces
+
+# The traces one run produced, one per test execution
+Traces.for_test_run(test_run_id)
+
+# Or from the entity you already have
+test_run.get_traces()
+test_result.get_traces()
+
+Traces.for_test_result(test_result_id)
+Traces.for_endpoint(endpoint_id)
+Traces.for_conversation(conversation_id)   # every turn of one conversation
+Traces.with_errors(test_run_id=test_run_id)
+Traces.slower_than(5000, endpoint_id=endpoint_id)`}
+</CodeBlock>
+
+`query` takes every filter the platform supports, named, so a wrong one fails at the call rather than being ignored:
+
+<CodeBlock filename="query_traces.py" language="python">
+{`Traces.query(
+    test_run_id=test_run_id,
+    status_code="ERROR",
+    duration_min_ms=2000,
+    start_time_after="2026-09-01",
+    sort_by="duration_ms",
+    limit=20,
+)
+
+# Every span as its own row, rather than one row per trace
+Traces.query(test_run_id=test_run_id, root_spans_only=False, status_code="ERROR")`}
+</CodeBlock>
+
+Only the arguments you pass are sent, so the platform's own defaults stay in charge: one row per trace, newest first. `limit` is the most traces to return in total; omit it and every page is read, which on a busy project is a lot, so filter first.
+
+`status_code` on a listing is the **root** span's. A trace whose inner LLM call failed can still show `OK`, which is what `root_spans_only=False` is for: it matches the spans themselves.
+
+This route takes named filters rather than OData, so `Traces.all(filter=...)` refuses the argument instead of quietly ignoring it.
+
+### Scope
+
+With no `project_id` and no project on your API token, the platform returns only traces that belong to no project. An unexpectedly empty list usually means that rather than an absence of traces:
+
+<CodeBlock filename="trace_scope.py" language="python">
+{`Traces.query(project_id=project.id, test_run_id=test_run_id)`}
+</CodeBlock>
+
+### Providers
+
+`provider` matches a trace where any priced call used one of the named providers. Ask what those are rather than guessing a name, since an unmatched one returns an empty page rather than an error:
+
+<CodeBlock filename="trace_providers.py" language="python">
+{`Traces.providers()                          # e.g. ["openai", "anthropic", "unknown"]
+Traces.query(provider=["openai"], test_run_id=test_run_id)`}
+</CodeBlock>
+
+A trace whose costs have not been priced yet matches no provider, so this filter can hide recent traces. `"unknown"` is a real value: those are traces whose provider neither they nor their model name identify.
+
+## Reading one trace
+
+Reading a trace by id needs the project as well, which is unusual for this SDK and is what the platform's route requires:
+
+<CodeBlock filename="read_trace.py" language="python">
+{`trace = Traces.pull(trace_id, project_id=project.id)
+
+trace.spans()                    # every span, depth first, roots included
+trace.span("ai.llm.invoke")      # the first span with that name, or None
+trace.spans(name="ai.llm.invoke")
+
+slowest = max(trace.spans(), key=lambda span: span.duration_ms or 0)
+print(slowest.span_name, slowest.duration_ms, slowest.status_message)`}
+</CodeBlock>
+
+Set `RHESIS_PROJECT_ID` and `project_id` becomes optional. A trace that came from a listing already carries its project, so `trace.spans()` on a listed trace needs nothing extra — it fetches the detail once, behind the property.
+
+Note: the detail response is the large one. Every span carries its full attributes and events, which hold up to 8000 characters of prompt and completion apiece and 10000 each of conversation input and output on the root, and nothing truncates it. Read `span_count` from the listing before walking the spans of many traces, and prefer `root_spans_only=False` when all you need is which operation was slow or failed.
+
+## Annotating a trace
+
+A Pass or Fail annotation on a trace overrides its automated outcome, as on a test result:
+
+<CodeBlock filename="annotate_trace.py" language="python">
+{`trace.annotate("fail", "Answered from the wrong document.")
+
+# One trace metric, leaving the others on their automated verdicts
+trace.annotate("pass", "Grounded after all.", metric="Groundedness")
+
+# One turn of a multi-turn conversation
+trace.annotate("fail", "Went off script here.", turn=2)
+
+# Or judge the one operation that went wrong
+trace.span("ai.llm.invoke").annotate("fail", "Ignored the retrieved context.")
+
+trace.get_annotations()`}
+</CodeBlock>
+
+Both take the row id rather than the hex, which is why they resolve it themselves. See [Annotations](/sdk/entities/annotations) for verdicts, targets and resolving.
+
+## Spans on their own
+
+A span's row id is what the platform records against a trace: in an annotation's `context.trace_db_id`, and in a `/traces/…` link. `Spans` is the way back from one:
+
+<CodeBlock filename="spans.py" language="python">
+{`from rhesis.sdk.entities import Spans
+
+# From an annotation back to what it judged
+trace = Spans.trace_for(annotation.context.trace_db_id)
+
+span = Spans.pull(span_row_id)       # resolves the trace, picks the span out of its tree
+Spans.lookup(span_row_id)            # {"trace_id": ..., "project_id": ..., "span_id": ...}
+Spans.exists(span_row_id)
+
+span.get_files()                     # files attached to the span, such as an audio input`}
+</CodeBlock>
+
+There is no route that returns a span alone, so `Spans.pull` resolves the trace and finds it in the tree. `Spans.all()` therefore raises, pointing at `Traces.query(root_spans_only=False)` for a list of spans as rows.
+
+## Traces are read-only
+
+The only write is ingestion. `push()` and `delete()` raise, naming the instrumentation instead:
+
+<CodeBlock filename="trace_not_writable.py" language="python">
+{`trace.push()      # NotImplementedError: traces are produced by instrumentation
+trace.delete()    # ... see rhesis.sdk.telemetry`}
+</CodeBlock>
+
+What you can do to an existing trace is annotate it.
