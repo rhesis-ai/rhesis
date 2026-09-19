@@ -299,6 +299,7 @@ class TestTraceTools:
 
     TRACE_TOOLS: ClassVar[set[str]] = {
         "list_traces",
+        "list_trace_providers",
         "get_trace",
         "get_trace_metrics",
         "lookup_span",
@@ -460,6 +461,33 @@ class TestTraceTools:
         assert f"### `{name}`" in catalog.read_text(), (
             f"{name} is in mcp_tools.yaml but not in the published tool catalog"
         )
+
+    def test_the_provider_filter_names_where_its_values_come_from(self):
+        """A filter whose values cannot be discovered is the status_id trap.
+
+        create_annotation once required a status_id that no tool exposed. An
+        unmatched provider is worse than an error: the route accepts it and
+        returns an empty page, which reads as "nothing used that provider"
+        rather than as a typo.
+        """
+        doc = self._cfg("list_traces")["parameters"]["provider"]["description"]
+        assert "list_trace_providers" in doc
+
+    def test_list_trace_providers_explains_the_unknown_bucket(self):
+        """"unknown" is a real value, not a gap, and worth filtering to."""
+        description = self._cfg("list_trace_providers")["description"]
+        assert "unknown" in description
+
+    def test_get_test_result_points_at_the_trace_for_why(self):
+        """A result says what came back; only a trace says what happened."""
+        description = self._cfg("get_test_result")["description"]
+        assert "list_traces" in description
+        assert "test_result_id" in description
+
+    def test_list_annotations_says_how_to_open_the_trace(self):
+        """It already warns which id links; reading one needs a second step."""
+        description = self._cfg("list_annotations")["description"]
+        assert "lookup_span" in description
 
     @pytest.mark.parametrize("name", ["get_trace", "get_trace_metrics"])
     def test_a_required_project_names_where_to_get_it(self, name):

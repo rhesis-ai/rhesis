@@ -553,6 +553,19 @@ Returns per row: `trace_id`, `project_id`, `root_operation`, `duration_ms`, `spa
 
 ---
 
+### `list_trace_providers`
+List the LLM providers appearing in this scope's traces.
+
+These are the values `list_traces` accepts for `provider`, built from the same data that filter matches on. Get a name from here rather than guessing one: an unmatched provider returns an empty page rather than an error, which reads as "nothing used that provider" instead of as a typo.
+
+A provider that neither the trace nor its model name identifies is reported as `"unknown"`. That is a real value to filter on, not a gap — those traces exist, and filtering to them is how you find what is unattributed.
+
+**Key parameters:** `project_id` (omit to use the caller's scope)
+
+**CHAIN:** `list_trace_providers` → `list_traces` with `provider`, the way `list_statuses` comes before `create_annotation`.
+
+---
+
 ### `get_trace`
 Get one trace with its full span tree: every operation nested parent to child, each with duration, status, model, cost and attributes.
 

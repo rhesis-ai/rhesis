@@ -28,6 +28,14 @@ The shape does **not** change with the pass rate. A run that mostly failed gets
 the same compact structure as one that mostly passed — only the failure list
 differs, and it is still capped at 3.
 
+**When the `reason` does not explain the failure, open the trace.** A test that
+errored, a response wrong in a way the prompt does not account for, or anything
+the user asks "why was this slow" about: `list_traces(test_run_id=...)` then
+`get_trace`. The span tree gives each LLM call, retrieval and tool invocation
+with its own duration and status, so the failing or slow step names itself. Put
+what you find in the failure's second line in place of the evaluator's `reason`,
+not as an extra section.
+
 **Human verdicts outrank the numbers above.** `list_annotations(test_run_id=...)`
 is cheap; check it before writing step 4. A result a person marked Pass is not a
 failure, so leave it out of the failure list and note it in one clause on the

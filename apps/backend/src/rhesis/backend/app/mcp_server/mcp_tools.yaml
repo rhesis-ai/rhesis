@@ -570,6 +570,13 @@ tools:
       identify which specific results to drill into. Focus on the 2-3 most
       informative failures rather than fetching every failing result.
 
+      This says what came back, not what the application did to produce it.
+      When the response is wrong in a way the prompt does not explain, when
+      the test errored, or when it was slow, call list_traces with this
+      result's test_result_id and then get_trace: the span tree shows each
+      LLM call, retrieval and tool invocation with its own duration and
+      status.
+
   # ── Requirements ─────────────────────────────────────────────
   - name: list_requirements
     label: Looking up requirements
@@ -1324,6 +1331,11 @@ tools:
       in the URL path, not context.trace_id (a 32-char hex string). Only
       trace_db_id resolves to a trace page.
 
+      To read the trace itself rather than link to it, pass
+      context.trace_db_id to lookup_span, which returns the trace_id and
+      project_id that get_trace needs. context.trace_id alone is not enough,
+      because get_trace requires the project too.
+
       CHAIN: after get_insights shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them, then
       use get_test_result on the ids it returns to read the full exchange.
@@ -1552,13 +1564,9 @@ tools:
     description: >
       List traces: what an instrumented application actually did to serve a
       request. A trace is one request's worth of work, and its spans are the
-      individual operations inside it -- the LLM calls, retrievals and tool
-      invocations, each with its own duration, status and model.
-
-      This is the only tool that shows the inside of a request. A test result
-      says what came back and what the metrics made of it; a trace says why
-      that response was what it was, which step was slow, and which one
-      failed.
+      operations inside it -- the LLM calls, retrievals and tool invocations,
+      each with its own duration, status and model. A test result says what
+      came back and what the metrics made of it; only a trace says why.
 
       By default one row per trace (the root span). Response fields per row:
       trace_id, project_id, root_operation (the root span's name), duration_ms,
@@ -1591,9 +1599,8 @@ tools:
     parameters:
       project_id:
         description: >
-          UUID of the project. Omit and the caller's project scope applies.
-          Pass it only to reach another project, or when an empty result
-          suggests no scope was set. Never ask the user for it.
+          UUID of the project. Omit and the caller's project scope applies;
+          see Scoping above for when to pass it.
       test_run_id:
         description: >
           UUID of a test run. The traces that run produced, one per test
@@ -1643,8 +1650,10 @@ tools:
       provider:
         description: >
           LLM provider name, repeatable. Matches a trace where any priced call
-          used one of them. Values come from the providers seen in traces; a
-          trace whose costs have not been priced yet matches none, so this
+          used one of them. Get the values from list_trace_providers rather
+          than guessing a name -- a value that is not in that list matches
+          nothing and returns an empty page rather than an error. A trace whose
+          costs have not been priced yet matches no provider at all, so this
           filter can hide recent traces.
       trace_source:
         description: >
@@ -1671,10 +1680,38 @@ tools:
           total_output_cost_usd, model. Defaults to start_time.
       sort_order:
         description: '"desc" (the default) or "asc".'
+      limit:
+        description: >
+          Rows per page, up to 1000. Defaults to 20 here rather than the
+          route's own 100, because a trace row is wide.
       offset:
         description: >
           Rows to skip, for paging. Compare with total in the response. This
           route takes offset, not skip.
+
+  - name: list_trace_providers
+    label: Listing trace providers
+    method: GET
+    path: /telemetry/providers
+    description: >
+      List the LLM providers that appear in this scope's traces.
+
+      These are the values list_traces accepts for its provider filter, built
+      from the same data that filter matches on, so a name from here never
+      returns an empty page for being misspelled. A provider that neither the
+      trace nor its model name identifies is reported as "unknown", which is
+      itself a real filter value: those traces exist, and filtering to them is
+      how you find what is not attributed.
+
+      ENTITY: Trace (providers). CHAIN: before list_traces with provider, the
+      way list_statuses comes before create_annotation. NEVER: guess a
+      provider name from a model name -- an unmatched value looks like "no
+      traces used that provider" rather than like a typo.
+    parameters:
+      project_id:
+        description: >
+          UUID of the project. Omit and the caller's project scope applies,
+          exactly as for list_traces. Never ask the user for it.
 
   - name: get_trace
     label: Retrieving trace
