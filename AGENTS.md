@@ -101,6 +101,9 @@ function; don't silence it with a `per-file-ignores` entry. That debt list only 
 - **Never commit on `main`.** Check `git branch --show-current` first; if on `main`, create a
   branch before committing: `git fetch origin && git checkout main && git pull origin main &&
 git checkout -b feature/short-description`.
+- **Sign off every commit** — `git commit -s`. The `DCO` check is required and fails the whole PR
+  on a single commit without a `Signed-off-by` trailer matching the commit author. To fix commits
+  already made: `git rebase --signoff origin/main`, then `git push --force-with-lease`.
 - Stage changes selectively (`git add <file>` or `git add -p`), not `git add .`/`git add -A`.
 - Group commits by logical change (feature, fix, refactor, docs, config, test) — don't mix them.
 - Follow Conventional Commits: `<type>[optional scope]: <description>`
