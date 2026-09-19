@@ -721,6 +721,16 @@ class EnvironmentRegisterRequest(BaseModel):
     name: str
 
 
+class ExperimentBulkDeleteRequest(BaseModel):
+    experiment_ids: list[UUID4]
+
+
+class ExperimentBulkDeleteResponse(BaseModel):
+    deleted_ids: list[str]
+    not_found_ids: list[str]
+    forbidden_ids: list[str]
+
+
 class ExperimentSummary(BaseModel):
     """Compact experiment shape returned inline on a TestRun.
 
@@ -749,6 +759,8 @@ __all__ = [
     "EnvironmentPointer",
     "EnvironmentRegisterRequest",
     "ExperimentBase",
+    "ExperimentBulkDeleteRequest",
+    "ExperimentBulkDeleteResponse",
     "ExperimentCreate",
     "ExperimentDetail",
     "ExperimentRead",

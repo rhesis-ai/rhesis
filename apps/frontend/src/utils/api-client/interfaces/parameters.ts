@@ -147,6 +147,12 @@ export interface ExperimentVersionCreate {
   parent_version?: string | null;
 }
 
+export interface ExperimentBulkDeleteResponse {
+  deleted_ids: string[];
+  not_found_ids: string[];
+  forbidden_ids: string[];
+}
+
 /** Map of environment name → ``(experiment_id, version)`` pair. */
 export interface EnvironmentPointer {
   experiment_id: string;

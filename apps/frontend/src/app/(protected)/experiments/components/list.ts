@@ -1,6 +1,7 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
+import type { ExperimentBulkDeleteResponse } from '@/utils/api-client/interfaces/parameters';
 
 const EXPERIMENTS_FILTERS = {
   search: {
@@ -42,13 +43,15 @@ export const experimentsList = defineList({
       },
     };
   },
-  // Experiments have no bulk-delete endpoint -- row-level delete only.
   delete: {
-    one: (factory: ApiClientFactory, id: string) =>
-      factory.getParametersClient().deleteExperiment(id),
+    bulk: (factory: ApiClientFactory, ids: string[]) =>
+      factory.getParametersClient().bulkDeleteExperiments(ids),
     capability: Capability.Experiment.DELETE,
     capabilityMode: 'row',
     labelSingular: 'experiment',
     labelPlural: 'experiments',
+    getSkippedCount: (response: ExperimentBulkDeleteResponse) =>
+      response.forbidden_ids.length,
+    skippedReason: 'not yours to delete',
   },
 });
