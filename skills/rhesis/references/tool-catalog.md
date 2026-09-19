@@ -573,6 +573,10 @@ Get one trace with its full span tree: every operation nested parent to child, e
 
 The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the total, is the answer to "why".
 
+**This response can be very large, and nothing truncates it.** Every span carries its full `attributes`, `events` and `trace_metrics` — up to 8000 characters of prompt and 8000 of completion on an LLM span, and up to 10000 each of conversation input and output on the root. A twenty-span trace runs to tens of thousands of tokens.
+
+`span_count` on the `list_traces` row tells you the size before you pay for it. When it is large, or when you only need which operation was slow or failed, use `list_traces(root_spans_only=false)` — compact rows with name, duration and status, no attributes. Open `get_trace` when you need what a span actually carried, one trace at a time, never in a loop.
+
 **Key parameters:**
 - `trace_id` (required) — the 32-char hex, from a `list_traces` row or `context.trace_id`
 - `project_id` (**required**) — unusual for this API, where scope is normally implicit. Take it from the `list_traces` row or `context.project_id`; never ask the user for it.

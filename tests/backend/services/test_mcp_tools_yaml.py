@@ -430,6 +430,37 @@ class TestTraceTools:
         assert "root_spans[0].id" in description
         assert "create_annotation" in description
 
+    def test_get_trace_warns_how_large_its_response_can_be(self):
+        """Nothing truncates it, at any layer.
+
+        The MCP server has no size cap, ingestion has no span cap, and a span
+        carries up to 8000 characters of prompt and completion plus 10000 of
+        conversation IO on the root. A twenty-span trace is tens of thousands
+        of tokens, so the tool has to say so and name the cheaper call.
+        """
+        description = self._cfg("get_trace")["description"]
+        assert "span_count" in description
+        assert "root_spans_only=false" in description
+
+    def test_list_traces_says_why_it_is_the_cheap_call(self):
+        """Its rows carry no attributes and no events, which is the whole
+        reason the span listing is a usable substitute for the span tree."""
+        description = self._cfg("list_traces")["description"]
+        assert "no span attributes" in description
+        assert "span_count" in description
+
+    def test_the_listing_schema_really_carries_no_span_payload(self):
+        """Pins the claim the guidance rests on.
+
+        If TraceSummary ever gains attributes or events, the cheap path stops
+        being cheap and every "use the listing instead" line above is wrong.
+        """
+        from rhesis.backend.app.schemas.telemetry import TraceSummary
+
+        assert "attributes" not in TraceSummary.model_fields
+        assert "events" not in TraceSummary.model_fields
+        assert "span_count" in TraceSummary.model_fields
+
     def test_get_trace_metrics_says_get_insights_does_not_cover_traces(self):
         """Otherwise the obvious guess is that get_insights already does this."""
         description = self._cfg("get_trace_metrics")["description"]

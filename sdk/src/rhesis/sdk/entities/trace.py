@@ -310,6 +310,12 @@ class Trace(BaseEntity):
         The API returns a tree because that is the shape of a trace, but "find
         the LLM call" is the question people actually have. Pass ``name`` to keep
         only the spans with that operation name.
+
+        This fetches the detail once if the trace came from a listing, and that
+        response is the large one: each span carries its attributes and events,
+        which hold up to 8000 characters of prompt and completion apiece and up
+        to 10000 of conversation input and output on the root. Check
+        ``span_count`` before walking the spans of many traces in a loop.
         """
         self._ensure_detail()
         found: List[Span] = []
@@ -473,8 +479,11 @@ class Traces(BaseCollection):
         ``project_id`` if you get an empty list you did not expect.
 
         ``provider`` matches a trace where any priced call used one of the named
-        providers. ``limit`` is the most traces to return in total; omit it to
-        read every page.
+        providers. ``limit`` is the most traces to return in total; omitting it
+        reads every page, so on a busy project pass one or filter first.
+
+        These rows carry no spans, which keeps them small. Reading the spans is
+        what costs: see ``Trace.spans()``.
         """
         if isinstance(provider, str):
             provider = [provider]

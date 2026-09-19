@@ -169,11 +169,16 @@ get_trace(trace_id="<32-char hex>", project_id="<uuid>")
 
 The span tree shows each operation inside the request with its own duration and status. The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the total, is the finding.
 
-Three things worth knowing before you read them:
+**`get_trace` is the expensive call.** Every span carries its full attributes and events — up to 8000 characters of prompt and 8000 of completion per LLM span, 10000 each of conversation input and output on the root — and nothing truncates the response. Read `span_count` on the listing row first: it says what opening the trace will cost.
+
+When you only need to know *which* operation was slow or failed, `list_traces(root_spans_only=false)` answers that on its own. Those rows carry each span's name, duration and status and none of the payload, so they stay small however large the trace is. Open `get_trace` when you need what a span actually carried, on one trace, not in a loop over a run's results.
+
+Four things worth knowing before you read them:
 
 - **`status_code` on a listing is the root span's.** A trace whose inner LLM call failed can still show `OK`. Pass `root_spans_only=false` with `status_code="ERROR"` to land on the span that actually failed.
 - **`get_trace` needs `project_id` as well as `trace_id`,** and `trace_id` is the 32-char hex, not a UUID. Both come from the `list_traces` row. Never ask the user for them.
 - **An empty list usually means no project scope,** not that the run produced no traces. Pass `project_id` and try again before reporting an absence.
+- **Narrow before you list.** A `list_traces` row is compact apart from `conversation_input`, which runs to 10000 characters, so a wide page over a busy project is still a lot of text. Filter by run, endpoint, status or duration rather than paging.
 
 For cost and latency rather than one request's shape, `get_trace_metrics(project_id=…, test_run_id=…)` gives totals, error rate and p50/p95/p99. It is the only tool that reports either.
 

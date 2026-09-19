@@ -1580,6 +1580,12 @@ tools:
       verdict where someone left one: has_annotations, verdict,
       last_annotation, matches_annotation.
 
+      A row carries no span attributes and no events, which is what makes this
+      the cheap call: it stays compact however large the traces are. The one
+      unbounded field is conversation_input, up to 10000 characters, so narrow
+      with filters rather than paging through a project. span_count on each row
+      is what get_trace will cost you if you open it.
+
       The envelope carries total, limit and offset. Page by passing offset,
       not skip -- this route does not take skip.
 
@@ -1684,8 +1690,12 @@ tools:
         description: >
           true (the default) gives one row per trace, the root span. false
           gives every span as its own row, which is what you want to find the
-          individual operation that failed or was slow. Note that with false
-          a "trace" row is really a span, and span_count and the cost totals
+          individual operation that failed or was slow -- and it is the cheap
+          way to do it, since these rows carry the name, duration and status
+          but none of the attributes or events that make get_trace large. What
+          it does not give you is the parent-child shape; reach for get_trace
+          when you need the tree rather than the list. Note that with false a
+          "trace" row is really a span, and span_count and the cost totals
           still describe the whole trace.
       sort_by:
         description: >
@@ -1740,6 +1750,20 @@ tools:
       Read this when a test result or a listing says something went wrong and
       you need to see where. The span whose status_code is "ERROR", or whose
       duration_ms dominates the total, is the answer to "why".
+
+      THIS RESPONSE CAN BE VERY LARGE, and nothing truncates it. Every span
+      carries its full attributes, events and trace_metrics: an LLM span holds
+      up to 8000 characters of prompt and 8000 of completion, and the root
+      endpoint span up to 10000 each of conversation input and output. A trace
+      with twenty spans can run to tens of thousands of tokens.
+
+      Check span_count on the list_traces row first -- it is there so you can
+      see the size before you pay for it. When it is large, or when all you
+      need is which operation was slow or failed, use
+      list_traces(root_spans_only=false) instead: that returns one compact row
+      per span with its name, duration and status and NO attributes or events.
+      Come here only when you need what a span actually carried, and on one
+      trace at a time rather than in a loop.
 
       trace_id here is the 32-char hex id, NOT a UUID, and project_id is
       REQUIRED -- unusual for this API, where scope is normally implicit.
