@@ -290,23 +290,12 @@ class TestPublishedCatalogMatchesTheToolSurface:
     """skills/rhesis/references/tool-catalog.md ships as the agent's tool
     reference and nothing regenerates it from mcp_tools.yaml.
 
-    The two directions of drift are not equally bad. A tool the catalog
-    documents but the server does not expose sends an agent to call something
-    that is not there, which is why that one is enforced for every tool. A tool
-    the server exposes but the catalog omits only means the agent does not know
-    about it, so that direction is still allowed for the garak and owasp
-    surfaces, which nobody has written up yet.
+    The two directions of drift are not equally bad, but both are now closed,
+    so both are enforced for every tool. A tool the catalog documents but the
+    server does not expose sends an agent to call something that is not there;
+    a tool the server exposes but the catalog omits is one the agent never
+    learns it has.
     """
-
-    _UNDOCUMENTED = frozenset(
-        {
-            "generate_garak_test_set",
-            "generate_owasp_test_set",
-            "import_garak_probes",
-            "list_garak_probes",
-            "list_owasp_categories",
-        }
-    )
 
     @staticmethod
     def _documented():
@@ -321,11 +310,12 @@ class TestPublishedCatalogMatchesTheToolSurface:
             f"tool-catalog.md documents tools the MCP server does not expose: {sorted(phantom)}"
         )
 
-    def test_the_undocumented_list_does_not_grow(self):
+    def test_the_catalog_documents_every_tool_the_server_exposes(self):
+        """The garak and owasp surfaces sat in the yaml undocumented, so an
+        agent reading the skill had no way to know red-teaming was available."""
         missing = {tc["name"] for tc in load_tool_configs()} - self._documented()
-        assert missing <= self._UNDOCUMENTED, (
-            "new tools missing from the published catalog: "
-            f"{sorted(missing - self._UNDOCUMENTED)}"
+        assert not missing, (
+            f"tools missing from the published catalog: {sorted(missing)}"
         )
 
 
