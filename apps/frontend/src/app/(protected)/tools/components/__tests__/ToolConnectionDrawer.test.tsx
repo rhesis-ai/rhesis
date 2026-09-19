@@ -274,6 +274,9 @@ describe('ToolConnectionDrawer', () => {
         })
       );
     });
+    expect(mockTestToolConnection.mock.calls[0][0]).not.toHaveProperty(
+      'tool_metadata'
+    );
   });
   it('submits Trello tool with both credentials and no workspace metadata on create', async () => {
     const user = userEvent.setup();
@@ -318,7 +321,7 @@ describe('ToolConnectionDrawer', () => {
         tool_metadata: undefined,
       });
     });
-  }, 15000);
+  });
 
   it('allows updating only one Trello credential without re-entering both in edit mode', async () => {
     const user = userEvent.setup();
@@ -339,9 +342,9 @@ describe('ToolConnectionDrawer', () => {
     expect(apiKeyInput).toHaveValue('************');
     expect(tokenInput).toHaveValue('************');
 
-    // Change only the token, leaving API key as placeholder
-    await user.clear(tokenInput);
-    await user.type(tokenInput, 'new-trello-token');
+    // Change only the API key, leaving token as placeholder
+    await user.clear(apiKeyInput);
+    await user.type(apiKeyInput, 'new-trello-key');
 
     // Test connection should succeed with partial credentials
     const testButton = screen.getByRole('button', { name: /test connection/i });
@@ -353,11 +356,14 @@ describe('ToolConnectionDrawer', () => {
         expect.objectContaining({
           tool_id: 'tool-trello-1',
           credentials: {
-            TRELLO_TOKEN: 'new-trello-token',
+            TRELLO_API_KEY: 'new-trello-key',
           },
         })
       );
     });
+    expect(mockTestToolConnection.mock.calls[0][0]).not.toHaveProperty(
+      'tool_metadata'
+    );
 
     // Save should update with only the changed credential
     const saveButton = screen.getByRole('button', { name: /update/i });
@@ -369,10 +375,11 @@ describe('ToolConnectionDrawer', () => {
         'tool-trello-1',
         expect.objectContaining({
           credentials: {
-            TRELLO_TOKEN: 'new-trello-token',
+            TRELLO_API_KEY: 'new-trello-key',
           },
         })
       );
+      expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('tool_metadata');
     });
-  }, 15000);
+  });
 });

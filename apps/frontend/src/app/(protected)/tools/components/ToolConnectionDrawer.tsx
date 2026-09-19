@@ -793,8 +793,7 @@ export function ToolConnectionDrawer({
 
         if (
           currentProviderType === 'azure_devops' ||
-          currentProviderType === 'gitlab' ||
-          currentProviderType === 'trello'
+          currentProviderType === 'gitlab'
         ) {
           if (
             currentProviderType === 'azure_devops' &&
@@ -817,6 +816,11 @@ export function ToolConnectionDrawer({
             tool_id: tool.id,
             credentials,
             tool_metadata: parsedMetadata,
+          };
+        } else if (currentProviderType === 'trello') {
+          testRequest = {
+            tool_id: tool.id,
+            credentials,
           };
         } else {
           testRequest = {
@@ -908,11 +912,17 @@ export function ToolConnectionDrawer({
           };
         }
 
-        testRequest = {
-          provider_type_id: provider.id,
-          credentials,
-          tool_metadata: parsedMetadata,
-        };
+        testRequest =
+          provider.type_value === 'trello'
+            ? {
+                provider_type_id: provider.id,
+                credentials,
+              }
+            : {
+                provider_type_id: provider.id,
+                credentials,
+                tool_metadata: parsedMetadata,
+              };
       }
 
       const result = await servicesClient.testToolConnection(testRequest);
