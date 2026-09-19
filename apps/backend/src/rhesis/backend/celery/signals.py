@@ -231,6 +231,21 @@ def capture_worker_role(sender=None, conf=None, **kwargs):
 
 
 @worker_ready.connect
+def report_unbuildable_default_models(sender=None, **kwargs):
+    """Warn at worker boot about a DEFAULT_*_MODEL this deployment cannot build.
+
+    The same check the API runs in its lifespan, on the process that actually
+    invokes models: a metric evaluation resolves one here, and a worker that
+    cannot build the default fails every job it is handed. On a deployment
+    where the API and the worker have different environments, this is the
+    only place the worker's own gap shows up.
+    """
+    from rhesis.backend.app.utils.user_model_utils import warn_on_unbuildable_default_models
+
+    warn_on_unbuildable_default_models()
+
+
+@worker_ready.connect
 def warm_architect_worker(sender=None, **kwargs):
     """Preload the backend FastAPI app on the architect worker at boot.
 

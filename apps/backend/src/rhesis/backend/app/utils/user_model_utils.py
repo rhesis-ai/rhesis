@@ -58,6 +58,58 @@ def _check_purpose(purpose: str) -> None:
         )
 
 
+#: This deployment's own model settings, as (env var, ``ModelSettings`` field, SDK
+#: model type). Embedding is here even though it is not a ``MODEL_PURPOSE``: a
+#: deployment misconfigures it the same way and finds out just as late.
+_DEFAULT_MODEL_SETTINGS = (
+    ("DEFAULT_GENERATION_MODEL", "generation_model", "language"),
+    ("DEFAULT_EVALUATION_MODEL", "evaluation_model", "language"),
+    ("DEFAULT_EXECUTION_MODEL", "execution_model", "language"),
+    ("DEFAULT_EMBEDDING_MODEL", "embedding_model", "embedding"),
+)
+
+#: Set once :func:`warn_on_unbuildable_default_models` has run. Deployment
+#: settings cannot change within a process, and the test suite starts a fresh
+#: app lifespan per test -- without this it would repeat the whole check, and
+#: the warnings, several hundred times a run.
+_default_models_checked = False
+
+
+def warn_on_unbuildable_default_models() -> None:
+    """Log a warning for every ``DEFAULT_*_MODEL`` this deployment cannot build.
+
+    A warning rather than a failed boot: a deployment that never resolves a
+    model still has to start. Without this the first signal is a 500 on the
+    first execute -- see #2671 -- long after whoever set the environment could
+    have acted on it.
+
+    Runs once per process. Construction opens no connection, so it costs
+    milliseconds unless a provider imports something heavy.
+    """
+    global _default_models_checked
+    if _default_models_checked:
+        return
+
+    settings = get_model_settings()
+    _default_models_checked = True
+
+    for env_var, field, model_type in _DEFAULT_MODEL_SETTINGS:
+        model_string = getattr(settings, field)
+        try:
+            get_model(model_string, model_type=model_type)
+        # Not just ValueError: a missing credential raises that, but huggingface
+        # raises ImportError when torch is absent, and a startup diagnostic that
+        # itself takes the app down would be worse than the problem it reports.
+        except Exception as error:
+            logger.warning(
+                "%s=%s cannot be built on this deployment: %s. "
+                "Anything that resolves to it will fail when it is used.",
+                env_var,
+                model_string,
+                error,
+            )
+
+
 def resolve_model(
     db: Session,
     principal: Principal,
@@ -503,7 +555,12 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
         Configured PolyphemusLLM instance, stamped as running on our credentials
 
     Raises:
-        ValueError: If user is not active or not verified
+        ModelConfigurationError: If user is not active or not verified. A
+            ``ValueError`` subclass, so existing handlers still catch it, but
+            the specific type is what keeps this off the deployment's back:
+            a bare ``ValueError`` reaching
+            ``execution_validation._deployment_model_error`` would report an
+            unverified account as a broken ``DEFAULT_*_MODEL``.
     """
     from rhesis.backend.app.auth.token_utils import create_service_delegation_token
     from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
@@ -511,11 +568,15 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     # Verify user is active and verified before creating delegation token
     if not user.is_active:
         logger.error("Cannot create delegation token: user %s is inactive", user.email)
-        raise ValueError("User account is inactive")
+        raise ModelConfigurationError(
+            "User account is inactive, so a Rhesis-hosted model cannot be run on your behalf"
+        )
 
     if not user.is_verified:
         logger.error("Cannot create delegation token: user %s is not verified", user.email)
-        raise ValueError("User account is not verified")
+        raise ModelConfigurationError(
+            "User account is not verified, so a Rhesis-hosted model cannot be run on your behalf"
+        )
 
     delegation_token = create_service_delegation_token(user, "polyphemus")
     polyphemus_url = os.environ.get("DEFAULT_POLYPHEMUS_URL", "https://polyphemus.rhesis.ai")
@@ -597,6 +658,13 @@ def _build_configured_model(
 
     The SDK reports every configuration problem as a plain ``ValueError``, so
     which one it is has to be read back off the message text.
+
+    ``ImportError`` too, because a provider module can fail on an optional
+    dependency at import time (``huggingface`` needs torch). It carries no
+    message this function can classify, so it lands on the generic branch --
+    but it has to be caught here all the same. Escaping as itself would reach
+    ``execution_validation._deployment_model_error``, which would report an
+    organization's own model choice as a broken ``DEFAULT_*_MODEL``.
     """
     embedding = model_type == "embedding"
     label = "embedding model" if embedding else "model"
@@ -612,7 +680,7 @@ def _build_configured_model(
             model_type=model_type,
             **extra_params,
         )
-    except ValueError as e:
+    except (ValueError, ImportError) as e:
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
 

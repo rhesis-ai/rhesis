@@ -40,18 +40,21 @@ def validate_execution_model(
         current_user: Current authenticated user (injected by FastAPI)
 
     Raises:
-        HTTPException: 400 if model configuration is invalid
+        HTTPException: 400 if the organization's own model configuration is
+            invalid, 500 if this deployment cannot build its own default model.
 
     Example:
         @router.post("/execute", dependencies=[Depends(validate_execution_model)])
         async def execute_endpoint(...):
             ...
     """
-    try:
-        validate_model(db, current_user, "evaluation")
-        validate_model(db, current_user, "execution")
-    except ModelConfigurationError as e:
-        raise _convert_model_error_to_http_exception(e, "execution")
+    for purpose in ("evaluation", "execution"):
+        try:
+            validate_model(db, current_user, purpose)
+        except ModelConfigurationError as e:
+            raise _convert_model_error_to_http_exception(e, "execution")
+        except (ValueError, ImportError) as e:
+            raise _deployment_model_error(e, purpose)
 
 
 def validate_generation_model(
@@ -69,7 +72,8 @@ def validate_generation_model(
         current_user: Current authenticated user (injected by FastAPI)
 
     Raises:
-        HTTPException: 400 if model configuration is invalid
+        HTTPException: 400 if the organization's own model configuration is
+            invalid, 500 if this deployment cannot build its own default model.
 
     Example:
         @router.post("/generate", dependencies=[Depends(validate_generation_model)])
@@ -80,6 +84,42 @@ def validate_generation_model(
         validate_model(db, current_user, "generation")
     except ModelConfigurationError as e:
         raise _convert_model_error_to_http_exception(e, "generation")
+    except (ValueError, ImportError) as e:
+        raise _deployment_model_error(e, "generation")
+
+
+def _deployment_model_error(error: Exception, purpose: str) -> HTTPException:
+    """A 500 that names the deployment setting at fault instead of hiding it.
+
+    Only a *deployment* default can get here. Every failure to build an
+    organization's own configured model is raised as a ``ModelConfigurationError``
+    by ``_build_configured_model`` and answered with the 400 above, so what is
+    left is this backend failing to build its own ``DEFAULT_*_MODEL`` -- typically
+    a missing credential.
+
+    Still a 500, as decided on #2681: the request was fine, the server is not,
+    and telling an API caller to check their model settings would misdirect. What
+    changes here is only that the body names the setting, rather than the generic
+    "An unexpected error occurred." that left the cause in the logs alone.
+
+    ``ImportError`` as well as ``ValueError`` because a provider can fail on an
+    optional dependency (huggingface needs torch). An organization's own model
+    raising that is caught by ``_build_configured_model`` alongside ``ValueError``
+    for this reason, so what reaches here is only the deployment default's.
+
+    Not a bare ``Exception``: ``QuotaExceededError`` also crosses this frame and
+    has to reach its own handler to become a 402.
+    """
+    # `purpose` is one of our own literals, not exception text, so interpolating
+    # it does not leak anything -- which is the rule `internal_error` is enforcing.
+    return internal_error(
+        error,
+        context=f"deployment default {purpose} model could not be built",
+        public_detail=(
+            f"This deployment's default {purpose} model could not be built. Check the "
+            f"backend's DEFAULT_{purpose.upper()}_MODEL setting and the credentials it needs."
+        ),
+    )
 
 
 def _convert_model_error_to_http_exception(
