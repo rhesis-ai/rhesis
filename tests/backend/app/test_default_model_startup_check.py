@@ -9,6 +9,7 @@ still has to start.
 from __future__ import annotations
 
 import logging
+from unittest.mock import Mock
 
 import pytest
 
@@ -99,6 +100,19 @@ def test_checks_each_setting_with_the_right_model_type(monkeypatch):
         (getattr(settings, field), model_type)
         for _env_var, field, model_type in user_model_utils._DEFAULT_MODEL_SETTINGS
     ]
+
+
+def test_a_raise_before_the_loop_does_not_disable_the_check(monkeypatch):
+    """The once-per-process flag is set after the settings load, not before, so
+    a failure to read them leaves the check able to run again."""
+    monkeypatch.setattr(
+        user_model_utils, "get_model_settings", Mock(side_effect=RuntimeError("no settings"))
+    )
+
+    with pytest.raises(RuntimeError):
+        user_model_utils.warn_on_unbuildable_default_models()
+
+    assert user_model_utils._default_models_checked is False
 
 
 def test_the_worker_runs_the_same_check_at_boot(monkeypatch):

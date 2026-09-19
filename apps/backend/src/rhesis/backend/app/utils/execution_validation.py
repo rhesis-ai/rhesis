@@ -103,9 +103,12 @@ def _deployment_model_error(error: Exception, purpose: str) -> HTTPException:
     "An unexpected error occurred." that left the cause in the logs alone.
 
     ``ImportError`` as well as ``ValueError`` because a provider can fail on an
-    optional dependency (huggingface needs torch). Not a bare ``Exception``:
-    ``QuotaExceededError`` also crosses this frame and has to reach its own
-    handler to become a 402.
+    optional dependency (huggingface needs torch). An organization's own model
+    raising that is caught by ``_build_configured_model`` alongside ``ValueError``
+    for this reason, so what reaches here is only the deployment default's.
+
+    Not a bare ``Exception``: ``QuotaExceededError`` also crosses this frame and
+    has to reach its own handler to become a 402.
     """
     # `purpose` is one of our own literals, not exception text, so interpolating
     # it does not leak anything -- which is the rule `internal_error` is enforcing.

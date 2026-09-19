@@ -89,9 +89,10 @@ def warn_on_unbuildable_default_models() -> None:
     global _default_models_checked
     if _default_models_checked:
         return
-    _default_models_checked = True
 
     settings = get_model_settings()
+    _default_models_checked = True
+
     for env_var, field, model_type in _DEFAULT_MODEL_SETTINGS:
         model_string = getattr(settings, field)
         try:
@@ -648,6 +649,13 @@ def _build_configured_model(
 
     The SDK reports every configuration problem as a plain ``ValueError``, so
     which one it is has to be read back off the message text.
+
+    ``ImportError`` too, because a provider module can fail on an optional
+    dependency at import time (``huggingface`` needs torch). It carries no
+    message this function can classify, so it lands on the generic branch --
+    but it has to be caught here all the same. Escaping as itself would reach
+    ``execution_validation._deployment_model_error``, which would report an
+    organization's own model choice as a broken ``DEFAULT_*_MODEL``.
     """
     embedding = model_type == "embedding"
     label = "embedding model" if embedding else "model"
@@ -663,7 +671,7 @@ def _build_configured_model(
             model_type=model_type,
             **extra_params,
         )
-    except ValueError as e:
+    except (ValueError, ImportError) as e:
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
 
