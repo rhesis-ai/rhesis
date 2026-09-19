@@ -386,6 +386,13 @@ async def lifespan(app: FastAPI):
     except Exception as _tp_err:
         logger.warning(f"Could not configure anyio thread limiter: {_tp_err}")
 
+    # Report a DEFAULT_*_MODEL this deployment cannot build, before anything
+    # needs one. Nothing downstream depends on the result, so it goes first and
+    # the rest of startup carries on regardless.
+    from rhesis.backend.app.utils.user_model_utils import warn_on_unbuildable_default_models
+
+    warn_on_unbuildable_default_models()
+
     # Startup: Initialize local environment + run any registered startup hooks.
     # Hooks must be idempotent; failures abort startup so misconfiguration is loud.
     # The RBAC catalog is now seeded by Alembic data migrations, not a startup hook,
