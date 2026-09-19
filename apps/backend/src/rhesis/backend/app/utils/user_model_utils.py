@@ -58,6 +58,57 @@ def _check_purpose(purpose: str) -> None:
         )
 
 
+#: This deployment's own model settings, as (env var, ``ModelSettings`` field, SDK
+#: model type). Embedding is here even though it is not a ``MODEL_PURPOSE``: a
+#: deployment misconfigures it the same way and finds out just as late.
+_DEFAULT_MODEL_SETTINGS = (
+    ("DEFAULT_GENERATION_MODEL", "generation_model", "language"),
+    ("DEFAULT_EVALUATION_MODEL", "evaluation_model", "language"),
+    ("DEFAULT_EXECUTION_MODEL", "execution_model", "language"),
+    ("DEFAULT_EMBEDDING_MODEL", "embedding_model", "embedding"),
+)
+
+#: Set once :func:`warn_on_unbuildable_default_models` has run. Deployment
+#: settings cannot change within a process, and the test suite starts a fresh
+#: app lifespan per test -- without this it would repeat the whole check, and
+#: the warnings, several hundred times a run.
+_default_models_checked = False
+
+
+def warn_on_unbuildable_default_models() -> None:
+    """Log a warning for every ``DEFAULT_*_MODEL`` this deployment cannot build.
+
+    A warning rather than a failed boot: a deployment that never resolves a
+    model still has to start. Without this the first signal is a 500 on the
+    first execute -- see #2671 -- long after whoever set the environment could
+    have acted on it.
+
+    Runs once per process. Construction opens no connection, so it costs
+    milliseconds unless a provider imports something heavy.
+    """
+    global _default_models_checked
+    if _default_models_checked:
+        return
+    _default_models_checked = True
+
+    settings = get_model_settings()
+    for env_var, field, model_type in _DEFAULT_MODEL_SETTINGS:
+        model_string = getattr(settings, field)
+        try:
+            get_model(model_string, model_type=model_type)
+        # Not just ValueError: a missing credential raises that, but huggingface
+        # raises ImportError when torch is absent, and a startup diagnostic that
+        # itself takes the app down would be worse than the problem it reports.
+        except Exception as error:
+            logger.warning(
+                "%s=%s cannot be built on this deployment: %s. "
+                "Anything that resolves to it will fail when it is used.",
+                env_var,
+                model_string,
+                error,
+            )
+
+
 def resolve_model(
     db: Session,
     principal: Principal,
