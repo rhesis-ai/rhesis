@@ -7,12 +7,12 @@ pytest.importorskip("haystack")
 from haystack import Pipeline, component
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.context import get_root_trace_id
+from rhesis.telemetry.conversation import conversation_turn
 
 from rhesis.sdk.telemetry.integrations.haystack.conversation import (
     DEFAULT_TURN_SPAN_NAME,
     ConversationTurn,
     RhesisTracing,
-    _conversation_parent_context,
 )
 from rhesis.sdk.telemetry.integrations.haystack.integration import (
     HaystackIntegration,
@@ -305,12 +305,59 @@ class TestConversationContinuity:
         trace_ids = {s.context.trace_id for s in exporter.get_finished_spans()}
         assert len(trace_ids) == 1
 
+    def test_turns_without_a_conversation_id_still_share_a_trace(self, sdk_provider):
+        """Nothing to key an anchor on, so the instance chains its own turns."""
+        exporter, _ = sdk_provider
+        tracing = RhesisTracing("app")
+        with tracing.turn("first"):
+            pass
+        with tracing.turn("second"):
+            pass
 
-class TestConversationParentContext:
-    def test_bad_trace_id_is_rejected_without_raising(self, caplog):
-        with caplog.at_level("WARNING"):
-            assert _conversation_parent_context("not-hex") is None
-        assert "Invalid conversation trace id" in caplog.text
+        assert len({s.context.trace_id for s in turn_spans(exporter)}) == 1
 
-    def test_valid_trace_id_builds_a_context(self):
-        assert _conversation_parent_context("a" * 32) is not None
+
+class TestSharedAnchorStore:
+    """``RhesisTracing`` joins turns through the same store as ``conversation_turn``.
+
+    A Haystack app that also wraps work in ``conversation_turn`` -- for a turn Haystack does not
+    serve, say -- used to get one trace per mechanism for the same conversation, because this
+    module kept the first turn's trace id to itself.
+    """
+
+    def test_a_haystack_turn_joins_a_conversation_turn_trace(self, sdk_provider):
+        exporter, _ = sdk_provider
+        with conversation_turn("conv-1", input="first") as turn:
+            turn.output = "reply"
+
+        tracing = RhesisTracing("app")
+        tracing.start_conversation("conv-1")
+        with tracing.turn("second") as turn:
+            turn.output = "reply"
+
+        assert len({s.context.trace_id for s in exporter.get_finished_spans()}) == 1
+
+    def test_a_conversation_turn_joins_a_haystack_trace(self, sdk_provider):
+        """The mirror case: whichever mechanism ran first owns the anchor."""
+        exporter, _ = sdk_provider
+        tracing = RhesisTracing("app")
+        tracing.start_conversation("conv-1")
+        with tracing.turn("first") as turn:
+            turn.output = "reply"
+
+        with conversation_turn("conv-1", input="second") as turn:
+            turn.output = "reply"
+
+        assert len({s.context.trace_id for s in exporter.get_finished_spans()}) == 1
+
+    def test_a_different_conversation_is_not_joined(self, sdk_provider):
+        exporter, _ = sdk_provider
+        with conversation_turn("conv-1", input="first") as turn:
+            turn.output = "reply"
+
+        tracing = RhesisTracing("app")
+        tracing.start_conversation("conv-2")
+        with tracing.turn("first") as turn:
+            turn.output = "reply"
+
+        assert len({s.context.trace_id for s in exporter.get_finished_spans()}) == 2
