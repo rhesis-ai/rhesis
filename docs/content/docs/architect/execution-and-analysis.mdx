@@ -77,3 +77,30 @@ Architect fetches the results and presents the same three-layer summary — over
 <Callout type="info">
   Architect refers to runs by name or index. You don't need to supply a run ID.
 </Callout>
+
+## What people already flagged
+
+Automated scores are not the last word. Architect reads the [annotations](/docs/annotations) people left on a run before it reports on it, and treats a human Pass or Fail as ground truth when it contradicts a metric:
+
+```text
+"What did people flag on the last run?"
+"Any open annotations on this test set?"
+```
+
+Two things this changes. A "failure" someone marked Pass is a metric problem rather than an endpoint problem, and Architect says so instead of reporting the raw failure. And a run where every metric passed is not necessarily clean, because a person can fail a test the metrics passed — which is why Architect checks before concluding that nothing is wrong.
+
+It can also record a verdict you give it, attributed to you. It will not annotate on its own initiative: an annotation is your judgement, not the agent's reading of a result.
+
+## Why something failed
+
+The result tells you a test failed and what the evaluator made of it. When that does not explain the failure, Architect opens the [trace](/docs/tracing) — what your application actually did to produce the response, as a tree of LLM calls, retrievals and tool invocations with their own durations and statuses:
+
+```text
+"Why did that test error?"
+"Why was the last run so slow?"
+"What did this run cost?"
+```
+
+The span that failed, or the one whose duration dominates the rest, is usually the answer. Architect can also report cost and latency percentiles across a run's traces.
+
+This is a diagnostic step, not part of every analysis. Pass rates, breakdowns and comparisons are answered without traces, and Architect does not open one to produce a run summary — a trace per result would be slow and would tell you nothing the summary does not.

@@ -100,6 +100,20 @@ Upload a document and let Architect read it before planning. Works well for Open
   <ChatArchitect>{"Run 14 — 78% overall.\n\nBy requirement:\n• Handles Flight Search: 90%\n• Refuses Off-Topic: 60% ← below threshold\n• Handles Cancellations: 83%\n\nOff-Topic refusals are failing primarily on Refusal Correctness. The evaluator notes that the chatbot gives partial answers rather than clean refusals on 6 of the 10 failing tests. Tightening the system prompt for out-of-scope topics should address this."}</ChatArchitect>
 </ChatExchange>
 
+## Checking what people flagged
+
+<ChatExchange>
+  <ChatUser>What did people flag on run 14?</ChatUser>
+  <ChatArchitect>{"Four annotations on Run 14, three still open.\n\n• Refuses Off-Topic — two results a reviewer marked Pass, noting the chatbot did refuse but phrased it as a question. The metric counted those as failures, so the real Off-Topic rate is 80%, not 60%.\n• Handles Cancellations — one result marked Fail on a test every metric passed. The comment says the confirmation number was invented.\n• One resolved annotation on Flight Search from last week.\n\nThe Fail on Cancellations is worth acting on: nothing automated caught it."}</ChatArchitect>
+</ChatExchange>
+
+## Finding out why something failed
+
+<ChatExchange>
+  <ChatUser>Why did that cancellation test error?</ChatUser>
+  <ChatArchitect>{"The trace shows five spans. The retrieval step returned no documents, and the LLM call that followed answered anyway from its own knowledge.\n\n• function.handle_request — 4.2s, OK\n• ai.retrieval — 0.3s, OK, 0 results\n• ai.llm.invoke — 3.8s, ERROR: context length exceeded\n\nThe error is the LLM call, but the cause is upstream: with no retrieved context the prompt fell back to the full conversation history and overflowed. Worth fixing the retrieval first."}</ChatArchitect>
+</ChatExchange>
+
 ## Auto-approve session
 
 Turn on auto-approve when you want to move fast through a well-understood workflow.
