@@ -358,6 +358,65 @@ Only `goal` is required inside `test_configuration`. A test uses either `prompt`
 
 ---
 
+## Adversarial test sets
+
+Two published catalogues of attacks, as an alternative to writing requirements and generating from them. Use these when the user asks for red-teaming, jailbreak testing, or coverage of a named standard, rather than for behaviour specific to their product.
+
+Both generators run as **background tasks**: the response carries a `task_id`, which you poll with `get_job_status` until `SUCCESS`, then read `test_set_id` from the result. Verify with `get_test_set` and `list_test_set_tests` before offering `execute_test_set`.
+
+---
+
+### `list_garak_probes`
+List the Garak probe modules and their probe classes. Each carries the Rhesis category, topic and requirement it maps to, and an `is_dynamic` flag that decides which tool comes next.
+
+**CHAIN:** resolve `module_name` and `class_name` here → `import_garak_probes` when `is_dynamic` is false (the majority), `generate_garak_test_set` when it is true.
+
+---
+
+### `import_garak_probes`
+Import static Garak probes as test sets, one per probe, using the probe's own built-in prompts. No LLM generation, so the prompts are exactly what Garak ships. **Requires confirmation.**
+
+**Key parameters:**
+- `probes` (required) — non-empty array of `{"module_name": …, "class_name": …, "custom_name": …}`, resolved from `list_garak_probes`
+- `name_prefix` — prefix for generated test set names, default `"Garak"`
+- `description_template` — applied to each created test set
+
+---
+
+### `generate_garak_test_set`
+Generate a test set from a **dynamic** Garak probe — one with no static prompts, where `list_garak_probes` reports `is_dynamic: true`. Prompts are synthesised from the probe's goal and tags with the user's configured model. **Requires confirmation.**
+
+**Key parameters:**
+- `module_name`, `class_name` (required) — e.g. `"fitd"` / `"FITD"`, from `list_garak_probes`
+- `name` — omit for `"Garak Dynamic: <module>.<class>"`
+- `num_tests` — max 500; omit and the backend picks between 100 and 200
+- `model_id` — omit; uses the user's default generation model
+
+**Careful:** using this on a non-dynamic probe generates prompts where Garak already ships real ones. Check `is_dynamic` first.
+
+---
+
+### `list_owasp_categories`
+List the risk categories of an OWASP Top 10 report, e.g. `llm01`.
+
+**Key parameters:** `framework` — `"llm"` (default, OWASP Top 10 for LLM Applications) or `"agentic"` (OWASP Top 10 for Agentic AI)
+
+**CHAIN:** call before `generate_owasp_test_set` to resolve category ids and confirm the scope with the user, since omitting `categories` targets every category in the report.
+
+---
+
+### `generate_owasp_test_set`
+Generate adversarial prompts from an OWASP Top 10 report, tailored to the system under test. An LLM crafts attacks per selected risk category. **Requires confirmation.**
+
+**Key parameters:**
+- `purpose` (required) — what the system under test does, e.g. `"Customer service chatbot for a bank"`. This drives every generated attack, so a vague purpose produces generic attacks
+- `framework` — `"llm"` (default) or `"agentic"`; must match the report `list_owasp_categories` was called with
+- `categories` — e.g. `["llm01", "llm07"]`; omit to target every category
+- `num_tests` — spread evenly across the selected categories, default 20, max 200
+- `name`, `batch_size`, `model_id` — omit unless asked
+
+---
+
 ## Knowledge sources
 
 ### `list_sources`
