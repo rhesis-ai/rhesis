@@ -462,6 +462,22 @@ class TestTraceTools:
             f"{name} is in mcp_tools.yaml but not in the published tool catalog"
         )
 
+    def test_search_warns_that_it_overrides_span_name(self):
+        """crud/telemetry.py applies span_name in an `elif`, so passing both
+        drops span_name with no error and returns a wider set than asked for."""
+        doc = self._cfg("list_traces")["parameters"]["search"]["description"]
+        assert "span_name" in doc
+        assert "IGNORED" in doc or "ignored" in doc
+
+    def test_search_documents_that_it_reaches_inner_spans(self):
+        """It collects matching trace ids and returns whole traces, so it finds
+        a trace whose child span carried the text even in the root-span view.
+        That is what makes it the tool for an error message, where status_code
+        only tests the row."""
+        doc = self._cfg("list_traces")["parameters"]["search"]["description"]
+        assert "every span" in doc
+        assert "status_message" in doc
+
     def test_the_provider_filter_names_where_its_values_come_from(self):
         """A filter whose values cannot be discovered is the status_id trap.
 

@@ -527,7 +527,7 @@ A trace is one request's worth of work inside the application under test, and it
 ### `list_traces`
 List traces, one row per trace by default (the root span).
 
-Returns per row: `trace_id`, `project_id`, `root_operation`, `duration_ms`, `span_count`, `status_code`, `has_errors`, `total_tokens`, `total_cost_usd`, `models`, `providers`, `environment`, `conversation_id`, the run links (`test_run_id`, `test_result_id`, `test_id`, `endpoint_id`, `endpoint_name`), and the human verdict if there is one (`verdict`, `last_annotation`, `matches_annotation`).
+Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration_ms`, `span_count`, `root_operation`, `status_code`, `has_errors`, `environment`, `conversation_id`, `trace_metrics_status`, `conversation_input` (the request that started it — how you tell traces apart without opening them), the token and cost totals (`total_tokens` and `total_cost_usd`, each also split input/output, plus `total_cost_eur`), `models`, `providers`, the run links (`test_run_id`, `test_result_id`, `test_id`, `endpoint_id`, `endpoint_name`), and the human verdict where there is one (`has_annotations`, `verdict`, `last_annotation`, `matches_annotation`).
 
 **Key parameters:**
 - `test_run_id` — the traces one run produced, one per test execution. The usual entry point.
@@ -536,14 +536,16 @@ Returns per row: `trace_id`, `project_id`, `root_operation`, `duration_ms`, `spa
 - `root_spans_only` — `false` returns every span as its own row, which is how you find the operation that actually failed
 - `duration_min_ms` / `duration_max_ms` — how you answer "what was slow"; pair with `sort_by=duration_ms`
 - `start_time_after` / `start_time_before` — ISO 8601
-- `span_name` — exact operation name, e.g. `"ai.llm.invoke"`; prefer `search` for anything fuzzy
-- `search` — free text over trace id, operation names, endpoint name and URL, conversation text
+- `span_name` — exact operation name, e.g. `"ai.llm.invoke"`. Tests the row, so with the default `root_spans_only` it matches root spans only
+- `search` — free text over trace id, operation names, **error messages**, endpoint name and URL, and conversation input/output. Searching an error message groups traces that failed the same way. It matches **any span** and returns the whole trace, so it finds a trace whose *inner* span carried the text even in the default view
 - `trace_metrics_status` — `"Pass"`, `"Fail"`, `"Error"`, `"Inconclusive"` (only evaluated traces have one)
 - `trace_source` — `"test"`, `"operation"` (production traffic) or `"all"`
 - `trace_type` — `"Single-Turn"`, `"Multi-Turn"` or `"all"`
 - `provider` — repeatable; a trace whose costs are not priced yet matches none, so this can hide recent traces
 - `project_id` — omit to use the caller's scope
 - `sort_by`, `sort_order`, `offset`
+
+**Careful:** passing `search` makes `span_name` silently ignored — the route treats them as alternatives, not as an AND. Use one.
 
 **Pagination:** the response carries `total`, `limit` and `offset`. Page with **`offset`** — this route does not take `skip`.
 
