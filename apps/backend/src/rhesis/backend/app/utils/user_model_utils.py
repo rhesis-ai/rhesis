@@ -555,7 +555,12 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
         Configured PolyphemusLLM instance, stamped as running on our credentials
 
     Raises:
-        ValueError: If user is not active or not verified
+        ModelConfigurationError: If user is not active or not verified. A
+            ``ValueError`` subclass, so existing handlers still catch it, but
+            the specific type is what keeps this off the deployment's back:
+            a bare ``ValueError`` reaching
+            ``execution_validation._deployment_model_error`` would report an
+            unverified account as a broken ``DEFAULT_*_MODEL``.
     """
     from rhesis.backend.app.auth.token_utils import create_service_delegation_token
     from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
@@ -563,11 +568,15 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
     # Verify user is active and verified before creating delegation token
     if not user.is_active:
         logger.error("Cannot create delegation token: user %s is inactive", user.email)
-        raise ValueError("User account is inactive")
+        raise ModelConfigurationError(
+            "User account is inactive, so a Rhesis-hosted model cannot be run on your behalf"
+        )
 
     if not user.is_verified:
         logger.error("Cannot create delegation token: user %s is not verified", user.email)
-        raise ValueError("User account is not verified")
+        raise ModelConfigurationError(
+            "User account is not verified, so a Rhesis-hosted model cannot be run on your behalf"
+        )
 
     delegation_token = create_service_delegation_token(user, "polyphemus")
     polyphemus_url = os.environ.get("DEFAULT_POLYPHEMUS_URL", "https://polyphemus.rhesis.ai")
