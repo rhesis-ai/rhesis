@@ -216,9 +216,7 @@ class TestAnnotationWriteTools:
         tools, operations = build_tools_and_operations(app)
         return {t.name: t for t in tools}, operations
 
-    @pytest.mark.parametrize(
-        "name", ["get_annotation", "create_annotation", "update_annotation"]
-    )
+    @pytest.mark.parametrize("name", ["get_annotation", "create_annotation", "update_annotation"])
     def test_the_tool_resolves_against_a_real_route(self, name):
         """A path that matches no OpenAPI route makes the tool vanish silently."""
         by_name, _ = self._built()
@@ -359,6 +357,18 @@ class TestTraceTools:
         assert "offset" in description
         assert "not skip" in description
 
+    def test_the_route_really_has_no_skip(self):
+        """Pins the claim rather than the prose making it.
+
+        Every other list tool pages by skip, so "this one takes offset" is the
+        kind of statement that quietly stops being true. If the route ever
+        gains skip, this fails and the description gets revisited.
+        """
+        by_name, _ = self._built()
+        props = by_name["list_traces"].inputSchema["properties"]
+        assert "skip" not in props
+        assert "offset" in props
+
     def test_list_traces_exposes_the_filters_that_matter(self):
         by_name, operations = self._built()
         props = by_name["list_traces"].inputSchema["properties"]
@@ -395,10 +405,11 @@ class TestTraceTools:
         assert "empty" in description.lower()
 
     def test_root_spans_only_explains_what_false_does(self):
-        """Finding the failing operation needs the non-default value."""
+        """Finding the failing operation needs the non-default value, so the
+        doc has to say what it changes, not just that the flag exists."""
         doc = self._cfg("list_traces")["parameters"]["root_spans_only"]["description"]
-        assert "false" in doc
-        assert "span" in doc
+        assert "every span" in doc
+        assert "default" in doc
 
     def test_status_code_warns_it_matches_the_root_span(self):
         """A trace whose inner LLM call failed can have an OK root span."""
@@ -490,7 +501,7 @@ class TestTraceTools:
         assert "list_trace_providers" in doc
 
     def test_list_trace_providers_explains_the_unknown_bucket(self):
-        """"unknown" is a real value, not a gap, and worth filtering to."""
+        """ "unknown" is a real value, not a gap, and worth filtering to."""
         description = self._cfg("list_trace_providers")["description"]
         assert "unknown" in description
 
@@ -596,7 +607,11 @@ class TestMcpToolsYamlStructure:
         ("get_metric", "GET", "/metrics/{metric_id}"),
         ("create_source", "POST", "/sources/"),
         ("update_metric", "PUT", "/metrics/{metric_id}"),
-        ("remove_requirement_from_metric", "DELETE", "/metrics/{metric_id}/requirements/{requirement_id}"),
+        (
+            "remove_requirement_from_metric",
+            "DELETE",
+            "/metrics/{metric_id}/requirements/{requirement_id}",
+        ),
         ("update_test_set", "PUT", "/test_sets/{test_set_identifier}"),
         ("get_test", "GET", "/tests/{test_id}"),
         ("update_test", "PUT", "/tests/{test_id}"),
