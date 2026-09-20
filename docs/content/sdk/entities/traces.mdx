@@ -28,10 +28,10 @@ They are not interchangeable, and confusing them is the one thing that silently 
 | `start_time` / `end_time` | `datetime` | When it ran |
 | `duration_ms` | `float` | Total duration |
 | `span_count` | `int` | Spans in the trace |
-| `error_count` | `int` | Spans that failed. Detail only |
+| `error_count` | `int` | Spans that failed, anywhere in the trace. Detail only |
 | `root_operation` | `str` | The root span's name |
 | `status_code` | `str` | The root span's status, `OK` or `ERROR` |
-| `has_errors` | `bool` | Whether the root span failed |
+| `has_errors` | `bool` | Whether the **root span** failed — not whether any span did |
 | `conversation_id` | `str` | Set when the trace is one turn of a conversation |
 | `conversation_input` | `str` | The request that started it |
 | `total_tokens`, `total_cost_usd` | `int`, `float` | Usage totals, also split input and output |
@@ -80,7 +80,18 @@ Traces.query(test_run_id=test_run_id, root_spans_only=False, status_code="ERROR"
 
 Only the arguments you pass are sent, so the platform's own defaults stay in charge: one row per trace, newest first. `limit` is the most traces to return in total; omit it and every page is read, which on a busy project is a lot, so filter first.
 
-`status_code` on a listing is the **root** span's. A trace whose inner LLM call failed can still show `OK`, which is what `root_spans_only=False` is for: it matches the spans themselves.
+`status_code` and `has_errors` both describe the **root** span, on a listing and on a detail alike. A trace whose inner LLM call failed under a root that returned `OK` reads as `status_code="OK"`, `has_errors=False` — which is correct, and is why there are two other ways to find the failure:
+
+<CodeBlock filename="inner_failures.py" language="python">
+{`# Every failing span as its own row, whichever trace it belongs to
+Traces.query(test_run_id=test_run_id, root_spans_only=False, status_code="ERROR")
+
+# Or, on a trace you have already read, the count across the whole tree
+trace.error_count
+[span for span in trace.spans() if span.status_code == "ERROR"]`}
+</CodeBlock>
+
+`error_count` is the any-span figure and comes from the detail call only.
 
 This route takes named filters rather than OData, so `Traces.all(filter=...)` refuses the argument instead of quietly ignoring it.
 

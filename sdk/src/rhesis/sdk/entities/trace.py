@@ -237,8 +237,14 @@ class Trace(BaseEntity):
             for field, key in (("root_operation", "span_name"), ("status_code", "status_code")):
                 if data.get(field) is None:
                     data[field] = root.get(key)
-        if data.get("has_errors") is None and isinstance(data.get("error_count"), int):
-            data["has_errors"] = data["error_count"] > 0
+        # From the root span's status, the way the list route defines it, and
+        # deliberately NOT from error_count. error_count counts every failing
+        # span, so deriving from it would make has_errors mean one thing on a
+        # listed trace and another on the same object once the detail loaded --
+        # flipping False to True under a caller who only asked for the spans.
+        # A failing span inside an OK trace is what error_count is for.
+        if data.get("has_errors") is None and data.get("status_code") is not None:
+            data["has_errors"] = data["status_code"] == "ERROR"
         return data
 
     def _resolve_project_id(self) -> str:
