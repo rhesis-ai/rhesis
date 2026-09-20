@@ -159,10 +159,59 @@ class TestReadsBothResponseShapes:
         assert trace.endpoint_id == "the-one-the-server-sent"
         assert trace.has_errors is False
 
-    def test_no_errors_when_the_count_is_zero(self, detail_payload):
-        detail_payload["error_count"] = 0
+    def test_has_errors_follows_the_root_span_not_the_span_count(self):
+        """The list route defines has_errors as the root span's status, so the
+        detail route has to mean the same thing by it.
 
-        assert Trace.model_validate(detail_payload).has_errors is False
+        A trace whose inner LLM call failed under a root that returned OK is
+        the common shape, and error_count is what reports that.
+        """
+        trace = Trace.model_validate(
+            {
+                "trace_id": TRACE_ID,
+                "project_id": PROJECT_ID,
+                "error_count": 1,
+                "root_spans": [
+                    span_payload(
+                        ROOT_ROW_ID,
+                        "ai.chat",
+                        status_code="OK",
+                        children=[
+                            span_payload(LLM_ROW_ID, "ai.llm.invoke", status_code="ERROR")
+                        ],
+                    )
+                ],
+            }
+        )
+
+        assert trace.status_code == "OK"
+        assert trace.has_errors is False
+        assert trace.error_count == 1
+
+    @patch("rhesis.sdk.entities.trace.APIClient")
+    def test_has_errors_does_not_flip_when_the_detail_loads(self, mock_client, summary_payload):
+        """Deriving it from error_count made the same attribute mean one thing
+        on a listed trace and another once its spans were read, changing under
+        a caller who only asked for the spans."""
+        mock_client.return_value.send_request.return_value = {
+            "trace_id": TRACE_ID,
+            "project_id": PROJECT_ID,
+            "error_count": 1,
+            "root_spans": [
+                span_payload(
+                    ROOT_ROW_ID,
+                    "ai.chat",
+                    status_code="OK",
+                    children=[span_payload(LLM_ROW_ID, "ai.llm.invoke", status_code="ERROR")],
+                )
+            ],
+        }
+        trace = Trace.model_validate({**summary_payload, "status_code": "OK", "has_errors": False})
+
+        trace.spans()
+
+        assert trace.has_errors is False
+        assert trace.error_count == 1
 
 
 class TestTheTwoIds:

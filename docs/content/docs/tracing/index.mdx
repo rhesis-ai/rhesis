@@ -63,6 +63,13 @@ under the correct project scope.
 
 For multi-turn tests and chat sessions, traces group into conversation threads with turn-by-turn navigation across the tree, sequence, and graph views. See [Conversation Tracing](/docs/tracing/conversation-tracing) for the full walkthrough.
 
+## Reading traces back
+
+The dashboard is not the only way in. Recorded traces are also readable from code and from an agent:
+
+- **Python SDK** — query traces, walk their spans, and annotate them. See [Traces & Spans](/sdk/entities/traces).
+- **MCP** — `list_traces`, `get_trace`, `get_trace_metrics`, `lookup_span` and `list_trace_providers`, so an agent in Cursor or Claude Code can answer why a run failed or what it cost. See [Agent Skill](/docs/agent-skill).
+
 ## Quick Start
 
 <CodeBlock filename="app.py" language="python">
@@ -145,4 +152,5 @@ Traces originate from **normal application operation**. They capture live behavi
 - [Getting Started](/docs/tracing/setup) - Configure tracing in your application
 - [Decorators](/docs/tracing/decorators) - `@observe` and `@endpoint`
 - [Trace Metrics](/docs/metrics/trace-metrics) - Automatic evaluation on live traces
+- [Traces & Spans](/sdk/entities/traces) - Read traces back from the SDK
 - [Connector](/sdk/connector) - Register functions as testable endpoints
