@@ -245,7 +245,12 @@ class TraceDetailResponse(BaseModel):
     total_tokens: int
     total_input_tokens: int = 0
     total_output_tokens: int = 0
-    total_cost_usd: float
+    total_cost_usd: Optional[float] = Field(
+        default=None,
+        description="Trace cost in USD, or null when there is no figure: enrichment has "
+        "not run, or it ran and no model on the trace could be priced. Zero means the "
+        "trace was priced and came to nothing.",
+    )
     root_spans: List[SpanNode]
 
     # Trace metrics evaluation outcome. execution/verdict are the source of

@@ -94,18 +94,22 @@ def trace_token_totals(spans: Sequence[Trace]) -> TokenTotals:
     return token_totals_from_spans(spans)
 
 
-def trace_cost_usd(enriched_data: Optional[dict]) -> float:
-    """Trace-level cost in USD, or 0.0 when the trace has not been enriched.
+def trace_cost_usd(enriched_data: Optional[dict]) -> Optional[float]:
+    """Trace-level cost in USD, or ``None`` when there is no figure to report.
 
     Unlike tokens, cost has no fallback: it cannot be derived from span attributes.
+    ``None`` covers both silences -- enrichment has not run, and it ran but could not
+    price a single model -- and a caller that shows a zero for either claims the run
+    was free.
     """
     costs = (enriched_data or {}).get(EnrichedDataKeys.COSTS) or {}
-    return float(costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0) or 0.0)
+    total = costs.get(EnrichedDataKeys.TOTAL_COST_USD)
+    return None if total is None else float(total)
 
 
 def trace_summary_totals(
     enriched_data: Optional[dict], llm_tokens_fallback: int
-) -> Tuple[int, int, int, float, float]:
+) -> Tuple[int, int, int, Optional[float], Optional[float]]:
     """Token and cost totals for a trace list row.
 
     Shared by the traces list and the test-run trace list, which build the same
@@ -119,6 +123,10 @@ def trace_summary_totals(
     only the drawer shows it, and the drawer reads the detail endpoint, which has
     the full span set.
 
+    Either cost is ``None`` when the trace carries no figure -- not enriched, or
+    enriched and nothing on it could be priced. Zero is reserved for a trace that was
+    priced and came to nothing.
+
     Returns:
         ``(input_tokens, output_tokens, total_tokens, cost_usd, cost_eur)``
     """
@@ -130,12 +138,16 @@ def trace_summary_totals(
     else:
         input_tokens, output_tokens, total_tokens = enriched
 
+    def cost(key: str) -> Optional[float]:
+        value = costs.get(key)
+        return None if value is None else float(value)
+
     return (
         input_tokens,
         output_tokens,
         total_tokens,
-        float(costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0) or 0.0),
-        float(costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0) or 0.0),
+        cost(EnrichedDataKeys.TOTAL_COST_USD),
+        cost(EnrichedDataKeys.TOTAL_COST_EUR),
     )
 
 
@@ -143,20 +155,26 @@ def trace_summary_totals(
 class TraceUsage:
     """Everything one trace spent: tokens, the cost of each half, and what served it.
 
-    Zeros here mean "nothing was recorded", which for cost is indistinguishable from
-    "nothing was priced" -- callers that need to tell those apart should check
-    ``models`` instead, which is empty only when the trace has no priced LLM spans at all.
+    A cost of ``None`` means nothing on the trace could be priced -- no rate for the
+    model, or no model name on the span. A cost of zero means the trace was priced and
+    came to nothing, which is a real, knowable figure. ``models`` cannot tell the two
+    apart: an unpriceable span still reports the model it used.
     """
 
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
-    input_cost_usd: float = 0.0
-    output_cost_usd: float = 0.0
-    total_cost_usd: float = 0.0
-    total_cost_eur: float = 0.0
+    input_cost_usd: Optional[float] = None
+    output_cost_usd: Optional[float] = None
+    total_cost_usd: Optional[float] = None
+    total_cost_eur: Optional[float] = None
     models: List[str] = field(default_factory=list)
     providers: List[str] = field(default_factory=list)
+
+    @property
+    def priced(self) -> bool:
+        """Whether anything on this trace carries a cost somebody computed."""
+        return self.total_cost_usd is not None
 
 
 def _distinct_in_order(values: Iterable[Optional[str]]) -> List[str]:
@@ -224,6 +242,22 @@ def _tokens_from_breakdown(
     return input_tokens, output_tokens, total_tokens
 
 
+def _rounded(value: Optional[float]) -> Optional[float]:
+    """Round a cost, leaving an absent one absent."""
+    return None if value is None else round(float(value), 6)
+
+
+def _breakdown_cost(breakdown: Sequence[dict], key: str) -> Optional[float]:
+    """Sum one cost field over the breakdown entries that carry it.
+
+    ``None`` when not one of them does. That is the shape the SQL side already has --
+    ``SUM`` over all-NULL is NULL -- and keeping them the same is what stops the cell
+    and the sort disagreeing about a trace nothing could price.
+    """
+    priced = [float(entry[key]) for entry in breakdown if entry.get(key) is not None]
+    return sum(priced) if priced else None
+
+
 def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int = 0) -> TraceUsage:
     """Full usage for one trace, reading whatever the enrichment blob happens to carry.
 
@@ -250,12 +284,8 @@ def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int =
     input_cost = costs.get(EnrichedDataKeys.TOTAL_INPUT_COST_USD)
     output_cost = costs.get(EnrichedDataKeys.TOTAL_OUTPUT_COST_USD)
     if input_cost is None or output_cost is None:
-        input_cost = sum(
-            float(entry.get(EnrichedDataKeys.INPUT_COST_USD, 0.0) or 0.0) for entry in breakdown
-        )
-        output_cost = sum(
-            float(entry.get(EnrichedDataKeys.OUTPUT_COST_USD, 0.0) or 0.0) for entry in breakdown
-        )
+        input_cost = _breakdown_cost(breakdown, EnrichedDataKeys.INPUT_COST_USD)
+        output_cost = _breakdown_cost(breakdown, EnrichedDataKeys.OUTPUT_COST_USD)
 
     # Always from the breakdown, never from the blob's own models_used/providers_used:
     # those are two independent lists, and pairing a model with a provider needs them to
@@ -266,14 +296,18 @@ def trace_usage_totals(enriched_data: Optional[dict], llm_tokens_fallback: int =
     models = _distinct_in_order(model for model, _ in pairs)
     providers = _distinct_in_order(provider for _, provider in pairs)
 
+    total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD)
+    if total_cost_usd is None:
+        total_cost_usd = _breakdown_cost(breakdown, EnrichedDataKeys.TOTAL_COST_USD)
+
     return TraceUsage(
         input_tokens=tokens[0],
         output_tokens=tokens[1],
         total_tokens=tokens[2],
-        input_cost_usd=round(float(input_cost or 0.0), 6),
-        output_cost_usd=round(float(output_cost or 0.0), 6),
-        total_cost_usd=float(costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0) or 0.0),
-        total_cost_eur=float(costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0) or 0.0),
+        input_cost_usd=_rounded(input_cost),
+        output_cost_usd=_rounded(output_cost),
+        total_cost_usd=_rounded(total_cost_usd),
+        total_cost_eur=_rounded(costs.get(EnrichedDataKeys.TOTAL_COST_EUR)),
         models=list(models),
         providers=list(providers),
     )
@@ -286,13 +320,14 @@ def trace_summary_usage(enriched_data: Optional[dict], llm_tokens_fallback: int)
     row from the same ``query_traces`` output, and each had its own copy of this
     unpacking. One copy so a field added here reaches both.
 
-    Zero becomes ``None`` for every figure, which is the convention the list response
-    already used for tokens and cost: the grid renders a dash for an absent number rather
-    than a zero it cannot vouch for. ``models`` stays a list, empty when the trace has
-    nothing priced, since that is what tells "not traced" from "traced and free".
+    Zero tokens become ``None``, which is the convention the list response already used:
+    the grid renders a dash for an absent number rather than a zero it cannot vouch for.
+    A cost of zero is left alone, because a priced trace that came to nothing really did
+    cost nothing; only a trace nothing could price reports no cost, and enrichment
+    already recorded that as ``None``. ``models`` stays a list either way -- an
+    unpriceable span still names the model it used.
     """
     usage = trace_usage_totals(enriched_data, llm_tokens_fallback)
-    priced = bool(usage.models)
 
     def tokens(value):
         """Zero tokens is nothing to show, and tokens have a pre-enrichment fallback."""
@@ -305,7 +340,7 @@ def trace_summary_usage(enriched_data: Optional[dict], llm_tokens_fallback: int)
         real, knowable nothing, and showing a dash for it would claim we had no idea.
         Only a trace nothing priced gets the dash.
         """
-        return value if priced else None
+        return value if usage.priced else None
 
     return {
         "total_tokens": tokens(usage.total_tokens),

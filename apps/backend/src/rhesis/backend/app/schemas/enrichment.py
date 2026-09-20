@@ -26,24 +26,52 @@ class CostBreakdown(BaseModel):
         description="Total tokens for this span, as reported rather than derived: "
         "Google ADK folds cache-read tokens in, so it can exceed input + output",
     )
-    input_cost_usd: float = Field(..., ge=0, description="Cost of input tokens in USD")
-    output_cost_usd: float = Field(..., ge=0, description="Cost of output tokens in USD")
-    total_cost_usd: float = Field(..., ge=0, description="Total cost for this span in USD")
-    input_cost_eur: float = Field(..., ge=0, description="Cost of input tokens in EUR")
-    output_cost_eur: float = Field(..., ge=0, description="Cost of output tokens in EUR")
-    total_cost_eur: float = Field(..., ge=0, description="Total cost for this span in EUR")
+    # None, not zero, when the span could not be priced: LiteLLM has no rate for the
+    # model, or the span reported no model name at all. Zero is reserved for a model
+    # that really is free, so the two never share a figure.
+    input_cost_usd: Optional[float] = Field(
+        None, ge=0, description="Cost of input tokens in USD, or null if the span was not priced"
+    )
+    output_cost_usd: Optional[float] = Field(
+        None, ge=0, description="Cost of output tokens in USD, or null if the span was not priced"
+    )
+    total_cost_usd: Optional[float] = Field(
+        None, ge=0, description="Total cost for this span in USD, or null if it was not priced"
+    )
+    input_cost_eur: Optional[float] = Field(
+        None, ge=0, description="Cost of input tokens in EUR, or null if the span was not priced"
+    )
+    output_cost_eur: Optional[float] = Field(
+        None, ge=0, description="Cost of output tokens in EUR, or null if the span was not priced"
+    )
+    total_cost_eur: Optional[float] = Field(
+        None, ge=0, description="Total cost for this span in EUR, or null if it was not priced"
+    )
 
 
 class TokenCosts(BaseModel):
     """Token costs for a trace."""
 
-    total_cost_usd: float = Field(..., ge=0, description="Total cost across all spans in USD")
-    total_cost_eur: float = Field(..., ge=0, description="Total cost across all spans in EUR")
-    total_input_cost_usd: float = Field(
-        0.0, ge=0, description="Cost of input tokens across all llm.invoke spans, in USD"
+    # Null when nothing in the breakdown could be priced. The trace still carries its
+    # tokens and model names, so a caller can tell "no price for these models" from
+    # "no LLM calls at all", which is an absent costs blob.
+    total_cost_usd: Optional[float] = Field(
+        None, ge=0, description="Total cost across all spans in USD, or null if none were priced"
     )
-    total_output_cost_usd: float = Field(
-        0.0, ge=0, description="Cost of output tokens across all llm.invoke spans, in USD"
+    total_cost_eur: Optional[float] = Field(
+        None, ge=0, description="Total cost across all spans in EUR, or null if none were priced"
+    )
+    total_input_cost_usd: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Cost of input tokens across all llm.invoke spans, in USD, "
+        "or null if none were priced",
+    )
+    total_output_cost_usd: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Cost of output tokens across all llm.invoke spans, in USD, "
+        "or null if none were priced",
     )
     total_input_tokens: int = Field(0, ge=0, description="Input tokens across all llm.invoke spans")
     total_output_tokens: int = Field(
@@ -52,8 +80,9 @@ class TokenCosts(BaseModel):
     total_tokens: int = Field(0, ge=0, description="Total tokens across all llm.invoke spans")
     models_used: List[str] = Field(
         default_factory=list,
-        description="Distinct models priced for this trace. Scoped to llm.invoke spans, so it is "
-        "narrower than EnrichedTraceData.models_used, which counts every model the trace touched.",
+        description="Distinct models seen on this trace's llm.invoke spans, priced or not, so it "
+        "is narrower than EnrichedTraceData.models_used, which counts every model the trace "
+        "touched. Presence here does not mean a price was found: read the cost totals for that.",
     )
     providers_used: List[str] = Field(
         default_factory=list, description="Distinct providers behind those models"
