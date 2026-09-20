@@ -30,6 +30,10 @@ You are restricted to the following Asana workspace:
 Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid }}".
 {% endif %}
 {% endif %}
+{% if provider == "trello" %}
+Use Trello tools to retrieve the full board, list, or card content, including description,
+checklists, comments, and attachments when available.
+{% endif %}
 {% if provider == "linear" %}
 Use Linear tools to retrieve the full issue, project, or document content, including
 description, acceptance criteria, and comments when available.

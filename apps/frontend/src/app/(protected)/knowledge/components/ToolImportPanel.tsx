@@ -110,6 +110,12 @@ function getProviderLabel(provider: string): {
       placeholder: 'Paste Asana task or project URL...',
     };
   }
+  if (provider === 'trello') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste Trello board or card URL...',
+    };
+  }
   return {
     checkbox: 'Include linked items',
     placeholder: 'Paste URL...',
