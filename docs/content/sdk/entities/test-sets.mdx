@@ -230,7 +230,7 @@ A `Prompt` is the input side of a single-turn test. It is a value on a `Test` ra
 | `expected_response` | `str` | What a correct answer looks like, used by metrics that compare against a reference |
 | `language_code` | `str` | Defaults to `en` |
 
-Multi-turn tests carry a `test_configuration` instead, and a test uses one or the other, never both.
+Multi-turn tests carry a `test_configuration` instead. Set the one that matches the test: every route requires at least one, and sending both is accepted when creating a test but rejected when executing an ad-hoc one whose `test_configuration` carries a `goal`.
 
 ### Creating Tests
 

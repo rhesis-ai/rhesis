@@ -352,7 +352,7 @@ Use this **only** when importing specific user-provided test prompts that must b
   - Multi-Turn: `{"test_type": "Multi-Turn", "test_configuration": {"goal": "...", "instructions": "...", "restrictions": "...", "scenario": "...", "max_turns": 10}, "requirement": "name", "category": "name", "topic": "name"}`
 - `priority` — integer (1, 2, 3), not a string
 
-Only `goal` is required inside `test_configuration`. A test uses either `prompt` or `test_configuration`, never both.
+Only `goal` is required inside `test_configuration`. Every test needs one of `prompt` or `test_configuration`; send the one matching its `test_type`. Sending both is accepted here — the validator returns as soon as it sees a `prompt` — so a test carrying both is stored rather than refused, and behaves as single-turn.
 
 **Common mistakes:** Setting `test_set_type: "Multi-Turn"` but sending tests with `prompt` — the server types each test from its own content, so those tests land as Single-Turn inside a Multi-Turn set. Set `test_type` on every test object.
 
@@ -362,7 +362,15 @@ Only `goal` is required inside `test_configuration`. A test uses either `prompt`
 
 Two published catalogues of attacks, as an alternative to writing requirements and generating from them. Use these when the user asks for red-teaming, jailbreak testing, or coverage of a named standard, rather than for behaviour specific to their product.
 
-Both generators run as **background tasks**: the response carries a `task_id`, which you poll with `get_job_status` until `SUCCESS`, then read `test_set_id` from the result. Verify with `get_test_set` and `list_test_set_tests` before offering `execute_test_set`.
+All three writers run as **background tasks**: the response carries a `task_id`, which you poll with `get_job_status` until `SUCCESS`. What the result holds differs, so read the right field:
+
+| Tool | Result shape |
+|------|--------------|
+| `import_garak_probes` | `test_sets` — **a list**, one entry per probe, each with its own `test_set_id`, plus `total_test_sets` and `total_tests` |
+| `generate_garak_test_set` | a single `test_set_id` |
+| `generate_owasp_test_set` | a single `test_set_id` |
+
+Verify with `get_test_set` and `list_test_set_tests` before offering `execute_test_set`. Importing several probes produces several test sets, so report them as several rather than naming only the first.
 
 ---
 
@@ -374,7 +382,9 @@ List the Garak probe modules and their probe classes. Each carries the Rhesis ca
 ---
 
 ### `import_garak_probes`
-Import static Garak probes as test sets, one per probe, using the probe's own built-in prompts. No LLM generation, so the prompts are exactly what Garak ships. **Requires confirmation.**
+Import static Garak probes as test sets, **one test set per probe**, using the probe's own built-in prompts. No LLM generation, so the prompts are exactly what Garak ships. **Requires confirmation.**
+
+The job result is a `test_sets` list rather than a single id — see the table above.
 
 **Key parameters:**
 - `probes` (required) — non-empty array of `{"module_name": …, "class_name": …, "custom_name": …}`, resolved from `list_garak_probes`
