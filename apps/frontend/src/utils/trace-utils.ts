@@ -117,10 +117,9 @@ export function spanUsage(span: SpanNode): SpanUsage | null {
   // total, so input + output can fall short of it.
   const reportedTotal = asCount(attrs['ai.llm.tokens.total']);
   const total = reportedTotal > 0 ? reportedTotal : input + output;
-  const costUsd =
-    typeof span.cost_usd === 'number' && span.cost_usd > 0
-      ? span.cost_usd
-      : null;
+  // Zero is kept: a span enrichment priced at nothing really did cost nothing.
+  // A span it could not price carries no cost_usd at all, which is the null.
+  const costUsd = typeof span.cost_usd === 'number' ? span.cost_usd : null;
 
   if (total === 0 && costUsd === null) {
     return null;
@@ -313,6 +312,28 @@ export function getStatusChipProps(statusCode: string): {
     variant: 'outlined',
   };
 }
+
+/**
+ * The words every cost card uses, so the traces page and a test run's summary
+ * cannot describe the same silence differently. They already had: one offered
+ * the documentation link below and a tooltip, the other neither.
+ */
+export const COSTS_DOC_URL =
+  'https://docs.rhesis.ai/docs/tracing/costs#when-a-figure-is-missing';
+
+/** What a cost card shows when nothing on the run could be priced. */
+export const NO_COST_DATA = 'No cost data';
+
+/** Shown while enrichment still has traces of the scope to get through. */
+export const PRICING_IN_PROGRESS = 'Working out what this cost';
+
+export const NO_COST_DATA_TOOLTIP =
+  'Rhesis prices a run from the tokens its LLM calls reported. A model with no ' +
+  'published price, such as a self-hosted one, has no cost to show.';
+
+export const COST_TOOLTIP =
+  "What this run's traced LLM calls cost, and the tokens behind it. Figures keep " +
+  'climbing while enrichment works through the run traces.';
 
 /**
  * Whether a scope has any traced LLM calls to report on.

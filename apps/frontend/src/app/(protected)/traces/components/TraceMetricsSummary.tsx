@@ -1,17 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, Grid, Tooltip, Typography } from '@mui/material';
+import { Box, Grid, Link, Tooltip, Typography } from '@mui/material';
 import KpiCard from '../../test-runs/[identifier]/components/summary/KpiCard';
 import ModelLabel from '@/components/common/ModelLabel';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 import {
+  COST_TOOLTIP,
+  COSTS_DOC_URL,
   formatTokenCount,
   hasTracedUsage,
   isCostKnown,
   isPricingInProgress,
+  NO_COST_DATA,
+  NO_COST_DATA_TOOLTIP,
+  PRICING_IN_PROGRESS,
   tokenSplitLabel,
 } from '@/utils/trace-utils';
 
@@ -171,7 +176,7 @@ export default function TraceMetricsSummary({
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <UsageTile metrics={metrics} split={split} />
+          <CostTile metrics={metrics} split={split} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KpiCard
@@ -221,10 +226,11 @@ function HoverList({ label, items }: { label: string; items: string[] }) {
 
 /**
  * What the scope spent. Cost leads where it is known; where it is not, tokens
- * lead and the tile says which kind of silence it is -- exactly the rule the
- * test run summary card follows, so the two cannot describe one run differently.
+ * lead and the tile says which kind of silence it is -- the same rule and the
+ * same words as the test run summary card, which reads its copy from the same
+ * constants in trace-utils, so the two cannot describe one run differently.
  */
-function UsageTile({
+function CostTile({
   metrics,
   split,
 }: {
@@ -237,28 +243,53 @@ function UsageTile({
     .join(' · ');
 
   if (!isCostKnown(metrics)) {
+    if (isPricingInProgress(metrics)) {
+      return (
+        <KpiCard
+          title="Cost"
+          value={formatTokenCount(metrics.total_tokens)}
+          valueSuffix="tokens"
+          subtitle={PRICING_IN_PROGRESS}
+          infoTooltip={COST_TOOLTIP}
+        />
+      );
+    }
+
     return (
       <KpiCard
-        title="Usage"
-        value={formatTokenCount(metrics.total_tokens)}
-        valueSuffix="tokens"
+        title="Cost"
+        value={NO_COST_DATA}
+        valueVariant="h6"
+        valueColor="text.secondary"
+        // The token count without its input/output split: the split plus the
+        // link wraps onto a third line and strands "Why?" on its own.
         subtitle={
-          isPricingInProgress(metrics)
-            ? 'Working out what this cost'
-            : 'No priced models'
+          <>
+            {formatTokenCount(metrics.total_tokens)} tokens &middot;{' '}
+            <Link
+              href={COSTS_DOC_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="hover"
+            >
+              Why?
+            </Link>
+          </>
         }
+        infoTooltip={NO_COST_DATA_TOOLTIP}
       />
     );
   }
 
   return (
     <KpiCard
-      title="Usage"
+      title="Cost"
       value={money(metrics.total_cost_usd)}
       // One string rather than flex children: both halves are plain text, so
       // the separator can be part of the sentence and wrap with it, instead of
       // being an element whose spacing lives in CSS and is lost on copy.
       subtitle={tokens}
+      infoTooltip={COST_TOOLTIP}
     />
   );
 }
