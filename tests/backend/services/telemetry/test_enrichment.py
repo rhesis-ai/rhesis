@@ -137,10 +137,11 @@ class TestCalculateTokenCosts:
         assert costs is None
 
     def test_calculate_costs_unknown_model_keeps_tokens(self):
-        """An unpriceable model still contributes its tokens, at zero cost.
+        """An unpriceable model still contributes its tokens, and reports no cost.
 
         Tokens are known even when the price is not, so dropping the span would make
-        a self-hosted or unrecognised model report zero usage.
+        a self-hosted or unrecognised model report zero usage. The cost comes back as
+        ``None`` rather than zero, because a run nobody could price is not a free run.
         """
         spans = [
             Mock(
@@ -159,11 +160,16 @@ class TestCalculateTokenCosts:
         costs = calculate_token_costs(spans)
 
         assert costs is not None
-        assert costs.total_cost_usd == 0.0
-        assert costs.total_cost_eur == 0.0
+        assert costs.total_cost_usd is None
+        assert costs.total_cost_eur is None
+        assert costs.total_input_cost_usd is None
+        assert costs.total_output_cost_usd is None
         assert costs.total_input_tokens == 100
         assert costs.total_output_tokens == 50
         assert costs.total_tokens == 150
+        # The model is still named, so the Models card and the provider filter still
+        # have something to show. Presence there must not imply a price was found.
+        assert costs.models_used == ["unknown-model-xyz-123"]
 
     def test_calculate_costs_mixed_priced_and_unpriced(self):
         """A trace mixing a priced and an unpriced model counts both models' tokens."""
@@ -200,17 +206,19 @@ class TestCalculateTokenCosts:
         assert costs.total_input_tokens == 300
         assert costs.total_output_tokens == 120
 
-        # Only the priced span carries cost; the unpriced one is recorded at zero.
+        # Only the priced span carries cost; the total is that half alone.
         expected_usd = sum(
             litellm.cost_per_token(model="gpt-4", prompt_tokens=100, completion_tokens=50)
         )
         assert costs.total_cost_usd == pytest.approx(expected_usd, rel=0.01)
         unpriced = next(b for b in costs.breakdown if b.span_id == "unpriced")
-        assert unpriced.total_cost_usd == 0.0
+        assert unpriced.total_cost_usd is None
+        assert unpriced.input_cost_usd is None
+        assert unpriced.output_cost_usd is None
         assert unpriced.total_tokens == 270
 
     def test_calculate_costs_missing_model_name_keeps_tokens(self):
-        """A span with no model name is recorded at zero cost rather than dropped."""
+        """A span with no model name keeps its tokens and reports no cost."""
         spans = [
             Mock(
                 spec=Trace,
@@ -228,7 +236,7 @@ class TestCalculateTokenCosts:
 
         assert costs is not None
         assert costs.total_tokens == 50
-        assert costs.total_cost_usd == 0.0
+        assert costs.total_cost_usd is None
         assert costs.breakdown[0].model_name == UNKNOWN_MODEL_NAME
 
     def test_reported_total_is_trusted_not_derived(self):
