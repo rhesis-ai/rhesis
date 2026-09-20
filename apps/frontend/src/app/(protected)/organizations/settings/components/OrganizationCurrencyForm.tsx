@@ -12,7 +12,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { BASE_CURRENCY, isCurrency, type Currency } from '@/utils/money';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 
-interface DisplayCurrencyFormProps {
+interface OrganizationCurrencyFormProps {
   organization: Organization;
   onUpdate: () => void;
 }
@@ -20,11 +20,15 @@ interface DisplayCurrencyFormProps {
 /**
  * The currency everyone in the organization sees costs in, unless they have
  * chosen their own in their personal settings.
+ *
+ * Deliberately the same card, the same select label and the same explanation as
+ * the personal one in settings/components/PreferencesForm. Only the sentence
+ * saying whose setting it is differs, because that is the only real difference.
  */
-export default function DisplayCurrencyForm({
+export default function OrganizationCurrencyForm({
   organization,
   onUpdate,
-}: DisplayCurrencyFormProps) {
+}: OrganizationCurrencyFormProps) {
   const notifications = useNotifications();
   const canUpdateOrg = useCan(Capability.Organization.UPDATE);
   const { rates } = useCurrency();
@@ -54,11 +58,11 @@ export default function DisplayCurrencyForm({
   return (
     <SectionCard
       title="Currency"
-      subtitle="How costs are shown to everyone here, unless they pick their own in their personal settings."
+      subtitle="The currency costs are shown in, across traces and test runs. This is the default for everyone in the organization, and anyone can override it in their own preferences."
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <CurrencySelect
-          label="Organization currency"
+          label="Currency"
           value={value}
           onChange={handleChange}
           rates={rates}
@@ -66,8 +70,8 @@ export default function DisplayCurrencyForm({
         />
         <Typography variant="body2" color="text.secondary">
           Costs are recorded in {BASE_CURRENCY} and converted at the daily
-          European Central Bank reference rate. This changes how they are
-          displayed, not what was spent.
+          European Central Bank reference rate. This changes how costs are
+          shown, not what was spent.
         </Typography>
       </Box>
     </SectionCard>

@@ -22,6 +22,10 @@ interface PreferencesFormProps {
 /**
  * How this person wants costs shown, whatever the organization chose.
  *
+ * Deliberately the same card, the same select label and the same explanation as
+ * the organization one in organizations/settings/components/OrganizationCurrencyForm.
+ * Only the sentence saying whose setting it is differs.
+ *
  * Writes straight through the settings cache rather than invalidating and
  * refreshing, so the figures across the app change as the select closes
  * instead of blanking and coming back.
@@ -52,7 +56,7 @@ export default function PreferencesForm({
       });
     } catch (err: unknown) {
       notifications.show(
-        err instanceof Error ? err.message : 'Could not save your currency',
+        err instanceof Error ? err.message : 'Could not save the currency',
         { severity: 'error' }
       );
     } finally {
@@ -62,8 +66,8 @@ export default function PreferencesForm({
 
   return (
     <SectionCard
-      title="Preferences"
-      subtitle="How figures are shown to you across Rhesis."
+      title="Currency"
+      subtitle="The currency costs are shown in, across traces and test runs. This applies to you only, and overrides the organization's default."
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <CurrencySelect
@@ -76,8 +80,8 @@ export default function PreferencesForm({
         />
         <Typography variant="body2" color="text.secondary">
           Costs are recorded in {BASE_CURRENCY} and converted at the daily
-          European Central Bank reference rate. Choosing a currency changes what
-          you see, not what was spent.
+          European Central Bank reference rate. This changes how costs are
+          shown, not what was spent.
         </Typography>
       </Box>
     </SectionCard>
