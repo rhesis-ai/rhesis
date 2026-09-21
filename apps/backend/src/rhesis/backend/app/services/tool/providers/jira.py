@@ -3,6 +3,11 @@
 ``JIRA_URL`` is validated against the SSRF blocklist on create as well as on
 update. The old router only checked it on update, so a tool created with a URL
 resolving to link-local space was accepted and only rejected on the next edit.
+
+Every field is required because :class:`JiraRestClient` authenticates with HTTP
+Basic ``(username, api_token)`` and has no bearer path, so token-only Jira is
+not supported. A blank email would pass validation and then fail the health
+check with an opaque 401.
 """
 
 from rhesis.backend.app.services.tool.providers._common import (
@@ -36,8 +41,8 @@ MANIFEST = ProviderManifest(
             key="JIRA_USERNAME",
             label="Atlassian email",
             store=FieldStore.CREDENTIALS,
-            required=False,
             preserve_on_update=True,
+            help_text="The account the API token belongs to.",
         ),
         api_token_field("JIRA_API_TOKEN"),
         ProviderField(

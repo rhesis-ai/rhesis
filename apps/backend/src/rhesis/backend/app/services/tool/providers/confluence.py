@@ -30,8 +30,8 @@ MANIFEST = ProviderManifest(
             key="CONFLUENCE_USERNAME",
             label="Atlassian email",
             store=FieldStore.CREDENTIALS,
-            required=False,
             preserve_on_update=True,
+            help_text="The account the API token belongs to.",
         ),
         api_token_field("CONFLUENCE_API_TOKEN"),
         ProviderField(

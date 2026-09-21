@@ -243,9 +243,13 @@ def test_metadata_acceptances(key, metadata):
             {"GITLAB_PERSONAL_ACCESS_TOKEN": "t", "GITLAB_API_URL": ""},
         ),
         (
-            "jira",
+            "confluence",
             FieldStore.CREDENTIALS,
-            {"JIRA_URL": "https://x.atlassian.net", "JIRA_API_TOKEN": "t", "JIRA_USERNAME": ""},
+            {
+                "CONFLUENCE_URL": "https://x.atlassian.net",
+                "CONFLUENCE_USERNAME": "e@x.com",
+                "CONFLUENCE_API_TOKEN": "t",
+            },
         ),
         ("github", FieldStore.METADATA, {"repository": {"owner": "", "repo": ""}}),
     ],
@@ -264,6 +268,28 @@ def test_blank_optional_field_means_not_provided(key, store, payload):
 def test_blank_required_field_is_still_rejected():
     with pytest.raises(ProviderFieldError):
         validate_store(MANIFESTS["linear"], FieldStore.CREDENTIALS, {"LINEAR_API_TOKEN": "  "})
+
+
+@pytest.mark.parametrize(
+    "key,url_field,token_field,email_field",
+    [
+        ("jira", "JIRA_URL", "JIRA_API_TOKEN", "JIRA_USERNAME"),
+        ("confluence", "CONFLUENCE_URL", "CONFLUENCE_API_TOKEN", "CONFLUENCE_USERNAME"),
+    ],
+)
+def test_atlassian_email_is_required(key, url_field, token_field, email_field):
+    """Both clients authenticate with HTTP Basic ``(username, api_token)``.
+
+    A blank email would pass validation and then fail the health check with an
+    opaque 401, so the form has to catch it.
+    """
+    with pytest.raises(ProviderFieldError) as exc:
+        validate_store(
+            MANIFESTS[key],
+            FieldStore.CREDENTIALS,
+            {url_field: "https://x.atlassian.net", token_field: "t", email_field: ""},
+        )
+    assert email_field in str(exc.value)
 
 
 # --- merging on update ----------------------------------------------------

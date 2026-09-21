@@ -163,6 +163,14 @@ def merge_credentials(
     instance URL, the org name, or the other half of a two-part credential.
     Only fields the manifest marks ``preserve_on_update`` are carried over, so
     an omitted secret is still an omitted secret.
+
+    A blank incoming value means "not supplied" and restores the stored one, so
+    there is currently no way to clear a preserved field back to its default --
+    blanking ``GITLAB_API_URL`` will not move a tool from a self-managed
+    instance to gitlab.com. That predates the manifests: the merge functions
+    this replaced behaved the same way. Expressing "clear" needs a sentinel the
+    schema cannot carry today, because ``ToolUpdate.credentials`` is typed
+    ``Dict[str, str]`` and rejects a null value.
     """
     merged: dict[str, Any] = dict(incoming or {})
     existing = _decode(existing_credentials_json)
