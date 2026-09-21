@@ -751,6 +751,19 @@ class TestTraceTools:
         assert "root_spans[0].id" in description
         assert "32-char hex" in description
 
+    def test_list_traces_says_an_unpriced_cost_is_not_a_free_one(self):
+        """Null and zero mean different things, and the difference is silent.
+
+        Null is "no price held for this model"; zero is "priced, and free".
+        An agent that adds nulls in as zero under-reports a total and calls it
+        the answer, which is the same failure as reporting a request back as a
+        result: a plausible number nothing in the conversation contradicts.
+        """
+        description = self._cfg("list_traces")["description"].replace("\n", " ")
+        assert "null is not zero" in description.lower()
+        assert "not priced" in description
+        assert "floor" in description
+
     def test_list_traces_explains_the_fail_closed_project_scope(self):
         """An empty list here usually means no project scope, not no traces.
 

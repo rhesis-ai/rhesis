@@ -34,7 +34,8 @@ They are not interchangeable, and confusing them is the one thing that silently 
 | `has_errors` | `bool` | Whether the **root span** failed — not whether any span did |
 | `conversation_id` | `str` | Set when the trace is one turn of a conversation |
 | `conversation_input` | `str` | The request that started it |
-| `total_tokens`, `total_cost_usd` | `int`, `float` | Usage totals, also split input and output |
+| `total_tokens` | `int` | Tokens across the trace, also split input and output |
+| `total_cost_usd`, `total_cost_eur` | `float \| None` | Cost, also split input and output. `None` when nothing was priced — see below |
 | `models`, `providers` | `list[str]` | What served the priced calls |
 | `trace_metrics_status` | `str` | Automated trace evaluation verdict |
 | `verdict`, `last_annotation`, `matches_annotation` | | The human verdict, where someone left one |
@@ -42,6 +43,22 @@ They are not interchangeable, and confusing them is the one thing that silently 
 | `root_spans` | `list[Span]` | The span tree. Populated by the detail call |
 
 A `Span` carries `id` (its row id), `span_id` (the OpenTelemetry hex), `span_name`, `span_kind`, `start_time`, `end_time`, `duration_ms`, `status_code`, `status_message`, `model_name`, `cost_usd`, `attributes`, `events`, `trace_metrics` and `children`.
+
+### Unpriced is not free
+
+A cost of `None` means the call was not priced: the platform holds no price for that model, or the span reported no model name at all. `0.0` means it was priced and the model really is free. The two never share a figure, so the distinction is readable rather than guessed at.
+
+This matters when adding costs up. Treating `None` as zero under-reports a total, and `cost == 0` reads a model nobody has a price for as one that costs nothing:
+
+<CodeBlock filename="summing_cost.py" language="python">
+{`priced = [t for t in traces if t.total_cost_usd is not None]
+total = sum(t.total_cost_usd for t in priced)
+
+# Say what the total covers, rather than implying it covers everything
+unpriced = len(traces) - len(priced)`}
+</CodeBlock>
+
+A trace keeps its tokens and model names either way, so "no price for these models" stays distinguishable from "no LLM calls at all".
 
 ## Finding traces
 

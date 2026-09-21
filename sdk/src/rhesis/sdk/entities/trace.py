@@ -82,6 +82,8 @@ class Span(BaseModel):
     status_code: Optional[str] = None
     status_message: Optional[str] = None
     model_name: Optional[str] = None
+    # None when this span was not priced, zero when it was and the model is
+    # free. See the note on Trace.total_cost_usd.
     cost_usd: Optional[float] = None
     attributes: Dict[str, Any] = Field(default_factory=dict)
     events: List[Dict[str, Any]] = Field(default_factory=list)
@@ -174,6 +176,10 @@ class Trace(BaseEntity):
     total_tokens: Optional[int] = None
     total_input_tokens: Optional[int] = None
     total_output_tokens: Optional[int] = None
+    # None means nothing in the trace was priced -- no price is held for the
+    # model, or the span reported no model name. Zero is reserved for a model
+    # that really is free, so the two never share a figure. Summing these
+    # treating None as zero under-reports and reads as a complete total.
     total_cost_usd: Optional[float] = None
     total_cost_eur: Optional[float] = None
     total_input_cost_usd: Optional[float] = None

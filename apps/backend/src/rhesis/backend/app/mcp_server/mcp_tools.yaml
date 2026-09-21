@@ -1706,6 +1706,14 @@ tools:
       verdict where someone left one: has_annotations, verdict,
       last_annotation, matches_annotation.
 
+      COST CAN BE NULL, AND NULL IS NOT ZERO. A null total_cost_usd means the
+      call was not priced: no price is held for that model, or the span reported
+      no model name. Zero means it was priced and the model really is free.
+      Never add nulls in as zero, and never read a zero as unpriced. When you
+      report a total across rows, say how many carried a price -- a sum over the
+      priced ones is a floor, not the whole figure. Tokens and model names are
+      there either way, so an unpriced trace is still worth reporting on.
+
       A row carries no span attributes and no events, which is what makes this
       the cheap call: it stays compact however large the traces are. The one
       unbounded field is conversation_input, up to 10000 characters, so narrow
