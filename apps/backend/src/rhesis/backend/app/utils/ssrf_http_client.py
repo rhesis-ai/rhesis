@@ -215,9 +215,11 @@ validate_jwks_uri_origin = validate_endpoint_origin
 
 
 class SafeHttpClient:
-    """SSRF-safe HTTP client for all SSO outbound requests.
+    """HTTP client that will not be talked into reaching an internal address.
 
-    SSRF protection strategy differs by scheme:
+    Used for outbound calls whose target a user or an administrator supplies:
+    an IdP issuer for SSO, a provider endpoint for an OAuth flow. Protection
+    differs by scheme:
 
     * **HTTPS**: Resolve the hostname, validate all resolved IPs against the
       blocklist, then make the request with the *original* hostname URL.
@@ -231,9 +233,12 @@ class SafeHttpClient:
       risk for plain-text connections where TLS cannot provide a second layer
       of protection.
 
-    Set ``verify_ssl=False`` only for IdPs with self-signed certificates
-    (e.g. on-premise Keycloak in dev/staging). TLS is always verified in
-    production unless this flag is explicitly set on the SSOConfig.
+    Set ``verify_ssl=False`` only for a host with a self-signed or internal-CA
+    certificate, such as an on-premise Keycloak. It costs more than the
+    certificate check: the HTTPS path above leans on TLS to catch a hostname
+    that resolves to one address during the preflight check and another at
+    connect time, so turning verification off reopens that window. Use it only
+    where the network between Rhesis and the host is itself trusted.
     """
 
     def __init__(self, timeout: float = 10.0, verify_ssl: bool = True):
