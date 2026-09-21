@@ -1,12 +1,17 @@
-"""SSRF-safe HTTP client for SSO outbound requests.
+"""SSRF-safe HTTP client for outbound requests to addresses a tenant supplies.
 
-All outbound HTTP from SSO flows (OIDC discovery, JWKS fetch, token exchange,
-test-connection) MUST go through this client. Direct use of httpx or requests
-in SSO code is forbidden.
+Anywhere a customer names the host we call -- an OIDC issuer, a self-managed
+GitLab, an OAuth token endpoint -- the address is untrusted input, and the
+obvious target is something only the server can reach: a VPC neighbour, a
+Kubernetes service, or the cloud metadata endpoint on 169.254.169.254.
 
-DNS resolution is performed once, validated against the blocklist, and the
-resolved IP is pinned into the httpx request to eliminate TOCTOU / DNS
-rebinding attacks.
+DNS is resolved once, checked against the blocklist, and the resolved IP is
+pinned into the request. Resolving again at connect time would reopen the
+TOCTOU window this exists to close, which is what makes DNS rebinding work.
+
+Moved here from ``ee/sso/http_client.py``. It was never SSO-specific, and core
+had only ``services/tool/url_validation.py``, which checks a URL at rest and
+leaves the connection itself to re-resolve.
 """
 
 import ipaddress
@@ -97,14 +102,11 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
         raise SSRFError(f"Blocked hostname: {hostname}")
 
     skip_blocklist = (
-        get_application_settings().is_development
-        and hostname.lower() in _LOCALHOST_NAMES
+        get_application_settings().is_development and hostname.lower() in _LOCALHOST_NAMES
     )
 
     try:
-        addr_infos = socket.getaddrinfo(
-            hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
-        )
+        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
     except socket.gaierror:
         raise SSRFError(f"DNS resolution failed for: {hostname}")
 
@@ -126,9 +128,7 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
                         ip_str,
                         network,
                     )
-                    raise SSRFError(
-                        f"Hostname {hostname} resolves to a blocked address"
-                    )
+                    raise SSRFError(f"Hostname {hostname} resolves to a blocked address")
     else:
         logger.info(
             "SSRF blocklist bypassed for localhost in dev environment: %s",
@@ -161,14 +161,16 @@ def _pin_url_to_ip(url: str, addr_infos: List[Tuple]) -> Tuple[str, str]:
     else:
         new_netloc = ip_host
 
-    pinned = urlunparse((
-        parsed.scheme,
-        new_netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        parsed.fragment,
-    ))
+    pinned = urlunparse(
+        (
+            parsed.scheme,
+            new_netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
     return pinned, hostname
 
 
@@ -196,9 +198,7 @@ def validate_endpoint_origin(endpoint_url: str, issuer_url: str) -> None:
     issuer_parsed = urlparse(issuer_url)
 
     if ep_parsed.scheme not in ("https", "http"):
-        raise SSRFError(
-            f"Endpoint uses disallowed scheme: {ep_parsed.scheme}"
-        )
+        raise SSRFError(f"Endpoint uses disallowed scheme: {ep_parsed.scheme}")
 
     if ep_parsed.scheme != issuer_parsed.scheme:
         raise SSRFError("Endpoint scheme does not match issuer URL")
@@ -214,7 +214,7 @@ def validate_endpoint_origin(endpoint_url: str, issuer_url: str) -> None:
 validate_jwks_uri_origin = validate_endpoint_origin
 
 
-class SSOHttpClient:
+class SafeHttpClient:
     """SSRF-safe HTTP client for all SSO outbound requests.
 
     SSRF protection strategy differs by scheme:
@@ -258,8 +258,7 @@ class SSOHttpClient:
 
         is_https = parsed.scheme == "https"
         is_localhost_dev = (
-            get_application_settings().is_development
-            and hostname.lower() in _LOCALHOST_NAMES
+            get_application_settings().is_development and hostname.lower() in _LOCALHOST_NAMES
         )
 
         if is_https:
@@ -283,14 +282,10 @@ class SSOHttpClient:
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
         request_url, skip_tls = self._prepare(url, kwargs)
-        async with httpx.AsyncClient(
-            timeout=self._timeout, verify=not skip_tls
-        ) as client:
+        async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
             return await client.get(request_url, **kwargs)
 
     async def post(self, url: str, **kwargs) -> httpx.Response:
         request_url, skip_tls = self._prepare(url, kwargs)
-        async with httpx.AsyncClient(
-            timeout=self._timeout, verify=not skip_tls
-        ) as client:
+        async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
             return await client.post(request_url, **kwargs)

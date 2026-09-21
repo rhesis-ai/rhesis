@@ -3,7 +3,7 @@
 import pytest
 
 from rhesis.backend.app.config.settings import get_application_settings
-from rhesis.backend.ee.sso.http_client import (
+from rhesis.backend.app.utils.ssrf_http_client import (
     SSRFError,
     _pin_url_to_ip,
     validate_endpoint_origin,

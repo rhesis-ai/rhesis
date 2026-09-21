@@ -9,10 +9,8 @@ Contains:
 - POST /organizations/{id}/sso/test -- Test OIDC discovery
 """
 
-import hashlib
 import logging
 import secrets
-from base64 import urlsafe_b64encode
 from typing import List, Optional
 
 import anyio
@@ -22,6 +20,7 @@ from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.pkce import generate_pkce
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
@@ -37,9 +36,9 @@ from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
 from rhesis.backend.app.utils.rate_limit import limiter
+from rhesis.backend.app.utils.ssrf_http_client import SafeHttpClient, SSRFError
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 from rhesis.backend.ee.sso.encryption import sso_decrypt, sso_encrypt
-from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError
 from rhesis.backend.ee.sso.oidc import (
     OIDCProvider,
     verify_signed_state,
@@ -158,14 +157,6 @@ def _validate_return_to(return_to: Optional[str]) -> str:
             return "/architect"
 
     return decoded
-
-
-def _generate_pkce() -> tuple:
-    """Generate PKCE code_verifier and code_challenge (S256)."""
-    code_verifier = secrets.token_urlsafe(64)
-    digest = hashlib.sha256(code_verifier.encode()).digest()
-    code_challenge = urlsafe_b64encode(digest).rstrip(b"=").decode()
-    return code_verifier, code_challenge
 
 
 def _get_sso_callback_url() -> str:
@@ -374,7 +365,7 @@ async def sso_login(
     audit_log(SSOAuditEvent.LOGIN_INITIATED, org_id)
 
     # Generate PKCE pair
-    code_verifier, code_challenge = _generate_pkce()
+    code_verifier, code_challenge = generate_pkce()
 
     # Generate nonce
     nonce = secrets.token_urlsafe(32)
@@ -729,7 +720,7 @@ async def test_sso_connection(
     if not sso_config:
         return SSOTestResponse(success=False, message="SSO is not configured")
 
-    http_client = SSOHttpClient()
+    http_client = SafeHttpClient()
     discovery_url = f"{sso_config.issuer_url}/.well-known/openid-configuration"
 
     try:

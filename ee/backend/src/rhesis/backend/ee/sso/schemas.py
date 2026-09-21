@@ -62,7 +62,7 @@ class SSOConfig(BaseModel):
             if "cannot point to" in str(e):
                 raise
             # hostname is not an IP literal -- DNS resolution
-            # is validated at connect time by SSOHttpClient
+            # is validated at connect time by SafeHttpClient
 
         if not get_application_settings().is_development:
             port = parsed.port
