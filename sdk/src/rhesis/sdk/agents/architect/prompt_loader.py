@@ -8,6 +8,7 @@ from typing import List, Sequence
 
 import jinja2
 
+from rhesis.sdk.agents.architect.intents import menu_intents
 from rhesis.sdk.agents.architect.references import resolve_skills_references_dir
 from rhesis.sdk.agents.architect.workflow import WorkflowPath
 from rhesis.sdk.agents.constants import AgentMode
@@ -23,12 +24,16 @@ def build_architect_jinja_env(templates_dir: Path) -> jinja2.Environment:
     if skills_dir is not None:
         loaders.append(jinja2.FileSystemLoader(str(skills_dir)))
 
-    return jinja2.Environment(
+    env = jinja2.Environment(
         loader=jinja2.ChoiceLoader(loaders),
         autoescape=False,
         trim_blocks=True,
         lstrip_blocks=True,
     )
+    # A global, not render context: workflow-routing.j2 is included from
+    # system_prompt.j2, which renders with no context of its own.
+    env.globals["menu_intents"] = menu_intents()
+    return env
 
 
 def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[str]:

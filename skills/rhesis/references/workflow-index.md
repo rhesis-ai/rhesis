@@ -44,6 +44,8 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-aut
 
 When intent is unclear, present **one** menu and wait for the user's choice:
 
+<!-- canonical: intents.yaml — keep these labels in sync -->
+
 ```text
 What would you like to do?
 
@@ -88,6 +90,7 @@ Skip the menu when intent is already clear. Spec and run/analyze paths skip expl
 | `result-analysis.md` | Stats modes and presentation |
 | `insights-summary.md` | Insights page → Telemachus handoff |
 | `tool-catalog.md` | MCP tool listing |
+| `intents.yaml` | Canonical intent definitions — menu labels, signals, next references |
 
 ---
 
