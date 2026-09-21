@@ -5,9 +5,14 @@ GitLab, an OAuth token endpoint -- the address is untrusted input, and the
 obvious target is something only the server can reach: a VPC neighbour, a
 Kubernetes service, or the cloud metadata endpoint on 169.254.169.254.
 
-DNS is resolved once, checked against the blocklist, and the resolved IP is
-pinned into the request. Resolving again at connect time would reopen the
-TOCTOU window this exists to close, which is what makes DNS rebinding work.
+DNS is resolved once and every address it returns is checked against the
+blocklist. Closing the window between that check and the connection takes a
+different move per scheme, because a name that passes the check can point
+somewhere else by the time we connect, which is what makes DNS rebinding work.
+Over HTTP the resolved IP is pinned into the request and the hostname moves to
+a ``Host`` header. Over HTTPS the URL keeps its hostname, since pinning would
+send the wrong SNI and break certificate verification, and that verification is
+what catches the swap instead. ``SafeHttpClient`` below has the detail.
 
 Moved here from ``ee/sso/http_client.py``. It was never SSO-specific, and core
 had only ``services/tool/url_validation.py``, which checks a URL at rest and
@@ -89,7 +94,7 @@ class SSRFError(Exception):
 
 def _resolve_and_validate(hostname: str) -> List[Tuple]:
     """Resolve hostname, validate all IPs against the blocklist, and return
-    the raw getaddrinfo results for pinning into the transport.
+    the raw getaddrinfo results so the caller can pin one if its scheme allows.
 
     In development environments (BACKEND_ENV=local/development/staging), localhost
     is allowed through the blocklist so that local IdP instances (e.g. Keycloak
