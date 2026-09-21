@@ -5,7 +5,6 @@ annotations rewrite the matching entry in ``test_metrics`` / ``test_output`` and
 the overall status is recalculated from all of them.
 """
 
-import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -23,23 +22,17 @@ from rhesis.backend.app.outcomes import (
 )
 from rhesis.backend.app.services.annotation_override.common import (
     annotation_passed,
+    find_metric_key,
     is_passed_status,
+    normalize_metric_name,
     parse_turn_number,
 )
 
-
-def _normalize_metric_name(name: str) -> str:
-    return re.sub(r"(^-|-$)", "", re.sub(r"[^a-z0-9]+", "-", name.lower()))
-
-
-def _find_metric_key(metrics: Dict[str, Any], metric_name: str) -> Optional[str]:
-    if metric_name in metrics:
-        return metric_name
-    normalized_target = _normalize_metric_name(metric_name)
-    for key in metrics:
-        if isinstance(key, str) and _normalize_metric_name(key) == normalized_target:
-            return key
-    return None
+# Kept as module-level names because the override writers and their tests read
+# them from here. The implementations moved to common.py when metric improvement
+# started matching annotation names against the same blob.
+_normalize_metric_name = normalize_metric_name
+_find_metric_key = find_metric_key
 
 
 def _apply_outcome(
