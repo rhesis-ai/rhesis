@@ -30,10 +30,12 @@ not speak to, and the nudge to re-run afterwards, are what stand in for it.
 
 import logging
 import os
+import re
 from typing import Any, List, Optional
 
 from jinja2 import Template
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
@@ -225,21 +227,51 @@ def _overriding_metric_entry(
     return entry
 
 
+def _alphanumerics_only(name: str) -> str:
+    """A name with every non-alphanumeric removed, lowercased."""
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
 def _annotations_naming_metric(db: Session, metric: models.Metric) -> List[models.Annotation]:
     """Unresolved, commented metric annotations on test results naming this metric.
 
-    The name match is done in Python rather than SQL because an annotation names
-    the metric as a person sees it while the result's blob is keyed by whatever
-    the run wrote, and the two differ by punctuation and case often enough that
-    an exact SQL match loses real annotations.
+    The blank-comment rule lives here rather than at each caller, because the
+    two of them have to agree: counting a disagreement the extraction then drops
+    would light up Improve and have the call refuse. Nothing validates the
+    comment as non-blank -- the column is nullable and the create schema accepts
+    an empty string -- so whitespace is reachable and is excluded in SQL.
+
+    The name is narrowed in SQL and decided in Python. SQL compares the names
+    with every non-alphanumeric removed, which is deliberately looser than the
+    real rule: two names the real rule considers equal always agree here too, so
+    the filter can only ever keep extra rows, never drop a real annotation.
+    Python then applies the authoritative comparison to what survives. Writing
+    the real rule in SQL would be a second copy of it, and the day the two
+    drifted the count and the rejections would disagree with each other.
+
+    This is what keeps a polled endpoint from hydrating every unresolved
+    annotation in the tenant. It is still a scan -- the comparison is computed
+    per row, not index-backed -- but the rows no longer cross into Python.
     """
+    target = _alphanumerics_only(metric.name or "")
     candidates = (
         db.query(models.Annotation)
         .filter(
             models.Annotation.entity_type == EntityType.TEST_RESULT.value,
             models.Annotation.target_type == AnnotationTarget.METRIC.value,
             models.Annotation.resolved.is_(False),
-            models.Annotation.comments.isnot(None),
+            # Whitespace removed rather than btrim'd: btrim takes spaces only by
+            # default, so a comment of a tab or a newline would survive it and
+            # be counted as something to read.
+            func.regexp_replace(func.coalesce(models.Annotation.comments, ""), r"\s", "", "g")
+            != "",
+            func.regexp_replace(
+                func.lower(func.coalesce(models.Annotation.target_reference, "")),
+                "[^a-z0-9]+",
+                "",
+                "g",
+            )
+            == target,
         )
         .order_by(models.Annotation.updated_at.desc())
         .all()
@@ -322,8 +354,10 @@ def run_rejections(
     if not named_this_metric:
         return [], 0
 
+    # Keyed by UUID, as count_run_disagreements keys its blobs: two adjacent
+    # maps looked up with different key types is a miss waiting to happen.
     results = {
-        str(result.id): result
+        result.id: result
         for result in db.query(models.TestResult)
         .options(
             joinedload(models.TestResult.test).joinedload(models.Test.prompt),
@@ -336,7 +370,7 @@ def run_rejections(
 
     found: List[Rejection] = []
     for annotation in named_this_metric:
-        result = results.get(str(annotation.entity_id))
+        result = results.get(annotation.entity_id)
         if result is None:
             continue
         entry = _overriding_metric_entry(result, metric_name, annotation.id)

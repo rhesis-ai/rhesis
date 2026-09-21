@@ -588,6 +588,162 @@ class TestTheAgreementCardCountsRunDisagreements:
         assert agreement["disagreements_in_runs"] == over_the_cap
 
 
+class TestNamesAreMatchedLooselyEnough:
+    """The SQL filter narrows; Python decides.
+
+    An annotation names a metric as a person sees it, and a result's blob is
+    keyed by whatever the run wrote. Narrowing in SQL risks dropping a real
+    annotation before the authoritative comparison ever sees it, so the two
+    forms of variance are pinned here.
+    """
+
+    def test_a_differently_cased_reference_still_matches(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+        run_metric,
+        generation_model,  # noqa: F811
+    ):
+        _, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        result = _result_scored_by(
+            test_db, run_metric, test_organization, authenticated_user, db_project
+        )
+        _overrule(
+            authenticated_client,
+            result.id,
+            run_metric.name.upper(),
+            fail_status.id,
+            OVERRULING_COMMENT,
+        )
+
+        assert _improve(authenticated_client, run_metric.id).json()["run_rejections_used"] == 1
+
+    def test_a_blob_keyed_by_a_slug_still_matches(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+        run_metric,
+        generation_model,  # noqa: F811
+    ):
+        """The realistic case: the run wrote the metric's key as a slug while
+        the annotation names it as displayed."""
+        _, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        result = _result_scored_by(
+            test_db, run_metric, test_organization, authenticated_user, db_project
+        )
+        slug = run_metric.name.lower().replace(" ", "-")
+        result.test_metrics = {
+            "metrics": {
+                slug: {
+                    "score": 1.0,
+                    "is_successful": True,
+                    "reason": METRIC_REASON,
+                }
+            }
+        }
+        test_db.commit()
+
+        _overrule(
+            authenticated_client, result.id, run_metric.name, fail_status.id, OVERRULING_COMMENT
+        )
+
+        assert _improve(authenticated_client, run_metric.id).json()["run_rejections_used"] == 1
+
+
+class TestABlankCommentIsNotSomethingToLearnFrom:
+    """The count and the extraction have to agree on what counts.
+
+    Nothing validates an override's comment as non-blank: the column is
+    nullable and the create schema accepts an empty string, so a whitespace
+    comment is reachable. Counting one as a disagreement while the extraction
+    drops it would light up Improve and then refuse the call, which is the same
+    disabled-button-versus-working-API mismatch in reverse.
+    """
+
+    def _agreement(self, client: TestClient, metric_id) -> dict:
+        response = client.get(f"/metrics/{metric_id}/tuning/run")
+        assert response.status_code == status.HTTP_200_OK, response.text
+        return response.json()["agreement"]
+
+    @pytest.mark.parametrize("comment", ["", "   ", "\n\t "])
+    def test_a_blank_comment_is_counted_nowhere(
+        self,
+        comment,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+        run_metric,
+        generation_model,  # noqa: F811
+    ):
+        _, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        result = _result_scored_by(
+            test_db, run_metric, test_organization, authenticated_user, db_project
+        )
+        _overrule(authenticated_client, result.id, run_metric.name, fail_status.id, comment)
+
+        # There is nothing to read, so the figure must not claim otherwise.
+        assert self._agreement(authenticated_client, run_metric.id)["disagreements_in_runs"] == 0
+        # And the endpoint refuses for the same reason, rather than the button
+        # being offered and the call then failing.
+        assert (
+            _improve(authenticated_client, run_metric.id).status_code == status.HTTP_400_BAD_REQUEST
+        )
+
+    def test_a_real_comment_beside_a_blank_one_still_counts_once(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+        run_metric,
+        generation_model,  # noqa: F811
+    ):
+        _, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        blank = _result_scored_by(
+            test_db, run_metric, test_organization, authenticated_user, db_project
+        )
+        _overrule(authenticated_client, blank.id, run_metric.name, fail_status.id, "  ")
+        real = _result_scored_by(
+            test_db,
+            run_metric,
+            test_organization,
+            authenticated_user,
+            db_project,
+            output=f"{RUN_OUTPUT} (other)",
+        )
+        _overrule(
+            authenticated_client, real.id, run_metric.name, fail_status.id, OVERRULING_COMMENT
+        )
+
+        assert self._agreement(authenticated_client, run_metric.id)["disagreements_in_runs"] == 1
+        assert _improve(authenticated_client, run_metric.id).json()["run_rejections_used"] == 1
+
+
 class TestTheCapIsReportedNotHidden:
     """The module takes the position that silently dropping a rejection is the
     one thing this must not do. Run annotations are unbounded, so they are capped
