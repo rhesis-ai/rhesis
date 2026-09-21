@@ -408,7 +408,7 @@ describe('KpiRow', () => {
     expect(onViewFailures).not.toHaveBeenCalled();
   });
 
-  it('omits the Usage card until the token and cost numbers arrive', () => {
+  it('omits the Cost card until the token and cost numbers arrive', () => {
     // Showing zeros would read as "this run cost nothing", which is a different
     // claim from "we do not know yet".
     mockUsage(null);
@@ -421,10 +421,10 @@ describe('KpiRow', () => {
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.queryByText('Usage')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cost')).not.toBeInTheDocument();
   });
 
-  it('leads the Usage card with cost, explained by tokens and the model', () => {
+  it('leads the Cost card with cost, explained by tokens and the model', () => {
     mockUsage({
       total_traces: 12,
       enriched_traces: 12,
@@ -444,17 +444,18 @@ describe('KpiRow', () => {
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.getByText('Usage')).toBeInTheDocument();
-    // formatCost drops to two decimals above a cent, same as the Traces page.
+    expect(screen.getByText('Cost')).toBeInTheDocument();
+    // The money formatter drops to two decimals above a cent, same as the
+    // Traces page.
     expect(screen.getByText('$0.01')).toBeInTheDocument();
     expect(screen.getByText('45,735 tokens')).toBeInTheDocument();
     expect(screen.getByText('openai/gpt-4o')).toBeInTheDocument();
-    expect(screen.queryByText('cost')).not.toBeInTheDocument();
+    expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
   });
 
   it('holds the card back entirely for a run that traced nothing', () => {
     // An endpoint with no instrumentation produces no traces, so there is no
-    // usage rather than usage of zero. "0 tokens, no priced models" would be an
+    // usage rather than usage of zero. "0 tokens, no cost data" would be an
     // answer to a question nobody asked.
     mockUsage({
       total_traces: 0,
@@ -473,8 +474,8 @@ describe('KpiRow', () => {
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.queryByText('Usage')).not.toBeInTheDocument();
-    expect(screen.queryByText(/No priced models/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Cost')).not.toBeInTheDocument();
+    expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
   });
 
   it('shows a long model name in full rather than clipping it', () => {
@@ -551,7 +552,7 @@ describe('KpiRow', () => {
     expect(screen.queryByText('·')).not.toBeInTheDocument();
   });
 
-  it('falls back to tokens, and says why, when nothing could be priced', () => {
+  it('says there is no cost data, and why, when nothing could be priced', () => {
     // Tokens come off the spans immediately; cost waits for enrichment, and
     // never arrives for a model with no published price. A $0.00 here would
     // claim the run was free, which is the one reading that is certainly wrong.
@@ -572,9 +573,8 @@ describe('KpiRow', () => {
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.getByText('9,120')).toBeInTheDocument();
-    expect(screen.getByText('tokens')).toBeInTheDocument();
-    expect(screen.getByText(/No priced models/)).toBeInTheDocument();
+    expect(screen.getByText('No cost data')).toBeInTheDocument();
+    expect(screen.getByText(/9,120 tokens/)).toBeInTheDocument();
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
   });
 
@@ -599,7 +599,7 @@ describe('KpiRow', () => {
       />
     );
     expect(screen.getByText('Working out what this cost')).toBeInTheDocument();
-    expect(screen.queryByText(/No priced models/)).not.toBeInTheDocument();
+    expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
   });
 
   it('links the unpriced explanation to the costs documentation', () => {
@@ -627,7 +627,7 @@ describe('KpiRow', () => {
   });
 
   it('shows $0.00 when the run really was free', () => {
-    // Priced traces that add up to nothing. The dash above is for a zero
+    // Priced traces that add up to nothing. "No cost data" above is for a zero
     // nobody computed; this one is an answer.
     mockUsage({
       total_traces: 2,
@@ -647,7 +647,7 @@ describe('KpiRow', () => {
       />
     );
     expect(screen.getByText('$0.00')).toBeInTheDocument();
-    expect(screen.queryByText('\u2014')).not.toBeInTheDocument();
+    expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
   });
 
   it('tells the hook whether the run is still going', () => {

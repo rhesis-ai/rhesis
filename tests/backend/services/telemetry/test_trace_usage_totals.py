@@ -176,12 +176,13 @@ class TestUnenrichedTrace:
             total_tokens=5
         )
 
-    def test_reports_no_models_rather_than_a_zero_cost(self):
-        """Empty models is how a caller tells 'not priced yet' from 'cost nothing'."""
+    def test_reports_no_cost_rather_than_a_zero_one(self):
+        """An absent cost is how a caller tells 'not priced' from 'cost nothing'."""
         usage = trace_usage_totals(None, llm_tokens_fallback=420)
 
         assert usage.models == []
-        assert usage.total_cost_usd == 0.0
+        assert usage.total_cost_usd is None
+        assert usage.priced is False
 
 
 @pytest.mark.unit
@@ -288,6 +289,80 @@ class TestZeroCostIsNotUnknown:
         row = trace_summary_usage(None, llm_tokens_fallback=420)
 
         assert row["total_tokens"] == 420
+
+
+def unpriced_entry(span_id, model, input_tokens, output_tokens):
+    """One span enrichment could not price: tokens and a model name, no cost keys.
+
+    Written this way because the enrichment processor dumps with ``exclude_none``, so a
+    cost of None is not a null in the blob, it is an absent key.
+    """
+    return {
+        "span_id": span_id,
+        "model_name": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+
+
+@pytest.mark.unit
+class TestNothingCouldBePriced:
+    """A self-hosted model, or one newer than the bundled price list.
+
+    Its tokens and its name are known; its price is not. Reporting zero here is what
+    made a run on a private deployment read as a free run.
+    """
+
+    def blob(self):
+        return {
+            "costs": {
+                "total_input_tokens": 300,
+                "total_output_tokens": 120,
+                "total_tokens": 420,
+                "breakdown": [unpriced_entry("a", "my-self-hosted-llama", 300, 120)],
+            }
+        }
+
+    def test_the_cost_is_unknown_rather_than_zero(self):
+        usage = trace_usage_totals(self.blob())
+
+        assert usage.total_cost_usd is None
+        assert usage.input_cost_usd is None
+        assert usage.output_cost_usd is None
+        assert usage.priced is False
+
+    def test_the_tokens_and_the_model_survive(self):
+        usage = trace_usage_totals(self.blob())
+
+        assert usage.total_tokens == 420
+        assert usage.models == ["my-self-hosted-llama"]
+
+    def test_the_list_row_shows_a_dash_not_a_zero(self):
+        row = trace_summary_usage(self.blob(), 0)
+
+        assert row["total_cost_usd"] is None
+        assert row["total_input_cost_usd"] is None
+        assert row["total_tokens"] == 420
+        # Naming the model is not the same as having priced it, which is the
+        # assumption that let an unpriceable run render a confident zero.
+        assert row["models"] == ["my-self-hosted-llama"]
+
+    def test_a_mixed_trace_reports_only_the_priced_half(self):
+        blob = {
+            "costs": {
+                "total_tokens": 540,
+                "breakdown": [
+                    breakdown_entry("a", "gpt-4", 200, 100, 0.015, 0.008),
+                    unpriced_entry("b", "my-self-hosted-llama", 100, 20),
+                ],
+            }
+        }
+
+        row = trace_summary_usage(blob, 0)
+
+        assert row["total_cost_usd"] == pytest.approx(0.023)
+        assert row["models"] == ["gpt-4", "my-self-hosted-llama"]
 
 
 @pytest.mark.unit

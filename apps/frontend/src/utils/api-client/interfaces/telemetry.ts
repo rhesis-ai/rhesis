@@ -102,7 +102,9 @@ export interface TraceDetailResponse {
   total_tokens: number;
   total_input_tokens: number;
   total_output_tokens: number;
-  total_cost_usd: number;
+  // Null when the trace carries no cost figure: enrichment has not run, or it ran
+  // and no model on the trace could be priced. Zero means priced and free.
+  total_cost_usd: number | null;
 
   root_spans: SpanNode[];
 

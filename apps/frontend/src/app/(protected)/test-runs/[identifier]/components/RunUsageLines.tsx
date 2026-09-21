@@ -3,7 +3,12 @@
 import React from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import ModelLabel from '@/components/common/ModelLabel';
-import { formatCost, formatTokenCount, isCostKnown } from '@/utils/trace-utils';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import {
+  formatTokenCount,
+  isCostKnown,
+  NO_COST_DATA,
+} from '@/utils/trace-utils';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 
 /** Matches the "Pass rate: 82%" line the comparison cards already use. */
@@ -41,7 +46,7 @@ function Delta({
 }) {
   const theme = useTheme();
   // Rounded to the six places the backend already rounds costs to, and to the
-  // most formatCost will ever print. Subtracting two equal-looking floats
+  // most a money formatter will ever print. Subtracting two equal-looking floats
   // leaves noise around 1e-17, which is not zero and renders as "$0.000000" --
   // a delta claiming a difference too small to write down.
   const delta = Number((current - baseline).toFixed(6));
@@ -68,7 +73,9 @@ function Delta({
  *
  * Both cards read the same endpoint through the same hook, so the baseline and
  * the current run cannot describe the same figure differently, and neither can
- * disagree with the Usage card on the run's own summary.
+ * disagree with the Cost card on the run's own summary. The figures are in the
+ * organization or personal currency, for the same reason: a comparison in USD
+ * beside a summary in EUR reads as two different runs.
  *
  * Renders nothing at all until the numbers arrive. A comparison is about the
  * difference between two runs, and half a comparison invites the reader to
@@ -82,6 +89,8 @@ export default function RunUsageLines({
   /** The other run's usage, when this is the side that shows the delta. */
   compareTo?: TraceMetricsResponse | null;
 }) {
+  const { format: money } = useCurrency();
+
   if (!usage || usage.total_traces === 0) return null;
 
   const costKnown = isCostKnown(usage);
@@ -94,12 +103,12 @@ export default function RunUsageLines({
   return (
     <>
       <StatLine label="Cost">
-        {costKnown ? formatCost(usage.total_cost_usd) : '—'}
+        {costKnown ? money(usage.total_cost_usd) : NO_COST_DATA}
         {canCompareCost && (
           <Delta
             current={usage.total_cost_usd}
             baseline={compareTo.total_cost_usd}
-            format={formatCost}
+            format={money}
           />
         )}
       </StatLine>

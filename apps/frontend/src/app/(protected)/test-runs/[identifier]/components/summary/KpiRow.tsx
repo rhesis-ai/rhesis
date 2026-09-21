@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Box, Grid, LinearProgress } from '@mui/material';
 import KpiCard from './KpiCard';
-import UsageCard from './UsageCard';
+import CostCard from './CostCard';
 import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
@@ -172,7 +172,7 @@ export default function KpiRow({
             entirely for a run that traced nothing. */}
         {usage && hasTracedUsage(usage) && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <UsageCard usage={usage} />
+            <CostCard usage={usage} />
           </Grid>
         )}
       </Grid>

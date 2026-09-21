@@ -169,10 +169,10 @@ class TestTraceSummaryTotals:
         """A freshly ingested trace still lists its tokens, and no cost yet."""
         totals = trace_summary_totals(None, llm_tokens_fallback=420)
 
-        assert totals == (0, 0, 420, 0.0, 0.0)
+        assert totals == (0, 0, 420, None, None)
 
-    def test_no_llm_spans_reports_zero(self):
-        assert trace_summary_totals(None, llm_tokens_fallback=0) == (0, 0, 0, 0.0, 0.0)
+    def test_no_llm_spans_reports_no_cost_rather_than_zero(self):
+        assert trace_summary_totals(None, llm_tokens_fallback=0) == (0, 0, 0, None, None)
 
 
 @pytest.mark.unit
@@ -182,6 +182,6 @@ class TestTraceCostUsd:
     def test_reads_the_enriched_cost(self):
         assert trace_cost_usd(enrichment(1, 1, 2, cost_usd=0.0123)) == 0.0123
 
-    def test_unenriched_trace_is_zero(self):
-        assert trace_cost_usd(None) == 0.0
-        assert trace_cost_usd({}) == 0.0
+    def test_unenriched_trace_has_no_cost(self):
+        assert trace_cost_usd(None) is None
+        assert trace_cost_usd({}) is None

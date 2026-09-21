@@ -580,7 +580,10 @@ export default function TraceDrawer({
                 )}
               />
             )}
-            {trace.total_cost_usd > 0 && (
+            {/* A trace priced at nothing gets its badge too: zero is a figure
+                somebody computed. Only a trace with no cost at all -- not
+                enriched, or no model on it could be priced -- has no badge. */}
+            {typeof trace.total_cost_usd === 'number' && (
               <GridBadge label={money(trace.total_cost_usd)} size="grid" />
             )}
             {trace.error_count > 0 && (

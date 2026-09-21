@@ -791,6 +791,55 @@ class TestPricingProgressSignals:
         assert metrics["priced_traces"] == 0
         assert metrics["total_cost_usd"] == 0
 
+    def test_a_trace_whose_models_could_not_be_priced_is_not_priced(
+        self, test_db, db_project, test_org_id
+    ):
+        """A self-hosted model: tokens and a model name, but no rate anywhere.
+
+        Enrichment leaves the cost keys off the breakdown entry rather than writing a
+        zero, so ``known_cost_usd`` stays NULL and the run does not read as free.
+        """
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(10, 5, 15),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(
+            test_db,
+            trace_id,
+            {
+                "costs": {
+                    "total_tokens": 15,
+                    "breakdown": [
+                        {
+                            "span_id": uuid.uuid4().hex[:16],
+                            "model_name": "my-self-hosted-llama",
+                            "input_tokens": 10,
+                            "output_tokens": 5,
+                            "total_tokens": 15,
+                        }
+                    ],
+                }
+            },
+        )
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["enriched_traces"] == 1
+        assert metrics["priced_traces"] == 0
+        # The model is still counted, so the Models card has something to show.
+        assert "my-self-hosted-llama" in metrics["models_used"]
+
     def test_a_trace_priced_at_zero_is_priced(self, test_db, db_project, test_org_id):
         """A free model costs a knowable nothing, and must not read as unknown."""
         project_id = str(db_project.id)
