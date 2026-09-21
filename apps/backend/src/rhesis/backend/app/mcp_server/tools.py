@@ -168,11 +168,16 @@ def annotate_write_count(
     side is missing, or when the counts agree.
     """
     check = op.get("count_check")
-    if not check or not isinstance(data, dict) or not isinstance(body, dict):
+    if not isinstance(check, dict) or not isinstance(data, dict) or not isinstance(body, dict):
         return data
 
-    requested = body.get(check["request_list"])
-    written = data.get(check["response_count"])
+    request_list = check.get("request_list")
+    response_count = check.get("response_count")
+    if not request_list or not response_count:
+        return data
+
+    requested = body.get(request_list)
+    written = data.get(response_count)
     if not isinstance(requested, list) or not isinstance(written, int):
         return data
     if len(requested) == written:

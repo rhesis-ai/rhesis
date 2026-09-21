@@ -421,6 +421,31 @@ class TestWritesReportWhatTheyActuallyWrote:
         assert "_count_check" not in self._check({"tests": [{}]}, {"success": True})
         assert "_count_check" not in self._check({}, {"total_tests": 8})
 
+    def test_a_malformed_check_does_not_break_dispatch(self):
+        """This runs on every call, so a bad yaml entry must not raise.
+
+        It returns the data untouched instead -- which loses the warning, and
+        is why test_every_declared_check_is_well_formed fails the build for a
+        typo rather than letting it degrade quietly here.
+        """
+        from rhesis.backend.app.mcp_server.tools import annotate_write_count
+
+        data = {"total_tests": 8}
+        body = {"tests": [{}] * 95}
+        for malformed in ("tests", [], {"request_list": "tests"}, {"response_count": "n"}, {}):
+            assert annotate_write_count(data, body, {"count_check": malformed}) == data
+
+    def test_every_declared_check_is_well_formed(self):
+        """A typo in either key silently disables the guard at dispatch, which
+        is the failure this whole mechanism exists to prevent. Catch it here."""
+        for tc in load_tool_configs():
+            check = tc.get("count_check")
+            if check is None:
+                continue
+            assert isinstance(check, dict), f"{tc['name']}: count_check must be a mapping"
+            assert check.get("request_list"), f"{tc['name']}: count_check needs request_list"
+            assert check.get("response_count"), f"{tc['name']}: count_check needs response_count"
+
     def test_the_bulk_tool_declares_the_check(self):
         cfg = {tc["name"]: tc for tc in load_tool_configs()}["create_test_set_bulk"]
         assert cfg["count_check"] == {"request_list": "tests", "response_count": "total_tests"}
@@ -461,6 +486,23 @@ class TestModelsAreDiscoverable:
         cfg = {tc["name"]: tc for tc in load_tool_configs()}["list_models"]
         assert cfg["method"].upper() == "GET"
         assert "requires_confirmation" not in cfg
+
+    def test_the_filter_param_tells_the_agent_what_to_pass(self):
+        """The agent sees "filter" and the server sends "$filter". The doc has
+        to speak to the caller rather than explain the sanitizing to whoever
+        maintains the yaml, or the agent reads it and passes $filter."""
+        cfg = {tc["name"]: tc for tc in load_tool_configs()}["list_models"]
+        doc = cfg["parameters"]["filter"]["description"].replace("\n", " ")
+        assert 'Pass it as "filter"' in doc
+
+    def test_the_agent_never_sees_a_dollar_prefixed_filter(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        props = {t.name: t for t in tools}["list_models"].inputSchema["properties"]
+        assert "filter" in props
+        assert "$filter" not in props
 
     def test_list_models_says_why_it_matters(self):
         """Without the reason an agent has no cue to call it before creating

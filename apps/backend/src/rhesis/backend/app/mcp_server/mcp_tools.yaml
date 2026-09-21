@@ -710,9 +710,8 @@ tools:
     parameters:
       filter:
         description: >
-          OData filter, e.g. "tolower(name) eq 'gpt-4o judge'". Keyed without
-          the "$" here because the schema sanitizes it; the wire param is
-          $filter.
+          OData filter, e.g. "tolower(name) eq 'gpt-4o judge'". Pass it as
+          "filter"; the server sends it on as $filter.
 
   - name: list_metrics
     label: Checking existing metrics
@@ -1459,8 +1458,8 @@ tools:
         description: >
           OData filter for fields the named parameters above do not
           cover, e.g. "target_reference eq 'Answer Fluency'". Prefer the
-          named parameters where one exists. Keyed without the "$" here
-          because the schema sanitizes it; the wire param is $filter.
+          named parameters where one exists. Pass it as "filter"; the
+          server sends it on as $filter.
 
   - name: get_annotation
     label: Retrieving annotation
