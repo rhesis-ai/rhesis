@@ -41,7 +41,11 @@ export function buildProviderChoices(
         {
           id: lookup.id as string,
           key: lookup.type_value,
-          displayName: manifest.display_name,
+          // Resolved once here so the tile's visible text and its accessible
+          // name cannot disagree.
+          displayName:
+            manifest.display_name ||
+            formatToolProviderDisplayName(lookup.type_value),
           description: manifest.description,
         },
       ];
@@ -146,8 +150,7 @@ export function ProviderPicker({
                   <SmartToyIcon fontSize="small" />
                 )}
                 <Typography variant="subtitle2" component="span">
-                  {choice.displayName ||
-                    formatToolProviderDisplayName(choice.key)}
+                  {choice.displayName}
                 </Typography>
               </Box>
               <Typography variant="caption" color="text.secondary">

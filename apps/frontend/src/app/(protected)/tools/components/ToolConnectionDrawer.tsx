@@ -1423,7 +1423,7 @@ export function ToolConnectionDrawer({
             <ProviderPicker
               lookups={sortedProviders}
               providers={toolProviders}
-              loading={providersLoading && sortedProviders.length === 0}
+              loading={providersLoading}
               selectedId={provider?.id ?? null}
               onSelect={choice => {
                 const next = sortedProviders.find(p => p.id === choice.id);

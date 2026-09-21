@@ -49,6 +49,18 @@ describe('buildProviderChoices', () => {
     expect(choices[0].key).toBe('notion');
   });
 
+  it('falls back to the provider key when a manifest has no display name', () => {
+    // The tile's visible text and its aria-label both read this one value, so
+    // they cannot disagree.
+    const nameless = { ...manifest('notion', 'Notion'), display_name: '' };
+    const choices = buildProviderChoices(
+      [lookup('id-n', 'notion')],
+      [nameless]
+    );
+
+    expect(choices[0].displayName).toBe('Notion');
+  });
+
   it('drops a manifest with no lookup', () => {
     // Saving needs the type_lookup UUID, so a manifest alone is not enough.
     const choices = buildProviderChoices([], [manifest('notion', 'Notion')]);
@@ -140,6 +152,25 @@ describe('ProviderPicker', () => {
     const { container } = render(
       <ProviderPicker
         lookups={[]}
+        providers={[]}
+        loading
+        onSelect={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByText(/no tool providers are available/i)
+    ).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBe(6);
+  });
+
+  it('shows placeholders when the lookups arrive before the manifests', () => {
+    // The lookups are server-fetched and present on first render, so this is
+    // the normal first paint rather than a rare race. Keying the skeleton off
+    // the lookups being empty showed "no providers" on every open.
+    const { container } = render(
+      <ProviderPicker
+        lookups={lookups}
         providers={[]}
         loading
         onSelect={jest.fn()}
