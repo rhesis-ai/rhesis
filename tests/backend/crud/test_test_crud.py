@@ -25,6 +25,7 @@ from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services import test_set as test_set_service
 from rhesis.backend.app.utils.crud_utils import count_items
+from tests.backend.fixtures.rls import scope_to_org
 
 
 @pytest.mark.unit
@@ -338,9 +339,13 @@ class TestBulkDeleteTests:
         explicitly or a foreign org's test_set_id can leak into the batch.
         """
         other_org_id = str(uuid.uuid4())
+        # A blank org GUC makes the organization policy return TRUE for every
+        # row, which is what lets a foreign org be inserted at all.
+        scope_to_org(test_db, None)
         test_db.add(models.Organization(id=uuid.UUID(other_org_id), name="Other Org"))
         test_db.flush()
 
+        scope_to_org(test_db, test_org_id)
         requirement = models.Requirement(
             name="Compliance", organization_id=test_org_id, user_id=authenticated_user_id
         )
@@ -350,15 +355,22 @@ class TestBulkDeleteTests:
         own_test_set = models.TestSet(
             name="Own Set", organization_id=test_org_id, user_id=authenticated_user_id
         )
-        foreign_test_set = models.TestSet(
-            name="Foreign Set", organization_id=other_org_id, user_id=authenticated_user_id
-        )
-        test_db.add_all([own_test_set, foreign_test_set])
+        test_db.add(own_test_set)
         test_db.flush()
 
         own_test = self._make_test(
             test_db, test_org_id, authenticated_user_id, requirement.id, own_test_set.id
         )
+        own_test_set_id = own_test_set.id
+        own_test_id = own_test.id
+
+        # The foreign org's rows go in under its own scope.
+        scope_to_org(test_db, other_org_id)
+        foreign_test_set = models.TestSet(
+            name="Foreign Set", organization_id=other_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(foreign_test_set)
+        test_db.flush()
 
         foreign_test = models.Test(
             requirement_id=requirement.id,
@@ -376,29 +388,33 @@ class TestBulkDeleteTests:
             )
         )
         test_db.flush()
+        foreign_test_id = foreign_test.id
 
+        # Back to the caller's own org: that is the identity under test.
+        scope_to_org(test_db, test_org_id)
         with patch(
             "rhesis.backend.app.services.test_set.update_test_set_attributes"
         ) as mock_refresh:
             result = test_crud.bulk_delete_tests(
                 db=test_db,
-                test_ids=[own_test.id, foreign_test.id],
+                test_ids=[own_test_id, foreign_test_id],
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
             )
 
         # Foreign test is invisible to this org -- reported not_found, not deleted.
-        assert result["deleted_ids"] == [str(own_test.id)]
-        assert result["not_found_ids"] == [str(foreign_test.id)]
+        assert result["deleted_ids"] == [str(own_test_id)]
+        assert result["not_found_ids"] == [str(foreign_test_id)]
 
         # And its test set must never be touched -- only the caller's own set.
         recomputed_test_set_ids = {
             call.kwargs["test_set_id"] for call in mock_refresh.call_args_list
         }
-        assert recomputed_test_set_ids == {str(own_test_set.id)}
+        assert recomputed_test_set_ids == {str(own_test_set_id)}
 
         # The foreign test/test set must remain untouched in the database.
-        still_there = test_db.query(models.Test).filter(models.Test.id == foreign_test.id).first()
+        scope_to_org(test_db, other_org_id)
+        still_there = test_db.query(models.Test).filter(models.Test.id == foreign_test_id).first()
         assert still_there is not None
         assert still_there.deleted_at is None
 

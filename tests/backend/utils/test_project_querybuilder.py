@@ -22,6 +22,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.crud_utils import validate_same_project
 from rhesis.backend.app.utils.query_utils import QueryBuilder, has_project_id
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import RequirementDataFactory
 
 
@@ -115,6 +116,9 @@ class TestQueryBuilderProjectFilter:
         """Rows with project_id == the given id are included."""
         data = RequirementDataFactory.sample_data()
         data["project_id"] = test_project.id
+        # project_isolation is RESTRICTIVE, so the session has to sit in the
+        # project for both the write and the read-back.
+        scope_to_project(test_db, test_project.id)
         b = crud_utils.create_item(test_db, models.Requirement, data, organization_id=test_org_id)
 
         results = (
@@ -146,10 +150,13 @@ class TestQueryBuilderProjectFilter:
         """Rows stamped with a different non-NULL project_id are excluded."""
         data = RequirementDataFactory.sample_data()
         data["project_id"] = test_project2.id
+        scope_to_project(test_db, test_project2.id)
         b_other = crud_utils.create_item(
             test_db, models.Requirement, data, organization_id=test_org_id
         )
 
+        # Read from the other project, matching the with_project_filter below.
+        scope_to_project(test_db, test_project.id)
         results = (
             QueryBuilder(test_db, models.Requirement)
             .with_organization_filter(test_org_id)
@@ -162,6 +169,7 @@ class TestQueryBuilderProjectFilter:
         """with_project_filter chains cleanly with org filter and pagination."""
         data = RequirementDataFactory.sample_data()
         data["project_id"] = test_project.id
+        scope_to_project(test_db, test_project.id)
         crud_utils.create_item(test_db, models.Requirement, data, organization_id=test_org_id)
 
         results = (

@@ -14,6 +14,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
+from tests.backend.fixtures.rls import scope_to_org
 
 
 @pytest.mark.security
@@ -33,16 +34,21 @@ class TestTaskManagementSecurity:
             f"user1-{unique_id}@security-test.com",
             "Security User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             "Security Test Org 2",
             f"user2-{unique_id}@security-test.com",
             "Security User 2",
         )
+        org2_id = org2.id
+        # The second org moved the session scope; rows below belong to
+        # the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create status in org1 using direct model creation
         status1 = models.Status(
-            name="Active", description="Active status", organization_id=org1.id, user_id=user1.id
+            name="Active", description="Active status", organization_id=org1_id, user_id=user1_id
         )
         test_db.add(status1)
         test_db.flush()
@@ -55,7 +61,7 @@ class TestTaskManagementSecurity:
 
         # Create a mock user from org2 (different from status1's org1)
         mock_user = Mock()
-        mock_user.organization_id = org2.id
+        mock_user.organization_id = org2_id
 
         with pytest.raises(ValueError, match="Status not found or not in same organization"):
             validate_task_organization_constraints(test_db, mock_task, mock_user)
@@ -75,13 +81,18 @@ class TestCrudTaskSecurity:
         org1, user1, _ = create_test_organization_and_user(
             test_db, "Task Security Org 1", f"task1-{unique_id}@security-test.com", "Task User 1"
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db, "Task Security Org 2", f"task2-{unique_id}@security-test.com", "Task User 2"
         )
+        org2_id = org2.id
+        # The second org moved the session scope; rows below belong to
+        # the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a status for the task first
         status1 = models.Status(
-            name="Active", description="Active status", organization_id=org1.id, user_id=user1.id
+            name="Active", description="Active status", organization_id=org1_id, user_id=user1_id
         )
         test_db.add(status1)
         test_db.flush()
@@ -89,8 +100,8 @@ class TestCrudTaskSecurity:
         # Create a task in org1 with proper status reference
         task = models.Task(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             title="Test task in org1",
             description="Test task in org1",
             status_id=status1.id,
@@ -99,12 +110,12 @@ class TestCrudTaskSecurity:
         test_db.commit()
 
         # User from org1 should be able to access the task
-        result_org1 = task_crud.get_task(test_db, task.id, organization_id=str(org1.id))
+        result_org1 = task_crud.get_task(test_db, task.id, organization_id=str(org1_id))
         assert result_org1 is not None
         assert result_org1.id == task.id
 
         # User from org2 should NOT be able to access the task
-        result_org2 = task_crud.get_task(test_db, task.id, organization_id=str(org2.id))
+        result_org2 = task_crud.get_task(test_db, task.id, organization_id=str(org2_id))
         assert result_org2 is None
 
 
@@ -124,44 +135,56 @@ class TestStatusUtilitySecurity:
             f"status-user1-{unique_id}@security-test.com",
             "Status User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             "Status Test Org 2",
             f"status-user2-{unique_id}@security-test.com",
             "Status User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to
+        # the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create the same status name in both organizations
         status_org1 = get_or_create_status(
             db=test_db,
             name="Active",
             entity_type="test",
-            organization_id=str(org1.id),
-            user_id=str(user1.id),
+            organization_id=str(org1_id),
+            user_id=str(user1_id),
         )
 
+        # Captured before the scope moves off org1: touching these afterwards
+        # would trigger an ORM refresh that RLS blocks.
+        status_org1_id = status_org1.id
+        status_org1_org = status_org1.organization_id
+
+        scope_to_org(test_db, org2_id)
         status_org2 = get_or_create_status(
             db=test_db,
             name="Active",
             entity_type="test",
-            organization_id=str(org2.id),
-            user_id=str(user2.id),
+            organization_id=str(org2_id),
+            user_id=str(user2_id),
         )
 
         # Statuses should be separate entities even with same name
-        assert status_org1.id != status_org2.id
-        assert status_org1.organization_id != status_org2.organization_id
-        assert status_org1.organization_id == org1.id
-        assert status_org2.organization_id == org2.id
+        assert status_org1_id != status_org2.id
+        assert status_org1_org != status_org2.organization_id
+        assert status_org1_org == org1_id
+        assert status_org2.organization_id == org2_id
 
         # Verify that getting status from org1 context doesn't return org2's status
+        scope_to_org(test_db, org1_id)
         retrieved_org1 = get_or_create_status(
             db=test_db,
             name="Active",
             entity_type="test",
-            organization_id=str(org1.id),
-            user_id=str(user1.id),
+            organization_id=str(org1_id),
+            user_id=str(user1_id),
         )
 
-        assert retrieved_org1.id == status_org1.id
-        assert retrieved_org1.organization_id == org1.id
+        assert retrieved_org1.id == status_org1_id
+        assert retrieved_org1.organization_id == org1_id

@@ -3,12 +3,10 @@
 TEMPORARY: delete once that migration has shipped everywhere.
 
 Drives the migration's ``upgrade()``/``downgrade()`` directly against the
-``test_db`` connection inside an ``Operations.context``, so the DDL rolls back
-at teardown. Skips the ``client`` fixture: ``upgrade()`` holds ACCESS EXCLUSIVE
-locks that a second connection would block on.
-
-Testcontainers runs as superuser, so it can't catch a broken RLS disable/enable
-dance -- that's on the migration's own fail-loud verification, not this file.
+``admin_test_db`` connection inside an ``Operations.context``, so the DDL rolls
+back at teardown. Uses admin_test_db because the migration runs DDL (ALTER
+TABLE ... DISABLE ROW LEVEL SECURITY) that requires table-owner / superuser
+privileges, matching production where migrations run as the admin role.
 """
 
 import importlib.util
@@ -61,9 +59,9 @@ _migration = _load_migration_module()
 
 
 @pytest.fixture
-def migration_ops(test_db):
+def migration_ops(admin_test_db):
     """Activates an Operations context so the migration's bare ``op.xxx`` calls resolve."""
-    ctx = MigrationContext.configure(test_db.connection())
+    ctx = MigrationContext.configure(admin_test_db.connection())
     with Operations.context(ctx):
         yield
 
@@ -140,9 +138,9 @@ class TestColumnShape:
     """The column exists on both tables as boolean/not-null/default-false."""
 
     @pytest.mark.parametrize("table", ["test_set", "test"])
-    def test_column_is_boolean_not_null_default_false(self, test_db, table):
+    def test_column_is_boolean_not_null_default_false(self, admin_test_db, table):
         row = (
-            test_db.connection()
+            admin_test_db.connection()
             .execute(
                 sa.text(
                     "SELECT data_type, is_nullable, column_default "
@@ -165,9 +163,9 @@ class TestColumnShape:
         "table,index_name",
         [("test_set", "ix_test_set_explorer_row"), ("test", "ix_test_explorer_row")],
     )
-    def test_explorer_row_is_indexed(self, test_db, table, index_name):
+    def test_explorer_row_is_indexed(self, admin_test_db, table, index_name):
         row = (
-            test_db.connection()
+            admin_test_db.connection()
             .execute(
                 sa.text(
                     "SELECT 1 FROM pg_indexes "
@@ -185,9 +183,9 @@ class TestBackfillLogic:
     """Re-running upgrade() against freshly seeded rows exercises the real backfill SQL."""
 
     def test_marker_only_test_set_becomes_true(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -200,9 +198,9 @@ class TestBackfillLogic:
         assert _explorer_row(conn, "test_set", ts_id) is True
 
     def test_marker_among_other_behaviors_becomes_true(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -215,9 +213,9 @@ class TestBackfillLogic:
         assert _explorer_row(conn, "test_set", ts_id) is True
 
     def test_regular_test_set_stays_false(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -239,9 +237,9 @@ class TestBackfillLogic:
         ],
     )
     def test_null_or_malformed_attributes_stay_false_without_error(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id, attributes
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id, attributes
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn, org_id=test_org_id, user_id=authenticated_user_id, attributes=attributes
         )
@@ -251,9 +249,9 @@ class TestBackfillLogic:
         assert _explorer_row(conn, "test_set", ts_id) is False
 
     def test_test_associated_with_an_explorer_set_becomes_true(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -275,9 +273,9 @@ class TestBackfillLogic:
         assert _explorer_row(conn, "test", t_id) is True
 
     def test_test_only_in_regular_sets_stays_false(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -298,9 +296,9 @@ class TestBackfillLogic:
         assert _explorer_row(conn, "test", t_id) is False
 
     def test_test_shared_between_an_explorer_and_a_regular_set_becomes_true(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         explorer_ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -334,9 +332,9 @@ class TestBackfillLogic:
         assert _explorer_row(conn, "test", t_id) is True
 
     def test_idempotent_rerun_changes_nothing(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -368,9 +366,9 @@ class TestMarkerIsNotStripped:
     module docstring)."""
 
     def test_marker_only_set_stays_in_attributes(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -385,9 +383,9 @@ class TestMarkerIsNotStripped:
         assert attrs["metadata"]["behaviors"] == [_EXPLORER_BEHAVIOR_NAME]
 
     def test_marker_among_other_behaviors_stays_in_attributes(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -401,9 +399,9 @@ class TestMarkerIsNotStripped:
         assert attrs["metadata"]["behaviors"] == ["Safety", _EXPLORER_BEHAVIOR_NAME]
 
     def test_regular_test_set_attributes_are_untouched(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -417,9 +415,9 @@ class TestMarkerIsNotStripped:
         assert attrs["metadata"]["behaviors"] == ["Safety"]
 
     def test_idempotent_rerun_does_not_error(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn,
             org_id=test_org_id,
@@ -453,9 +451,9 @@ class TestDowngradeDoesNotTouchAttributes:
         ],
     )
     def test_attributes_are_unchanged_regardless_of_explorer_row(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id, attributes
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id, attributes
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         ts_id = _insert_test_set(
             conn, org_id=test_org_id, user_id=authenticated_user_id, attributes=attributes
         )
@@ -469,8 +467,8 @@ class TestDowngradeDoesNotTouchAttributes:
 
         assert _test_set_attributes(conn, ts_id) == before
 
-    def test_column_is_dropped(self, test_db, migration_ops):
-        conn = test_db.connection()
+    def test_column_is_dropped(self, admin_test_db, migration_ops):
+        conn = admin_test_db.connection()
 
         _migration.downgrade()
 
@@ -483,8 +481,8 @@ class TestDowngradeDoesNotTouchAttributes:
         assert exists is None
 
     @pytest.mark.parametrize("index_name", ["ix_test_set_explorer_row", "ix_test_explorer_row"])
-    def test_index_is_dropped(self, test_db, migration_ops, index_name):
-        conn = test_db.connection()
+    def test_index_is_dropped(self, admin_test_db, migration_ops, index_name):
+        conn = admin_test_db.connection()
 
         _migration.downgrade()
 
@@ -497,9 +495,9 @@ class TestDowngradeDoesNotTouchAttributes:
 @pytest.mark.integration
 class TestDowngradeUpgradeRoundTrip:
     def test_round_trip_rederives_correct_values_from_scratch(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
 
         _migration.downgrade()  # drop both columns
 
@@ -532,8 +530,8 @@ class TestBypassRLSSkipsDisableEnable:
     need to pay for when the role never needed the bypass anyway. downgrade()
     does no DML, so it never calls _has_bypassrls() at all."""
 
-    def test_has_bypassrls_reflects_the_role_attribute(self, test_db, migration_ops):
-        conn = test_db.connection()
+    def test_has_bypassrls_reflects_the_role_attribute(self, admin_test_db, migration_ops):
+        conn = admin_test_db.connection()
         # Testcontainers' superuser role has BYPASSRLS by default (see module docstring).
         assert _migration._has_bypassrls(conn) is True
 
@@ -544,9 +542,9 @@ class TestBypassRLSSkipsDisableEnable:
             conn.execute(sa.text("ALTER ROLE CURRENT_USER BYPASSRLS"))
 
     def test_upgrade_and_downgrade_still_work_when_role_bypasses_rls(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         conn.execute(sa.text("ALTER ROLE CURRENT_USER BYPASSRLS"))
         try:
             ts_id = _insert_test_set(

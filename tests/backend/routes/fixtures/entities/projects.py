@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
+from tests.backend.fixtures.rls import scope_to_project
 
 fake = Faker()
 
@@ -31,6 +32,10 @@ def db_project(
     user (``authenticated_user_id``) as a project member so that
     ``crud.project.get_project`` — which enforces project_membership presence — returns
     the row rather than None when the authenticated client accesses it.
+
+    After creation, sets ``app.current_project`` on the connection so that
+    subsequent INSERTs on project-scoped tables (endpoint, test_set, test, etc.)
+    pass the ``project_isolation`` RLS policy.
 
     Args:
         test_db: Database session fixture
@@ -64,6 +69,10 @@ def db_project(
     )
     test_db.add(membership)
     test_db.flush()
+
+    # Subsequent project-scoped INSERTs (endpoint, test_set, test) must pass
+    # the project_isolation policy, which reads this GUC.
+    scope_to_project(test_db, project.id)
 
     test_db.refresh(project)
     return project

@@ -22,10 +22,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.crud.metric import (
     add_requirement_to_metric,
-    get_requirement_metrics,
     get_metric_requirements,
+    get_requirement_metrics,
     remove_requirement_from_metric,
 )
+from tests.backend.fixtures.rls import scope_to_org
 
 
 @pytest.mark.security
@@ -37,8 +38,8 @@ class TestRequirementMetricSecurity:
     ):
         """🔒 SECURITY: Test that users cannot add requirements from other organizations to their metrics"""
         from tests.backend.routes.fixtures.data_factories import (
-            RequirementDataFactory,
             MetricDataFactory,
+            RequirementDataFactory,
         )
 
         # Create two separate organizations
@@ -48,10 +49,15 @@ class TestRequirementMetricSecurity:
         # Create actual organization records
         org1 = models.Organization(id=uuid.UUID(org1_id), name="Test Org 1")
         org2 = models.Organization(id=uuid.UUID(org2_id), name="Test Org 2")
+        # The organization policy returns TRUE for every row when the GUC is
+        # blank, which is what lets both orgs be inserted in one flush.
+        scope_to_org(test_db, None)
         test_db.add_all([org1, org2])
         test_db.flush()
 
         # Create metric in org1 and requirement in org2 using data factories
+        # The factory creates org1-owned lookup rows, so scope before calling it.
+        scope_to_org(test_db, org1_id)
         metric_data_org1 = MetricDataFactory.orm_data(
             test_db, org1_id, authenticated_user_id
         )
@@ -61,12 +67,20 @@ class TestRequirementMetricSecurity:
             {"organization_id": uuid.UUID(org2_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
+        # Each row inserts under its own org's scope.
+        scope_to_org(test_db, org1_id)
+        scope_to_org(test_db, org1_id)
         db_metric_org1 = models.Metric(**metric_data_org1)
-        db_requirement_org2 = models.Requirement(**requirement_data_org2)
-        test_db.add_all([db_metric_org1, db_requirement_org2])
+        test_db.add(db_metric_org1)
         test_db.flush()
 
-        # Try to add requirement from org2 to metric in org1 - should fail
+        scope_to_org(test_db, org2_id)
+        db_requirement_org2 = models.Requirement(**requirement_data_org2)
+        test_db.add(db_requirement_org2)
+        test_db.flush()
+
+        # Act as org1. Org2's requirement must be unreachable.
+        scope_to_org(test_db, org1_id)
         with pytest.raises(ValueError, match="Requirement with id .* not found or not accessible"):
             add_requirement_to_metric(
                 db=test_db,
@@ -90,8 +104,8 @@ class TestRequirementMetricSecurity:
     ):
         """🔒 SECURITY: Test that users cannot add requirements to metrics from other organizations"""
         from tests.backend.routes.fixtures.data_factories import (
-            RequirementDataFactory,
             MetricDataFactory,
+            RequirementDataFactory,
         )
 
         # Create two separate organizations
@@ -101,10 +115,15 @@ class TestRequirementMetricSecurity:
         # Create actual organization records
         org1 = models.Organization(id=uuid.UUID(org1_id), name="Test Org 1")
         org2 = models.Organization(id=uuid.UUID(org2_id), name="Test Org 2")
+        # The organization policy returns TRUE for every row when the GUC is
+        # blank, which is what lets both orgs be inserted in one flush.
+        scope_to_org(test_db, None)
         test_db.add_all([org1, org2])
         test_db.flush()
 
         # Create metric in org1 and requirement in org2 using data factories
+        # The factory creates org1-owned lookup rows, so scope before calling it.
+        scope_to_org(test_db, org1_id)
         metric_data_org1 = MetricDataFactory.orm_data(
             test_db, org1_id, authenticated_user_id
         )
@@ -114,12 +133,20 @@ class TestRequirementMetricSecurity:
             {"organization_id": uuid.UUID(org2_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
+        # Each row inserts under its own org's scope.
+        scope_to_org(test_db, org1_id)
+        scope_to_org(test_db, org1_id)
         db_metric_org1 = models.Metric(**metric_data_org1)
-        db_requirement_org2 = models.Requirement(**requirement_data_org2)
-        test_db.add_all([db_metric_org1, db_requirement_org2])
+        test_db.add(db_metric_org1)
         test_db.flush()
 
-        # Try to add requirement from org2 to metric in org1, but user is in org2 - should fail
+        scope_to_org(test_db, org2_id)
+        db_requirement_org2 = models.Requirement(**requirement_data_org2)
+        test_db.add(db_requirement_org2)
+        test_db.flush()
+
+        # Act as org2. Org1's metric must be unreachable.
+        scope_to_org(test_db, org2_id)
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
             add_requirement_to_metric(
                 db=test_db,
@@ -134,8 +161,8 @@ class TestRequirementMetricSecurity:
     ):
         """🔒 SECURITY: Test that users cannot remove requirements from metrics in other organizations"""
         from tests.backend.routes.fixtures.data_factories import (
-            RequirementDataFactory,
             MetricDataFactory,
+            RequirementDataFactory,
         )
 
         # Create two separate organizations
@@ -145,10 +172,15 @@ class TestRequirementMetricSecurity:
         # Create actual organization records
         org1 = models.Organization(id=uuid.UUID(org1_id), name="Test Org 1")
         org2 = models.Organization(id=uuid.UUID(org2_id), name="Test Org 2")
+        # The organization policy returns TRUE for every row when the GUC is
+        # blank, which is what lets both orgs be inserted in one flush.
+        scope_to_org(test_db, None)
         test_db.add_all([org1, org2])
         test_db.flush()
 
         # Create metric and requirement in org1 using data factories
+        # The factory creates org1-owned lookup rows, so scope before calling it.
+        scope_to_org(test_db, org1_id)
         metric_data_org1 = MetricDataFactory.orm_data(
             test_db, org1_id, authenticated_user_id
         )
@@ -158,6 +190,7 @@ class TestRequirementMetricSecurity:
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
 
+        scope_to_org(test_db, org1_id)
         db_metric_org1 = models.Metric(**metric_data_org1)
         db_requirement_org1 = models.Requirement(**requirement_data_org1)
         test_db.add_all([db_metric_org1, db_requirement_org1])
@@ -174,7 +207,8 @@ class TestRequirementMetricSecurity:
         )
         test_db.flush()
 
-        # Try to remove association as user from org2 - should fail
+        # Act as org2. Org1's metric must be unreachable.
+        scope_to_org(test_db, org2_id)
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
             remove_requirement_from_metric(
                 db=test_db,
@@ -186,6 +220,7 @@ class TestRequirementMetricSecurity:
             )
 
         # Verify association still exists (wasn't removed)
+        scope_to_org(test_db, org1_id)
         association = test_db.execute(
             models.requirement_metric_association.select().where(
                 models.requirement_metric_association.c.metric_id == db_metric_org1.id,
@@ -207,18 +242,25 @@ class TestRequirementMetricSecurity:
         # Create actual organization records
         org1 = models.Organization(id=uuid.UUID(org1_id), name="Test Org 1")
         org2 = models.Organization(id=uuid.UUID(org2_id), name="Test Org 2")
+        # The organization policy returns TRUE for every row when the GUC is
+        # blank, which is what lets both orgs be inserted in one flush.
+        scope_to_org(test_db, None)
         test_db.add_all([org1, org2])
         test_db.flush()
 
         # Create metric in org1 using data factory
+        # The factory creates org1-owned lookup rows, so scope before calling it.
+        scope_to_org(test_db, org1_id)
         metric_data_org1 = MetricDataFactory.orm_data(
             test_db, org1_id, authenticated_user_id
         )
+        scope_to_org(test_db, org1_id)
         db_metric_org1 = models.Metric(**metric_data_org1)
         test_db.add(db_metric_org1)
         test_db.flush()
 
-        # Try to get requirements for metric from org1 as user from org2 - should fail
+        # Act as org2. Org1's metric must be unreachable.
+        scope_to_org(test_db, org2_id)
         with pytest.raises(ValueError, match="Metric with id .* not found or not accessible"):
             get_metric_requirements(
                 db=test_db,
@@ -239,6 +281,9 @@ class TestRequirementMetricSecurity:
         # Create actual organization records
         org1 = models.Organization(id=uuid.UUID(org1_id), name="Test Org 1")
         org2 = models.Organization(id=uuid.UUID(org2_id), name="Test Org 2")
+        # The organization policy returns TRUE for every row when the GUC is
+        # blank, which is what lets both orgs be inserted in one flush.
+        scope_to_org(test_db, None)
         test_db.add_all([org1, org2])
         test_db.flush()
 
@@ -247,11 +292,13 @@ class TestRequirementMetricSecurity:
         requirement_data_org1.update(
             {"organization_id": uuid.UUID(org1_id), "user_id": uuid.UUID(authenticated_user_id)}
         )
+        scope_to_org(test_db, org1_id)
         db_requirement_org1 = models.Requirement(**requirement_data_org1)
         test_db.add(db_requirement_org1)
         test_db.flush()
 
-        # Try to get metrics for requirement from org1 as user from org2 - should fail
+        # Act as org2. Org1's requirement must be unreachable.
+        scope_to_org(test_db, org2_id)
         with pytest.raises(ValueError, match="Requirement with id .* not found or not accessible"):
             get_requirement_metrics(
                 db=test_db,

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 
@@ -27,6 +28,8 @@ def _make_run_with_test_set(db: Session, org, user) -> tuple[models.TestRun, mod
     )
     db.add(project)
     db.flush()
+
+    scope_to_project(db, project.id)
 
     endpoint = models.Endpoint(
         name="Test Set Deleted Endpoint",

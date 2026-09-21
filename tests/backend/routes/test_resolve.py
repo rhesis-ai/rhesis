@@ -4,6 +4,7 @@ import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from rhesis.backend.app.dependencies import get_project_context
 from rhesis.backend.app.main import app
@@ -95,6 +96,7 @@ class TestResolveEntityEndpoint:
             "other",
         )
 
+        test_db.execute(text('SET "app.current_project" = :pid'), {"pid": str(other_project.id)})
         test_set = TestSet(
             name="Cross-project test set",
             description="Belongs to another project",
@@ -148,6 +150,7 @@ class TestResolveEntityEndpoint:
         archived_project.is_active = False
         test_db.flush()
 
+        test_db.execute(text('SET "app.current_project" = :pid'), {"pid": str(archived_project.id)})
         test_set = TestSet(
             name="Archived-project test set",
             description="Belongs to an archived project",
@@ -200,6 +203,7 @@ class TestResolveEntityEndpoint:
         test_db.add(foreign_project)
         test_db.flush()
 
+        test_db.execute(text('SET "app.current_project" = :pid'), {"pid": str(foreign_project.id)})
         test_set = TestSet(
             name="Foreign-project test set",
             description="In a project the caller cannot access",
@@ -299,13 +303,9 @@ class TestResolveUnderEnforcedRLS:
     """Guard the premise the resolve endpoint relies on: a project-scoped row is
     visible only when ``app.current_project`` matches the row's project.
 
-    This exercises real Postgres RLS via a non-BYPASSRLS role, the production
-    scenario. The normal test DB role is a superuser that bypasses RLS entirely
-    — which is exactly why the original ``bypass_tenant_filter()`` approach
-    (ORM-level only) passed tests yet returned 404 in production, where the app
-    role is subject to ``FORCE ROW LEVEL SECURITY``. Because the endpoint's
-    probe runs on the superuser app session, this asserts the RLS requirement at
-    the query layer rather than through the endpoint.
+    The test suite runs as a non-BYPASSRLS role (``rhesis-app``), so RLS is
+    enforced by default. This test manipulates the project GUC directly to
+    verify project-level isolation at the Postgres layer.
     """
 
     def _make_project(self, test_db, test_organization, db_user, db_owner_user, db_status, name):
@@ -331,18 +331,15 @@ class TestResolveUnderEnforcedRLS:
         db_owner_user,
         db_status,
     ):
-        import uuid as _uuid
-
-        from sqlalchemy import text
-
-        org_id = str(test_organization.id)
-
         project_a = self._make_project(
             test_db, test_organization, db_user, db_owner_user, db_status, "RLS Project A"
         )
         project_b = self._make_project(
             test_db, test_organization, db_user, db_owner_user, db_status, "RLS Project B"
         )
+
+        # Scope to project B so the INSERT passes project_isolation RLS.
+        test_db.execute(text("SET LOCAL app.current_project = :p"), {"p": str(project_b.id)})
 
         test_set = TestSet(
             name="RLS cross-project test set",
@@ -358,32 +355,22 @@ class TestResolveUnderEnforcedRLS:
         test_db.flush()
 
         entity_id = str(test_set.id)
-        probe = f"resolve_rls_probe_{_uuid.uuid4().hex[:8]}"
 
-        test_db.execute(text(f'CREATE ROLE "{probe}" NOLOGIN'))
-        test_db.execute(text(f'GRANT SELECT ON public.test_set TO "{probe}"'))
-        test_db.execute(text(f'SET LOCAL ROLE "{probe}"'))
-        test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": org_id})
-
-        # Scoped to the WRONG project: RLS hides the row. This is the failure the
-        # old ORM-only bypass could not avoid — the app role never sees it.
+        # Scoped to the WRONG project: RLS hides the row.
         test_db.execute(text("SET LOCAL app.current_project = :p"), {"p": str(project_a.id)})
         wrong_scope = test_db.execute(
             text("SELECT id FROM test_set WHERE id = :id"), {"id": entity_id}
         ).fetchone()
         assert wrong_scope is None, (
-            "cross-project entity was visible under the wrong project scope — "
+            "cross-project entity was visible under the wrong project scope -- "
             "RLS project_isolation is not enforcing"
         )
 
-        # Scoped to the entity's OWN project: RLS admits the row. This is what
-        # the per-project probe depends on.
+        # Scoped to the entity's OWN project: RLS admits the row.
         test_db.execute(text("SET LOCAL app.current_project = :p"), {"p": str(project_b.id)})
         right_scope = test_db.execute(
             text("SELECT id FROM test_set WHERE id = :id"), {"id": entity_id}
         ).fetchone()
         assert right_scope is not None, (
-            "entity hidden even under its own project scope — the probe would never find it"
+            "entity hidden even under its own project scope -- the probe would never find it"
         )
-
-        test_db.execute(text("RESET ROLE"))

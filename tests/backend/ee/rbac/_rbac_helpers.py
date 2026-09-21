@@ -26,6 +26,7 @@ from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.ee.rbac.models import OrganizationMember, Permission, Role, RolePermission
 from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+from tests.backend.fixtures.rls import scope_to_org
 
 
 @contextmanager
@@ -54,6 +55,9 @@ def _create_org(db: Session) -> uuid.UUID:
         {"id": str(org_id), "name": f"TestOrg-{org_id.hex[:8]}"},
     )
     db.flush()
+    # Everything the caller creates next (users, projects, roles, memberships)
+    # belongs to this org, so scope the session here rather than at each helper.
+    scope_to_org(db, org_id)
     return org_id
 
 
@@ -71,6 +75,7 @@ def _create_user(db: Session, org_id: uuid.UUID) -> uuid.UUID:
 
 
 def _create_project(db: Session, org_id: uuid.UUID) -> uuid.UUID:
+    scope_to_org(db, org_id)
     pid = uuid.uuid4()
     db.execute(
         text("INSERT INTO project (id, name, organization_id) VALUES (:id, :name, :oid)"),
@@ -82,6 +87,7 @@ def _create_project(db: Session, org_id: uuid.UUID) -> uuid.UUID:
 
 def _custom_role(db: Session, org_id: uuid.UUID, *, name: str, scope: str, level: int = 50) -> Role:
     """Create an org-owned custom role row directly (bypassing the escalation guard)."""
+    scope_to_org(db, org_id)
     role = Role(
         name=name,
         display_name=name,
@@ -103,6 +109,7 @@ def _grant_permission(db: Session, role_id: uuid.UUID, permission_name: str) -> 
 
 
 def _assign_org_role(db: Session, org_id: uuid.UUID, user_id: uuid.UUID, role_name: str) -> None:
+    scope_to_org(db, org_id)
     role = _builtin_role(db, role_name)
     existing = (
         db.query(OrganizationMember).filter_by(organization_id=org_id, user_id=user_id).first()
@@ -121,6 +128,7 @@ def _add_project_member(
     user_id: uuid.UUID,
     role_id: uuid.UUID | None = None,
 ) -> None:
+    scope_to_org(db, org_id)
     existing = db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
     if existing:
         existing.role_id = role_id

@@ -17,6 +17,7 @@ from rhesis.backend.app.crud.metric import (
     update_metric,
 )
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+from tests.backend.fixtures.rls import as_org
 
 
 class TestDatabaseIntegration:
@@ -348,13 +349,18 @@ class TestDatabaseIntegration:
         self, test_db, test_org_id, test_metric_numeric, secondary_org_id
     ):
         """Test querying metrics filtered by organization."""
-        # Metrics should be isolated by organization
-        metrics_org1 = get_metrics(test_db, organization_id=test_org_id)
-        metrics_org2 = get_metrics(test_db, organization_id=secondary_org_id)
+        # Each query runs under its own org's scope. RLS would return nothing
+        # for an org the session is not scoped to, which would make the
+        # "not in org2" assertion pass without proving anything. Reading the
+        # metric's id inside org1's scope also keeps a refresh of the expired
+        # instance legal, which the secondary_org_id fixture otherwise breaks.
+        with as_org(test_db, test_org_id):
+            metric_id = test_metric_numeric.id
+            org1_ids = [m.id for m in get_metrics(test_db, organization_id=test_org_id)]
 
-        org1_ids = [m.id for m in metrics_org1]
-        org2_ids = [m.id for m in metrics_org2]
+        with as_org(test_db, secondary_org_id):
+            org2_ids = [m.id for m in get_metrics(test_db, organization_id=secondary_org_id)]
 
         # Test metric should be in org1 but not org2
-        assert test_metric_numeric.id in org1_ids
-        assert test_metric_numeric.id not in org2_ids
+        assert metric_id in org1_ids
+        assert metric_id not in org2_ids

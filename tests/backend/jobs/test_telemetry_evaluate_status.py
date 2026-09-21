@@ -13,6 +13,7 @@ from rhesis.backend.jobs.telemetry.evaluate import (
     _derive_outcome,
     _resolve_status_id,
 )
+from tests.backend.fixtures.rls import scope_to_org
 
 
 @pytest.mark.unit
@@ -108,6 +109,9 @@ class TestResolveStatusId:
         from tests.backend.fixtures.test_setup import create_test_organization
 
         org = create_test_organization(test_db, "Trace Status Org")
+        # _resolve_status_id creates type_lookup and status rows under this
+        # org, and their INSERT RETURNING is checked against tenant_isolation.
+        scope_to_org(test_db, org.id)
 
         assert (
             test_db.query(models.Status)

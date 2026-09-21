@@ -28,6 +28,7 @@ from rhesis.backend.app.schemas import OrganizationCreate, UserCreate
 from rhesis.backend.app.schemas.token import TokenCreate
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
+from tests.backend.fixtures.rls import scope_to_org
 
 
 def get_test_database_session() -> Session:
@@ -321,6 +322,11 @@ def create_test_organization_and_user(
     try:
         # Create organization
         organization = create_test_organization(db, org_name)
+
+        # create_organization blanks the org GUC (for the policy passthrough)
+        # and the test harness restores it to the fixture's default org. Point
+        # it to the newly-created org so subsequent operations can see it.
+        scope_to_org(db, organization.id)
 
         # Create user
         user = create_test_user(db, organization.id, user_email, user_name)

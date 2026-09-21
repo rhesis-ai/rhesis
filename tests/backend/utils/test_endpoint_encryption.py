@@ -5,6 +5,7 @@ from sqlalchemy import text
 from rhesis.backend.app.config.settings import get_security_settings
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.utils.encryption import is_encrypted
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import BaseDataFactory
 
 fake = Faker()
@@ -30,7 +31,12 @@ class EndpointEncryptionDataFactory(BaseDataFactory):
             test_db.add(project)
             test_db.commit()
             test_db.refresh(project)
-            
+
+            # The endpoint built from this data belongs to the project, and
+            # project_isolation is a RESTRICTIVE policy checked against the
+            # INSERT's RETURNING, so the session has to be pointed at it.
+            scope_to_project(test_db, project.id)
+
             data.update({
                 "project_id": project.id,
                 "organization_id": test_organization.id,

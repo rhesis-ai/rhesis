@@ -1,7 +1,10 @@
 """Data-level checks for the Ragas removal migration.
 
-Drives the migration's ``upgrade()`` directly against the ``test_db`` connection
-inside an ``Operations.context``, so everything rolls back at teardown. The
+Drives the migration's ``upgrade()`` directly against the ``admin_test_db``
+connection inside an ``Operations.context``, so everything rolls back at
+teardown. The admin role is required because the migration runs DDL
+(``ALTER TABLE ... DISABLE ROW LEVEL SECURITY``) that only the table owner may
+issue, matching production where migrations run as the admin role. The
 migration has already run once to bring the schema to head; these tests re-run it
 against rows seeded here, which is what exercises the real SQL.
 
@@ -66,14 +69,14 @@ def _backend_type_id(conn, value: str):
 
 
 @pytest.fixture
-def conn(test_db):
-    return test_db.connection()
+def conn(admin_test_db):
+    return admin_test_db.connection()
 
 
 @pytest.fixture
-def migration_ops(test_db):
+def migration_ops(admin_test_db):
     """Activates an Operations context so the migration's bare ``op.xxx`` calls resolve."""
-    ctx = MigrationContext.configure(test_db.connection())
+    ctx = MigrationContext.configure(admin_test_db.connection())
     with Operations.context(ctx):
         yield
 
@@ -161,7 +164,46 @@ def make_requirement(conn, test_org_id, authenticated_user_id):
 
 
 @pytest.fixture
-def make_test_configuration(conn, db_endpoint, test_org_id, authenticated_user_id):
+def seeded_endpoint_id(conn, test_org_id, authenticated_user_id):
+    """Project + endpoint on the admin connection.
+
+    The shared ``db_endpoint`` fixture builds its rows on ``test_db``, a
+    different connection whose uncommitted rows this one cannot see, so the
+    FK on test_configuration would not resolve.
+    """
+    project_id = _scalar(
+        conn,
+        """
+        INSERT INTO project (name, organization_id, user_id)
+        VALUES (:name, CAST(:org AS uuid), CAST(:usr AS uuid))
+        RETURNING id
+        """,
+        name=f"Ragas Proj {uuid.uuid4().hex[:8]}",
+        org=test_org_id,
+        usr=authenticated_user_id,
+    )
+    return _scalar(
+        conn,
+        """
+        INSERT INTO endpoint (
+            name, connection_type, environment, config_source, response_format,
+            project_id, organization_id, user_id
+        )
+        VALUES (
+            :name, 'REST', 'development', 'manual', 'json',
+            CAST(:proj AS uuid), CAST(:org AS uuid), CAST(:usr AS uuid)
+        )
+        RETURNING id
+        """,
+        name=f"Ragas Endpoint {uuid.uuid4().hex[:8]}",
+        proj=str(project_id),
+        org=test_org_id,
+        usr=authenticated_user_id,
+    )
+
+
+@pytest.fixture
+def make_test_configuration(conn, seeded_endpoint_id, test_org_id, authenticated_user_id):
     def _make(*metric_ids):
         pinned = json.dumps(
             {
@@ -177,7 +219,7 @@ def make_test_configuration(conn, db_endpoint, test_org_id, authenticated_user_i
                     CAST(:attrs AS jsonb))
             RETURNING id
             """,
-            endpoint=str(db_endpoint.id),
+            endpoint=str(seeded_endpoint_id),
             org=test_org_id,
             usr=authenticated_user_id,
             attrs=pinned,

@@ -480,11 +480,14 @@ class TestLastOwnerProtection:
             owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
         assert owner_role is not None
 
+        from tests.backend.fixtures.rls import scope_to_org
+
         org_id = uuid.uuid4()
         test_db.execute(
             text("INSERT INTO organization (id, name, is_active) VALUES (:id, :name, true)"),
             {"id": str(org_id), "name": f"LastOwnerOrg-{org_id.hex[:8]}"},
         )
+        scope_to_org(test_db, org_id)
         user_id = uuid.uuid4()
         test_db.execute(
             text(

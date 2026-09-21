@@ -15,8 +15,29 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services import organization as organization_service
+from tests.backend.fixtures.rls import scope_to_project
 
 # Use existing data factories from the established pattern
+
+
+def _enter_example_project(db: Session, org_id):
+    """Scope the session to the project load_initial_data seeds demo content into.
+
+    ``project_isolation`` is RESTRICTIVE, so with a blank project GUC every
+    project-scoped row (requirements, metrics, test sets) is invisible and the
+    counts below come back zero.
+    """
+    project = (
+        db.query(models.Project)
+        .filter(
+            models.Project.organization_id == org_id,
+            models.Project.name == organization_service.EXAMPLE_PROJECT_NAME,
+        )
+        .first()
+    )
+    assert project is not None, "load_initial_data should have created the example project"
+    scope_to_project(db, project.id)
+    return project
 
 
 @pytest.mark.unit
@@ -46,6 +67,7 @@ class TestLoadInitialData:
         organization_service.load_initial_data(
             db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
         )
+        _enter_example_project(test_db, test_org_id)
 
         # Verify that entities were actually created in the database
         final_type_lookup_count = (
@@ -271,6 +293,7 @@ class TestLoadInitialData:
         organization_service.load_initial_data(
             db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
         )
+        _enter_example_project(test_db, test_org_id)
 
         # Verify that data was actually created OR already exists (both are valid)
         final_status_count = test_db.query(models.Status).count()
@@ -376,6 +399,7 @@ class TestLoadInitialData:
         organization_service.load_initial_data(
             db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
         )
+        _enter_example_project(test_db, test_org_id)
 
         example_project = (
             test_db.query(models.Project)
@@ -510,6 +534,7 @@ class TestLoadInitialData:
         organization_service.load_initial_data(
             db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
         )
+        _enter_example_project(test_db, test_org_id)
         _assert_owasp_tags_present()
 
         # load_initial_data is safe to re-run (get-or-create throughout) -- tagging
@@ -518,6 +543,7 @@ class TestLoadInitialData:
         organization_service.load_initial_data(
             db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
         )
+        _enter_example_project(test_db, test_org_id)
         _assert_owasp_tags_present()
 
 

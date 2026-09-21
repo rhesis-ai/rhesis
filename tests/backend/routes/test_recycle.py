@@ -16,11 +16,10 @@ from fastapi.testclient import TestClient
 
 from rhesis.backend.app import models
 from rhesis.backend.app.utils import crud_utils
-
-# Use existing data factories and fixtures
+from tests.backend.fixtures.rls import scope_to_org
 from tests.backend.routes.fixtures.data_factories import (
-    RequirementDataFactory,
     CategoryDataFactory,
+    RequirementDataFactory,
     TopicDataFactory,
 )
 
@@ -160,12 +159,13 @@ class TestRecycleGetDeletedEndpoint:
     ):
         """Test organization filtering for deleted records (automatic based on user context)."""
 
-        # Create deleted items in different organizations
+        scope_to_org(test_db, test_org_id)
         requirement1 = crud_utils.create_item(
             test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
         crud_utils.delete_item(test_db, models.Requirement, requirement1.id, organization_id=test_org_id)
 
+        scope_to_org(test_db, secondary_org_id)
         requirement2 = crud_utils.create_item(
             test_db,
             models.Requirement,
@@ -176,7 +176,7 @@ class TestRecycleGetDeletedEndpoint:
             test_db, models.Requirement, requirement2.id, organization_id=secondary_org_id
         )
 
-        # Get deleted requirements — should only return items from the authenticated user's org context
+        scope_to_org(test_db, test_org_id)
         response = authenticated_client.get("/recycle/requirement")
 
         assert response.status_code == status.HTTP_200_OK
@@ -305,17 +305,15 @@ class TestRecyclePermanentDeleteEndpoint:
         assert response.status_code == status.HTTP_200_OK
 
     def test_permanent_delete_requires_confirmation(
-        self, owner_client: TestClient, test_db, test_org_id
+        self, authenticated_client: TestClient, test_db, test_org_id
     ):
         """Test that permanent deletion requires confirm=true."""
-        # Create and delete a requirement
         requirement = crud_utils.create_item(
             test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
         crud_utils.delete_item(test_db, models.Requirement, requirement.id, organization_id=test_org_id)
 
-        # Try without confirmation
-        response = owner_client.delete(f"/recycle/requirement/{requirement.id}")
+        response = authenticated_client.delete(f"/recycle/requirement/{requirement.id}")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "confirm" in response.json()["detail"].lower()
@@ -372,9 +370,8 @@ class TestRecycleStatsEndpoint:
         # Non-superuser can now access stats (with org filtering for security)
         assert response.status_code == status.HTTP_200_OK
 
-    def test_stats_returns_counts(self, owner_client: TestClient, test_db, test_org_id):
+    def test_stats_returns_counts(self, authenticated_client: TestClient, test_db, test_org_id):
         """Test that stats endpoint returns deletion counts."""
-        # Create and delete some items
         for _ in range(3):
             requirement = crud_utils.create_item(
                 test_db,
@@ -386,7 +383,7 @@ class TestRecycleStatsEndpoint:
                 test_db, models.Requirement, requirement.id, organization_id=test_org_id
             )
 
-        response = owner_client.get("/recycle/stats/counts")
+        response = authenticated_client.get("/recycle/stats/counts")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -559,12 +556,13 @@ class TestRecycleEmptyBinEndpoint:
     ):
         """Test emptying bin with organization filter."""
 
-        # Create and delete items in different organizations
+        scope_to_org(test_db, test_org_id)
         requirement1 = crud_utils.create_item(
             test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
         )
         crud_utils.delete_item(test_db, models.Requirement, requirement1.id, organization_id=test_org_id)
 
+        scope_to_org(test_db, secondary_org_id)
         requirement2 = crud_utils.create_item(
             test_db,
             models.Requirement,
@@ -575,7 +573,7 @@ class TestRecycleEmptyBinEndpoint:
             test_db, models.Requirement, requirement2.id, organization_id=secondary_org_id
         )
 
-        # Empty bin — should only affect items in the authenticated user's org
+        scope_to_org(test_db, test_org_id)
         response = authenticated_client.delete("/recycle/empty/requirement?confirm=true")
 
         assert response.status_code == status.HTTP_200_OK

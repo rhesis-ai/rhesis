@@ -36,6 +36,7 @@ from rhesis.backend.app.crud import organization as organization_crud
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.comment import add_emoji_reaction, remove_emoji_reaction
+from tests.backend.fixtures.rls import scope_to_org
 from tests.backend.routes.fixtures.data_factories import (
     CommentDataFactory,
     OrganizationDataFactory,
@@ -63,9 +64,13 @@ class TestCRUDTransactionManagement:
         assert result.name == org_data["name"]
         assert result.id is not None
 
-        # Verify it's actually in the database (committed)
+        # create_organization blanks the org GUC and the harness restores the
+        # fixture's org, so the new row is out of scope. A blank GUC makes the
+        # organization policy return TRUE for every row, so it can be read back.
+        new_org_id = result.id
+        scope_to_org(test_db, None)
         db_org = (
-            test_db.query(models.Organization).filter(models.Organization.id == result.id).first()
+            test_db.query(models.Organization).filter(models.Organization.id == new_org_id).first()
         )
         assert db_org is not None
         assert db_org.name == org_data["name"]
@@ -329,6 +334,7 @@ class TestCRUDTransactionManagement:
 
         result1 = organization_crud.create_organization(test_db, org_create1)
         assert result1 is not None
+        org1_id = result1.id
 
         # Create second organization
         org_data2 = OrganizationDataFactory.sample_data()
@@ -339,13 +345,16 @@ class TestCRUDTransactionManagement:
 
         result2 = organization_crud.create_organization(test_db, org_create2)
         assert result2 is not None
+        org2_id = result2.id
 
-        # Verify both organizations exist independently
+        # Verify both organizations exist independently. A blank org GUC makes
+        # the organization policy return TRUE for every row, so both are visible.
+        scope_to_org(test_db, None)
         db_org1 = (
-            test_db.query(models.Organization).filter(models.Organization.id == result1.id).first()
+            test_db.query(models.Organization).filter(models.Organization.id == org1_id).first()
         )
         db_org2 = (
-            test_db.query(models.Organization).filter(models.Organization.id == result2.id).first()
+            test_db.query(models.Organization).filter(models.Organization.id == org2_id).first()
         )
 
         assert db_org1 is not None

@@ -27,6 +27,7 @@ from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -40,11 +41,45 @@ from rhesis.backend.app.scope import (
     reset_scope,
 )
 from rhesis.backend.app.utils import crud_utils
+from tests.backend.fixtures.rls import scope_to_org, scope_to_project
 from tests.backend.routes.fixtures.data_factories import (
     ProjectDataFactory,
     PromptDataFactory,
     RequirementDataFactory,
 )
+
+# These tests exercise the ORM auto-filter, but rows still have to get past
+# Postgres RLS to be written at all, and INSERT ... RETURNING is checked
+# against the policy's USING clause. So a row destined for another org or
+# another project needs the session pointed there first. The helpers below
+# restore the previous scope so the ORM-level assertion still runs under the
+# scope the test set up.
+
+
+def _current_guc(db: Session, name: str):
+    return db.execute(text("SELECT current_setting(:n, true)"), {"n": name}).scalar() or None
+
+
+@contextmanager
+def _rls_org(db: Session, org_id):
+    """Point RLS at *org_id* for the block, then restore."""
+    previous = _current_guc(db, "app.current_organization")
+    scope_to_org(db, org_id)
+    try:
+        yield
+    finally:
+        scope_to_org(db, previous)
+
+
+@contextmanager
+def _rls_project(db: Session, project_id):
+    """Point RLS at *project_id* for the block, then restore."""
+    previous = _current_guc(db, "app.current_project")
+    scope_to_project(db, project_id)
+    try:
+        yield
+    finally:
+        scope_to_project(db, previous)
 
 
 @pytest.fixture
@@ -57,7 +92,11 @@ def test_org2_id(test_db: Session):
         slug=f"scope-test-org-2-{_uuid.uuid4().hex[:8]}",
     )
     test_db.add(org)
-    test_db.flush()
+    # The id is server-generated, so there is nothing to scope to yet. A blank
+    # org GUC makes the organization table's USING clause true for every row,
+    # which is what lets the INSERT ... RETURNING through.
+    with _rls_org(test_db, None):
+        test_db.flush()
     yield str(org.id)
     test_db.rollback()
 
@@ -171,12 +210,13 @@ class TestAutoFilterWhenBound:
             RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        b2 = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            b2 = crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
+                organization_id=test_org2_id,
+            )
 
         with bound_scope(organization_id=test_org_id):
             results = test_db.query(models.Requirement).all()
@@ -197,12 +237,13 @@ class TestAutoFilterWhenBound:
             RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        b2 = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            b2 = crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
+                organization_id=test_org2_id,
+            )
 
         with bound_scope(organization_id=test_org_id):
             results = test_db.execute(select(models.Requirement)).scalars().all()
@@ -235,12 +276,13 @@ class TestAutoFilterWhenBound:
         # Deliberately stamped with a different org than its parent requirement, to
         # prove the relationship load is filtered by the ACTIVE scope, not merely by
         # whatever the FK join happens to return.
-        create_item(
-            test_db,
-            models.Prompt,
-            {**PromptDataFactory.minimal_data(), "requirement_id": requirement.id},
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            create_item(
+                test_db,
+                models.Prompt,
+                {**PromptDataFactory.minimal_data(), "requirement_id": requirement.id},
+                organization_id=test_org2_id,
+            )
 
         with bound_scope(organization_id=test_org_id):
             test_db.expire(requirement, ["prompts"])
@@ -252,24 +294,32 @@ class TestAutoFilterWhenBound:
 
 @pytest.mark.unit
 class TestBypassFiltering:
-    """bypass_tenant_filter() suppresses the listener."""
+    """bypass_tenant_filter() suppresses the listener, but not the database."""
 
-    def test_bypass_context_manager_skips_filter(
+    def test_bypass_does_not_cross_the_tenant_boundary(
         self, test_db: Session, test_org_id, test_org2_id, bound_scope
     ):
-        """bypass_tenant_filter() allows cross-org records to appear."""
+        """Dropping the ORM predicate does not expose another org's rows.
+
+        bypass_tenant_filter() removes the application-level WHERE clause, so
+        before RLS was enforced in tests this query returned both orgs' rows.
+        Postgres RLS is the backstop underneath it and still applies, so the
+        other org's row stays hidden. That layering is the point of #2525:
+        bypassing the ORM filter is not a way out of tenant isolation.
+        """
         b1 = crud_utils.create_item(
             test_db,
             models.Requirement,
             RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        b2 = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            b2 = crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
+                organization_id=test_org2_id,
+            )
 
         with bound_scope(organization_id=test_org_id):
             with bypass_tenant_filter():
@@ -277,7 +327,7 @@ class TestBypassFiltering:
 
         ids = {b.id for b in results}
         assert b1.id in ids
-        assert b2.id in ids
+        assert b2.id not in ids
 
 
 @pytest.mark.unit
@@ -305,9 +355,10 @@ class TestAutoStamp:
         new_requirement = models.Requirement(**data)
         new_requirement.organization_id = test_org2_id  # explicit override
 
-        with bound_scope(organization_id=test_org_id):
-            test_db.add(new_requirement)
-            test_db.flush()
+        with _rls_org(test_db, test_org2_id):
+            with bound_scope(organization_id=test_org_id):
+                test_db.add(new_requirement)
+                test_db.flush()
 
         assert str(new_requirement.organization_id) == test_org2_id
         test_db.rollback()
@@ -369,12 +420,13 @@ class TestProjectFailClosed:
         )
         scoped_data = RequirementDataFactory.sample_data()
         scoped_data["project_id"] = project_id
-        project_scoped = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            scoped_data,
-            organization_id=test_org_id,
-        )
+        with _rls_project(test_db, project_id):
+            project_scoped = crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                scoped_data,
+                organization_id=test_org_id,
+            )
 
         # org bound, NO project -> fail-closed to NULL-project rows only.
         with bound_scope(organization_id=test_org_id):
@@ -399,17 +451,20 @@ class TestProjectFailClosed:
         )
         data_a = RequirementDataFactory.sample_data()
         data_a["project_id"] = project_a
-        in_a = crud_utils.create_item(
-            test_db, models.Requirement, data_a, organization_id=test_org_id
-        )
+        with _rls_project(test_db, project_a):
+            in_a = crud_utils.create_item(
+                test_db, models.Requirement, data_a, organization_id=test_org_id
+            )
         data_b = RequirementDataFactory.sample_data()
         data_b["project_id"] = project_b
-        in_b = crud_utils.create_item(
-            test_db, models.Requirement, data_b, organization_id=test_org_id
-        )
+        with _rls_project(test_db, project_b):
+            in_b = crud_utils.create_item(
+                test_db, models.Requirement, data_b, organization_id=test_org_id
+            )
 
-        with bound_scope(organization_id=test_org_id, project_id=project_a):
-            results = test_db.query(models.Requirement).all()
+        with _rls_project(test_db, project_a):
+            with bound_scope(organization_id=test_org_id, project_id=project_a):
+                results = test_db.query(models.Requirement).all()
 
         ids = {b.id for b in results}
         assert org_level.id in ids
@@ -475,12 +530,13 @@ class TestKillSwitch:
         _kill_switch_active() on every invocation, so setting the env var at runtime
         disables filtering for subsequent queries even in the same process.
         """
-        crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
+                organization_id=test_org2_id,
+            )
 
         with patch.dict(os.environ, {"RHESIS_DISABLE_SCOPE_LISTENER": "1"}):
             with bound_scope(organization_id=test_org_id):
@@ -562,12 +618,13 @@ class TestSessionInfoScope:
             RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        b2 = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            b2 = crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
+                organization_id=test_org2_id,
+            )
 
         # ContextVar is unbound (isolate_request_scope); scope lives only on the session.
         assert current_scope().organization_id is None
@@ -601,12 +658,13 @@ class TestSessionInfoScope:
             RequirementDataFactory.sample_data(),
             organization_id=test_org_id,
         )
-        b2 = crud_utils.create_item(
-            test_db,
-            models.Requirement,
-            RequirementDataFactory.sample_data(),
-            organization_id=test_org2_id,
-        )
+        with _rls_org(test_db, test_org2_id):
+            b2 = crud_utils.create_item(
+                test_db,
+                models.Requirement,
+                RequirementDataFactory.sample_data(),
+                organization_id=test_org2_id,
+            )
 
         # ContextVar bound to org2, but Session.info bound to org1 - org1 must win.
         with bound_scope(organization_id=test_org2_id):

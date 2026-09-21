@@ -152,9 +152,10 @@ class TestBuiltInRoleRLSPolicy:
     roles from any non-superuser (production) connection.  The SP7 migration
     replaces it with a NULL-tolerant policy.
 
-    These guards run against ``pg_policies`` / ``pg_indexes`` directly because
-    the normal test DB role is a superuser with BYPASSRLS — it would not surface
-    a regression in the policy itself.
+    Two of these guards read ``pg_policies`` / ``pg_indexes`` to pin the policy
+    and index shape. The behavioural guards below query through RLS directly:
+    the test DB role is now non-BYPASSRLS (``rhesis-app``), matching production,
+    so no throwaway probe role is needed to exercise the real path.
     """
 
     def test_role_tenant_isolation_permits_null_org(self, test_db: Session):
@@ -192,20 +193,18 @@ class TestBuiltInRoleRLSPolicy:
     def test_restricted_role_sees_builtins_but_not_other_org_custom(
         self, test_db: Session, test_org_id: str
     ):
-        """Exercise RLS with a real non-BYPASSRLS role (the production scenario)."""
+        """Exercise RLS as the non-BYPASSRLS session role (the production scenario).
+
+        A tenant cannot mint a NULL-org built-in row (the WITH CHECK test below
+        pins that), so this leans on 'Owner', a built-in seeded by the migrations,
+        as the NULL-org fixture rather than inserting one.
+        """
         import uuid
 
         from sqlalchemy import text
 
-        probe = f"rls_probe_{uuid.uuid4().hex[:8]}"
         other_org = str(uuid.uuid4())
 
-        test_db.execute(
-            text(
-                "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
-                "VALUES (gen_random_uuid(),'ProbeBuiltIn','organization',100,true,NULL)"
-            )
-        )
         test_db.execute(
             text(
                 "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
@@ -215,31 +214,19 @@ class TestBuiltInRoleRLSPolicy:
         )
         test_db.flush()
 
-        test_db.execute(text(f'CREATE ROLE "{probe}" NOLOGIN'))
-        test_db.execute(text(f'GRANT SELECT ON public.role TO "{probe}"'))
-        test_db.execute(text(f'SET LOCAL ROLE "{probe}"'))
+        probe_names = "SELECT name FROM role WHERE name IN ('Owner','ProbeCustom')"
 
         test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": other_org})
-        visible = {
-            r[0]
-            for r in test_db.execute(
-                text("SELECT name FROM role WHERE name IN ('ProbeBuiltIn','ProbeCustom')")
-            ).fetchall()
-        }
-        assert "ProbeBuiltIn" in visible, (
+        visible = {r[0] for r in test_db.execute(text(probe_names)).fetchall()}
+        assert "Owner" in visible, (
             "built-in role hidden under RLS — the tenant_isolation policy is "
             "missing its 'organization_id IS NULL' clause"
         )
         assert "ProbeCustom" not in visible, "a custom role from another org leaked under RLS"
 
         test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": test_org_id})
-        visible_owner = {
-            r[0]
-            for r in test_db.execute(
-                text("SELECT name FROM role WHERE name IN ('ProbeBuiltIn','ProbeCustom')")
-            ).fetchall()
-        }
-        assert visible_owner == {"ProbeBuiltIn", "ProbeCustom"}
+        visible_owner = {r[0] for r in test_db.execute(text(probe_names)).fetchall()}
+        assert visible_owner == {"Owner", "ProbeCustom"}
 
     def test_restricted_role_cannot_write_builtin_or_cross_org(
         self, test_db: Session, test_org_id: str
@@ -251,12 +238,8 @@ class TestBuiltInRoleRLSPolicy:
         import pytest
         from sqlalchemy import text
 
-        probe = f"rls_wc_probe_{uuid.uuid4().hex[:8]}"
         other_org = str(uuid.uuid4())
 
-        test_db.execute(text(f'CREATE ROLE "{probe}" NOLOGIN'))
-        test_db.execute(text(f'GRANT SELECT, INSERT ON public.role TO "{probe}"'))
-        test_db.execute(text(f'SET LOCAL ROLE "{probe}"'))
         test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": test_org_id})
 
         # Own-org custom role: permitted by WITH CHECK.
@@ -289,8 +272,6 @@ class TestBuiltInRoleRLSPolicy:
                     ),
                     {"o": other_org},
                 )
-
-        test_db.execute(text("RESET ROLE"))
 
 
 # ---------------------------------------------------------------------------

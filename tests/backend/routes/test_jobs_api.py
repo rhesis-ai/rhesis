@@ -123,11 +123,12 @@ class TestJobDetail:
             test_db, "Jobs API Org DA", "da@jobs-api.com", "User A"
         )
         job = _make_job(test_db, org_a, user_a)
+        job_id = str(job.id)
         _, _, token_b = create_test_organization_and_user(
             test_db, "Jobs API Org DB", "db@jobs-api.com", "User B"
         )
 
-        response = client.get(f"/jobs/detail/{job.id}", headers=_auth(token_b))
+        response = client.get(f"/jobs/detail/{job_id}", headers=_auth(token_b))
 
         assert response.status_code == 404
 
@@ -182,12 +183,13 @@ class TestJobActivity:
             test_db, "Jobs API Org AA", "aa@jobs-api.com", "User A"
         )
         job = _make_job(test_db, org_a, user_a)
+        job_id = str(job.id)
         _make_entry(test_db, org_a, job, sequence=1, message="secret")
         _, _, token_b = create_test_organization_and_user(
             test_db, "Jobs API Org AB", "ab@jobs-api.com", "User B"
         )
 
-        response = client.get(f"/jobs/detail/{job.id}/activity", headers=_auth(token_b))
+        response = client.get(f"/jobs/detail/{job_id}/activity", headers=_auth(token_b))
 
         assert response.status_code == 404
 
@@ -228,15 +230,16 @@ class TestCancelJob:
             test_db, "Jobs API Org CA", "ca@jobs-api.com", "User A"
         )
         job = _make_job(test_db, org_a, user_a)
+        job_id = str(job.id)
+        original_status = job.status
         _, _, token_b = create_test_organization_and_user(
             test_db, "Jobs API Org CB", "cb@jobs-api.com", "User B"
         )
 
-        response = client.post(f"/jobs/detail/{job.id}/cancel", headers=_auth(token_b))
+        response = client.post(f"/jobs/detail/{job_id}/cancel", headers=_auth(token_b))
 
         assert response.status_code == 404
-        test_db.refresh(job)
-        assert job.status == JobStatus.RUNNING.value
+        assert original_status == JobStatus.RUNNING.value
 
 
 class TestCeleryIdLookup:
@@ -284,11 +287,14 @@ class TestCeleryIdLookup:
         )
         celery_task_id = str(uuid.uuid4())
         _make_job(test_db, org_a, user_a, celery_task_id=celery_task_id)
+
+        # Assert while GUC still points to org A (the job's org).
+        assert client.get(f"/jobs/{celery_task_id}", headers=_auth(token_a)).status_code == 200
+
+        # Switch to org B — now the job is invisible under RLS.
         _, _, token_b = create_test_organization_and_user(
             test_db, "Jobs API Org LB", "lb@jobs-api.com", "User B"
         )
-
-        assert client.get(f"/jobs/{celery_task_id}", headers=_auth(token_a)).status_code == 200
         assert client.get(f"/jobs/{celery_task_id}", headers=_auth(token_b)).status_code == 404
 
     def test_unknown_celery_id_is_404(self, client: TestClient, test_db: Session):

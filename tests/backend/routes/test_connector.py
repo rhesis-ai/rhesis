@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from rhesis.backend.app.models.execution_trace import ExecutionTrace
+from tests.backend.fixtures.rls import scope_to_project
 
 # A valid, stable project UUID used across trigger tests.
 _TEST_PROJECT_ID = str(uuid.uuid4())
@@ -32,6 +33,7 @@ _MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_member
 def seeded_project(test_db, test_org_id, authenticated_user_id):
     """Real project row (plus the API user's membership) so persisted
     execution traces satisfy the FK and the real membership guard."""
+
     from rhesis.backend.app import models
 
     project = models.Project(
@@ -40,6 +42,9 @@ def seeded_project(test_db, test_org_id, authenticated_user_id):
     )
     test_db.add(project)
     test_db.flush()
+
+    scope_to_project(test_db, project.id)
+
     test_db.add(
         models.ProjectMembership(
             project_id=project.id,
@@ -483,6 +488,7 @@ class TestConnectorHTTPEndpoints:
             assert data["trace_id"]
 
             real_commit_test_db.expire_all()
+            scope_to_project(real_commit_test_db, project.id)
             record = (
                 real_commit_test_db.query(ExecutionTrace)
                 .filter(ExecutionTrace.id == uuid.UUID(data["trace_id"]))

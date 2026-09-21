@@ -16,7 +16,7 @@ from typing import Optional, Tuple
 
 import pytest
 
-from .database import TestingSessionLocal
+from .database import AdminSessionLocal
 
 # Global session authentication cache
 _session_auth_cache: Optional[Tuple[str, str, str]] = None  # (org_id, user_id, token)
@@ -78,8 +78,10 @@ def create_session_authentication() -> Tuple[str, str, str]:
 
     from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
-    # Create a temporary database session
-    session = TestingSessionLocal()
+    # Bootstrap with admin session: creates org/user/token before any RLS
+    # context exists, matching production where migrations and seed data run
+    # as the admin role.
+    session = AdminSessionLocal()
     try:
         # Generate unique names for this session
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -129,8 +131,8 @@ def get_or_create_session_auth() -> Tuple[str, str, str]:
     if api_key:
         print(f"🔍 Found RHESIS_API_KEY in environment: {api_key[:3]}...{api_key[-4:]}")
 
-        # Try to get user info from this API key
-        session = TestingSessionLocal()
+        # Try to get user info from this API key (admin: no RLS context yet)
+        session = AdminSessionLocal()
         try:
             org_id, user_id = get_authenticated_user_info(session)
             if org_id and user_id:

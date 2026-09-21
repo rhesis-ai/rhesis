@@ -296,6 +296,9 @@ class TestChannelAuthorizerIntegration:
         if owner_role is None:
             return
         if existing is None:
+            # organization_member is RLS-guarded and INSERT RETURNING is checked
+            # against the USING clause, so point the session at org_id first.
+            self._point_session(db, org_id)
             db.add(
                 OrganizationMember(organization_id=org_id, user_id=user_id, role_id=owner_role.id)
             )

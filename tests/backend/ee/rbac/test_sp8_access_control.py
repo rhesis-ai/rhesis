@@ -74,6 +74,7 @@ from tests.backend.ee.rbac._rbac_helpers import (
     _rbac_enabled,
     _user,
 )
+from tests.backend.fixtures.rls import scope_to_org
 
 # ---------------------------------------------------------------------------
 # 1. Permission matrix — every built-in role
@@ -529,6 +530,10 @@ class TestMultiUserScenarios:
 
         other_org = _create_org(self.db)
         foreign_user_id = _create_user(self.db, other_org)
+        # Creating the second org scoped the session to it; scope back so the
+        # actor's own membership is visible and the check under test is the
+        # foreign-user 404, not the escalation guard.
+        scope_to_org(self.db, self.org_id)
 
         with pytest.raises(HTTPException) as exc:
             self._assign(owner_id, foreign_user_id, _builtin_role(self.db, "Viewer"))

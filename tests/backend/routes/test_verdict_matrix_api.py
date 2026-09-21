@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 
@@ -24,6 +25,8 @@ def _make_run(db: Session, org, user) -> models.TestRun:
     )
     db.add(project)
     db.flush()
+
+    scope_to_project(db, project.id)
 
     endpoint = models.Endpoint(
         name="Verdict Matrix Endpoint",
@@ -96,14 +99,13 @@ class TestVerdictMatrixEndpoint:
             test_db, "Verdict Matrix Owner Org", "owner3@verdict-matrix.com", "Owner"
         )
         test_run = _make_run(test_db, owner_org, owner_user)
+        run_id = str(test_run.id)
 
         _, _, other_token = create_test_organization_and_user(
             test_db, "Verdict Matrix Other Org", "other@verdict-matrix.com", "Other"
         )
 
-        response = client.get(
-            f"/test_runs/{test_run.id}/verdict-matrix", headers=_auth(other_token)
-        )
+        response = client.get(f"/test_runs/{run_id}/verdict-matrix", headers=_auth(other_token))
 
         assert response.status_code == 404
 

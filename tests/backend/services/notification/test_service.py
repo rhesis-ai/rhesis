@@ -17,6 +17,7 @@ from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.schemas.websocket import EventType, UserTarget
 from rhesis.backend.app.services.notification.catalog import RenderedNotification
 from rhesis.backend.app.services.notification.service import notify
+from tests.backend.fixtures.rls import scope_to_project
 
 
 @pytest.mark.integration
@@ -225,6 +226,10 @@ class TestNotificationProjectScoping:
         self.db.flush()
 
     def _notify(self, project_id):
+        # notification is project-scoped and project_isolation checks INSERT
+        # RETURNING against its USING clause, so the write needs this project
+        # bound. The reads below set their own scope via bound_scope.
+        scope_to_project(self.db, project_id)
         with patch("rhesis.backend.app.services.notification.service.publish_event"):
             notify(
                 self.db,

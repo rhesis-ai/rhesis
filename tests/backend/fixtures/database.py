@@ -16,7 +16,10 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from rhesis.backend.app.config.settings import get_database_settings
 from rhesis.backend.app.database import get_database_url
+
+_db_settings = get_database_settings()
 
 
 @contextmanager
@@ -98,6 +101,32 @@ TestingSessionLocal = sessionmaker(
     expire_on_commit=False,  # Same as production
 )
 
+_CONNECT_ARGS = {
+    "connect_timeout": 10,
+    "application_name": "rhesis-backend-test-admin",
+    "keepalives_idle": "300",
+    "keepalives_interval": "10",
+    "keepalives_count": "3",
+    "tcp_user_timeout": "30000",
+}
+
+admin_engine = create_engine(
+    _db_settings.admin_url,
+    pool_size=2,
+    max_overflow=3,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_timeout=10,
+    connect_args=_CONNECT_ARGS,
+)
+
+AdminSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=admin_engine,
+    expire_on_commit=False,
+)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database(run_migrations_once):
@@ -150,10 +179,13 @@ def test_db(test_org_id, authenticated_user_id, monkeypatch):
     e.g. a CLI entrypoint calling ``SessionLocal()`` directly.
     """
     from rhesis.backend.app.database import (
+        _SET_CONFIG_SQL,
+        _TENANT_VARS_KEY,
         _current_tenant_organization_id,
         _current_tenant_user_id,
         clear_tenant_context,
     )
+    from tests.backend.fixtures.rls import TEST_GUC_KEY as _TEST_GUC_KEY
 
     connection = test_engine.connect()
     outer_transaction = connection.begin()
@@ -176,6 +208,114 @@ def test_db(test_org_id, authenticated_user_id, monkeypatch):
             _current_tenant_user_id.set(authenticated_user_id)
 
         db = TestingSessionLocal(bind=connection, join_transaction_mode="create_savepoint")
+
+        # Store the test GUC params under a private key (NOT _SCOPE_KEY,
+        # which would activate the ORM auto-filter/auto-stamp listeners).
+        _test_params = {
+            "org_id": test_org_id or "",
+            "user_id": authenticated_user_id or "",
+            "project_id": "",
+        }
+        db.info[_TEST_GUC_KEY] = _test_params
+        # Also store under _TENANT_VARS_KEY so _reapply_tenant_vars can
+        # restore GUCs on handler sessions after a handler (e.g.
+        # temporary_project_scope cleanup) blanks them with SET LOCAL.
+        db.info[_TENANT_VARS_KEY] = dict(_test_params)
+
+        # Patch create_organization to re-apply the test GUCs after it
+        # returns. create_organization calls reset_session_context to blank
+        # GUCs (the org INSERT needs the policy passthrough), but then
+        # leaves them blank — subsequent queries on tables with strict
+        # tenant_isolation crash on ''::uuid.
+        from rhesis.backend.app.crud import organization as _org_crud_mod
+        _original_create = _org_crud_mod.create_organization
+
+        _fixture_db = db
+
+        def _test_create_organization(db, organization, owner_user_id=None):
+            result = _original_create(db, organization, owner_user_id)
+            # reset_session_context inside _original_create blanked the GUCs
+            # with set_config(..., is_local=true). That '' persists after
+            # RELEASE SAVEPOINT, which is fine for the org table (its policy
+            # treats '' as "no scope") — BUT any subsequent code in the SAME
+            # session that touches a table with strict tenant_isolation
+            # crashes on ''::uuid (e.g. _sync_project_roles_from_org_role
+            # during user-creation in auth fixtures).
+            #
+            # Only re-apply on the test fixture session. HTTP handler
+            # sessions must NOT get the test GUCs re-applied: the LOCAL
+            # set_config persists after the handler's savepoint is released,
+            # and setting it to test_org_id would hide any newly created org
+            # from subsequent reads (the org policy's USING clause compares
+            # id = GUC::uuid).
+            if db is _fixture_db:
+                db.execute(_SET_CONFIG_SQL, _test_params)
+                # reset_session_context also stored empty strings under
+                # _TENANT_VARS_KEY. Handler sessions (override_get_db) copy
+                # test_db.info and _reapply_tenant_vars reads that key, so
+                # leaving it blank would override the connection-level SET.
+                if _TENANT_VARS_KEY in db.info:
+                    db.info[_TENANT_VARS_KEY].update(_test_params)
+            return result
+
+        monkeypatch.setattr(_org_crud_mod, "create_organization", _test_create_organization)
+
+        patch_auth_get_db(monkeypatch, db)
+        try:
+            yield db
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+
+    finally:
+        try:
+            outer_transaction.rollback()
+        except Exception:
+            pass
+        try:
+            connection.close()
+        except Exception:
+            pass
+        clear_tenant_context()
+
+
+@pytest.fixture
+def admin_test_db(test_org_id, authenticated_user_id, monkeypatch):
+    """Like ``test_db`` but connects as the superuser admin role.
+
+    For tests that run DDL or other operations requiring table-owner /
+    superuser privileges (e.g. migration tests that call ``ALTER TABLE``).
+    Still savepoint-isolated and rolls back at teardown.
+    """
+    from rhesis.backend.app.database import (
+        _current_tenant_organization_id,
+        _current_tenant_user_id,
+        clear_tenant_context,
+    )
+
+    connection = admin_engine.connect()
+    outer_transaction = connection.begin()
+
+    try:
+        if test_org_id:
+            _validate_uuid(test_org_id, "test_org_id")
+            connection.execute(
+                text('SET "app.current_organization" = :org_id'), {"org_id": test_org_id}
+            )
+
+        if authenticated_user_id:
+            _validate_uuid(authenticated_user_id, "authenticated_user_id")
+            connection.execute(
+                text('SET "app.current_user" = :user_id'), {"user_id": authenticated_user_id}
+            )
+
+        _current_tenant_organization_id.set(test_org_id)
+        if authenticated_user_id:
+            _current_tenant_user_id.set(authenticated_user_id)
+
+        db = AdminSessionLocal(bind=connection, join_transaction_mode="create_savepoint")
         patch_auth_get_db(monkeypatch, db)
         try:
             yield db
@@ -382,10 +522,18 @@ def real_commit_test_db(test_org_id, authenticated_user_id, monkeypatch):
         except Exception:
             pass
 
-        for org_id in db.info.get("_owned_org_ids", []):
-            _hard_delete_organization(db, org_id)
-        for user_id in db.info.get("_owned_user_ids", []):
-            _hard_delete_user(db, user_id)
+        owned_orgs = db.info.get("_owned_org_ids", [])
+        owned_users = db.info.get("_owned_user_ids", [])
+        db.close()
+
+        if owned_orgs or owned_users:
+            admin_db = AdminSessionLocal()
+            try:
+                for org_id in owned_orgs:
+                    _hard_delete_organization(admin_db, org_id)
+                for user_id in owned_users:
+                    _hard_delete_user(admin_db, user_id)
+            finally:
+                admin_db.close()
 
         clear_tenant_context()
-        db.close()

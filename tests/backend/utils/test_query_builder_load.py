@@ -162,8 +162,8 @@ class TestMetricRequirementNestedM2MLoads:
     ):
         from rhesis.backend.app.constants import EntityType
         from tests.backend.routes.fixtures.data_factories import (
-            RequirementDataFactory,
             MetricDataFactory,
+            RequirementDataFactory,
         )
 
         metric = crud_utils.create_item(
@@ -190,7 +190,7 @@ class TestMetricRequirementNestedM2MLoads:
         )
         tag_crud.assign_tag(
             db=test_db,
-            tag=schemas.TagCreate(name="nested-requirement-tag"),
+            tag=schemas.TagCreate(name="nested-requirement-tag", organization_id=test_org_id),
             entity_id=requirement.id,
             entity_type=EntityType.REQUIREMENT,
             organization_id=test_org_id,
@@ -215,8 +215,8 @@ class TestMetricRequirementNestedM2MLoads:
     ):
         from rhesis.backend.app.constants import EntityType
         from tests.backend.routes.fixtures.data_factories import (
-            RequirementDataFactory,
             MetricDataFactory,
+            RequirementDataFactory,
         )
 
         requirement = crud_utils.create_item(
@@ -243,7 +243,7 @@ class TestMetricRequirementNestedM2MLoads:
         )
         tag_crud.assign_tag(
             db=test_db,
-            tag=schemas.TagCreate(name="nested-metric-tag"),
+            tag=schemas.TagCreate(name="nested-metric-tag", organization_id=test_org_id),
             entity_id=metric.id,
             entity_type=EntityType.METRIC,
             organization_id=test_org_id,
@@ -288,8 +288,8 @@ class TestODataAnyNavigationFilter:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         from tests.backend.routes.fixtures.data_factories import (
-            RequirementDataFactory,
             MetricDataFactory,
+            RequirementDataFactory,
         )
 
         matching_requirement = crud_utils.create_item(
