@@ -1,5 +1,8 @@
 """Tests for SSRF-safe HTTP client."""
 
+import socket
+from unittest.mock import patch
+
 import pytest
 
 from rhesis.backend.app.config.settings import get_application_settings
@@ -10,6 +13,12 @@ from rhesis.backend.app.utils.ssrf_http_client import (
     validate_jwks_uri_origin,
     validate_url_safety,
 )
+
+#: A public address, in the shape getaddrinfo returns. Tests that need a
+#: hostname to resolve use this instead of asking a resolver: what is under
+#: test is the blocklist, not DNS, and a suite that reaches the internet fails
+#: in an air-gapped build for a reason that has nothing to do with the code.
+PUBLIC_ADDR_INFO = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
 
 
 @pytest.fixture(autouse=True)
@@ -23,8 +32,11 @@ class TestValidateUrlSafety:
     """Test URL safety validation for SSRF protection."""
 
     def test_public_hostname_allowed(self):
-        # google.com resolves to a public IP in CI and local environments
-        validate_url_safety("https://accounts.google.com/.well-known/openid-configuration")
+        with patch(
+            "rhesis.backend.app.utils.ssrf_http_client.socket.getaddrinfo",
+            return_value=PUBLIC_ADDR_INFO,
+        ):
+            validate_url_safety("https://accounts.google.com/.well-known/openid-configuration")
 
     def test_no_hostname_blocked(self):
         with pytest.raises(SSRFError, match="no hostname"):
@@ -102,25 +114,14 @@ class TestPinUrlToIp:
     """Test that URL pinning produces correct results."""
 
     def test_pin_replaces_hostname(self):
-        import socket
-
-        addr_infos = socket.getaddrinfo(
-            "accounts.google.com", None, socket.AF_UNSPEC, socket.SOCK_STREAM
-        )
-        pinned, original = _pin_url_to_ip(
-            "https://accounts.google.com/path?q=1", addr_infos
-        )
+        pinned, original = _pin_url_to_ip("https://accounts.google.com/path?q=1", PUBLIC_ADDR_INFO)
         assert original == "accounts.google.com"
         assert "accounts.google.com" not in pinned
         assert "/path?q=1" in pinned
 
     def test_pin_preserves_port(self):
-        import socket
-
         fake_addr = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
-        pinned, original = _pin_url_to_ip(
-            "https://example.com:8443/path", fake_addr
-        )
+        pinned, original = _pin_url_to_ip("https://example.com:8443/path", fake_addr)
         assert ":8443" in pinned
         assert original == "example.com"
 
