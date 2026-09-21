@@ -373,6 +373,145 @@ class TestEmptyListResponsesSayTheyAreEmpty:
 
 
 @pytest.mark.unit
+class TestWritesReportWhatTheyActuallyWrote:
+    """Issue #2516: 95 tests requested, 8 created, 95 reported.
+
+    The response already carried the real number. Nothing contradicted an
+    agent that reported the request instead, and the gap was invisible from
+    the conversation -- it took querying the API to find. So the shortfall is
+    stated in the response rather than left to be noticed.
+    """
+
+    def _check(self, body, data, count_check=None):
+        from rhesis.backend.app.mcp_server.tools import annotate_write_count
+
+        op = {
+            "count_check": count_check or {"request_list": "tests", "response_count": "total_tests"}
+        }
+        return annotate_write_count(data, body, op)
+
+    def test_a_shortfall_is_stated_in_the_response(self):
+        result = self._check({"tests": [{}] * 95}, {"success": True, "total_tests": 8})
+
+        assert result["_count_check"]["requested"] == 95
+        assert result["_count_check"]["written"] == 8
+        warning = result["_count_check"]["warning"]
+        assert "Report 8" in warning
+        assert "not the number you asked for" in warning
+
+    def test_a_matching_count_is_left_alone(self):
+        result = self._check({"tests": [{}] * 8}, {"success": True, "total_tests": 8})
+
+        assert "_count_check" not in result
+
+    def test_an_overshoot_is_also_reported(self):
+        """Not expected, but silence on a mismatch is the bug, either way."""
+        result = self._check({"tests": [{}]}, {"success": True, "total_tests": 3})
+
+        assert result["_count_check"]["written"] == 3
+
+    def test_a_tool_without_the_check_is_untouched(self):
+        from rhesis.backend.app.mcp_server.tools import annotate_write_count
+
+        data = {"total_tests": 8}
+        assert annotate_write_count(data, {"tests": [{}] * 95}, {}) == data
+
+    def test_a_missing_field_on_either_side_is_untouched(self):
+        """A response shape change must not turn into a bogus warning."""
+        assert "_count_check" not in self._check({"tests": [{}]}, {"success": True})
+        assert "_count_check" not in self._check({}, {"total_tests": 8})
+
+    def test_a_malformed_check_does_not_break_dispatch(self):
+        """This runs on every call, so a bad yaml entry must not raise.
+
+        It returns the data untouched instead -- which loses the warning, and
+        is why test_every_declared_check_is_well_formed fails the build for a
+        typo rather than letting it degrade quietly here.
+        """
+        from rhesis.backend.app.mcp_server.tools import annotate_write_count
+
+        data = {"total_tests": 8}
+        body = {"tests": [{}] * 95}
+        for malformed in ("tests", [], {"request_list": "tests"}, {"response_count": "n"}, {}):
+            assert annotate_write_count(data, body, {"count_check": malformed}) == data
+
+    def test_every_declared_check_is_well_formed(self):
+        """A typo in either key silently disables the guard at dispatch, which
+        is the failure this whole mechanism exists to prevent. Catch it here."""
+        for tc in load_tool_configs():
+            check = tc.get("count_check")
+            if check is None:
+                continue
+            assert isinstance(check, dict), f"{tc['name']}: count_check must be a mapping"
+            assert check.get("request_list"), f"{tc['name']}: count_check needs request_list"
+            assert check.get("response_count"), f"{tc['name']}: count_check needs response_count"
+
+    def test_the_bulk_tool_declares_the_check(self):
+        cfg = {tc["name"]: tc for tc in load_tool_configs()}["create_test_set_bulk"]
+        assert cfg["count_check"] == {"request_list": "tests", "response_count": "total_tests"}
+
+    def test_the_bulk_tool_says_to_report_the_returned_count(self):
+        cfg = {tc["name"]: tc for tc in load_tool_configs()}["create_test_set_bulk"]
+        description = cfg["description"].replace("\n", " ")
+        assert "REPORT total_tests FROM THE RESPONSE" in description
+        assert "_count_check" in description
+
+    def test_the_check_reaches_the_operation_map(self):
+        """It is read from op at dispatch, so it has to survive the build."""
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        _, operations = build_tools_and_operations(app)
+        assert operations["create_test_set_bulk"]["count_check"] is not None
+
+
+@pytest.mark.unit
+class TestModelsAreDiscoverable:
+    """Issue #2516 again: the Architect flagged that it could not verify a
+    judge model name because no tool listed them, and it was right -- the
+    model had been saved with its first character missing.
+
+    A metric naming a model the organization lacks is accepted at creation
+    and fails at evaluation, so the name has to be checkable beforehand.
+    """
+
+    def test_list_models_exists_and_resolves(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        assert "list_models" in {t.name for t in tools}
+
+    def test_list_models_is_read_only(self):
+        cfg = {tc["name"]: tc for tc in load_tool_configs()}["list_models"]
+        assert cfg["method"].upper() == "GET"
+        assert "requires_confirmation" not in cfg
+
+    def test_the_filter_param_tells_the_agent_what_to_pass(self):
+        """The agent sees "filter" and the server sends "$filter". The doc has
+        to speak to the caller rather than explain the sanitizing to whoever
+        maintains the yaml, or the agent reads it and passes $filter."""
+        cfg = {tc["name"]: tc for tc in load_tool_configs()}["list_models"]
+        doc = cfg["parameters"]["filter"]["description"].replace("\n", " ")
+        assert 'Pass it as "filter"' in doc
+
+    def test_the_agent_never_sees_a_dollar_prefixed_filter(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        props = {t.name: t for t in tools}["list_models"].inputSchema["properties"]
+        assert "filter" in props
+        assert "$filter" not in props
+
+    def test_list_models_says_why_it_matters(self):
+        """Without the reason an agent has no cue to call it before creating
+        a metric, which is the moment that matters."""
+        description = {tc["name"]: tc for tc in load_tool_configs()}["list_models"]["description"]
+        assert "create_metric" in description
+
+
+@pytest.mark.unit
 class TestPublishedCatalogMatchesTheToolSurface:
     """skills/rhesis/references/tool-catalog.md ships as the agent's tool
     reference and nothing regenerates it from mcp_tools.yaml.
@@ -401,9 +540,7 @@ class TestPublishedCatalogMatchesTheToolSurface:
         """The garak and owasp surfaces sat in the yaml undocumented, so an
         agent reading the skill had no way to know red-teaming was available."""
         missing = {tc["name"] for tc in load_tool_configs()} - self._documented()
-        assert not missing, (
-            f"tools missing from the published catalog: {sorted(missing)}"
-        )
+        assert not missing, f"tools missing from the published catalog: {sorted(missing)}"
 
 
 @pytest.mark.unit

@@ -21,6 +21,7 @@ from rhesis.sdk.agents.constants import ToolMeta
 from rhesis.sdk.agents.schemas import ToolResult
 
 from .tools import (
+    annotate_write_count,
     apply_query_overrides,
     build_tools_and_operations,
     format_list_response,
@@ -187,6 +188,7 @@ class LocalToolProvider(MCPTool):
                     data = response.json()
                 except Exception:
                     data = response.text
+                data = annotate_write_count(data, body, op)
                 formatted = format_list_response(data, page_size, current_skip)
                 return ToolResult(
                     tool_name=tool_name,

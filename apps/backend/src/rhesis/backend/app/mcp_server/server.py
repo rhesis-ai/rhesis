@@ -23,7 +23,12 @@ from starlette.types import Receive, Scope, Send
 from rhesis.backend.app.auth.token_utils import get_secret_key
 from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
 
-from .tools import apply_query_overrides, build_tools_and_operations, format_list_response
+from .tools import (
+    annotate_write_count,
+    apply_query_overrides,
+    build_tools_and_operations,
+    format_list_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +40,26 @@ def format_success(
     response: httpx.Response,
     page_size: Optional[int] = None,
     current_skip: int = 0,
+    body: Optional[Dict[str, Any]] = None,
+    op: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Format a successful response as a JSON string for MCP.
 
     When ``page_size`` is provided (peek-ahead pagination), list responses
     are wrapped with ``_pagination`` metadata so the LLM always knows
     whether the result set is complete or truncated.
+
+    When the tool declares a ``count_check``, a write that created fewer rows
+    than it was sent says so in the response rather than leaving the agent to
+    report the number it asked for.
     """
     try:
         data = response.json()
     except Exception:
         data = response.text
+
+    if op is not None:
+        data = annotate_write_count(data, body, op)
 
     return json.dumps(
         format_list_response(data, page_size, current_skip),
@@ -174,7 +188,13 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
         if response.status_code >= 400:
             text = format_error(response)
         else:
-            text = format_success(response, page_size=page_size, current_skip=current_skip)
+            text = format_success(
+                response,
+                page_size=page_size,
+                current_skip=current_skip,
+                body=body,
+                op=op,
+            )
 
         return [mcp_types.TextContent(type="text", text=text)]
 

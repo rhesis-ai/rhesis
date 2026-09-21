@@ -103,6 +103,13 @@ tools:
     method: POST
     path: /test_sets/bulk
     requires_confirmation: true
+    # The response says how many tests were written. When that is fewer than
+    # were sent, the dispatcher adds a _count_check block rather than leaving
+    # the shortfall for an agent to notice -- see issue #2516, where 95 were
+    # requested, 8 created, and 95 reported.
+    count_check:
+      request_list: tests
+      response_count: total_tests
     description: >
       Create a test set with manually specified tests. Prefer
       generate_test_set for AI-generated test content — use this tool
@@ -115,6 +122,13 @@ tools:
       completed before this tool can run. Calling it earlier is
       rejected with "Cannot generate test sets yet…" — finish the
       prerequisite steps (requirements, metrics, mapping links) first.
+
+      REPORT total_tests FROM THE RESPONSE, never the number you sent. They
+      can differ, and when they do the response carries a _count_check block
+      saying so. Tell the user the number actually created and that the rest
+      were not, rather than describing tests that do not exist. The same holds
+      for every write: what you say you created has to come from what the call
+      returned.
     parameters:
       name:
         description: "Test set name (required, string)"
@@ -669,6 +683,35 @@ tools:
         description: "Requirement name (string). Omit to keep unchanged."
       description:
         description: "Requirement description (string). Explain what this requirement means and how it should be evaluated."
+
+  - name: list_models
+    label: Listing models
+    method: GET
+    path: /models/
+    page_size: 50
+    default_query:
+      $select: "id,name,model_name,provider,model_type,is_protected"
+    description: >
+      List the LLM configurations saved in this organization: the judge models
+      a metric can be evaluated by, and the generation models a synthesizer
+      can use.
+
+      This exists so a model reference can be checked before it is used rather
+      than after. A metric naming a model the organization does not have
+      passes creation and fails at evaluation, and the name is stored as
+      written, so a typo is invisible until a run produces nothing. Resolve
+      the name here and use the id.
+
+      ENTITY: Model. PREREQUISITES: none. CHAIN: before create_metric or
+      update_metric when the user names a judge model, and before reporting
+      that a metric is ready to run. NEVER: infer that a model exists because
+      its name looks standard -- "gpt-4o" being a real model elsewhere says
+      nothing about whether this organization has one saved.
+    parameters:
+      filter:
+        description: >
+          OData filter, e.g. "tolower(name) eq 'gpt-4o judge'". Pass it as
+          "filter"; the server sends it on as $filter.
 
   - name: list_metrics
     label: Checking existing metrics
@@ -1415,8 +1458,8 @@ tools:
         description: >
           OData filter for fields the named parameters above do not
           cover, e.g. "target_reference eq 'Answer Fluency'". Prefer the
-          named parameters where one exists. Keyed without the "$" here
-          because the schema sanitizes it; the wire param is $filter.
+          named parameters where one exists. Pass it as "filter"; the
+          server sends it on as $filter.
 
   - name: get_annotation
     label: Retrieving annotation
