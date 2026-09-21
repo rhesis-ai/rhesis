@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services import test as test_service
+from tests.backend.fixtures.rls import scope_to_org
 from tests.backend.routes.fixtures.data_factories import (
     CategoryDataFactory,
     PromptDataFactory,
@@ -227,17 +228,29 @@ class TestBulkCreateTests:
         test_db.flush()
 
         other_org = models.Organization(name="Other Org")
+        other_org_id = uuid.uuid4()
+        other_org.id = other_org_id
         test_db.add(other_org)
+        # The org and its test set are written under the other org's scope, so
+        # they are genuinely foreign rows rather than rows this caller made.
+        scope_to_org(test_db, other_org_id)
         test_db.flush()
 
         other_org_set = models.TestSet(
             name="Other org multi-turn set",
-            organization_id=other_org.id,
+            organization_id=other_org_id,
             user_id=authenticated_user_id,
             test_set_type_id=multi_turn_type.id,
         )
         test_db.add(other_org_set)
         test_db.commit()
+        # Captured before scoping back: the commit expired it, and refreshing
+        # it from the caller's org is exactly what RLS blocks.
+        other_org_set_id = str(other_org_set.id)
+
+        # Back to the caller's own org, so the rejection below is the real
+        # cross-org check rather than an artefact of leftover scope.
+        scope_to_org(test_db, test_org_id)
 
         # The caller is test_org_id; the other org's set is inaccessible and
         # must be rejected instead of silently creating unassociated tests.
@@ -249,7 +262,7 @@ class TestBulkCreateTests:
                 tests_data=[create_bulk_test_data()],
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
-                test_set_id=str(other_org_set.id),
+                test_set_id=other_org_set_id,
                 test_type_value="Single-Turn",
             )
 

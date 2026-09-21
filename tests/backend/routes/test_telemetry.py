@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from rhesis.backend.app import models
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
 fake = Faker()
@@ -227,28 +228,40 @@ class TestLookupSpanCrossProject:
         )
         test_db.flush()
 
-        span_data = TraceDataFactory.minimal_data(project_id=str(other_project.id))
+        other_project_id = str(other_project.id)
+
+        span_data = TraceDataFactory.minimal_data(project_id=other_project_id)
         ingest_response = authenticated_client.post(
             "/telemetry/traces",
             json={"spans": [span_data]},
-            headers={"X-Project-Id": str(other_project.id)},
+            headers={"X-Project-Id": other_project_id},
         )
         assert ingest_response.status_code == status.HTTP_200_OK
 
-        span_row = (
-            test_db.query(models.Trace).filter(models.Trace.trace_id == span_data["trace_id"]).one()
+        # The request left this session's project GUC blank, and
+        # project_isolation is RESTRICTIVE, so scope to the span's own project
+        # to read it back.
+        scope_to_project(test_db, other_project_id)
+        span_row_id = str(
+            test_db.query(models.Trace)
+            .filter(models.Trace.trace_id == span_data["trace_id"])
+            .one()
+            .id
         )
 
         # Active scope is db_project — a different project than the span's own.
+        # Route tests take the GUC from the shared session, not the header, so
+        # set it here for the cross-project case to be the thing under test.
+        scope_to_project(test_db, db_project.id)
         response = authenticated_client.get(
-            f"/telemetry/spans/{span_row.id}/lookup",
+            f"/telemetry/spans/{span_row_id}/lookup",
             headers={"X-Project-Id": str(db_project.id)},
         )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["trace_id"] == span_data["trace_id"]
-        assert data["project_id"] == str(other_project.id)
+        assert data["project_id"] == other_project_id
 
     def test_lookup_span_not_found(self, authenticated_client: TestClient):
         response = authenticated_client.get(

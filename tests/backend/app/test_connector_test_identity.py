@@ -11,6 +11,7 @@ import uuid
 import pytest
 
 from rhesis.backend.app.main import _validate_test_identity_override
+from tests.backend.fixtures.rls import as_org
 
 
 def test_noop_when_env_vars_unset(test_db, monkeypatch):
@@ -49,21 +50,26 @@ def test_raises_for_user_in_a_different_organization(test_db, test_org_id, monke
     """A user that exists but belongs to a different org must not pass."""
     from rhesis.backend.app import models
 
-    other_org = models.Organization(name=f"other-org-{uuid.uuid4().hex[:8]}")
-    test_db.add(other_org)
-    test_db.flush()
+    # The organization table's policy treats a blank org GUC as "see
+    # everything", which is the only way to insert an org whose id does not
+    # exist yet: INSERT RETURNING is checked against the USING clause.
+    with as_org(test_db, None):
+        other_org = models.Organization(name=f"other-org-{uuid.uuid4().hex[:8]}")
+        test_db.add(other_org)
+        test_db.flush()
 
-    other_user = models.User(
-        email=f"other-{uuid.uuid4().hex[:8]}@rhesis-test.com",
-        name="Other Org User",
-        is_active=True,
-        organization_id=other_org.id,
-    )
-    test_db.add(other_user)
-    test_db.flush()
+        other_user = models.User(
+            email=f"other-{uuid.uuid4().hex[:8]}@rhesis-test.com",
+            name="Other Org User",
+            is_active=True,
+            organization_id=other_org.id,
+        )
+        test_db.add(other_user)
+        test_db.flush()
+        other_user_id = str(other_user.id)
 
     monkeypatch.setenv("RHESIS_TEST_ORGANIZATION_ID", test_org_id)
-    monkeypatch.setenv("RHESIS_TEST_USER_ID", str(other_user.id))
+    monkeypatch.setenv("RHESIS_TEST_USER_ID", other_user_id)
 
     with pytest.raises(RuntimeError, match="belongs to organization"):
         _validate_test_identity_override(test_db)

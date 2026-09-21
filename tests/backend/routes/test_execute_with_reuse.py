@@ -19,6 +19,7 @@ from rhesis.backend.app.services.test_set import (
     execute_test_set_on_endpoint,
     get_last_completed_test_run,
 )
+from tests.backend.fixtures.rls import scope_to_project
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -124,6 +125,9 @@ def db_project(test_db, test_org_id, authenticated_user_id):
     )
     test_db.add(project)
     test_db.flush()
+
+    scope_to_project(test_db, project.id)
+
     return project
 
 

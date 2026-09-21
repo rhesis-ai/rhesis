@@ -12,6 +12,7 @@ from rhesis.backend.app.crud.telemetry import (
     update_traces_with_test_result_id,
 )
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
+from tests.backend.fixtures.rls import scope_to_project
 
 
 class TestUpdateTracesWithTestResultId:
@@ -28,6 +29,9 @@ class TestUpdateTracesWithTestResultId:
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
+        # endpoint and trace are project-scoped, and project_isolation is
+        # RESTRICTIVE, so a blank project GUC blocks their inserts.
+        scope_to_project(test_db, project.id)
         return project
 
     @pytest.fixture

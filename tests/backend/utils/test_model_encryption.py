@@ -1,7 +1,7 @@
 import pytest
-from sqlalchemy.exc import IntegrityError
 from faker import Faker
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from rhesis.backend.app.config.settings import get_security_settings
 from rhesis.backend.app.models.model import Model
@@ -15,7 +15,10 @@ class ModelEncryptionDataFactory(BaseDataFactory):
     """Factory for generating model test data for encryption tests"""
 
     @classmethod
-    def minimal_data(cls) -> dict:
+    def minimal_data(cls, organization_id=None) -> dict:
+        # organization_id is required under RLS: a row with a NULL org cannot
+        # be inserted by a tenant-scoped session, and these tests only care
+        # that the key column round-trips encrypted.
         return {
             "name": fake.company() + " Model",
             "model_name": fake.random_element(
@@ -23,11 +26,12 @@ class ModelEncryptionDataFactory(BaseDataFactory):
             ),
             "endpoint": fake.url(),
             "key": "sk-" + fake.sha256()[:40],  # Simulate API key format
+            "organization_id": organization_id,
         }
 
     @classmethod
-    def sample_data(cls) -> dict:
-        data = cls.minimal_data()
+    def sample_data(cls, organization_id=None) -> dict:
+        data = cls.minimal_data(organization_id)
         data.update(
             {
                 "description": fake.text(max_nb_chars=200),
@@ -67,9 +71,9 @@ def encryption_key():
 class TestModelEncryption:
     """Test encryption of Model API key field"""
 
-    def test_api_key_encrypted_in_db(self, test_db, encryption_key):
+    def test_api_key_encrypted_in_db(self, test_db, encryption_key, test_org_id):
         """Test that API key is encrypted when stored in database"""
-        model_data = ModelEncryptionDataFactory.sample_data()
+        model_data = ModelEncryptionDataFactory.sample_data(test_org_id)
         model = Model(**model_data)
         test_db.add(model)
         test_db.commit()
@@ -88,7 +92,7 @@ class TestModelEncryption:
         test_db.refresh(model)
         assert model.key == model_data["key"]
 
-    def test_different_provider_keys(self, test_db, encryption_key):
+    def test_different_provider_keys(self, test_db, encryption_key, test_org_id):
         """Test encryption works for different LLM provider key formats"""
         provider_keys = [
             ModelEncryptionDataFactory.openai_key(),
@@ -97,7 +101,7 @@ class TestModelEncryption:
         ]
 
         for api_key in provider_keys:
-            model_data = ModelEncryptionDataFactory.minimal_data()
+            model_data = ModelEncryptionDataFactory.minimal_data(test_org_id)
             model_data["key"] = api_key
             model = Model(**model_data)
             test_db.add(model)
@@ -112,9 +116,9 @@ class TestModelEncryption:
             test_db.refresh(model)
             assert model.key == api_key
 
-    def test_update_api_key(self, test_db, encryption_key):
+    def test_update_api_key(self, test_db, encryption_key, test_org_id):
         """Test updating API key (key rotation scenario)"""
-        model_data = ModelEncryptionDataFactory.sample_data()
+        model_data = ModelEncryptionDataFactory.sample_data(test_org_id)
         model = Model(**model_data)
         test_db.add(model)
         test_db.commit()
@@ -134,9 +138,9 @@ class TestModelEncryption:
         assert model.key == new_key
         assert model.key != model_data["key"]
 
-    def test_model_name_not_encrypted(self, test_db, encryption_key):
+    def test_model_name_not_encrypted(self, test_db, encryption_key, test_org_id):
         """Test that model_name is NOT encrypted (it's public)"""
-        model_data = ModelEncryptionDataFactory.sample_data()
+        model_data = ModelEncryptionDataFactory.sample_data(test_org_id)
         model = Model(**model_data)
         test_db.add(model)
         test_db.commit()
@@ -148,9 +152,9 @@ class TestModelEncryption:
         assert result[0] == model_data["model_name"]
         assert not is_encrypted(result[0])
 
-    def test_endpoint_not_encrypted(self, test_db, encryption_key):
+    def test_endpoint_not_encrypted(self, test_db, encryption_key, test_org_id):
         """Test that endpoint URL is NOT encrypted (it's public)"""
-        model_data = ModelEncryptionDataFactory.sample_data()
+        model_data = ModelEncryptionDataFactory.sample_data(test_org_id)
         model = Model(**model_data)
         test_db.add(model)
         test_db.commit()
@@ -162,12 +166,12 @@ class TestModelEncryption:
         assert result[0] == model_data["endpoint"]
         assert not is_encrypted(result[0])
 
-    def test_multiple_models_with_different_keys(self, test_db, encryption_key):
+    def test_multiple_models_with_different_keys(self, test_db, encryption_key, test_org_id):
         """Test multiple models with different API keys"""
         models_data = [
-            ModelEncryptionDataFactory.sample_data(),
-            ModelEncryptionDataFactory.sample_data(),
-            ModelEncryptionDataFactory.sample_data(),
+            ModelEncryptionDataFactory.sample_data(test_org_id),
+            ModelEncryptionDataFactory.sample_data(test_org_id),
+            ModelEncryptionDataFactory.sample_data(test_org_id),
         ]
 
         created_models = []
@@ -188,9 +192,9 @@ class TestModelEncryption:
             model = test_db.query(Model).filter(Model.id == model_id).first()
             assert model.key == original_key
 
-    def test_empty_key_not_allowed(self, test_db, encryption_key):
+    def test_empty_key_not_allowed(self, test_db, encryption_key, test_org_id):
         """Test that empty key is not allowed (nullable=False)"""
-        model_data = ModelEncryptionDataFactory.minimal_data()
+        model_data = ModelEncryptionDataFactory.minimal_data(test_org_id)
         model_data["key"] = None
 
         model = Model(**model_data)

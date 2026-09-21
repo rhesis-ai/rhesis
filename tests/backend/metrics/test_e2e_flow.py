@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rhesis.backend.metrics import MetricResult
+from tests.backend.fixtures.rls import scope_to_project
 
 
 class TestE2EFlow:
@@ -30,6 +31,10 @@ class TestE2EFlow:
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
+        # The endpoint built on this project is project-scoped, and
+        # project_isolation is RESTRICTIVE, so its INSERT is rejected unless
+        # the session is already on this project.
+        scope_to_project(test_db, project.id)
         return project
 
     @pytest.fixture

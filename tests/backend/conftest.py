@@ -12,7 +12,13 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 # Single source of truth for test environment variables.
 # The CI workflow (backend-test.yml) only sets PYTHONPATH; everything else
 # is configured here so there is no duplication to keep in sync.
-from tests.backend.testcontainers_setup import ensure_test_containers
+from tests.backend.testcontainers_setup import (
+    ADMIN_PASS,
+    ADMIN_USER,
+    APP_PASS,
+    APP_USER,
+    ensure_test_containers,
+)
 
 _containers = ensure_test_containers()
 
@@ -53,8 +59,6 @@ _LICENSE_TEST_TOKEN = jwt.encode(
     headers={"kid": "backend-test-suite-v1"},
 )
 
-_TEST_DB_USER = "rhesis-user"
-_TEST_DB_PASS = "your-secured-password"  # trufflehog:ignore
 _TEST_DB_HOST = _containers["db_host"]
 _TEST_DB_PORT = str(_containers["db_port"])
 _TEST_DB_NAME = "rhesis-test-db"
@@ -70,8 +74,10 @@ _TEST_ENV_VARS = {
     "DB_HOST": _TEST_DB_HOST,
     "DB_PORT": _TEST_DB_PORT,
     "DB_NAME": _TEST_DB_NAME,
-    "APP_DB_USER": _TEST_DB_USER,
-    "APP_DB_PASS": _TEST_DB_PASS,
+    "APP_DB_USER": APP_USER,
+    "APP_DB_PASS": APP_PASS,
+    "ADMIN_DB_USER": ADMIN_USER,
+    "ADMIN_DB_PASS": ADMIN_PASS,
     "STORAGE_SERVICE_URI": f"file://{os.path.join(tempfile.gettempdir(), 'rhesis-test-storage')}",
     "BROKER_URL": (
         f"redis://:rhesis-redis-pass@{_containers['redis_host']}:{_containers['redis_port']}/0"
@@ -202,6 +208,25 @@ def _encryption_key_probe() -> str:
     from importlib import import_module
 
     return import_module("rhesis.backend.app.utils.encryption").encrypt(_ENCRYPTION_PROBE_PLAINTEXT)
+
+
+@pytest.fixture(autouse=True)
+def clear_permission_cache():
+    """Drop cached permission decisions between tests.
+
+    The cache is process-global (an in-memory dict here; Redis in production),
+    so it outlives the per-test Postgres rollback and leaks across every file a
+    worker runs. Decisions are keyed by (user, org, capability) and
+    computed from rows that RLS can hide: an authenticated request made while
+    the shared session is scoped to some other org resolves every capability
+    as denied and caches that. Later tests then get 403s from a request that
+    has nothing wrong with it, in a different file, which is near-impossible
+    to trace back.
+    """
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    get_permission_cache().clear_all()
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -374,11 +399,11 @@ def _ensure_session_user_is_owner(request, _ensure_ee_features_registered):
     if cache is not None:
         import uuid as _uuid
 
-        from tests.backend.fixtures.database import TestingSessionLocal
+        from tests.backend.fixtures.database import AdminSessionLocal
         from tests.backend.fixtures.test_setup import ensure_owner_membership
 
         org_id, user_id, _token = cache
-        db = TestingSessionLocal()
+        db = AdminSessionLocal()
         try:
             ensure_owner_membership(db, _uuid.UUID(org_id), _uuid.UUID(user_id))
             db.commit()
@@ -405,8 +430,10 @@ def _run_migrations() -> None:
     env["DB_HOST"] = _TEST_DB_HOST
     env["DB_PORT"] = _TEST_DB_PORT
     env["DB_NAME"] = _TEST_DB_NAME
-    env["APP_DB_USER"] = _TEST_DB_USER
-    env["APP_DB_PASS"] = _TEST_DB_PASS
+    env["APP_DB_USER"] = APP_USER
+    env["APP_DB_PASS"] = APP_PASS
+    env["ADMIN_DB_USER"] = ADMIN_USER
+    env["ADMIN_DB_PASS"] = ADMIN_PASS
     env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
 
     result = subprocess.run(
@@ -423,6 +450,10 @@ def _run_migrations() -> None:
             f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
             "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
         )
+
+    from tests.backend.testcontainers_setup import grant_app_role_privileges
+
+    grant_app_role_privileges(_TEST_DB_HOST, _TEST_DB_PORT, _TEST_DB_NAME)
 
 
 @pytest.fixture(scope="session", autouse=True)

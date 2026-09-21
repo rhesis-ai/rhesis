@@ -23,6 +23,7 @@ from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.quota import QuotaPolicy, QuotaRegistry
 from rhesis.backend.jobs import trace_retention
 from rhesis.backend.jobs.trace_retention import sweep_expired_traces
+from tests.backend.fixtures.rls import scope_session_to_org, scope_session_to_project
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 _NOW = datetime.now(timezone.utc)
@@ -75,8 +76,19 @@ def _org(db: Session, name: str, email: str):
     return org, user
 
 
+def _org_id(org) -> str:
+    """Accept an Organization or a bare id.
+
+    create_organization calls expire_all(), so building a second org
+    invalidates the first. Once its scope has moved, refreshing that
+    stale object is blocked by RLS, so callers pass the id instead.
+    """
+    return str(getattr(org, "id", org))
+
+
 def _project(db: Session, org) -> str:
-    proj = Project(name="retention-test-project", organization_id=org.id)
+    scope_session_to_org(db, _org_id(org))
+    proj = Project(name="retention-test-project", organization_id=_org_id(org))
     db.add(proj)
     db.commit()
     project_id = str(proj.id)
@@ -85,11 +97,15 @@ def _project(db: Session, org) -> str:
 
 
 def _trace(db: Session, org, project_id: str, *, created_at) -> str:
+    # trace is project-scoped and project_isolation is RESTRICTIVE, so the
+    # session must sit on this org and project before the INSERT.
+    scope_session_to_org(db, _org_id(org))
+    scope_session_to_project(db, project_id)
     t = Trace(
         trace_id="deadbeef" * 4,
         span_id="abcd1234" * 2,
         project_id=project_id,
-        organization_id=org.id,
+        organization_id=_org_id(org),
         environment="test",
         span_name="test-span",
         span_kind="INTERNAL",
@@ -115,7 +131,16 @@ def _trace(db: Session, org, project_id: str, *, created_at) -> str:
     return trace_id
 
 
-def _trace_exists(db: Session, trace_id: str) -> bool:
+def _trace_exists(db: Session, org, project_id: str, trace_id: str) -> bool:
+    """Whether the row is really still there, not merely whether it is visible.
+
+    This SELECT is subject to RLS. An out-of-scope trace reads as absent, so an
+    unscoped check would report a surviving row as deleted and let a retention
+    assertion pass for the wrong reason. Scoping to the row's own org and
+    project first makes "not found" mean deleted.
+    """
+    scope_session_to_org(db, _org_id(org))
+    scope_session_to_project(db, project_id)
     db.expire_all()
     return (
         db.execute(text("SELECT 1 FROM trace WHERE id = :id"), {"id": trace_id}).first()
@@ -135,7 +160,7 @@ class TestSweepDisabledByDefault:
         result = sweep_expired_traces()
 
         assert result == {"enabled": False}
-        assert _trace_exists(db, old_trace_id)
+        assert _trace_exists(db, org, project_id, old_trace_id)
 
 
 @pytest.mark.integration
@@ -161,8 +186,8 @@ class TestSweepDeletesPastTheWindow:
         assert result["enabled"] is True
         assert result["dry_run"] is False
         assert result["traces_affected"] >= 1
-        assert not _trace_exists(db, old_trace_id)
-        assert _trace_exists(db, recent_trace_id)
+        assert not _trace_exists(db, org, project_id, old_trace_id)
+        assert _trace_exists(db, org, project_id, recent_trace_id)
 
 
 @pytest.mark.integration
@@ -185,7 +210,7 @@ class TestSweepDryRun:
 
         assert result["dry_run"] is True
         assert result["traces_affected"] >= 1
-        assert _trace_exists(db, old_trace_id), "dry-run must not actually delete"
+        assert _trace_exists(db, org, project_id, old_trace_id), "dry-run must not actually delete"
 
 
 @pytest.mark.integration
@@ -216,8 +241,8 @@ class TestSweepDeletesInBatches:
 
         assert deleted == 5, "every expired row must go, not just the first batch"
         for trace_id in old_ids:
-            assert not _trace_exists(db, trace_id)
-        assert _trace_exists(db, recent_id), "a recent trace must survive batching"
+            assert not _trace_exists(db, org, project_id, trace_id)
+        assert _trace_exists(db, org, project_id, recent_id), "a recent trace must survive batching"
 
 
 @pytest.mark.integration
@@ -241,7 +266,7 @@ class TestSweepUnlimitedRetention:
         result = sweep_expired_traces()
 
         assert result["orgs_swept"] == 0
-        assert _trace_exists(db, old_trace_id)
+        assert _trace_exists(db, org, project_id, old_trace_id)
 
 
 @pytest.mark.integration
@@ -264,7 +289,7 @@ class TestSweepGlobalOverride:
 
         sweep_expired_traces()
 
-        assert _trace_exists(db, old_trace_id), (
+        assert _trace_exists(db, org, project_id, old_trace_id), (
             "100-day-old trace should survive a 200-day override"
         )
 
@@ -280,18 +305,22 @@ class TestSweepOrgIsolation:
         _settings(monkeypatch, enabled=True)
         db = real_commit_test_db
         org_a, _ = _org(db, "Trace Iso Org A", "trace-iso-a@test.com")
+        org_a_id = _org_id(org_a)
         org_b, _ = _org(db, "Trace Iso Org B", "trace-iso-b@test.com")
-        proj_a = _project(db, org_a)
-        proj_b = _project(db, org_b)
+        org_b_id = _org_id(org_b)
+        proj_a = _project(db, org_a_id)
+        proj_b = _project(db, org_b_id)
 
-        trace_a_id = _trace(db, org_a, proj_a, created_at=_OLD)
-        trace_b_id = _trace(db, org_b, proj_b, created_at=_OLD)
+        trace_a_id = _trace(db, org_a_id, proj_a, created_at=_OLD)
+        trace_b_id = _trace(db, org_b_id, proj_b, created_at=_OLD)
 
         cutoff = _NOW - timedelta(days=30)
         trace_retention._sweep_organization(org_b, cutoff, dry_run=False)
 
-        assert _trace_exists(db, trace_a_id), "sweeping org_b must not delete org_a's traces"
-        assert not _trace_exists(db, trace_b_id)
+        assert _trace_exists(db, org_a_id, proj_a, trace_a_id), (
+            "sweeping org_b must not delete org_a's traces"
+        )
+        assert not _trace_exists(db, org_b_id, proj_b, trace_b_id)
 
     def test_one_organizations_failure_does_not_block_the_rest(
         self, monkeypatch, real_commit_test_db: Session, clean_registry
@@ -304,17 +333,19 @@ class TestSweepOrgIsolation:
         _install(QuotaPolicy(limits={}, retention_days=30))
         db = real_commit_test_db
         org_a, _ = _org(db, "Trace Fail Org A", "trace-fail-a@test.com")
+        org_a_id = _org_id(org_a)
         org_b, _ = _org(db, "Trace Fail Org B", "trace-fail-b@test.com")
-        proj_a = _project(db, org_a)
-        proj_b = _project(db, org_b)
+        org_b_id = _org_id(org_b)
+        proj_a = _project(db, org_a_id)
+        proj_b = _project(db, org_b_id)
 
-        trace_a_id = _trace(db, org_a, proj_a, created_at=_OLD)
-        trace_b_id = _trace(db, org_b, proj_b, created_at=_OLD)
+        trace_a_id = _trace(db, org_a_id, proj_a, created_at=_OLD)
+        trace_b_id = _trace(db, org_b_id, proj_b, created_at=_OLD)
 
         real_sweep = trace_retention._sweep_organization
 
         def flaky_sweep(org, cutoff, *, dry_run):
-            if str(org.id) == str(org_a.id):
+            if str(org.id) == org_a_id:
                 raise RuntimeError("simulated failure")
             return real_sweep(org, cutoff, dry_run=dry_run)
 
@@ -322,8 +353,8 @@ class TestSweepOrgIsolation:
 
         result = sweep_expired_traces()
 
-        assert _trace_exists(db, trace_a_id), "org_a's failure is swallowed"
-        assert not _trace_exists(db, trace_b_id), "org_b is still swept"
+        assert _trace_exists(db, org_a_id, proj_a, trace_a_id), "org_a's failure is swallowed"
+        assert not _trace_exists(db, org_b_id, proj_b, trace_b_id), "org_b is still swept"
         assert result["orgs_failed"] >= 1, (
             "a failed org must be counted, not reported as a clean run"
         )
@@ -356,4 +387,4 @@ class TestSweepOrgIsolation:
         assert result["traces_affected"] == 0
         assert result["orgs_swept"] == 0
         assert result["orgs_failed"] >= 1
-        assert _trace_exists(db, old_trace_id)
+        assert _trace_exists(db, org, project_id, old_trace_id)

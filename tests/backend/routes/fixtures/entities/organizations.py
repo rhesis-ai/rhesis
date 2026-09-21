@@ -16,6 +16,8 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.backend.fixtures.rls import scope_to_org
+
 from ..data_factories import OrganizationDataFactory
 
 
@@ -39,8 +41,24 @@ def organization_with_owner(authenticated_client: TestClient, authenticated_user
     return _create_organization_with_owner
 
 
+def _enter_org(test_db, authenticated_user, org_id):
+    """Move the session *and* the acting user into a newly created org.
+
+    An organization is its own tenant, so a new one sits outside the current
+    scope. Scoping the GUC alone is not enough: the permission layer resolves
+    the caller's capabilities from membership rows in the org the session
+    points at, so a caller left behind in their old org resolves as having no
+    capabilities and every follow-up request 403s.
+    """
+    scope_to_org(test_db, org_id)
+    authenticated_user.organization_id = org_id
+    test_db.flush()
+
+
 @pytest.fixture
-def organization_incomplete_onboarding(authenticated_client: TestClient, authenticated_user):
+def organization_incomplete_onboarding(
+    authenticated_client: TestClient, authenticated_user, test_db
+):
     """🏗️ Organization with incomplete onboarding"""
 
     def _create_incomplete_org(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
@@ -55,13 +73,15 @@ def organization_incomplete_onboarding(authenticated_client: TestClient, authent
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
-        return response.json()
+        org = response.json()
+        _enter_org(test_db, authenticated_user, org["id"])
+        return org
 
     return _create_incomplete_org
 
 
 @pytest.fixture
-def organization_complete_onboarding(authenticated_client: TestClient, authenticated_user):
+def organization_complete_onboarding(authenticated_client: TestClient, authenticated_user, test_db):
     """Organization with completed onboarding"""
 
     def _create_complete_org(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
@@ -76,13 +96,15 @@ def organization_complete_onboarding(authenticated_client: TestClient, authentic
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
-        return response.json()
+        org = response.json()
+        _enter_org(test_db, authenticated_user, org["id"])
+        return org
 
     return _create_complete_org
 
 
 @pytest.fixture
-def organization_with_domain(authenticated_client: TestClient, authenticated_user):
+def organization_with_domain(authenticated_client: TestClient, authenticated_user, test_db):
     """🌐 Organization with domain configuration"""
 
     def _create_domain_org(domain: str = "example.com", verified: bool = False) -> Dict[str, Any]:
@@ -95,13 +117,15 @@ def organization_with_domain(authenticated_client: TestClient, authenticated_use
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
-        return response.json()
+        org = response.json()
+        _enter_org(test_db, authenticated_user, org["id"])
+        return org
 
     return _create_domain_org
 
 
 @pytest.fixture
-def organization_with_limits(authenticated_client: TestClient, authenticated_user):
+def organization_with_limits(authenticated_client: TestClient, authenticated_user, test_db):
     """Organization with user limits and subscription"""
 
     def _create_limited_org(max_users: int = 50, active: bool = True) -> Dict[str, Any]:
@@ -114,7 +138,9 @@ def organization_with_limits(authenticated_client: TestClient, authenticated_use
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
-        return response.json()
+        org = response.json()
+        _enter_org(test_db, authenticated_user, org["id"])
+        return org
 
     return _create_limited_org
 

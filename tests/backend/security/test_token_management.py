@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import token as token_crud
+from tests.backend.fixtures.rls import scope_to_org
 
 
 @pytest.mark.security
@@ -111,6 +112,7 @@ class TestTokenOrganizationSecurity:
             f"token-user-{unique_id}@security-test.com",
             "Token User",
         )
+        org_id, user_id = org.id, user.id
 
         # Create a token with organization scoping
         import secrets
@@ -124,16 +126,16 @@ class TestTokenOrganizationSecurity:
             token=token_value,
             token_hash=hash_token(token_value),
             token_obfuscated=token_value[:8] + "...",
-            user_id=user.id,
+            user_id=user_id,
         )
         result = token_crud.create_token(
-            test_db, token_data, organization_id=str(org.id), user_id=str(user.id)
+            test_db, token_data, organization_id=str(org_id), user_id=str(user_id)
         )
 
         # Verify the token was created with correct organization scoping
         assert result is not None
-        assert str(result.user_id) == str(user.id)
-        assert str(result.organization_id) == str(org.id)
+        assert str(result.user_id) == str(user_id)
+        assert str(result.organization_id) == str(org_id)
 
     def test_revoke_token_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that revoke_token properly filters by organization"""
@@ -155,12 +157,17 @@ class TestTokenOrganizationSecurity:
             f"token-delete-user1-{unique_id}@security-test.com",
             "Token Delete User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Token Delete Org 2 {unique_id}",
             f"token-delete-user2-{unique_id}@security-test.com",
             "Token Delete User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to
+        # the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a token in org1
         import secrets
@@ -174,15 +181,15 @@ class TestTokenOrganizationSecurity:
             token=token_value1,
             token_hash=hash_token(token_value1),
             token_obfuscated=token_value1[:8] + "...",
-            user_id=user1.id,
+            user_id=user1_id,
         )
         token = token_crud.create_token(
-            test_db, token_data, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, token_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to revoke the token
         result_org1 = token_crud.revoke_token(
-            test_db, token.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, token.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None  # Token was found and revoked
 
@@ -193,15 +200,15 @@ class TestTokenOrganizationSecurity:
             token=token_value2,
             token_hash=hash_token(token_value2),
             token_obfuscated=token_value2[:8] + "...",
-            user_id=user1.id,
+            user_id=user1_id,
         )
         token2 = token_crud.create_token(
-            test_db, token_data2, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, token_data2, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org2 should NOT be able to revoke the token from org1
         result_org2 = token_crud.revoke_token(
-            test_db, token2.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, token2.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None  # Token was not found/revoked due to organization filtering
 

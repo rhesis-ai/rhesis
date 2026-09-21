@@ -32,6 +32,7 @@ from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.ee.rbac.default_role import assign_default_org_role
 from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+from tests.backend.fixtures.rls import scope_to_org
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -75,6 +76,9 @@ def _create_org(db: Session, owner_id: uuid.UUID | None = None) -> uuid.UUID:
         {"id": str(org_id), "name": f"TestOrg-{org_id.hex[:8]}"},
     )
     db.flush()
+    # Everything created next belongs to this org, and RLS gates both the
+    # writes and the read-backs, so scope the session here.
+    scope_to_org(db, org_id)
     return org_id
 
 
@@ -345,6 +349,10 @@ class TestOnboardingHttpSequenceUnderRbac:
         # Fresh org creator, mid-signup: no organization yet — mirrors the
         # real onboarding state before PUT /users/{user_id} attaches the org.
         org = create_test_organization(test_db, f"Onboarding Org {uuid.uuid4().hex[:8]}")
+        # RLS gates the owner_id UPDATE below and the HTTP steps that follow,
+        # so point the session (and the handler sessions that copy its info)
+        # at the new org.
+        scope_to_org(test_db, org.id)
         user = create_test_user(
             test_db,
             organization_id=None,

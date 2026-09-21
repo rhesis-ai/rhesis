@@ -11,6 +11,7 @@ from rhesis.backend.app.services.explorer.settings import (
     update_explorer_settings,
 )
 from rhesis.backend.app.services.explorer.tests import create_explorer_test_set
+from tests.backend.fixtures.rls import scope_to_project
 
 
 def _create_explorer_set(db: Session, organization_id: str, user_id: str) -> models.TestSet:
@@ -47,6 +48,9 @@ def _create_endpoint(
         project_id=project_id,
     )
     db.add(endpoint)
+    # project_isolation checks INSERT RETURNING against the USING clause, so
+    # the session has to be on this project before the flush.
+    scope_to_project(db, project_id)
     db.flush()
     return endpoint
 

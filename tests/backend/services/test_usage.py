@@ -29,6 +29,7 @@ from rhesis.backend.app.services.usage import (
     get_usage_summary,
     increment_usage,
 )
+from tests.backend.fixtures.rls import scope_to_project
 
 
 class TestCurrentPeriod:
@@ -167,6 +168,9 @@ class TestStockCounters:
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
+        # Endpoint is project-scoped; project_isolation checks INSERT
+        # RETURNING against its USING clause.
+        scope_to_project(test_db, project.id)
 
         baseline = count_org_endpoints(test_db, test_org_id)
 

@@ -11,6 +11,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from rhesis.backend.app.crud.telemetry import get_trace_id_for_conversation
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
 
@@ -157,6 +158,11 @@ class TestGetTraceIdForConversation:
             authenticated_client, project_id, conversation_id
         )
 
+        # The request teardown blanks this session's project GUC, and
+        # project_isolation is RESTRICTIVE, so the read below sees nothing
+        # until the project is scoped again.
+        scope_to_project(test_db, project_id)
+
         org_id = str(db_project.organization_id)
         result = get_trace_id_for_conversation(
             db=test_db,
@@ -190,6 +196,10 @@ class TestGetTraceIdForConversation:
         # Ingest two spans with same conversation but different trace_ids
         first_trace_id = self._ingest_and_get_db(authenticated_client, project_id, conversation_id)
         second_trace_id = self._ingest_and_get_db(authenticated_client, project_id, conversation_id)
+
+        # Requests blank this session's project GUC; the UPDATEs and the read
+        # below are all filtered by the RESTRICTIVE project_isolation policy.
+        scope_to_project(test_db, project_id)
 
         # Trace.created_at is a server-side `now()` default, which Postgres scopes
         # to the current transaction, not the statement. Both inserts above run

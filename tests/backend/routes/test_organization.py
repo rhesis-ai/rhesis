@@ -23,6 +23,8 @@ from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from tests.backend.fixtures.rls import scope_to_org
+
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
 from .fixtures.data_factories import OrganizationDataFactory
@@ -39,6 +41,34 @@ class OrganizationTestMixin:
     entity_name = "organization"
     entity_plural = "organizations"
     endpoints = APIEndpoints.ORGANIZATIONS
+
+    #: Tests that must keep seeing several organizations at once opt out of
+    #: entering the org they create, because entering one hides the rest.
+    _enters_created_org = True
+
+    @pytest.fixture(autouse=True)
+    def _bind_request(self, request):
+        self._request = request
+
+    def _enter_created_org(self, created: Dict[str, Any]) -> Dict[str, Any]:
+        """Move the session and the acting user into a just-created org.
+
+        An organization is its own tenant, so a new one sits outside the
+        current scope. Scoping the GUC alone is not enough: the permission
+        layer resolves the caller's capabilities from membership in the org
+        the session points at, so a caller left behind resolves as having
+        none and the follow-up request 403s instead of 200s.
+        """
+        if not self._enters_created_org:
+            return created
+        db = self._request.getfixturevalue("test_db")
+        scope_to_org(db, created[self.id_field])
+        self._request.getfixturevalue("authenticated_user").organization_id = created[self.id_field]
+        db.flush()
+        return created
+
+    def create_entity(self, client: TestClient, data: Dict[str, Any] | None = None):
+        return self._enter_created_org(super().create_entity(client, data))
 
     # Factory-based data methods
     def get_sample_data(self, client=None) -> Dict[str, Any]:
@@ -263,7 +293,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         assert response.status_code == status.HTTP_200_OK, (
             f"Failed to create {self.entity_name}: {response.text}"
         )
-        return response.json()
+        return self._enter_created_org(response.json())
 
     def _get_authenticated_user_id(self) -> str | None:
         """Get the authenticated user ID backing every `authenticated_client` call.

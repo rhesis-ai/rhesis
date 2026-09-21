@@ -22,6 +22,7 @@ from rhesis.backend.app.crud.telemetry import (
     get_trace_by_id,
     query_traces,
 )
+from tests.backend.fixtures.rls import scope_to_org, scope_to_project
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
 
@@ -1221,6 +1222,10 @@ class TestCrossOrganizationSecurity:
         )
         project_id = str(project.id)
 
+        # trace carries a project_id, so project_isolation applies to the
+        # INSERT as well as the reads below.
+        scope_to_project(test_db, project_id)
+
         # Create a test trace span using factory
         span_dict = TraceDataFactory.sample_data(project_id=project_id)
         span = OTELSpan(**span_dict)
@@ -1253,6 +1258,14 @@ class TestCrossOrganizationSecurity:
         Goes through ``create_test_organization_and_user`` rather than building
         the org by hand: the telemetry routes are RBAC-gated, and only that
         helper grants the Owner role a bare ``create_test_user`` leaves off.
+
+        Returns the org id too, because route tests resolve their tenant GUCs
+        from the shared session rather than from the bearer token, so callers
+        have to say which tenant a request acts as (see ``_acting_as``).
+
+        Ids come back as plain strings on purpose: building the next org moves
+        the session's GUC off this one, and touching an attribute on a stale
+        ORM object then raises ObjectDeletedError when RLS hides its row.
         """
         import uuid
 
@@ -1274,79 +1287,105 @@ class TestCrossOrganizationSecurity:
 
         org_client = TestClient(client.app)
         org_client.headers = {"Authorization": f"Bearer {token.token}"}
-        return org_client, project
+        return org_client, str(project.id), str(org.id)
+
+    @staticmethod
+    def _acting_as(test_db, org_id, project_id):
+        """Point the shared session at one tenant before making its request.
+
+        ``override_get_db`` copies ``test_db.info`` per request, so this is what
+        decides which organization and project the next call runs under.
+        """
+        scope_to_org(test_db, org_id)
+        scope_to_project(test_db, project_id)
 
     def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that users cannot access traces from other organizations"""
-        client_a, project_a = self._org_client(test_db, client, "A")
-        client_b, _ = self._org_client(test_db, client, "B")
+        client_a, project_a, org_a = self._org_client(test_db, client, "A")
+        client_b, _, org_b = self._org_client(test_db, client, "B")
 
         # Ingest a trace for organization A
-        span_data = TraceDataFactory.sample_data(project_id=str(project_a.id))
+        self._acting_as(test_db, org_a, project_a)
+        span_data = TraceDataFactory.sample_data(project_id=project_a)
         response = client_a.post("/telemetry/traces", json={"spans": [span_data]})
         assert response.status_code == 200, response.text
         trace_id = span_data["trace_id"]
 
         # Organization A should be able to access their trace
-        response = client_a.get(f"/telemetry/traces/{trace_id}?project_id={project_a.id}")
+        self._acting_as(test_db, org_a, project_a)
+        response = client_a.get(f"/telemetry/traces/{trace_id}?project_id={project_a}")
         assert response.status_code == 200, response.text
         assert response.json()["trace_id"] == trace_id
 
-        # Organization B should NOT be able to access org A's trace
-        response = client_b.get(f"/telemetry/traces/{trace_id}?project_id={project_a.id}")
+        # Organization B should NOT be able to access org A's trace. Scope the
+        # project to A's so the only thing standing between B and the row is
+        # the organization check.
+        self._acting_as(test_db, org_b, project_a)
+        response = client_b.get(f"/telemetry/traces/{trace_id}?project_id={project_a}")
         assert response.status_code == 404  # Not 403 to avoid information leakage
         assert "not found" in response.json()["detail"].lower()
 
     def test_list_traces_only_shows_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""
-        client_a, project_a = self._org_client(test_db, client, "A List")
-        client_b, project_b = self._org_client(test_db, client, "B List")
+        client_a, project_a, org_a = self._org_client(test_db, client, "A List")
+        client_b, project_b, org_b = self._org_client(test_db, client, "B List")
 
-        span_a = TraceDataFactory.sample_data(project_id=str(project_a.id))
+        self._acting_as(test_db, org_a, project_a)
+        span_a = TraceDataFactory.sample_data(project_id=project_a)
         assert client_a.post("/telemetry/traces", json={"spans": [span_a]}).status_code == 200
 
-        span_b = TraceDataFactory.sample_data(project_id=str(project_b.id))
+        self._acting_as(test_db, org_b, project_b)
+        span_b = TraceDataFactory.sample_data(project_id=project_b)
         assert client_b.post("/telemetry/traces", json={"spans": [span_b]}).status_code == 200
 
         # Org A should only see their own traces
-        response = client_a.get(f"/telemetry/traces?project_id={project_a.id}")
+        self._acting_as(test_db, org_a, project_a)
+        response = client_a.get(f"/telemetry/traces?project_id={project_a}")
         assert response.status_code == 200, response.text
         trace_ids = {t["trace_id"] for t in response.json()["traces"]}
         assert span_a["trace_id"] in trace_ids
         assert span_b["trace_id"] not in trace_ids
 
         # Org B should only see their own traces
-        response = client_b.get(f"/telemetry/traces?project_id={project_b.id}")
+        self._acting_as(test_db, org_b, project_b)
+        response = client_b.get(f"/telemetry/traces?project_id={project_b}")
         assert response.status_code == 200, response.text
         trace_ids = {t["trace_id"] for t in response.json()["traces"]}
         assert span_b["trace_id"] in trace_ids
         assert span_a["trace_id"] not in trace_ids
 
-        # Org A must never see org B's traces, whatever status the cross-org query returns
-        response = client_a.get(f"/telemetry/traces?project_id={project_b.id}")
+        # Org A must never see org B's traces, whatever status the cross-org
+        # query returns. Project scoped to B's so the organization check is
+        # the thing being tested.
+        self._acting_as(test_db, org_a, project_b)
+        response = client_a.get(f"/telemetry/traces?project_id={project_b}")
         if response.status_code == 200:
             trace_ids = {t["trace_id"] for t in response.json()["traces"]}
             assert span_b["trace_id"] not in trace_ids
 
     def test_metrics_only_for_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that metrics endpoint only aggregates from user's organization"""
-        client_a, project_a = self._org_client(test_db, client, "A Metrics")
-        client_b, project_b = self._org_client(test_db, client, "B Metrics")
+        client_a, project_a, org_a = self._org_client(test_db, client, "A Metrics")
+        client_b, project_b, org_b = self._org_client(test_db, client, "B Metrics")
 
+        self._acting_as(test_db, org_a, project_a)
         for _ in range(3):
-            span = TraceDataFactory.sample_data(project_id=str(project_a.id))
+            span = TraceDataFactory.sample_data(project_id=project_a)
             assert client_a.post("/telemetry/traces", json={"spans": [span]}).status_code == 200
 
+        self._acting_as(test_db, org_b, project_b)
         for _ in range(2):
-            span = TraceDataFactory.sample_data(project_id=str(project_b.id))
+            span = TraceDataFactory.sample_data(project_id=project_b)
             assert client_b.post("/telemetry/traces", json={"spans": [span]}).status_code == 200
 
         # Each org's metrics count only its own traces
-        response = client_a.get(f"/telemetry/metrics?project_id={project_a.id}")
+        self._acting_as(test_db, org_a, project_a)
+        response = client_a.get(f"/telemetry/metrics?project_id={project_a}")
         assert response.status_code == 200, response.text
         assert response.json()["total_traces"] == 3
 
-        response = client_b.get(f"/telemetry/metrics?project_id={project_b.id}")
+        self._acting_as(test_db, org_b, project_b)
+        response = client_b.get(f"/telemetry/metrics?project_id={project_b}")
         assert response.status_code == 200, response.text
         assert response.json()["total_traces"] == 2
 
@@ -1551,6 +1590,11 @@ class TestTraceTokenAndCostVisibility:
                 ),
             ],
         )
+
+        # Ingesting over HTTP blanks this session's project GUC, and
+        # project_isolation is RESTRICTIVE, so the UPDATE below would match
+        # no rows without re-scoping.
+        scope_to_project(test_db, project_id)
 
         # Stand in for the async enrichment job, which does not run in tests.
         mark_trace_processed(

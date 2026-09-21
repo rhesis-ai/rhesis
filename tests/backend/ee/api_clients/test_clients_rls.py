@@ -1,16 +1,19 @@
 """``authenticate_client`` must work for an app role subject to RLS.
 
-``auth_client`` is FORCE ROW LEVEL SECURITY with a strict
-``organization_id = current_setting('app.current_organization')::uuid`` policy
-and no empty-org passthrough. Both callers (``/auth/token-exchange`` and the
+``auth_client`` is FORCE ROW LEVEL SECURITY with a strict org-scoped policy and
+no empty-org passthrough. Both callers (``/auth/token-exchange`` and the
 client-bound ``/auth/refresh`` minter) reach it on ``get_db_session``, which
-binds no tenant GUCs, so the lookup has to bind org scope itself or it raises
-``invalid input syntax for type uuid: ""``.
+binds no tenant GUCs, so the lookup has to bind org scope itself or the row
+stays invisible.
 
-The test DB role is a superuser and bypasses RLS, so the sibling tests in
-test_clients.py (which mock the session entirely) cannot catch this. These use a
-real row and a real non-BYPASSRLS role -- the same technique as
-``TestResolveUnderEnforcedRLS`` in tests/backend/routes/test_resolve.py.
+The test suite now runs as a non-BYPASSRLS role (``rhesis-app``), so RLS is
+enforced by default. These tests blank the org GUC to simulate the unscoped
+session ``get_db_session`` provides.
+
+Migration ``f4a91c3e7b52`` wrapped the policy's cast in ``NULLIF``, so a blank
+GUC now matches no rows instead of raising ``invalid input syntax for type
+uuid: ""``. The security property is unchanged and the failure mode is better:
+an unscoped read is denied rather than 500-ing.
 """
 
 import uuid as _uuid
@@ -48,18 +51,13 @@ class TestAuthenticateClientUnderEnforcedRLS:
         client_id = row.client_id
         org_id = test_organization.id
 
-        probe = f"authclient_rls_probe_{_uuid.uuid4().hex[:8]}"
-        test_db.execute(text(f'CREATE ROLE "{probe}" NOLOGIN'))
-        test_db.execute(text(f'GRANT SELECT ON public.auth_client TO "{probe}"'))
-        test_db.execute(text(f'SET LOCAL ROLE "{probe}"'))
-
-        # Blank the org GUC so the session presents what get_db_session gives the
-        # exchange. Without this the fixture's own org scope is still bound and
-        # the lookup would succeed regardless of the fix, making this vacuous.
+        # Blank the org GUC so the session presents what get_db_session gives
+        # the exchange. The test_db fixture's own org scope is still set at the
+        # connection level; SET LOCAL overrides it within this savepoint only.
         test_db.execute(text("SET LOCAL app.current_organization = ''"))
 
-        # The function binds org scope internally, so it resolves the row even
-        # though the surrounding session has no tenant GUCs bound.
+        # authenticate_client binds org scope internally, so it resolves the
+        # row even though the surrounding session has no tenant GUCs bound.
         result = authenticate_client(test_db, org_id, client_id, secret)
         assert result is not None, (
             "authenticate_client could not see auth_client under an RLS-enforced "
@@ -67,16 +65,15 @@ class TestAuthenticateClientUnderEnforcedRLS:
         )
         assert result.client_id == client_id
 
-        # And the raw unscoped query is what would have happened without it.
-        with pytest.raises(Exception) as exc:
-            with test_db.begin_nested():
-                test_db.execute(text("SET LOCAL app.current_organization = ''"))
-                test_db.execute(
-                    text("SELECT id FROM auth_client WHERE client_id = :c"),
-                    {"c": client_id},
-                ).fetchone()
-        assert 'invalid input syntax for type uuid: ""' in str(exc.value), (
-            f"expected the empty-org uuid cast to fail, got: {exc.value}"
+        # The raw unscoped query is what would have happened without the fix:
+        # RLS hides the row rather than returning it to an unscoped caller.
+        with test_db.begin_nested():
+            test_db.execute(text("SET LOCAL app.current_organization = ''"))
+            unscoped = test_db.execute(
+                text("SELECT id FROM auth_client WHERE client_id = :c"),
+                {"c": client_id},
+            ).fetchone()
+        assert unscoped is None, (
+            "an unscoped session read an auth_client row -- the blank-org GUC "
+            "must match nothing, not fall through to every tenant"
         )
-
-        test_db.execute(text("RESET ROLE"))

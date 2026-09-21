@@ -7,8 +7,10 @@ pinning is that it removes exactly what it claims to and nothing else: the two
 columns, and the ``reviews`` key on tuning cases without disturbing the rest of
 the shared ``test_metadata`` object.
 
-Drives ``upgrade()``/``downgrade()`` directly against the ``test_db`` connection
-inside an ``Operations.context``, so everything rolls back at teardown. The suite
+Drives ``upgrade()``/``downgrade()`` directly against the ``admin_test_db`` connection
+inside an ``Operations.context``, so everything rolls back at teardown. The admin
+role is required because ``ALTER TABLE`` may only be issued by the table owner,
+matching production where migrations run as the admin role. The suite
 migrates to head before it runs, so this migration has already been applied: the
 pre-migration schema is reached by calling ``downgrade()`` first rather than by
 hand-adding the columns, which also exercises the downgrade for real.
@@ -60,9 +62,9 @@ _migration = _load_migration_module()
 
 
 @pytest.fixture
-def migration_ops(test_db):
+def migration_ops(admin_test_db):
     """Activates an Operations context so the migration's bare ``op.xxx`` calls resolve."""
-    ctx = MigrationContext.configure(test_db.connection())
+    ctx = MigrationContext.configure(admin_test_db.connection())
     with Operations.context(ctx):
         yield
 
@@ -113,13 +115,15 @@ def _metadata_of(conn, test_id) -> dict:
 
 
 class TestTheColumnsGo:
-    def test_neither_column_exists_at_head(self, test_db):
-        conn = test_db.connection()
+    def test_neither_column_exists_at_head(self, admin_test_db):
+        conn = admin_test_db.connection()
         assert not _column_exists(conn, "test_result", "test_reviews")
         assert not _column_exists(conn, "trace", "trace_reviews")
 
-    def test_a_downgrade_and_upgrade_round_trip_drops_them_again(self, test_db, migration_ops):
-        conn = test_db.connection()
+    def test_a_downgrade_and_upgrade_round_trip_drops_them_again(
+        self, admin_test_db, migration_ops
+    ):
+        conn = admin_test_db.connection()
         _migration.downgrade()
         assert _column_exists(conn, "test_result", "test_reviews")
         assert _column_exists(conn, "trace", "trace_reviews")
@@ -129,8 +133,8 @@ class TestTheColumnsGo:
         assert not _column_exists(conn, "test_result", "test_reviews")
         assert not _column_exists(conn, "trace", "trace_reviews")
 
-    def test_downgrade_puts_the_columns_back_nullable(self, test_db, migration_ops):
-        conn = test_db.connection()
+    def test_downgrade_puts_the_columns_back_nullable(self, admin_test_db, migration_ops):
+        conn = admin_test_db.connection()
         _migration.downgrade()
 
         for table, column in (("test_result", "test_reviews"), ("trace", "trace_reviews")):
@@ -147,9 +151,9 @@ class TestTheColumnsGo:
 
 class TestTheTuningArray:
     def test_the_reviews_key_is_stripped(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         test_id = _insert_test(
             conn,
             org_id=test_org_id,
@@ -168,10 +172,10 @@ class TestTheTuningArray:
         assert "reviews" not in meta, meta
 
     def test_everything_else_in_the_shared_column_survives(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         """The column has other writers, so this must remove a key rather than rewrite."""
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         test_id = _insert_test(
             conn,
             org_id=test_org_id,
@@ -195,9 +199,9 @@ class TestTheTuningArray:
         assert meta["labeler"] == "Toxicity"
 
     def test_a_test_without_the_key_is_left_alone(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         untouched = {"label": "pass", "labeler": "user", "output": "o"}
         test_id = _insert_test(
             conn, org_id=test_org_id, user_id=authenticated_user_id, metadata=untouched
@@ -210,10 +214,10 @@ class TestTheTuningArray:
         assert _metadata_of(conn, test_id) == untouched
 
     def test_upgrade_is_idempotent(
-        self, test_db, migration_ops, test_org_id, authenticated_user_id
+        self, admin_test_db, migration_ops, test_org_id, authenticated_user_id
     ):
         """Only the metadata strip can run twice; the DROPs cannot, so it is run alone."""
-        conn = test_db.connection()
+        conn = admin_test_db.connection()
         test_id = _insert_test(
             conn,
             org_id=test_org_id,

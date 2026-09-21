@@ -11,12 +11,13 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.utils.query_utils import QueryBuilder
+from tests.backend.fixtures.rls import scope_to_project
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -86,6 +87,9 @@ def _insert_experiment(
     exp_id = uuid.uuid4()
     pid = project_id or str(uuid.uuid4())
     _ensure_project(db, pid, organization_id)
+    # experiment is project-scoped and project_isolation is RESTRICTIVE, so both
+    # the insert below and the caller's read-back need this project in scope.
+    scope_to_project(db, pid)
     db.execute(
         text(
             """

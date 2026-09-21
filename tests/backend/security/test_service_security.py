@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import test_set as test_set_crud
+from tests.backend.fixtures.rls import scope_to_org
 from tests.backend.routes.fixtures.data_factories import TagDataFactory
 
 
@@ -40,28 +41,33 @@ class TestTagOrganizationSecurity:
             f"tag-user1-{unique_id}@security-test.com",
             "Tag User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Tag Org 2 {unique_id}",
             f"tag-user2-{unique_id}@security-test.com",
             "Tag User 2",
         )
+        org2_id = org2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a tag in org1 using the data factory
         tag_data = TagDataFactory.sample_data()
         tag_data["name"] = f"Security Test Tag {unique_id}"
         tag = tag_crud.create_tag(
-            test_db, tag_data, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, tag_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to access the tag
-        result_org1 = tag_crud.get_tag(test_db, tag.id, organization_id=str(org1.id))
+        result_org1 = tag_crud.get_tag(test_db, tag.id, organization_id=str(org1_id))
         assert result_org1 is not None
         assert result_org1.id == tag.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the tag
-        result_org2 = tag_crud.get_tag(test_db, tag.id, organization_id=str(org2.id))
+        result_org2 = tag_crud.get_tag(test_db, tag.id, organization_id=str(org2_id))
         assert result_org2 is None
 
         # Test without organization filtering (should fail due to security requirements)
@@ -87,20 +93,21 @@ class TestTagOrganizationSecurity:
         org, user, _ = create_test_organization_and_user(
             test_db, f"Tag Org {unique_id}", f"tag-user-{unique_id}@security-test.com", "Tag User"
         )
+        org_id, user_id = org.id, user.id
 
         # Create a tag with organization scoping using data factory
         tag_data = TagDataFactory.sample_data()
         tag_data["name"] = f"Security Test Tag {unique_id}"
 
         result = tag_crud.create_tag(
-            test_db, tag_data, organization_id=str(org.id), user_id=str(user.id)
+            test_db, tag_data, organization_id=str(org_id), user_id=str(user_id)
         )
 
         # Verify the tag was created with correct organization scoping
         assert result is not None
         assert result.name == f"Security Test Tag {unique_id}"
-        assert str(result.organization_id) == str(org.id)
-        assert str(result.user_id) == str(user.id)
+        assert str(result.organization_id) == str(org_id)
+        assert str(result.user_id) == str(user_id)
 
     def test_delete_tag_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that delete_tag properly filters by organization"""
@@ -122,23 +129,28 @@ class TestTagOrganizationSecurity:
             f"tag-delete-user1-{unique_id}@security-test.com",
             "Tag Delete User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Tag Delete Org 2 {unique_id}",
             f"tag-delete-user2-{unique_id}@security-test.com",
             "Tag Delete User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a tag in org1 using data factory
         tag_data = TagDataFactory.sample_data()
         tag_data["name"] = f"Tag to Delete {unique_id}"
         tag = tag_crud.create_tag(
-            test_db, tag_data, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, tag_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to delete the tag
         result_org1 = tag_crud.delete_tag(
-            test_db, tag.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, tag.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None  # Tag was found and deleted
 
@@ -146,12 +158,12 @@ class TestTagOrganizationSecurity:
         tag_data2 = TagDataFactory.sample_data()
         tag_data2["name"] = f"Tag to Delete 2 {unique_id}"
         tag2 = tag_crud.create_tag(
-            test_db, tag_data2, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, tag_data2, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org2 should NOT be able to delete the tag from org1
         result_org2 = tag_crud.delete_tag(
-            test_db, tag2.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, tag2.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None  # Tag was not found/deleted due to organization filtering
 
@@ -180,12 +192,17 @@ class TestTestSetOrganizationSecurity:
             f"testset-user1-{unique_id}@security-test.com",
             "TestSet User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"TestSet Org 2 {unique_id}",
             f"testset-user2-{unique_id}@security-test.com",
             "TestSet User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a test set in org1 using proper data structure
         from faker import Faker
@@ -193,8 +210,8 @@ class TestTestSetOrganizationSecurity:
         fake = Faker()
         test_set = models.TestSet(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             name=f"Security Test Set {unique_id}",
             description=fake.text(max_nb_chars=200),
             is_published=False,
@@ -205,15 +222,15 @@ class TestTestSetOrganizationSecurity:
 
         # User from org1 should be able to access the test set
         result_org1 = test_set_crud.get_test_set(
-            test_db, test_set.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_set.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == test_set.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the test set
         result_org2 = test_set_crud.get_test_set(
-            test_db, test_set.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, test_set.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -243,6 +260,7 @@ class TestTestSetOrganizationSecurity:
             f"testset-create-user-{unique_id}@security-test.com",
             "TestSet Create User",
         )
+        org_id, user_id = org.id, user.id
 
         # Create a test set with organization scoping using proper data structure
         from faker import Faker
@@ -256,14 +274,14 @@ class TestTestSetOrganizationSecurity:
         }
 
         result = test_set_crud.create_test_set(
-            test_db, test_set_data, organization_id=str(org.id), user_id=str(user.id)
+            test_db, test_set_data, organization_id=str(org_id), user_id=str(user_id)
         )
 
         # Verify the test set was created with correct organization scoping
         assert result is not None
         assert result.name == f"Security Test Set Create {unique_id}"
-        assert str(result.organization_id) == str(org.id)
-        assert str(result.user_id) == str(user.id)
+        assert str(result.organization_id) == str(org_id)
+        assert str(result.user_id) == str(user_id)
 
     def test_delete_test_set_organization_filtering(self, test_db: Session):
         """🔒 SECURITY: Test that delete_test_set properly filters by organization"""
@@ -285,12 +303,17 @@ class TestTestSetOrganizationSecurity:
             f"testset-delete-user1-{unique_id}@security-test.com",
             "TestSet Delete User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"TestSet Delete Org 2 {unique_id}",
             f"testset-delete-user2-{unique_id}@security-test.com",
             "TestSet Delete User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a test set in org1 using proper data structure
         from faker import Faker
@@ -303,12 +326,12 @@ class TestTestSetOrganizationSecurity:
             "visibility": "organization",
         }
         test_set = test_set_crud.create_test_set(
-            test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_set_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to delete the test set
         result_org1 = test_set_crud.delete_test_set(
-            test_db, test_set.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_set.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None  # Test set was found and deleted
 
@@ -320,12 +343,12 @@ class TestTestSetOrganizationSecurity:
             "visibility": "organization",
         }
         test_set2 = test_set_crud.create_test_set(
-            test_db, test_set_data2, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_set_data2, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org2 should NOT be able to delete the test set from org1
         result_org2 = test_set_crud.delete_test_set(
-            test_db, test_set2.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, test_set2.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None  # Test set was not found/deleted due to organization filtering
 
@@ -349,12 +372,17 @@ class TestTestSetOrganizationSecurity:
             f"testset-update-user1-{unique_id}@security-test.com",
             "TestSet Update User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"TestSet Update Org 2 {unique_id}",
             f"testset-update-user2-{unique_id}@security-test.com",
             "TestSet Update User 2",
         )
+        org2_id = org2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a test set in org1 using proper data structure
         from faker import Faker
@@ -367,22 +395,22 @@ class TestTestSetOrganizationSecurity:
             "visibility": "organization",
         }
         test_set = test_set_crud.create_test_set(
-            test_db, test_set_data, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_set_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to update the test set
         update_data = {"name": f"Updated TestSet {unique_id}"}
         result_org1 = test_set_crud.update_test_set(
-            test_db, test_set.id, update_data, organization_id=str(org1.id)
+            test_db, test_set.id, update_data, organization_id=str(org1_id)
         )
         assert result_org1 is not None
         assert result_org1.name == f"Updated TestSet {unique_id}"
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to update the test set from org1
         update_data2 = {"name": f"Should Not Update {unique_id}"}
         result_org2 = test_set_crud.update_test_set(
-            test_db, test_set.id, update_data2, organization_id=str(org2.id)
+            test_db, test_set.id, update_data2, organization_id=str(org2_id)
         )
         assert result_org2 is None  # Test set was not found/updated due to organization filtering
 
@@ -411,12 +439,17 @@ class TestTestSetCrudSecurity:
             f"testsets-user1-{unique_id}@security-test.com",
             "TestSets User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"TestSets Org 2 {unique_id}",
             f"testsets-user2-{unique_id}@security-test.com",
             "TestSets User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create test sets in both organizations using proper data structure
         from faker import Faker
@@ -424,8 +457,8 @@ class TestTestSetCrudSecurity:
         fake = Faker()
         test_set1_org1 = models.TestSet(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             name=f"Test Set 1 Org 1 {unique_id}",
             description=fake.text(max_nb_chars=200),
             is_published=False,
@@ -433,8 +466,8 @@ class TestTestSetCrudSecurity:
         )
         test_set2_org1 = models.TestSet(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             name=f"Test Set 2 Org 1 {unique_id}",
             description=fake.text(max_nb_chars=200),
             is_published=False,
@@ -442,21 +475,27 @@ class TestTestSetCrudSecurity:
         )
         test_set1_org2 = models.TestSet(
             id=uuid.uuid4(),
-            organization_id=org2.id,
-            user_id=user2.id,
+            organization_id=org2_id,
+            user_id=user2_id,
             name=f"Test Set 1 Org 2 {unique_id}",
             description=fake.text(max_nb_chars=200),
             is_published=False,
             visibility="organization",
         )
 
-        test_db.add_all([test_set1_org1, test_set2_org1, test_set1_org2])
+        # One flush can only satisfy one org's RLS policy, so insert per org.
+        test_db.add_all([test_set1_org1, test_set2_org1])
+        test_db.commit()
+
+        scope_to_org(test_db, org2_id)
+        test_db.add(test_set1_org2)
         test_db.commit()
 
         # Get test sets for org1 - should return at least the 2 we created
-        result_org1 = test_set_crud.get_test_sets(test_db, organization_id=str(org1.id))
+        scope_to_org(test_db, org1_id)
+        result_org1 = test_set_crud.get_test_sets(test_db, organization_id=str(org1_id))
         assert len(result_org1) >= 2  # At least the 2 we created, could be more from initial data
-        assert all(str(ts.organization_id) == str(org1.id) for ts in result_org1)
+        assert all(str(ts.organization_id) == str(org1_id) for ts in result_org1)
 
         # Verify our specific test sets are in the results
         test_set_names_org1 = {ts.name for ts in result_org1}
@@ -464,9 +503,10 @@ class TestTestSetCrudSecurity:
         assert f"Test Set 2 Org 1 {unique_id}" in test_set_names_org1
 
         # Get test sets for org2 - should return at least the 1 we created
-        result_org2 = test_set_crud.get_test_sets(test_db, organization_id=str(org2.id))
+        scope_to_org(test_db, org2_id)
+        result_org2 = test_set_crud.get_test_sets(test_db, organization_id=str(org2_id))
         assert len(result_org2) >= 1  # At least the 1 we created, could be more from initial data
-        assert all(str(ts.organization_id) == str(org2.id) for ts in result_org2)
+        assert all(str(ts.organization_id) == str(org2_id) for ts in result_org2)
 
         # Verify our specific test set is in the results
         test_set_names_org2 = {ts.name for ts in result_org2}
@@ -522,12 +562,17 @@ class TestServiceSecurityValidation:
             f"isolation-user1-{unique_id}@security-test.com",
             "Isolation User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Isolation Org 2 {unique_id}",
             f"isolation-user2-{unique_id}@security-test.com",
             "Isolation User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # The second org moved the session scope; rows below belong to the
+        # first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Test tag isolation - create tags with same name in different orgs
         tag_name = f"shared_tag_name_{unique_id}"
@@ -536,31 +581,38 @@ class TestServiceSecurityValidation:
         tag_data1 = TagDataFactory.sample_data()
         tag_data1["name"] = tag_name
         tag_org1 = tag_crud.create_tag(
-            test_db, tag_data1, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, tag_data1, organization_id=str(org1_id), user_id=str(user1_id)
         )
+        tag_org1_id = tag_org1.id
 
         # Create tag in org2 with same name
+        scope_to_org(test_db, org2_id)
         tag_data2 = TagDataFactory.sample_data()
         tag_data2["name"] = tag_name
         tag_org2 = tag_crud.create_tag(
-            test_db, tag_data2, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, tag_data2, organization_id=str(org2_id), user_id=str(user2_id)
         )
+        tag_org2_id = tag_org2.id
 
         # When querying with org1 filter, should only return org1 tag
-        result_org1 = tag_crud.get_tag(test_db, tag_org1.id, organization_id=str(org1.id))
+        scope_to_org(test_db, org1_id)
+        result_org1 = tag_crud.get_tag(test_db, tag_org1_id, organization_id=str(org1_id))
         assert result_org1 is not None
-        assert result_org1.organization_id == org1.id
+        assert result_org1.organization_id == org1_id
         assert result_org1.name == tag_name
 
         # When querying with org2 filter, should only return org2 tag
-        result_org2 = tag_crud.get_tag(test_db, tag_org2.id, organization_id=str(org2.id))
+        scope_to_org(test_db, org2_id)
+        result_org2 = tag_crud.get_tag(test_db, tag_org2_id, organization_id=str(org2_id))
         assert result_org2 is not None
-        assert result_org2.organization_id == org2.id
+        assert result_org2.organization_id == org2_id
         assert result_org2.name == tag_name
 
-        # Cross-tenant access should be blocked
-        result_cross1 = tag_crud.get_tag(test_db, tag_org1.id, organization_id=str(org2.id))
+        # Cross-tenant access should be blocked. Acting as org2, org1's tag must
+        # not come back, and vice versa.
+        result_cross1 = tag_crud.get_tag(test_db, tag_org1_id, organization_id=str(org2_id))
         assert result_cross1 is None
 
-        result_cross2 = tag_crud.get_tag(test_db, tag_org2.id, organization_id=str(org1.id))
+        scope_to_org(test_db, org1_id)
+        result_cross2 = tag_crud.get_tag(test_db, tag_org2_id, organization_id=str(org1_id))
         assert result_cross2 is None

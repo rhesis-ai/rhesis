@@ -24,6 +24,7 @@ from rhesis.backend.app.crud.token import (
     create_token,
     get_user_tokens,
 )
+from tests.backend.fixtures.rls import scope_to_org, scope_to_project
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 
@@ -41,12 +42,17 @@ class TestCrudOrganizationFiltering:
             f"user1-{unique_id}@security-test.com",
             "Security User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Security Test Org 2 {unique_id}",
             f"user2-{unique_id}@security-test.com",
             "Security User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a task in org1 using CRUD function
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -56,15 +62,15 @@ class TestCrudOrganizationFiltering:
             db=test_db,
             name="In Progress",
             entity_type="Task",
-            organization_id=str(org1.id),
-            user_id=str(user1.id),
+            organization_id=str(org1_id),
+            user_id=str(user1_id),
         )
 
         # Create task using direct model instantiation since TaskCreate may not exist
         task = models.Task(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             title="Test task in org1",
             description="Test task in org1",
             status_id=status.id,
@@ -74,15 +80,15 @@ class TestCrudOrganizationFiltering:
 
         # User from org1 should be able to access the task
         result_org1 = task_crud.get_task(
-            test_db, task.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, task.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == task.id
-        assert result_org1.organization_id == org1.id
+        assert result_org1.organization_id == org1_id
 
         # User from org2 should NOT be able to access the task
         result_org2 = task_crud.get_task(
-            test_db, task.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, task.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -92,36 +98,41 @@ class TestCrudOrganizationFiltering:
         org1, user1, _ = create_test_organization_and_user(
             test_db, "Test Org 1", f"test-user1-{uuid.uuid4()}@security-test.com", "Test User 1"
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db, "Test Org 2", f"test-user2-{uuid.uuid4()}@security-test.com", "Test User 2"
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a prompt in org1 using fixture data
         from tests.backend.routes.fixtures.data_factories import PromptDataFactory
 
         prompt_data = PromptDataFactory.minimal_data()
         prompt = prompt_crud.create_prompt(
-            db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, prompt=prompt_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # Create a test in org1 using the prompt
         test_obj = models.Test(
-            id=uuid.uuid4(), organization_id=org1.id, user_id=user1.id, prompt_id=prompt.id
+            id=uuid.uuid4(), organization_id=org1_id, user_id=user1_id, prompt_id=prompt.id
         )
         test_db.add(test_obj)
         test_db.commit()
 
         # User from org1 should be able to access the test
         result_org1 = test_crud.get_test(
-            test_db, test_obj.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_obj.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == test_obj.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the test
         result_org2 = test_crud.get_test(
-            test_db, test_obj.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, test_obj.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -134,12 +145,17 @@ class TestCrudOrganizationFiltering:
             f"testresult-user1-{uuid.uuid4()}@security-test.com",
             "TestResult User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             "TestResult Org 2",
             f"testresult-user2-{uuid.uuid4()}@security-test.com",
             "TestResult User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a prompt in org1 using fixture data
         from tests.backend.routes.fixtures.data_factories import (
@@ -149,29 +165,32 @@ class TestCrudOrganizationFiltering:
 
         prompt_data = PromptDataFactory.minimal_data()
         prompt = prompt_crud.create_prompt(
-            db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, prompt=prompt_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # Create a project first (required for endpoint.project_id FK)
         project = models.Project(
             name="Security Test Project",
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
         )
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
+        # endpoint is project-scoped and project_isolation is RESTRICTIVE, so a
+        # blank project GUC would block the insert below.
+        scope_to_project(test_db, project.id)
 
         # Create an endpoint first (required for test configuration)
         endpoint_data = EndpointDataFactory.minimal_data()
         endpoint_data["project_id"] = str(project.id)
         endpoint = endpoint_crud.create_endpoint(
-            db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, endpoint=endpoint_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # Create a test first (required for test result)
         test_obj = models.Test(
-            id=uuid.uuid4(), organization_id=org1.id, user_id=user1.id, prompt_id=prompt.id
+            id=uuid.uuid4(), organization_id=org1_id, user_id=user1_id, prompt_id=prompt.id
         )
         test_db.add(test_obj)
         test_db.commit()
@@ -180,8 +199,8 @@ class TestCrudOrganizationFiltering:
         test_config = models.TestConfiguration(
             id=uuid.uuid4(),
             endpoint_id=endpoint.id,
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             prompt_id=prompt.id,  # Use the prompt we created earlier
             attributes={"test_type": "security"},
         )
@@ -191,8 +210,8 @@ class TestCrudOrganizationFiltering:
         # Create a test result in org1 using direct model creation
         test_result = models.TestResult(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             test_id=test_obj.id,
             test_configuration_id=test_config.id,  # Use real test configuration
             test_output="Security test result",
@@ -203,15 +222,15 @@ class TestCrudOrganizationFiltering:
 
         # User from org1 should be able to access the test result
         result_org1 = test_result_crud.get_test_result(
-            test_db, test_result.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_result.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == test_result.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the test result
         result_org2 = test_result_crud.get_test_result(
-            test_db, test_result.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, test_result.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -224,12 +243,17 @@ class TestCrudOrganizationFiltering:
             f"testrun-user1-{uuid.uuid4()}@security-test.com",
             "TestRun User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             "TestRun Org 2",
             f"testrun-user2-{uuid.uuid4()}@security-test.com",
             "TestRun User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a prompt in org1 using fixture data
         from tests.backend.routes.fixtures.data_factories import (
@@ -239,29 +263,32 @@ class TestCrudOrganizationFiltering:
 
         prompt_data = PromptDataFactory.minimal_data()
         prompt = prompt_crud.create_prompt(
-            db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, prompt=prompt_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # Create a project first (required for endpoint.project_id FK)
         project = models.Project(
             name="Security Test Project",
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
         )
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
+        # endpoint is project-scoped and project_isolation is RESTRICTIVE, so a
+        # blank project GUC would block the insert below.
+        scope_to_project(test_db, project.id)
 
         # Create an endpoint first (required for test configuration)
         endpoint_data = EndpointDataFactory.minimal_data()
         endpoint_data["project_id"] = str(project.id)
         endpoint = endpoint_crud.create_endpoint(
-            db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, endpoint=endpoint_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # Create a test first (required for test run)
         test_obj = models.Test(
-            id=uuid.uuid4(), organization_id=org1.id, user_id=user1.id, prompt_id=prompt.id
+            id=uuid.uuid4(), organization_id=org1_id, user_id=user1_id, prompt_id=prompt.id
         )
         test_db.add(test_obj)
         test_db.commit()
@@ -270,8 +297,8 @@ class TestCrudOrganizationFiltering:
         test_config = models.TestConfiguration(
             id=uuid.uuid4(),
             endpoint_id=endpoint.id,
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             prompt_id=prompt.id,  # Use the prompt we created earlier
             attributes={"test_type": "security"},
         )
@@ -281,8 +308,8 @@ class TestCrudOrganizationFiltering:
         # Create a test run in org1 using direct model creation
         test_run = models.TestRun(
             id=uuid.uuid4(),
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
             name="Security test run",
             test_configuration_id=test_config.id,  # Use real test configuration
             attributes={"test_type": "security"},
@@ -292,15 +319,15 @@ class TestCrudOrganizationFiltering:
 
         # User from org1 should be able to access the test run
         result_org1 = get_test_run(
-            test_db, test_run.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, test_run.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == test_run.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the test run
         result_org2 = get_test_run(
-            test_db, test_run.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, test_run.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -313,22 +340,30 @@ class TestCrudOrganizationFiltering:
             f"endpoint-user1-{uuid.uuid4()}@security-test.com",
             "Endpoint User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             "Endpoint Org 2",
             f"endpoint-user2-{uuid.uuid4()}@security-test.com",
             "Endpoint User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a project in org1 first (required for endpoint.project_id FK)
         project = models.Project(
             name="Security Test Project",
-            organization_id=org1.id,
-            user_id=user1.id,
+            organization_id=org1_id,
+            user_id=user1_id,
         )
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
+        # endpoint is project-scoped and project_isolation is RESTRICTIVE, so a
+        # blank project GUC would block the insert below.
+        scope_to_project(test_db, project.id)
 
         # Create an endpoint in org1 using manual data
         from rhesis.backend.app.schemas.endpoint import EndpointCreate
@@ -343,20 +378,20 @@ class TestCrudOrganizationFiltering:
             project_id=project.id,
         )
         endpoint = endpoint_crud.create_endpoint(
-            db=test_db, endpoint=endpoint_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, endpoint=endpoint_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to access the endpoint
         result_org1 = endpoint_crud.get_endpoint(
-            test_db, endpoint.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, endpoint.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == endpoint.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the endpoint
         result_org2 = endpoint_crud.get_endpoint(
-            test_db, endpoint.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, endpoint.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -369,32 +404,37 @@ class TestCrudOrganizationFiltering:
             f"prompt-user1-{uuid.uuid4()}@security-test.com",
             "Prompt User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             "Prompt Org 2",
             f"prompt-user2-{uuid.uuid4()}@security-test.com",
             "Prompt User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a prompt in org1 using fixture data
         from tests.backend.routes.fixtures.data_factories import PromptDataFactory
 
         prompt_data = PromptDataFactory.minimal_data()
         prompt = prompt_crud.create_prompt(
-            db=test_db, prompt=prompt_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, prompt=prompt_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to access the prompt
         result_org1 = prompt_crud.get_prompt(
-            test_db, prompt.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, prompt.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == prompt.id
-        assert str(result_org1.organization_id) == str(org1.id)
+        assert str(result_org1.organization_id) == str(org1_id)
 
         # User from org2 should NOT be able to access the prompt
         result_org2 = prompt_crud.get_prompt(
-            test_db, prompt.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, prompt.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -408,12 +448,17 @@ class TestCrudOrganizationFiltering:
             f"model-user1-{unique_id}@security-test.com",
             "Model User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Model Test Org 2 {unique_id}",
             f"model-user2-{unique_id}@security-test.com",
             "Model User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a model in org1 using CRUD function
         from rhesis.backend.app.schemas.model import ModelCreate
@@ -426,20 +471,20 @@ class TestCrudOrganizationFiltering:
             key="test-key",
         )
         model = model_crud.create_model(
-            db=test_db, model=model_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, model=model_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to access the model
         result_org1 = model_crud.get_model(
-            test_db, model.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, model.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == model.id
-        assert result_org1.organization_id == org1.id
+        assert result_org1.organization_id == org1_id
 
         # User from org2 should NOT be able to access the model
         result_org2 = model_crud.get_model(
-            test_db, model.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, model.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -453,12 +498,17 @@ class TestCrudOrganizationFiltering:
             f"metric-user1-{unique_id}@security-test.com",
             "Metric User 1",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Metric Test Org 2 {unique_id}",
             f"metric-user2-{unique_id}@security-test.com",
             "Metric User 2",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create a metric in org1 using CRUD function to handle complex relationships
         from rhesis.backend.app.schemas.metric import MetricCreate
@@ -481,20 +531,20 @@ class TestCrudOrganizationFiltering:
         )
 
         metric = create_metric(
-            db=test_db, metric=metric_data, organization_id=str(org1.id), user_id=str(user1.id)
+            db=test_db, metric=metric_data, organization_id=str(org1_id), user_id=str(user1_id)
         )
 
         # User from org1 should be able to access the metric
         result_org1 = get_metric(
-            test_db, metric.id, organization_id=str(org1.id), user_id=str(user1.id)
+            test_db, metric.id, organization_id=str(org1_id), user_id=str(user1_id)
         )
         assert result_org1 is not None
         assert result_org1.id == metric.id
-        assert result_org1.organization_id == org1.id
+        assert result_org1.organization_id == org1_id
 
         # User from org2 should NOT be able to access the metric
         result_org2 = get_metric(
-            test_db, metric.id, organization_id=str(org2.id), user_id=str(user2.id)
+            test_db, metric.id, organization_id=str(org2_id), user_id=str(user2_id)
         )
         assert result_org2 is None
 
@@ -508,12 +558,17 @@ class TestCrudOrganizationFiltering:
             f"user1-{unique_id}@security-test.com",
             "User One",
         )
+        org1_id, user1_id = org1.id, user1.id
         org2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Token Test Org 2 {unique_id}",
             f"user2-{unique_id}@security-test.com",
             "User Two",
         )
+        org2_id, user2_id = org2.id, user2.id
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, org1_id)
 
         # Create tokens in both organizations
         from rhesis.backend.app.auth.token_utils import generate_api_token
@@ -530,11 +585,11 @@ class TestCrudOrganizationFiltering:
                 token_type="bearer",
                 token_obfuscated=token_value_1[:3] + "..." + token_value_1[-4:],
                 expires_at=None,
-                user_id=user1.id,
-                organization_id=org1.id,
+                user_id=user1_id,
+                organization_id=org1_id,
             ),
-            organization_id=str(org1.id),
-            user_id=str(user1.id),
+            organization_id=str(org1_id),
+            user_id=str(user1_id),
         )
 
         token_value_2 = generate_api_token()
@@ -547,15 +602,15 @@ class TestCrudOrganizationFiltering:
                 token_type="bearer",
                 token_obfuscated=token_value_2[:3] + "..." + token_value_2[-4:],
                 expires_at=None,
-                user_id=user2.id,
-                organization_id=org2.id,
+                user_id=user2_id,
+                organization_id=org2_id,
             ),
-            organization_id=str(org2.id),
-            user_id=str(user2.id),
+            organization_id=str(org2_id),
+            user_id=str(user2_id),
         )
 
         # User from org1 should only see their token from org1
-        tokens_org1 = get_user_tokens(db=test_db, user_id=user1.id, organization_id=str(org1.id))
+        tokens_org1 = get_user_tokens(db=test_db, user_id=user1_id, organization_id=str(org1_id))
         # Filter to only tokens we created in this test
         test_tokens_org1 = [
             t for t in tokens_org1 if t.name.startswith(f"Token in Org 1 {unique_id}")
@@ -565,10 +620,10 @@ class TestCrudOrganizationFiltering:
             f"{[t.name for t in tokens_org1]}"
         )
         assert test_tokens_org1[0].id == token1.id
-        assert test_tokens_org1[0].organization_id == org1.id
+        assert test_tokens_org1[0].organization_id == org1_id
 
         # User from org2 should only see their token from org2
-        tokens_org2 = get_user_tokens(db=test_db, user_id=user2.id, organization_id=str(org2.id))
+        tokens_org2 = get_user_tokens(db=test_db, user_id=user2_id, organization_id=str(org2_id))
         # Filter to only tokens we created in this test
         test_tokens_org2 = [
             t for t in tokens_org2 if t.name.startswith(f"Token in Org 2 {unique_id}")
@@ -578,16 +633,16 @@ class TestCrudOrganizationFiltering:
             f"{[t.name for t in tokens_org2]}"
         )
         assert test_tokens_org2[0].id == token2.id
-        assert test_tokens_org2[0].organization_id == org2.id
+        assert test_tokens_org2[0].organization_id == org2_id
 
         # CRITICAL: User from org1 should NOT see tokens from org2
         cross_org_tokens = get_user_tokens(
-            db=test_db, user_id=user1.id, organization_id=str(org2.id)
+            db=test_db, user_id=user1_id, organization_id=str(org2_id)
         )
         assert len(cross_org_tokens) == 0, "User should not see tokens from other organizations"
 
         # Verify count matches the actual number of tokens
-        count_org1 = count_user_tokens(db=test_db, user_id=user1.id, organization_id=str(org1.id))
+        count_org1 = count_user_tokens(db=test_db, user_id=user1_id, organization_id=str(org1_id))
         assert count_org1 == len(tokens_org1), (
             f"Count should match token list length: {count_org1} != {len(tokens_org1)}"
         )
@@ -651,12 +706,16 @@ class TestTaskManagementSecuritySimplified:
             f"task-user1-{unique_id}@security-test.com",
             "Task User 1",
         )
+        organization1_id, user1_id = organization1.id, user1.id
         organization2, user2, _ = create_test_organization_and_user(
             test_db,
             f"Task Org 2 {unique_id}",
             f"task-user2-{unique_id}@security-test.com",
             "Task User 2",
         )
+        # Creating the second org moved the session scope onto it; the rows
+        # below belong to the first org, so scope back before inserting them.
+        scope_to_org(test_db, organization1_id)
 
         # Create a status in organization1
         from rhesis.backend.app.crud import status as status_crud
@@ -664,7 +723,7 @@ class TestTaskManagementSecuritySimplified:
 
         status_data = StatusCreate(name=f"Test Status {unique_id}")
         status = status_crud.create_status(
-            test_db, status_data, organization_id=str(organization1.id), user_id=str(user1.id)
+            test_db, status_data, organization_id=str(organization1_id), user_id=str(user1_id)
         )
 
         # Create a simple task object (not mock) with required attributes
@@ -677,7 +736,7 @@ class TestTaskManagementSecuritySimplified:
 
         # Create a task in organization1
         task = SimpleTask(
-            organization_id=organization1.id,
+            organization_id=organization1_id,
             status_id=status.id,
             assignee_id=None,  # No assignee for this test
             priority_id=None,  # No priority for this test

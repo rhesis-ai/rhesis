@@ -80,12 +80,16 @@ def _assign_owner_role(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> No
             db.query(Role).filter_by(name="Owner", is_built_in=True, organization_id=None).first()
         )
     assert owner_role is not None, "built-in Owner role not seeded"
+    # organization_member is RLS-guarded, and INSERT RETURNING is checked
+    # against the USING clause, so the session has to be on org_id first.
+    _point_session_at_org(db, org_id)
     db.add(OrganizationMember(organization_id=org_id, user_id=user_id, role_id=owner_role.id))
     db.flush()
 
 
 def _create_project(db: Session, org_id: uuid.UUID) -> uuid.UUID:
     pid = uuid.uuid4()
+    _point_session_at_org(db, org_id)
     db.execute(
         text("INSERT INTO project (id, name, organization_id) VALUES (:id, :name, :oid)"),
         {"id": str(pid), "name": f"Proj-{pid.hex[:8]}", "oid": str(org_id)},

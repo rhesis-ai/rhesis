@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from tests.backend.fixtures.rls import scope_to_org, scope_to_project
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 
@@ -24,6 +25,8 @@ def _make_run(db: Session, org, user, test_set=None) -> models.TestRun:
     )
     db.add(project)
     db.flush()
+
+    scope_to_project(db, project.id)
 
     endpoint = models.Endpoint(
         name="Comparison Runs Endpoint",
@@ -109,8 +112,11 @@ class TestHasComparisonRunsEndpoint:
         org, user, token = create_test_organization_and_user(
             test_db, "Comparison Runs Org 3", "owner3@comparison-runs.com", "Owner"
         )
+        owner_org_id = str(org.id)
         test_set = _make_test_set(test_db, org, user)
         test_run = _make_run(test_db, org, user, test_set=test_set)
+        run_id = str(test_run.id)
+        ts_id = str(test_set.id)
 
         other_org, other_user, _ = create_test_organization_and_user(
             test_db, "Comparison Runs Other Org", "other@comparison-runs.com", "Other"
@@ -118,8 +124,14 @@ class TestHasComparisonRunsEndpoint:
         other_test_set = _make_test_set(test_db, other_org, other_user)
         _make_run(test_db, other_org, other_user, test_set=other_test_set)
 
+        # Creating the second org left the session on it. The request below
+        # authenticates as the first org's token, and the permission layer
+        # resolves capabilities against whatever org the session points at,
+        # so without this the caller reads as having none and gets a 403.
+        scope_to_org(test_db, owner_org_id)
+
         response = client.get(
-            f"/test_runs/{test_run.id}/has-comparison-runs?test_set_id={test_set.id}",
+            f"/test_runs/{run_id}/has-comparison-runs?test_set_id={ts_id}",
             headers=_auth(token),
         )
 

@@ -142,8 +142,10 @@ def assign_tag(
             models.TaggedItem.tag_id == db_tag.id,
             models.TaggedItem.entity_id == entity_id,
             models.TaggedItem.entity_type == entity_type.value,
-            models.TaggedItem.organization_id
-            == tag.organization_id,  # Add organization filter here too
+            # Keyed off the resolved tag, not the incoming schema: create_tag
+            # stamps from the organization_id argument, so the two differ
+            # whenever the caller passes one and leaves it off the schema.
+            models.TaggedItem.organization_id == db_tag.organization_id,
         )
         .first()
     )
@@ -160,8 +162,8 @@ def assign_tag(
         tag_id=db_tag.id,
         entity_id=entity_id,
         entity_type=entity_type.value,
-        organization_id=tag.organization_id,
-        user_id=tag.user_id,
+        organization_id=db_tag.organization_id,
+        user_id=db_tag.user_id,
     )
     db.add(tagged_item)
     db.flush()  # Force flush to ensure the TaggedItem is persisted

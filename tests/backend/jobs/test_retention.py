@@ -23,6 +23,7 @@ from rhesis.backend.app.models.activity_log import ActivityLog
 from rhesis.backend.app.models.job import Job
 from rhesis.backend.jobs import retention
 from rhesis.backend.jobs.retention import sweep_expired_jobs
+from tests.backend.fixtures.rls import scope_session_to_org
 from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
 _NOW = datetime.now(timezone.utc)
@@ -41,10 +42,21 @@ def _org(db: Session, name: str, email: str):
     org, user, _ = create_test_organization_and_user(db, name, email, f"{name} User")
     user.organization_id = org.id
     db.commit()
+    # Detach while the session is still scoped to this org, with the ids
+    # already loaded. create_organization calls expire_all(), so building a
+    # second org would expire this one, and the refresh triggered by reading
+    # org.id afterwards runs under the *other* org's scope, where RLS hides
+    # the row and SQLAlchemy raises ObjectDeletedError.
+    _, _ = org.id, user.id
+    db.expunge(org)
+    db.expunge(user)
     return org, user
 
 
 def _job(db: Session, org, user, *, finished_at, status="completed", deleted_at=None) -> str:
+    # job is org-scoped and INSERT RETURNING is checked against the USING
+    # clause, so the session must sit on this org first.
+    scope_session_to_org(db, org.id)
     job = Job(
         organization_id=org.id,
         user_id=user.id,
@@ -75,11 +87,16 @@ def _activity_log(db: Session, org, *, created_at, job_id=None) -> str:
     return entry_id
 
 
-def _job_exists(db: Session, job_id: str) -> bool:
+def _job_exists(db: Session, org, job_id: str) -> bool:
     """Raw SQL, not db.query: a soft-deleted row is hidden from the ORM by the
     global soft-delete listener, which would make "still there" and "gone"
     indistinguishable in TestSweepIncludesSoftDeletedRows below.
+
+    RLS is a second way to be fooled: a row outside the session's current
+    org scope reads as absent. Scoping to the row's own org first makes
+    "not found" mean deleted rather than merely hidden.
     """
+    scope_session_to_org(db, org.id)
     db.expire_all()
     return (
         db.execute(text("SELECT 1 FROM job WHERE id = :id"), {"id": job_id}).first() is not None
@@ -105,7 +122,7 @@ class TestSweepDisabledByDefault:
         result = sweep_expired_jobs()
 
         assert result == {"enabled": False}
-        assert _job_exists(db, old_job_id)
+        assert _job_exists(db, org, old_job_id)
 
 
 @pytest.mark.integration
@@ -125,9 +142,9 @@ class TestSweepDeletesPastTheWindow:
 
         assert result["enabled"] is True
         assert result["jobs_deleted"] >= 1
-        assert not _job_exists(db, old_finished_id)
-        assert _job_exists(db, recent_finished_id)
-        assert _job_exists(db, still_running_id)
+        assert not _job_exists(db, org, old_finished_id)
+        assert _job_exists(db, org, recent_finished_id)
+        assert _job_exists(db, org, still_running_id)
 
     def test_deletes_old_activity_log_rows_regardless_of_job(
         self, monkeypatch, real_commit_test_db: Session
@@ -161,7 +178,7 @@ class TestSweepDeletesPastTheWindow:
 
         sweep_expired_jobs()
 
-        assert not _job_exists(db, old_job_id)
+        assert not _job_exists(db, org, old_job_id)
         assert not _activity_log_exists(db, entry_id)
 
 
@@ -184,7 +201,7 @@ class TestSweepIncludesSoftDeletedRows:
 
         sweep_expired_jobs()
 
-        assert not _job_exists(db, soft_deleted_id)
+        assert not _job_exists(db, org, soft_deleted_id)
 
 
 @pytest.mark.integration
@@ -200,8 +217,8 @@ class TestSweepCoversEveryOrganization:
 
         sweep_expired_jobs()
 
-        assert not _job_exists(db, job_a_id)
-        assert not _job_exists(db, job_b_id)
+        assert not _job_exists(db, org_a, job_a_id)
+        assert not _job_exists(db, org_b, job_b_id)
 
     def test_sweeping_one_org_never_touches_another_orgs_rows(
         self, monkeypatch, real_commit_test_db: Session
@@ -223,8 +240,8 @@ class TestSweepCoversEveryOrganization:
         cutoff = _NOW - timedelta(days=30)
         retention._sweep_organization(str(org_b.id), cutoff)
 
-        assert _job_exists(db, job_a_id), "sweeping org_b must not delete org_a's rows"
-        assert not _job_exists(db, job_b_id)
+        assert _job_exists(db, org_a, job_a_id), "sweeping org_b must not delete org_a's rows"
+        assert not _job_exists(db, org_b, job_b_id)
 
     def test_one_organizations_failure_does_not_block_the_rest(
         self, monkeypatch, real_commit_test_db: Session
@@ -253,6 +270,6 @@ class TestSweepCoversEveryOrganization:
 
         # org_a's failure is swallowed (logged, not raised) rather than
         # aborting the loop, so org_a keeps its (would-be-expired) job...
-        assert _job_exists(db, job_a_id)
+        assert _job_exists(db, org_a, job_a_id)
         # ...while org_b is still swept normally.
-        assert not _job_exists(db, job_b_id)
+        assert not _job_exists(db, org_b, job_b_id)

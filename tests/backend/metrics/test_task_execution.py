@@ -13,6 +13,7 @@ from rhesis.backend.jobs.execution.evaluation import evaluate_prompt_response
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt, get_test_metrics
 from rhesis.backend.jobs.execution.executors.metrics import prepare_metric_configs
 from rhesis.backend.metrics import Evaluator, MetricResult
+from tests.backend.fixtures.rls import scope_to_project
 
 
 class TestTaskExecution:
@@ -174,6 +175,9 @@ class TestTaskExecution:
         )
         test_db.add(project)
         test_db.flush()
+        # The endpoint below is project-scoped, and project_isolation is
+        # RESTRICTIVE, so its INSERT needs the session on this project.
+        scope_to_project(test_db, project.id)
 
         # Create an endpoint for the test configuration
         endpoint = models.Endpoint(
@@ -264,6 +268,9 @@ class TestTaskExecution:
         )
         test_db.add(project)
         test_db.flush()
+        # The endpoint below is project-scoped, and project_isolation is
+        # RESTRICTIVE, so its INSERT needs the session on this project.
+        scope_to_project(test_db, project.id)
 
         # Create an endpoint for the test configuration
         endpoint = models.Endpoint(

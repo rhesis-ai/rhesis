@@ -1304,11 +1304,36 @@ def _maybe_notify_password_not_set(db: Session, user) -> None:
     if provider not in _EMAIL_PROVIDER_TYPES:
         return
 
+    from sqlalchemy import text
+
+    from rhesis.backend.app.database import set_session_variables
     from rhesis.backend.app.models.enums import NotificationEventType
     from rhesis.backend.app.models.notification import Notification
     from rhesis.backend.app.services.notification import RenderedNotification, notify
 
+    if not user.organization_id:
+        return
+
+    # Captured so the scope set below can be put back. set_session_variables
+    # records it under _tenant_vars, and the after_begin listener re-applies
+    # that to every later transaction on this session, so without a restore the
+    # scope would outlive this function and silently follow the caller.
+    previous_scope = db.execute(
+        text(
+            "SELECT current_setting('app.current_organization', true),"
+            " current_setting('app.current_user', true),"
+            " current_setting('app.current_project', true)"
+        )
+    ).one()
+
     try:
+        # Magic-link verification runs unauthenticated, so no tenant GUC is
+        # bound yet. Without one the notification INSERT trips tenant_isolation
+        # and the nudge is silently dropped by the except below. The link is
+        # already verified at this point, so scoping to the user's own org is
+        # the identity we just established.
+        set_session_variables(db, str(user.organization_id), str(user.id))
+
         already_sent = (
             db.query(Notification.id)
             .filter(
@@ -1328,11 +1353,25 @@ def _maybe_notify_password_not_set(db: Session, user) -> None:
                 body="Set a password so you can sign in anytime without a magic link.",
             ),
             user_id=str(user.id),
-            organization_id=str(user.organization_id) if user.organization_id else None,
+            organization_id=str(user.organization_id),
         )
         db.commit()
     except Exception:
         logger.warning("Failed to send password-not-set notification for user %s", user.id)
+        # Without this a partial flush would leave the session in a failed
+        # transaction for the rest of the request, turning a skipped nudge into
+        # a broken sign-in.
+        db.rollback()
+    finally:
+        # Safe to re-apply here because the work above has either committed or
+        # rolled back, so nothing is pending (see the GUC reset ordering
+        # invariant in apps/backend/AGENTS.md).
+        set_session_variables(
+            db,
+            previous_scope[0] or "",
+            previous_scope[1] or "",
+            previous_scope[2] or "",
+        )
 
 
 # =============================================================================

@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.test_result import TestResult
 from rhesis.backend.app.scope import RequestScope, bypass_tenant_filter
+from tests.backend.fixtures.rls import scope_to_org
 from tests.backend.fixtures.test_setup import create_test_organization
 
 
@@ -76,15 +77,20 @@ class TestParentIsolation:
         authenticated_user,
     ):
         """A result belonging to a different org reads as missing, not forbidden."""
+        # Captured before the scope moves: test_db.commit() below expires this
+        # object, and refreshing it under another org's scope is blocked by RLS.
+        home_org_id = str(test_organization.id)
         other_org = create_test_organization(test_db, f"Other Org {uuid.uuid4().hex[:8]}")
 
         # Written under the other org's scope, so it is a genuine foreign row.
+        # Set the PostgreSQL GUC too so INSERT RETURNING passes the USING check.
         previous = test_db.info.get("_scope")
         test_db.info["_scope"] = RequestScope(
             organization_id=str(other_org.id),
             user_id=str(authenticated_user.id),
             project_id=None,
         )
+        scope_to_org(test_db, other_org.id)
         try:
             foreign = TestResult(
                 organization_id=other_org.id,
@@ -94,13 +100,15 @@ class TestParentIsolation:
             test_db.commit()
             foreign_id = foreign.id
         finally:
+            # Restore both the ORM scope and the PostgreSQL GUC.
             if previous is None:
                 test_db.info.pop("_scope", None)
             else:
                 test_db.info["_scope"] = previous
+            scope_to_org(test_db, home_org_id)
 
-        pass_status = _pass_status(test_db, test_organization.id)
-        with _caller_scope(test_db, test_organization.id, authenticated_user.id):
+        pass_status = _pass_status(test_db, home_org_id)
+        with _caller_scope(test_db, home_org_id, authenticated_user.id):
             response = _annotate(authenticated_client, foreign_id, pass_status.id)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND, response.text
