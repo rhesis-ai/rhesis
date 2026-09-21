@@ -15,16 +15,31 @@ def test_mcp_test_connection_validates_asana_credentials():
     assert "ASANA_ACCESS_TOKEN" in exc_info.value.detail
 
 
-def test_mcp_test_connection_validates_asana_workspace_gid():
+def test_mcp_test_connection_treats_blank_workspace_gid_as_unset():
+    """``workspace_gid`` narrows the import to one workspace; blank means all.
+
+    It used to 400. That made a generic connection form impossible, because
+    such a form submits "" for every field the user left empty rather than
+    omitting the key. The scope is simply not applied instead.
+    """
+    _validate_mcp_test_connection_request(
+        "asana",
+        {"ASANA_ACCESS_TOKEN": "token"},
+        {"workspace_gid": "   "},
+    )
+
+
+def test_mcp_test_connection_still_requires_a_usable_gitlab_project():
+    """An optional scope may be blank; a required one may not."""
     with pytest.raises(HTTPException) as exc_info:
         _validate_mcp_test_connection_request(
-            "asana",
-            {"ASANA_ACCESS_TOKEN": "token"},
-            {"workspace_gid": "   "},
+            "gitlab",
+            {"GITLAB_PERSONAL_ACCESS_TOKEN": "token"},
+            {"project": {"namespace": "   "}},
         )
 
     assert exc_info.value.status_code == 400
-    assert "workspace_gid" in exc_info.value.detail
+    assert "namespace" in exc_info.value.detail
 
 
 def test_mcp_test_connection_validates_shortcut_credentials():
