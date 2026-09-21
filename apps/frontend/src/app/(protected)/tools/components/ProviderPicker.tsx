@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  ButtonBase,
+  Skeleton,
+  Stack,
+  Typography,
+} from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import {
@@ -136,12 +143,20 @@ export function ProviderPicker({
           >
             <Stack spacing={1}>
               <Box
-                sx={{
+                sx={theme => ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
                   color: 'text.primary',
-                }}
+                  // Pin whatever the icon is to one size. An `<svg>` with only
+                  // a viewBox has no intrinsic dimensions and would otherwise
+                  // expand to fill the tile.
+                  '& svg': {
+                    width: theme.iconSizes?.medium,
+                    height: theme.iconSizes?.medium,
+                    flexShrink: 0,
+                  },
+                })}
               >
                 {/* An icon the frontend does not know about still renders a
                     usable tile: a backend newer than this build can serve a
@@ -164,8 +179,58 @@ export function ProviderPicker({
   );
 }
 
+interface SelectedProviderRowProps {
+  choice: ProviderChoice;
+  onChange: () => void;
+  disabled?: boolean;
+}
+
+/**
+ * Stands in for the grid once a provider is chosen.
+ *
+ * The grid is nine tiles tall, so leaving it above the form buries the fields
+ * the user came to fill in. This keeps the choice visible as context and gives
+ * one way back to it.
+ */
+export function SelectedProviderRow({
+  choice,
+  onChange,
+  disabled = false,
+}: SelectedProviderRowProps) {
+  return (
+    <Box
+      sx={theme => ({
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        p: 2,
+        borderRadius: BORDER_RADIUS.md,
+        border: '1px solid',
+        borderColor: 'divider',
+        backgroundColor: 'background.paper',
+        '& svg': {
+          width: theme.iconSizes?.medium,
+          height: theme.iconSizes?.medium,
+          flexShrink: 0,
+        },
+      })}
+    >
+      {TOOL_PROVIDER_ICONS[choice.key] ?? <SmartToyIcon fontSize="small" />}
+      <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0 }}>
+        {choice.displayName}
+      </Typography>
+      <Button size="small" onClick={onChange} disabled={disabled}>
+        Change
+      </Button>
+    </Box>
+  );
+}
+
 const gridSx = {
   display: 'grid',
   gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+  // Every tile the same height. Without this each row sizes to its own tallest
+  // tile, so rows with longer descriptions end up visibly taller than others.
+  gridAutoRows: '1fr',
   gap: 2,
 } as const;
