@@ -268,6 +268,39 @@ describe('creating a connection', () => {
     ).toBeInTheDocument();
     expect(mockTestToolConnection).not.toHaveBeenCalled();
   });
+  it('keeps what the user typed when the provider lookups refresh', async () => {
+    // useTypeLookups starts from the server-fetched array and swaps in a fresh
+    // one when its query resolves. Resetting on that array's identity wiped
+    // the form mid-entry.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+    await user.type(screen.getByLabelText(/connection name/i), 'Docs');
+    await user.type(screen.getByLabelText(/^Integration token/), 'ntn_abc');
+
+    // Same contents, new array and new object identities.
+    rerender(
+      <ToolConnectionDrawer
+        open
+        providers={[lookup('pt-notion', 'notion')]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText(/connection name/i)).toHaveValue('Docs');
+    expect(screen.getByLabelText(/^Integration token/)).toHaveValue('ntn_abc');
+  });
 });
 
 describe('editing a connection', () => {

@@ -22,7 +22,7 @@ import {
 import type { ToolProvider } from '@/utils/api-client/interfaces/tool-provider';
 import { useToolProviders } from '@/hooks/useToolProviders';
 import { getErrorMessage } from '@/utils/entity-error-handler';
-import { UUID } from 'crypto';
+import type { UUID } from 'crypto';
 import { ProviderPicker } from './ProviderPicker';
 import { ProviderFields, type FieldOption } from './fields/ProviderFields';
 import {
@@ -111,12 +111,16 @@ export function ToolConnectionDrawer({
     return toolProviders.find(p => p.key === key) ?? null;
   }, [toolProviders, providerLookup]);
 
-  // Reset when the drawer opens, and hydrate from the tool when editing.
+  const toolId = tool?.id ?? null;
+
+  // Reset when the drawer opens, or when it is reused for a different tool.
+  //
+  // Keyed on identifiers rather than on `tool` and `providers` themselves: the
+  // lookups query swaps its array for a fresh one when it resolves, and the
+  // parent can re-render with a new `tool` object for the same row. Depending
+  // on either would re-run this and wipe whatever the user had typed.
   useEffect(() => {
-    if (!open) {
-      setSelectedProvider(providerProp ?? null);
-      return;
-    }
+    if (!open) return;
 
     setError(null);
     setTestResult(null);
@@ -124,8 +128,6 @@ export function ToolConnectionDrawer({
     setSpaces([]);
 
     if (isEditMode && tool) {
-      const resolved = resolveToolProvider(tool, providers);
-      if (resolved) setSelectedProvider(resolved);
       setName(tool.name || '');
       setDescription(tool.description || '');
     } else {
@@ -134,8 +136,22 @@ export function ToolConnectionDrawer({
       setValues({});
       setBaseline({ name: '', description: '', values: {} });
     }
-    // Values need the manifest, which may still be loading; the effect below
-    // fills them in once it arrives.
+    // Reset is keyed on the drawer opening and on which tool, not on object
+    // identity, for the reason above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isEditMode, toolId]);
+
+  // Track which provider is selected. Kept apart from the reset above so that
+  // refreshed lookups update the selection without clearing the form.
+  useEffect(() => {
+    if (!open) {
+      setSelectedProvider(providerProp ?? null);
+      return;
+    }
+    if (isEditMode && tool) {
+      const resolved = resolveToolProvider(tool, providers);
+      if (resolved) setSelectedProvider(resolved);
+    }
   }, [open, isEditMode, tool, providers, providerProp]);
 
   // Seed the field values once the manifest for the chosen provider is known.
@@ -151,7 +167,10 @@ export function ToolConnectionDrawer({
       description: isEditMode && tool ? tool.description || '' : '',
       values: seeded,
     });
-  }, [open, manifest, isEditMode, tool]);
+    // Keyed on toolId, not on the `tool` object, so a parent re-render does
+    // not discard edits in progress.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, manifest, isEditMode, toolId]);
 
   const setValue = useCallback((key: string, value: string) => {
     setValues(prev => ({ ...prev, [key]: value }));
