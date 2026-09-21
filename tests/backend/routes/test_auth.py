@@ -1797,3 +1797,130 @@ class TestEmailRegisterAndLoginHappyPath:
         second = client.post("/auth/register", json=payload)
 
         assert second.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.unit
+class TestPasswordNotSetNudge:
+    """The "set a password" nudge sent after a magic-link sign-in.
+
+    Worth testing directly rather than through the route: the nudge writes a
+    Notification from an unauthenticated request, so it depends entirely on the
+    tenant scope the helper binds for itself. Under enforced RLS a missing
+    scope made the INSERT fail, and a bare ``except`` swallowed it, so the
+    nudge silently never sent.
+    """
+
+    @staticmethod
+    def _scope(db):
+        from sqlalchemy import text
+
+        return db.execute(
+            text(
+                "SELECT current_setting('app.current_organization', true),"
+                " current_setting('app.current_user', true),"
+                " current_setting('app.current_project', true)"
+            )
+        ).one()
+
+    @staticmethod
+    def _nudge_count(db, user) -> int:
+        from rhesis.backend.app.models.enums import NotificationEventType
+        from rhesis.backend.app.models.notification import Notification
+
+        return (
+            db.query(Notification.id)
+            .filter(
+                Notification.user_id == user.id,
+                Notification.event_type == NotificationEventType.Account.PASSWORD_NOT_SET.value,
+            )
+            .count()
+        )
+
+    def _user_needing_a_password(self, test_db, label: str):
+        from tests.backend.fixtures.rls import scope_to_org
+
+        org = create_test_organization(test_db, f"Nudge Org {label}")
+        scope_to_org(test_db, org.id)
+        user = create_test_user(test_db, org.id, _unique_email(label), f"Nudge {label}")
+        user.password_hash = None
+        test_db.flush()
+        return user
+
+    def test_the_nudge_is_written_from_an_unscoped_session(self, test_db):
+        """The real precondition: magic-link verification is unauthenticated.
+
+        The session carries no tenant scope at all, so the helper has to bind
+        one itself or the Notification INSERT is refused by tenant_isolation
+        and the bare ``except`` hides it. Seeding a scope here instead would
+        make this test pass with or without the fix.
+        """
+        from rhesis.backend.app.routers.auth import _maybe_notify_password_not_set
+        from tests.backend.fixtures.rls import scope_to_org
+
+        user = self._user_needing_a_password(test_db, "written")
+        org_id = str(user.organization_id)
+        assert self._nudge_count(test_db, user) == 0
+
+        scope_to_org(test_db, None)
+        assert self._scope(test_db)[0] == ""
+
+        _maybe_notify_password_not_set(test_db, user)
+
+        # Still unscoped, so the row it wrote is invisible from here; re-scope
+        # to read it back.
+        assert self._scope(test_db)[0] == ""
+        scope_to_org(test_db, org_id)
+        assert self._nudge_count(test_db, user) == 1
+
+    def test_the_nudge_is_not_repeated(self, test_db):
+        """Signing in again must not nag a user who was already told."""
+        from rhesis.backend.app.routers.auth import _maybe_notify_password_not_set
+
+        user = self._user_needing_a_password(test_db, "once")
+
+        _maybe_notify_password_not_set(test_db, user)
+        _maybe_notify_password_not_set(test_db, user)
+
+        assert self._nudge_count(test_db, user) == 1
+
+    def test_the_callers_tenant_scope_is_left_as_it_was(self, test_db):
+        """The nudge binds a scope to write its row; it must put it back.
+
+        set_session_variables stores the scope under _tenant_vars, which the
+        after_begin listener re-applies to every later transaction on the
+        session. Leaving it set would silently move the rest of the request
+        into the notified user's organization.
+        """
+        from rhesis.backend.app.routers.auth import _maybe_notify_password_not_set
+
+        user = self._user_needing_a_password(test_db, "scope")
+        before = self._scope(test_db)
+
+        _maybe_notify_password_not_set(test_db, user)
+
+        assert self._scope(test_db) == before
+
+    def test_a_user_with_no_organization_is_skipped(self, test_db):
+        """No org means no tenant to scope to, so there is nothing to write."""
+        from rhesis.backend.app.routers.auth import _maybe_notify_password_not_set
+
+        user = self._user_needing_a_password(test_db, "orgless")
+        user.organization_id = None
+        test_db.flush()
+        before = self._scope(test_db)
+
+        _maybe_notify_password_not_set(test_db, user)
+
+        assert self._nudge_count(test_db, user) == 0
+        assert self._scope(test_db) == before
+
+    def test_a_user_who_already_has_a_password_is_skipped(self, test_db):
+        from rhesis.backend.app.routers.auth import _maybe_notify_password_not_set
+
+        user = self._user_needing_a_password(test_db, "haspass")
+        user.password_hash = "already-hashed"
+        test_db.flush()
+
+        _maybe_notify_password_not_set(test_db, user)
+
+        assert self._nudge_count(test_db, user) == 0
