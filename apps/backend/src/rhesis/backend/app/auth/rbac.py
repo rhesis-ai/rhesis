@@ -130,6 +130,8 @@ def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
     permission decisions, no explicit bust — no bust hook exists yet for a
     plan/license change) since this runs on every ``authorize()`` call.
     """
+    from sqlalchemy import text
+
     from rhesis.backend.app.features import FeatureName, FeatureRegistry
     from rhesis.backend.app.models.organization import Organization
     from rhesis.backend.app.scope import bypass_tenant_filter
@@ -143,8 +145,25 @@ def rbac_active_for(organization_id: Optional[UUID], db: Session) -> bool:
     if cached is not None:
         return cached
 
-    with bypass_tenant_filter():
-        org = db.query(Organization).filter_by(id=organization_id).first()
+    # Point the org GUC at the row being checked for the duration of the
+    # lookup. bypass_tenant_filter drops the ORM's WHERE clause but not the
+    # RLS policy, so under any other scope this org reads as missing -- and
+    # "missing" is cached below as "RBAC inactive", which then sticks for
+    # every later authorize() call in the process.
+    _GUC = "app.current_organization"
+    previous = db.execute(text(f"SELECT current_setting('{_GUC}', true)")).scalar()
+    try:
+        db.execute(
+            text(f"SELECT set_config('{_GUC}', :oid, true)"),
+            {"oid": str(organization_id)},
+        )
+        with bypass_tenant_filter():
+            org = db.query(Organization).filter_by(id=organization_id).first()
+    finally:
+        db.execute(
+            text(f"SELECT set_config('{_GUC}', :oid, true)"),
+            {"oid": previous or ""},
+        )
     result = org is not None and FeatureRegistry.is_available(FeatureName.RBAC, org)
 
     try:
