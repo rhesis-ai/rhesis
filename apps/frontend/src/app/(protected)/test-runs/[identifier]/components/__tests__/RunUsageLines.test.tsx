@@ -55,12 +55,12 @@ describe('RunUsageLines', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows a dash rather than a zero nobody computed', () => {
+  it('says there is no cost data rather than showing a zero nobody computed', () => {
     render(
       <RunUsageLines usage={usage({ priced_traces: 0, total_cost_usd: 0 })} />
     );
 
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('No cost data')).toBeInTheDocument();
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
   });
 

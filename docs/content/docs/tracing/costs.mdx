@@ -14,8 +14,9 @@ database](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_
 ships with the backend and covers the commercial providers and their published per-token prices for
 input and output separately.
 
-A model that database does not know is priced at zero. That happens for a self-hosted or private
-deployment, and for a model newer than the LiteLLM version the backend was built against.
+A model that database does not know gets no cost recorded at all. Its tokens are still counted, and
+the trace reads as having no cost data rather than as a free run. That happens for a self-hosted or
+private deployment, and for a model newer than the LiteLLM version the backend was built against.
 
 ## What gets priced
 
@@ -33,11 +34,14 @@ A trace with no `llm.invoke` spans has no cost at all, not a cost of zero.
 ## When a figure is missing
 
 Rhesis distinguishes "not known" from "nothing spent". A number it does not have is left blank
-rather than shown as zero, so an empty cost never reads as a free run.
+rather than shown as zero, so an empty cost never reads as a free run. The cost card says **No cost
+data** for that case, and a trace with no cost shows a dash in the list rather than a figure.
 
 | What you see | What it means |
 | --- | --- |
-| No cost, tokens present | Enrichment has not priced the trace yet, or no model in it could be priced |
+| **No cost data**, tokens present | No model in the run could be priced |
+| **Working out what this cost**, tokens present | Enrichment has traces of this run left to price |
+| A cost of zero | The run was priced and came to nothing, for example on a free tier |
 | Cost present, no input/output split | The trace was priced before Rhesis recorded the two halves separately |
 | Provider shown as `unknown` | The span reported no provider and its model name could not be placed |
 
@@ -65,9 +69,9 @@ reference rates. The ECB sets those once per working day, so the rates are daily
 real-time, and Rhesis caches them for a day. Hovering a cost shows the same figure in the other
 currencies and the day the rates are from.
 
-Pick the currency in two places. An organization sets the default under **Settings → Display**,
-which everyone sees unless they choose otherwise. An individual overrides it under their own
-**Settings → Preferences**, or chooses to follow the organization.
+Pick the currency in two places. An organization sets the default under **Settings →
+Preferences**, which everyone sees unless they choose otherwise. An individual overrides it under
+their own **Settings → Preferences**, or chooses to follow the organization.
 
 Set `USD_TO_EUR_RATE` to pin a fallback rate for an instance with no outbound network access. It
 covers EUR only, which is all it has ever covered — with no rates available, the other currencies

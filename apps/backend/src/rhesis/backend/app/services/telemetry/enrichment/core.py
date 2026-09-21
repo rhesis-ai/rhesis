@@ -51,9 +51,13 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     """Price a single ``llm.invoke`` span.
 
     Always returns a breakdown: tokens are known even when the price is not, so an
-    unpriced model (self-hosted, or missing from LiteLLM) is recorded at zero cost
-    rather than dropped. Dropping it would make a trace that mixes priced and
-    unpriced spans undercount its tokens.
+    unpriced model (self-hosted, or missing from LiteLLM) keeps its tokens and its
+    model name rather than being dropped. Dropping it would make a trace that mixes
+    priced and unpriced spans undercount its tokens.
+
+    Its costs come back as ``None``, not zero. Zero is what a genuinely free model
+    costs, and a reader who cannot tell the two apart reads an unpriceable run as a
+    free one.
     """
     input_tokens, output_tokens, total_tokens = _span_token_counts(span)
     model_name = span.attributes.get(AIAttributes.MODEL_NAME)
@@ -65,11 +69,11 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
             f"Available attributes: {list(span.attributes.keys())}"
         )
 
-    input_cost_usd = 0.0
-    output_cost_usd = 0.0
+    input_cost_usd: Optional[float] = None
+    output_cost_usd: Optional[float] = None
 
     if not model_name:
-        logger.warning(f"⚠️  Span {span.span_id} has no model name: recording tokens at zero cost")
+        logger.warning(f"⚠️  Span {span.span_id} has no model name: recording tokens without a cost")
         model_name = UNKNOWN_MODEL_NAME
     else:
         try:
@@ -82,10 +86,17 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
         except Exception as e:
             logger.warning(
                 f"❌ LiteLLM cost calculation failed for model {model_name}: {e}. "
-                f"Recording tokens at zero cost: input={input_tokens}, output={output_tokens}"
+                f"Recording tokens without a cost: input={input_tokens}, output={output_tokens}"
             )
 
-    span_cost_usd = input_cost_usd + output_cost_usd
+    priced = input_cost_usd is not None and output_cost_usd is not None
+    span_cost_usd = (input_cost_usd or 0.0) + (output_cost_usd or 0.0) if priced else None
+
+    def usd(value: Optional[float]) -> Optional[float]:
+        return None if value is None else round(value, 6)
+
+    def eur(value: Optional[float]) -> Optional[float]:
+        return None if value is None else round(value * usd_to_eur, 6)
 
     return CostBreakdown(
         span_id=span.span_id,
@@ -94,12 +105,12 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         total_tokens=total_tokens,
-        input_cost_usd=round(input_cost_usd, 6),
-        output_cost_usd=round(output_cost_usd, 6),
-        total_cost_usd=round(span_cost_usd, 6),
-        input_cost_eur=round(input_cost_usd * usd_to_eur, 6),
-        output_cost_eur=round(output_cost_usd * usd_to_eur, 6),
-        total_cost_eur=round(span_cost_usd * usd_to_eur, 6),
+        input_cost_usd=usd(input_cost_usd),
+        output_cost_usd=usd(output_cost_usd),
+        total_cost_usd=usd(span_cost_usd),
+        input_cost_eur=eur(input_cost_usd),
+        output_cost_eur=eur(output_cost_usd),
+        total_cost_eur=eur(span_cost_usd),
     )
 
 
@@ -112,7 +123,10 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     span *and* per-call usage on its child model-call spans, so summing every span
     would double-count them.
 
-    Costs are calculated in both USD and EUR for European operations.
+    Costs are calculated in both USD and EUR for European operations. A span LiteLLM
+    cannot price keeps its tokens and its model name but carries no cost, and the
+    totals here follow suit: they are ``None`` when nothing on the trace could be
+    priced, rather than zero.
 
     Args:
         spans: List of trace spans
@@ -135,19 +149,35 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
         logger.warning("⚠️  No cost breakdown calculated - trace has no llm.invoke spans")
         return None
 
-    total_cost_usd = sum(entry.total_cost_usd for entry in cost_breakdown)
-    total_cost_eur = sum(entry.total_cost_eur for entry in cost_breakdown)
+    def total(field: str) -> Optional[float]:
+        """Sum one cost field across the spans that carry it.
 
-    logger.info(
-        f"✅ Cost calculation complete: {len(cost_breakdown)} spans, "
-        f"Total: ${total_cost_usd:.6f} USD / €{total_cost_eur:.6f} EUR"
-    )
+        ``None`` when not one of them carries it, which is how a trace nothing could
+        price stays distinguishable from a trace priced at nothing. A trace that mixes
+        the two sums the priced half, since those tokens really did cost that much.
+        """
+        priced = [value for entry in cost_breakdown if (value := getattr(entry, field)) is not None]
+        return round(sum(priced), 6) if priced else None
+
+    total_cost_usd = total("total_cost_usd")
+    total_cost_eur = total("total_cost_eur")
+
+    if total_cost_usd is None:
+        logger.warning(
+            f"⚠️  Cost calculation complete: {len(cost_breakdown)} spans, "
+            "none of which could be priced"
+        )
+    else:
+        logger.info(
+            f"✅ Cost calculation complete: {len(cost_breakdown)} spans, "
+            f"Total: ${total_cost_usd:.6f} USD / €{total_cost_eur:.6f} EUR"
+        )
 
     return TokenCosts(
-        total_cost_usd=round(total_cost_usd, 6),
-        total_cost_eur=round(total_cost_eur, 6),
-        total_input_cost_usd=round(sum(entry.input_cost_usd for entry in cost_breakdown), 6),
-        total_output_cost_usd=round(sum(entry.output_cost_usd for entry in cost_breakdown), 6),
+        total_cost_usd=total_cost_usd,
+        total_cost_eur=total_cost_eur,
+        total_input_cost_usd=total("input_cost_usd"),
+        total_output_cost_usd=total("output_cost_usd"),
         total_input_tokens=sum(entry.input_tokens for entry in cost_breakdown),
         total_output_tokens=sum(entry.output_tokens for entry in cost_breakdown),
         total_tokens=sum(entry.total_tokens for entry in cost_breakdown),

@@ -8,6 +8,7 @@ import {
   CardContent,
   Tooltip,
   Typography,
+  type TypographyProps,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { INLINE_ICON_SIZE } from './summary-tokens';
@@ -19,6 +20,9 @@ interface KpiCardProps {
   valueSuffix?: string;
   /** Theme color path for the value, e.g. 'error.main' when failures > 0. */
   valueColor?: string;
+  /** Drops the value a size for a phrase rather than a figure, e.g. "No cost
+   *  data". At h4 a sentence in the value slot wraps and dwarfs its neighbours. */
+  valueVariant?: TypographyProps['variant'];
   /** Plain text, or a node when part of it needs its own styling (e.g. a red
    *  failures count inline with the rest of the sentence). */
   subtitle?: React.ReactNode;
@@ -42,6 +46,7 @@ export default function KpiCard({
   value,
   valueSuffix,
   valueColor,
+  valueVariant = 'h4',
   subtitle,
   visual,
   infoTooltip,
@@ -95,7 +100,7 @@ export default function KpiCard({
         </Box>
       ) : (
         <Typography
-          variant="h4"
+          variant={valueVariant}
           fontWeight={600}
           sx={{
             mb: 1,

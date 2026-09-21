@@ -201,13 +201,18 @@ describe('TraceMetricsSummary', () => {
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
   });
 
-  it('says nothing could be priced once enrichment has finished', async () => {
+  it('says there is no cost data once enrichment has finished', async () => {
     getMetrics.mockResolvedValue(
       metrics({ priced_traces: 0, total_cost_usd: 0 })
     );
     renderTiles();
 
-    expect(await screen.findByText('No priced models')).toBeInTheDocument();
+    expect(await screen.findByText('No cost data')).toBeInTheDocument();
+    // The same explanation the test run summary offers, from the same module.
+    expect(screen.getByRole('link', { name: 'Why?' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('tracing/costs')
+    );
   });
 
   it('shows a real $0.00 for a scope that was priced and free', async () => {
@@ -215,7 +220,7 @@ describe('TraceMetricsSummary', () => {
     renderTiles();
 
     expect(await screen.findByText('$0.00')).toBeInTheDocument();
-    expect(screen.queryByText('No priced models')).not.toBeInTheDocument();
+    expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
   });
 
   it('holds every tile back for a project that has traced nothing', async () => {

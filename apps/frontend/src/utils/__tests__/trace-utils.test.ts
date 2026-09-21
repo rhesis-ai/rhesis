@@ -201,10 +201,12 @@ describe('trace-utils', () => {
       });
     });
 
-    it('treats a zero or absent cost as no cost', () => {
-      expect(
-        spanUsage(span({ 'ai.llm.tokens.total': 10 }, 0))?.costUsd
-      ).toBeNull();
+    it('keeps a zero cost and drops an absent one', () => {
+      // A span enrichment priced at nothing really did cost nothing, and hiding
+      // that made a free model look like one nobody could price.
+      expect(spanUsage(span({ 'ai.llm.tokens.total': 10 }, 0))?.costUsd).toBe(
+        0
+      );
       expect(
         spanUsage(span({ 'ai.llm.tokens.total': 10 }, null))?.costUsd
       ).toBeNull();

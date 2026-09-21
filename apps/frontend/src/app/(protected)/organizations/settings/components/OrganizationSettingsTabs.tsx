@@ -13,7 +13,7 @@ import ContactInformationForm from './ContactInformationForm';
 import BrandingColorsForm from './BrandingColorsForm';
 import BrandingFaviconForm from './BrandingFaviconForm';
 import BrandingFontForm from './BrandingFontForm';
-import DisplayCurrencyForm from './DisplayCurrencyForm';
+import OrganizationCurrencyForm from './OrganizationCurrencyForm';
 import DangerZone from './DangerZone';
 
 interface BuiltInTab {
@@ -36,12 +36,16 @@ type MergedTab = BuiltInTab | DynamicTab;
 const BUILT_IN_TABS: BuiltInTab[] = [
   { id: 'information', label: 'Information', order: 0, dynamic: false },
   { id: 'branding', label: 'Branding', order: 1, dynamic: false },
-  { id: 'display', label: 'Display', order: 2, dynamic: false },
+  { id: 'preferences', label: 'Preferences', order: 2, dynamic: false },
   { id: 'danger', label: 'Danger zone', order: 999, dynamic: false },
 ];
 
 const LEGACY_TAB_MAP: Record<string, string> = {
   'sso-api': 'sso',
+  // The Preferences tab was called Display until the currency settings were
+  // given the same words as the personal ones. Links to ?tab=display are out
+  // there, in the docs among other places.
+  display: 'preferences',
 };
 
 interface OrganizationSettingsTabsProps {
@@ -151,10 +155,13 @@ export default function OrganizationSettingsTabs({
 
       <DetailTabPanel
         value={activeTab}
-        index={indexOf('display')}
+        index={indexOf('preferences')}
         prefix="org-settings"
       >
-        <DisplayCurrencyForm organization={organization} onUpdate={onUpdate} />
+        <OrganizationCurrencyForm
+          organization={organization}
+          onUpdate={onUpdate}
+        />
       </DetailTabPanel>
 
       {allTabs
@@ -178,7 +185,7 @@ export default function OrganizationSettingsTabs({
         index={indexOf('danger')}
         prefix="org-settings"
       >
-        <SectionCard title="Danger Zone" variant="danger">
+        <SectionCard title="Danger zone" variant="danger">
           <DangerZone organization={organization} />
         </SectionCard>
       </DetailTabPanel>
