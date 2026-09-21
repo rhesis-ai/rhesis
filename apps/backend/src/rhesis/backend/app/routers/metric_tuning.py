@@ -34,7 +34,7 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -330,11 +330,22 @@ def start_tuning_run(
 )
 def improve_metric_from_annotations(
     metric_id: UUID,
+    include_run_annotations: bool = Query(
+        True,
+        description=(
+            "Also learn from people overruling this metric on real test results, "
+            "not only from its tuning cases"
+        ),
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: models.User = Depends(require_current_user_or_token),
 ):
     """Propose a rewrite of the metric from the rejections its reviewers wrote.
+
+    Reads both the metric's tuning cases and, unless turned off, annotations
+    overruling it on real test results. Both are someone saying the metric
+    judged a case wrongly.
 
     Synchronous, and it saves nothing. The caller is shown the current fields
     beside the proposed ones and applies them with an ordinary metric update, or
@@ -345,7 +356,13 @@ def improve_metric_from_annotations(
     metric = _resolve_metric_or_raise(db, metric_id, organization_id, user_id)
 
     try:
-        return service.improve_from_annotations(db, metric, organization_id, current_user)
+        return service.improve_from_annotations(
+            db,
+            metric,
+            organization_id,
+            current_user,
+            include_run_annotations=include_run_annotations,
+        )
     except NoStandingRejections as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValidationError as e:

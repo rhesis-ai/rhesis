@@ -103,9 +103,10 @@ turns, efficiency).
 - **categories**: {{ existing_metric.categories }}
 - **passing_categories**: {{ existing_metric.passing_categories }}
 
+{% if rejections %}
 ## Rejected Cases
 
-{{ rejections | length }} case{{ '' if rejections | length == 1 else 's' }} where a
+{{ rejections | length }} tuning case{{ '' if rejections | length == 1 else 's' }} where a
 reviewer judged this metric's verdict wrong.
 {% for rejection in rejections %}
 ### Case {{ loop.index }}
@@ -117,3 +118,51 @@ reviewer judged this metric's verdict wrong.
 {% if rejection.reasoning %}- **the metric's reasoning**: {{ rejection.reasoning }}
 {% endif %}- **why the reviewer rejected it**: {{ rejection.comment }}
 {% endfor %}
+{% endif %}
+{% if run_rejections %}
+## From Test Runs
+
+{{ run_rejections | length }} case{{ '' if run_rejections | length == 1 else 's' }} from real
+test runs where someone overruled this metric's verdict on the result. These are the
+application's own outputs rather than cases curated for tuning, so they say how the metric
+behaves in use. Treat them exactly as the rejections above.
+{% if run_rejections_omitted %}
+{{ run_rejections_omitted }} further such case{{ '' if run_rejections_omitted == 1 else 's' }}
+exist and are not shown here. Write the rewrite from what you were given and do not assume
+these are all of them.
+{% endif %}
+{% for rejection in run_rejections %}
+### Run Case {{ loop.index }}
+
+- **input**: {{ rejection.input }}
+- **output being judged**: {{ rejection.output }}
+{% if rejection.reference_answer %}- **reference answer**: {{ rejection.reference_answer }}
+{% endif %}- **the metric's verdict**: {{ rejection.verdict }}
+{% if rejection.reasoning %}- **the metric's reasoning**: {{ rejection.reasoning }}
+{% endif %}- **why the person overruled it**: {{ rejection.comment }}
+{% endfor %}
+{% endif %}
+{% if explorer_rejections %}
+## From Explorer Labels
+
+{{ explorer_rejections | length }} test{{ '' if explorer_rejections | length == 1 else 's' }}
+someone labelled by hand where their label disagrees with what this metric said about
+that test. The label is on the test as a whole rather than on this metric, so it says
+this metric was wrong about the test without saying which part of the criteria was at
+fault. Weigh it accordingly: it is evidence the verdict is wrong, not a description of
+what to change.
+{% if explorer_rejections_omitted %}
+{{ explorer_rejections_omitted }} further such test{{ '' if explorer_rejections_omitted == 1 else 's' }}
+exist and are not shown here.
+{% endif %}
+{% for rejection in explorer_rejections %}
+### Explorer Case {{ loop.index }}
+
+- **input**: {{ rejection.input }}
+- **output being judged**: {{ rejection.output }}
+{% if rejection.reference_answer %}- **reference answer**: {{ rejection.reference_answer }}
+{% endif %}- **the metric's verdict**: {{ rejection.verdict }}
+{% if rejection.reasoning %}- **the metric's reasoning**: {{ rejection.reasoning }}
+{% endif %}- **the label the person set instead**: {{ rejection.comment }}
+{% endfor %}
+{% endif %}
