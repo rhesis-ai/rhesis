@@ -15,5 +15,10 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+constraint-dependencies = [
+    "anyio>=4.14.2",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["mock_llm", "mock_chatbot"]
