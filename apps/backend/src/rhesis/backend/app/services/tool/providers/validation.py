@@ -1,0 +1,202 @@
+"""Manifest-driven validation, normalization and merging of tool fields.
+
+Replaces the per-provider ``_validate_*`` functions that used to live in
+``app/routers/tools.py`` and the per-provider ``merge_*`` functions in
+``app/services/tool/credential_merge.py``. Each of those was the same three
+steps with a different key: read a value, complain if it is blank, and on an
+update fall back to what is already stored.
+
+Error text is unchanged. Sentences are generated from the field's provider and
+key, and a field overrides the wording only where the old hand-written string
+differed from the generated form.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Mapping, MutableMapping, Optional
+
+from rhesis.backend.app.services.tool.providers.spec import (
+    FieldStore,
+    ProviderField,
+    ProviderFieldError,
+    ProviderManifest,
+)
+
+
+def _missing_detail(manifest: ProviderManifest, field: ProviderField) -> str:
+    if field.messages.missing:
+        return field.messages.missing
+    return f"{manifest.display_name} integrations require '{field.leaf}'"
+
+
+def _invalid_detail(manifest: ProviderManifest, field: ProviderField) -> str:
+    if field.messages.invalid:
+        return field.messages.invalid
+    return f"{manifest.display_name} '{field.leaf}' must be a non-empty string"
+
+
+def _read(source: Mapping[str, Any] | None, field: ProviderField) -> tuple[bool, Any]:
+    """Walk a dotted key. Returns ``(container_present, value)``.
+
+    ``container_present`` is False when an intermediate object is missing, which
+    is a different error from a blank leaf: GitLab says "require project
+    metadata" for the former and names ``namespace`` for the latter.
+    """
+    current: Any = source or {}
+    segments = field.path
+    for segment in segments[:-1]:
+        if not isinstance(current, Mapping) or segment not in current:
+            return False, None
+        current = current[segment]
+    if not isinstance(current, Mapping):
+        return False, None
+    return True, current.get(segments[-1])
+
+
+def _write(target: MutableMapping[str, Any], field: ProviderField, value: Any) -> None:
+    current: MutableMapping[str, Any] = target
+    segments = field.path
+    for segment in segments[:-1]:
+        nested = current.get(segment)
+        if not isinstance(nested, MutableMapping):
+            nested = {}
+            current[segment] = nested
+        current = nested
+    current[segments[-1]] = value
+
+
+def read_field(
+    source: Mapping[str, Any] | None,
+    field: ProviderField,
+) -> tuple[bool, Any]:
+    """Public wrapper over the dotted-key walk. See :func:`_read`."""
+    return _read(source, field)
+
+
+def validate_field(
+    manifest: ProviderManifest,
+    field: ProviderField,
+    source: Mapping[str, Any] | None,
+) -> None:
+    """Check one field against a credentials or metadata mapping."""
+    container_present, value = _read(source, field)
+
+    if not container_present:
+        if not field.required:
+            return
+        detail = field.messages.container_missing or _missing_detail(manifest, field)
+        raise ProviderFieldError(detail)
+
+    if value is None:
+        if not field.required:
+            return
+        raise ProviderFieldError(_missing_detail(manifest, field))
+
+    if not isinstance(value, str) or not value.strip():
+        # A generic form posts "" for every field the user left empty, so for an
+        # optional field blank means "not provided", not "invalid". Only a
+        # required field can fail here.
+        if not field.required:
+            return
+        raise ProviderFieldError(_invalid_detail(manifest, field))
+
+    if field.validate is not None:
+        try:
+            field.validate(value)
+        except ValueError as exc:
+            raise ProviderFieldError(str(exc)) from exc
+
+
+def validate_store(
+    manifest: ProviderManifest,
+    store: FieldStore,
+    source: Mapping[str, Any] | None,
+) -> None:
+    """Check every field a provider keeps in one store."""
+    for field in manifest.fields_in(store):
+        validate_field(manifest, field, source)
+
+
+def normalize(
+    manifest: ProviderManifest,
+    store: FieldStore,
+    source: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Apply each field's ``normalize`` hook, leaving everything else intact.
+
+    Replaces ``prepare_azure_devops_credentials``: the org-name extraction is
+    now that field's ``normalize``, and the surrounding copy-and-strip is here.
+    """
+    prepared: dict[str, Any] = dict(source or {})
+    for field in manifest.fields_in(store):
+        container_present, value = _read(prepared, field)
+        if not container_present or not isinstance(value, str):
+            continue
+        try:
+            normalized = field.normalize(value) if field.normalize else value.strip()
+        except ValueError as exc:
+            # A normalize hook rejects input it cannot make sense of (an Azure
+            # DevOps "org" that is really a URL). That is a field error, not a
+            # crash: without this the ValueError escapes to a 500 on create.
+            raise ProviderFieldError(str(exc)) from exc
+        _write(prepared, field, normalized)
+    return prepared
+
+
+def _decode(existing_json: str | None) -> dict[str, Any]:
+    try:
+        decoded = json.loads(existing_json)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
+
+def merge_credentials(
+    manifest: ProviderManifest,
+    existing_credentials_json: str | None,
+    incoming: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Fill blank ``preserve_on_update`` fields from the stored credentials.
+
+    This is what stops a PATCH that carries only a new token from wiping the
+    instance URL, the org name, or the other half of a two-part credential.
+    Only fields the manifest marks ``preserve_on_update`` are carried over, so
+    an omitted secret is still an omitted secret.
+    """
+    merged: dict[str, Any] = dict(incoming or {})
+    existing = _decode(existing_credentials_json)
+    if not existing:
+        return merged
+
+    for field in manifest.fields_in(FieldStore.CREDENTIALS):
+        if not field.preserve_on_update:
+            continue
+        _, incoming_value = _read(merged, field)
+        if isinstance(incoming_value, str) and incoming_value.strip():
+            continue
+        _, stored = _read(existing, field)
+        if isinstance(stored, str) and stored.strip():
+            _write(merged, field, stored.strip())
+
+    return merged
+
+
+def prepare_credentials(
+    manifest: ProviderManifest,
+    incoming: Mapping[str, Any] | None,
+    *,
+    existing_credentials_json: Optional[str] = None,
+) -> dict[str, Any]:
+    """Merge (when updating), then normalize. The order matters.
+
+    A preserved value has already been normalized once on the way in, but a
+    caller can also supply a raw value for a preserved field, so normalization
+    runs last and covers both.
+    """
+    merged = (
+        merge_credentials(manifest, existing_credentials_json, incoming)
+        if existing_credentials_json is not None
+        else dict(incoming or {})
+    )
+    return normalize(manifest, FieldStore.CREDENTIALS, merged)

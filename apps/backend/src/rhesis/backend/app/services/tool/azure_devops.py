@@ -1,4 +1,8 @@
-"""Azure DevOps tool credential helpers."""
+"""Azure DevOps organization-name normalization.
+
+Used as the ``normalize`` hook on the manifest's ``AZURE_DEVOPS_ORG`` field,
+so a user can paste a ``dev.azure.com/org`` URL where an org name is asked for.
+"""
 
 import re
 
@@ -36,18 +40,3 @@ def normalize_azure_devops_org(value: str) -> str:
         raise ValueError("Azure DevOps 'AZURE_DEVOPS_ORG' contains invalid characters")
 
     return trimmed
-
-
-def prepare_azure_devops_credentials(credentials: dict[str, str]) -> dict[str, str]:
-    """Normalize org names before validation and persistence."""
-    prepared = dict(credentials)
-    org = prepared.get("AZURE_DEVOPS_ORG", "")
-    if isinstance(org, str) and org.strip():
-        prepared["AZURE_DEVOPS_ORG"] = normalize_azure_devops_org(org)
-    email = prepared.get("AZURE_DEVOPS_EMAIL", "")
-    if isinstance(email, str):
-        prepared["AZURE_DEVOPS_EMAIL"] = email.strip()
-    pat = prepared.get("AZURE_DEVOPS_PAT", "")
-    if isinstance(pat, str):
-        prepared["AZURE_DEVOPS_PAT"] = pat.strip()
-    return prepared

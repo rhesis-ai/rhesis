@@ -9,6 +9,13 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.crud import tool as tool_crud
 from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
+from rhesis.backend.app.services.tool.providers import (
+    FieldStore,
+    ProviderFieldError,
+    get_manifest,
+    read_field,
+    validate_field,
+)
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp import MCPClientFactory
 
@@ -16,41 +23,37 @@ from rhesis.sdk.agents.mcp import MCPClientFactory
 def _scope_context_from_metadata(
     provider: str, tool_metadata: Optional[Dict[str, Any]]
 ) -> Optional[Dict[str, str]]:
+    """Narrow an MCP agent to the repo, workspace or project the tool names.
+
+    Every metadata field a provider declares is scope: GitLab's namespace,
+    Asana's workspace, Azure DevOps' project. Reached only on the MCP path, so
+    REST-only providers never get here.
+    """
     if not tool_metadata:
         return None
 
-    if provider == "gitlab":
-        if "project" not in tool_metadata:
-            return None
-        project_data = tool_metadata["project"]
-        namespace = project_data.get("namespace") if isinstance(project_data, dict) else None
-        if not isinstance(namespace, str) or not namespace.strip() or "/" not in namespace.strip():
-            raise ToolConfigurationError(
-                "GitLab tool has invalid project metadata; namespace must be a group/project path"
-            )
-        return {"namespace": namespace.strip()}
+    manifest = get_manifest(provider)
+    if manifest is None:
+        return None
 
-    if provider == "asana":
-        if "workspace_gid" not in tool_metadata:
-            return None
-        workspace_gid = tool_metadata["workspace_gid"]
-        if not isinstance(workspace_gid, str) or not workspace_gid.strip():
-            raise ToolConfigurationError(
-                "Asana tool has invalid workspace_gid metadata; must be a non-empty string"
-            )
-        return {"workspace_gid": workspace_gid.strip()}
+    context: Dict[str, str] = {}
+    for field in manifest.fields_in(FieldStore.METADATA):
+        # Keyed on the outermost segment, not the leaf: metadata that names
+        # ``project`` but carries no usable ``project.namespace`` is malformed,
+        # not absent. Skipping it would run the agent against everything the
+        # token can reach instead of the one project the tool names.
+        if field.path[0] not in tool_metadata:
+            continue
+        try:
+            validate_field(manifest, field, tool_metadata)
+        except ProviderFieldError as exc:
+            raise ToolConfigurationError(str(exc)) from exc
 
-    if provider == "azure_devops":
-        if "project" not in tool_metadata:
-            return None
-        project = tool_metadata["project"]
-        if not isinstance(project, str) or not project.strip():
-            raise ToolConfigurationError(
-                "Azure DevOps tool has invalid project metadata; must be a non-empty string"
-            )
-        return {"project": project.strip()}
+        _, value = read_field(tool_metadata, field)
+        if isinstance(value, str) and value.strip():
+            context[field.leaf] = value.strip()
 
-    return None
+    return context or None
 
 
 def _get_mcp_tool_config(

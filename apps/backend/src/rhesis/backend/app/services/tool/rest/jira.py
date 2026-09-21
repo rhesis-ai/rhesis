@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import schemas
 from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.crud import tool as tool_crud
-from rhesis.backend.app.services.tool.rest.config import validate_base_url
+from rhesis.backend.app.services.tool.url_validation import validate_base_url
 
 logger = logging.getLogger(__name__)
 

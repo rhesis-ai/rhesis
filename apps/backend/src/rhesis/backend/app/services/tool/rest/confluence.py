@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import httpx
 
-from rhesis.backend.app.services.tool.rest.config import validate_base_url
+from rhesis.backend.app.services.tool.url_validation import validate_base_url
 
 
 class ConfluenceRestClient:
