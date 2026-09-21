@@ -90,6 +90,12 @@ export interface MetricTuningAgreement {
   unannotated: number;
   /** The metric call failed — left out too, and reported apart. */
   errored: number;
+  /**
+   * Test results where someone overruled this metric on a real run. Outside the
+   * ratio on purpose: that measures the curated tuning set, and a metric with no
+   * tuning cases at all can still have a count here.
+   */
+  disagreements_in_runs: number;
 }
 
 /**
@@ -154,8 +160,20 @@ export interface MetricTuningImprovement {
   improvement: ImprovedMetricFields;
   /** Fields whose proposed value differs from the metric's current one. */
   changed: (keyof ImprovedMetricFields)[];
-  /** How many rejections it was written from. */
+  /** How many rejections it was written from, across all three sources. */
   rejections_used: number;
+  /** Tuning cases someone curated for judging this metric. */
+  tuning_rejections_used: number;
+  /** People overruling this metric on a real test result. */
+  run_rejections_used: number;
+  /**
+   * How many of those exist. Higher than `run_rejections_used` when the cap
+   * bit, so the difference is shown rather than silently dropped.
+   */
+  run_rejections_found: number;
+  /** Explorer tests labelled against what this metric said about them. */
+  explorer_rejections_used: number;
+  explorer_rejections_found: number;
 }
 
 export interface MetricTuningCaseCreate {

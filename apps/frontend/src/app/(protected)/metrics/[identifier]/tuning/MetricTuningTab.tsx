@@ -80,7 +80,7 @@ const ERRORED_HINT =
   'The metric call failed for this case, so there is no verdict to judge.';
 
 const NO_REJECTIONS_HINT =
-  'Reject a case with a comment first: Improve reads the comments.';
+  'Reject a case with a comment first, or overrule this metric on a test result: Improve reads the comments.';
 
 const IMPROVE_HINT =
   'Rewrite this metric from the comments on the cases it got wrong. Nothing is saved until you apply it.';
@@ -322,7 +322,15 @@ function InvalidatedMark() {
  * reason, so three out of three does not read like a solved problem.
  */
 function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
-  const { ratio, judged, accepted, rejected, unannotated, errored } = agreement;
+  const {
+    ratio,
+    judged,
+    accepted,
+    rejected,
+    unannotated,
+    errored,
+    disagreements_in_runs: inRuns,
+  } = agreement;
   const total = judged + unannotated + errored;
   const percent = ratio === null ? null : Math.round(ratio * 100);
 
@@ -331,9 +339,13 @@ function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
     errored > 0 ? `${errored} the metric could not be reached on` : null,
   ].filter(Boolean);
 
+  // Shown only when there are any: a fourth tile reading zero on every metric
+  // nobody has overruled is noise, and this is the uncommon case.
+  const size = inRuns > 0 ? { xs: 12, sm: 6, md: 3 } : { xs: 12, sm: 6, md: 4 };
+
   return (
     <Grid container spacing={3} sx={{ mb: 3 }}>
-      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+      <Grid size={size}>
         <Box title={percent === null ? NO_AGREEMENT_HINT : undefined}>
           <SummaryCard
             title="Agreement"
@@ -366,7 +378,7 @@ function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
           />
         </Box>
       </Grid>
-      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+      <Grid size={size}>
         <SummaryCard
           title="Rejected"
           value={rejected}
@@ -375,7 +387,7 @@ function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
           color="error"
         />
       </Grid>
-      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+      <Grid size={size}>
         <SummaryCard
           title="Cases"
           value={total}
@@ -386,6 +398,17 @@ function AgreementSummary({ agreement }: { agreement: MetricTuningAgreement }) {
           color="primary"
         />
       </Grid>
+      {inRuns > 0 && (
+        <Grid size={size}>
+          <SummaryCard
+            title="Overruled in runs"
+            value={inRuns}
+            subtitle="Test results where someone disagreed"
+            icon={<CancelIcon />}
+            color="warning"
+          />
+        </Grid>
+      )}
     </Grid>
   );
 }
@@ -964,7 +987,12 @@ export default function MetricTuningTab({
   // for it to read. Only rejections that still stand count — the API refuses on
   // the same rule, and it is the outcome the grid is already showing.
   const standingRejections = cases.filter(c => c.outcome === 'rejected').length;
-  const hasStandingRejection = standingRejections > 0;
+  // Improve also reads people overruling this metric on real runs, so a metric
+  // with no tuning rejection at all can still have something to learn from.
+  // Gating on the tuning cases alone would disable the button on exactly the
+  // metrics the run source exists for.
+  const runDisagreements = run?.agreement.disagreements_in_runs ?? 0;
+  const hasStandingRejection = standingRejections > 0 || runDisagreements > 0;
   const canImprove = hasStandingRejection && !isRunning && !improving;
   // Keyed off why it is off, not off one of the reasons: a tooltip that explains
   // what Improve does while the button is disabled explains the wrong thing.

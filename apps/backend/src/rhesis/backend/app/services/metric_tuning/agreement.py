@@ -30,6 +30,7 @@ from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.schemas.metric_tuning import TuningAgreement, TuningCaseOutcome
 from rhesis.backend.app.schemas.metric_tuning_metadata import parse_metric_tuning_case_metadata
+from rhesis.backend.app.services.metric_tuning.improve import count_run_disagreements
 from rhesis.backend.app.services.metric_tuning.outcome import case_outcome
 from rhesis.backend.app.services.metric_tuning.test_sets import get_tuning_test_set
 
@@ -64,9 +65,14 @@ def get_agreement(db: Session, metric: models.Metric, organization_id: str) -> T
     A metric with no tuning set has nothing to agree about, which is the same
     all-zero, no-ratio answer as a set nobody has annotated.
     """
+    # Counted whether or not the metric has a tuning set: a metric nobody has
+    # curated cases for can still have been overruled where it actually runs,
+    # and reporting nothing in that case hides the only signal there is.
+    in_runs = count_run_disagreements(db, metric)
+
     test_set = get_tuning_test_set(db, metric.id, organization_id)
     if not test_set:
-        return TuningAgreement()
+        return TuningAgreement(disagreements_in_runs=in_runs)
 
     # Ids, metadata and annotations -- two queries, whatever the case count. The
     # fold reads nothing else, and this endpoint is polled.
@@ -77,4 +83,6 @@ def get_agreement(db: Session, metric: models.Metric, organization_id: str) -> T
         metadata = parse_metric_tuning_case_metadata(raw)
         return case_outcome(metric, metadata, annotations.get(case_id, ()))[0]
 
-    return agreement_over(outcome_of(case_id, raw) for case_id, raw in stored)
+    result = agreement_over(outcome_of(case_id, raw) for case_id, raw in stored)
+    result.disagreements_in_runs = in_runs
+    return result

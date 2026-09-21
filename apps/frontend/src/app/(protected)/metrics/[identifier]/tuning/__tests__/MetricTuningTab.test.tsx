@@ -93,6 +93,7 @@ const NO_AGREEMENT: MetricTuningAgreement = {
   rejected: 0,
   unannotated: 0,
   errored: 0,
+  disagreements_in_runs: 0,
 };
 
 const agreement = (
@@ -925,6 +926,11 @@ describe('MetricTuningTab — improving from reviews', () => {
     improvement: PROPOSED,
     changed: ['evaluation_prompt', 'reasoning'],
     rejections_used: 3,
+    tuning_rejections_used: 3,
+    run_rejections_used: 0,
+    run_rejections_found: 0,
+    explorer_rejections_used: 0,
+    explorer_rejections_found: 0,
   };
 
   const RUNNING: MetricTuningRun = {
@@ -1163,6 +1169,115 @@ describe('MetricTuningTab — improving from reviews', () => {
 
     await screen.findByText('conflict');
     expect(onMetricChanged).not.toHaveBeenCalled();
+  });
+
+  it('offers Improve to a metric overruled only on real runs', async () => {
+    // The run source exists for exactly this metric: nobody curated a tuning
+    // case for it, but people have overruled it where it actually runs. Gating
+    // on the tuning cases alone would disable the button on the one metric the
+    // feature was built for.
+    mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
+    mockGetTuningRun.mockResolvedValue({
+      ...NEVER_RUN,
+      agreement: agreement({ disagreements_in_runs: 2 }),
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+  });
+
+  it('still refuses Improve when there is nothing anywhere', async () => {
+    mockGetTuningCases.mockResolvedValue([JUDGEABLE_CASE]);
+    mockGetTuningRun.mockResolvedValue({
+      ...NEVER_RUN,
+      agreement: agreement({ disagreements_in_runs: 0 }),
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await waitFor(() => expect(improveButton()).toBeDisabled());
+  });
+
+  it('counts run disagreements beside the ratio, never inside it', async () => {
+    // Folding a different population into the ratio would make one number mean
+    // two things, so it travels as its own tile.
+    mockGetTuningRun.mockResolvedValue({
+      ...NEVER_RUN,
+      agreement: agreement({
+        ratio: 1,
+        judged: 2,
+        accepted: 2,
+        disagreements_in_runs: 3,
+      }),
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    expect(await screen.findByText('Overruled in runs')).toBeInTheDocument();
+    expect(await screen.findByText('100%')).toBeInTheDocument();
+  });
+
+  it('leaves the tile out when nothing has been overruled', async () => {
+    mockGetTuningRun.mockResolvedValue({
+      ...NEVER_RUN,
+      agreement: agreement({ ratio: 1, judged: 1, accepted: 1 }),
+    });
+
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+
+    await screen.findByText('100%');
+    expect(screen.queryByText('Overruled in runs')).not.toBeInTheDocument();
+  });
+
+  it('names each source when a rewrite drew on more than one', async () => {
+    // A rewrite reads differently depending on its evidence: tuning cases were
+    // curated for judging this metric, run annotations are people overruling it
+    // on real results. One total would present them as the same thing.
+    mockImproveFromAnnotations.mockResolvedValue({
+      ...IMPROVEMENT,
+      rejections_used: 5,
+      tuning_rejections_used: 3,
+      run_rejections_used: 2,
+      run_rejections_found: 2,
+    });
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    expect(await screen.findByText(/3 tuning/)).toBeInTheDocument();
+    expect(screen.getByText(/2 from test runs/)).toBeInTheDocument();
+  });
+
+  it('says so when the cap left rejections out', async () => {
+    // A cap that is not stated is a rejection dropped silently, which is the
+    // one thing this loop must not do.
+    mockImproveFromAnnotations.mockResolvedValue({
+      ...IMPROVEMENT,
+      rejections_used: 20,
+      tuning_rejections_used: 0,
+      run_rejections_used: 20,
+      run_rejections_found: 23,
+    });
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    expect(
+      await screen.findByText(/3 further rejections were not included/)
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the header plain when everything came from one source', async () => {
+    render(<MetricTuningTab metricId={METRIC_ID} />);
+    await waitFor(() => expect(improveButton()).toBeEnabled());
+    fireEvent.click(improveButton());
+    await screen.findByRole('dialog');
+
+    expect(screen.queryByText(/3 tuning/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not included/)).not.toBeInTheDocument();
   });
 
   it('re-reads the tab after applying, so the run reads as out of date', async () => {
