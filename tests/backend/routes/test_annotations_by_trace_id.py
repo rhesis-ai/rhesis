@@ -17,6 +17,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from rhesis.backend.app.models.trace import Trace
+from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.test_annotations import (
     _ensure_pass_fail_statuses,
     _project_scope,
@@ -294,11 +295,16 @@ class TestResolutionCannotReachAnotherProject:
         test_db.refresh(elsewhere)
 
         hex_id = uuid.uuid4().hex
+        # project_isolation is RESTRICTIVE, so the span's own INSERT needs the
+        # session on its project before the flush.
+        scope_to_project(test_db, elsewhere.id)
         with _project_scope(test_db, test_organization.id, authenticated_user.id, elsewhere.id):
             test_db.add(_span(elsewhere.id, test_organization.id, trace_id=hex_id))
             test_db.commit()
 
-        # Same organization, same hex, different project.
+        # Same organization, same hex, different project. Scoping the session is
+        # what the next request reads its GUCs from.
+        scope_to_project(test_db, db_project.id)
         with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
             response = authenticated_client.post(
                 "/annotations/",
