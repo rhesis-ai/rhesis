@@ -13,6 +13,8 @@ import {
   MenuItem,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { ProviderPicker } from './ProviderPicker';
+import { useToolProviders } from '@/hooks/useToolProviders';
 import { FilledStatusAlert } from '@/components/common/FilledStatusAlert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -201,6 +203,10 @@ export function ToolConnectionDrawer({
 
   const theme = useTheme();
   const isEditMode = mode === 'edit';
+  // Only needed to describe the tiles, so it is not fetched in edit mode where
+  // the provider is already fixed.
+  const { data: toolProviders = [], isLoading: providersLoading } =
+    useToolProviders(!isEditMode);
   const sortedProviders = useMemo(
     () =>
       [...providers].sort((a, b) =>
@@ -1411,51 +1417,23 @@ export function ToolConnectionDrawer({
       width={640}
     >
       <Stack spacing={2}>
-        {!isEditMode && providers.length > 0 && (
-          <FormControl fullWidth>
-            <InputLabel id="tool-provider-label" shrink>
-              Provider
-            </InputLabel>
-            <Select
-              labelId="tool-provider-label"
-              value={provider?.id ?? ''}
-              label="Provider"
-              displayEmpty
-              notched
-              renderValue={selected => {
-                if (!selected) {
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{ color: theme => theme.palette.greyscale.subtitle }}
-                    >
-                      Select a provider
-                    </Typography>
-                  );
-                }
-                const match = sortedProviders.find(p => p.id === selected);
-                return match
-                  ? formatToolProviderDisplayName(match.type_value)
-                  : '';
-              }}
-              onChange={e => {
-                const next = sortedProviders.find(p => p.id === e.target.value);
+        {!isEditMode && (
+          <Stack spacing={1}>
+            <Typography sx={sectionHeadingSx}>Provider</Typography>
+            <ProviderPicker
+              lookups={sortedProviders}
+              providers={toolProviders}
+              loading={providersLoading && sortedProviders.length === 0}
+              selectedId={provider?.id ?? null}
+              onSelect={choice => {
+                const next = sortedProviders.find(p => p.id === choice.id);
                 setSelectedProvider(next ?? null);
                 setConnectionTested(false);
                 setTestResult(null);
                 setError(null);
               }}
-            >
-              <MenuItem value="" disabled>
-                <em>Select a provider</em>
-              </MenuItem>
-              {sortedProviders.map(p => (
-                <MenuItem key={p.id} value={p.id}>
-                  {formatToolProviderDisplayName(p.type_value)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+            />
+          </Stack>
         )}
 
         {showConnectionForm && (

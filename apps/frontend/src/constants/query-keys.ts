@@ -156,3 +156,10 @@ export const testRunUsageKeys = {
 export const exchangeRateKeys = {
   all: () => ['exchange-rates'] as const,
 };
+
+// Deployment-wide: which tool providers this build supports, what each one
+// needs, and which auth methods the install can actually offer. The same for
+// every user, and it only changes on release.
+export const toolProviderKeys = {
+  all: () => ['tool-providers'] as const,
+};

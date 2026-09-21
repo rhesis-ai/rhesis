@@ -30,6 +30,44 @@ jest.mock('@/components/common/NotificationContext', () => ({
   useNotifications: () => ({ show: jest.fn() }),
 }));
 
+jest.mock('@/hooks/useToolProviders', () => ({
+  useToolProviders: () => ({
+    data: [
+      {
+        key: 'notion',
+        display_name: 'Notion',
+        description: 'Pull pages and databases into your knowledge base',
+        auth_methods: [
+          {
+            kind: 'api_token',
+            label: 'Integration token',
+            help_url: '',
+            available: true,
+          },
+        ],
+        fields: [],
+        actions: ['extract', 'test_connection'],
+      },
+      {
+        key: 'asana',
+        display_name: 'Asana',
+        description: 'Import tasks and projects from Asana',
+        auth_methods: [
+          {
+            kind: 'api_token',
+            label: 'Personal access token',
+            help_url: '',
+            available: true,
+          },
+        ],
+        fields: [],
+        actions: ['extract', 'test_connection'],
+      },
+    ],
+    isLoading: false,
+  }),
+}));
+
 jest.mock('@/config/tool-providers', () => ({
   TOOL_PROVIDER_ICONS: {},
   formatToolProviderDisplayName: (typeValue: string) =>
@@ -180,8 +218,16 @@ describe('ToolConnectionDrawer', () => {
     expect(screen.getByText('Add tool connection')).toBeInTheDocument();
     expect(screen.queryByLabelText(/connection name/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/provider/i)).toHaveTextContent(
-      /select a provider/i
+    const grid = screen.getByRole('radiogroup', { name: /tool provider/i });
+    expect(grid).toBeInTheDocument();
+    // Every provider is visible without opening anything, and none is chosen.
+    expect(screen.getByRole('radio', { name: 'Notion' })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+    expect(screen.getByRole('radio', { name: 'Asana' })).toHaveAttribute(
+      'aria-checked',
+      'false'
     );
   });
 
@@ -197,8 +243,7 @@ describe('ToolConnectionDrawer', () => {
       />
     );
 
-    await user.click(screen.getByLabelText(/provider/i));
-    await user.click(screen.getByRole('option', { name: /notion/i }));
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
 
     expect(screen.getByText('Connect Notion')).toBeInTheDocument();
     expect(screen.getByLabelText(/connection name/i)).toBeInTheDocument();
