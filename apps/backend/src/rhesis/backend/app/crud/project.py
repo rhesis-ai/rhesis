@@ -82,9 +82,7 @@ def get_projects(
     from rhesis.backend.app.utils.query_utils import QueryBuilder
 
     org_access = (
-        user_id
-        and organization_id
-        and has_org_wide_project_access(db, user_id, organization_id)
+        user_id and organization_id and has_org_wide_project_access(db, user_id, organization_id)
     )
 
     with bypass_tenant_filter():
@@ -124,9 +122,7 @@ def count_projects(
     from rhesis.backend.app.utils.query_utils import QueryBuilder
 
     org_access = (
-        user_id
-        and organization_id
-        and has_org_wide_project_access(db, user_id, organization_id)
+        user_id and organization_id and has_org_wide_project_access(db, user_id, organization_id)
     )
 
     with bypass_tenant_filter():
@@ -217,26 +213,28 @@ def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> Li
     Org admins and owners see all active projects in their organization.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
     from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options
 
-    query = db.query(models.Project).options(
-        include(models.Project.owner), *derived_field_load_options(models.Project)
-    )
-
-    if not has_org_wide_project_access(db, user_id, organization_id):
-        query = query.join(
-            ProjectMembership, ProjectMembership.project_id == models.Project.id
-        ).filter(
-            ProjectMembership.user_id == user_id,
-            ProjectMembership.organization_id == organization_id,
+    with bypass_tenant_filter():
+        query = db.query(models.Project).options(
+            include(models.Project.owner), *derived_field_load_options(models.Project)
         )
-    else:
-        query = query.filter(models.Project.organization_id == organization_id)
 
-    return query.filter(
-        models.Project.deleted_at.is_(None),
-        models.Project.is_active.is_(True),
-    ).all()
+        if not has_org_wide_project_access(db, user_id, organization_id):
+            query = query.join(
+                ProjectMembership, ProjectMembership.project_id == models.Project.id
+            ).filter(
+                ProjectMembership.user_id == user_id,
+                ProjectMembership.organization_id == organization_id,
+            )
+        else:
+            query = query.filter(models.Project.organization_id == organization_id)
+
+        return query.filter(
+            models.Project.deleted_at.is_(None),
+            models.Project.is_active.is_(True),
+        ).all()
 
 
 def add_project_member(

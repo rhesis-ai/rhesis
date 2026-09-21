@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-OrgAccessChecker = Callable[["Session", UUID, UUID], bool]
+OrgAccessChecker = Callable[["Session", "UUID | str", "UUID | str"], bool]
 
 _extra_checkers: List[OrgAccessChecker] = []
 
@@ -61,8 +61,10 @@ def has_org_wide_project_access(
 
 def _check(db: "Session", user_id: UUID | str, organization_id: UUID | str) -> bool:
     from rhesis.backend.app.models.organization import Organization
+    from rhesis.backend.app.scope import bypass_tenant_filter
 
-    org = db.query(Organization).filter_by(id=organization_id).first()
+    with bypass_tenant_filter():
+        org = db.query(Organization).filter_by(id=organization_id).first()
     if org is not None and org.owner_id is not None and str(org.owner_id) == str(user_id):
         return True
 
