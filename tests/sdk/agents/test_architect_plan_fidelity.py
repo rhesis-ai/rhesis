@@ -421,6 +421,31 @@ class TestGeneratedSetsAreCountedToo:
         assert agent._plan.test_sets[0].shortfall() == 28
 
     @pytest.mark.asyncio
+    async def test_a_short_generated_set_can_be_topped_up(self):
+        """The whole point of reporting a shortfall is that it can be fixed.
+
+        Topping up calls add_tests_bulk, which carries only the set id, so the
+        id has to be taken from the completion message too. Without it the
+        top-up is credited to nothing and the set reads short forever -- worse
+        than not counting, because the agent is told to fix what it just did.
+        """
+        agent = _agent()
+        await agent._apply_task_completions(
+            "[TASK_COMPLETED] Test set 'Guardrails' generated successfully "
+            "(12 tests). test_set_id=ts-9"
+        )
+        assert agent._plan.test_sets[0].shortfall() == 28
+
+        agent._record_tests_written(
+            _call("add_tests_bulk", test_set_id="ts-9"),
+            _ok("add_tests_bulk", {"success": True, "total_tests": 28}),
+        )
+
+        assert agent._plan.test_sets[0].actual_tests == 40
+        assert agent._plan.test_sets[0].shortfall() is None
+        assert "Short of plan" not in agent._format_plan_progress()
+
+    @pytest.mark.asyncio
     async def test_an_unknown_count_still_completes_the_item(self):
         """The monitor writes "?" when the job result carried no count. The
         completion must still register, and no shortfall be invented."""

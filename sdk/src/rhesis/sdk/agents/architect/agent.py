@@ -1485,15 +1485,24 @@ class ArchitectAgent(BaseAgent):
 
         updated = False
         for line in message.splitlines():
-            # The count is optional: the monitor writes "?" when the job result
-            # did not carry one, and the completion still has to register.
+            # Both trailing parts are optional: the monitor writes "?" for a
+            # count the job result did not carry, and the completion still has
+            # to register either way.
             match = re.search(
-                r"Test set '([^']+)' generated successfully(?: \((\d+) tests\))?", line
+                r"Test set '([^']+)' generated successfully"
+                r"(?: \((\d+) tests\))?"
+                r"(?:\. test_set_id=(\S+))?",
+                line,
             )
             if match:
                 name = match.group(1).lower()
                 if match.group(2) is not None:
                     self._test_set_counts[name] = int(match.group(2))
+                # A generated set that came up short is topped up with
+                # add_tests_bulk, which carries only the id. Without this the
+                # top-up cannot be credited and the set reads short forever.
+                if match.group(3):
+                    self._test_set_names_by_id[match.group(3)] = match.group(1)
                 for ts in plan.test_sets:
                     if not ts.completed and ts.name.lower() == name:
                         ts.completed = True
