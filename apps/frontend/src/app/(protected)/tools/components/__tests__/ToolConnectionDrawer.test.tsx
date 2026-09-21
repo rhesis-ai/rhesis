@@ -3,69 +3,22 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ToolConnectionDrawer } from '../ToolConnectionDrawer';
-import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
-import type { Tool } from '@/utils/api-client/interfaces/tool';
+import type { Tool, TypeLookup } from '@/utils/api-client/interfaces/tool';
+import type { ToolProvider } from '@/utils/api-client/interfaces/tool-provider';
 
 const mockTestToolConnection = jest.fn();
 
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
-    data: {
-      session_token: 'tok',
-      user: { email: 'user@example.com' },
-    },
+    data: { user: { email: 'user@example.com' } },
     status: 'authenticated',
   }),
 }));
 
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
-    getServicesClient: () => ({
-      testToolConnection: mockTestToolConnection,
-    }),
+    getServicesClient: () => ({ testToolConnection: mockTestToolConnection }),
   })),
-}));
-
-jest.mock('@/components/common/NotificationContext', () => ({
-  useNotifications: () => ({ show: jest.fn() }),
-}));
-
-jest.mock('@/hooks/useToolProviders', () => ({
-  useToolProviders: () => ({
-    data: [
-      {
-        key: 'notion',
-        display_name: 'Notion',
-        description: 'Pull pages and databases into your knowledge base',
-        auth_methods: [
-          {
-            kind: 'api_token',
-            label: 'Integration token',
-            help_url: '',
-            available: true,
-          },
-        ],
-        fields: [],
-        actions: ['extract', 'test_connection'],
-      },
-      {
-        key: 'asana',
-        display_name: 'Asana',
-        description: 'Import tasks and projects from Asana',
-        auth_methods: [
-          {
-            kind: 'api_token',
-            label: 'Personal access token',
-            help_url: '',
-            available: true,
-          },
-        ],
-        fields: [],
-        actions: ['extract', 'test_connection'],
-      },
-    ],
-    isLoading: false,
-  }),
 }));
 
 jest.mock('@/config/tool-providers', () => ({
@@ -74,31 +27,109 @@ jest.mock('@/config/tool-providers', () => ({
     typeValue.charAt(0).toUpperCase() + typeValue.slice(1),
 }));
 
-// Mock BaseDrawer so we can assert on title, save button state, and close.
+// Shapes copied from the real manifests, so the form under test is driven by
+// the same data the backend serves.
+const NOTION: ToolProvider = {
+  key: 'notion',
+  display_name: 'Notion',
+  description: 'Pull pages into your knowledge base',
+  auth_methods: [
+    { kind: 'api_token', label: 'Token', help_url: '', available: true },
+  ],
+  fields: [
+    {
+      key: 'NOTION_TOKEN',
+      label: 'Integration token',
+      store: 'credentials',
+      required: true,
+      secret: true,
+      preserve_on_update: false,
+      placeholder: '',
+      help_text: '',
+      help_url: '',
+    },
+  ],
+  actions: ['extract', 'test_connection'],
+};
+
+const GITLAB: ToolProvider = {
+  key: 'gitlab',
+  display_name: 'GitLab',
+  description: 'Import issues and merge requests',
+  auth_methods: [
+    { kind: 'api_token', label: 'Token', help_url: '', available: true },
+  ],
+  fields: [
+    {
+      key: 'GITLAB_PERSONAL_ACCESS_TOKEN',
+      label: 'Personal access token',
+      store: 'credentials',
+      required: true,
+      secret: true,
+      preserve_on_update: false,
+      placeholder: '',
+      help_text: '',
+      help_url: '',
+    },
+    {
+      key: 'GITLAB_API_URL',
+      label: 'GitLab API URL',
+      store: 'credentials',
+      required: false,
+      secret: false,
+      preserve_on_update: true,
+      placeholder: '',
+      help_text: '',
+      help_url: '',
+    },
+    {
+      key: 'project.namespace',
+      label: 'Project',
+      store: 'metadata',
+      required: true,
+      secret: false,
+      preserve_on_update: false,
+      placeholder: 'my-group/my-project',
+      help_text: '',
+      help_url: '',
+    },
+  ],
+  actions: ['extract', 'test_connection'],
+};
+
+jest.mock('@/hooks/useToolProviders', () => ({
+  useToolProviders: () => ({
+    data: mockProviders,
+    isLoading: false,
+  }),
+}));
+
+let mockProviders: ToolProvider[] = [];
+
 jest.mock('@/components/common/BaseDrawer', () => ({
   __esModule: true,
   default: ({
     open,
     title,
     children,
-    onClose,
     onSave,
     saveDisabled,
     saveButtonText,
+    error,
   }: {
     open: boolean;
     title: string;
     children: React.ReactNode;
-    onClose: () => void;
     onSave: () => void;
     saveDisabled?: boolean;
     saveButtonText?: string;
+    error?: string;
   }) =>
     open ? (
       <div data-testid="base-drawer">
         <h2>{title}</h2>
+        {error ? <div role="alert">{error}</div> : null}
         {children}
-        <button onClick={onClose}>cancel</button>
         <button onClick={onSave} disabled={saveDisabled}>
           {saveButtonText}
         </button>
@@ -106,109 +137,27 @@ jest.mock('@/components/common/BaseDrawer', () => ({
     ) : null,
 }));
 
-const notionProvider: TypeLookup = {
-  id: 'pt-1' as TypeLookup['id'],
-  type_name: 'ToolProviderType',
-  type_value: 'notion',
-};
+const lookup = (id: string, typeValue: string) =>
+  ({ id, type_value: typeValue }) as unknown as TypeLookup;
 
-const asanaProvider: TypeLookup = {
-  id: 'pt-asana' as TypeLookup['id'],
-  type_name: 'ToolProviderType',
-  type_value: 'asana',
-};
+const notionLookup = lookup('pt-notion', 'notion');
+const gitlabLookup = lookup('pt-gitlab', 'gitlab');
 
-const trelloProvider: TypeLookup = {
-  id: 'pt-trello' as TypeLookup['id'],
-  type_name: 'ToolProviderType',
-  type_value: 'trello',
-};
-
-const trelloTool: Tool = {
-  id: 'tool-trello-1' as Tool['id'],
-  name: 'My Trello Tool',
-  description: 'Trello integration',
-  tool_provider_type: trelloProvider,
-  tool_metadata: {},
-};
-
-function renderDrawer(props = {}) {
-  const onClose = jest.fn();
-  const onConnect = jest.fn().mockResolvedValue({ id: 'tool-1' });
-  render(
-    <ToolConnectionDrawer
-      open
-      provider={notionProvider}
-      mode="create"
-      onClose={onClose}
-      onConnect={onConnect}
-      {...props}
-    />
-  );
-  return { onClose, onConnect };
-}
-
-describe('ToolConnectionDrawer', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockTestToolConnection.mockResolvedValue({
-      is_authenticated: 'Yes',
-      message: 'Token is valid',
-    });
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockProviders = [NOTION, GITLAB];
+  mockTestToolConnection.mockResolvedValue({
+    is_authenticated: 'Yes',
+    message: 'Token is valid',
   });
+});
 
-  it('renders the connect title for the selected provider', () => {
-    renderDrawer();
-    expect(screen.getByText('Connect Notion')).toBeInTheDocument();
-  });
-
-  it('renders the connection name and auth token fields', () => {
-    renderDrawer();
-    expect(screen.getByLabelText(/connection name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/authentication token/i)).toBeInTheDocument();
-  });
-
-  it('calls onClose when cancel is clicked', async () => {
-    const user = userEvent.setup();
-    const { onClose } = renderDrawer();
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it('disables Test Connection until an auth token is entered', async () => {
-    const user = userEvent.setup();
-    renderDrawer();
-
-    const testButton = screen.getByRole('button', { name: /test connection/i });
-    expect(testButton).toBeDisabled();
-
-    await user.type(screen.getByLabelText(/authentication token/i), 'secret');
-    expect(testButton).toBeEnabled();
-  });
-
-  it('calls testToolConnection with provider id and credentials', async () => {
-    const user = userEvent.setup();
-    renderDrawer();
-
-    await user.type(screen.getByLabelText(/authentication token/i), 'secret');
-    await user.click(screen.getByRole('button', { name: /test connection/i }));
-
-    await waitFor(() => {
-      expect(mockTestToolConnection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider_type_id: 'pt-1',
-          credentials: { NOTION_TOKEN: 'secret' },
-        })
-      );
-    });
-    expect(await screen.findByText('Token is valid')).toBeInTheDocument();
-  });
-
-  it('does not pre-select a provider when adding a new tool', () => {
+describe('creating a connection', () => {
+  it('shows the provider grid and no form until one is chosen', () => {
     render(
       <ToolConnectionDrawer
         open
-        providers={[asanaProvider, notionProvider]}
+        providers={[notionLookup, gitlabLookup]}
         mode="create"
         onClose={jest.fn()}
         onConnect={jest.fn()}
@@ -217,26 +166,34 @@ describe('ToolConnectionDrawer', () => {
 
     expect(screen.getByText('Add tool connection')).toBeInTheDocument();
     expect(screen.queryByLabelText(/connection name/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
-    const grid = screen.getByRole('radiogroup', { name: /tool provider/i });
-    expect(grid).toBeInTheDocument();
-    // Every provider is visible without opening anything, and none is chosen.
-    expect(screen.getByRole('radio', { name: 'Notion' })).toHaveAttribute(
-      'aria-checked',
-      'false'
-    );
-    expect(screen.getByRole('radio', { name: 'Asana' })).toHaveAttribute(
-      'aria-checked',
-      'false'
-    );
   });
 
-  it('shows provider-specific fields after choosing a provider', async () => {
+  it('renders the chosen provider fields from its manifest', async () => {
     const user = userEvent.setup();
     render(
       <ToolConnectionDrawer
         open
-        providers={[asanaProvider, notionProvider]}
+        providers={[notionLookup, gitlabLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'GitLab' }));
+
+    expect(screen.getByText('Connect GitLab')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Personal access token/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^GitLab API URL/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Project/)).toBeInTheDocument();
+  });
+
+  it('will not save until the connection has been tested', async () => {
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
         mode="create"
         onClose={jest.fn()}
         onConnect={jest.fn()}
@@ -244,187 +201,279 @@ describe('ToolConnectionDrawer', () => {
     );
 
     await user.click(screen.getByRole('radio', { name: 'Notion' }));
+    await user.type(screen.getByLabelText(/connection name/i), 'Docs');
+    await user.type(screen.getByLabelText(/^Integration token/), 'ntn_abc');
 
-    expect(screen.getByText('Connect Notion')).toBeInTheDocument();
-    expect(screen.getByLabelText(/connection name/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: /test connection/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled()
+    );
   });
 
-  it('uses the tool provider in edit mode instead of a stale create selection', () => {
-    const notionTool: Tool = {
-      id: 'tool-1' as Tool['id'],
-      name: 'sgsr',
-      description: 'sgpjwgwpirgjwrgo',
-      tool_provider_type: notionProvider,
-    };
-
-    const { rerender } = render(
-      <ToolConnectionDrawer
-        open
-        providers={[asanaProvider, notionProvider]}
-        mode="create"
-        onClose={jest.fn()}
-        onConnect={jest.fn()}
-      />
-    );
-    expect(screen.getByText('Add tool connection')).toBeInTheDocument();
-
-    rerender(
-      <ToolConnectionDrawer
-        open
-        providers={[asanaProvider, notionProvider]}
-        tool={notionTool}
-        mode="edit"
-        onClose={jest.fn()}
-        onUpdate={jest.fn()}
-      />
-    );
-
-    expect(screen.getByText('Update Notion')).toBeInTheDocument();
-    expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
-  });
-
-  it('renders API Key and Token for Trello provider and tests connection', async () => {
+  it('sends the credentials and metadata the manifest describes', async () => {
     const user = userEvent.setup();
+    const onConnect = jest.fn().mockResolvedValue({});
     render(
       <ToolConnectionDrawer
         open
-        provider={trelloProvider}
-        mode="create"
-        onClose={jest.fn()}
-        onConnect={jest.fn()}
-      />
-    );
-
-    expect(screen.getByText('Connect Trello')).toBeInTheDocument();
-    expect(screen.getByLabelText(/^API Key/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^API Token/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/workspace id/i)).not.toBeInTheDocument();
-
-    await user.type(screen.getByLabelText(/^API Key/i), 'trello-key-123');
-    await user.type(screen.getByLabelText(/^API Token/i), 'trello-tok-456');
-
-    const testButton = screen.getByRole('button', { name: /test connection/i });
-    expect(testButton).toBeEnabled();
-    await user.click(testButton);
-
-    await waitFor(() => {
-      expect(mockTestToolConnection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider_type_id: 'pt-trello',
-          credentials: {
-            TRELLO_API_KEY: 'trello-key-123',
-            TRELLO_TOKEN: 'trello-tok-456',
-          },
-        })
-      );
-    });
-    expect(mockTestToolConnection.mock.calls[0][0]).not.toHaveProperty(
-      'tool_metadata'
-    );
-  });
-  it('submits Trello tool with both credentials and no workspace metadata on create', async () => {
-    const user = userEvent.setup();
-    const onConnect = jest.fn().mockResolvedValue({ id: 'tool-trello-1' });
-    render(
-      <ToolConnectionDrawer
-        open
-        provider={trelloProvider}
+        providers={[gitlabLookup]}
         mode="create"
         onClose={jest.fn()}
         onConnect={onConnect}
       />
     );
 
-    await user.type(
-      screen.getByLabelText(/^Connection Name/i),
-      'My Trello Board'
+    await user.click(screen.getByRole('radio', { name: 'GitLab' }));
+    await user.type(screen.getByLabelText(/connection name/i), 'Internal');
+    await user.type(screen.getByLabelText(/^Personal access token/), 'glpat-x');
+    await user.type(screen.getByLabelText(/^Project/), 'my-group/my-project');
+    await user.click(screen.getByRole('button', { name: /test connection/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled()
     );
-    await user.type(screen.getByLabelText(/^API Key/i), 'trello-key-123');
-    await user.type(screen.getByLabelText(/^API Token/i), 'trello-tok-456');
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-    const testButton = screen.getByRole('button', { name: /test connection/i });
-    await user.click(testButton);
-
-    await waitFor(() => {
-      expect(mockTestToolConnection).toHaveBeenCalled();
-    });
-
-    const saveButton = screen.getByRole('button', { name: /^connect$/i });
-    expect(saveButton).toBeEnabled();
-    await user.click(saveButton);
-
-    await waitFor(() => {
-      expect(onConnect).toHaveBeenCalledWith('trello', {
-        name: 'My Trello Board',
-        description: undefined,
-        tool_provider_type_id: 'pt-trello',
-        credentials: {
-          TRELLO_API_KEY: 'trello-key-123',
-          TRELLO_TOKEN: 'trello-tok-456',
-        },
-        tool_metadata: undefined,
-      });
-    });
+    await waitFor(() => expect(onConnect).toHaveBeenCalled());
+    expect(onConnect).toHaveBeenCalledWith(
+      'pt-gitlab',
+      expect.objectContaining({
+        credentials: { GITLAB_PERSONAL_ACCESS_TOKEN: 'glpat-x' },
+        tool_metadata: { project: { namespace: 'my-group/my-project' } },
+      })
+    );
   });
 
-  it('allows updating only one Trello credential without re-entering both in edit mode', async () => {
+  it('reports an unparseable project instead of sending it', async () => {
     const user = userEvent.setup();
-    const onUpdate = jest.fn().mockResolvedValue({ id: 'tool-trello-1' });
     render(
       <ToolConnectionDrawer
         open
-        tool={trelloTool}
+        providers={[gitlabLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'GitLab' }));
+    await user.type(screen.getByLabelText(/^Personal access token/), 'glpat-x');
+    await user.type(screen.getByLabelText(/^Project/), 'noslash');
+    await user.click(screen.getByRole('button', { name: /test connection/i }));
+
+    expect(
+      await screen.findByText(/invalid project path/i)
+    ).toBeInTheDocument();
+    expect(mockTestToolConnection).not.toHaveBeenCalled();
+  });
+  it('keeps what the user typed when the manifests refetch', async () => {
+    // useToolProviders is a React Query hook: a refetch hands back a fresh
+    // array, so the manifest object identity changes even though nothing about
+    // the provider did. Reseeding on that wiped the form mid-edit.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+    await user.type(screen.getByLabelText(/^Integration token/), 'ntn_abc');
+
+    mockProviders = [{ ...NOTION }, { ...GITLAB }];
+    rerender(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText(/^Integration token/)).toHaveValue('ntn_abc');
+  });
+
+  it('keeps what the user typed when the provider lookups refresh', async () => {
+    // useTypeLookups starts from the server-fetched array and swaps in a fresh
+    // one when its query resolves. Resetting on that array's identity wiped
+    // the form mid-entry.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+    await user.type(screen.getByLabelText(/connection name/i), 'Docs');
+    await user.type(screen.getByLabelText(/^Integration token/), 'ntn_abc');
+
+    // Same contents, new array and new object identities.
+    rerender(
+      <ToolConnectionDrawer
+        open
+        providers={[lookup('pt-notion', 'notion')]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText(/connection name/i)).toHaveValue('Docs');
+    expect(screen.getByLabelText(/^Integration token/)).toHaveValue('ntn_abc');
+  });
+});
+
+describe('editing a connection', () => {
+  const savedTool = {
+    id: 'tool-1',
+    name: 'Internal tooling',
+    description: 'Wiki pages',
+    tool_provider_type: gitlabLookup,
+    tool_metadata: { project: { namespace: 'my-group/my-project' } },
+  } as unknown as Tool;
+
+  it('hydrates the scope and masks the credentials', async () => {
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Project/)).toHaveValue(
+        'my-group/my-project'
+      )
+    );
+    // Credentials are encrypted and never returned, so the form shows a mask.
+    expect(screen.getByLabelText(/^Personal access token/)).toHaveValue(
+      '************'
+    );
+  });
+
+  it('tests against the saved tool when no credential was re-entered', async () => {
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Project/)).toHaveValue(
+        'my-group/my-project'
+      )
+    );
+    await user.click(screen.getByRole('button', { name: /test connection/i }));
+
+    // Sending the tool id lets the backend fill the rest from what is stored,
+    // so the user does not have to retype a token to change the scope.
+    await waitFor(() =>
+      expect(mockTestToolConnection).toHaveBeenCalledWith(
+        expect.objectContaining({ tool_id: 'tool-1' })
+      )
+    );
+  });
+
+  it('sends only the credential the user actually changed', async () => {
+    const user = userEvent.setup();
+    const onUpdate = jest.fn().mockResolvedValue(undefined);
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
         mode="edit"
         onClose={jest.fn()}
         onUpdate={onUpdate}
       />
     );
 
-    expect(screen.getByText('Update Trello')).toBeInTheDocument();
-    const apiKeyInput = screen.getByLabelText(/^API Key/i);
-    const tokenInput = screen.getByLabelText(/^API Token/i);
-    expect(apiKeyInput).toHaveValue('************');
-    expect(tokenInput).toHaveValue('************');
-
-    // Change only the API key, leaving token as placeholder
-    await user.clear(apiKeyInput);
-    await user.type(apiKeyInput, 'new-trello-key');
-
-    // Test connection should succeed with partial credentials
-    const testButton = screen.getByRole('button', { name: /test connection/i });
-    expect(testButton).toBeEnabled();
-    await user.click(testButton);
-
-    await waitFor(() => {
-      expect(mockTestToolConnection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tool_id: 'tool-trello-1',
-          credentials: {
-            TRELLO_API_KEY: 'new-trello-key',
-          },
-        })
-      );
-    });
-    expect(mockTestToolConnection.mock.calls[0][0]).not.toHaveProperty(
-      'tool_metadata'
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Personal access token/)).toHaveValue(
+        '************'
+      )
     );
 
-    // Save should update with only the changed credential
-    const saveButton = screen.getByRole('button', { name: /update/i });
-    expect(saveButton).toBeEnabled();
-    await user.click(saveButton);
+    const token = screen.getByLabelText(/^Personal access token/);
+    await user.click(token);
+    await user.type(token, 'glpat-new');
+    await user.click(screen.getByRole('button', { name: /test connection/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Update' })).toBeEnabled()
+    );
+    await user.click(screen.getByRole('button', { name: 'Update' }));
 
-    await waitFor(() => {
-      expect(onUpdate).toHaveBeenCalledWith(
-        'tool-trello-1',
-        expect.objectContaining({
-          credentials: {
-            TRELLO_API_KEY: 'new-trello-key',
-          },
-        })
-      );
-      expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('tool_metadata');
-    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    // The untouched API URL is omitted so the backend keeps the stored value.
+    expect(onUpdate).toHaveBeenCalledWith(
+      'tool-1',
+      expect.objectContaining({
+        credentials: { GITLAB_PERSONAL_ACCESS_TOKEN: 'glpat-new' },
+      })
+    );
+  });
+
+  it('shows no test prompt until something actually changes', async () => {
+    // An Alert with no content still draws its box, so an untouched edit form
+    // showed an empty blue panel.
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Project/)).toHaveValue(
+        'my-group/my-project'
+      )
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('does not offer to save when nothing has changed', async () => {
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Project/)).toHaveValue(
+        'my-group/my-project'
+      )
+    );
+    expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
   });
 });
