@@ -88,8 +88,11 @@ WORKFLOW_RUN_SPAN_NAME = "workflow.run"
 HANDOFF_TOOL_PREFIX = "handoff_to_"
 
 # MAF names an agent span after the operation that opened it, so the agent's own
-# name follows the prefix (``invoke_agent researcher``).
-_AGENT_SPAN_PREFIXES: tuple[str, ...] = (f"{OP_INVOKE_AGENT} ", f"{OP_CREATE_AGENT} ")
+# name follows the prefix (``invoke_agent researcher``). ``create_agent`` is
+# deliberately absent: it maps to the same Rhesis span name but building an agent
+# is not running one, and stamping a root ``create_agent`` span as a turn root
+# would report whatever that trace collected as a turn nothing served.
+_AGENT_SPAN_PREFIXES: tuple[str, ...] = (f"{OP_INVOKE_AGENT} ",)
 
 # Operation -> Rhesis span name. The validator in
 # :mod:`rhesis.telemetry.attributes` accepts ``ai.<domain>(.<action>)?`` and
