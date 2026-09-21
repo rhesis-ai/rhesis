@@ -37,6 +37,7 @@ from opentelemetry.sdk.trace.export import (  # noqa: E402
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402
     InMemorySpanExporter,
 )
+from rhesis.telemetry import conversation as rhesis_conversation  # noqa: E402
 from rhesis.telemetry.attributes import AIAttributes, validate_span_name  # noqa: E402
 from rhesis.telemetry.constants import ConversationContext  # noqa: E402
 from rhesis.telemetry.context import (  # noqa: E402
@@ -45,7 +46,10 @@ from rhesis.telemetry.context import (  # noqa: E402
     set_llm_observation_active,
     set_root_trace_id,
 )
-from rhesis.telemetry.conversation import conversation_turn  # noqa: E402
+from rhesis.telemetry.conversation import (  # noqa: E402
+    anchor_conversation,
+    conversation_turn,
+)
 from rhesis.telemetry.schemas import AIOperationType  # noqa: E402
 
 from rhesis.sdk.telemetry.integrations.genai import (  # noqa: E402
@@ -1425,6 +1429,17 @@ class TestConversationTraceJoin:
 class TestConversationTraceRegistry:
     """The shared pieces the join is built from."""
 
+    @pytest.fixture(autouse=True)
+    def forget_shared_anchors(self):
+        """The registry anchors through the process-wide store, so clear it.
+
+        Without this, two tests using one conversation id share an anchor and
+        the order they run in decides the result.
+        """
+        rhesis_conversation._anchors.clear()
+        yield
+        rhesis_conversation._anchors.clear()
+
     def test_the_anchor_turn_is_never_rewritten(self):
         registry = ConversationTraceRegistry()
         registry.claim(0xA1, "conv-1")
@@ -1456,13 +1471,24 @@ class TestConversationTraceRegistry:
         registry.claim(0xA1, "conv-1")
         assert registry.target(0xA1) is None
 
-    def test_eviction_is_bounded(self):
-        registry = ConversationTraceRegistry(max_conversations=2)
-        for index in (1, 2, 3):
-            registry.claim(index, f"conv-{index}")
-        # The oldest conversation's anchor is gone; the newest still resolves.
-        registry.claim(99, "conv-3")
-        assert registry.target(99) == 3
+    def test_the_rewrite_map_is_bounded(self):
+        """Anchors are bounded by the shared store; the rewrites are bounded here."""
+        registry = ConversationTraceRegistry(max_traces=2)
+        registry.claim(0xA1, "conv-1")
+        for later in (0xB2, 0xC3, 0xD4):
+            registry.claim(later, "conv-1")
+
+        assert registry.target(0xD4) == 0xA1, "the newest rewrite still resolves"
+        assert registry.target(0xB2) is None, "the oldest was evicted"
+
+    def test_an_anchor_written_by_another_mechanism_is_used(self):
+        """``conversation_turn`` may have anchored this conversation already."""
+        registry = ConversationTraceRegistry()
+        anchor_conversation("conv-shared", format(0xA1, "032x"))
+
+        registry.claim(0xB2, "conv-shared")
+
+        assert registry.target(0xB2) == 0xA1
 
     def test_retraced_span_forwards_every_readable_property(self):
         """Anything not forwarded would read a slot the wrapper never set."""
