@@ -1351,6 +1351,22 @@ class TestArchitectSkillIncludes:
         assert "save_plan is strictly validated" in iteration
         assert "PRD" in iteration or "acceptance criteria" in iteration.lower()
 
+    def test_system_prompt_forbids_inventing_annotations(self, mock_model):
+        """Issue #2402: asked for the reviews on a run, Architect returned none
+        of the real ones and invented some.
+
+        The retrieval half is a backend concern and is covered by
+        tests/backend/routes/test_annotations.py::test_scope_by_test_run_id.
+        This pins the other half: an annotation is a named person's recorded
+        judgement, so a fabricated one reads as real reviewer feedback with
+        nothing marking it apart, and an empty result has to be reported as
+        empty rather than filled in.
+        """
+        system = _make_agent(mock_model).system_prompt
+
+        assert "never write one that is not in the data" in system
+        assert "say exactly that" in system
+
     def test_rendered_system_prompt_smaller_than_eager_load(self, mock_model):
         """Fixed prompt stays lean vs old ~1400-line eager load.
 

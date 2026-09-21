@@ -1336,11 +1336,19 @@ tools:
       project_id that get_trace needs. context.trace_id alone is not enough,
       because get_trace requires the project too.
 
+      Report only the rows this returns. Every verdict, comment and author you
+      attribute to a person must come from a row you received here: quote
+      comments rather than paraphrasing it into something they did not say, and
+      name the author from user.name. An empty result means nobody has
+      annotated it, and saying so is the answer. A review you write yourself
+      reads as real reviewer feedback and nothing marks it apart.
+
       CHAIN: after get_insights shows failures, call this with the
       same test_run_id to see whether a human already diagnosed them, then
       use get_test_result on the ids it returns to read the full exchange.
       NEVER: assume no annotations exist because a run looks clean; a human
-      can fail a test the metrics passed.
+      can fail a test the metrics passed. And never report an annotation that
+      is not in the response.
     parameters:
       search:
         description: >
@@ -1417,6 +1425,10 @@ tools:
     description: >
       Get one annotation with its full comment, author, verdict and
       resolved state.
+
+      Report only what this returns: quote comments as written and name the
+      author from user.name, and never report an annotation that is not in the
+      response.
 
       ENTITY: Annotation. PREREQUISITES: annotation_id from
       list_annotations. CHAIN: list_annotations truncates nothing, so

@@ -286,6 +286,93 @@ class TestAnnotationWriteTools:
 
 
 @pytest.mark.unit
+class TestToolsReturningWhatAPersonWrote:
+    """A tool that hands back someone's words has to say not to invent them.
+
+    Issue #2402: asked for the reviews on a test run, the Architect reported
+    none of the real ones and wrote some of its own. Fabricated reviewer
+    feedback is worse than an empty answer, because it is attributed to a
+    named colleague and nothing in the reply marks it as invented.
+
+    The prompt now forbids it, but the prompt is the Architect's alone. Any
+    MCP client reads only the tool description, so the rule has to live there
+    too. This is the check that the next such tool gets it: comments, tasks
+    and tuning judgements are all the same shape, and whoever exposes one will
+    not think of this bug.
+    """
+
+    # Tools whose response carries free text a person wrote, attributed to
+    # them. Add to this when a new one is exposed rather than relaxing the
+    # assertion -- the point is that the list grows with the surface.
+    PERSON_AUTHORED: ClassVar[set[str]] = {"list_annotations", "get_annotation"}
+
+    def _cfg(self, name):
+        return {tc["name"]: tc for tc in load_tool_configs()}[name]
+
+    @pytest.mark.parametrize("name", sorted(PERSON_AUTHORED))
+    def test_the_description_forbids_reporting_what_was_not_returned(self, name):
+        description = self._cfg(name)["description"]
+        assert "never report an annotation that is not in the response" in description.replace(
+            "\n", " "
+        ).replace("  ", " "), f"{name} should forbid reporting rows it did not return"
+
+    @pytest.mark.parametrize("name", sorted(PERSON_AUTHORED))
+    def test_the_description_says_to_quote_rather_than_paraphrase(self, name):
+        """A paraphrase puts words in a named person's mouth as surely as an
+        invention does."""
+        description = self._cfg(name)["description"].replace("\n", " ")
+        assert "quote comments" in description
+        assert "user.name" in description
+
+    def test_the_list_tool_says_an_empty_result_is_the_answer(self):
+        """The failure mode is a void being filled, so emptiness needs to read
+        as a finding rather than as a gap."""
+        description = self._cfg("list_annotations")["description"].replace("\n", " ")
+        assert "empty result means nobody has annotated it" in description
+
+
+@pytest.mark.unit
+class TestEmptyListResponsesSayTheyAreEmpty:
+    """The server side of the same problem.
+
+    A bare [] is a void, and a model handed one tends to fill it. Every
+    paginated tool gets a line saying the emptiness is the answer.
+    """
+
+    def _format(self, data, page_size=20, current_skip=0):
+        from rhesis.backend.app.mcp_server.tools import format_list_response
+
+        return format_list_response(data, page_size, current_skip)
+
+    def test_an_empty_first_page_carries_a_hint(self):
+        formatted = self._format([])
+
+        assert formatted["results"] == []
+        assert formatted["_pagination"]["returned"] == 0
+        hint = formatted["_pagination"]["hint"]
+        assert "No results matched" in hint
+        assert "Do not describe results you did not receive" in hint
+
+    def test_a_page_with_results_gets_no_empty_hint(self):
+        formatted = self._format([{"id": "1"}])
+
+        assert "hint" not in formatted["_pagination"]
+
+    def test_an_empty_later_page_is_not_reported_as_nothing_found(self):
+        """Paging past the end is exhaustion, not an absence of matches, and
+        saying "none exist" there would contradict the rows already returned."""
+        formatted = self._format([], current_skip=20)
+
+        assert "hint" not in formatted["_pagination"]
+
+    def test_a_full_page_still_advertises_the_next_one(self):
+        formatted = self._format([{"id": str(i)} for i in range(21)], page_size=20)
+
+        assert formatted["_pagination"]["has_more"] is True
+        assert "next_skip" in formatted["_pagination"]
+
+
+@pytest.mark.unit
 class TestPublishedCatalogMatchesTheToolSurface:
     """skills/rhesis/references/tool-catalog.md ships as the agent's tool
     reference and nothing regenerates it from mcp_tools.yaml.

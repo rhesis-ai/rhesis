@@ -232,6 +232,8 @@ Two things this changes in an analysis:
 
 When a comment names a metric, that judgement is about that metric specifically (`target_type: "metric"`, with the name in `target_reference`), not about the whole result.
 
+**Report only what the call returned.** Every verdict, comment and author you attribute to a person has to come from a row you actually received: quote `comments` rather than paraphrasing it into something they did not say, and attribute it to `user.name` on that row. An empty result means nobody has annotated it — say exactly that. "No one has annotated this run" is a complete answer, and an invented review is worse than none, because it reads as real reviewer feedback and the reader cannot tell the difference.
+
 ---
 
 ## Insights handoff

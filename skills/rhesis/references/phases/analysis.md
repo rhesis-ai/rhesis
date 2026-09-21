@@ -51,6 +51,11 @@ belongs in the list even when every metric passed, with their comment as the
 `reason`. This is also why "everything passed" needs the check before you write
 it: the metrics can all be green and a human still have failed the run.
 
+Report only the rows the call returned, quoting `comments` and attributing to
+`user.name`. No rows means nobody has annotated the run, and saying so is the
+right answer — never write a review that is not in the data, since it reads as
+real reviewer feedback and nothing marks it as invented.
+
 ## Comparison
 
 `get_insights` with `entity=test_result`, `group_by=[test_run,test_run_id]` and
