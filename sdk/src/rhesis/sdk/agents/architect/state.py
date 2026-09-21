@@ -32,3 +32,10 @@ class ArchitectAgentStateSnapshot(BaseModel):
     # Rendered tool results from earlier turns. Execution history itself is
     # not portable — this is the readable digest the next turn quotes from.
     carried_tool_results: List[str] = Field(default_factory=list)
+    # test_set_name_lower → tests actually written. Kept beside the plan
+    # rather than in it because save_plan strips internal fields, so a count
+    # stored only on the plan is lost the next time the LLM saves one.
+    test_set_counts: Dict[str, int] = Field(default_factory=dict)
+    # test_set_id → planned name, so a later add_tests_bulk batch can still be
+    # credited to the set it is filling after a turn boundary.
+    test_set_names_by_id: Dict[str, str] = Field(default_factory=dict)

@@ -11,9 +11,9 @@ MetricScope = Literal["Single-Turn", "Multi-Turn"]
 _VALID_METRIC_SCOPES = frozenset({"Single-Turn", "Multi-Turn"})
 
 # Fields that track execution progress and must never be written by the LLM.
-# Referenced by _strip_internal_fields (JSON schema builder) and
-# MappingSpec._guard_internal_fields (runtime validator).
-_INTERNAL_FIELDS: frozenset = frozenset({"completed", "linked_metrics"})
+# Referenced by _strip_internal_fields (JSON schema builder) and by
+# agent._strip_llm_internal_fields (runtime, on every save_plan).
+_INTERNAL_FIELDS: frozenset = frozenset({"completed", "linked_metrics", "actual_tests"})
 
 
 class ProjectSpec(BaseModel):
@@ -78,6 +78,24 @@ class TestSetSpec(BaseModel):
         description="Topic tags for this test set",
     )
     completed: bool = Field(default=False, description="Whether this test set has been generated")
+    actual_tests: Optional[int] = Field(
+        default=None,
+        description=(
+            "How many tests were actually written, counted from what the "
+            "writes returned (internal progress tracker)"
+        ),
+    )
+
+    def shortfall(self) -> Optional[int]:
+        """How many planned tests are missing, or None if nothing is missing.
+
+        Only a set that came up short is worth flagging. An overshoot is
+        someone adding tests on purpose, and an unwritten set (``None``) has
+        not been attempted yet.
+        """
+        if self.actual_tests is None or self.actual_tests >= self.num_tests:
+            return None
+        return self.num_tests - self.actual_tests
 
 
 class MetricSpec(BaseModel):
@@ -304,6 +322,13 @@ class ArchitectPlan(BaseModel):
                 lines.append(f"- {box} **{ts.name}** — {ts.num_tests} {ts.test_type} tests")
                 if ts.requirements:
                     lines.append(f"  Requirements: {', '.join(ts.requirements)}")
+                shortfall = ts.shortfall()
+                if shortfall is not None:
+                    lines.append(
+                        f"  WROTE {ts.actual_tests} OF {ts.num_tests} — "
+                        f"{shortfall} missing. Say so; do not report "
+                        f"{ts.num_tests} tests."
+                    )
             lines.append("")
 
         if self.metrics:
