@@ -188,6 +188,74 @@ describe('creating a connection', () => {
     expect(screen.getByLabelText(/^Project/)).toBeInTheDocument();
   });
 
+  it('collapses the grid once a provider is chosen', async () => {
+    // Nine tiles above the form buries the fields the user came to fill in.
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup, gitlabLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+
+    expect(
+      screen.queryByRole('radio', { name: 'GitLab' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /change/i })).toBeInTheDocument();
+  });
+
+  it('brings the grid back, keeping the name but clearing the fields', async () => {
+    // Name and description are provider-agnostic; credentials are not.
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup, gitlabLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+    await user.type(screen.getByLabelText(/connection name/i), 'Docs');
+    await user.type(screen.getByLabelText(/^Integration token/), 'ntn_abc');
+
+    await user.click(screen.getByRole('button', { name: /change/i }));
+    expect(screen.getByRole('radio', { name: 'GitLab' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'GitLab' }));
+
+    expect(screen.getByLabelText(/connection name/i)).toHaveValue('Docs');
+    expect(screen.getByLabelText(/^Personal access token/)).toHaveValue('');
+  });
+
+  it('gives every section of the form a heading', async () => {
+    // Provider and Authentication were labelled; the name and description sat
+    // between them unlabelled.
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+
+    expect(screen.getByText('Provider')).toBeInTheDocument();
+    expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Authentication')).toBeInTheDocument();
+  });
+
   it('will not save until the connection has been tested', async () => {
     const user = userEvent.setup();
     render(
@@ -433,6 +501,29 @@ describe('editing a connection', () => {
         credentials: { GITLAB_PERSONAL_ACCESS_TOKEN: 'glpat-new' },
       })
     );
+  });
+
+  it('offers no provider picker or change control', async () => {
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Project/)).toHaveValue(
+        'my-group/my-project'
+      )
+    );
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /change/i })
+    ).not.toBeInTheDocument();
   });
 
   it('shows no test prompt until something actually changes', async () => {

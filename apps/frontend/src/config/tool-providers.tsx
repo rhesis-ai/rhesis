@@ -61,11 +61,23 @@ export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
     'Import boards, lists, and cards from Trello into your knowledge base',
 };
 
-function AzureDevOpsIcon({ className }: { className?: string }) {
+/**
+ * Azure DevOps has no icon in `react-simple-icons`, so it is drawn here.
+ *
+ * The explicit size matters: an `<svg>` with only a `viewBox` has no intrinsic
+ * dimensions and expands to fill whatever contains it. The other icons carry
+ * their own default, so leaving this one unsized made it the odd one out and
+ * blew out the tile it sat in.
+ */
+/** Matches `theme.iconSizes.medium`, which is what the tiles and cards use. */
+const PROVIDER_ICON_SIZE = 24;
+
+function AzureDevOpsIcon({ size = 24 }: { size?: number }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={className}
+      width={size}
+      height={size}
       role="img"
       aria-label="Azure DevOps"
       xmlns="http://www.w3.org/2000/svg"
@@ -79,14 +91,21 @@ function AzureDevOpsIcon({ className }: { className?: string }) {
 }
 
 // Provider icon mapping
+/**
+ * Provider icon mapping.
+ *
+ * Every entry renders at the same size. These previously carried `h-8 w-8`,
+ * Tailwind classes that did nothing because this project styles with MUI, so
+ * each icon silently fell back to whatever it shipped with.
+ */
 export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  notion: <SiNotion className="h-8 w-8" />,
-  github: <SiGithub className="h-8 w-8" />,
-  jira: <SiJira className="h-8 w-8" />,
-  gitlab: <SiGitlab className="h-8 w-8" />,
-  shortcut: <SiShortcut className="h-8 w-8" />,
-  asana: <SiAsana className="h-8 w-8" />,
-  linear: <SiLinear className="h-8 w-8" />,
-  azure_devops: <AzureDevOpsIcon className="h-8 w-8" />,
-  trello: <SiTrello className="h-8 w-8" />,
+  notion: <SiNotion size={PROVIDER_ICON_SIZE} />,
+  github: <SiGithub size={PROVIDER_ICON_SIZE} />,
+  jira: <SiJira size={PROVIDER_ICON_SIZE} />,
+  gitlab: <SiGitlab size={PROVIDER_ICON_SIZE} />,
+  shortcut: <SiShortcut size={PROVIDER_ICON_SIZE} />,
+  asana: <SiAsana size={PROVIDER_ICON_SIZE} />,
+  linear: <SiLinear size={PROVIDER_ICON_SIZE} />,
+  azure_devops: <AzureDevOpsIcon size={PROVIDER_ICON_SIZE} />,
+  trello: <SiTrello size={PROVIDER_ICON_SIZE} />,
 };

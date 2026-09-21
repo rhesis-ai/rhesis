@@ -23,7 +23,11 @@ import type { ToolProvider } from '@/utils/api-client/interfaces/tool-provider';
 import { useToolProviders } from '@/hooks/useToolProviders';
 import { getErrorMessage } from '@/utils/entity-error-handler';
 import type { UUID } from 'crypto';
-import { ProviderPicker } from './ProviderPicker';
+import {
+  ProviderPicker,
+  SelectedProviderRow,
+  buildProviderChoices,
+} from './ProviderPicker';
 import { ProviderFields, type FieldOption } from './fields/ProviderFields';
 import {
   buildCredentials,
@@ -313,6 +317,15 @@ export function ToolConnectionDrawer({
           : null
         : 'Please test the connection before saving the tool configuration.';
 
+  const selectedChoice = useMemo(() => {
+    if (isEditMode || !providerLookup) return null;
+    return (
+      buildProviderChoices(sortedProviders, toolProviders).find(
+        c => c.id === providerLookup.id
+      ) ?? null
+    );
+  }, [isEditMode, providerLookup, sortedProviders, toolProviders]);
+
   const showForm = isEditMode || Boolean(providerLookup);
   const saveDisabled =
     loading ||
@@ -349,25 +362,39 @@ export function ToolConnectionDrawer({
         {!isEditMode && (
           <Stack spacing={1}>
             <Typography sx={sectionHeadingSx}>Provider</Typography>
-            <ProviderPicker
-              lookups={sortedProviders}
-              providers={toolProviders}
-              loading={providersLoading}
-              selectedId={providerLookup?.id ?? null}
-              onSelect={choice => {
-                const next = sortedProviders.find(p => p.id === choice.id);
-                setSelectedProvider(next ?? null);
-                setConnectionTested(false);
-                setTestResult(null);
-                setError(null);
-              }}
-            />
+            {selectedChoice ? (
+              <SelectedProviderRow
+                choice={selectedChoice}
+                disabled={loading || testing}
+                onChange={() => {
+                  setSelectedProvider(null);
+                  setConnectionTested(false);
+                  setTestResult(null);
+                  setError(null);
+                }}
+              />
+            ) : (
+              <ProviderPicker
+                lookups={sortedProviders}
+                providers={toolProviders}
+                loading={providersLoading}
+                selectedId={null}
+                onSelect={choice => {
+                  const next = sortedProviders.find(p => p.id === choice.id);
+                  setSelectedProvider(next ?? null);
+                  setConnectionTested(false);
+                  setTestResult(null);
+                  setError(null);
+                }}
+              />
+            )}
           </Stack>
         )}
 
         {showForm && manifest && (
           <>
             <Stack spacing={3}>
+              <Typography sx={sectionHeadingSx}>Details</Typography>
               <TextField
                 label="Connection Name"
                 fullWidth
