@@ -646,6 +646,8 @@ Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration
 - `trace_source` — `"test"`, `"operation"` (production traffic) or `"all"`
 - `trace_type` — `"Single-Turn"`, `"Multi-Turn"` or `"all"`
 - `provider` — repeatable; a trace whose costs are not priced yet matches none, so this can hide recent traces
+
+**Cost can be null, and null is not zero.** A null `total_cost_usd` means the call was not priced: no price is held for that model, or the span reported no model name. `0` means it was priced and the model really is free. Do not add nulls in as zero, and do not read `cost == 0` as unpriced. When reporting a total across traces, say how many of them carried a price, because a sum over the priced ones is a floor rather than the whole figure. The trace keeps its tokens and model names either way, so an unpriced trace is still worth reporting on.
 - `project_id` — omit to use the caller's scope
 - `sort_by`, `sort_order`, `offset`
 
