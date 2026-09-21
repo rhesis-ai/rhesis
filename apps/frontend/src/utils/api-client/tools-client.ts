@@ -6,6 +6,7 @@ import {
   ToolUpdate,
   ToolsQueryParams,
 } from './interfaces/tool';
+import { ToolProvider } from './interfaces/tool-provider';
 import { PaginatedResponse } from './interfaces/pagination';
 
 export class ToolsClient extends BaseApiClient {
@@ -22,6 +23,16 @@ export class ToolsClient extends BaseApiClient {
       sort_order,
       $filter,
     });
+  }
+
+  /**
+   * Every supported provider, with the fields and auth methods it needs.
+   *
+   * Drives the provider grid and the connection form, so neither has to keep
+   * its own copy of what a provider requires.
+   */
+  async getToolProviders(): Promise<ToolProvider[]> {
+    return this.fetch<ToolProvider[]>(`${API_ENDPOINTS.tools}/providers`);
   }
 
   async getTool(id: string): Promise<Tool> {
