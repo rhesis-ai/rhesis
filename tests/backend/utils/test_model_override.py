@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.user_model_utils import resolve_embedder, resolve_model
 from rhesis.sdk.models.base import BaseLLM
 
@@ -165,6 +166,32 @@ class TestResolveModelAlwaysReturnsAModel:
         with patch(_GET_MODEL, side_effect=ValueError("no such provider")):
             with pytest.raises(ValueError, match="no such provider"):
                 resolve_model(mock_db, mock_user, "generation")
+
+    def test_an_org_model_missing_an_optional_dependency_is_the_orgs_error(
+        self, mock_db, mock_user
+    ):
+        """huggingface raises ImportError at import time without torch, and
+        ``_build_configured_model`` used to catch only ValueError. Escaping as
+        itself, it reached ``_deployment_model_error`` and was reported as a
+        broken DEFAULT_*_MODEL -- blaming the deployment for a model the
+        organization picked."""
+        _configure(mock_user, "generation", "model-789")
+        row = Mock(
+            provider_type=Mock(type_value="huggingface"),
+            model_name="meta-llama/Llama-3-8B",
+            key="",
+            endpoint="https://hf.example.com",
+        )
+        row.name = "my-hf-model"  # `name` is taken by the Mock constructor
+
+        missing_torch = ImportError("HuggingFace dependencies are not installed")
+        with patch(_LOAD_ROW, return_value=row), patch(_GET_MODEL, side_effect=missing_torch):
+            with pytest.raises(ModelConfigurationError) as exc_info:
+                resolve_model(mock_db, mock_user, "generation")
+
+        detail = str(exc_info.value)
+        assert "my-hf-model" in detail
+        assert "HuggingFace dependencies are not installed" in detail
 
 
 @pytest.mark.unit

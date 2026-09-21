@@ -12,6 +12,9 @@ from unittest.mock import call, patch
 import pytest
 from fastapi import HTTPException
 
+from rhesis.backend.app.error_handlers import PublicHTTPException
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
@@ -88,14 +91,67 @@ class TestExecutionModelValidation:
             assert "configured model" in detail
             assert "model" in detail
 
-    def test_validate_execution_model_generic_error(self, test_db, authenticated_user):
-        """Validators that raise plain ValueError propagate (not model-config mapping)."""
+    @pytest.mark.parametrize(
+        "error", [ValueError("RHESIS_API_KEY is not set"), ImportError("No module named torch")]
+    )
+    def test_validate_execution_model_deployment_default_unbuildable(
+        self, error, test_db, authenticated_user
+    ):
+        """A failure to build the *deployment's* default is a 500 that says so.
+
+        Used to propagate as a bare ValueError and answer "An unexpected error
+        occurred", leaving the cause in the logs alone (#2671). Still a 500 --
+        the caller cannot fix a server setting -- but the body now names it.
+        ImportError too, because a provider can fail on an optional dependency.
+        """
         with patch(
             "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
-            mock_validate.side_effect = ValueError("Something went wrong")
+            mock_validate.side_effect = error
 
-            with pytest.raises(ValueError, match="Something went wrong"):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_execution_model(db=test_db, current_user=authenticated_user)
+
+            assert exc_info.value.status_code == 500
+            assert isinstance(exc_info.value, PublicHTTPException)
+            assert "DEFAULT_EVALUATION_MODEL" in exc_info.value.detail
+            # The exception text is server-side detail and stays in the log.
+            assert str(error) not in exc_info.value.detail
+
+    def test_validate_execution_model_names_the_purpose_that_failed(
+        self, test_db, authenticated_user
+    ):
+        """Evaluation passing and execution failing names DEFAULT_EXECUTION_MODEL."""
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
+            mock_validate.side_effect = [None, ValueError("RHESIS_API_KEY is not set")]
+
+            with pytest.raises(HTTPException) as exc_info:
+                validate_execution_model(db=test_db, current_user=authenticated_user)
+
+            assert "DEFAULT_EXECUTION_MODEL" in exc_info.value.detail
+
+    def test_validate_execution_model_quota_error_is_not_swallowed(
+        self, test_db, authenticated_user
+    ):
+        """QuotaExceededError has to reach its own handler to become a 402."""
+        with patch(
+            "rhesis.backend.app.utils.execution_validation.validate_model"
+        ) as mock_validate:
+            mock_validate.side_effect = QuotaExceededError(
+                QuotaVerdict(
+                    resource=QuotaResource.MODEL_TOKENS,
+                    used=2,
+                    limit=1,
+                    allowed=False,
+                    over_limit=True,
+                    kind="flow",
+                    period_end="2026-10-01",
+                )
+            )
+
+            with pytest.raises(QuotaExceededError):
                 validate_execution_model(db=test_db, current_user=authenticated_user)
 
     def test_validate_execution_model_calls_both_validators(

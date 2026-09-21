@@ -14,6 +14,7 @@ import pytest
 
 from rhesis.backend.app.config.settings import get_rhesis_settings
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 
 
 class TestPolyphemusDelegation:
@@ -126,7 +127,7 @@ class TestPolyphemusDelegation:
         test_user.is_active = False
         test_user.is_verified = True
 
-        with pytest.raises(ValueError, match="User account is inactive"):
+        with pytest.raises(ModelConfigurationError, match="User account is inactive"):
             _call_polyphemus_with_delegation(test_user, "default")
 
     def test_delegation_unverified_user(self, test_user):
@@ -136,8 +137,24 @@ class TestPolyphemusDelegation:
         test_user.is_active = True
         test_user.is_verified = False
 
-        with pytest.raises(ValueError, match="User account is not verified"):
+        with pytest.raises(ModelConfigurationError, match="User account is not verified"):
             _call_polyphemus_with_delegation(test_user, "default")
+
+    def test_an_account_state_is_not_reported_as_a_broken_deployment(self, test_user):
+        """ModelConfigurationError rather than a bare ValueError, which
+        execution_validation would have answered with "this deployment's default
+        model could not be built" -- blaming the server for an account state the
+        user can act on. Still a ValueError subclass, so existing handlers
+        catch it unchanged."""
+        from rhesis.backend.app.utils.user_model_utils import _call_polyphemus_with_delegation
+
+        test_user.is_active = True
+        test_user.is_verified = False
+
+        with pytest.raises(ModelConfigurationError) as exc_info:
+            _call_polyphemus_with_delegation(test_user, "default")
+
+        assert isinstance(exc_info.value, ValueError)
 
 
 class TestPolyphemusModelConfiguration:
