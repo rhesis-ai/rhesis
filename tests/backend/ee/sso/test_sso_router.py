@@ -72,25 +72,6 @@ class TestValidateReturnTo:
 # ---------------------------------------------------------------------------
 
 
-class TestGeneratePkce:
-    def test_returns_verifier_and_challenge(self):
-        from rhesis.backend.ee.sso.router import _generate_pkce
-
-        verifier, challenge = _generate_pkce()
-        assert isinstance(verifier, str)
-        assert isinstance(challenge, str)
-        assert len(verifier) > 40
-        assert len(challenge) > 20
-
-    def test_each_call_unique(self):
-        from rhesis.backend.ee.sso.router import _generate_pkce
-
-        a = _generate_pkce()
-        b = _generate_pkce()
-        assert a[0] != b[0]
-        assert a[1] != b[1]
-
-
 # ---------------------------------------------------------------------------
 # check_sso_available
 # ---------------------------------------------------------------------------

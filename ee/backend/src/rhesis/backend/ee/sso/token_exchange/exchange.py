@@ -323,7 +323,7 @@ async def run_token_exchange(
     org_id = resolved.org_id
 
     # ---- Step 5b: subject token validation --------------------------------
-    from rhesis.backend.ee.sso.http_client import SSRFError
+    from rhesis.backend.app.utils.ssrf_http_client import SSRFError
     from rhesis.backend.ee.sso.oidc import OIDCProvider
 
     provider = OIDCProvider(sso_config)

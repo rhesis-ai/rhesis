@@ -1,12 +1,22 @@
-"""SSRF-safe HTTP client for SSO outbound requests.
+"""SSRF-safe HTTP client for outbound requests to addresses a tenant supplies.
 
-All outbound HTTP from SSO flows (OIDC discovery, JWKS fetch, token exchange,
-test-connection) MUST go through this client. Direct use of httpx or requests
-in SSO code is forbidden.
+Anywhere a customer names the host we call -- an OIDC issuer, a self-managed
+GitLab, an OAuth token endpoint -- the address is untrusted input, and the
+obvious target is something only the server can reach: a VPC neighbour, a
+Kubernetes service, or the cloud metadata endpoint on 169.254.169.254.
 
-DNS resolution is performed once, validated against the blocklist, and the
-resolved IP is pinned into the httpx request to eliminate TOCTOU / DNS
-rebinding attacks.
+DNS is resolved once and every address it returns is checked against the
+blocklist. Closing the window between that check and the connection takes a
+different move per scheme, because a name that passes the check can point
+somewhere else by the time we connect, which is what makes DNS rebinding work.
+Over HTTP the resolved IP is pinned into the request and the hostname moves to
+a ``Host`` header. Over HTTPS the URL keeps its hostname, since pinning would
+send the wrong SNI and break certificate verification, and that verification is
+what catches the swap instead. ``SafeHttpClient`` below has the detail.
+
+Moved here from ``ee/sso/http_client.py``. It was never SSO-specific, and core
+had only ``services/tool/url_validation.py``, which checks a URL at rest and
+leaves the connection itself to re-resolve.
 """
 
 import ipaddress
@@ -84,7 +94,7 @@ class SSRFError(Exception):
 
 def _resolve_and_validate(hostname: str) -> List[Tuple]:
     """Resolve hostname, validate all IPs against the blocklist, and return
-    the raw getaddrinfo results for pinning into the transport.
+    the raw getaddrinfo results so the caller can pin one if its scheme allows.
 
     In development environments (BACKEND_ENV=local/development/staging), localhost
     is allowed through the blocklist so that local IdP instances (e.g. Keycloak
@@ -97,14 +107,11 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
         raise SSRFError(f"Blocked hostname: {hostname}")
 
     skip_blocklist = (
-        get_application_settings().is_development
-        and hostname.lower() in _LOCALHOST_NAMES
+        get_application_settings().is_development and hostname.lower() in _LOCALHOST_NAMES
     )
 
     try:
-        addr_infos = socket.getaddrinfo(
-            hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
-        )
+        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
     except socket.gaierror:
         raise SSRFError(f"DNS resolution failed for: {hostname}")
 
@@ -126,9 +133,7 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
                         ip_str,
                         network,
                     )
-                    raise SSRFError(
-                        f"Hostname {hostname} resolves to a blocked address"
-                    )
+                    raise SSRFError(f"Hostname {hostname} resolves to a blocked address")
     else:
         logger.info(
             "SSRF blocklist bypassed for localhost in dev environment: %s",
@@ -161,14 +166,16 @@ def _pin_url_to_ip(url: str, addr_infos: List[Tuple]) -> Tuple[str, str]:
     else:
         new_netloc = ip_host
 
-    pinned = urlunparse((
-        parsed.scheme,
-        new_netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        parsed.fragment,
-    ))
+    pinned = urlunparse(
+        (
+            parsed.scheme,
+            new_netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
     return pinned, hostname
 
 
@@ -196,9 +203,7 @@ def validate_endpoint_origin(endpoint_url: str, issuer_url: str) -> None:
     issuer_parsed = urlparse(issuer_url)
 
     if ep_parsed.scheme not in ("https", "http"):
-        raise SSRFError(
-            f"Endpoint uses disallowed scheme: {ep_parsed.scheme}"
-        )
+        raise SSRFError(f"Endpoint uses disallowed scheme: {ep_parsed.scheme}")
 
     if ep_parsed.scheme != issuer_parsed.scheme:
         raise SSRFError("Endpoint scheme does not match issuer URL")
@@ -214,10 +219,12 @@ def validate_endpoint_origin(endpoint_url: str, issuer_url: str) -> None:
 validate_jwks_uri_origin = validate_endpoint_origin
 
 
-class SSOHttpClient:
-    """SSRF-safe HTTP client for all SSO outbound requests.
+class SafeHttpClient:
+    """HTTP client that will not be talked into reaching an internal address.
 
-    SSRF protection strategy differs by scheme:
+    Used for outbound calls whose target a user or an administrator supplies:
+    an IdP issuer for SSO, a provider endpoint for an OAuth flow. Protection
+    differs by scheme:
 
     * **HTTPS**: Resolve the hostname, validate all resolved IPs against the
       blocklist, then make the request with the *original* hostname URL.
@@ -231,9 +238,12 @@ class SSOHttpClient:
       risk for plain-text connections where TLS cannot provide a second layer
       of protection.
 
-    Set ``verify_ssl=False`` only for IdPs with self-signed certificates
-    (e.g. on-premise Keycloak in dev/staging). TLS is always verified in
-    production unless this flag is explicitly set on the SSOConfig.
+    Set ``verify_ssl=False`` only for a host with a self-signed or internal-CA
+    certificate, such as an on-premise Keycloak. It costs more than the
+    certificate check: the HTTPS path above leans on TLS to catch a hostname
+    that resolves to one address during the preflight check and another at
+    connect time, so turning verification off reopens that window. Use it only
+    where the network between Rhesis and the host is itself trusted.
     """
 
     def __init__(self, timeout: float = 10.0, verify_ssl: bool = True):
@@ -258,8 +268,7 @@ class SSOHttpClient:
 
         is_https = parsed.scheme == "https"
         is_localhost_dev = (
-            get_application_settings().is_development
-            and hostname.lower() in _LOCALHOST_NAMES
+            get_application_settings().is_development and hostname.lower() in _LOCALHOST_NAMES
         )
 
         if is_https:
@@ -283,14 +292,10 @@ class SSOHttpClient:
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
         request_url, skip_tls = self._prepare(url, kwargs)
-        async with httpx.AsyncClient(
-            timeout=self._timeout, verify=not skip_tls
-        ) as client:
+        async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
             return await client.get(request_url, **kwargs)
 
     async def post(self, url: str, **kwargs) -> httpx.Response:
         request_url, skip_tls = self._prepare(url, kwargs)
-        async with httpx.AsyncClient(
-            timeout=self._timeout, verify=not skip_tls
-        ) as client:
+        async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
             return await client.post(request_url, **kwargs)

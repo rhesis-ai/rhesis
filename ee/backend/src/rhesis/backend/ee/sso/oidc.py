@@ -5,11 +5,7 @@ with the org's SSOConfig. Works with any OIDC-compliant IdP (Keycloak, Okta, Azu
 """
 
 import asyncio
-import hashlib
-import hmac
-import json
 import logging
-import os
 import time
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
 from urllib.parse import urlencode
@@ -17,13 +13,19 @@ from urllib.parse import urlencode
 import jwt as pyjwt
 
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.auth.oauth_state import sign_state, verify_state
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
-from rhesis.backend.ee.sso.http_client import (
-    SSOHttpClient,
+from rhesis.backend.app.utils.ssrf_http_client import (
+    SafeHttpClient,
     SSRFError,
     validate_endpoint_origin,
 )
 from rhesis.backend.ee.sso.schemas import SSOConfig
+
+#: Keeps SSO state keyed apart from other OAuth flows. The value reproduces the
+#: original ``sso-state-`` derivation exactly, so logins already in flight when
+#: this shipped stay valid.
+SSO_STATE_PURPOSE = "sso"
 
 logger = logging.getLogger(__name__)
 
@@ -235,93 +237,37 @@ def _decode_with_jwks(
     return claims
 
 
-def _get_state_signing_key() -> bytes:
-    """Derive a signing key for SSO state parameters from SESSION_SECRET_KEY.
-
-    Raises ``RuntimeError`` when ``SESSION_SECRET_KEY`` is not set so that
-    misconfigured deployments fail loudly rather than silently falling back to
-    a constant (all-zero) derived key that an attacker could trivially forge.
-    """
-    session_key = os.getenv("SESSION_SECRET_KEY", "")
-    if not session_key:
-        raise RuntimeError(
-            "SESSION_SECRET_KEY must be set before SSO state signing can be used. "
-            "Set the environment variable to a cryptographically-random string of at "
-            "least 32 characters."
-        )
-    return hashlib.sha256(f"sso-state-{session_key}".encode()).digest()
-
-
 def create_signed_state(
     org_id: str,
     nonce: str,
     return_to: str = "/architect",
 ) -> str:
-    """Create a signed, base64url-encoded state parameter.
-
-    The state is ``base64url({json}|{hmac_hex})``. Base64url encoding
-    ensures special characters (``/``, ``?``, ``=``) survive the
-    round-trip through any OIDC IdP without re-encoding issues.
-    """
-    from base64 import urlsafe_b64encode
-
-    payload = {
-        "org_id": org_id,
-        "nonce": nonce,
-        "return_to": return_to,
-        "ts": int(time.time()),
-    }
-    data = json.dumps(payload, separators=(",", ":"), sort_keys=True)
-    key = _get_state_signing_key()
-    sig = hmac.new(key, data.encode(), hashlib.sha256).hexdigest()
-    raw = f"{data}|{sig}"
-    return urlsafe_b64encode(raw.encode()).decode()
+    """Sign the SSO login context into an OAuth ``state`` parameter."""
+    return sign_state(
+        {"org_id": org_id, "nonce": nonce, "return_to": return_to},
+        purpose=SSO_STATE_PURPOSE,
+    )
 
 
 def verify_signed_state(state: str) -> dict:
-    """Verify and decode a base64url-encoded signed state parameter.
-
-    Returns the payload dict. Raises ValueError on invalid/expired state.
-    Uses constant-time comparison to prevent timing attacks.
-    """
-    from base64 import urlsafe_b64decode
-
-    try:
-        # Add padding if needed (base64url may strip trailing '=')
-        padded = state + "=" * (-len(state) % 4)
-        raw = urlsafe_b64decode(padded).decode()
-    except Exception:
-        raise ValueError("Invalid state encoding")
-
-    if "|" not in raw:
-        raise ValueError("Invalid state format")
-
-    data, sig = raw.rsplit("|", 1)
-    key = _get_state_signing_key()
-    expected_sig = hmac.new(key, data.encode(), hashlib.sha256).hexdigest()
-
-    if not hmac.compare_digest(sig, expected_sig):
-        raise ValueError("Invalid state signature")
-
-    payload = json.loads(data)
-
-    ts = payload.get("ts", 0)
-    if time.time() - ts > STATE_MAX_AGE_SECONDS:
-        raise ValueError("State parameter expired")
-
-    return payload
+    """Return the payload of a valid SSO state, or raise ``ValueError``."""
+    return verify_state(
+        state,
+        purpose=SSO_STATE_PURPOSE,
+        max_age_seconds=STATE_MAX_AGE_SECONDS,
+    )
 
 
 class OIDCProvider(AuthProvider):
     """Generic OIDC provider instantiated per-request with org-specific config.
 
-    All outbound HTTP is routed through SSOHttpClient for SSRF protection.
+    All outbound HTTP is routed through SafeHttpClient for SSRF protection.
     PKCE (S256) is mandatory for all flows.
     """
 
     def __init__(self, sso_config: SSOConfig):
         self._config = sso_config
-        self._http = SSOHttpClient(verify_ssl=not sso_config.allow_insecure_tls)
+        self._http = SafeHttpClient(verify_ssl=not sso_config.allow_insecure_tls)
 
     @property
     def name(self) -> str:
