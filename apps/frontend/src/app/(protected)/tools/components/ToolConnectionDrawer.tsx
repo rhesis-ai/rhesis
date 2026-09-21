@@ -394,6 +394,7 @@ export function ToolConnectionDrawer({
         {showForm && manifest && (
           <>
             <Stack spacing={3}>
+              <Typography sx={sectionHeadingSx}>Details</Typography>
               <TextField
                 label="Connection Name"
                 fullWidth

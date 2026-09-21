@@ -235,6 +235,27 @@ describe('creating a connection', () => {
     expect(screen.getByLabelText(/^Personal access token/)).toHaveValue('');
   });
 
+  it('gives every section of the form a heading', async () => {
+    // Provider and Authentication were labelled; the name and description sat
+    // between them unlabelled.
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+
+    expect(screen.getByText('Provider')).toBeInTheDocument();
+    expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Authentication')).toBeInTheDocument();
+  });
+
   it('will not save until the connection has been tested', async () => {
     const user = userEvent.setup();
     render(
