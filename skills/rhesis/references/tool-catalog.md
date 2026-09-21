@@ -352,9 +352,78 @@ Use this **only** when importing specific user-provided test prompts that must b
   - Multi-Turn: `{"test_type": "Multi-Turn", "test_configuration": {"goal": "...", "instructions": "...", "restrictions": "...", "scenario": "...", "max_turns": 10}, "requirement": "name", "category": "name", "topic": "name"}`
 - `priority` — integer (1, 2, 3), not a string
 
-Only `goal` is required inside `test_configuration`. A test uses either `prompt` or `test_configuration`, never both.
+Only `goal` is required inside `test_configuration`. Every test needs one of `prompt` or `test_configuration`; send the one matching its `test_type`. Sending both is accepted here — the validator returns as soon as it sees a `prompt` — so a test carrying both is stored rather than refused, and behaves as single-turn.
 
 **Common mistakes:** Setting `test_set_type: "Multi-Turn"` but sending tests with `prompt` — the server types each test from its own content, so those tests land as Single-Turn inside a Multi-Turn set. Set `test_type` on every test object.
+
+---
+
+## Adversarial test sets
+
+Two published catalogues of attacks, as an alternative to writing requirements and generating from them. Use these when the user asks for red-teaming, jailbreak testing, or coverage of a named standard, rather than for behaviour specific to their product.
+
+All three writers run as **background tasks**: the response carries a `task_id`, which you poll with `get_job_status` until `SUCCESS`. What the result holds differs, so read the right field:
+
+| Tool | Result shape |
+|------|--------------|
+| `import_garak_probes` | `test_sets` — **a list**, one entry per probe, each with its own `test_set_id`, plus `total_test_sets` and `total_tests` |
+| `generate_garak_test_set` | a single `test_set_id` |
+| `generate_owasp_test_set` | a single `test_set_id` |
+
+Verify with `get_test_set` and `list_test_set_tests` before offering `execute_test_set`. Importing several probes produces several test sets, so report them as several rather than naming only the first.
+
+---
+
+### `list_garak_probes`
+List the Garak probe modules and their probe classes. Each carries the Rhesis category, topic and requirement it maps to, and an `is_dynamic` flag that decides which tool comes next.
+
+**CHAIN:** resolve `module_name` and `class_name` here → `import_garak_probes` when `is_dynamic` is false (the majority), `generate_garak_test_set` when it is true.
+
+---
+
+### `import_garak_probes`
+Import static Garak probes as test sets, **one test set per probe**, using the probe's own built-in prompts. No LLM generation, so the prompts are exactly what Garak ships. **Requires confirmation.**
+
+The job result is a `test_sets` list rather than a single id — see the table above.
+
+**Key parameters:**
+- `probes` (required) — non-empty array of `{"module_name": …, "class_name": …, "custom_name": …}`, resolved from `list_garak_probes`
+- `name_prefix` — prefix for generated test set names, default `"Garak"`
+- `description_template` — applied to each created test set
+
+---
+
+### `generate_garak_test_set`
+Generate a test set from a **dynamic** Garak probe — one with no static prompts, where `list_garak_probes` reports `is_dynamic: true`. Prompts are synthesised from the probe's goal and tags with the user's configured model. **Requires confirmation.**
+
+**Key parameters:**
+- `module_name`, `class_name` (required) — e.g. `"fitd"` / `"FITD"`, from `list_garak_probes`
+- `name` — omit for `"Garak Dynamic: <module>.<class>"`
+- `num_tests` — max 500; omit and the backend picks between 100 and 200
+- `model_id` — omit; uses the user's default generation model
+
+**Careful:** using this on a non-dynamic probe generates prompts where Garak already ships real ones. Check `is_dynamic` first.
+
+---
+
+### `list_owasp_categories`
+List the risk categories of an OWASP Top 10 report, e.g. `llm01`.
+
+**Key parameters:** `framework` — `"llm"` (default, OWASP Top 10 for LLM Applications) or `"agentic"` (OWASP Top 10 for Agentic AI)
+
+**CHAIN:** call before `generate_owasp_test_set` to resolve category ids and confirm the scope with the user, since omitting `categories` targets every category in the report.
+
+---
+
+### `generate_owasp_test_set`
+Generate adversarial prompts from an OWASP Top 10 report, tailored to the system under test. An LLM crafts attacks per selected risk category. **Requires confirmation.**
+
+**Key parameters:**
+- `purpose` (required) — what the system under test does, e.g. `"Customer service chatbot for a bank"`. This drives every generated attack, so a vague purpose produces generic attacks
+- `framework` — `"llm"` (default) or `"agentic"`; must match the report `list_owasp_categories` was called with
+- `categories` — e.g. `["llm01", "llm07"]`; omit to target every category
+- `num_tests` — spread evenly across the selected categories, default 20, max 200
+- `name`, `batch_size`, `model_id` — omit unless asked
 
 ---
 

@@ -220,6 +220,18 @@ A `Test` represents a single test case. Tests belong to test sets and contain th
 | `test_configuration` | `TestConfiguration` | Multi-turn test settings |
 | `metadata` | `dict` | Custom key-value data |
 
+### Prompt
+
+A `Prompt` is the input side of a single-turn test. It is a value on a `Test` rather than something you fetch or manage on its own.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `content` | `str` | What is sent to the endpoint. The one field the API requires |
+| `expected_response` | `str \| None` | What a correct answer looks like. Omit it unless a metric compares the response against a reference |
+| `language_code` | `str` | Defaults to `en` |
+
+Multi-turn tests carry a `test_configuration` instead. Set the one that matches the test: every route requires at least one, and sending both is accepted when creating a test but rejected when executing an ad-hoc one whose `test_configuration` carries a `goal`.
+
 ### Creating Tests
 
 <CodeBlock filename="create_test.py" language="python">
