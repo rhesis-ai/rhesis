@@ -1,37 +1,38 @@
-import React, { useState, useEffect, useMemo } from 'react';
+'use client';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box,
-  Typography,
-  Button,
-  TextField,
-  IconButton,
   Alert,
+  Box,
+  Button,
   Stack,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  TextField,
+  Typography,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { ProviderPicker } from './ProviderPicker';
-import { useToolProviders } from '@/hooks/useToolProviders';
 import { FilledStatusAlert } from '@/components/common/FilledStatusAlert';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-
-import { useTheme } from '@mui/material/styles';
-import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import type { TestToolConnectionResponse } from '@/utils/api-client/services-client';
 import {
   Tool,
   ToolCreate,
   ToolUpdate,
   TypeLookup,
 } from '@/utils/api-client/interfaces/tool';
-import { UUID } from 'crypto';
-import { formatToolProviderDisplayName } from '@/config/tool-providers';
+import type { ToolProvider } from '@/utils/api-client/interfaces/tool-provider';
+import { useToolProviders } from '@/hooks/useToolProviders';
 import { getErrorMessage } from '@/utils/entity-error-handler';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { UUID } from 'crypto';
+import { ProviderPicker } from './ProviderPicker';
+import { ProviderFields, type FieldOption } from './fields/ProviderFields';
+import {
+  buildCredentials,
+  buildMetadata,
+  emptyValues,
+  hydrateValues,
+  missingRequired,
+  type FieldValues,
+} from './fields/values';
 
 /** Resolve the provider TypeLookup for a tool in edit mode. */
 function resolveToolProvider(
@@ -47,78 +48,12 @@ function resolveToolProvider(
   );
 }
 
-/**
- * Get the credential key name for a given provider
- */
-function getCredentialKey(providerType: string | undefined): string {
-  switch (providerType) {
-    case 'notion':
-      return 'NOTION_TOKEN';
-    case 'github':
-      return 'GITHUB_PERSONAL_ACCESS_TOKEN';
-    case 'gitlab':
-      return 'GITLAB_PERSONAL_ACCESS_TOKEN';
-    case 'shortcut':
-      return 'SHORTCUT_API_TOKEN';
-    case 'asana':
-      return 'ASANA_ACCESS_TOKEN';
-    case 'linear':
-      return 'LINEAR_API_TOKEN';
-    case 'azure_devops':
-      return 'AZURE_DEVOPS_PAT';
-    case 'trello':
-      return 'TRELLO_TOKEN';
-    case 'jira':
-      return 'JIRA_API_TOKEN';
-    case 'confluence':
-      return 'CONFLUENCE_API_TOKEN';
-    default:
-      return 'TOKEN';
-  }
-}
-
-/**
- * Normalize URL to ensure it has https:// scheme
- */
-function normalizeUrl(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return '';
-  }
-  // If URL doesn't start with http:// or https://, add https://
-  if (!/^https?:\/\//i.test(trimmed)) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
-}
-
-function normalizeAzureDevOpsOrg(value: string): string {
-  const trimmed = value.trim().replace(/\/$/, '');
-  if (!trimmed) {
-    return '';
-  }
-
-  const devAzureMatch = trimmed.match(/dev\.azure\.com\/([^/?#]+)/i);
-  if (devAzureMatch) {
-    return devAzureMatch[1];
-  }
-
-  const visualStudioMatch = trimmed.match(
-    /(?:https?:\/\/)?([\w-]+)\.visualstudio\.com/i
-  );
-  if (visualStudioMatch) {
-    return visualStudioMatch[1];
-  }
-
-  return trimmed;
-}
-
 interface ToolConnectionDrawerProps {
   open: boolean;
   provider?: TypeLookup | null;
   providers?: TypeLookup[];
   toolType?: TypeLookup | null;
-  tool?: Tool | null; // For edit mode
+  tool?: Tool | null;
   mode?: 'create' | 'edit';
   onClose: () => void;
   onConnect?: (providerId: string, toolData: ToolCreate) => Promise<Tool>;
@@ -135,1272 +70,232 @@ export function ToolConnectionDrawer({
   onConnect,
   onUpdate,
 }: ToolConnectionDrawerProps) {
-  const { data: session, status } = useSession();
+  const isEditMode = mode === 'edit';
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [authToken, setAuthToken] = useState('');
+  const [values, setValues] = useState<FieldValues>({});
+  const [baseline, setBaseline] = useState<{
+    name: string;
+    description: string;
+    values: FieldValues;
+  }>({ name: '', description: '', values: {} });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAuthToken, setShowAuthToken] = useState(false);
-
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    is_authenticated: string;
-    message: string;
-    additional_metadata?: {
-      spaces?: Array<{ key: string; name: string }>;
-      [key: string]: unknown;
-    };
-  } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] =
+    useState<TestToolConnectionResponse | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
-  // Tracks whether the user has modified credential fields in edit mode.
-  // A re-test is only required when this is true.
-  const [credentialsModified, setCredentialsModified] = useState(false);
-  const [scopeMetadataModified, setScopeMetadataModified] = useState(false);
-
-  // Snapshot of non-credential fields when the drawer opens in edit mode,
-  // used to detect whether anything has actually changed.
-  const [initialName, setInitialName] = useState('');
-  const [initialDescription, setInitialDescription] = useState('');
-  const [initialRepositoryUrl, setInitialRepositoryUrl] = useState('');
-  const [initialProjectNamespace, setInitialProjectNamespace] = useState('');
-  const [initialGitlabApiUrl, setInitialGitlabApiUrl] = useState('');
-  const [initialSpaceKey, setInitialSpaceKey] = useState('');
-  const [initialWorkspaceGid, setInitialWorkspaceGid] = useState('');
-  const [initialAzureProject, setInitialAzureProject] = useState('');
-
-  // GitHub repository fields
-  const [repositoryUrl, setRepositoryUrl] = useState('');
-
-  // GitLab project fields
-  const [projectNamespace, setProjectNamespace] = useState('');
-  const [gitlabApiUrl, setGitlabApiUrl] = useState('');
-
-  // Asana workspace scope
-  const [workspaceGid, setWorkspaceGid] = useState('');
-
-  // Trello API Key
-  const [trelloApiKey, setTrelloApiKey] = useState('');
-
-  // Azure DevOps fields (org/email are encrypted credentials; project is metadata)
-  const [azureOrg, setAzureOrg] = useState('');
-  const [azureEmail, setAzureEmail] = useState('');
-  const [azureProject, setAzureProject] = useState('');
-
-  // Jira and Confluence fields
-  const [instanceUrl, setInstanceUrl] = useState('');
-  const [username, setUsername] = useState('');
-
-  // Jira space selection
-  const [availableSpaces, setAvailableSpaces] = useState<
-    Array<{ key: string; name: string }>
-  >([]);
-  const [selectedSpaceKey, setSelectedSpaceKey] = useState<string>('');
-  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
+  const [spaces, setSpaces] = useState<FieldOption[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
     providerProp ?? null
   );
 
-  const theme = useTheme();
-  const isEditMode = mode === 'edit';
-  // Only needed to describe the tiles, so it is not fetched in edit mode where
-  // the provider is already fixed.
   const { data: toolProviders = [], isLoading: providersLoading } =
-    useToolProviders(!isEditMode);
+    useToolProviders();
+
   const sortedProviders = useMemo(
     () =>
-      [...providers].sort((a, b) =>
-        a.type_value.localeCompare(b.type_value, undefined, {
-          sensitivity: 'base',
-        })
-      ),
+      [...providers].sort((a, b) => a.type_value.localeCompare(b.type_value)),
     [providers]
   );
 
-  const provider = useMemo(() => {
-    if (providerProp) return providerProp;
-    if (isEditMode && tool) {
-      return resolveToolProvider(tool, providers) ?? selectedProvider;
-    }
-    return selectedProvider;
-  }, [providerProp, isEditMode, tool, providers, selectedProvider]);
+  const providerLookup = useMemo(() => {
+    if (isEditMode && tool) return resolveToolProvider(tool, providers);
+    return selectedProvider ?? providerProp ?? null;
+  }, [isEditMode, tool, providers, selectedProvider, providerProp]);
 
-  // Check if provider requires authentication token
-  const providerType = provider?.type_value;
-  const requiresToken = true; // All providers now require tokens
+  const manifest: ToolProvider | null = useMemo(() => {
+    const key = providerLookup?.type_value;
+    return toolProviders.find(p => p.key === key) ?? null;
+  }, [toolProviders, providerLookup]);
 
-  const providerIdsKey = useMemo(
-    () =>
-      providers
-        .map(p => p.id)
-        .sort()
-        .join(','),
-    [providers]
-  );
-
-  const toolProviderKey =
-    tool?.tool_provider_type?.id ?? tool?.tool_provider_type?.type_value ?? '';
-
-  // Drawer open/close and form reset — stable dependency array (no spreading).
+  // Reset when the drawer opens, and hydrate from the tool when editing.
   useEffect(() => {
     if (!open) {
       setSelectedProvider(providerProp ?? null);
       return;
     }
 
-    if (isEditMode && tool) {
-      const resolved = resolveToolProvider(tool, providers);
-      if (resolved) {
-        setSelectedProvider(resolved);
-      }
-
-      const currentProviderType = resolved?.type_value;
-
-      setName(tool.name || '');
-      setDescription(tool.description || '');
-      setInitialName(tool.name || '');
-      setInitialDescription(tool.description || '');
-      setAuthToken('************');
-
-      if (currentProviderType === 'github' && tool.tool_metadata?.repository) {
-        const repo = tool.tool_metadata.repository;
-        if (repo.owner && repo.repo) {
-          const repoUrl = `https://github.com/${repo.owner}/${repo.repo}`;
-          setRepositoryUrl(repoUrl);
-          setInitialRepositoryUrl(repoUrl);
-        }
-      } else {
-        setRepositoryUrl('');
-        setInitialRepositoryUrl('');
-      }
-
-      const gitlabProject = tool.tool_metadata?.project;
-      if (
-        currentProviderType === 'gitlab' &&
-        gitlabProject &&
-        typeof gitlabProject === 'object' &&
-        typeof gitlabProject.namespace === 'string'
-      ) {
-        setProjectNamespace(gitlabProject.namespace);
-        setInitialProjectNamespace(gitlabProject.namespace);
-      } else {
-        setProjectNamespace('');
-        setInitialProjectNamespace('');
-      }
-      setGitlabApiUrl('');
-      setInitialGitlabApiUrl('');
-
-      const azureProjectMeta = tool.tool_metadata?.project;
-      if (
-        currentProviderType === 'azure_devops' &&
-        typeof azureProjectMeta === 'string'
-      ) {
-        setAzureProject(azureProjectMeta);
-        setInitialAzureProject(azureProjectMeta);
-      } else {
-        setAzureProject('');
-        setInitialAzureProject('');
-      }
-      setAzureOrg(currentProviderType === 'azure_devops' ? '************' : '');
-      setAzureEmail(
-        currentProviderType === 'azure_devops' ? '************' : ''
-      );
-
-      if (
-        currentProviderType === 'asana' &&
-        typeof tool.tool_metadata?.workspace_gid === 'string'
-      ) {
-        setWorkspaceGid(tool.tool_metadata.workspace_gid);
-        setInitialWorkspaceGid(tool.tool_metadata.workspace_gid);
-      } else {
-        setWorkspaceGid('');
-        setInitialWorkspaceGid('');
-      }
-
-      setTrelloApiKey(currentProviderType === 'trello' ? '************' : '');
-      setInstanceUrl('************');
-      setUsername('************');
-
-      if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
-        setSelectedSpaceKey(tool.tool_metadata.space_key);
-        setInitialSpaceKey(tool.tool_metadata.space_key);
-      } else {
-        setSelectedSpaceKey('');
-        setInitialSpaceKey('');
-      }
-      setAvailableSpaces([]);
-      setShowSpaceSelector(false);
-
-      setError(null);
-      setShowAuthToken(false);
-      setLoading(false);
-      setTestResult(null);
-      setConnectionTested(false);
-      setCredentialsModified(false);
-      setScopeMetadataModified(false);
-      return;
-    }
-
-    if (!isEditMode) {
-      setSelectedProvider(providerProp ?? null);
-
-      const currentProviderType = providerProp?.type_value;
-
-      setName('');
-      setDescription('');
-      setAuthToken('');
-      setRepositoryUrl('');
-      setProjectNamespace('');
-      setGitlabApiUrl('');
-      setWorkspaceGid('');
-      setAzureOrg('');
-      setAzureEmail('');
-      setAzureProject('');
-      setInitialAzureProject('');
-      setInstanceUrl('');
-      const isAtlassian =
-        currentProviderType === 'jira' || currentProviderType === 'confluence';
-      const isAzureDevOps = currentProviderType === 'azure_devops';
-      setUsername(
-        isAtlassian && session?.user?.email ? session.user.email : ''
-      );
-      setAzureEmail(
-        isAzureDevOps && session?.user?.email ? session.user.email : ''
-      );
-      setSelectedSpaceKey('');
-      setAvailableSpaces([]);
-      setShowSpaceSelector(false);
-      setError(null);
-      setShowAuthToken(false);
-      setLoading(false);
-      setTestResult(null);
-      setConnectionTested(false);
-      setCredentialsModified(false);
-      setScopeMetadataModified(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tool` and `providers` are tracked by value through tool?.id / toolProviderKey / providerIdsKey. Depending on the objects themselves would re-run this whole form reset on any new reference and wipe what the user has typed.
-  }, [
-    open,
-    isEditMode,
-    tool?.id,
-    toolProviderKey,
-    providerIdsKey,
-    providerProp,
-    session?.user?.email,
-  ]);
-
-  // Reset connection test status when critical credential fields change
-  // Note: name and description changes don't affect connection validity
-  useEffect(() => {
-    if (!isEditMode) {
-      // In create mode, reset whenever credential-related fields change
-      setConnectionTested(false);
-      setTestResult(null);
-    } else {
-      // In edit mode, derive modified state from current field values so that
-      // reverting a field back to the placeholder resets the flag correctly.
-      const tokenChanged = Boolean(authToken && authToken !== '************');
-      const urlChanged = Boolean(instanceUrl && instanceUrl !== '************');
-      const usernameChanged = Boolean(username && username !== '************');
-      const azureOrgChanged = Boolean(azureOrg && azureOrg !== '************');
-      const azureEmailChanged = Boolean(
-        azureEmail && azureEmail !== '************'
-      );
-      const trelloApiKeyChanged = Boolean(
-        trelloApiKey && trelloApiKey !== '************'
-      );
-      const scopeMetadataChanged =
-        repositoryUrl !== initialRepositoryUrl ||
-        projectNamespace !== initialProjectNamespace ||
-        selectedSpaceKey !== initialSpaceKey ||
-        workspaceGid !== initialWorkspaceGid ||
-        azureProject !== initialAzureProject;
-      const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
-      const credentialsChanged =
-        tokenChanged ||
-        urlChanged ||
-        usernameChanged ||
-        gitlabApiUrlChanged ||
-        azureOrgChanged ||
-        azureEmailChanged ||
-        trelloApiKeyChanged;
-
-      setCredentialsModified(credentialsChanged);
-      setScopeMetadataModified(scopeMetadataChanged);
-      if (credentialsChanged || scopeMetadataChanged) {
-        setConnectionTested(false);
-        setTestResult(null);
-      }
-    }
-  }, [
-    authToken,
-    providerType,
-    isEditMode,
-    repositoryUrl,
-    instanceUrl,
-    username,
-    projectNamespace,
-    selectedSpaceKey,
-    gitlabApiUrl,
-    workspaceGid,
-    azureOrg,
-    azureEmail,
-    trelloApiKey,
-    azureProject,
-    initialRepositoryUrl,
-    initialProjectNamespace,
-    initialSpaceKey,
-    initialWorkspaceGid,
-    initialGitlabApiUrl,
-    initialAzureProject,
-  ]);
-
-  const parseRepositoryUrl = (
-    url: string
-  ): { owner: string; repo: string; full_name: string } | null => {
-    if (!url || !url.trim()) {
-      return null;
-    }
-
-    const trimmedUrl = url.trim();
-    // Support both full URLs and owner/repo format
-    const githubUrlPattern =
-      /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)/;
-    const shortPattern = /^([^/]+)\/([^/]+)$/;
-
-    let match = trimmedUrl.match(githubUrlPattern);
-    if (!match) {
-      match = trimmedUrl.match(shortPattern);
-    }
-
-    if (match) {
-      const owner = match[1];
-      const repo = match[2].replace(/\.git$/, ''); // Remove .git suffix if present
-      return {
-        owner,
-        repo,
-        full_name: `${owner}/${repo}`,
-      };
-    }
-
-    return null;
-  };
-
-  const parseGitLabProjectUrl = (url: string): { namespace: string } | null => {
-    if (!url || !url.trim()) {
-      return null;
-    }
-
-    const trimmedUrl = url.trim();
-
-    if (/^https?:\/\//i.test(trimmedUrl)) {
-      try {
-        const parsed = new URL(normalizeUrl(trimmedUrl));
-        const path = parsed.pathname.replace(/^\/+|\/+$/g, '');
-        const namespace = path.split('/-/')[0];
-        if (namespace.includes('/')) {
-          return { namespace };
-        }
-      } catch {
-        return null;
-      }
-    }
-
-    const shortPattern = /^([^/\s]+\/[^/\s]+(?:\/[^/\s]+)*)$/;
-    const match = trimmedUrl.match(shortPattern);
-    if (match && match[1].includes('/')) {
-      return { namespace: match[1] };
-    }
-
-    return null;
-  };
-
-  const buildGitLabCredentials = (
-    token: string,
-    apiUrl: string
-  ): Record<string, string> => {
-    const credentials: Record<string, string> = {
-      GITLAB_PERSONAL_ACCESS_TOKEN: token.trim(),
-    };
-    const trimmedApiUrl = apiUrl.trim();
-    if (trimmedApiUrl) {
-      credentials.GITLAB_API_URL = normalizeUrl(trimmedApiUrl).replace(
-        /\/$/,
-        ''
-      );
-      if (!credentials.GITLAB_API_URL.endsWith('/api/v4')) {
-        credentials.GITLAB_API_URL = `${credentials.GITLAB_API_URL}/api/v4`;
-      }
-    }
-    return credentials;
-  };
-
-  const buildAsanaMetadata = (
-    workspace: string
-  ): Record<string, unknown> | undefined => {
-    const trimmed = workspace.trim();
-    return trimmed ? { workspace_gid: trimmed } : undefined;
-  };
-
-  const buildTrelloCredentials = (
-    apiKey: string,
-    token: string
-  ): Record<string, string> => {
-    const credentials: Record<string, string> = {};
-    const trimmedKey = apiKey.trim();
-    if (trimmedKey && trimmedKey !== '************') {
-      credentials.TRELLO_API_KEY = trimmedKey;
-    }
-    const trimmedToken = token.trim();
-    if (trimmedToken && trimmedToken !== '************') {
-      credentials.TRELLO_TOKEN = trimmedToken;
-    }
-    return credentials;
-  };
-
-  const buildAzureDevOpsCredentials = (
-    org: string,
-    email: string,
-    pat: string
-  ): Record<string, string> => {
-    const credentials: Record<string, string> = {
-      AZURE_DEVOPS_PAT: pat.trim(),
-    };
-    const trimmedOrg = org.trim();
-    if (trimmedOrg && trimmedOrg !== '************') {
-      credentials.AZURE_DEVOPS_ORG = normalizeAzureDevOpsOrg(trimmedOrg);
-    }
-    const trimmedEmail = email.trim();
-    if (trimmedEmail && trimmedEmail !== '************') {
-      credentials.AZURE_DEVOPS_EMAIL = trimmedEmail;
-    }
-    return credentials;
-  };
-
-  const buildScopeMetadataFromForm = (
-    currentProviderType: string | undefined
-  ): Record<string, unknown> | undefined => {
-    if (!currentProviderType) {
-      return undefined;
-    }
-
-    if (currentProviderType === 'github' && repositoryUrl.trim()) {
-      const repoData = parseRepositoryUrl(repositoryUrl);
-      return repoData ? { repository: repoData } : undefined;
-    }
-
-    if (currentProviderType === 'gitlab' && projectNamespace.trim()) {
-      const projectData = parseGitLabProjectUrl(projectNamespace);
-      return projectData ? { project: projectData } : undefined;
-    }
-
-    if (currentProviderType === 'jira' && selectedSpaceKey) {
-      return { space_key: selectedSpaceKey };
-    }
-
-    if (currentProviderType === 'asana') {
-      return buildAsanaMetadata(workspaceGid);
-    }
-
-    if (currentProviderType === 'azure_devops' && azureProject.trim()) {
-      return { project: azureProject.trim() };
-    }
-
-    return undefined;
-  };
-
-  const handleTestConnection = async () => {
-    if (!isAuthenticated(status)) {
-      setError('Session not available. Please try again.');
-      return;
-    }
-
-    // In create mode, we need to validate required fields first
-    if (!isEditMode) {
-      if (!provider || (requiresToken && !authToken)) {
-        setError('Please fill in all required fields before testing.');
-        return;
-      }
-    }
-
-    // In edit mode, we need the tool ID
-    if (isEditMode && !tool?.id) {
-      setError('Tool ID not available. Please save the connection first.');
-      return;
-    }
-
-    setTestingConnection(true);
     setError(null);
     setTestResult(null);
+    setConnectionTested(false);
+    setSpaces([]);
+
+    if (isEditMode && tool) {
+      const resolved = resolveToolProvider(tool, providers);
+      if (resolved) setSelectedProvider(resolved);
+      setName(tool.name || '');
+      setDescription(tool.description || '');
+    } else {
+      setName('');
+      setDescription('');
+      setValues({});
+      setBaseline({ name: '', description: '', values: {} });
+    }
+    // Values need the manifest, which may still be loading; the effect below
+    // fills them in once it arrives.
+  }, [open, isEditMode, tool, providers, providerProp]);
+
+  // Seed the field values once the manifest for the chosen provider is known.
+  useEffect(() => {
+    if (!open || !manifest) return;
+    const seeded =
+      isEditMode && tool
+        ? hydrateValues(manifest, tool)
+        : emptyValues(manifest);
+    setValues(seeded);
+    setBaseline({
+      name: isEditMode && tool ? tool.name || '' : '',
+      description: isEditMode && tool ? tool.description || '' : '',
+      values: seeded,
+    });
+  }, [open, manifest, isEditMode, tool]);
+
+  const setValue = useCallback((key: string, value: string) => {
+    setValues(prev => ({ ...prev, [key]: value }));
+    setConnectionTested(false);
+    setTestResult(null);
+  }, []);
+
+  const missing = manifest ? missingRequired(manifest, values) : [];
+  const credentialsChanged = manifest
+    ? Object.keys(buildCredentials(manifest, values)).length > 0
+    : false;
+  const scopeChanged = manifest
+    ? manifest.fields
+        .filter(f => f.store === 'metadata')
+        .some(f => (values[f.key] ?? '') !== (baseline.values[f.key] ?? ''))
+    : false;
+  const detailsChanged =
+    name !== baseline.name || description !== baseline.description;
+  const needsRetest = credentialsChanged || scopeChanged;
+
+  const handleTestConnection = async () => {
+    if (!manifest || !providerLookup) return;
+    setTesting(true);
+    setError(null);
 
     try {
-      const apiFactory = new ApiClientFactory();
-      const servicesClient = apiFactory.getServicesClient();
-
-      let testRequest: {
-        tool_id?: string;
-        provider_type_id?: string;
-        credentials?: Record<string, string>;
-        tool_metadata?: Record<string, unknown>;
-      };
-
-      if (
-        isEditMode &&
-        tool?.id &&
-        !credentialsModified &&
-        !scopeMetadataModified
-      ) {
-        // Edit mode, no config changes — test existing stored credentials
-        testRequest = {
-          tool_id: tool.id,
-        };
-      } else if (
-        isEditMode &&
-        tool?.id &&
-        !credentialsModified &&
-        scopeMetadataModified
-      ) {
-        // Scope-only edit — reuse stored credentials with updated metadata
-        const currentProviderType =
-          provider?.type_value || tool.tool_provider_type?.type_value;
-        const parsedMetadata = buildScopeMetadataFromForm(currentProviderType);
-
-        if (
-          currentProviderType === 'github' &&
-          repositoryUrl.trim() &&
-          !parsedMetadata
-        ) {
-          setError(
-            'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-          );
-          setTestingConnection(false);
-          return;
-        }
-        if (
-          currentProviderType === 'gitlab' &&
-          projectNamespace.trim() &&
-          !parsedMetadata
-        ) {
-          setError(
-            'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
-          );
-          setTestingConnection(false);
-          return;
-        }
-
-        // When the Asana workspace field is cleared, buildScopeMetadataFromForm
-        // returns undefined and JSON would drop the key, so the backend would
-        // test against the stored workspace_gid. Send an explicit empty object
-        // so the test reflects the cleared scope.
-        const scopeMetadata =
-          currentProviderType === 'asana' && !workspaceGid.trim()
-            ? {}
-            : parsedMetadata;
-
-        testRequest = {
-          tool_id: tool.id,
-          tool_metadata: scopeMetadata,
-        };
-      } else if (isEditMode && tool?.id && credentialsModified) {
-        // Edit mode with changed credentials — test new credentials directly
-        const currentProviderType =
-          provider?.type_value || tool.tool_provider_type?.type_value;
-
-        if (!currentProviderType) {
-          setError('Provider type not available. Please try again.');
-          setTestingConnection(false);
-          return;
-        }
-
-        const tokenIsPlaceholder = authToken === '************';
-        const urlIsPlaceholder = instanceUrl === '************';
-        const usernameIsPlaceholder = username === '************';
-
-        if (
-          currentProviderType === 'jira' ||
-          currentProviderType === 'confluence'
-        ) {
-          if (urlIsPlaceholder || usernameIsPlaceholder || tokenIsPlaceholder) {
-            setError(
-              'Please re-enter the URL, email, and API token to test updated credentials.'
-            );
-            setTestingConnection(false);
-            return;
-          }
-        } else if (currentProviderType !== 'trello' && tokenIsPlaceholder) {
-          setError(
-            'Please re-enter your API token to test updated credentials.'
-          );
-          setTestingConnection(false);
-          return;
-        }
-
-        const credentialKey = getCredentialKey(currentProviderType);
-        let credentials: Record<string, string> = {};
-        let parsedMetadata: Record<string, unknown> | undefined = undefined;
-
-        if (currentProviderType === 'jira') {
-          const normalizedUrl = normalizeUrl(instanceUrl);
-          credentials = {
-            JIRA_URL: normalizedUrl,
-            JIRA_USERNAME: username.trim(),
-            JIRA_API_TOKEN: authToken.trim(),
-          };
-        } else if (currentProviderType === 'confluence') {
-          const normalizedUrl = normalizeUrl(instanceUrl);
-          credentials = {
-            CONFLUENCE_URL: normalizedUrl,
-            CONFLUENCE_USERNAME: username.trim(),
-            CONFLUENCE_API_TOKEN: authToken.trim(),
-          };
-        } else if (currentProviderType === 'gitlab') {
-          credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
-        } else if (currentProviderType === 'azure_devops') {
-          credentials = buildAzureDevOpsCredentials(
-            azureOrg,
-            azureEmail,
-            authToken
-          );
-        } else if (currentProviderType === 'trello') {
-          credentials = buildTrelloCredentials(trelloApiKey, authToken);
-        } else {
-          credentials = {
-            [credentialKey]: authToken.trim(),
-          };
-        }
-
-        if (currentProviderType === 'azure_devops' && azureProject.trim()) {
-          parsedMetadata = { project: azureProject.trim() };
-        }
-
-        if (currentProviderType === 'github' && repositoryUrl.trim()) {
-          const repoData = parseRepositoryUrl(repositoryUrl);
-          if (!repoData) {
-            setError(
-              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-            );
-            setTestingConnection(false);
-            return;
-          }
-          parsedMetadata = { repository: repoData };
-        }
-
-        if (currentProviderType === 'gitlab' && projectNamespace.trim()) {
-          const projectData = parseGitLabProjectUrl(projectNamespace);
-          if (!projectData) {
-            setError(
-              'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
-            );
-            setTestingConnection(false);
-            return;
-          }
-          parsedMetadata = { project: projectData };
-        }
-
-        if (
-          currentProviderType === 'azure_devops' ||
-          currentProviderType === 'gitlab'
-        ) {
-          if (
-            currentProviderType === 'azure_devops' &&
-            !parsedMetadata &&
-            typeof tool.tool_metadata?.project === 'string'
-          ) {
-            parsedMetadata = { project: tool.tool_metadata.project };
-          }
-          if (
-            currentProviderType === 'gitlab' &&
-            !parsedMetadata &&
-            tool.tool_metadata?.project &&
-            typeof tool.tool_metadata.project === 'object' &&
-            typeof tool.tool_metadata.project.namespace === 'string'
-          ) {
-            parsedMetadata = { project: tool.tool_metadata.project };
-          }
-
-          testRequest = {
-            tool_id: tool.id,
-            credentials,
-            tool_metadata: parsedMetadata,
-          };
-        } else if (currentProviderType === 'trello') {
-          testRequest = {
-            tool_id: tool.id,
-            credentials,
-          };
-        } else {
-          testRequest = {
-            provider_type_id: tool.tool_provider_type?.id,
-            credentials,
-            tool_metadata: parsedMetadata,
-          };
-        }
-      } else {
-        // In create mode, use direct parameters
-        if (!provider) {
-          setError('Provider not found. Please try again.');
-          setTestingConnection(false);
-          return;
-        }
-
-        const credentialKey = getCredentialKey(provider.type_value);
-        let credentials: Record<string, string> = {};
-        let parsedMetadata: Record<string, unknown> | undefined = undefined;
-
-        // Handle Jira credentials
-        if (provider.type_value === 'jira') {
-          const normalizedUrl = normalizeUrl(instanceUrl);
-          credentials = {
-            JIRA_URL: normalizedUrl,
-            JIRA_USERNAME: username.trim(),
-            JIRA_API_TOKEN: authToken.trim(),
-          };
-        }
-        // Handle Confluence credentials
-        else if (provider.type_value === 'confluence') {
-          const normalizedUrl = normalizeUrl(instanceUrl);
-          credentials = {
-            CONFLUENCE_URL: normalizedUrl,
-            CONFLUENCE_USERNAME: username.trim(),
-            CONFLUENCE_API_TOKEN: authToken.trim(),
-          };
-        } else if (provider.type_value === 'gitlab') {
-          credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
-        } else if (provider.type_value === 'azure_devops') {
-          credentials = buildAzureDevOpsCredentials(
-            azureOrg,
-            azureEmail,
-            authToken
-          );
-        } else if (provider.type_value === 'trello') {
-          credentials = buildTrelloCredentials(trelloApiKey, authToken);
-        }
-        // Handle other providers
-        else {
-          credentials = {
-            [credentialKey]: authToken.trim(),
-          };
-        }
-        if (provider.type_value === 'azure_devops' && azureProject.trim()) {
-          parsedMetadata = {
-            ...(parsedMetadata || {}),
-            project: azureProject.trim(),
-          };
-        }
-        // Add repository metadata for GitHub if provided
-        if (provider.type_value === 'github' && repositoryUrl.trim()) {
-          const repoData = parseRepositoryUrl(repositoryUrl);
-          if (!repoData) {
-            setError(
-              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-            );
-            setTestingConnection(false);
-            return;
-          }
-          parsedMetadata = {
-            ...(parsedMetadata || {}),
-            repository: repoData,
-          };
-        }
-
-        if (provider.type_value === 'gitlab' && projectNamespace.trim()) {
-          const projectData = parseGitLabProjectUrl(projectNamespace);
-          if (!projectData) {
-            setError(
-              'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
-            );
-            setTestingConnection(false);
-            return;
-          }
-          parsedMetadata = {
-            ...(parsedMetadata || {}),
-            project: projectData,
-          };
-        }
-
-        testRequest =
-          provider.type_value === 'trello'
-            ? {
-                provider_type_id: provider.id,
-                credentials,
-              }
-            : {
-                provider_type_id: provider.id,
-                credentials,
-                tool_metadata: parsedMetadata,
-              };
+      const { metadata, error: metadataError } = buildMetadata(
+        manifest,
+        values
+      );
+      if (metadataError) {
+        setTestResult({ is_authenticated: 'No', message: metadataError });
+        setConnectionTested(false);
+        return;
       }
 
-      const result = await servicesClient.testToolConnection(testRequest);
+      const credentials = buildCredentials(manifest, values);
+      const servicesClient = new ApiClientFactory().getServicesClient();
+
+      // With a saved tool and no re-entered credentials, the backend fills the
+      // rest from what is stored, so only the scope override travels.
+      const request =
+        isEditMode && tool?.id && Object.keys(credentials).length === 0
+          ? { tool_id: tool.id, tool_metadata: metadata }
+          : {
+              ...(isEditMode && tool?.id ? { tool_id: tool.id } : {}),
+              provider_type_id: providerLookup.id as string,
+              credentials,
+              tool_metadata: metadata,
+            };
+
+      const result = await servicesClient.testToolConnection(request);
       setTestResult(result);
 
-      // Mark as tested if successful
       if (result.is_authenticated === 'Yes') {
         setConnectionTested(true);
-
-        // Check if we have spaces in additional_metadata (for Jira)
-        if (
-          providerType === 'jira' &&
-          result.additional_metadata?.spaces &&
-          result.additional_metadata.spaces.length > 0
-        ) {
-          setAvailableSpaces(result.additional_metadata.spaces);
-          setShowSpaceSelector(true);
-        } else {
-          setAvailableSpaces([]);
-          setShowSpaceSelector(false);
-        }
+        // Some providers hand back the scopes they can see; offer them as
+        // choices rather than making the user find the key by hand.
+        const offered =
+          result.additional_metadata?.spaces ??
+          result.additional_metadata?.projects ??
+          [];
+        setSpaces(offered);
       } else {
         setConnectionTested(false);
-        setAvailableSpaces([]);
-        setShowSpaceSelector(false);
+        setSpaces([]);
       }
     } catch (err) {
-      // Display error in testResult (under the button) instead of error state (at top)
-      // This matches the success message display pattern
-      const errorMessage =
-        getErrorMessage(err) || 'Failed to test connection. Please try again.';
       setTestResult({
         is_authenticated: 'No',
-        message: errorMessage,
+        message:
+          getErrorMessage(err) ||
+          'Failed to test connection. Please try again.',
       });
       setConnectionTested(false);
     } finally {
-      setTestingConnection(false);
+      setTesting(false);
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const handleSubmit = async () => {
+    if (!manifest || !providerLookup) return;
+    setLoading(true);
+    setError(null);
 
-    if (isEditMode && tool && onUpdate) {
-      // Edit mode: update existing tool
-      setLoading(true);
-      setError(null);
-      try {
+    try {
+      const { metadata, error: metadataError } = buildMetadata(
+        manifest,
+        values
+      );
+      if (metadataError) {
+        setError(metadataError);
+        return;
+      }
+      const credentials = buildCredentials(manifest, values);
+
+      if (isEditMode && tool && onUpdate) {
         const updates: Partial<ToolUpdate> = {
           name,
           description: description || undefined,
         };
-
-        // Get provider type from provider or fall back to tool's provider type
-        const currentProviderType =
-          provider?.type_value || tool.tool_provider_type?.type_value;
-
-        // Handle Jira/Confluence credentials
-        // For Jira/Confluence, we must update credentials if ANY field changed (URL, email, or token)
-        // because all three are stored together in the encrypted credentials field
-        if (
-          currentProviderType === 'jira' ||
-          currentProviderType === 'confluence'
-        ) {
-          const hasUrl = instanceUrl && instanceUrl !== '************';
-          const hasUsername = username && username !== '************';
-          const hasToken =
-            authToken && authToken.trim() && authToken !== '************';
-
-          if (hasUrl || hasUsername || hasToken) {
-            if (!hasUrl || !hasUsername) {
-              setError(
-                'Both URL and email are required for Jira/Confluence connections.'
-              );
-              setLoading(false);
-              return;
-            }
-
-            if (!hasToken) {
-              setError(
-                'API token is required when updating URL or email. Please re-enter your API token.'
-              );
-              setLoading(false);
-              return;
-            }
-
-            const normalizedUrl = normalizeUrl(instanceUrl);
-            if (currentProviderType === 'jira') {
-              updates.credentials = {
-                JIRA_URL: normalizedUrl,
-                JIRA_USERNAME: username.trim(),
-                JIRA_API_TOKEN: authToken.trim(),
-              };
-            } else {
-              updates.credentials = {
-                CONFLUENCE_URL: normalizedUrl,
-                CONFLUENCE_USERNAME: username.trim(),
-                CONFLUENCE_API_TOKEN: authToken.trim(),
-              };
-            }
-          }
+        // Omitted rather than sent empty: the backend keeps what is stored for
+        // any field the manifest marks preserve_on_update.
+        if (Object.keys(credentials).length > 0) {
+          updates.credentials = credentials;
         }
-        // Handle other providers: update credentials if token changed, OR for Trello if the
-        // API key changed (Trello has two credential fields, either of which may be updated).
-        else if (
-          (authToken && authToken.trim() && authToken !== '************') ||
-          (currentProviderType === 'trello' &&
-            trelloApiKey &&
-            trelloApiKey.trim() &&
-            trelloApiKey !== '************')
-        ) {
-          if (currentProviderType === 'trello') {
-            updates.credentials = buildTrelloCredentials(
-              trelloApiKey,
-              authToken
-            );
-          } else if (currentProviderType === 'gitlab') {
-            updates.credentials = buildGitLabCredentials(
-              authToken,
-              gitlabApiUrl
-            );
-          } else if (currentProviderType === 'azure_devops') {
-            updates.credentials = buildAzureDevOpsCredentials(
-              azureOrg,
-              azureEmail,
-              authToken
-            );
-          } else {
-            const credentialKey = getCredentialKey(currentProviderType);
-            updates.credentials = {
-              [credentialKey]: authToken.trim(),
-            };
-          }
-        } else if (
-          currentProviderType === 'gitlab' &&
-          gitlabApiUrl !== initialGitlabApiUrl &&
-          gitlabApiUrl.trim()
-        ) {
-          setError('Re-enter your GitLab token when updating the API URL.');
-          setLoading(false);
-          return;
-        } else if (
-          currentProviderType === 'azure_devops' &&
-          ((azureOrg && azureOrg !== '************') ||
-            (azureEmail && azureEmail !== '************'))
-        ) {
-          setError(
-            'Re-enter your Azure DevOps PAT when updating the organization name or email.'
-          );
-          setLoading(false);
-          return;
+        if (scopeChanged) {
+          updates.tool_metadata = metadata;
         }
-
-        let metadataToUpdate: Record<string, unknown> | undefined = undefined;
-
-        // GitHub requires repository metadata
-        if (providerType === 'github') {
-          if (!repositoryUrl.trim()) {
-            setError('Repository URL is required for GitHub integrations');
-            setLoading(false);
-            return;
-          }
-          const repoData = parseRepositoryUrl(repositoryUrl);
-          if (!repoData) {
-            setError(
-              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-            );
-            setLoading(false);
-            return;
-          }
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            repository: repoData,
-          };
-        }
-
-        // Jira requires space_key metadata
-        if (providerType === 'jira') {
-          if (!selectedSpaceKey) {
-            setError('Jira space selection is required');
-            setLoading(false);
-            return;
-          }
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            space_key: selectedSpaceKey,
-          };
-        }
-
-        if (providerType === 'gitlab') {
-          if (!projectNamespace.trim()) {
-            setError('Project namespace is required for GitLab integrations');
-            setLoading(false);
-            return;
-          }
-          const projectData = parseGitLabProjectUrl(projectNamespace);
-          if (!projectData) {
-            setError(
-              'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
-            );
-            setLoading(false);
-            return;
-          }
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            project: projectData,
-          };
-        }
-
-        if (providerType === 'asana') {
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            ...(buildAsanaMetadata(workspaceGid) || {}),
-          };
-          if (!workspaceGid.trim() && metadataToUpdate.workspace_gid) {
-            delete metadataToUpdate.workspace_gid;
-          }
-        }
-
-        if (providerType === 'azure_devops') {
-          if (!azureProject.trim()) {
-            setError('Project is required for Azure DevOps integrations');
-            setLoading(false);
-            return;
-          }
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            project: azureProject.trim(),
-          };
-        }
-
-        if (metadataToUpdate) {
-          updates.tool_metadata = metadataToUpdate;
-        }
-
         await onUpdate(tool.id, updates);
-        // Don't reset loading state - let dialog close with "Updating..." text
-        onClose();
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to update tool connection'
-        );
-        setLoading(false);
+      } else if (onConnect) {
+        await onConnect(providerLookup.id as string, {
+          name,
+          description: description || undefined,
+          tool_provider_type_id: providerLookup.id as UUID,
+          credentials,
+          tool_metadata: metadata,
+        });
       }
-    } else {
-      // Create mode: require connection test
-      if (!connectionTested) {
-        setError('Please test the connection before saving the tool.');
-        return;
-      }
-
-      // Validate that test was successful
-      if (!testResult || testResult.is_authenticated !== 'Yes') {
-        setError('Connection test must be successful before saving.');
-        return;
-      }
-
-      // Validate required fields
-      if (!provider || !name || !authToken) {
-        setError('Please fill in all required fields.');
-        return;
-      }
-
-      // Validate Jira/Confluence specific fields
-      if (
-        (provider.type_value === 'jira' ||
-          provider.type_value === 'confluence') &&
-        (!instanceUrl || !username)
-      ) {
-        setError('Please fill in all required fields (URL and email).');
-        return;
-      }
-
-      if (onConnect) {
-        setLoading(true);
-        setError(null);
-        try {
-          if (!provider) {
-            setError('Provider not found. Please try again.');
-            setLoading(false);
-            return;
-          }
-
-          // Build credentials based on provider type
-          let credentials: Record<string, string> = {};
-          let parsedMetadata: Record<string, unknown> | undefined = undefined;
-
-          // Handle Jira credentials
-          if (provider.type_value === 'jira') {
-            const normalizedUrl = normalizeUrl(instanceUrl);
-            credentials = {
-              JIRA_URL: normalizedUrl,
-              JIRA_USERNAME: username.trim(),
-              JIRA_API_TOKEN: authToken.trim(),
-            };
-          }
-          // Handle Confluence credentials
-          else if (provider.type_value === 'confluence') {
-            const normalizedUrl = normalizeUrl(instanceUrl);
-            credentials = {
-              CONFLUENCE_URL: normalizedUrl,
-              CONFLUENCE_USERNAME: username.trim(),
-              CONFLUENCE_API_TOKEN: authToken.trim(),
-            };
-          } else if (provider.type_value === 'gitlab') {
-            credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
-          } else if (provider.type_value === 'azure_devops') {
-            credentials = buildAzureDevOpsCredentials(
-              azureOrg,
-              azureEmail,
-              authToken
-            );
-          } else if (provider.type_value === 'trello') {
-            credentials = buildTrelloCredentials(trelloApiKey, authToken);
-          }
-          // Handle other providers
-          else {
-            credentials = {
-              [getCredentialKey(provider.type_value)]: authToken.trim(),
-            };
-          }
-
-          // GitHub requires repository metadata
-          if (providerType === 'github') {
-            if (!repositoryUrl.trim()) {
-              setError('Repository URL is required for GitHub integrations');
-              setLoading(false);
-              return;
-            }
-            const repoData = parseRepositoryUrl(repositoryUrl);
-            if (!repoData) {
-              setError(
-                'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-              );
-              setLoading(false);
-              return;
-            }
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              repository: repoData,
-            };
-          }
-
-          // Jira requires space_key metadata
-          if (providerType === 'jira') {
-            if (!selectedSpaceKey) {
-              setError('Jira space selection is required');
-              setLoading(false);
-              return;
-            }
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              space_key: selectedSpaceKey,
-            };
-          }
-
-          if (providerType === 'gitlab') {
-            if (!projectNamespace.trim()) {
-              setError('Project namespace is required for GitLab integrations');
-              setLoading(false);
-              return;
-            }
-            const projectData = parseGitLabProjectUrl(projectNamespace);
-            if (!projectData) {
-              setError(
-                'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
-              );
-              setLoading(false);
-              return;
-            }
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              project: projectData,
-            };
-          }
-
-          if (providerType === 'asana') {
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              ...(buildAsanaMetadata(workspaceGid) || {}),
-            };
-          }
-
-          if (providerType === 'azure_devops') {
-            if (!azureProject.trim()) {
-              setError('Project is required for Azure DevOps integrations');
-              setLoading(false);
-              return;
-            }
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              project: azureProject.trim(),
-            };
-          }
-
-          const toolData: ToolCreate = {
-            name,
-            description: description || undefined,
-            tool_provider_type_id: provider.id,
-            credentials,
-            tool_metadata: parsedMetadata,
-          };
-
-          await onConnect(provider.type_value, toolData);
-          // Don't reset loading state - let dialog close with "Connecting..." text
-          onClose();
-        } catch (err) {
-          setError(
-            err instanceof Error ? err.message : 'Failed to connect to provider'
-          );
-          setLoading(false);
-        }
-      }
+      onClose();
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Failed to save the connection.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const displayName = provider?.type_value
-    ? formatToolProviderDisplayName(provider.type_value)
-    : 'Tool Provider';
-
-  const basicFieldsChanged =
-    isEditMode &&
-    (name !== initialName ||
-      description !== initialDescription ||
-      repositoryUrl !== initialRepositoryUrl ||
-      projectNamespace !== initialProjectNamespace ||
-      workspaceGid !== initialWorkspaceGid ||
-      azureProject !== initialAzureProject ||
-      selectedSpaceKey !== initialSpaceKey);
+  const showForm = isEditMode || Boolean(providerLookup);
+  const saveDisabled =
+    loading ||
+    !name.trim() ||
+    missing.length > 0 ||
+    (isEditMode
+      ? (!detailsChanged && !needsRetest) || (needsRetest && !connectionTested)
+      : !connectionTested);
 
   const drawerTitle = isEditMode
-    ? `Update ${displayName}`
-    : provider
-      ? `Connect ${displayName}`
+    ? `Edit ${manifest?.display_name ?? 'tool'} connection`
+    : providerLookup
+      ? `Connect ${manifest?.display_name ?? providerLookup.type_value}`
       : 'Add tool connection';
 
-  const showConnectionForm = isEditMode || Boolean(provider);
-
-  const saveDisabled =
-    (!provider && !tool?.tool_provider_type) ||
-    !name ||
-    (!isEditMode && !authToken) ||
-    (!isEditMode && providerType === 'gitlab' && !projectNamespace.trim()) ||
-    (!isEditMode &&
-      providerType === 'azure_devops' &&
-      (!azureProject.trim() || !azureOrg.trim() || !azureEmail.trim())) ||
-    (!isEditMode &&
-      (providerType === 'jira' || providerType === 'confluence') &&
-      (!instanceUrl || !username)) ||
-    (isEditMode &&
-      (providerType === 'jira' || providerType === 'confluence') &&
-      (instanceUrl ||
-        username ||
-        (authToken && authToken !== '************')) &&
-      (!instanceUrl || !username)) ||
-    (!isEditMode && !connectionTested) ||
-    (isEditMode &&
-      (credentialsModified || scopeMetadataModified) &&
-      !connectionTested) ||
-    (isEditMode &&
-      !credentialsModified &&
-      !scopeMetadataModified &&
-      !basicFieldsChanged) ||
-    loading;
-
   const sectionHeadingSx = {
-    fontWeight: 700,
-    fontSize: theme.typography.h6.fontSize,
-    lineHeight: '25px',
+    fontWeight: 600,
     color: 'text.primary',
   } as const;
 
@@ -1416,7 +311,7 @@ export function ToolConnectionDrawer({
       error={error ?? undefined}
       width={640}
     >
-      <Stack spacing={2}>
+      <Stack spacing={3}>
         {!isEditMode && (
           <Stack spacing={1}>
             <Typography sx={sectionHeadingSx}>Provider</Typography>
@@ -1424,7 +319,7 @@ export function ToolConnectionDrawer({
               lookups={sortedProviders}
               providers={toolProviders}
               loading={providersLoading}
-              selectedId={provider?.id ?? null}
+              selectedId={providerLookup?.id ?? null}
               onSelect={choice => {
                 const next = sortedProviders.find(p => p.id === choice.id);
                 setSelectedProvider(next ?? null);
@@ -1436,13 +331,12 @@ export function ToolConnectionDrawer({
           </Stack>
         )}
 
-        {showConnectionForm && (
+        {showForm && manifest && (
           <>
             <Stack spacing={3}>
               <TextField
                 label="Connection Name"
                 fullWidth
-                variant="outlined"
                 required
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -1457,344 +351,55 @@ export function ToolConnectionDrawer({
               />
             </Stack>
 
-            {/* Authentication */}
-            {requiresToken && (
-              <Stack spacing={3}>
-                <Typography sx={sectionHeadingSx}>Authentication</Typography>
+            <Stack spacing={3}>
+              <Typography sx={sectionHeadingSx}>Authentication</Typography>
+              <ProviderFields
+                manifest={manifest}
+                values={values}
+                onChange={setValue}
+                options={{ space_key: spaces }}
+                disabled={loading}
+              />
 
-                {(providerType === 'jira' || providerType === 'confluence') && (
-                  <>
-                    <TextField
-                      label="Atlassian Organization URL"
-                      fullWidth
-                      required={!isEditMode}
-                      value={instanceUrl}
-                      onChange={e => setInstanceUrl(e.target.value)}
-                      onFocus={_e => {
-                        if (isEditMode && instanceUrl === '************') {
-                          setInstanceUrl('');
-                        }
-                      }}
-                      onBlur={e => {
-                        if (isEditMode && !e.target.value) {
-                          setInstanceUrl('************');
-                        }
-                      }}
-                      placeholder={
-                        providerType === 'jira'
-                          ? 'https://your-domain.atlassian.net'
-                          : 'https://your-domain.atlassian.net/wiki'
+              <Box>
+                <Button
+                  variant="outlined"
+                  size="medium"
+                  onClick={() => void handleTestConnection()}
+                  disabled={testing || loading || missing.length > 0}
+                  sx={{ minWidth: 150 }}
+                >
+                  {testing ? 'Testing...' : 'Test Connection'}
+                </Button>
+                {testResult && (
+                  <Box sx={{ mt: 2 }}>
+                    <FilledStatusAlert
+                      severity={
+                        testResult.is_authenticated === 'Yes'
+                          ? 'success'
+                          : 'error'
                       }
-                    />
-                    <TextField
-                      label="Email"
-                      fullWidth
-                      required={!isEditMode}
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      onFocus={_e => {
-                        if (isEditMode && username === '************') {
-                          setUsername('');
-                        }
-                      }}
-                      onBlur={e => {
-                        if (isEditMode && !e.target.value) {
-                          setUsername('************');
-                        }
-                      }}
-                      placeholder="your-email@example.com"
-                    />
-                  </>
-                )}
-
-                {providerType === 'azure_devops' && (
-                  <>
-                    <TextField
-                      label="Organization name"
-                      fullWidth
-                      required={!isEditMode}
-                      value={azureOrg}
-                      onChange={e => setAzureOrg(e.target.value)}
-                      onFocus={_e => {
-                        if (isEditMode && azureOrg === '************') {
-                          setAzureOrg('');
-                        }
-                      }}
-                      onBlur={e => {
-                        if (isEditMode && !e.target.value) {
-                          setAzureOrg('************');
-                        }
-                      }}
-                      placeholder="contoso"
-                      helperText="Azure DevOps organization name (not the full URL)"
-                    />
-                    <TextField
-                      label="Email"
-                      fullWidth
-                      required={!isEditMode}
-                      value={azureEmail}
-                      onChange={e => setAzureEmail(e.target.value)}
-                      onFocus={_e => {
-                        if (isEditMode && azureEmail === '************') {
-                          setAzureEmail('');
-                        }
-                      }}
-                      onBlur={e => {
-                        if (isEditMode && !e.target.value) {
-                          setAzureEmail('************');
-                        }
-                      }}
-                      placeholder="your-email@example.com"
-                      helperText="Email paired with your PAT for Azure DevOps authentication"
-                    />
-                  </>
-                )}
-
-                <TextField
-                  label={
-                    providerType === 'jira' ||
-                    providerType === 'confluence' ||
-                    providerType === 'trello'
-                      ? 'API Token'
-                      : providerType === 'azure_devops'
-                        ? 'Personal Access Token'
-                        : 'Authentication token'
-                  }
-                  fullWidth
-                  required={!isEditMode}
-                  type={showAuthToken ? 'text' : 'password'}
-                  value={authToken}
-                  onChange={e => setAuthToken(e.target.value)}
-                  onFocus={_e => {
-                    if (isEditMode && authToken === '************') {
-                      setAuthToken('');
-                    }
-                  }}
-                  onBlur={e => {
-                    if (isEditMode && !e.target.value) {
-                      setAuthToken('************');
-                    }
-                  }}
-                  helperText={
-                    isEditMode
-                      ? authToken !== '************' && authToken !== ''
-                        ? 'New API token will replace the current one'
-                        : 'Click to update the API token'
-                      : undefined
-                  }
-                  InputProps={{
-                    endAdornment:
-                      authToken && authToken !== '************' ? (
-                        <IconButton
-                          size="small"
-                          onClick={() => setShowAuthToken(!showAuthToken)}
-                          edge="end"
-                          aria-label={
-                            showAuthToken
-                              ? 'Hide auth token'
-                              : 'Show auth token'
-                          }
-                        >
-                          {showAuthToken ? (
-                            <VisibilityOffIcon fontSize="small" />
-                          ) : (
-                            <VisibilityIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      ) : null,
-                  }}
-                />
-
-                {providerType === 'github' && (
-                  <TextField
-                    label="Repository URL"
-                    fullWidth
-                    required
-                    value={repositoryUrl}
-                    onChange={e => setRepositoryUrl(e.target.value)}
-                    placeholder="https://github.com/owner/repo"
-                    helperText="Specify the GitHub repository for this connection"
-                  />
-                )}
-
-                {providerType === 'gitlab' && (
-                  <>
-                    <TextField
-                      label="Project namespace"
-                      fullWidth
-                      required
-                      value={projectNamespace}
-                      onChange={e => setProjectNamespace(e.target.value)}
-                      placeholder="my-group/my-project"
-                      helperText="GitLab project path (group/project) or full project URL on any host"
-                    />
-                    <TextField
-                      label="GitLab API URL (optional)"
-                      fullWidth
-                      value={gitlabApiUrl}
-                      onChange={e => setGitlabApiUrl(e.target.value)}
-                      placeholder="https://gitlab.example.com"
-                      helperText="Leave blank for gitlab.com; use for self-managed instances"
-                    />
-                  </>
-                )}
-
-                {providerType === 'trello' && (
-                  <TextField
-                    label="API Key"
-                    fullWidth
-                    required={!isEditMode}
-                    value={trelloApiKey}
-                    onChange={e => setTrelloApiKey(e.target.value)}
-                    onFocus={_e => {
-                      if (isEditMode && trelloApiKey === '************') {
-                        setTrelloApiKey('');
+                      title={
+                        testResult.is_authenticated === 'Yes'
+                          ? 'Connection Successful'
+                          : 'Connection Failed'
                       }
-                    }}
-                    onBlur={e => {
-                      if (isEditMode && !e.target.value) {
-                        setTrelloApiKey('************');
-                      }
-                    }}
-                    placeholder="Your Trello API Key"
-                    helperText="API Key generated from the Trello Power-Up Admin Portal"
-                  />
-                )}
-
-                {providerType === 'asana' && (
-                  <TextField
-                    label="Workspace GID (optional)"
-                    fullWidth
-                    value={workspaceGid}
-                    onChange={e => setWorkspaceGid(e.target.value)}
-                    placeholder="1234567890"
-                    helperText="Optional Asana workspace scope for search and import"
-                  />
-                )}
-
-                {providerType === 'azure_devops' && (
-                  <TextField
-                    label="Project"
-                    fullWidth
-                    required
-                    value={azureProject}
-                    onChange={e => setAzureProject(e.target.value)}
-                    placeholder="MyProject"
-                    helperText="Azure DevOps project to scope work item search and import"
-                  />
-                )}
-
-                <Box>
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    onClick={handleTestConnection}
-                    disabled={Boolean(
-                      testingConnection ||
-                      loading ||
-                      !authToken ||
-                      (providerType === 'github' && !repositoryUrl.trim()) ||
-                      (providerType === 'gitlab' && !projectNamespace.trim()) ||
-                      (providerType === 'azure_devops' &&
-                        !azureProject.trim()) ||
-                      (!isEditMode &&
-                        providerType === 'azure_devops' &&
-                        (!azureOrg.trim() || !azureEmail.trim())) ||
-                      (!isEditMode &&
-                        providerType === 'trello' &&
-                        !trelloApiKey.trim()) ||
-                      (!isEditMode &&
-                        (providerType === 'jira' ||
-                          providerType === 'confluence') &&
-                        (!instanceUrl || !username)) ||
-                      (isEditMode &&
-                        (providerType === 'jira' ||
-                          providerType === 'confluence') &&
-                        (instanceUrl ||
-                          username ||
-                          (authToken && authToken !== '************')) &&
-                        (!instanceUrl || !username))
-                    )}
-                    sx={{ minWidth: 150 }}
-                  >
-                    {testingConnection ? 'Testing...' : 'Test Connection'}
-                  </Button>
-                  {testResult && (
-                    <Box sx={{ mt: 2 }}>
-                      <FilledStatusAlert
-                        severity={
-                          testResult.is_authenticated === 'Yes'
-                            ? 'success'
-                            : 'error'
-                        }
-                        title={
-                          testResult.is_authenticated === 'Yes'
-                            ? 'Connection Successful'
-                            : 'Connection Failed'
-                        }
-                        description={testResult.message}
-                      />
-                    </Box>
-                  )}
-                </Box>
-              </Stack>
-            )}
-
-            {/* Jira Space Selection */}
-            {showSpaceSelector &&
-              availableSpaces.length > 0 &&
-              providerType === 'jira' && (
-                <Stack spacing={3}>
-                  <Box>
-                    <Typography sx={sectionHeadingSx}>
-                      Space Selection
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 0.5, display: 'block' }}
-                    >
-                      Select the Jira space for issue creation
-                    </Typography>
+                      description={testResult.message}
+                    />
                   </Box>
-                  <FormControl fullWidth required>
-                    <InputLabel>Jira Space</InputLabel>
-                    <Select
-                      value={selectedSpaceKey}
-                      onChange={e => setSelectedSpaceKey(e.target.value)}
-                      label="Jira Space"
-                      required
-                    >
-                      {availableSpaces.map(space => (
-                        <MenuItem key={space.key} value={space.key}>
-                          {space.name} ({space.key})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Stack>
-              )}
+                )}
+              </Box>
+            </Stack>
 
-            {!isEditMode &&
-              showConnectionForm &&
-              !connectionTested &&
-              !testResult && (
-                <Alert severity="info">
-                  Please test the connection before saving the tool
-                  configuration.
-                </Alert>
-              )}
-            {isEditMode &&
-              showConnectionForm &&
-              (credentialsModified || scopeMetadataModified) &&
-              !connectionTested &&
-              !testResult && (
-                <Alert severity="info">
-                  {credentialsModified
-                    ? 'Please test the connection with the updated credentials before saving.'
-                    : 'Please test the connection with the updated scope before saving.'}
-                </Alert>
-              )}
+            {!connectionTested && !testResult && (
+              <Alert severity="info">
+                {isEditMode && needsRetest
+                  ? 'Please test the connection with your changes before saving.'
+                  : !isEditMode
+                    ? 'Please test the connection before saving the tool configuration.'
+                    : null}
+              </Alert>
+            )}
           </>
         )}
       </Stack>
