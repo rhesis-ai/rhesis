@@ -17,10 +17,19 @@ from tests.backend.testcontainers_setup import (
     ADMIN_USER,
     APP_PASS,
     APP_USER,
+    TEMPLATE_DB,
+    clone_template_database,
+    ensure_template_migrated,
     ensure_test_containers,
 )
 
 _containers = ensure_test_containers()
+
+# Each xdist worker gets its own database inside the one shared server, cloned
+# from the migrated template. The name has to be settled here, at import time,
+# because fixtures/database.py builds its engine from DB_NAME as it imports.
+# _prepare_worker_database() below creates the database itself.
+_XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "main")
 
 # EE bootstrap installs SignedTokenLicenseProvider unconditionally (see
 # ee/backend/.../ee/__init__.py:bootstrap()), which enforces a real signed
@@ -61,7 +70,7 @@ _LICENSE_TEST_TOKEN = jwt.encode(
 
 _TEST_DB_HOST = _containers["db_host"]
 _TEST_DB_PORT = str(_containers["db_port"])
-_TEST_DB_NAME = "rhesis-test-db"
+_TEST_DB_NAME = f"rhesis-test-{_XDIST_WORKER}"
 _TEST_DB_DRIVER = "postgresql"
 
 _TEST_ENV_VARS = {
@@ -120,6 +129,64 @@ import subprocess  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
+
+
+def _migrations_skipped() -> bool:
+    return os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes")
+
+
+def _alembic_upgrade_template() -> None:
+    """Bring the template database to head. Runs once per container."""
+    backend_dir = (
+        Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
+    )
+
+    env = os.environ.copy()
+    env["DB_DRIVER"] = _TEST_DB_DRIVER
+    env["DB_HOST"] = _TEST_DB_HOST
+    env["DB_PORT"] = _TEST_DB_PORT
+    env["DB_NAME"] = TEMPLATE_DB
+    env["APP_DB_USER"] = APP_USER
+    env["APP_DB_PASS"] = APP_PASS
+    env["ADMIN_DB_USER"] = ADMIN_USER
+    env["ADMIN_DB_PASS"] = ADMIN_PASS
+    env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
+
+    result = subprocess.run(
+        ["uv", "run", "alembic", "upgrade", "heads"],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Database migrations failed (returncode={result.returncode}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
+            "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
+        )
+
+
+def _prepare_worker_database() -> None:
+    """Migrate the shared template if needed, then clone this process's database.
+
+    Has to happen here, before the fixture imports below: importing the app
+    runs ``Base.metadata.create_all`` at module scope (app/main.py), which
+    connects straight away. A fixture would be far too late, and session
+    fixtures have no guaranteed order between them anyway.
+
+    Under the advisory lock in ``ensure_template_migrated`` exactly one process
+    replays the 269 revisions. Everyone else waits briefly, then copies the
+    result, which is a file copy rather than a second replay.
+    """
+    if _migrations_skipped():
+        return
+    ensure_template_migrated(_TEST_DB_HOST, _TEST_DB_PORT, _alembic_upgrade_template)
+    clone_template_database(_TEST_DB_HOST, _TEST_DB_PORT, _TEST_DB_NAME)
+
+
+_prepare_worker_database()
 
 # Import all modular fixtures
 from tests.backend.fixtures import *  # noqa: E402, F403
@@ -420,55 +487,13 @@ def _ensure_session_user_is_owner(request, _ensure_ee_features_registered):
 # =============================================================================
 
 
-def _run_migrations() -> None:
-    backend_dir = (
-        Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
-    )
-
-    env = os.environ.copy()
-    env["DB_DRIVER"] = _TEST_DB_DRIVER
-    env["DB_HOST"] = _TEST_DB_HOST
-    env["DB_PORT"] = _TEST_DB_PORT
-    env["DB_NAME"] = _TEST_DB_NAME
-    env["APP_DB_USER"] = APP_USER
-    env["APP_DB_PASS"] = APP_PASS
-    env["ADMIN_DB_USER"] = ADMIN_USER
-    env["ADMIN_DB_PASS"] = ADMIN_PASS
-    env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
-
-    result = subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "heads"],
-        cwd=backend_dir,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode != 0:
-        pytest.fail(
-            f"Database migrations failed (returncode={result.returncode}):\n"
-            f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
-            "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
-        )
-
-    from tests.backend.testcontainers_setup import grant_app_role_privileges
-
-    grant_app_role_privileges(_TEST_DB_HOST, _TEST_DB_PORT, _TEST_DB_NAME)
-
-
 @pytest.fixture(scope="session", autouse=True)
 def run_migrations_once():
-    """
-    Run Alembic migrations once per test session.
+    """Kept as the schema-readiness anchor other fixtures depend on.
 
-    Idempotent: if the DB is already at head, this is a fast no-op.
-    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
+    The work itself happens in ``_prepare_worker_database`` at import time;
+    see its docstring for why it cannot live in a fixture.
     """
-    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
-        yield
-        return
-
-    _run_migrations()
     yield
 
 
