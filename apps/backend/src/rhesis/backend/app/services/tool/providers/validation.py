@@ -14,6 +14,7 @@ differed from the generated form.
 from __future__ import annotations
 
 import json
+from enum import Enum
 from typing import Any, Mapping, MutableMapping, Optional
 
 from rhesis.backend.app.services.tool.providers.spec import (
@@ -36,22 +37,40 @@ def _invalid_detail(manifest: ProviderManifest, field: ProviderField) -> str:
     return f"{manifest.display_name} '{field.leaf}' must be a non-empty string"
 
 
-def _read(source: Mapping[str, Any] | None, field: ProviderField) -> tuple[bool, Any]:
-    """Walk a dotted key. Returns ``(container_present, value)``.
+class FieldState(str, Enum):
+    """Where a dotted lookup landed.
 
-    ``container_present`` is False when an intermediate object is missing, which
-    is a different error from a blank leaf: GitLab says "require project
-    metadata" for the former and names ``namespace`` for the latter.
+    ``ABSENT`` and ``MALFORMED`` are deliberately distinct. An optional field
+    that simply is not there is fine; one whose parent is present but is not an
+    object is a shape bug, and treating the two alike would let a typo in a
+    nested payload pass silently.
+    """
+
+    #: The key, or one of its ancestors, is not present.
+    ABSENT = "absent"
+    #: An ancestor is present but is not an object, so the key cannot exist.
+    MALFORMED = "malformed"
+    #: The containing object exists; the value may still be ``None``.
+    PRESENT = "present"
+
+
+def _read(source: Mapping[str, Any] | None, field: ProviderField) -> tuple[FieldState, Any]:
+    """Walk a dotted key. Returns ``(state, value)``.
+
+    The distinction matters for error wording as well as correctness: GitLab
+    says "require project metadata" when ``project`` is missing, and names
+    ``namespace`` when the object is there but the leaf is not.
     """
     current: Any = source or {}
-    segments = field.path
-    for segment in segments[:-1]:
-        if not isinstance(current, Mapping) or segment not in current:
-            return False, None
+    for segment in field.path[:-1]:
+        if not isinstance(current, Mapping):
+            return FieldState.MALFORMED, None
+        if segment not in current:
+            return FieldState.ABSENT, None
         current = current[segment]
     if not isinstance(current, Mapping):
-        return False, None
-    return True, current.get(segments[-1])
+        return FieldState.MALFORMED, None
+    return FieldState.PRESENT, current.get(field.path[-1])
 
 
 def _write(target: MutableMapping[str, Any], field: ProviderField, value: Any) -> None:
@@ -70,8 +89,13 @@ def read_field(
     source: Mapping[str, Any] | None,
     field: ProviderField,
 ) -> tuple[bool, Any]:
-    """Public wrapper over the dotted-key walk. See :func:`_read`."""
-    return _read(source, field)
+    """Public wrapper over the dotted-key walk, collapsed to ``(found, value)``.
+
+    Callers that only need "is there a usable value here" do not want the
+    three-state distinction; :func:`validate_field` is where it matters.
+    """
+    state, value = _read(source, field)
+    return state is FieldState.PRESENT, value
 
 
 def validate_field(
@@ -80,9 +104,15 @@ def validate_field(
     source: Mapping[str, Any] | None,
 ) -> None:
     """Check one field against a credentials or metadata mapping."""
-    container_present, value = _read(source, field)
+    state, value = _read(source, field)
 
-    if not container_present:
+    if state is FieldState.MALFORMED:
+        # The parent is there but is not an object, so this is a shape bug
+        # whether or not the field is optional.
+        detail = field.messages.container_missing or _missing_detail(manifest, field)
+        raise ProviderFieldError(detail)
+
+    if state is FieldState.ABSENT:
         if not field.required:
             return
         detail = field.messages.container_missing or _missing_detail(manifest, field)
@@ -93,10 +123,14 @@ def validate_field(
             return
         raise ProviderFieldError(_missing_detail(manifest, field))
 
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str):
+        # Always an error. "Blank means not provided" below is about empty
+        # strings from a form, and must not extend to a list or a number.
+        raise ProviderFieldError(_invalid_detail(manifest, field))
+
+    if not value.strip():
         # A generic form posts "" for every field the user left empty, so for an
-        # optional field blank means "not provided", not "invalid". Only a
-        # required field can fail here.
+        # optional field blank means "not provided", not "invalid".
         if not field.required:
             return
         raise ProviderFieldError(_invalid_detail(manifest, field))
@@ -130,8 +164,8 @@ def normalize(
     """
     prepared: dict[str, Any] = dict(source or {})
     for field in manifest.fields_in(store):
-        container_present, value = _read(prepared, field)
-        if not container_present or not isinstance(value, str):
+        state, value = _read(prepared, field)
+        if state is not FieldState.PRESENT or not isinstance(value, str):
             continue
         try:
             normalized = field.normalize(value) if field.normalize else value.strip()

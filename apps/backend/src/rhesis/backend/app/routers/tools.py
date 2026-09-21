@@ -129,13 +129,21 @@ def _validate_mcp_test_connection_request(
     credentials: dict[str, str] | None,
     tool_metadata: dict | None,
 ) -> None:
-    """Validate unsaved credentials/metadata before MCP health check."""
-    if credentials is None:
-        return
+    """Validate unsaved credentials and metadata before an MCP health check."""
     manifest = get_manifest(provider)
     if manifest is None:
         return
-    _validate_fields(manifest, credentials, tool_metadata)
+
+    if credentials is not None:
+        _validate_fields(manifest, credentials, tool_metadata)
+        return
+
+    # A request may carry tool_id plus a metadata override and no credentials.
+    # Metadata is the scope the agent is confined to, so it still has to hold
+    # up: a caller sending an empty override would otherwise drop the saved
+    # scope and run the health check against everything the token can reach.
+    if tool_metadata is not None:
+        _validate_fields(manifest, None, tool_metadata, check_credentials=False)
 
 
 def _validate_provider_type_switch(

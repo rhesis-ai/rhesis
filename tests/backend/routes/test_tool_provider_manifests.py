@@ -537,3 +537,64 @@ def test_malformed_scope_metadata_fails_loudly(provider, metadata):
 
     with pytest.raises(ToolConfigurationError):
         _scope_context_from_metadata(provider, metadata)
+
+
+# --- wrong types and metadata-only overrides ------------------------------
+
+
+@pytest.mark.parametrize("bad", [[], {}, 123, True, 1.5])
+def test_optional_field_rejects_a_non_string_value(bad):
+    """Blank means "not provided"; a list or a number means a bug.
+
+    ``workspace_gid`` is optional, so an empty string is accepted. That
+    leniency must not extend to values of the wrong type, which would
+    otherwise be swallowed and reach the MCP layer unchecked.
+    """
+    with pytest.raises(ProviderFieldError):
+        validate_store(MANIFESTS["asana"], FieldStore.METADATA, {"workspace_gid": bad})
+
+
+def test_optional_nested_field_rejects_a_malformed_parent():
+    """``repository`` as a bare string is a shape bug, not an absent field."""
+    with pytest.raises(ProviderFieldError):
+        validate_store(MANIFESTS["github"], FieldStore.METADATA, {"repository": "not-a-dict"})
+
+
+def test_absent_optional_parent_is_still_fine():
+    validate_store(MANIFESTS["github"], FieldStore.METADATA, {})
+
+
+def test_metadata_override_without_credentials_is_validated():
+    """tool_id + an empty override must not silently drop a required scope.
+
+    ``TestToolConnectionRequest`` allows a metadata override with no
+    credentials. Skipping validation there let a caller unscope a GitLab agent
+    by sending ``{}``, since an empty dict yields no scope context.
+    """
+    from fastapi import HTTPException
+
+    from rhesis.backend.app.routers.tools import _validate_mcp_test_connection_request
+
+    with pytest.raises(HTTPException) as exc:
+        _validate_mcp_test_connection_request("gitlab", None, {})
+    assert exc.value.status_code == 400
+    assert "project" in exc.value.detail
+
+
+def test_clearing_an_optional_scope_without_credentials_is_allowed():
+    """The Asana "cleared workspace" flow sends exactly this.
+
+    ``ToolConnectionDrawer`` posts ``tool_metadata: {}`` when the workspace
+    field is emptied, so the test reflects the cleared scope instead of falling
+    back to the stored one. Optional scope, so it must keep working.
+    """
+    from rhesis.backend.app.routers.tools import _validate_mcp_test_connection_request
+
+    _validate_mcp_test_connection_request("asana", None, {})
+
+
+def test_no_metadata_and_no_credentials_validates_nothing():
+    """A plain saved-tool test-connection carries neither."""
+    from rhesis.backend.app.routers.tools import _validate_mcp_test_connection_request
+
+    _validate_mcp_test_connection_request("gitlab", None, None)
