@@ -1,13 +1,15 @@
 """Tests for RhesisTracing: conversation grouping for apps that own their own loop."""
 
+from contextlib import contextmanager
+
 import pytest
 
 pytest.importorskip("haystack")
 
 from haystack import Pipeline, component
 from rhesis.telemetry.constants import ConversationContext
-from rhesis.telemetry.context import get_root_trace_id
-from rhesis.telemetry.conversation import conversation_turn
+from rhesis.telemetry.context import get_conversation_id, get_root_trace_id
+from rhesis.telemetry.conversation import conversation_turn, get_conversation_anchor
 
 from rhesis.sdk.telemetry.integrations.haystack.conversation import (
     DEFAULT_TURN_SPAN_NAME,
@@ -315,6 +317,86 @@ class TestConversationContinuity:
             pass
 
         assert len({s.context.trace_id for s in turn_spans(exporter)}) == 1
+
+
+class TestAnInvalidTraceIdIsNotAnchored:
+    """A non-recording span must never become a conversation's anchor.
+
+    A disabled or shut-down provider hands back a span whose trace id is all
+    zeros. The anchor store keeps the first value written, so anchoring that
+    would send every later turn to a trace that cannot exist with no way to
+    correct it -- and since the store is process-wide, it would take
+    ``conversation_turn`` and ``@endpoint`` down for that id too. That is the
+    blast radius that moving onto the shared store created.
+    """
+
+    @pytest.fixture
+    def non_recording_tracing(self, sdk_provider, monkeypatch):
+        """``RhesisTracing`` whose tracer hands back non-recording spans."""
+        from opentelemetry.trace import NonRecordingSpan, SpanContext
+
+        tracing = RhesisTracing("app")
+        assert tracing.enabled
+
+        class _InertTracer:
+            @contextmanager
+            def start_as_current_span(self, name, context=None, **kwargs):
+                yield NonRecordingSpan(SpanContext(trace_id=0, span_id=0, is_remote=False))
+
+        monkeypatch.setattr(tracing._tracer.telemetry, "otel_tracer", _InertTracer())
+        return tracing
+
+    def test_a_named_conversation_is_left_unanchored(self, non_recording_tracing):
+        non_recording_tracing.start_conversation("conv-zero")
+        with non_recording_tracing.turn("hello") as turn:
+            turn.output = "world"
+
+        assert get_conversation_anchor("conv-zero") is None
+
+    def test_a_healthy_later_turn_still_anchors(self, non_recording_tracing, sdk_provider):
+        """The point of not writing: first-writer-wins makes a bad value permanent."""
+        non_recording_tracing.start_conversation("conv-recovers")
+        with non_recording_tracing.turn("hello"):
+            pass
+
+        healthy = RhesisTracing("app")
+        healthy.start_conversation("conv-recovers")
+        with healthy.turn("hello again"):
+            pass
+
+        anchor = get_conversation_anchor("conv-recovers")
+        assert anchor is not None
+        assert int(anchor, 16) != 0
+
+    def test_an_unnamed_turn_is_left_unanchored(self, non_recording_tracing):
+        with non_recording_tracing.turn("hello"):
+            pass
+
+        assert non_recording_tracing._unnamed_anchor is None
+
+
+class TestTheTurnBindsTheConversationId:
+    """An integration running inside the turn has to be able to read it.
+
+    ``conversation_turn`` binds both the conversation id and the root trace id;
+    this bound only the trace id, so a framework integration nested in a Haystack
+    turn could not tell which conversation it was in and recorded no session id
+    of its own.
+    """
+
+    def test_the_id_is_bound_inside_the_turn(self, sdk_provider):
+        tracing = RhesisTracing("app")
+        tracing.start_conversation("conv-bound")
+
+        assert get_conversation_id() is None
+        with tracing.turn("hello"):
+            assert get_conversation_id() == "conv-bound"
+        assert get_conversation_id() is None
+
+    def test_an_unnamed_turn_binds_nothing(self, sdk_provider):
+        tracing = RhesisTracing("app")
+        with tracing.turn("hello"):
+            assert get_conversation_id() is None
 
 
 class TestSharedAnchorStore:
