@@ -181,6 +181,12 @@ class TuningAgreement(BaseModel):
     # The metric call failed. Left out too, and kept apart from the verdicts so a
     # flaky provider never reads as a bad metric.
     errored: int = 0
+    # Test results where someone overruled this metric on a real run. Reported
+    # beside the ratio and deliberately outside it: the ratio measures the
+    # curated tuning set, and folding a different population into it would make
+    # the number mean two things at once. A metric with no tuning cases at all
+    # can still have a count here, which is the point.
+    disagreements_in_runs: int = 0
 
 
 class MetricTuningRun(BaseModel):
@@ -272,6 +278,17 @@ class MetricTuningImprovement(BaseModel):
     # Names of the fields whose proposed value differs from the metric's current one.
     changed: List[str] = []
     rejections_used: int = 0
+    # Split by where each rejection came from: a tuning case someone curated, or
+    # someone overruling the metric on a real test result. Both are sent.
+    tuning_rejections_used: int = 0
+    run_rejections_used: int = 0
+    # How many run-sourced rejections exist, which exceeds run_rejections_used
+    # when the cap bites. Reported so a dropped one is visible rather than
+    # silently missing from the rewrite.
+    run_rejections_found: int = 0
+    # Explorer tests someone labelled against what this metric said about them.
+    explorer_rejections_used: int = 0
+    explorer_rejections_found: int = 0
 
 
 __all__ = [

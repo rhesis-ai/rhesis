@@ -30,13 +30,16 @@ not speak to, and the nudge to re-run afterwards, are what stand in for it.
 
 import logging
 import os
+import re
 from typing import Any, List, Optional
 
 from jinja2 import Template
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import AnnotationTarget, EntityType
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.schemas.metric import MetricUpdate
@@ -46,6 +49,11 @@ from rhesis.backend.app.schemas.metric_tuning import (
     TuningDecision,
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import parse_metric_tuning_case_metadata
+from rhesis.backend.app.services.annotation_override.common import (
+    annotation_passed,
+    find_metric_key,
+    normalize_metric_name,
+)
 from rhesis.backend.app.services.metric_tuning.judgement import decision_of
 from rhesis.backend.app.services.metric_tuning.outcome import current_verdict, standing_annotation
 from rhesis.backend.app.services.metric_tuning.payload import parse_payload
@@ -70,6 +78,15 @@ IMPROVABLE_FIELDS = tuple(ImprovedMetricFields.model_fields)
 # stored categorical verdict is named from -- neither is a thing this button
 # moves. See ADR-0006.
 PRESERVED_FIELDS = ("score_type", "categories")
+
+
+# How many run-sourced rejections reach the prompt. Tuning cases are deliberately
+# uncapped -- see the module docstring -- but they are a set someone curated one
+# case at a time, while this is every annotation anyone left on any run of this
+# metric, which is unbounded. The cap is reported back rather than applied
+# quietly: the count says how many were found and how many were sent, so a
+# dropped rejection is a number on screen rather than a silent omission.
+RUN_REJECTION_LIMIT = 20
 
 
 class NoStandingRejections(Exception):
@@ -165,6 +182,311 @@ def standing_rejections(
             )
         )
     return rejections
+
+
+def _output_text(test_output: Any) -> str:
+    """What the system under test answered, out of the stored output blob."""
+    if isinstance(test_output, dict):
+        for key in ("response", "output"):
+            value = test_output.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        return ""
+    return test_output if isinstance(test_output, str) else ""
+
+
+def _overriding_metric_entry(
+    test_result: models.TestResult, metric_name: str, annotation_id: str
+) -> Optional[dict]:
+    """The metric's entry on this result, if this annotation is overriding it.
+
+    The override marker is the disagreement: ``apply_override`` writes one only
+    when the human verdict differs from the automated value, and removes it when
+    they agree. So its presence means the person contradicted the metric, and its
+    ``annotation_id`` means this annotation is the one currently doing so rather
+    than a superseded one. Re-deriving either from the verdicts would be a second
+    implementation of a rule that already has one.
+    """
+    test_metrics = test_result.test_metrics
+    if not isinstance(test_metrics, dict):
+        return None
+    metrics = test_metrics.get("metrics")
+    if not isinstance(metrics, dict):
+        return None
+    key = find_metric_key(metrics, metric_name)
+    if key is None:
+        return None
+    entry = metrics[key]
+    if not isinstance(entry, dict):
+        return None
+    override = entry.get("override")
+    if not isinstance(override, dict):
+        return None
+    if str(override.get("annotation_id")) != str(annotation_id):
+        return None
+    return entry
+
+
+def _alphanumerics_only(name: str) -> str:
+    """A name with every non-alphanumeric removed, lowercased."""
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def _annotations_naming_metric(db: Session, metric: models.Metric) -> List[models.Annotation]:
+    """Unresolved, commented metric annotations on test results naming this metric.
+
+    The blank-comment rule lives here rather than at each caller, because the
+    two of them have to agree: counting a disagreement the extraction then drops
+    would light up Improve and have the call refuse. Nothing validates the
+    comment as non-blank -- the column is nullable and the create schema accepts
+    an empty string -- so whitespace is reachable and is excluded in SQL.
+
+    The name is narrowed in SQL and decided in Python. SQL compares the names
+    with every non-alphanumeric removed, which is deliberately looser than the
+    real rule: two names the real rule considers equal always agree here too, so
+    the filter can only ever keep extra rows, never drop a real annotation.
+    Python then applies the authoritative comparison to what survives. Writing
+    the real rule in SQL would be a second copy of it, and the day the two
+    drifted the count and the rejections would disagree with each other.
+
+    This is what keeps a polled endpoint from hydrating every unresolved
+    annotation in the tenant. It is still a scan -- the comparison is computed
+    per row, not index-backed -- but the rows no longer cross into Python.
+    """
+    target = _alphanumerics_only(metric.name or "")
+    candidates = (
+        db.query(models.Annotation)
+        .filter(
+            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
+            models.Annotation.target_type == AnnotationTarget.METRIC.value,
+            models.Annotation.resolved.is_(False),
+            # Whitespace removed rather than btrim'd: btrim takes spaces only by
+            # default, so a comment of a tab or a newline would survive it and
+            # be counted as something to read.
+            func.regexp_replace(func.coalesce(models.Annotation.comments, ""), r"\s", "", "g")
+            != "",
+            func.regexp_replace(
+                func.lower(func.coalesce(models.Annotation.target_reference, "")),
+                "[^a-z0-9]+",
+                "",
+                "g",
+            )
+            == target,
+        )
+        .order_by(models.Annotation.updated_at.desc())
+        .all()
+    )
+    normalized = normalize_metric_name(metric.name or "")
+    return [
+        annotation
+        for annotation in candidates
+        if normalize_metric_name(annotation.target_reference or "") == normalized
+    ]
+
+
+def count_run_disagreements(db: Session, metric: models.Metric) -> int:
+    """How many test results carry a standing human verdict against this metric.
+
+    The same rule ``run_rejections`` applies, counted without building the cases:
+    two narrow queries, the second reading only the ids and the metrics blob. The
+    agreement endpoint is polled, so this stays next to the two queries that
+    function already makes rather than loading prompts and outputs nobody shows.
+
+    The override marker cannot be tested in SQL -- the metric's key inside the
+    blob is matched case- and punctuation-insensitively, so there is no fixed
+    path to query -- which is why this is a count over rows rather than a
+    ``COUNT(*)``.
+    """
+    annotations = _annotations_naming_metric(db, metric)
+    if not annotations:
+        return 0
+
+    blobs = dict(
+        db.query(models.TestResult.id, models.TestResult.test_metrics)
+        .filter(models.TestResult.id.in_([a.entity_id for a in annotations]))
+        .all()
+    )
+    metric_name = metric.name or ""
+    return sum(
+        1
+        for annotation in annotations
+        if _overrides_metric(blobs.get(annotation.entity_id), metric_name, annotation.id)
+    )
+
+
+def _overrides_metric(test_metrics: Any, metric_name: str, annotation_id: Any) -> bool:
+    """Whether this annotation is the one currently overriding the metric."""
+    if not isinstance(test_metrics, dict):
+        return False
+    metrics = test_metrics.get("metrics")
+    if not isinstance(metrics, dict):
+        return False
+    key = find_metric_key(metrics, metric_name)
+    if key is None or not isinstance(metrics[key], dict):
+        return False
+    override = metrics[key].get("override")
+    return isinstance(override, dict) and str(override.get("annotation_id")) == str(annotation_id)
+
+
+def run_rejections(
+    db: Session, metric: models.Metric, organization_id: str
+) -> tuple[List[Rejection], int]:
+    """Rejections read off real test results rather than tuning cases.
+
+    A person who overrules this metric on a run has said the same thing a tuning
+    rejection says -- that the metric judged a case wrongly -- about a case that
+    came out of the system under test rather than one curated for tuning. The
+    Architect is already told a human verdict outranks a metric score; this is
+    the path for acting on that.
+
+    Only annotations still overriding the metric count. An annotation that agrees
+    with it leaves no override marker, and one a later judgement replaced no
+    longer owns the marker, so both fall out without a second rule for either.
+
+    Unresolved only: resolving one is how a person says the disagreement has been
+    handled, and asking for a rewrite from a settled objection would undo it.
+
+    Returns the rejections to send and how many were found, which differ when the
+    cap bites.
+    """
+    metric_name = metric.name or ""
+    named_this_metric = _annotations_naming_metric(db, metric)
+    if not named_this_metric:
+        return [], 0
+
+    # Keyed by UUID, as count_run_disagreements keys its blobs: two adjacent
+    # maps looked up with different key types is a miss waiting to happen.
+    results = {
+        result.id: result
+        for result in db.query(models.TestResult)
+        .options(
+            joinedload(models.TestResult.test).joinedload(models.Test.prompt),
+        )
+        .filter(
+            models.TestResult.id.in_([annotation.entity_id for annotation in named_this_metric])
+        )
+        .all()
+    }
+
+    found: List[Rejection] = []
+    for annotation in named_this_metric:
+        result = results.get(annotation.entity_id)
+        if result is None:
+            continue
+        entry = _overriding_metric_entry(result, metric_name, annotation.id)
+        if entry is None:
+            continue
+        comment = (annotation.comments or "").strip()
+        if not comment:
+            continue
+
+        prompt = result.test.prompt if result.test else None
+        override = entry["override"]
+        found.append(
+            Rejection(
+                input=_clip(prompt.content if prompt else None) or "",
+                output=_clip(_output_text(result.test_output)) or "",
+                reference_answer=_clip(prompt.expected_response if prompt else None),
+                # What the metric said before the person overruled it. The live
+                # is_successful now holds their verdict, so reading that would
+                # show the model its own output as the thing to fix.
+                verdict=_verdict_text(override.get("original_value")),
+                reasoning=_clip(entry.get("reason")),
+                comment=_clip(comment),
+            )
+        )
+
+    return found[:RUN_REJECTION_LIMIT], len(found)
+
+
+def explorer_rejections(
+    db: Session, metric: models.Metric, organization_id: str
+) -> tuple[List[Rejection], int]:
+    """Rejections read off Explorer tests someone labelled by hand.
+
+    An Explorer label records an opinion without overriding anything, so unlike a
+    test result there is no override marker to read and the verdicts are compared
+    directly: the person's Pass/Fail against what this metric said about that
+    test in ``test_metadata.metrics``.
+
+    Attribution is per metric even though the label is on the test as a whole. If
+    the person failed a test that this metric passed, this metric was wrong about
+    it, whatever the others said.
+
+    Tuning judgements do not come through here: those are filed against the
+    metric by id with a ``metric`` target, while a label is an entity-level
+    ``test`` one.
+    """
+    labels = (
+        db.query(models.Annotation)
+        # The verdict is read off the status, so it is loaded with the row.
+        .options(joinedload(models.Annotation.status))
+        .filter(
+            models.Annotation.entity_type == EntityType.TEST.value,
+            models.Annotation.target_type == AnnotationTarget.TEST.value,
+            models.Annotation.resolved.is_(False),
+            models.Annotation.comments.isnot(None),
+        )
+        .order_by(models.Annotation.updated_at.desc())
+        .all()
+    )
+    if not labels:
+        return [], 0
+
+    tests = {
+        str(test.id): test
+        for test in db.query(models.Test)
+        .options(joinedload(models.Test.prompt))
+        .filter(models.Test.id.in_([label.entity_id for label in labels]))
+        .all()
+    }
+
+    metric_name = metric.name or ""
+    found: List[Rejection] = []
+    for label in labels:
+        test = tests.get(str(label.entity_id))
+        if test is None:
+            continue
+        metadata = test.test_metadata if isinstance(test.test_metadata, dict) else {}
+        metrics = metadata.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        key = find_metric_key(metrics, metric_name)
+        if key is None:
+            continue
+        entry = metrics[key]
+        if not isinstance(entry, dict) or "is_successful" not in entry:
+            continue
+
+        automated_pass = bool(entry.get("is_successful"))
+        if annotation_passed(db, label) == automated_pass:
+            continue
+
+        comment = (label.comments or "").strip()
+        if not comment:
+            continue
+
+        found.append(
+            Rejection(
+                input=_clip(test.prompt.content if test.prompt else None) or "",
+                output=_clip(metadata.get("output") if isinstance(metadata, dict) else None) or "",
+                reference_answer=_clip(test.prompt.expected_response if test.prompt else None),
+                verdict=_verdict_text(automated_pass),
+                reasoning=_clip(entry.get("reason")),
+                comment=_clip(comment),
+            )
+        )
+
+    return found[:RUN_REJECTION_LIMIT], len(found)
+
+
+def _verdict_text(original_value: Any) -> Optional[str]:
+    """The metric's own verdict, as the prompt reads it."""
+    if original_value is True:
+        return "passed"
+    if original_value is False:
+        return "failed"
+    return None
 
 
 def _existing_fields(metric: models.Metric) -> dict:
@@ -304,25 +626,49 @@ def _comparable(value: Any) -> Any:
 
 
 def improve_from_annotations(
-    db: Session, metric: models.Metric, organization_id: str, user: models.User
+    db: Session,
+    metric: models.Metric,
+    organization_id: str,
+    user: models.User,
+    *,
+    include_run_annotations: bool = True,
 ) -> MetricTuningImprovement:
     """Propose a rewrite of ``metric`` from the rejections that stand against it.
+
+    Reads two sources. Tuning cases are what someone curated for judging this
+    metric; run annotations are people overruling it on real results. Both say
+    the metric judged a case wrongly, so both are sent, marked by provenance so
+    the model knows which is which. ``include_run_annotations=False`` restricts
+    it to tuning cases, for a caller who wants only the curated set.
 
     Writes nothing, here or anywhere downstream. Raises ``NoStandingRejections``
     when there is nothing to read, and ``ImprovementUnavailable`` when the model
     could not answer.
     """
     rejections = standing_rejections(db, metric, organization_id)
-    if not rejections:
+    from_runs: List[Rejection] = []
+    runs_found = 0
+    from_explorer: List[Rejection] = []
+    explorer_found = 0
+    if include_run_annotations:
+        from_runs, runs_found = run_rejections(db, metric, organization_id)
+        from_explorer, explorer_found = explorer_rejections(db, metric, organization_id)
+
+    if not rejections and not from_runs and not from_explorer:
         raise NoStandingRejections(
-            "This metric has no rejected cases to learn from. Reject a case with a comment "
-            "saying what the metric got wrong, then improve it from that."
+            "This metric has no rejected cases to learn from. Reject a tuning case with a "
+            "comment saying what the metric got wrong, or overrule it on a test result, "
+            "then improve it from that."
         )
 
     existing = _existing_fields(metric)
     prompt = _load_template().render(
         existing_metric=existing,
         rejections=[rejection.model_dump() for rejection in rejections],
+        run_rejections=[rejection.model_dump() for rejection in from_runs],
+        run_rejections_omitted=runs_found - len(from_runs),
+        explorer_rejections=[rejection.model_dump() for rejection in from_explorer],
+        explorer_rejections_omitted=explorer_found - len(from_explorer),
     )
 
     proposed = _refuse_to_blank(
@@ -337,12 +683,24 @@ def improve_from_annotations(
     MetricUpdate(**proposed)
 
     logger.info(
-        "Proposed an improvement for metric %s from %s rejection(s)", metric.id, len(rejections)
+        "Proposed an improvement for metric %s from %s tuning, %s run and %s explorer"
+        " rejection(s) (%s and %s found)",
+        metric.id,
+        len(rejections),
+        len(from_runs),
+        len(from_explorer),
+        runs_found,
+        explorer_found,
     )
     return MetricTuningImprovement(
         # Re-validated, so the returned object is the schema rather than the dict
         # the preserved fields were patched into.
         improvement=ImprovedMetricFields.model_validate(proposed),
         changed=_changed_fields(existing, proposed),
-        rejections_used=len(rejections),
+        rejections_used=len(rejections) + len(from_runs) + len(from_explorer),
+        tuning_rejections_used=len(rejections),
+        run_rejections_used=len(from_runs),
+        run_rejections_found=runs_found,
+        explorer_rejections_used=len(from_explorer),
+        explorer_rejections_found=explorer_found,
     )

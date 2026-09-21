@@ -119,6 +119,48 @@ function draftFor(
 }
 
 /**
+ * Where the rejections came from, and what was left out.
+ *
+ * A rewrite is read differently depending on its evidence: tuning cases were
+ * curated for judging this metric, run annotations are people overruling it on
+ * real results, and an Explorer label says the metric was wrong about a test
+ * without saying which criterion. The counts say which, rather than presenting
+ * one total as if all three were the same thing.
+ *
+ * `omitted` exists because the run and Explorer sources are capped. A cap that
+ * is not stated is a rejection dropped silently, which is the one thing this
+ * loop must not do.
+ */
+function describeProvenance(improvement: MetricTuningImprovement | null): {
+  sources: string;
+  omitted: string;
+} {
+  if (!improvement) return { sources: '', omitted: '' };
+
+  const parts: string[] = [];
+  const add = (count: number, label: string) => {
+    if (count > 0) parts.push(`${count} ${label}`);
+  };
+  add(improvement.tuning_rejections_used, 'tuning');
+  add(improvement.run_rejections_used, 'from test runs');
+  add(improvement.explorer_rejections_used, 'from the Explorer');
+
+  const dropped =
+    improvement.run_rejections_found -
+    improvement.run_rejections_used +
+    (improvement.explorer_rejections_found -
+      improvement.explorer_rejections_used);
+
+  return {
+    sources: parts.length > 1 ? parts.join(', ') : '',
+    omitted:
+      dropped > 0
+        ? `${dropped} further ${dropped === 1 ? 'rejection was' : 'rejections were'} not included.`
+        : '',
+  };
+}
+
+/**
  * What is wrong with this box, or null.
  *
  * Blank is an error rather than "leave this one alone" because a metric update
@@ -377,6 +419,7 @@ export default function MetricTuningImproveDialog({
   };
 
   const rejections = improvement?.rejections_used ?? 0;
+  const provenance = describeProvenance(improvement);
   const edited =
     improvement !== null &&
     changed.some(
@@ -389,8 +432,10 @@ export default function MetricTuningImproveDialog({
         Improve this metric
         <Typography variant="body2" color="text.secondary">
           Rewritten from {rejections}{' '}
-          {rejections === 1 ? 'rejection' : 'rejections'}. Edit anything below —
-          nothing is saved until you apply it.
+          {rejections === 1 ? 'rejection' : 'rejections'}
+          {provenance.sources ? ` (${provenance.sources})` : ''}. Edit anything
+          below — nothing is saved until you apply it.
+          {provenance.omitted ? ` ${provenance.omitted}` : ''}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
