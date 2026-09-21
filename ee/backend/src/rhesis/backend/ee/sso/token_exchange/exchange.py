@@ -831,9 +831,9 @@ def _resource_to_project_id(resource: str) -> Optional[str]:
 
 
 def _resolve_resource_project(db: Session, org, user, project_id: str):
-    """Look up *project_id* in *org* and whether *user* is a member of it.
+    """Look up *project_id* in *org* and whether *user* has access to it.
 
-    Returns ``(project_or_None, is_member)``. Deliberately makes no policy
+    Returns ``(project_or_None, has_access)``. Deliberately makes no policy
     decision: the orchestrator owns the deny-and-audit calls, where the audit
     context lives.
 
@@ -848,6 +848,7 @@ def _resolve_resource_project(db: Session, org, user, project_id: str):
     grant, not operating inside one, and ``project_membership`` is exempt from the
     project predicate anyway.
     """
+    from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
     from rhesis.backend.app.database import temporary_project_scope
     from rhesis.backend.app.models.project import Project
     from rhesis.backend.app.models.project_membership import ProjectMembership
@@ -858,7 +859,10 @@ def _resolve_resource_project(db: Session, org, user, project_id: str):
             .filter(Project.id == project_id, Project.organization_id == org.id)
             .first()
         )
-        is_member = project is not None and (
+        if project is None:
+            return None, False
+
+        has_access = has_org_wide_project_access(db, user.id, org.id) or (
             db.query(ProjectMembership)
             .filter(
                 ProjectMembership.project_id == project.id,
@@ -868,7 +872,7 @@ def _resolve_resource_project(db: Session, org, user, project_id: str):
             .first()
             is not None
         )
-    return project, is_member
+    return project, has_access
 
 
 def _split_scope_string(scope: Optional[str]) -> Optional[List[str]]:

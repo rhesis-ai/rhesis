@@ -1073,30 +1073,30 @@ class ConnectionManager:
             logger.error(f"Project {project_id} not found (org {auth_org_id})")
             return False
 
-        # Authorization: membership check (primary) OR token-scoped access
-        # (fallback for API tokens that were explicitly scoped to this project
-        # — e.g. tokens created before the membership backfill migration ran,
-        # or service-account tokens where the owner has no membership row).
+        # Authorization: org owner, membership, or token-scoped access.
         auth_token_project_id = context.token_project_id
         token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
 
         if not token_scoped:
-            membership = (
-                db.query(ProjectMembership)
-                .filter_by(
-                    project_id=project_uuid,
-                    user_id=auth_user_uuid,
-                    organization_id=auth_org_uuid,
+            from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
+
+            if not has_org_wide_project_access(db, auth_user_uuid, auth_org_uuid):
+                membership = (
+                    db.query(ProjectMembership)
+                    .filter_by(
+                        project_id=project_uuid,
+                        user_id=auth_user_uuid,
+                        organization_id=auth_org_uuid,
+                    )
+                    .first()
                 )
-                .first()
-            )
-            if not membership:
-                logger.error(
-                    f"Project {project_id} access denied: user {auth_user_id} "
-                    f"is not a member and token is not scoped to this project "
-                    f"(org {auth_org_id})"
-                )
-                return False
+                if not membership:
+                    logger.error(
+                        f"Project {project_id} access denied: user {auth_user_id} "
+                        f"is not a member and token is not scoped to this project "
+                        f"(org {auth_org_id})"
+                    )
+                    return False
 
         logger.info(
             f"Project authorized: {project.name} ({project_id}) for connection "

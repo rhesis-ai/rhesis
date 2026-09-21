@@ -93,21 +93,21 @@ def _enroll(test_db: Session, user_id: str, project_id: str, org_id: str) -> Non
     test_db.flush()
 
 
-def _is_org_owner(test_db: Session, user_id: str, org_id: str) -> bool:
-    """Return True if *user_id* is the organization owner."""
-    from rhesis.backend.app.auth.org_owner_check import is_org_owner
+def _has_org_wide_access(test_db: Session, user_id: str, org_id: str) -> bool:
+    """Return True if *user_id* has org-wide project access (owner or admin)."""
+    from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
 
-    return is_org_owner(test_db, user_id, org_id)
+    return has_org_wide_project_access(test_db, user_id, org_id)
 
 
-def _skip_if_org_owner(test_db: Session, user_id: str, org_id: str) -> None:
-    """Skip the test if the authenticated user is an org owner.
+def _skip_if_org_wide_access(test_db: Session, user_id: str, org_id: str) -> None:
+    """Skip the test if the authenticated user has org-wide project access.
 
-    Org owners bypass the membership filter and see all projects, so tests
-    that assert "non-member = invisible" do not hold for them.
+    Org owners and admins bypass the membership filter and see all projects,
+    so tests that assert "non-member = invisible" do not hold for them.
     """
-    if _is_org_owner(test_db, user_id, org_id):
-        pytest.skip("Authenticated user is an org owner (bypasses membership filter)")
+    if _has_org_wide_access(test_db, user_id, org_id):
+        pytest.skip("Authenticated user has org-wide project access (bypasses membership filter)")
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ class TestProjectListingMembership:
         Org owners bypass membership filtering and see all projects, so this
         test only applies to non-owner members.
         """
-        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+        _skip_if_org_wide_access(test_db, authenticated_user_id, test_org_id)
 
         project = _make_project(test_db, test_org_id)
         test_db.flush()
@@ -190,7 +190,7 @@ class TestProjectListingMembership:
 
         Org owners see all projects, so this test only applies to non-owners.
         """
-        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+        _skip_if_org_wide_access(test_db, authenticated_user_id, test_org_id)
         # Two projects: only one enrolled.
         enrolled = _make_project(test_db, test_org_id)
         _enroll(test_db, str(authenticated_user_id), str(enrolled.id), test_org_id)
@@ -537,7 +537,7 @@ class TestProjectByIdMembershipEnforcement:
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
         """A non-owner user who is NOT enrolled cannot read a project by ID (404)."""
-        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+        _skip_if_org_wide_access(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -562,7 +562,7 @@ class TestProjectByIdMembershipEnforcement:
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
         """A non-owner user who is NOT enrolled cannot update a project by ID (404)."""
-        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+        _skip_if_org_wide_access(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -592,7 +592,7 @@ class TestProjectByIdMembershipEnforcement:
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
         """A non-owner user who is NOT enrolled cannot delete a project by ID (404)."""
-        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+        _skip_if_org_wide_access(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -623,7 +623,7 @@ class TestProjectByIdMembershipEnforcement:
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
         """GET /projects/{id}/parameters/schema is also membership-gated (_load_project)."""
-        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+        _skip_if_org_wide_access(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 

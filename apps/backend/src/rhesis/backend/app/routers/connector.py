@@ -39,16 +39,28 @@ router = RhesisRouter(prefix="/connector", tags=["connector"], resource="connect
 
 
 def _assert_project_membership(db: Session, project_id_str: str, user: User) -> None:
-    """Raise 400 or 403 if *user* is not a member of the project.
+    """Raise 400 or 403 if *user* has no access to the project.
 
     Mirrors the membership check in ``get_project_context`` (dependencies.py)
     so that connector endpoints enforce the same project-isolation guarantee as
-    the rest of the API.
+    the rest of the API.  Org owners bypass the membership requirement.
     """
+    from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
+
     try:
         project_uuid = uuid.UUID(project_id_str)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid project_id: must be a UUID")
+
+    project = db.query(Project).filter_by(id=project_uuid).first()
+    if project is None:
+        raise HTTPException(
+            status_code=403,
+            detail=f"User is not a member of project {project_id_str}",
+        )
+
+    if has_org_wide_project_access(db, user.id, user.organization_id):
+        return
 
     membership = (
         db.query(ProjectMembership)
@@ -59,8 +71,7 @@ def _assert_project_membership(db: Session, project_id_str: str, user: User) -> 
         )
         .first()
     )
-    project = db.query(Project).filter_by(id=project_uuid).first()
-    if not membership or project is None:
+    if not membership:
         raise HTTPException(
             status_code=403,
             detail=f"User is not a member of project {project_id_str}",
