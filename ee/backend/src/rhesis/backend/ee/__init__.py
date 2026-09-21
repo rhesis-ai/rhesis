@@ -205,6 +205,13 @@ def bootstrap(app: "FastAPI") -> None:
 
     register_org_membership_handler(assign_default_org_role)
 
+    # Extend the org-wide project access check so admins and owners in EE
+    # (role level >= 80) bypass the membership filter in CRUD and connectors.
+    from rhesis.backend.app.auth.org_project_access import register_org_access_checker
+    from rhesis.backend.ee.rbac.owner_check import has_ee_org_wide_project_access
+
+    register_org_access_checker(has_ee_org_wide_project_access)
+
     # Guard the community add-member endpoint's optional role_id with the same
     # privilege-escalation check as the EE role-assignment endpoint, so a member
     # can be added with a role in one atomic request without bypassing the guard.

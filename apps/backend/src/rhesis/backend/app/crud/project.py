@@ -2,6 +2,7 @@
 
 Project reads enforce membership, not just organization scope -- ``get_project`` and
 ``get_projects`` return only projects the caller has a ``project_membership`` row for.
+Org owners bypass the membership filter and see all projects in their organization.
 Writes to membership route through ``services.organization`` so that a user's
 ``default_project`` is repaired alongside.
 """
@@ -12,6 +13,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -33,10 +35,9 @@ def get_project(
     """Get project with relationships eagerly loaded.
 
     When *user_id* is supplied the caller must be an explicit member of the project
-    (a row in ``project_membership``).  Non-members receive ``None`` — the same
-    result as "not found" — so the router's 404 reveals no information about
-    whether the project exists.  This closes the by-ID IDOR gap where
-    ``get_item_detail`` filters only by ``organization_id``.
+    (a row in ``project_membership``) or an organization owner.  Non-members receive
+    ``None`` — the same result as "not found" — so the router's 404 reveals no
+    information about whether the project exists.
 
     Pass *user_id=None* only for internal service-layer calls that already
     carry their own access-control context (e.g. background tasks).
@@ -55,10 +56,9 @@ def get_project(
     if project is None or user_id is None:
         return project
 
-    # Enforce membership: the caller must have a project_membership row.
-    # bypass_tenant_filter is required because project_membership carries only
-    # tenant_isolation (org RLS), not project_isolation — this is by design so
-    # the join table remains reachable before a project context is established.
+    if organization_id and has_org_wide_project_access(db, user_id, organization_id):
+        return project
+
     with bypass_tenant_filter():
         membership = (
             db.query(ProjectMembership).filter_by(project_id=project.id, user_id=user_id).first()
@@ -81,9 +81,10 @@ def get_projects(
     from rhesis.backend.app.scope import bypass_tenant_filter
     from rhesis.backend.app.utils.query_utils import QueryBuilder
 
-    # Project listing must respect membership — only return projects the requesting
-    # user is a member of. An EXISTS subquery is used so that the QueryBuilder's
-    # existing pagination/sorting/filtering chain is preserved.
+    org_access = (
+        user_id and organization_id and has_org_wide_project_access(db, user_id, organization_id)
+    )
+
     with bypass_tenant_filter():
         builder = (
             QueryBuilder(db, models.Project)
@@ -94,7 +95,7 @@ def get_projects(
             .with_odata_filter(filter)
         )
 
-        if user_id:
+        if user_id and not org_access:
             exists_subquery = (
                 db.query(ProjectMembership)
                 .filter(
@@ -115,10 +116,14 @@ def count_projects(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> int:
-    """Count projects the given user is a member of (mirrors get_projects membership filter)."""
+    """Count projects visible to the given user (membership-filtered, org admins/owners see all)."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
     from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    org_access = (
+        user_id and organization_id and has_org_wide_project_access(db, user_id, organization_id)
+    )
 
     with bypass_tenant_filter():
         builder = (
@@ -127,7 +132,7 @@ def count_projects(
             .with_visibility_filter(user_id)
             .with_odata_filter(filter)
         )
-        if user_id:
+        if user_id and not org_access:
             exists_subquery = (
                 db.query(ProjectMembership)
                 .filter(
@@ -202,22 +207,34 @@ def get_project_members(
 
 
 def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
-    """Return all ACTIVE, non-deleted projects the given user is a member of."""
+    """Return all ACTIVE, non-deleted projects visible to the given user.
+
+    Regular members see only projects they have a ``project_membership`` row for.
+    Org admins and owners see all active projects in their organization.
+    """
     from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
     from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options
 
-    return (
-        db.query(models.Project)
-        .options(include(models.Project.owner), *derived_field_load_options(models.Project))
-        .join(ProjectMembership, ProjectMembership.project_id == models.Project.id)
-        .filter(
-            ProjectMembership.user_id == user_id,
-            ProjectMembership.organization_id == organization_id,
+    with bypass_tenant_filter():
+        query = db.query(models.Project).options(
+            include(models.Project.owner), *derived_field_load_options(models.Project)
+        )
+
+        if not has_org_wide_project_access(db, user_id, organization_id):
+            query = query.join(
+                ProjectMembership, ProjectMembership.project_id == models.Project.id
+            ).filter(
+                ProjectMembership.user_id == user_id,
+                ProjectMembership.organization_id == organization_id,
+            )
+        else:
+            query = query.filter(models.Project.organization_id == organization_id)
+
+        return query.filter(
             models.Project.deleted_at.is_(None),
             models.Project.is_active.is_(True),
-        )
-        .all()
-    )
+        ).all()
 
 
 def add_project_member(
