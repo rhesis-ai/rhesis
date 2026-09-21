@@ -3,6 +3,7 @@
 # Core tracing API
 # Helpers
 # Auto-instrumentation
+from rhesis.sdk.telemetry.annotate import annotate_current_trace, annotate_trace
 from rhesis.sdk.telemetry.observer import auto_instrument, disable_auto_instrument
 from rhesis.sdk.telemetry.tracer import Tracer
 from rhesis.telemetry.attributes import (
@@ -63,4 +64,7 @@ __all__ = [
     "create_llm_attributes",
     "create_tool_attributes",
     "validate_span_name",
+    # Feedback on a trace, by its OTEL id
+    "annotate_trace",
+    "annotate_current_trace",
 ]

@@ -113,6 +113,44 @@ Constants are available where a literal would be easy to mistype:
 Annotations.create(AnnotatableEntity.TRACE, trace_db_id, Verdict.FAIL)`}
 </CodeBlock>
 
+## Annotating a trace from the application that produced it
+
+`trace_db_id` above is the span's row id, which the platform assigns on ingestion. An instrumented
+application never sees it — it knows the OTEL trace id, the 32-character hex its tracer generated.
+`annotate_trace` takes that instead, and the root span of the trace is resolved for you.
+
+<CodeBlock filename="feedback.py" language="python">
+{`from rhesis.sdk.telemetry import annotate_current_trace, annotate_trace
+
+# Inside the instrumented call, or after it returns
+annotate_current_trace("fail", "Cited a document that does not exist.")
+
+# Or naming the trace, e.g. from a thumbs-down handler that stored the id
+annotate_trace(trace_id, "fail", "User reported the answer was wrong.")`}
+</CodeBlock>
+
+This is how feedback from outside the platform gets recorded: a thumbs-down from an end user, a QA
+harness, an eval script. It lands as an ordinary annotation, so a Pass/Fail verdict overrides the
+trace's automated outcome and appears wherever annotations already do. `metric` and `turn` work the
+same way as above.
+
+`annotate_current_trace` reads the trace id from the tracer, so it works after the span has closed,
+which is when a human verdict usually arrives. It raises if there is no trace in context rather
+than filing the verdict against nothing.
+
+Spans are ingested asynchronously, so a trace recorded moments ago may not be queryable yet; that
+case raises too, and retrying is the right response. Reading annotations back takes the same hex:
+
+<CodeBlock filename="read_back.py" language="python">
+{`from rhesis.sdk.entities import Annotations
+
+Annotations.for_trace_id(trace_id)   # by the OTEL hex
+Annotations.for_trace(trace_db_id)   # by the span row id`}
+</CodeBlock>
+
+`for_trace_id` covers annotations on any span of the trace, not only the root, since the question is
+about the trace rather than one operation inside it.
+
 ## Resolving and deleting
 
 <CodeBlock filename="resolve_annotation.py" language="python">
