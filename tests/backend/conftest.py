@@ -180,9 +180,14 @@ def _prepare_worker_database() -> None:
     replays the 269 revisions. Everyone else waits briefly, then copies the
     result, which is a file copy rather than a second replay.
     """
-    if _migrations_skipped():
-        return
-    ensure_template_migrated(_TEST_DB_HOST, _TEST_DB_PORT, _alembic_upgrade_template)
+    if not _migrations_skipped():
+        ensure_template_migrated(_TEST_DB_HOST, _TEST_DB_PORT, _alembic_upgrade_template)
+
+    # Cloned even when migrations are skipped. The database has to exist either
+    # way, because importing the app connects at module scope; skipping the
+    # clone too left RHESIS_SKIP_MIGRATIONS=1 failing at conftest import with
+    # 'database "rhesis-test-main" does not exist'. With migrations skipped the
+    # copy is of the empty template, which is what a unit-only run wants.
     clone_template_database(_TEST_DB_HOST, _TEST_DB_PORT, _TEST_DB_NAME)
 
 

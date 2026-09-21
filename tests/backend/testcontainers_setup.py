@@ -111,64 +111,97 @@ _CLONE_LOCK_KEY = 0x5268657369735F31
 
 
 def clone_template_database(host: str, port: str, target: str) -> None:
-    """Create *target* as a copy of the migrated template.
+    """Create *target* as a copy of the template.
 
     Runs from the ``postgres`` maintenance database, not the template: Postgres
     refuses to copy a template that has any other session connected to it, and
     our own connection would count. Two concurrent copies of one template also
     collide, so this serialises on an advisory lock. Workers call it once each,
     so that is a handful of short waits.
+
+    Database names are passed as quoted identifiers rather than interpolated:
+    the target name is built from ``PYTEST_XDIST_WORKER``, so it comes from the
+    environment rather than from this file.
     """
+    from psycopg2 import sql
+
     conn = _connect(host, port, "postgres")
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT pg_advisory_lock(%s)", (_CLONE_LOCK_KEY,))
             try:
-                cur.execute(f'DROP DATABASE IF EXISTS "{target}"')
-                cur.execute(f'CREATE DATABASE "{target}" TEMPLATE "{TEMPLATE_DB}"')
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(target)))
+                cur.execute(
+                    sql.SQL("CREATE DATABASE {} TEMPLATE {}").format(
+                        sql.Identifier(target), sql.Identifier(TEMPLATE_DB)
+                    )
+                )
             finally:
                 cur.execute("SELECT pg_advisory_unlock(%s)", (_CLONE_LOCK_KEY,))
     finally:
         conn.close()
 
 
-def _template_is_migrated(conn) -> bool:
-    """True when the template already carries an Alembic version row."""
+#: Distinct from the clone lock: a worker may clone while nothing is migrating.
+_MIGRATE_LOCK_KEY = 0x5268657369735F32
+
+#: Written to the ``postgres`` database, so it is never copied into a clone.
+_READY_MARKER = "rhesis_test_template_ready"
+
+
+def _template_is_ready(conn) -> bool:
+    """True once a migration has run to completion and the grants are applied.
+
+    Deliberately not "does alembic_version have a row": a run that died
+    part-way leaves a version row at whatever revision last committed, and a
+    later worker would take that as finished and clone a half-migrated schema.
+    The marker is created only after both steps return.
+    """
     with conn.cursor() as cur:
-        cur.execute("SELECT to_regclass('public.alembic_version') IS NOT NULL")
-        if not cur.fetchone()[0]:
-            return False
-        cur.execute("SELECT count(*) FROM alembic_version")
-        return cur.fetchone()[0] > 0
+        cur.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{_READY_MARKER}",))
+        return cur.fetchone()[0]
+
+
+def _mark_template_ready(conn) -> None:
+    from psycopg2 import sql
+
+    with conn.cursor() as cur:
+        cur.execute(
+            sql.SQL("CREATE TABLE IF NOT EXISTS {} (done boolean)").format(
+                sql.Identifier(_READY_MARKER)
+            )
+        )
 
 
 def ensure_template_migrated(host: str, port: str, migrate) -> None:
-    """Run *migrate* against the template unless it is already at head.
+    """Run *migrate* against the template unless it has already been done.
 
     The check and the migration happen under one advisory lock, so when
     several workers reach this at once exactly one migrates and the rest wait
-    and then find the work done. In the normal case the xdist controller has
-    already migrated before any worker starts, and every worker takes the
-    cheap path.
+    and then find the work done.
+
+    Both the lock and the marker live in the ``postgres`` maintenance database,
+    never in the template. That matters: a worker blocked on the lock would
+    otherwise sit there holding a connection to the template, and the winner's
+    following ``CREATE DATABASE ... TEMPLATE`` would fail with "source database
+    is being accessed by other users". Nothing here connects to the template
+    except the migration itself, which runs in its own subprocess and exits.
     """
-    conn = _connect(host, port, TEMPLATE_DB)
+    conn = _connect(host, port, "postgres")
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT pg_advisory_lock(%s)", (_MIGRATE_LOCK_KEY,))
         try:
-            if _template_is_migrated(conn):
+            if _template_is_ready(conn):
                 return
             migrate()
             grant_app_role_privileges(host, port, TEMPLATE_DB)
+            _mark_template_ready(conn)
         finally:
             with conn.cursor() as cur:
                 cur.execute("SELECT pg_advisory_unlock(%s)", (_MIGRATE_LOCK_KEY,))
     finally:
         conn.close()
-
-
-#: Distinct from the clone lock: a worker may clone while nothing is migrating.
-_MIGRATE_LOCK_KEY = 0x5268657369735F32
 
 
 def _containers_from_env() -> dict | None:
