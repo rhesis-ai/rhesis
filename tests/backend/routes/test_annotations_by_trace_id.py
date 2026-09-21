@@ -257,6 +257,61 @@ class TestAnnotatingATraceByItsOtelId:
             assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+class TestResolutionCannotReachAnotherProject:
+    """The hex is resolved by a query the caller does not scope themselves.
+
+    Everything else about an annotation is addressed by a row id the caller
+    already had, so this is the one place a lookup is driven purely by a value
+    from outside. Worth pinning rather than assuming the ambient filter covers
+    it.
+    """
+
+    def test_a_trace_in_another_project_does_not_resolve(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+        db_status,
+    ):
+        from rhesis.backend.app.models.project import Project
+
+        pass_status, _ = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        elsewhere = Project(
+            name=f"Other project {uuid.uuid4().hex[:8]}",
+            organization_id=test_organization.id,
+            user_id=authenticated_user.id,
+            owner_id=authenticated_user.id,
+            status_id=db_status.id,
+        )
+        test_db.add(elsewhere)
+        test_db.commit()
+        test_db.refresh(elsewhere)
+
+        hex_id = uuid.uuid4().hex
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, elsewhere.id):
+            test_db.add(_span(elsewhere.id, test_organization.id, trace_id=hex_id))
+            test_db.commit()
+
+        # Same organization, same hex, different project.
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            response = authenticated_client.post(
+                "/annotations/",
+                json={
+                    "entity_type": "Trace",
+                    "trace_id": hex_id,
+                    "status_id": str(pass_status.id),
+                },
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 class TestReadingAnnotationsBackByTraceId:
     """The read side: the same hex scopes a listing."""
 

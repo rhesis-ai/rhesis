@@ -17,8 +17,10 @@ shows up wherever annotations already do.
         annotate_current_trace("fail", "Cited a document that does not exist.")
 
 Ingestion is asynchronous, so a trace recorded moments ago may not be queryable
-yet and the call raises rather than pretending it landed. Annotating after the
-request returns, which is when a human verdict usually arrives, avoids that.
+yet, and the call raises rather than pretending it landed. Annotating after the
+request returns leaves more time for the spans to arrive but guarantees nothing,
+so a caller that annotates close to the request should be ready to retry: the
+error says the trace is not ingested yet, and is distinct from a wrong id.
 """
 
 from typing import Optional, Union

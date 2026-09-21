@@ -139,7 +139,9 @@ which is when a human verdict usually arrives. It raises if there is no trace in
 than filing the verdict against nothing.
 
 Spans are ingested asynchronously, so a trace recorded moments ago may not be queryable yet; that
-case raises too, and retrying is the right response. Reading annotations back takes the same hex:
+case raises too, and retrying is the right response. Waiting for the request to finish first leaves
+more time for the spans to arrive but does not guarantee they have, so a call made close to the
+request should be ready to retry. Reading annotations back takes the same hex:
 
 <CodeBlock filename="read_back.py" language="python">
 {`from rhesis.sdk.entities import Annotations
