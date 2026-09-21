@@ -25,8 +25,13 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from rhesis.backend.app.config.settings import get_trace_retention_settings
-from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
+from rhesis.backend.app.database import (
+    SessionLocal,
+    bind_scope_to_session,
+    temporary_project_scope,
+)
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.quota import QuotaRegistry
 from rhesis.backend.app.scope import bypass_tenant_filter
@@ -56,8 +61,10 @@ def _resolve_retention_days(org: Organization, override_days: int | None) -> int
     return QuotaRegistry.get_policy(org).retention_days
 
 
-def _expired_traces(db, org: Organization, cutoff: datetime):
-    """Query for *org*'s trace rows older than *cutoff*.
+def _expired_traces(db, org: Organization, cutoff: datetime, project_id):
+    """Query for *org*'s trace rows older than *cutoff* within one project.
+
+    A ``project_id`` of ``None`` selects the traces that carry no project.
 
     The explicit ``organization_id`` predicate is what keeps the sweep
     inside this org -- do not remove it. It is load-bearing rather than
@@ -65,13 +72,16 @@ def _expired_traces(db, org: Organization, cutoff: datetime):
     :func:`~rhesis.backend.app.scope.bypass_tenant_filter`, so the ORM
     auto-filter adds nothing of its own.
     """
-    return db.query(Trace).filter(
+    query = db.query(Trace).filter(
         Trace.organization_id == str(org.id),
         Trace.created_at < cutoff,
     )
+    if project_id is None:
+        return query.filter(Trace.project_id.is_(None))
+    return query.filter(Trace.project_id == project_id)
 
 
-def _delete_in_batches(db, org: Organization, cutoff: datetime) -> int:
+def _delete_in_batches(db, org: Organization, cutoff: datetime, project_id) -> int:
     """Delete *org*'s expired traces in :data:`DELETE_BATCH_SIZE` chunks.
 
     Returns the total number of rows deleted. Commits per batch, so a
@@ -84,7 +94,11 @@ def _delete_in_batches(db, org: Organization, cutoff: datetime) -> int:
     """
     total = 0
     while True:
-        batch = _expired_traces(db, org, cutoff).with_entities(Trace.id).limit(DELETE_BATCH_SIZE)
+        batch = (
+            _expired_traces(db, org, cutoff, project_id)
+            .with_entities(Trace.id)
+            .limit(DELETE_BATCH_SIZE)
+        )
         ids = [row[0] for row in batch]
         if not ids:
             break
@@ -98,6 +112,13 @@ def _delete_in_batches(db, org: Organization, cutoff: datetime) -> int:
         if len(ids) < DELETE_BATCH_SIZE:
             break
     return total
+
+
+def _sweep_scope(db, org: Organization, cutoff: datetime, project_id, *, dry_run: bool) -> int:
+    """Count or delete one project's expired traces, under the caller's scope."""
+    if dry_run:
+        return _expired_traces(db, org, cutoff, project_id).count()
+    return _delete_in_batches(db, org, cutoff, project_id)
 
 
 def _sweep_organization(
@@ -119,14 +140,32 @@ def _sweep_organization(
     Runs under ``bypass_tenant_filter``: the session's scope has no
     project, so the ORM auto-filter would otherwise add
     ``project_id IS NULL`` and match no traces at all.
+
+    Swept one project at a time because ``project_isolation`` is a
+    RESTRICTIVE policy: a session holding an org but no project matches
+    none of that org's project-scoped traces, so a single org-wide pass
+    deletes nothing and still reports success. ``bypass_tenant_filter``
+    does not rescue this -- it drops the ORM's WHERE clause, not the
+    database's policy.
     """
     db = SessionLocal()
     try:
         bind_scope_to_session(db, str(org.id))
         with bypass_tenant_filter():
-            if dry_run:
-                return _expired_traces(db, org, cutoff).count()
-            return _delete_in_batches(db, org, cutoff)
+            project_ids = [
+                row[0]
+                for row in db.query(Project.id).filter(Project.organization_id == str(org.id))
+            ]
+
+            total = 0
+            for project_id in project_ids:
+                with temporary_project_scope(db, str(org.id), "", str(project_id)):
+                    total += _sweep_scope(db, org, cutoff, project_id, dry_run=dry_run)
+
+            # Traces carrying no project satisfy project_isolation whatever
+            # the project GUC holds, so this pass needs no scope shift.
+            total += _sweep_scope(db, org, cutoff, None, dry_run=dry_run)
+            return total
     except Exception:
         db.rollback()
         logger.exception("Trace retention sweep failed for organization %s", org.id)
