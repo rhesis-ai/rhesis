@@ -7,6 +7,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useRouter } from 'next/navigation';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useQuickStart } from '@/contexts/QuickStartContext';
 
 const STORAGE_KEY = 'rhesis:set-password-banner-dismissed';
 
@@ -21,6 +22,7 @@ function readDismissed(): boolean {
 export default function SetPasswordBanner() {
   const theme = useTheme();
   const router = useRouter();
+  const isQuickStart = useQuickStart();
   const { data: settings, isLoading } = useUserSettings();
   const [dismissed, setDismissed] = useState(readDismissed);
 
@@ -33,7 +35,7 @@ export default function SetPasswordBanner() {
     }
   }, []);
 
-  if (isLoading || dismissed || !settings) return null;
+  if (isQuickStart || isLoading || dismissed || !settings) return null;
 
   // Show when the user has no password and no external auth provider.
   // provider_type is null for invited users and "email" for email-signup
