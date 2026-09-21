@@ -7,8 +7,13 @@ the others, too lazy and a long-running process sits on megabytes of text.
 """
 
 import pytest
+from rhesis.telemetry import conversation as rhesis_conversation
+from rhesis.telemetry.conversation import anchor_conversation, get_conversation_anchor
 
-from rhesis.sdk.telemetry.integrations.genai import DeferredReleaseQueue
+from rhesis.sdk.telemetry.integrations.genai import (
+    ConversationTraceRegistry,
+    DeferredReleaseQueue,
+)
 
 
 @pytest.fixture
@@ -122,3 +127,93 @@ class TestClear:
         first[2] = "in"
         queue.queue_release(2)
         assert first[2] == "in"
+
+
+class TestConversationTraceRegistryUsesTheSharedAnchor:
+    """The join has to agree with every other mechanism on one anchor.
+
+    ``conversation_turn``, ``@endpoint``/``@observe``, LangGraph and Haystack all
+    anchor a conversation in the store in ``rhesis.telemetry.conversation``. This
+    registry used to keep its own, so a conversation whose turns alternated
+    between the two arrived as two traces under one id.
+    """
+
+    @pytest.fixture(autouse=True)
+    def forget_shared_anchors(self):
+        rhesis_conversation._anchors.clear()
+        yield
+        rhesis_conversation._anchors.clear()
+
+    def test_the_first_claim_anchors_in_the_shared_store(self):
+        """So the other mechanisms join this trace rather than inventing one."""
+        registry = ConversationTraceRegistry()
+
+        registry.claim(0xA1, "conv-1")
+
+        assert get_conversation_anchor("conv-1") == format(0xA1, "032x")
+        assert registry.target(0xA1) is None, "the anchor turn is never rewritten"
+
+    def test_a_turn_joins_an_anchor_another_mechanism_wrote(self):
+        """The bug: ``conversation_turn`` ran turn one, a framework run is turn two."""
+        anchor_conversation("conv-1", format(0xA1, "032x"))
+        registry = ConversationTraceRegistry()
+
+        registry.claim(0xB2, "conv-1")
+
+        assert registry.target(0xB2) == 0xA1
+
+    def test_another_mechanism_joins_an_anchor_the_registry_wrote(self):
+        """The mirror: a framework run went first."""
+        registry = ConversationTraceRegistry()
+        registry.claim(0xA1, "conv-1")
+
+        # What conversation_turn reads when it opens the next turn.
+        assert get_conversation_anchor("conv-1") == format(0xA1, "032x")
+
+    def test_the_store_decides_who_anchors(self):
+        """First writer wins there, so a second claim for a fresh conversation
+        does not overwrite it and is rewritten onto it instead."""
+        registry = ConversationTraceRegistry()
+        registry.claim(0xA1, "conv-1")
+        registry.claim(0xB2, "conv-1")
+
+        assert get_conversation_anchor("conv-1") == format(0xA1, "032x")
+        assert registry.target(0xB2) == 0xA1
+
+    def test_a_poisoned_anchor_is_not_used(self):
+        """An all-zero trace id is not a trace anything can be written to."""
+        anchor_conversation("conv-zero", "0" * 32)
+        registry = ConversationTraceRegistry()
+
+        registry.claim(0xB2, "conv-zero")
+
+        assert registry.target(0xB2) is None
+
+    def test_an_invalid_trace_id_is_never_anchored(self):
+        """The mirror of the case above: do not write what we would not use.
+
+        A non-recording span carries OTEL's all-zero trace id. Anchoring it
+        would poison the conversation for the life of the process, because the
+        store keeps the first value written.
+        """
+        registry = ConversationTraceRegistry()
+
+        registry.claim(0, "conv-invalid")
+
+        assert get_conversation_anchor("conv-invalid") is None
+
+    def test_a_healthy_turn_still_anchors_after_an_invalid_one(self):
+        registry = ConversationTraceRegistry()
+        registry.claim(0, "conv-recovers")
+
+        registry.claim(0xA1, "conv-recovers")
+
+        assert get_conversation_anchor("conv-recovers") == format(0xA1, "032x")
+
+    def test_no_conversation_id_anchors_nothing(self):
+        registry = ConversationTraceRegistry()
+
+        registry.claim(0xA1, None)
+
+        assert registry.target(0xA1) is None
+        assert rhesis_conversation._anchors._anchors == {}

@@ -33,6 +33,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.trace import SpanContext
 
 from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.conversation import anchor_conversation, get_conversation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -659,6 +660,14 @@ class ConversationTraceRegistry:
     trace per turn. This records the first turn's id and hands it back for the
     rest, so later turns can be rewritten onto it.
 
+    Which trace a conversation is anchored to is **not** decided here. It is read
+    from and written to the process-wide store in
+    :mod:`rhesis.telemetry.conversation`, the same one ``conversation_turn``,
+    ``@endpoint``/``@observe``, LangGraph and Haystack use. Keeping a second
+    store here meant the two disagreed for the same conversation id: a turn
+    opened by ``conversation_turn`` and a later bare framework run under the same
+    id each anchored their own trace, and the conversation arrived as two.
+
     Two rules keep that from corrupting anything. The first turn is **never**
     rewritten -- it keeps the id it was born with, which is the id anything else
     in the process would have observed and published. And the caller must not
@@ -673,15 +682,14 @@ class ConversationTraceRegistry:
     trace, which is the framework's run root: it starts before every span whose
     trace id will need rewriting, so no span can escape with the wrong id.
 
-    Bounded, because a long-lived process would otherwise keep one entry per
-    conversation and per trace forever.
+    The rewrite map is bounded, because a long-lived process would otherwise
+    keep one entry per trace forever. The anchors are bounded by the shared
+    store.
     """
 
-    def __init__(self, *, max_conversations: int = 2048, max_traces: int = 4096) -> None:
-        self._anchors: dict[str, int] = {}
+    def __init__(self, *, max_traces: int = 4096) -> None:
         self._targets: dict[int, int] = {}
         self._lock = Lock()
-        self._max_conversations = max_conversations
         self._max_traces = max_traces
 
     def claim(self, trace_id: Optional[int], conversation_id: Optional[str]) -> None:
@@ -689,15 +697,35 @@ class ConversationTraceRegistry:
 
         The first turn seen for a conversation becomes its anchor and is left
         alone. Every later turn records a rewrite onto that anchor.
+
+        The anchor is written before it is read back, so the shared store's
+        first-writer-wins is the single decision about who anchors a
+        conversation. Two threads opening the same conversation at once both
+        write; whichever the store keeps is the anchor, and the other reads it
+        back and records a rewrite onto it like any later turn.
         """
-        if trace_id is None or not conversation_id or trace_id in self._targets:
+        # ``not trace_id`` rejects OTEL's all-zero invalid id as well as None. A
+        # non-recording span carries that id, and writing it as an anchor would
+        # poison the conversation for the life of the process: the store keeps
+        # the first value written, so no healthy later turn could correct it.
+        if not trace_id or not conversation_id or trace_id in self._targets:
             return
+
+        own_id = format(trace_id, "032x")
+        anchor_conversation(conversation_id, own_id)
+        anchor_id = get_conversation_anchor(conversation_id)
+        if anchor_id is None or anchor_id == own_id:
+            # This turn anchors the conversation, so it is never rewritten.
+            return
+        try:
+            anchor = int(anchor_id, 16)
+        except (TypeError, ValueError):  # pragma: no cover - the store holds hex
+            logger.debug("Unusable conversation anchor %r", anchor_id)
+            return
+        if not anchor or anchor == trace_id:
+            return
+
         with self._lock:
-            anchor = self._anchors.get(conversation_id)
-            if anchor is None:
-                self._evict(self._anchors, self._max_conversations)
-                self._anchors[conversation_id] = trace_id
-                return
             self._evict(self._targets, self._max_traces)
             self._targets.setdefault(trace_id, anchor)
 
@@ -719,8 +747,8 @@ class ConversationTraceRegistry:
         return target
 
     def clear(self) -> None:
+        """Forget the rewrites. The shared anchor store is not this class's to clear."""
         with self._lock:
-            self._anchors.clear()
             self._targets.clear()
 
 
