@@ -138,6 +138,36 @@ describe('MetricTuningClient', () => {
     expect(result.rejections_used).toBe(2);
   });
 
+  it('asks for the run-sourced rejections to be left out', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ improvement: {}, changed: [], rejections_used: 1 })
+    );
+
+    await client.improveFromAnnotations(METRIC_ID, {
+      includeRunAnnotations: false,
+    });
+
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      `${BASE_URL}/metrics/${METRIC_ID}/tuning/improve?include_run_annotations=false`
+    );
+  });
+
+  it('sends no flag when the run-sourced rejections are wanted', async () => {
+    // The server defaults it on, so spelling the default into every request
+    // would make a later change to that default a two-sided edit.
+    fetchMock.mockResolvedValue(
+      makeFetch({ improvement: {}, changed: [], rejections_used: 1 })
+    );
+
+    await client.improveFromAnnotations(METRIC_ID, {
+      includeRunAnnotations: true,
+    });
+
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${BASE_URL}/metrics/${METRIC_ID}/tuning/improve`);
+  });
+
   it('deletes a tuning case', async () => {
     fetchMock.mockResolvedValue(makeFetch({ deleted: true, case_id: TEST_ID }));
 

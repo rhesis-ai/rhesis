@@ -137,9 +137,16 @@ export class MetricTuningClient extends BaseApiClient {
    * explicit action. Refused when no rejection currently stands.
    */
   async improveFromAnnotations(
-    metricId: UUID | string
+    metricId: UUID | string,
+    options: { includeRunAnnotations?: boolean } = {}
   ): Promise<MetricTuningImprovement> {
-    return this.fetch<MetricTuningImprovement>(this.improvePath(metricId), {
+    // Only sent when turned off: the server defaults it on, and spelling the
+    // default into every request makes a later change to it a two-sided edit.
+    const path =
+      options.includeRunAnnotations === false
+        ? `${this.improvePath(metricId)}?include_run_annotations=false`
+        : this.improvePath(metricId);
+    return this.fetch<MetricTuningImprovement>(path, {
       method: 'POST',
     });
   }
