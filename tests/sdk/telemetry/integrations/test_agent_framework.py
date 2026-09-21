@@ -47,6 +47,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402
     InMemorySpanExporter,
 )
+from rhesis.telemetry import conversation as rhesis_conversation  # noqa: E402
 from rhesis.telemetry.attributes import AIAttributes, validate_span_name  # noqa: E402
 from rhesis.telemetry.constants import ConversationContext  # noqa: E402
 from rhesis.telemetry.context import (  # noqa: E402
@@ -56,7 +57,10 @@ from rhesis.telemetry.context import (  # noqa: E402
     set_llm_observation_active,
     set_root_trace_id,
 )
-from rhesis.telemetry.conversation import conversation_turn  # noqa: E402
+from rhesis.telemetry.conversation import (  # noqa: E402
+    conversation_turn,
+    get_conversation_anchor,
+)
 
 from rhesis.sdk.telemetry.integrations.agent_framework import (  # noqa: E402
     MAFIntegration,
@@ -1675,8 +1679,11 @@ class TestWhichSpanClaimsTheTrace:
     def forget_claims(self):
         from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
 
+        # Anchors live in the process-wide store, the rewrites in the registry.
+        rhesis_conversation._anchors.clear()
         tr_mod._conversation_traces.clear()
         yield
+        rhesis_conversation._anchors.clear()
         tr_mod._conversation_traces.clear()
         set_conversation_id(None)
 
@@ -1691,9 +1698,12 @@ class TestWhichSpanClaimsTheTrace:
 
     @staticmethod
     def _claimed(conversation_id: str) -> bool:
-        from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+        """Whether the conversation is anchored, which is what a claim records.
 
-        return conversation_id in tr_mod._conversation_traces._anchors
+        The anchor is in the shared store rather than on the registry, so that
+        a turn served here and one served by ``conversation_turn`` agree.
+        """
+        return get_conversation_anchor(conversation_id) is not None
 
     @pytest.mark.parametrize(
         "root_name",
