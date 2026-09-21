@@ -187,6 +187,26 @@ Adding affordances to a new resource: add `WithPermittedActions` to the Pydantic
 and annotate `resource_type` on the class. The `Permission` enum in `auth/capabilities.py` must
 stay in sync with the frontend `Capability` enum.
 
+## MCP tools that return what a person wrote
+
+`mcp_server/mcp_tools.yaml` descriptions are the only instructions most MCP clients ever see —
+the Architect prompt reaches the Architect alone. So when a tool returns free text a person
+wrote, attributed to them (annotations today; comments, tasks and tuning judgements when they are
+exposed), its description must say three things:
+
+- report only the rows the response contained, and never one that is not in it
+- quote the text as written rather than paraphrasing it into something they did not say, and name
+  the author from the field that carries them
+- an empty result is the answer, not a gap to fill
+
+This is not stylistic. Issue #2402 was an agent reporting invented reviews for a test run: because
+each one is attributed to a named colleague, a fabrication reads exactly like real feedback, and
+nothing in the reply marks it apart. A model handed an empty list tends to fill it, which is why
+`format_list_response` states the emptiness rather than returning a bare `[]`.
+
+`tests/backend/services/test_mcp_tools_yaml.py::TestToolsReturningWhatAPersonWrote` holds the list
+of such tools. Add to it when exposing a new one.
+
 ## Feature Gating
 
 Gated capabilities (e.g. SSO) flow through a single primitive on the backend and a mirrored one on

@@ -173,4 +173,14 @@ def format_list_response(
             "Use $filter to narrow (e.g. $filter=name eq 'x') "
             f"or call again with skip={meta['next_skip']} for the next page."
         )
+    elif not items and not current_skip:
+        # An empty page is the answer, and saying so beats handing back a bare
+        # []. A model given nothing tends to fill the gap -- issue #2402 was
+        # exactly that, an agent inventing reviews for a run whose annotations
+        # it could not read. Stating the emptiness gives it something true to
+        # relay instead.
+        meta["hint"] = (
+            "No results matched. This is the answer: report that none exist "
+            "for these filters. Do not describe results you did not receive."
+        )
     return {"results": items, "_pagination": meta}
