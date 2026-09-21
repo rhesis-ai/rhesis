@@ -1,68 +1,28 @@
 """Per-(provider, action) transport routing for tool operations.
 
-A tool operation (extract content, test connection, create a ticket) can be served by
-a deterministic REST call or an LLM-driven MCP agent. The choice is made **per action,
-per provider** — not per provider — so the same provider can serve one action over REST
-and another over MCP.
+A tool operation (extract content, test connection, create a ticket) can be
+served by a deterministic REST call or an LLM-driven MCP agent. The choice is
+made **per action, per provider** -- not per provider -- so the same provider
+can serve one action over REST and another over MCP.
 
-``_ROUTES`` is the declarative table: which transport handles each cell. A missing cell
-means the provider does not support that action. When a provider eventually needs both
-transports for the *same* action, change that cell's value to carry both plus a
-selection policy in :func:`route` — callers are unaffected, they only ask for
+The table itself lives on each provider's manifest (``manifest.actions``). A
+missing entry means the provider does not support that action. When a provider
+eventually needs both transports for the *same* action, that cell carries both
+plus a selection policy here -- callers are unaffected, they only ask for
 ``route(provider, action)``.
 """
 
 import uuid
-from enum import Enum
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import tool as tool_crud
 from rhesis.backend.app.crud import type_lookup as type_lookup_crud
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
+from rhesis.backend.app.services.tool.providers import get_manifest
+from rhesis.backend.app.services.tool.providers.spec import ToolAction, Transport
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-
-
-class ToolAction(str, Enum):
-    """A user-facing operation a tool can perform."""
-
-    TEST_CONNECTION = "test_connection"
-    EXTRACT = "extract"
-    CREATE_TICKET = "create_ticket"
-
-
-class Transport(str, Enum):
-    """How an action is carried out."""
-
-    REST = "rest"
-    MCP = "mcp"
-
-
-# (provider, action) -> transport. REST wherever a client exists. Actions a provider
-# can only serve through the MCP agent (Transport.MCP) are registered the same way —
-# that is how MCP-based providers (e.g. GitLab, Shortcut, Asana, Azure DevOps, Linear) plug in.
-_ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
-    ("notion", ToolAction.EXTRACT): Transport.REST,
-    ("notion", ToolAction.TEST_CONNECTION): Transport.REST,
-    ("github", ToolAction.EXTRACT): Transport.REST,
-    ("github", ToolAction.TEST_CONNECTION): Transport.REST,
-    ("jira", ToolAction.TEST_CONNECTION): Transport.REST,
-    ("jira", ToolAction.CREATE_TICKET): Transport.REST,
-    ("confluence", ToolAction.TEST_CONNECTION): Transport.REST,
-    ("gitlab", ToolAction.EXTRACT): Transport.MCP,
-    ("gitlab", ToolAction.TEST_CONNECTION): Transport.MCP,
-    ("shortcut", ToolAction.EXTRACT): Transport.MCP,
-    ("shortcut", ToolAction.TEST_CONNECTION): Transport.MCP,
-    ("asana", ToolAction.EXTRACT): Transport.MCP,
-    ("asana", ToolAction.TEST_CONNECTION): Transport.MCP,
-    ("linear", ToolAction.EXTRACT): Transport.MCP,
-    ("linear", ToolAction.TEST_CONNECTION): Transport.MCP,
-    ("azure_devops", ToolAction.EXTRACT): Transport.MCP,
-    ("azure_devops", ToolAction.TEST_CONNECTION): Transport.MCP,
-    ("trello", ToolAction.EXTRACT): Transport.MCP,
-    ("trello", ToolAction.TEST_CONNECTION): Transport.MCP,
-}
 
 
 def route(provider: str, action: ToolAction) -> Transport:
@@ -71,7 +31,8 @@ def route(provider: str, action: ToolAction) -> Transport:
     Raises:
         ToolConfigurationError: If the provider does not support the action.
     """
-    transport = _ROUTES.get((provider, action))
+    manifest = get_manifest(provider)
+    transport = manifest.actions.get(action) if manifest else None
     if transport is None:
         raise ToolConfigurationError(
             f"Provider '{provider}' does not support action '{action.value}'."

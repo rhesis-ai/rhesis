@@ -29,7 +29,7 @@ class TestBuildClient:
 
     def test_jira(self):
         with patch(
-            "rhesis.backend.app.services.tool.rest.config.socket.getaddrinfo",
+            "rhesis.backend.app.services.tool.url_validation.socket.getaddrinfo",
             return_value=[(None, None, None, None, ("93.184.216.34", 0))],
         ):
             client = build_client(
@@ -44,7 +44,7 @@ class TestBuildClient:
 
     def test_confluence(self):
         with patch(
-            "rhesis.backend.app.services.tool.rest.config.socket.getaddrinfo",
+            "rhesis.backend.app.services.tool.url_validation.socket.getaddrinfo",
             return_value=[(None, None, None, None, ("93.184.216.34", 0))],
         ):
             client = build_client(
