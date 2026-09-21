@@ -1304,11 +1304,22 @@ def _maybe_notify_password_not_set(db: Session, user) -> None:
     if provider not in _EMAIL_PROVIDER_TYPES:
         return
 
+    from rhesis.backend.app.database import set_session_variables
     from rhesis.backend.app.models.enums import NotificationEventType
     from rhesis.backend.app.models.notification import Notification
     from rhesis.backend.app.services.notification import RenderedNotification, notify
 
+    if not user.organization_id:
+        return
+
     try:
+        # Magic-link verification runs unauthenticated, so no tenant GUC is
+        # bound yet. Without one the notification INSERT trips tenant_isolation
+        # and the nudge is silently dropped by the except below. The link is
+        # already verified at this point, so scoping to the user's own org is
+        # the identity we just established.
+        set_session_variables(db, str(user.organization_id), str(user.id))
+
         already_sent = (
             db.query(Notification.id)
             .filter(
@@ -1328,7 +1339,7 @@ def _maybe_notify_password_not_set(db: Session, user) -> None:
                 body="Set a password so you can sign in anytime without a magic link.",
             ),
             user_id=str(user.id),
-            organization_id=str(user.organization_id) if user.organization_id else None,
+            organization_id=str(user.organization_id),
         )
         db.commit()
     except Exception:
