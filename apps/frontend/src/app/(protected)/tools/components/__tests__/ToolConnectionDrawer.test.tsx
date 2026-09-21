@@ -268,6 +268,38 @@ describe('creating a connection', () => {
     ).toBeInTheDocument();
     expect(mockTestToolConnection).not.toHaveBeenCalled();
   });
+  it('keeps what the user typed when the manifests refetch', async () => {
+    // useToolProviders is a React Query hook: a refetch hands back a fresh
+    // array, so the manifest object identity changes even though nothing about
+    // the provider did. Reseeding on that wiped the form mid-edit.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Notion' }));
+    await user.type(screen.getByLabelText(/^Integration token/), 'ntn_abc');
+
+    mockProviders = [{ ...NOTION }, { ...GITLAB }];
+    rerender(
+      <ToolConnectionDrawer
+        open
+        providers={[notionLookup]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText(/^Integration token/)).toHaveValue('ntn_abc');
+  });
+
   it('keeps what the user typed when the provider lookups refresh', async () => {
     // useTypeLookups starts from the server-fetched array and swaps in a fresh
     // one when its query resolves. Resetting on that array's identity wiped
@@ -401,6 +433,28 @@ describe('editing a connection', () => {
         credentials: { GITLAB_PERSONAL_ACCESS_TOKEN: 'glpat-new' },
       })
     );
+  });
+
+  it('shows no test prompt until something actually changes', async () => {
+    // An Alert with no content still draws its box, so an untouched edit form
+    // showed an empty blue panel.
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[gitlabLookup]}
+        tool={savedTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Project/)).toHaveValue(
+        'my-group/my-project'
+      )
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('does not offer to save when nothing has changed', async () => {

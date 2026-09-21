@@ -155,6 +155,8 @@ export function ToolConnectionDrawer({
   }, [open, isEditMode, tool, providers, providerProp]);
 
   // Seed the field values once the manifest for the chosen provider is known.
+  const manifestKey = manifest?.key ?? null;
+
   useEffect(() => {
     if (!open || !manifest) return;
     const seeded =
@@ -167,10 +169,12 @@ export function ToolConnectionDrawer({
       description: isEditMode && tool ? tool.description || '' : '',
       values: seeded,
     });
-    // Keyed on toolId, not on the `tool` object, so a parent re-render does
-    // not discard edits in progress.
+    // Keyed on identifiers, never on object identity. React Query hands back a
+    // fresh manifest array on a refetch, and the parent can re-render with a
+    // new `tool` for the same row; depending on either would reseed the form
+    // and discard edits in progress.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, manifest, isEditMode, toolId]);
+  }, [open, manifestKey, isEditMode, toolId]);
 
   const setValue = useCallback((key: string, value: string) => {
     setValues(prev => ({ ...prev, [key]: value }));
@@ -298,6 +302,17 @@ export function ToolConnectionDrawer({
     }
   };
 
+  // Empty in edit mode until something actually changes, and an Alert with no
+  // content still draws its box.
+  const testPrompt =
+    connectionTested || testResult
+      ? null
+      : isEditMode
+        ? needsRetest
+          ? 'Please test the connection with your changes before saving.'
+          : null
+        : 'Please test the connection before saving the tool configuration.';
+
   const showForm = isEditMode || Boolean(providerLookup);
   const saveDisabled =
     loading ||
@@ -410,15 +425,7 @@ export function ToolConnectionDrawer({
               </Box>
             </Stack>
 
-            {!connectionTested && !testResult && (
-              <Alert severity="info">
-                {isEditMode && needsRetest
-                  ? 'Please test the connection with your changes before saving.'
-                  : !isEditMode
-                    ? 'Please test the connection before saving the tool configuration.'
-                    : null}
-              </Alert>
-            )}
+            {testPrompt && <Alert severity="info">{testPrompt}</Alert>}
           </>
         )}
       </Stack>
