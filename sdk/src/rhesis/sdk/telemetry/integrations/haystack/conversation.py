@@ -17,11 +17,20 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional
 
-from opentelemetry import trace
-from opentelemetry.trace import NonRecordingSpan, Span, SpanContext, TraceFlags
+from opentelemetry.trace import Span
 
 from rhesis.telemetry.constants import ConversationContext
-from rhesis.telemetry.context import get_root_trace_id, set_root_trace_id
+from rhesis.telemetry.context import (
+    get_conversation_id,
+    get_root_trace_id,
+    set_conversation_id,
+    set_root_trace_id,
+)
+from rhesis.telemetry.conversation import (
+    anchor_conversation,
+    build_conversation_parent_context,
+    get_conversation_anchor,
+)
 
 if TYPE_CHECKING:
     from rhesis.sdk.telemetry.integrations.haystack.tracer import RhesisTracer
@@ -36,32 +45,6 @@ _MAX_IO = ConversationContext.MAX_IO_LENGTH
 # Forwarded to RhesisClient when this class has to create one. Anything else a caller passes is a
 # tracer setting, handled by HaystackIntegration.configure().
 _CLIENT_KWARGS = ("api_key", "base_url", "project_id", "environment")
-
-
-def _conversation_parent_context(trace_id: str) -> Any:
-    """
-    Build a synthetic parent so a turn inherits the conversation's trace id.
-
-    OpenTelemetry mints a fresh trace id for every parentless span, which would scatter one
-    conversation across a trace per turn. Attaching a non-recording parent carrying the
-    conversation's trace id makes the new span join it instead. The parent's span id is the agreed
-    placeholder that the Rhesis exporter strips, so the turn is still stored as a root span -- the
-    same approach the Rhesis SDK uses for turns it serves itself.
-
-    :param trace_id: 32-character hex trace id of the conversation's first turn.
-    :returns: An OTel context carrying the synthetic parent, or ``None`` if the id is unusable.
-    """
-    try:
-        span_context = SpanContext(
-            trace_id=int(trace_id, 16),
-            span_id=ConversationContext.SYNTHETIC_PARENT_SPAN_ID,
-            is_remote=True,
-            trace_flags=TraceFlags(TraceFlags.SAMPLED),
-        )
-    except (TypeError, ValueError):
-        logger.warning("Invalid conversation trace id %r; starting a new trace", trace_id)
-        return None
-    return trace.set_span_in_context(NonRecordingSpan(span_context))
 
 
 class ConversationTurn:
@@ -147,7 +130,7 @@ class RhesisTracing:
         """
         self.name = name
         self.turn_span_name = turn_span_name
-        self._conversation_trace_id: Optional[str] = None
+        self._unnamed_anchor: Optional[str] = None
         self._tracer: Optional[RhesisTracer] = None
 
         if not enabled:
@@ -231,8 +214,9 @@ class RhesisTracing:
         """
         Group the turns that follow into one conversation, sharing one trace.
 
-        Calling this again starts a new conversation: the next turn opens a new trace and later
-        turns join it.
+        Calling this with a new id starts a new conversation: the next turn opens a new trace and
+        later turns join it. Passing an id this process has already recorded a turn for rejoins that
+        conversation's trace, whether the earlier turn came from here or from ``conversation_turn``.
 
         :param conversation_id: Identifier grouping the turns, shown as the conversation in Rhesis.
         :param invocation_context: Extra metadata for the root span (test run identifiers, tags, …).
@@ -242,7 +226,19 @@ class RhesisTracing:
         from rhesis.sdk.telemetry.integrations.haystack.tracer import tracing_context_var
 
         tracing_context_var.set({"session_id": conversation_id, **invocation_context})
-        self._conversation_trace_id = None
+        self._unnamed_anchor = None
+
+    def _parent_context(self, conversation_id: Optional[str]) -> Any:
+        """Pull this turn onto the trace its conversation started on.
+
+        A named conversation resolves through the shared anchor store, so a turn opened here lands
+        on the same trace as one ``conversation_turn`` or ``@endpoint`` opened for the same id.
+        Without a name there is no key to share, so the turns of this instance chain through it.
+        """
+        anchor = (
+            get_conversation_anchor(conversation_id) if conversation_id else self._unnamed_anchor
+        )
+        return build_conversation_parent_context(anchor) if anchor else None
 
     @contextmanager
     def turn(self, user_input: str) -> Iterator[ConversationTurn]:
@@ -265,15 +261,18 @@ class RhesisTracing:
         from rhesis.sdk.telemetry.integrations.haystack.tracer import tracing_context_var
 
         conversation_id = (tracing_context_var.get({}) or {}).get("session_id")
-        parent_context = (
-            _conversation_parent_context(self._conversation_trace_id)
-            if self._conversation_trace_id
-            else None
-        )
+        parent_context = self._parent_context(conversation_id)
         # Opened through the tracer's own provider rather than ``trace.get_tracer()`` so a turn is
         # flushed by the same provider as its children.
         otel_tracer = tracer.telemetry.otel_tracer
         previous_root = get_root_trace_id()
+        previous_conversation = get_conversation_id()
+        # Bound as well as the root trace id, the way ``conversation_turn`` does.
+        # An integration running inside this turn reads it to learn which
+        # conversation it is in; without it, its own content registry records no
+        # session id for the turn.
+        if conversation_id:
+            set_conversation_id(conversation_id)
 
         with otel_tracer.start_as_current_span(self.turn_span_name, context=parent_context) as span:
             span.set_attribute(_SPAN_ATTRS.IS_TURN_ROOT, True)
@@ -282,8 +281,19 @@ class RhesisTracing:
             if user_input:
                 span.set_attribute(_SPAN_ATTRS.CONVERSATION_INPUT, user_input[:_MAX_IO])
 
-            trace_id = format(span.get_span_context().trace_id, "032x")
-            self._conversation_trace_id = trace_id
+            span_context = span.get_span_context()
+            # A disabled or shut-down provider hands back a non-recording span,
+            # whose trace id is all zeros. Anchoring a conversation to it would
+            # send every later turn to a trace that cannot exist, and the anchor
+            # store keeps the first value written, so no healthy later turn could
+            # correct it. The store is process-wide, so it would take
+            # ``conversation_turn`` and ``@endpoint`` down for this id too.
+            trace_id = format(span_context.trace_id, "032x") if span_context.is_valid else None
+            if trace_id:
+                if conversation_id:
+                    anchor_conversation(conversation_id, trace_id)
+                elif self._unnamed_anchor is None:
+                    self._unnamed_anchor = trace_id
             # Marks the turn as owned here, so the Haystack root span nests inside it instead of
             # claiming the turn and restating its input and output.
             set_root_trace_id(trace_id)
@@ -291,6 +301,7 @@ class RhesisTracing:
                 yield ConversationTurn(span)
             finally:
                 set_root_trace_id(previous_root)
+                set_conversation_id(previous_conversation)
 
     def flush(self) -> None:
         """Flush pending spans. Call before exit; batched spans are otherwise lost."""
