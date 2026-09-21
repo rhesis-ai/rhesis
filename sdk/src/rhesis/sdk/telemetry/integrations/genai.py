@@ -704,7 +704,11 @@ class ConversationTraceRegistry:
         write; whichever the store keeps is the anchor, and the other reads it
         back and records a rewrite onto it like any later turn.
         """
-        if trace_id is None or not conversation_id or trace_id in self._targets:
+        # ``not trace_id`` rejects OTEL's all-zero invalid id as well as None. A
+        # non-recording span carries that id, and writing it as an anchor would
+        # poison the conversation for the life of the process: the store keeps
+        # the first value written, so no healthy later turn could correct it.
+        if not trace_id or not conversation_id or trace_id in self._targets:
             return
 
         own_id = format(trace_id, "032x")

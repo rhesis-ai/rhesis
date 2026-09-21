@@ -189,6 +189,27 @@ class TestConversationTraceRegistryUsesTheSharedAnchor:
 
         assert registry.target(0xB2) is None
 
+    def test_an_invalid_trace_id_is_never_anchored(self):
+        """The mirror of the case above: do not write what we would not use.
+
+        A non-recording span carries OTEL's all-zero trace id. Anchoring it
+        would poison the conversation for the life of the process, because the
+        store keeps the first value written.
+        """
+        registry = ConversationTraceRegistry()
+
+        registry.claim(0, "conv-invalid")
+
+        assert get_conversation_anchor("conv-invalid") is None
+
+    def test_a_healthy_turn_still_anchors_after_an_invalid_one(self):
+        registry = ConversationTraceRegistry()
+        registry.claim(0, "conv-recovers")
+
+        registry.claim(0xA1, "conv-recovers")
+
+        assert get_conversation_anchor("conv-recovers") == format(0xA1, "032x")
+
     def test_no_conversation_id_anchors_nothing(self):
         registry = ConversationTraceRegistry()
 
