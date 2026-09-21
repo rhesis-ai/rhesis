@@ -20,7 +20,6 @@ import { Tool } from '@/utils/api-client/interfaces/tool';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TOOL_PROVIDER_ICONS,
-  EXTRACT_PROVIDERS,
   formatToolProviderDisplayName,
 } from '@/config/tool-providers';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
@@ -29,6 +28,7 @@ import ToolImportPanel, {
   PanelFooterState,
 } from './ToolImportPanel';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useToolProviders } from '@/hooks/useToolProviders';
 
 interface ToolImportDrawerProps {
   open: boolean;
@@ -54,6 +54,8 @@ export default function ToolImportDrawer({
     onBack: onClose,
   });
 
+  const { data: toolProviders = [] } = useToolProviders();
+
   const loadTools = useCallback(async () => {
     if (!isAuthenticated(status)) return;
     try {
@@ -62,8 +64,13 @@ export default function ToolImportDrawer({
       const response = await apiFactory
         .getToolsClient()
         .getTools({ limit: 100 });
+      // Which providers can extract is a backend fact, served with the rest
+      // of the provider metadata, so this no longer keeps its own list.
+      const extractable = new Set(
+        toolProviders.filter(p => p.actions.includes('extract')).map(p => p.key)
+      );
       const supported = (response.data || []).filter(t =>
-        EXTRACT_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
+        extractable.has(t.tool_provider_type?.type_value ?? '')
       );
       setTools(supported);
       if (supported.length === 1) {
@@ -74,7 +81,9 @@ export default function ToolImportDrawer({
     } finally {
       setLoadingTools(false);
     }
-  }, [status]);
+    // Reruns when the manifests land: they arrive after the first render, and
+    // filtering against an empty set would show no importable tools at all.
+  }, [status, toolProviders]);
 
   useEffect(() => {
     if (open) {
