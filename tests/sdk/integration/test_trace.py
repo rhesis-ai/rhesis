@@ -386,6 +386,58 @@ class TestAnnotating:
         assert annotation.target_reference == "Turn 2"
 
 
+class TestAnnotatingByTheOtelTraceId:
+    """What an instrumented application can do: annotate the trace it produced.
+
+    Every test above resolves the span row id first, through ``Traces.pull``.
+    An application reporting on its own output has only the hex its tracer
+    generated, so these go straight from that to a recorded verdict.
+    """
+
+    def test_the_hex_alone_is_enough_to_record_a_verdict(self, unique_name, verdict_statuses):
+        from rhesis.sdk.telemetry import annotate_trace
+
+        trace_id = ingest_trace(root_name=unique_name)
+
+        annotation = annotate_trace(trace_id, "fail", "User said the answer was wrong.")
+
+        assert annotation.id is not None
+        # Resolved server-side to the root span, so the verdict lands on the
+        # trace rather than on whichever span happened to be queried first.
+        expected = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        assert annotation.entity_id == expected.db_id
+
+    def test_the_verdict_overrides_the_trace_the_same_way(self, unique_name, verdict_statuses):
+        """Feedback from outside the platform is an ordinary annotation, not a
+        second-class note, so the override has to apply identically."""
+        trace_id = ingest_trace(root_name=unique_name)
+
+        from rhesis.sdk.telemetry import annotate_trace
+
+        annotate_trace(trace_id, "fail", "Cited a document that does not exist.")
+
+        after = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        assert after.verdict == "fail"
+        assert after.last_annotation["comments"] == "Cited a document that does not exist."
+
+    def test_annotations_read_back_by_the_hex(self, unique_name, verdict_statuses):
+        from rhesis.sdk.entities.annotation import Annotations
+        from rhesis.sdk.telemetry import annotate_trace
+
+        trace_id = ingest_trace(root_name=unique_name)
+        annotate_trace(trace_id, "fail", "Wrong document.")
+
+        found = Annotations.for_trace_id(trace_id)
+
+        assert [a.comments for a in found] == ["Wrong document."]
+
+    def test_a_trace_that_was_never_ingested_says_it_is_not_there_yet(self, verdict_statuses):
+        from rhesis.sdk.telemetry import annotate_trace
+
+        with pytest.raises(Exception, match="ingested asynchronously"):
+            annotate_trace(uuid.uuid4().hex, "fail")
+
+
 class TestTracesAreNotWritable:
     def test_push_and_delete_point_at_the_instrumentation(self, unique_name):
         trace_id = ingest_trace(root_name=unique_name)

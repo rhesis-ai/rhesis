@@ -536,6 +536,7 @@ An annotation names what it judges through `target_type`: the entity as a whole 
 - `test_run_id` — everything annotated in that run, both test results and the traces it produced. Main entry point.
 - `test_set_id` — scope to annotations whose parent ran under a test configuration tied to that test set
 - `endpoint_id` — scope to annotations whose parent ran against that endpoint
+- `trace_id` — the 32-char hex; every annotation on that trace, including ones filed against a child span rather than the root, since the question is about the trace and not one operation in it. Saves a `get_trace` when all you have is a `list_traces` row
 - `metric` — metric name or UUID (name is case-insensitive); returns every judgement about that metric. Two kinds are filed differently: one on a metric within a result names the metric, while a tuning judgement names the metric's id. Either input returns both, so this answers "what do people think of this metric" in one call
 - `annotator_id` — UUID of a user; returns only annotations created by that person
 - `requirement_id` — UUID of a requirement; scopes to annotations on test results linked to it
@@ -582,7 +583,8 @@ A Pass/Fail annotation on a test result or trace **overrides that parent's autom
 
 **Key parameters:**
 - `entity_type` (required) — `"TestResult"`, `"Trace"` or `"Test"`
-- `entity_id` (required) — UUID of that entity
+- `entity_id` — UUID of that entity. Required unless `trace_id` names a trace instead.
+- `trace_id` — the 32-char hex trace id, as an alternative to `entity_id` when the parent is a `"Trace"`. Send one or the other, never both. The trace's root span is resolved for you, so a caller holding only the hex needs no `get_trace` first. A trace that has not been ingested yet comes back as a 404 saying so, because spans arrive asynchronously; retry rather than treating it as a wrong id.
 - `status_id` (required) — the Pass or Fail status UUID, from `list_statuses(entity_type="TestResult")`. Never guess it.
 - `comments` — the person's reasoning in their words. An annotation with no comment explains nothing later.
 - `target` — optional `{"type": "metric", "reference": "Answer Fluency"}` or `{"type": "turn", "reference": "Turn 2"}`. Omit for a verdict on the whole entity.
@@ -617,10 +619,12 @@ A trace is one request's worth of work inside the application under test, and it
 
 | Id | Shape | What it addresses |
 |----|-------|-------------------|
-| `trace_id` | 32-char hex | `get_trace` only |
-| span row id | UUID | annotating a trace, a `/traces/…` link, `lookup_span` |
+| `trace_id` | 32-char hex | `get_trace`; `create_annotation` and `list_annotations` as `trace_id` |
+| span row id | UUID | `entity_id` when annotating, a `/traces/…` link, `lookup_span` |
 
-`list_traces` carries only the hex. The row id comes from `get_trace` as `root_spans[0].id`, or from a `list_annotations` row as `context.trace_db_id`. Using the hex where a row id belongs fails: there is no row with that id.
+`list_traces` carries only the hex. The row id comes from `get_trace` as `root_spans[0].id`, or from a `list_annotations` row as `context.trace_db_id`.
+
+Each id has its own field, and they are not interchangeable within one. `create_annotation` takes the row id as `entity_id` or the hex as `trace_id`, never both, and resolves the hex to the trace's root span. Putting the hex in `entity_id` is the mistake to avoid: a 32-character hex also parses as a UUID, so it is accepted and then matches no row, coming back as a missing trace rather than as a wrong field.
 
 ---
 

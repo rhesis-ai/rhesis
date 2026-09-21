@@ -63,6 +63,7 @@ def _annotations_query(
     test_run_id: uuid.UUID | None = None,
     test_set_id: uuid.UUID | None = None,
     endpoint_id: uuid.UUID | None = None,
+    trace_id: str | None = None,
     metric: str | None = None,
     annotator_id: uuid.UUID | None = None,
     requirement_id: uuid.UUID | None = None,
@@ -93,6 +94,8 @@ def _annotations_query(
             q = q.filter(_in_test_set(test_set_id))
         if endpoint_id:
             q = q.filter(_in_endpoint(endpoint_id))
+        if trace_id:
+            q = q.filter(_on_trace(trace_id))
         if metric:
             q = q.filter(_on_metric(metric))
         if annotator_id:
@@ -134,6 +137,23 @@ def _in_test_run(test_run_id: uuid.UUID):
         )
     )
     return or_(on_result, on_trace)
+
+
+def _on_trace(trace_id: str):
+    """Annotations on any span of one OTEL trace.
+
+    Scoped by the hex a caller has rather than by the span row id, which an
+    instrumented application never sees. Every span of the trace counts, not
+    just the root: an annotation may have been filed against a child span
+    through the UI.
+    """
+    return exists(
+        select(models.Trace.id).where(
+            models.Trace.id == models.Annotation.entity_id,
+            models.Annotation.entity_type == EntityType.TRACE.value,
+            models.Trace.trace_id == trace_id,
+        )
+    )
 
 
 def _in_test_set(test_set_id: uuid.UUID):

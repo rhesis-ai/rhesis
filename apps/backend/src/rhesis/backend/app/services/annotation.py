@@ -40,6 +40,44 @@ def _load_parent(db: Session, entity_type: str, entity_id: uuid.UUID):
     return parent
 
 
+def _resolve_trace_id(db: Session, trace_id: str) -> uuid.UUID:
+    """Find the span row a caller's OTEL trace id refers to.
+
+    An instrumented application knows the trace it produced and nothing about
+    how the platform stored it, so the root span is looked up for it here.
+    Ingestion is asynchronous, so "not found" usually means the spans have not
+    arrived yet rather than that the id is wrong, and the message says so --
+    retrying is the right response, and a bare 404 reads as a bad id.
+    """
+    roots = (
+        db.query(models.Trace.id)
+        .filter(
+            models.Trace.trace_id == trace_id,
+            models.Trace.parent_span_id.is_(None),
+        )
+        .limit(2)
+        .all()
+    )
+    if not roots:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No trace {trace_id} in this project yet. Spans are ingested "
+                f"asynchronously, so a trace recorded moments ago may not be "
+                f"queryable yet."
+            ),
+        )
+    if len(roots) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Trace {trace_id} has more than one root span, so which one "
+                f"is being annotated is ambiguous. Annotate it by entity_id."
+            ),
+        )
+    return roots[0][0]
+
+
 def _validate_status(db: Session, status_id: uuid.UUID) -> None:
     if db.query(models.Status).filter(models.Status.id == status_id).first() is None:
         raise HTTPException(status_code=404, detail="Status not found")
@@ -94,7 +132,9 @@ def create_annotation(
     current_user: models.User,
 ) -> models.Annotation:
     entity_type = EntityType.get_value(data.entity_type)
-    parent = _load_parent(db, entity_type, data.entity_id)
+    # The schema guarantees exactly one of the two, and the hex is Trace-only.
+    entity_id = data.entity_id or _resolve_trace_id(db, data.trace_id)
+    parent = _load_parent(db, entity_type, entity_id)
     _validate_status(db, data.status_id)
 
     target = data.target
@@ -102,7 +142,7 @@ def create_annotation(
         db,
         {
             "entity_type": entity_type,
-            "entity_id": data.entity_id,
+            "entity_id": entity_id,
             "target_type": target.type if target else ENTITY_LEVEL_TARGETS[entity_type],
             "target_reference": target.reference if target else None,
             "status_id": data.status_id,
