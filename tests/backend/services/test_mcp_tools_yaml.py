@@ -446,6 +446,16 @@ class TestWritesReportWhatTheyActuallyWrote:
             assert check.get("request_list"), f"{tc['name']}: count_check needs request_list"
             assert check.get("response_count"), f"{tc['name']}: count_check needs response_count"
 
+    def test_both_bulk_writers_declare_the_check(self):
+        """add_tests_bulk is how a large set is built up, so a batch that
+        lands short has to report itself as loudly as the first one does."""
+        configs = {tc["name"]: tc for tc in load_tool_configs()}
+        for name in ("create_test_set_bulk", "add_tests_bulk"):
+            assert configs[name]["count_check"] == {
+                "request_list": "tests",
+                "response_count": "total_tests",
+            }, f"{name} should declare the shortfall check"
+
     def test_the_bulk_tool_declares_the_check(self):
         cfg = {tc["name"]: tc for tc in load_tool_configs()}["create_test_set_bulk"]
         assert cfg["count_check"] == {"request_list": "tests", "response_count": "total_tests"}
@@ -463,6 +473,56 @@ class TestWritesReportWhatTheyActuallyWrote:
 
         _, operations = build_tools_and_operations(app)
         assert operations["create_test_set_bulk"]["count_check"] is not None
+
+
+@pytest.mark.unit
+class TestLargeSetsAreBuiltInBatches:
+    """Issue #2785: 95 tests in one call produced 8.
+
+    The cap is the model's output, not the API, so the platform cannot stop
+    a long array being cut off. What it can do is offer a second tool to
+    append to an existing set, and say plainly where the limit is.
+    """
+
+    def _cfg(self, name):
+        return {tc["name"]: tc for tc in load_tool_configs()}[name]
+
+    def test_add_tests_bulk_resolves_against_a_real_route(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, operations = build_tools_and_operations(app)
+        assert "add_tests_bulk" in {t.name for t in tools}
+        assert operations["add_tests_bulk"]["path"] == "/tests/bulk"
+        assert operations["add_tests_bulk"]["method"] == "POST"
+
+    def test_add_tests_bulk_is_confirmation_gated(self):
+        assert self._cfg("add_tests_bulk").get("requires_confirmation") is True
+
+    def test_it_takes_the_set_to_append_to(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        props = {t.name: t for t in tools}["add_tests_bulk"].inputSchema["properties"]
+        assert "test_set_id" in props
+        assert "tests" in props
+
+    def test_both_tools_name_the_batch_size(self):
+        """A limit nobody states is a limit nobody respects."""
+        for name in ("create_test_set_bulk", "add_tests_bulk"):
+            assert "25" in self._cfg(name)["description"], f"{name} should give the batch size"
+
+    def test_the_first_tool_points_at_the_second(self):
+        """Otherwise an agent with 95 tests has no route other than one call."""
+        description = self._cfg("create_test_set_bulk")["description"].replace("\n", " ")
+        assert "add_tests_bulk" in description
+
+    def test_appending_without_a_set_is_warned_against(self):
+        """test_set_id is optional on the route, and omitting it creates tests
+        that belong to nothing -- which looks like success."""
+        doc = self._cfg("add_tests_bulk")["parameters"]["test_set_id"]["description"]
+        assert "REQUIRED in practice" in doc
 
 
 @pytest.mark.unit

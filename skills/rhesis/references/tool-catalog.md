@@ -369,6 +369,32 @@ Only `goal` is required inside `test_configuration`. Every test needs one of `pr
 
 **Common mistakes:** Setting `test_set_type: "Multi-Turn"` but sending tests with `prompt` — the server types each test from its own content, so those tests land as Single-Turn inside a Multi-Turn set. Set `test_type` on every test object.
 
+**More than 25 tests: batch them.** Every test object has to be written out in one tool call, and a long enough array gets cut off part way — the tests past the cut are never sent, and the ones before it are created as though that were the whole set. A request for 95 produced 8 this way.
+
+```
+create_test_set_bulk(..., tests=[first 25])   → test_set_id
+add_tests_bulk(test_set_id=..., tests=[next 25])
+add_tests_bulk(test_set_id=..., tests=[next 25])
+list_test_set_tests(test_set_identifier=...)  → confirm the total
+```
+
+Report the sum of each call's `total_tests`, never the number you meant to send.
+
+---
+
+### `add_tests_bulk`
+Create tests and add them to a test set that already exists. **Requires confirmation.**
+
+This is how a set larger than one tool call gets built: `create_test_set_bulk` writes the first batch and returns a `test_set_id`, and this adds each batch after it.
+
+**Key parameters:**
+- `tests` (required, non-empty, 25 or fewer) — same item shape as `create_test_set_bulk`
+- `test_set_id` (required in practice) — from the `create_test_set_bulk` response. Without it the tests are created attached to no set
+
+**Report `total_tests` from each response**, and the sum across batches as the total. A batch that lands short carries a `_count_check` block; when one appears, say how many landed and stop rather than carrying on as though it worked.
+
+**CHAIN:** `create_test_set_bulk` (first batch) → `add_tests_bulk` per remaining batch → `list_test_set_tests` to confirm the total before offering `execute_test_set`.
+
 ---
 
 ## Adversarial test sets

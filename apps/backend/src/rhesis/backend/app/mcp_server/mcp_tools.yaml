@@ -75,6 +75,50 @@ tools:
       test_set_identifier:
         description: "REQUIRED. Test set UUID, nano_id, or slug."
 
+  - name: add_tests_bulk
+    label: Adding tests
+    method: POST
+    path: /tests/bulk
+    requires_confirmation: true
+    # Same shortfall check as create_test_set_bulk: this is the tool a large
+    # set is built up with, so a batch that lands short has to say so rather
+    # than be counted as complete.
+    count_check:
+      request_list: tests
+      response_count: total_tests
+    description: >
+      Create tests and add them to a test set that already exists. This is how
+      a set larger than one tool call is built: create_test_set_bulk writes the
+      first batch and returns a test_set_id, and this adds each batch after it.
+
+      Keep a batch to 25 tests or fewer. The limit is not the API but what can
+      be written out in a single tool call: a long array gets cut off part way,
+      and the tests past the cut are never sent. That is how a request for 95
+      became 8.
+
+      REPORT total_tests FROM THE RESPONSE for each call, and the sum of those
+      across batches as the total. Never report the number you intended to
+      send. A short batch carries a _count_check block; when one appears, say
+      how many landed and stop rather than continuing as though it worked.
+
+      ENTITY: Test. PREREQUISITES: test_set_id, from create_test_set_bulk or
+      list_test_sets. CHAIN: create_test_set_bulk (first batch) ->
+      add_tests_bulk per remaining batch -> list_test_set_tests to confirm the
+      total before offering execute_test_set. NEVER: use this to start a test
+      set -- without test_set_id the tests are created loose and belong to
+      nothing.
+    parameters:
+      tests:
+        description: >
+          REQUIRED, non-empty array, 25 or fewer. Each test takes the same
+          shape as in create_test_set_bulk: prompt, requirement, category,
+          topic, and test_type.
+      test_set_id:
+        description: >
+          REQUIRED in practice. UUID of the set these tests join, from the
+          create_test_set_bulk response. Omitting it creates the tests
+          attached to no set, which is almost never what you want.
+
   - name: update_test_set
     label: Updating test set
     method: PUT
@@ -129,6 +173,13 @@ tools:
       were not, rather than describing tests that do not exist. The same holds
       for every write: what you say you created has to come from what the call
       returned.
+
+      MORE THAN 25 TESTS: do not send them all here. Every test object has to
+      be written out in one tool call, and a long enough array gets cut off
+      mid-way -- 95 sent, 8 created. Send the first 25 or fewer with this
+      tool, take test_set_id from the response, then call add_tests_bulk once
+      per remaining batch. Each call is small enough to complete, and each
+      reports what it wrote.
     parameters:
       name:
         description: "Test set name (required, string)"
