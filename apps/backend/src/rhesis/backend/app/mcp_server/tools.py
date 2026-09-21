@@ -108,6 +108,7 @@ def build_tools_and_operations(
             "has_body": "requestBody" in operation,
             "default_query": tc.get("default_query", {}),
             "page_size": tc.get("page_size"),
+            "count_check": tc.get("count_check"),
         }
 
     return tools, operation_map
@@ -147,6 +148,47 @@ def apply_query_overrides(
         query["limit"] = page_size + 1
 
     return query, current_skip, page_size
+
+
+def annotate_write_count(
+    data: Any,
+    body: Optional[Dict[str, Any]],
+    op: Dict[str, Any],
+) -> Any:
+    """Say so in the response when a write created fewer rows than it was sent.
+
+    A bulk create answers with the count it actually wrote, and an agent that
+    reports the number it asked for instead is not contradicted by anything.
+    Issue #2516 was exactly that: 95 tests requested, 8 written, 95 reported,
+    and nothing in the exchange said otherwise.
+
+    Declared per tool in ``mcp_tools.yaml`` as
+    ``count_check: {request_list: <body key>, response_count: <response key>}``.
+    Leaves the response untouched when the tool declares no check, when either
+    side is missing, or when the counts agree.
+    """
+    check = op.get("count_check")
+    if not check or not isinstance(data, dict) or not isinstance(body, dict):
+        return data
+
+    requested = body.get(check["request_list"])
+    written = data.get(check["response_count"])
+    if not isinstance(requested, list) or not isinstance(written, int):
+        return data
+    if len(requested) == written:
+        return data
+
+    data = dict(data)
+    data["_count_check"] = {
+        "requested": len(requested),
+        "written": written,
+        "warning": (
+            f"Sent {len(requested)} but {written} were created. Report {written}, "
+            "the number in this response, not the number you asked for. Say that "
+            "the rest were not created and stop rather than describing them."
+        ),
+    }
+    return data
 
 
 def format_list_response(

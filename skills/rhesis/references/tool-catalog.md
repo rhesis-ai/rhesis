@@ -139,6 +139,19 @@ List evaluation metrics.
 
 ---
 
+### `list_models`
+List the LLM configurations saved in this organization — the judge models a metric can be evaluated by, and the generation models a synthesizer can use.
+
+**Default fields returned:** `id`, `name`, `model_name`, `provider`, `model_type`, `is_protected`
+
+**Why it matters:** a metric naming a model the organization does not have passes creation and fails at evaluation. The name is stored as written, so a typo stays invisible until a run produces nothing. Resolve the name here and use the id.
+
+**CHAIN:** before `create_metric` / `update_metric` when the user names a judge model, and before saying a metric is ready to run.
+
+**Careful:** a model name looking standard says nothing about whether this organization has one saved. Check rather than assume.
+
+---
+
 ### `list_test_runs`
 List test runs. Each run tracks one execution of a test set.
 
