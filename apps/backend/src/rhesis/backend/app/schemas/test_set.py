@@ -238,6 +238,11 @@ class TestSetBulkResponse(BaseModel):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     attributes: Optional[Dict[str, Any]] = None
+    # How many tests the set actually ended up with, which is not always how
+    # many were sent. The MCP count_check on create_test_set_bulk reads this
+    # field by name, so an agent reporting the request instead of the result
+    # is contradicted by the response (issue #2516). Set by the router.
+    total_tests: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
