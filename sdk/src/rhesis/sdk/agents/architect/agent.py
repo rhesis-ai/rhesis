@@ -1485,24 +1485,29 @@ class ArchitectAgent(BaseAgent):
 
         updated = False
         for line in message.splitlines():
-            # Both trailing parts are optional: the monitor writes "?" for a
-            # count the job result did not carry, and the completion still has
-            # to register either way.
+            # The monitor writes "?" for a count the job result did not carry.
+            # That has to be matched rather than skipped, or the parse stops
+            # there and never reaches the id behind it.
             match = re.search(
                 r"Test set '([^']+)' generated successfully"
-                r"(?: \((\d+) tests\))?"
+                r"(?: \((\d+|\?) tests\))?"
                 r"(?:\. test_set_id=(\S+))?",
                 line,
             )
             if match:
                 name = match.group(1).lower()
-                if match.group(2) is not None:
-                    self._test_set_counts[name] = int(match.group(2))
-                # A generated set that came up short is topped up with
-                # add_tests_bulk, which carries only the id. Without this the
-                # top-up cannot be credited and the set reads short forever.
-                if match.group(3):
-                    self._test_set_names_by_id[match.group(3)] = match.group(1)
+                count = match.group(2)
+                if count is not None and count.isdigit():
+                    self._test_set_counts[name] = int(count)
+                    # A short generated set is topped up with add_tests_bulk,
+                    # which carries only the id, so the id is kept to credit
+                    # that batch. Only alongside a known count: a later batch
+                    # adds to a running total, and adding to a total that was
+                    # never established would report the top-up as the whole
+                    # set and invent a shortfall of everything generated
+                    # before it. Unknown stays unknown rather than go wrong.
+                    if match.group(3):
+                        self._test_set_names_by_id[match.group(3)] = match.group(1)
                 for ts in plan.test_sets:
                     if not ts.completed and ts.name.lower() == name:
                         ts.completed = True

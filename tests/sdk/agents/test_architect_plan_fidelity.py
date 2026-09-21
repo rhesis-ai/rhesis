@@ -459,6 +459,31 @@ class TestGeneratedSetsAreCountedToo:
         assert agent._plan.test_sets[0].completed is True
         assert agent._plan.test_sets[0].actual_tests is None
 
+    @pytest.mark.asyncio
+    async def test_an_unknown_count_does_not_become_a_wrong_one(self):
+        """A top-up after an unknown count must not be read as the whole set.
+
+        The id is deliberately not kept when the count is missing. Keeping it
+        would let the next batch start a running total from zero, so a set the
+        generator had already filled would report only the top-up and claim a
+        shortfall of everything written before it. Saying nothing about the
+        size is honest; saying 28 of 40 for a full set is not.
+        """
+        agent = _agent()
+        await agent._apply_task_completions(
+            "[TASK_COMPLETED] Test set 'Guardrails' generated successfully "
+            "(? tests). test_set_id=ts-9"
+        )
+
+        agent._record_tests_written(
+            _call("add_tests_bulk", test_set_id="ts-9"),
+            _ok("add_tests_bulk", {"success": True, "total_tests": 28}),
+        )
+
+        assert agent._plan.test_sets[0].actual_tests is None
+        assert agent._plan.test_sets[0].shortfall() is None
+        assert "Short of plan" not in agent._format_plan_progress()
+
 
 @pytest.mark.unit
 class TestTheCountsOutliveThePlanBeingResaved:
