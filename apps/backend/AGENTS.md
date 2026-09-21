@@ -81,11 +81,14 @@ needed.
 ```python
 # Normal FastAPI route — nothing extra to do. Scope is bound by get_db_with_tenant_variables.
 
-# Admin / cross-org read:
+# Read past the ORM filter (e.g. project-scoped rows) WITHIN the current org:
 from rhesis.backend.app.scope import bypass_tenant_filter
 
 with bypass_tenant_filter():
     all_rows = db.query(SomeModel).all()  # filter skipped; stamp still active
+
+# It does NOT cross organizations. The app connects as a non-BYPASSRLS role, so
+# the RLS policy still applies underneath and other orgs' rows stay invisible.
 
 # Background scripts / migrations (scope is unbound outside get_db_with_tenant_variables):
 from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
