@@ -42,6 +42,7 @@ _STORED_PLAN_DATA = {
             "categories": [],
             "topics": [],
             "completed": False,
+            "actual_tests": None,
         }
     ],
     "metrics": [

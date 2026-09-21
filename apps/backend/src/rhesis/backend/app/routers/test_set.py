@@ -299,13 +299,22 @@ def create_test_set_bulk(
 
         test_set_type = TestSetType.from_string(test_set_data.test_set_type)
 
-    return bulk_create_test_set(
+    test_set = bulk_create_test_set(
         db=db,
         test_set_data=test_set_data,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
         test_set_type=test_set_type,
     )
+
+    # Count what landed, not what was sent: deduplication and a truncated
+    # request both make those differ, and the caller has no other way to tell.
+    # The generated attributes already counted the tests, so reuse that number
+    # rather than counting again -- two counts in one response can disagree.
+    response = schemas.TestSetBulkResponse.model_validate(test_set)
+    counted = ((test_set.attributes or {}).get("metadata") or {}).get("total_tests")
+    response.total_tests = counted if isinstance(counted, int) else len(test_set.tests)
+    return response
 
 
 @router.post("/", response_model=schemas.TestSet)

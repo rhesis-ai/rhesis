@@ -12,6 +12,20 @@ from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, U
 
 from pydantic import ValidationError
 
+from rhesis.sdk.agents.architect import plan_check
+from rhesis.sdk.agents.architect.config import ArchitectConfig, _default_discovery_state
+from rhesis.sdk.agents.architect.plan import (
+    _INTERNAL_FIELDS,
+    ArchitectPlan,
+    build_save_plan_tool,
+)
+from rhesis.sdk.agents.architect.prompt_loader import (
+    build_architect_jinja_env,
+    render_phase_knowledge,
+)
+from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
+from rhesis.sdk.agents.architect.tool_registry import mode_for, plan_category_for
+from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
 from rhesis.sdk.agents.arg_validation import find_missing_arguments
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import (
@@ -30,13 +44,6 @@ from rhesis.sdk.agents.schemas import (
     ToolResult,
 )
 from rhesis.sdk.models.base import BaseLLM
-
-from .config import ArchitectConfig, _default_discovery_state
-from .plan import _INTERNAL_FIELDS, ArchitectPlan, build_save_plan_tool
-from .prompt_loader import build_architect_jinja_env, render_phase_knowledge
-from .state import ArchitectAgentStateSnapshot
-from .tool_registry import mode_for, plan_category_for
-from .workflow import WorkflowPath, resolve_workflow_path_update
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +235,16 @@ class ArchitectAgent(BaseAgent):
         # Raw (requirement_id, metric_id) pairs from add_requirement_to_metric.
         # Fallback when the IDs weren't yet resolved to names at link time.
         self._linked_id_pairs: Set[Tuple[str, str]] = set()
+
+        # test_set_name_lower → tests actually written, summed over the batches
+        # a set is built from. Kept outside ``self._plan`` for the same reason
+        # as the link pairs: ``save_plan`` strips internal fields, so counts
+        # stored only on the plan would be lost on the next save.
+        self._test_set_counts: Dict[str, int] = {}
+
+        # test_set_id → planned name, so a follow-up ``add_tests_bulk`` (which
+        # takes only the id) can be credited to the set it is filling.
+        self._test_set_names_by_id: Dict[str, str] = {}
 
         # Async task waiting: when the agent calls await_task,
         # the turn ends and the backend monitors the task.
@@ -674,25 +691,48 @@ class ArchitectAgent(BaseAgent):
                 "step in the plan."
             )
 
-        if tool_call.tool_name == "create_metric":
-            name = tool_call.arguments.get("name", "")
-            if name and not any(m.name.lower() == name.lower() for m in self._plan.metrics):
-                planned = [m.name for m in self._plan.metrics]
-                return (
-                    f"Metric name '{name}' does not match any "
-                    f"planned metric. Use the exact name from "
-                    f"the plan: {planned}."
-                )
-
-        already = self._check_already_completed(tool_call)
-        if already:
-            return already
-
-        prereqs = self._check_execution_order(tool_call)
-        if prereqs:
-            return prereqs
+        for check in (
+            self._check_planned_name,
+            self._check_planned_shape,
+            self._check_already_completed,
+            self._check_execution_order,
+        ):
+            problem = check(tool_call)
+            if problem:
+                return problem
 
         return None
+
+    def _check_planned_name(self, tool_call: ToolCall) -> Optional[str]:
+        """Reject creating an entity the plan never named.
+
+        The plan is what the user approved, so a name that is not in it is
+        work nobody agreed to -- and because the progress trackers match on
+        name, an entity created under a different one also never marks its
+        plan item done.
+        """
+        plan = self._plan
+        if not plan:
+            return None
+        category = plan_category_for(tool_call.tool_name)
+        if category is None:
+            return None
+        return plan_check.check_name(plan, category, tool_call.arguments.get("name"))
+
+    def _check_planned_shape(self, tool_call: ToolCall) -> Optional[str]:
+        """Reject a call whose settings contradict the planned ones.
+
+        The name can match while the call still builds something else: a
+        Multi-Turn set generated as Single-Turn, a metric scored against a
+        different threshold. Neither shows up as a failure anywhere, and both
+        are decided by arguments the plan already fixed.
+        """
+        plan = self._plan
+        if not plan:
+            return None
+        if tool_call.tool_name == "create_metric":
+            return plan_check.check_metric_shape(plan, tool_call.arguments)
+        return plan_check.check_test_set_shape(plan, tool_call.tool_name, tool_call.arguments)
 
     def _check_already_completed(self, tool_call: ToolCall) -> Optional[str]:
         """Reject creation of an entity that is already completed."""
@@ -808,9 +848,55 @@ class ArchitectAgent(BaseAgent):
             self._collect_id_names(result)
             self._collect_typed_entity_names(tool_call, result)
             self._record_link_if_mapping(tool_call)
+            self._record_tests_written(tool_call, result)
             if self._plan:
                 await self._track_plan_progress(tool_call, result)
         return result
+
+    def _record_tests_written(self, tool_call: ToolCall, result: ToolResult) -> None:
+        """Add up how many tests each set actually received.
+
+        A set larger than one call is built by create_test_set_bulk followed
+        by add_tests_bulk per batch, so the size is the sum of what those
+        returned. Recorded here rather than inferred later: the count is in
+        the response, and once the turn is over nothing else knows it.
+        """
+        writers = ("create_test_set_bulk", "add_tests_bulk")
+        if tool_call.tool_name not in writers or not result.content:
+            return
+
+        try:
+            data = json.loads(result.content)
+        except (json.JSONDecodeError, TypeError):
+            return
+        written = plan_check.tests_written(data)
+        if written is None:
+            return
+
+        if tool_call.tool_name == "create_test_set_bulk":
+            name = tool_call.arguments.get("name")
+            if not isinstance(name, str) or not name:
+                return
+            # The response id is how later batches find their way back here.
+            created_id = data.get("id")
+            if isinstance(created_id, str) and created_id:
+                self._test_set_names_by_id[created_id] = name
+            self._test_set_counts[name.lower()] = written
+        else:
+            # add_tests_bulk names only the id it is appending to.
+            test_set_id = tool_call.arguments.get("test_set_id")
+            name = self._test_set_names_by_id.get(test_set_id) if test_set_id else None
+            if not name:
+                return
+            key = name.lower()
+            self._test_set_counts[key] = self._test_set_counts.get(key, 0) + written
+
+        self._sync_test_set_counts()
+
+    def _sync_test_set_counts(self) -> None:
+        """Push the observed counts onto the plan, where the prompts read them."""
+        if self._plan:
+            plan_check.apply_observed_counts(self._plan, self._test_set_counts)
 
     def _record_link_if_mapping(self, tool_call: ToolCall) -> None:
         """Capture (requirement, metric) pairs from successful ``add_requirement_to_metric`` calls.
@@ -958,6 +1044,8 @@ class ArchitectAgent(BaseAgent):
             mp.linked_metrics = linked
             if mp.metrics and len(linked) == len(mp.metrics):
                 mp.completed = True
+
+        plan_check.apply_observed_counts(plan, self._test_set_counts)
 
     def _save_plan_failure(
         self, tool_call: ToolCall, error: Exception, *, error_text: str
@@ -1397,15 +1485,36 @@ class ArchitectAgent(BaseAgent):
 
         updated = False
         for line in message.splitlines():
-            match = re.search(r"Test set '([^']+)' generated successfully", line)
+            # The monitor writes "?" for a count the job result did not carry.
+            # That has to be matched rather than skipped, or the parse stops
+            # there and never reaches the id behind it.
+            match = re.search(
+                r"Test set '([^']+)' generated successfully"
+                r"(?: \((\d+|\?) tests\))?"
+                r"(?:\. test_set_id=(\S+))?",
+                line,
+            )
             if match:
                 name = match.group(1).lower()
+                count = match.group(2)
+                if count is not None and count.isdigit():
+                    self._test_set_counts[name] = int(count)
+                    # A short generated set is topped up with add_tests_bulk,
+                    # which carries only the id, so the id is kept to credit
+                    # that batch. Only alongside a known count: a later batch
+                    # adds to a running total, and adding to a total that was
+                    # never established would report the top-up as the whole
+                    # set and invent a shortfall of everything generated
+                    # before it. Unknown stays unknown rather than go wrong.
+                    if match.group(3):
+                        self._test_set_names_by_id[match.group(3)] = match.group(1)
                 for ts in plan.test_sets:
                     if not ts.completed and ts.name.lower() == name:
                         ts.completed = True
                         updated = True
                         break
 
+        self._sync_test_set_counts()
         if updated:
             await _emit(self._event_handlers, "on_plan_update", plan=plan)
 
@@ -1435,6 +1544,8 @@ class ArchitectAgent(BaseAgent):
             max_iterations=self.max_iterations,
             pending_tasks=list(self._pending_tasks),
             carried_tool_results=self._build_carried_tool_results(),
+            test_set_counts=dict(self._test_set_counts),
+            test_set_names_by_id=dict(self._test_set_names_by_id),
         )
 
     def restore_state(self, snapshot: ArchitectAgentStateSnapshot) -> None:
@@ -1471,11 +1582,20 @@ class ArchitectAgent(BaseAgent):
 
         self._carried_tool_results = list(snapshot.carried_tool_results)
 
+        if snapshot.test_set_counts:
+            self._test_set_counts = dict(snapshot.test_set_counts)
+        if snapshot.test_set_names_by_id:
+            self._test_set_names_by_id = dict(snapshot.test_set_names_by_id)
+
         if snapshot.plan_data:
             try:
                 self._plan = ArchitectPlan.model_validate(snapshot.plan_data)
             except Exception:
                 logger.warning("Failed to restore plan from snapshot", exc_info=True)
+
+        # The plan carries its own copy of the counts, but a plan saved before
+        # this field existed, or one the LLM re-saved, arrives without them.
+        self._sync_test_set_counts()
 
     # ── transport lifecycle ──────────────────────────────────────
 
@@ -1532,7 +1652,21 @@ class ArchitectAgent(BaseAgent):
             else "test-set generation: blocked until requirements, metrics, and mappings reach N/N"
         )
 
-        return "Plan progress: " + ", ".join(parts) + ". " + gate + "."
+        summary = "Plan progress: " + ", ".join(parts) + ". " + gate + "."
+
+        # A set can be complete and still be short: every call succeeded, just
+        # with fewer tests in it than planned. Counting it done is what makes
+        # that invisible, so the numbers go next to the ratio that hides them.
+        short = plan_check.shortfall_lines(plan)
+        if short:
+            summary += (
+                " Short of plan: "
+                + "; ".join(short)
+                + ". Report these counts as they are. Add the missing tests "
+                "with add_tests_bulk, or tell the user what is missing."
+            )
+
+        return summary
 
     def _maybe_update_workflow_path(self, message: str) -> None:
         """Infer or update workflow path from user signals."""

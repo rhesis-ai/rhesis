@@ -191,6 +191,8 @@ async def build_agent(
         max_iterations=agent_state.get("max_iterations", 15),
         pending_tasks=agent_state.get("pending_tasks") or [],
         carried_tool_results=agent_state.get("carried_tool_results") or [],
+        test_set_counts=agent_state.get("test_set_counts") or {},
+        test_set_names_by_id=agent_state.get("test_set_names_by_id") or {},
     )
 
     tool_provider = LocalToolProvider(fastapi_app, delegation_token, project_id=project_id)
@@ -313,6 +315,11 @@ async def persist_state(
             # history itself dies with the Celery task, so without this a
             # follow-up question has only the agent's own prose to go on.
             "carried_tool_results": snapshot.carried_tool_results,
+            # How many tests each planned set actually received. A set is
+            # often filled over several turns, so the running total has to
+            # outlive the turn that started it.
+            "test_set_counts": snapshot.test_set_counts,
+            "test_set_names_by_id": snapshot.test_set_names_by_id,
         }
         if root_trace_id:
             # Read on the next turn by ``architect_chat_task`` and bound via

@@ -456,6 +456,44 @@ class TestWritesReportWhatTheyActuallyWrote:
                 "response_count": "total_tests",
             }, f"{name} should declare the shortfall check"
 
+    def test_every_declared_check_names_a_real_response_field(self):
+        """Both keys can be present and the guard still never fire.
+
+        annotate_write_count returns the data untouched when the response
+        carries no field by that name, so a check naming one the route does
+        not return is indistinguishable at runtime from no check at all.
+        create_test_set_bulk shipped that way: the response had id and name
+        but no total_tests, so the #2516 guard was dead from the day it was
+        declared, on the one tool #2516 was about. Resolve the name against
+        the route's own response schema instead of trusting the yaml.
+        """
+        from rhesis.backend.app.main import app
+
+        openapi = app.openapi()
+        components = openapi.get("components", {}).get("schemas", {})
+
+        def _response_properties(path: str, method: str) -> dict:
+            operation = openapi["paths"][path][method.lower()]
+            success = next(
+                body for code, body in operation["responses"].items() if code.startswith("2")
+            )
+            schema = success["content"]["application/json"]["schema"]
+            ref = schema.get("$ref")
+            if ref:
+                schema = components[ref.rsplit("/", 1)[-1]]
+            return schema.get("properties", {})
+
+        for tc in load_tool_configs():
+            check = tc.get("count_check")
+            if check is None:
+                continue
+            field = check["response_count"]
+            properties = _response_properties(tc["path"], tc["method"])
+            assert field in properties, (
+                f"{tc['name']}: count_check reads '{field}' but "
+                f"{tc['method']} {tc['path']} returns {sorted(properties)}"
+            )
+
     def test_the_bulk_tool_declares_the_check(self):
         cfg = {tc["name"]: tc for tc in load_tool_configs()}["create_test_set_bulk"]
         assert cfg["count_check"] == {"request_list": "tests", "response_count": "total_tests"}

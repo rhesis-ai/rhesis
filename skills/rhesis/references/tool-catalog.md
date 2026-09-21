@@ -367,6 +367,8 @@ Use this **only** when importing specific user-provided test prompts that must b
 
 Only `goal` is required inside `test_configuration`. Every test needs one of `prompt` or `test_configuration`; send the one matching its `test_type`. Sending both is accepted here — the validator returns as soon as it sees a `prompt` — so a test carrying both is stored rather than refused, and behaves as single-turn.
 
+The response carries `total_tests`: how many tests the set actually ended up with, which is not always how many you sent. Report that number, not the length of the array you built. When the two differ the response also carries a `_count_check` block naming both.
+
 **Common mistakes:** Setting `test_set_type: "Multi-Turn"` but sending tests with `prompt` — the server types each test from its own content, so those tests land as Single-Turn inside a Multi-Turn set. Set `test_type` on every test object.
 
 **More than 25 tests: batch them.** Every test object has to be written out in one tool call, and a long enough array gets cut off part way — the tests past the cut are never sent, and the ones before it are created as though that were the whole set. A request for 95 produced 8 this way.
