@@ -103,6 +103,11 @@ Annotations are a first-class entity in the Python SDK and over MCP, so an evalu
 - [Annotations in the SDK](/sdk/entities/annotations)
 - [Insights](/sdk/insights) reports how many annotations a metric has
 
+An instrumented application can also record a verdict on a trace it produced itself, by the OTEL
+trace id rather than the span row id the platform assigns. That is how a thumbs-down from an end
+user, a QA harness or an eval script becomes an annotation: see
+[annotating a trace from the application that produced it](/sdk/entities/annotations).
+
 ## Related
 
 - [Test Runs](/docs/test-runs) — open a result and use its Annotations tab

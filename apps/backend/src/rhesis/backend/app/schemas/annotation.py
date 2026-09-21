@@ -45,7 +45,23 @@ class AnnotationCreate(Base):
     entity_type: EntityType = Field(
         ..., description="Type of entity annotated: 'TestResult', 'Trace' or 'Test'"
     )
-    entity_id: UUID = Field(..., description="ID of the entity being annotated")
+    entity_id: Optional[UUID] = Field(
+        None,
+        description=(
+            "ID of the entity being annotated. Required unless 'trace_id' names a trace instead"
+        ),
+    )
+    trace_id: Optional[str] = Field(
+        None,
+        min_length=32,
+        max_length=32,
+        pattern=r"^[0-9a-fA-F]{32}$",
+        description=(
+            "OTEL trace id (32 hex characters), as an alternative to 'entity_id' when "
+            "annotating a Trace. For a caller that produced the trace and never saw the "
+            "span row id it was stored under"
+        ),
+    )
     status_id: UUID = Field(..., description="Status UUID carrying the verdict")
     comments: Optional[str] = Field(None, description="Annotation comments")
     target: Optional[AnnotationTargetSchema] = Field(
@@ -57,6 +73,26 @@ class AnnotationCreate(Base):
     )
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+    @model_validator(mode="after")
+    def _one_way_of_naming_the_parent(self) -> "AnnotationCreate":
+        """Exactly one parent address, and the hex only for a trace.
+
+        A 32-character hex string also parses as a UUID, so a trace id sent as
+        ``entity_id`` is accepted and then matches no row -- a silent miss
+        rather than an error. Keeping the two in separate fields is what makes
+        the wrong one impossible to send by accident.
+        """
+        if self.trace_id and self.entity_id:
+            raise ValueError("Send entity_id or trace_id, not both")
+        if not self.trace_id and not self.entity_id:
+            raise ValueError("entity_id is required, or trace_id when annotating a Trace")
+        if self.trace_id and self.entity_type != EntityType.TRACE.value:
+            raise ValueError(
+                f"trace_id names a Trace, but entity_type is '{self.entity_type}'. "
+                f"Use entity_id for a {self.entity_type}"
+            )
+        return self
 
 
 class AnnotationUpdate(Base):

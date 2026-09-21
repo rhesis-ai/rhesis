@@ -126,6 +126,39 @@ class TestPush:
         with pytest.raises(ValueError, match="Required fields for push"):
             Annotation(comments="No parent, no verdict.").push()
 
+    def test_requires_one_of_the_two_parent_addresses(self):
+        """entity_id stopped being unconditionally required when trace_id
+        arrived; a body with neither must still be refused."""
+        with pytest.raises(ValueError, match="needs entity_id"):
+            Annotation(entity_type="Trace", status_id=STATUS_ID).push()
+
+    def test_refuses_both_parent_addresses_at_once(self):
+        with pytest.raises(ValueError, match="not both"):
+            Annotation(
+                entity_type="Trace",
+                entity_id="11111111-1111-1111-1111-111111111111",
+                trace_id="a" * 32,
+                status_id=STATUS_ID,
+            ).push()
+
+    def test_refuses_a_trace_id_on_a_parent_that_is_not_a_trace(self):
+        with pytest.raises(ValueError, match="names a Trace"):
+            Annotation(
+                entity_type="TestResult",
+                trace_id="a" * 32,
+                status_id=STATUS_ID,
+            ).push()
+
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_an_update_does_not_try_to_re_parent_by_trace_id(self, mock_client):
+        """trace_id addresses the parent, so it is as create-only as entity_id.
+        Letting it through on an update would look like a re-parent request."""
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        Annotation(id="annotation-1", trace_id="a" * 32, resolved=True).push()
+
+        assert "trace_id" not in mock_client.return_value.send_request.call_args.kwargs["data"]
+
     @patch("rhesis.sdk.entities.base_entity.APIClient")
     def test_resolves_by_id_without_hydrating_the_rest(self, mock_client):
         """Requiring the parent and verdict on an update too would make the
@@ -412,6 +445,18 @@ class TestParentAccessors:
 
         kwargs = mock_client.return_value.send_request.call_args.kwargs
         assert kwargs["url_params"] == "entity/Trace/trace-row-1"
+
+    @patch("rhesis.sdk.entities.annotation.APIClient")
+    def test_a_trace_is_also_addressable_by_its_otel_id(self, mock_client):
+        """A caller holding the hex would otherwise have to resolve the row id
+        first, which is the whole thing an instrumented application cannot do."""
+        mock_client.return_value.send_request.return_value = []
+
+        Annotations.for_trace_id("a" * 32)
+
+        kwargs = mock_client.return_value.send_request.call_args.kwargs
+        assert kwargs["url_params"] is None
+        assert kwargs["params"]["trace_id"] == "a" * 32
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
     def test_a_test_set_scopes_server_side(self, mock_client):

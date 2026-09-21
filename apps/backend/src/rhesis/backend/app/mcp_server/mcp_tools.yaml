@@ -1480,6 +1480,13 @@ tools:
         description: >
           UUID of an endpoint. Scopes to annotations whose parent entity
           ran against a test configuration tied to that endpoint.
+      trace_id:
+        description: >
+          The 32-char hex trace id. Returns every annotation on that trace,
+          including ones filed against a child span rather than the root, since
+          the question is about the trace and not about one operation in it.
+          This is the hex, not the span row id -- use it when you have the
+          trace_id from list_traces and would otherwise need get_trace first.
       metric:
         description: >
           Metric name or metric UUID (name is case-insensitive). Returns
@@ -1590,13 +1597,26 @@ tools:
           "Test".
       entity_id:
         description: >
-          REQUIRED. UUID of that entity.
+          REQUIRED, unless a Trace is being named by trace_id instead. UUID of
+          that entity.
 
-          For a Trace this is the span's row id, NOT the 32-char hex
-          trace_id: get_trace returns it as root_spans[0].id for the trace as
-          a whole, or use a specific span's id to judge one operation.
-          list_annotations reports it as context.trace_db_id. Sending the hex
-          fails; there is no row with that id.
+          For a Trace this is the span's row id, NOT the 32-char hex trace_id:
+          get_trace returns it as root_spans[0].id for the trace as a whole, or
+          use a specific span's id to judge one operation. list_annotations
+          reports it as context.trace_db_id. Do not put the hex here -- it
+          parses as a UUID, so it is accepted and then matches no row, coming
+          back as a missing trace rather than as a wrong field. Send the hex as
+          trace_id.
+      trace_id:
+        description: >
+          The 32-char hex trace id, as an alternative to entity_id when
+          entity_type is "Trace". Send one or the other, never both.
+
+          For a caller that has the hex and not the row id, which is normal for
+          an application reporting on a trace it produced itself. The root span
+          of that trace is resolved for you. A trace that has not been ingested
+          yet is a 404 saying so: spans arrive asynchronously, so retry rather
+          than treating it as a wrong id.
       status_id:
         description: >
           REQUIRED. UUID of the status carrying the verdict: the Pass or Fail

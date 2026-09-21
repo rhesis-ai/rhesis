@@ -182,7 +182,9 @@ class Annotation(BaseEntity):
     """
 
     endpoint: ClassVar[Endpoints] = ENDPOINT
-    _push_required_fields: ClassVar[tuple[str, ...]] = ("entity_type", "entity_id", "status_id")
+    # The parent address is checked separately: it is entity_id or trace_id,
+    # which a flat required-field list cannot express.
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("entity_type", "status_id")
     # Server-owned or absent from the write schemas; dropped before a push so
     # the body says only what a caller may actually set.
     _read_only_fields: ClassVar[tuple[str, ...]] = (
@@ -197,10 +199,14 @@ class Annotation(BaseEntity):
         "context",
     )
     # Fixed at creation: an annotation cannot be re-parented.
-    _create_only_fields: ClassVar[tuple[str, ...]] = ("entity_type", "entity_id")
+    _create_only_fields: ClassVar[tuple[str, ...]] = ("entity_type", "entity_id", "trace_id")
 
     entity_type: Optional[str] = None
     entity_id: Optional[str] = None
+    # An OTEL trace id, for a caller that produced the trace and never saw the
+    # span row id it was stored under. The server resolves it to that row, so
+    # it stands in for ``entity_id`` on a Trace rather than adding a field to it.
+    trace_id: Optional[str] = None
     target_type: Optional[str] = None
     target_reference: Optional[str] = None
     status_id: Optional[str] = None
@@ -236,6 +242,7 @@ class Annotation(BaseEntity):
         data = self.model_dump(mode="json", exclude_none=True)
         if self.id is None:
             self._validate_push_requirements()
+            self._validate_parent_address()
 
         target_type = data.pop("target_type", None)
         data.pop("target_reference", None)
@@ -257,6 +264,26 @@ class Annotation(BaseEntity):
             self.id = response["id"]
 
         return response
+
+    def _validate_parent_address(self) -> None:
+        """One way of naming the parent, and the hex only for a trace.
+
+        A 32-character hex string also parses as a UUID, so a trace id passed
+        as ``entity_id`` reaches the server, matches no row and comes back as a
+        404 about a missing trace. Saying which field it belongs in is more use
+        than that.
+        """
+        if self.entity_id and self.trace_id:
+            raise ValueError("Give entity_id or trace_id, not both")
+        if not self.entity_id and not self.trace_id:
+            raise ValueError(
+                "An annotation needs entity_id, or trace_id when the parent is a Trace"
+            )
+        if self.trace_id and self.entity_type != AnnotatableEntity.TRACE.value:
+            raise ValueError(
+                f"trace_id names a Trace, but entity_type is {self.entity_type!r}. "
+                f"A {self.entity_type} is addressed by entity_id"
+            )
 
     def resolve(self) -> "Annotation":
         """Close this annotation, the disagreement having been handled."""
@@ -356,6 +383,19 @@ class Annotations(BaseCollection):
         which is what the UI panels read.
         """
         return cls._paged(f"entity/{entity_type}/{entity_id}", {})
+
+    @classmethod
+    def for_trace_id(cls, trace_id: str) -> List[Annotation]:
+        """Every annotation on the trace with this OTEL trace id.
+
+        The counterpart to ``for_trace`` for a caller holding the 32-character
+        hex rather than a span row id. Covers annotations on any span of the
+        trace, not only the root, since the question is about the trace rather
+        than one operation inside it.
+        """
+        return cls._paged(
+            None, {"trace_id": trace_id, "sort_by": "updated_at", "sort_order": "desc"}
+        )
 
     @classmethod
     def for_test_run(cls, test_run_id: str) -> List[Annotation]:
